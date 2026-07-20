@@ -108,6 +108,7 @@ export function ProductLightbox({
           role="dialog"
           aria-modal="true"
           aria-label={`${productName} fullscreen preview`}
+          data-lenis-prevent
           initial={showMotion ? { opacity: 0 } : false}
           animate={{ opacity: 1 }}
           {...(showMotion ? { exit: { opacity: 0 } } : {})}

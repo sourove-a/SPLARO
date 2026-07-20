@@ -1,7 +1,9 @@
 import { useMotionReady } from '@/hooks/useMotionReady'
+import { DURATION, EASE_EXPO_OUT, MICRO } from '@/lib/motion/config'
 import type { Transition } from '@/lib/motion/react'
 
-export const authMotionEase = [0.16, 1, 0.3, 1] as const
+/** @deprecated Prefer EASE_EXPO_OUT from @/lib/motion/config */
+export const authMotionEase = EASE_EXPO_OUT
 
 /** Gate Framer Motion until after hydration — prevents SSR/client attribute mismatches. */
 export function useAuthShowMotion(): boolean {
@@ -28,9 +30,12 @@ export function authFormMotion(reduced: boolean | null) {
       }
 }
 
-export function authMotionTransition(reduced: boolean | null, ms = 0.22): Transition {
-  return reduced ? { duration: 0 } : { duration: ms, ease: authMotionEase }
+export function authMotionTransition(
+  reduced: boolean | null,
+  ms: number = DURATION.base,
+): Transition {
+  return reduced ? { duration: 0 } : { duration: ms, ease: EASE_EXPO_OUT }
 }
 
-export const authTapSpring = { opacity: 0.96 }
-export const authHoverLift = { opacity: 0.97 }
+export const authTapSpring = { opacity: 0.96, transition: MICRO }
+export const authHoverLift = { opacity: 0.97, transition: MICRO }

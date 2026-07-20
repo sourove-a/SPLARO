@@ -896,8 +896,18 @@
   background: #080808;
 }
 
-html[data-home-hero='top'] #main-content {
-  background: #0a0a0a;
+@media (max-width: 1023px) {
+  /* Mobile inset hero card sits below solid header on a light page field */
+  #main-content:has(> .home-hero-slider) {
+    padding-top: var(--site-header-offset);
+    background: #ffffff;
+  }
+}
+
+@media (min-width: 1024px) {
+  html[data-home-hero='top'] #main-content {
+    background: #0a0a0a;
+  }
 }
 
 
@@ -3102,8 +3112,31 @@ button.splaro-card__details-btn {
 
 .shop-product-grid .splaro-card__img {
   transition:
-    opacity 420ms ease,
-    transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
+    opacity var(--duration-media) var(--ease-smooth),
+    transform var(--duration-media) var(--ease-out-expo);
+  transform: scale(1);
+  will-change: transform;
+}
+
+/* Quiet ken-burns — Mac/fine pointer only; media box stays fixed (no layout jump). */
+@media (hover: hover) {
+  html:not([data-os='windows']):not([data-perf='lite'])
+    .shop-product-grid
+    .splaro-card:hover
+    .splaro-card__img {
+    transform: scale(var(--lux-img-scale, 1.025));
+  }
+
+  html:not([data-os='windows']):not([data-perf='lite'])
+    .shop-product-grid
+    .splaro-card:hover
+    .splaro-card__media::after {
+    opacity: 0.55;
+  }
+}
+
+.shop-product-grid .splaro-card--shop .splaro-card__media::after {
+  transition: opacity var(--duration-hover) var(--ease-out-expo);
 }
 
 .shop-product-grid .splaro-card:active .splaro-card__media {
@@ -3241,8 +3274,10 @@ button.splaro-card__details-btn {
 .shop-product-card__img {
   object-fit: cover;
   object-position: center center;
-  transform: translateZ(0);
-  transition: transform 650ms cubic-bezier(0.16, 1, 0.3, 1), opacity 650ms ease;
+  transform: translateZ(0) scale(1);
+  transition:
+    transform var(--duration-media) var(--ease-out-expo),
+    opacity var(--duration-media) var(--ease-smooth);
 }
 
 .shop-product-card__img--hover {
@@ -3251,12 +3286,17 @@ button.splaro-card__details-btn {
 
 .shop-product-card:hover .shop-product-card__img--primary {
   opacity: 0;
-  transform: none;
 }
 
 .shop-product-card:hover .shop-product-card__img--hover {
   opacity: 1;
-  transform: none;
+}
+
+@media (hover: hover) {
+  html:not([data-os='windows']):not([data-perf='lite']) .shop-product-card:hover .shop-product-card__img--primary,
+  html:not([data-os='windows']):not([data-perf='lite']) .shop-product-card:hover .shop-product-card__img--hover {
+    transform: translateZ(0) scale(var(--lux-img-scale, 1.025));
+  }
 }
 
 .shop-product-card__info {
@@ -5307,10 +5347,11 @@ html[data-perf='lite'] .glass-nav-pair .splaro-nav-btn {
   line-height: 1.35;
   letter-spacing: 0;
   color: #111;
+  transition: color var(--duration-hover) var(--ease-out-expo);
 }
 
 .splaro-card:hover .splaro-card__name {
-  color: #111;
+  color: rgba(17, 17, 17, 0.78);
 }
 
 .splaro-card__code {
@@ -5503,11 +5544,12 @@ html[data-perf='lite'] .glass-nav-pair .splaro-nav-btn {
 }
 
 .shop-product-grid .splaro-card__wish:hover {
-  background: rgba(255, 255, 255, 0.78) !important;
+  background: rgba(255, 255, 255, 0.82) !important;
   box-shadow:
-    0 8px 22px rgba(0, 0, 0, 0.14),
+    0 4px 12px rgba(0, 0, 0, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
-  transform: translateY(-1px);
+  transform: none;
+  color: rgba(17, 17, 17, 0.72);
 }
 
 .shop-product-grid .splaro-card__wish:active {
@@ -5609,8 +5651,9 @@ html[data-perf='lite'] .glass-nav-pair .splaro-nav-btn {
 .shop-product-grid--homepage .splaro-card__wish--homepage:hover {
   background: rgba(255, 255, 255, 0.78) !important;
   transform: none !important;
+  color: rgba(18, 18, 18, 0.72) !important;
   box-shadow:
-    0 8px 22px rgba(0, 0, 0, 0.14),
+    0 4px 12px rgba(0, 0, 0, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
 }
 

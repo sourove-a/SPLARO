@@ -359,6 +359,12 @@ html[data-os='windows'] .auth-google-glass__backdrop {
     inset 0 1px 0 rgba(255, 255, 255, 1);
 }
 
+/* Lenis sets iframe { pointer-events: none } — GIS needs real clicks on the iframe. */
+body.auth-page .auth-google-glass__native,
+body.auth-page .auth-google-glass__native iframe {
+  pointer-events: auto !important;
+}
+
 .auth-google-glass__native > div,
 .auth-google-glass__native iframe {
   width: 100% !important;
@@ -856,6 +862,23 @@ html[data-os='windows'] .auth-google-glass__backdrop {
   font-size: 0.86rem;
   font-weight: 700;
   color: #b91c1c;
+}
+
+.auth-form__hint {
+  margin: 0 0 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: rgba(16, 17, 20, 0.45);
+}
+
+.auth-google-phone-cancel {
+  align-self: center;
+  margin-top: 0.15rem;
+  padding: 0.35rem 0.5rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
 }
 
 .auth-form__dev-hint {

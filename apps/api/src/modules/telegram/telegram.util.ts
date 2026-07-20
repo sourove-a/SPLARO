@@ -1,5 +1,10 @@
 import type { TelegramRole } from '@prisma/client'
 
+/** Escape user/DB text for Telegram HTML parse_mode. */
+export function escapeTelegramHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 /** Mask numeric IDs for admin UI — never expose full chat/user IDs in logs. */
 export function maskTelegramId(id: string): string {
   const s = id.trim()

@@ -43,11 +43,12 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
   const backdropTransition = reducedMotion
     ? { duration: 0 }
-    : { duration: 0.32, ease: EASE_EXPO_OUT }
+    : { duration: 0.2, ease: EASE_EXPO_OUT }
 
+  // Tween over spring — spring felt like “loading” on bag click.
   const panelTransition = reducedMotion
     ? { duration: 0 }
-    : { type: 'spring' as const, stiffness: 420, damping: 38, mass: 0.82 }
+    : { duration: 0.28, ease: EASE_EXPO_OUT }
 
   return (
     <AnimatePresence>
@@ -62,7 +63,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             transition={backdropTransition}
             className="cart-drawer__backdrop z-drawer-backdrop"
             onClick={onClose}
-            aria-label="Close cart"
+            aria-label="Dismiss cart overlay"
           />
 
           <motion.aside
@@ -79,6 +80,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             aria-modal="true"
             aria-label="Shopping cart"
             tabIndex={-1}
+            data-lenis-prevent
           >
             <div className="h-px bg-gradient-to-r from-transparent via-gold/50 to-transparent" />
 

@@ -16,13 +16,10 @@ export function useDialogFocusTrap(
 
     const restoreTarget =
       document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const dialog = dialogRef.current
-    if (!dialog) return
 
-    const focusFirst = () => {
-      dialog.querySelector<HTMLElement>(FOCUSABLE)?.focus({ preventScroll: true })
-    }
-    const frame = window.requestAnimationFrame(focusFirst)
+    let cancelled = false
+    let frame = 0
+    let attachedDialog: HTMLElement | null = null
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -31,6 +28,9 @@ export function useDialogFocusTrap(
         return
       }
       if (event.key !== 'Tab') return
+
+      const dialog = attachedDialog ?? dialogRef.current
+      if (!dialog) return
 
       const focusable = [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
         (element) => !element.hidden && element.getAttribute('aria-hidden') !== 'true',
@@ -45,15 +45,34 @@ export function useDialogFocusTrap(
       const last = focusable[focusable.length - 1]
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault()
-        last?.focus()
+        last?.focus({ preventScroll: true })
       } else if (!event.shiftKey && document.activeElement === last) {
         event.preventDefault()
-        first?.focus()
+        first?.focus({ preventScroll: true })
       }
     }
 
-    document.addEventListener('keydown', onKeyDown)
+    const attach = (dialog: HTMLElement) => {
+      attachedDialog = dialog
+      dialog.querySelector<HTMLElement>(FOCUSABLE)?.focus({ preventScroll: true })
+      document.addEventListener('keydown', onKeyDown)
+    }
+
+    /** Drawer portals/AnimatePresence often mount one frame after open=true. */
+    const tryAttach = () => {
+      if (cancelled) return
+      const dialog = dialogRef.current
+      if (!dialog) {
+        frame = window.requestAnimationFrame(tryAttach)
+        return
+      }
+      attach(dialog)
+    }
+
+    tryAttach()
+
     return () => {
+      cancelled = true
       window.cancelAnimationFrame(frame)
       document.removeEventListener('keydown', onKeyDown)
       restoreTarget?.focus({ preventScroll: true })

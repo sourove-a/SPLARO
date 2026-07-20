@@ -57,6 +57,7 @@ export function AuthExperience() {
 
   const signIn = useAuthStore((state) => state.signIn)
   const signUp = useAuthStore((state) => state.signUp)
+  const signOut = useAuthStore((state) => state.signOut)
   const { setStep: setGoogleStep, registerGoogleHandler, setGoogleError } = useAuthGoogleBridge()
 
   const [identifier, setIdentifier] = useState('')
@@ -87,6 +88,20 @@ export function AuthExperience() {
     setOtpDevHint('')
     setGoogleError('')
   }, [mode, setGoogleStep, setGoogleError])
+
+  useEffect(() => {
+    if (mode !== 'login') return
+    router.prefetch('/forgot-password')
+  }, [mode, router])
+
+  // Resume incomplete Google signup (phone still required).
+  useEffect(() => {
+    const pending = useAuthStore.getState().user
+    if (!pending?.needsPhone) return
+    setGoogleName(pending.name)
+    setStep('google-phone')
+    setGoogleStep('google-phone')
+  }, [mode, setGoogleStep])
 
   useEffect(() => {
     if (nextPath !== '/checkout' || mode !== 'signup') return
@@ -340,7 +355,15 @@ export function AuthExperience() {
       />
 
       <div className="auth-form__row">
-        <Link href="/forgot-password" className="auth-link auth-link--muted">
+        <Link
+          href="/forgot-password"
+          className="auth-link auth-link--muted"
+          prefetch
+          onClick={(event) => {
+            event.preventDefault()
+            safeClientNavigate(router, '/forgot-password')
+          }}
+        >
           Forgot password?
         </Link>
       </div>
@@ -429,16 +452,31 @@ export function AuthExperience() {
     </>
   )
 
+  const handleCancelGooglePhone = async () => {
+    setError('')
+    await signOut()
+    setPhone('')
+    setOtpCode('')
+    setOtpSent(false)
+    setOtpDevHint('')
+    setGoogleName('')
+    setStep('form')
+    setGoogleStep('form')
+    setGoogleError('')
+  }
+
   const googlePhoneFields = (
     <>
       <p className="auth-card__subtitle auth-card__subtitle--phone-step">
-        Hi {googleName.split(' ')[0] || 'there'} — add your mobile number to finish creating your SPLARO
-        account.
+        Hi {googleName.split(' ')[0] || 'there'} — one last step. Add your Bangladesh mobile so we
+        can confirm orders and delivery.
       </p>
+      <p className="auth-form__hint">Use 01XXXXXXXXX (11 digits).</p>
       <AuthField
         required
         type="tel"
         inputMode="numeric"
+        autoFocus
         value={phone}
         onChange={(event) => setPhone(formatBdPhoneInput(event.target.value))}
         placeholder="01XXXXXXXXX"
@@ -477,6 +515,14 @@ export function AuthExperience() {
       <AuthSubmitButton loading={loading} loadingLabel="Saving…">
         Complete signup
       </AuthSubmitButton>
+      <button
+        type="button"
+        className="auth-link auth-link--muted auth-google-phone-cancel"
+        onClick={() => void handleCancelGooglePhone()}
+        disabled={loading}
+      >
+        Use a different account
+      </button>
     </>
   )
 
@@ -572,7 +618,7 @@ export function AuthExperience() {
         </div>
         ) : (
           <div className="auth-card__heading" aria-live="polite">
-            <h1 className="auth-card__title">Your phone number</h1>
+            <h1 className="auth-card__title">Finish with your phone</h1>
           </div>
         )}
 

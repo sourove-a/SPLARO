@@ -32,9 +32,16 @@ Run before push/deploy.
 - COD path reaches order confirmation.
 - Online payment sandbox shows honest pending/failed/paid state.
 
-## Windows Pass
+## Scroll Pass (owner final — 2026-07-21)
 
-- Windows Chrome uses native scroll.
+### Mac / Linux fine desktop
+- `html` has Lenis / `data-scroll-engine=lenis` (or Lenis class).
+- Home page: scroll past product rails to footer — no mid-page freeze.
+- Vertical wheel over horizontal rails still scrolls the page.
+- Open cart/search overlay: page stays pinned; close restores scroll Y.
+
+### Windows Pass
+- Windows Chrome uses **native** scroll only.
 - No Lenis class remains on `html`.
 - No hero video on Windows.
 - Product grid hover/click uses opacity only.

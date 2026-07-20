@@ -404,6 +404,11 @@ export class StorefrontAuthService {
     })
     if (existing) return existing.id
 
+    // Incomplete Google signup — never invent a Customer with empty phone.
+    if (user.needsPhone || normalizePhone(user.phone ?? '').length < 11) {
+      throw new BadRequestException('Complete your phone number before continuing')
+    }
+
     const parts = user.name.trim().split(/\s+/).filter(Boolean)
     const firstName = parts[0] ?? 'Customer'
     const lastName = parts.slice(1).join(' ') || firstName

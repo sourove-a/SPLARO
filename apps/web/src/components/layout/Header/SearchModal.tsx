@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Search, X } from 'lucide-react'
 import { AnimatePresence, motion } from '@/lib/motion/react'
 import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
+import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
 import { cn } from '@/lib/utils/cn'
 
 interface SearchModalProps {
@@ -25,18 +26,34 @@ export function SearchModal({ isOpen, onClose, variant = 'mobile' }: SearchModal
   const [query, setQuery] = useState('')
   const [suggestProducts, setSuggestProducts] = useState<SuggestProduct[]>([])
   const [suggestLoading, setSuggestLoading] = useState(false)
+  /** Avoid the opening click/pointerup landing on the full-screen dismiss layer. */
+  const [dismissArmed, setDismissArmed] = useState(false)
+  useOverlayScrollLock(isOpen)
 
   useEffect(() => {
+    if (!isOpen) {
+      setDismissArmed(false)
+      return
+    }
+    const arm = window.setTimeout(() => setDismissArmed(true), 320)
+    return () => window.clearTimeout(arm)
+  }, [isOpen])
+
+  useLayoutEffect(() => {
     if (!isOpen) {
       setQuery('')
       setSuggestProducts([])
       setSuggestLoading(false)
       return
     }
-    const t = window.setTimeout(() => {
-      inputRef.current?.focus({ preventScroll: true })
-    }, 40)
-    return () => window.clearTimeout(t)
+    const focusInput = () => inputRef.current?.focus({ preventScroll: true })
+    focusInput()
+    const raf = requestAnimationFrame(focusInput)
+    const t = window.setTimeout(focusInput, 120)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.clearTimeout(t)
+    }
   }, [isOpen])
 
   useEffect(() => {
@@ -100,12 +117,15 @@ export function SearchModal({ isOpen, onClose, variant = 'mobile' }: SearchModal
 
   return (
     <>
-      <button
-        type="button"
-        className="site-header-search__dismiss"
-        aria-label="Close search"
-        onClick={onClose}
-      />
+      {dismissArmed ? (
+        <button
+          type="button"
+          className="site-header-search__dismiss"
+          aria-label="Close search"
+          tabIndex={-1}
+          onClick={onClose}
+        />
+      ) : null}
 
       <motion.div
         className={cn(
@@ -113,6 +133,7 @@ export function SearchModal({ isOpen, onClose, variant = 'mobile' }: SearchModal
           isDesktop ? 'site-header-search--desktop' : 'site-header-search--mobile',
         )}
         role="search"
+        data-lenis-prevent
         initial={false}
         animate={{ opacity: 1, scaleX: 1, y: 0 }}
         exit={{ opacity: 1, scaleX: 1 }}
@@ -133,6 +154,7 @@ export function SearchModal({ isOpen, onClose, variant = 'mobile' }: SearchModal
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search SPLARO"
               className="site-header-search__input"
+              autoFocus
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
@@ -180,6 +202,7 @@ export function SearchModal({ isOpen, onClose, variant = 'mobile' }: SearchModal
               className="site-header-search__panel"
               role="listbox"
               aria-label="Suggestions"
+              data-lenis-prevent
               initial={{ opacity: 1, y: 0 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 1, y: 0 }}

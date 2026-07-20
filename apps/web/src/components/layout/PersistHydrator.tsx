@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
@@ -11,6 +11,8 @@ import { useWishlistStore } from '@/store/wishlistStore'
  * "Loading your bag…" by up to ~1.2s on every visit.
  */
 export function PersistHydrator() {
+  const syncedUserRef = useRef<string | null>(null)
+
   useEffect(() => {
     void useCartStore.persist.rehydrate()
     void useAuthStore.persist.rehydrate()
@@ -44,8 +46,20 @@ export function PersistHydrator() {
   const syncWithAccount = useWishlistStore((state) => state.syncWithAccount)
 
   useEffect(() => {
-    if (!authHydrated || !wishlistHydrated || !user) return
-    void syncWithAccount()
+    if (!user) {
+      syncedUserRef.current = null
+      return
+    }
+    if (!authHydrated || !wishlistHydrated) return
+
+    const userKey = user.id ?? user.email
+    if (syncedUserRef.current === userKey) return
+    syncedUserRef.current = userKey
+
+    void syncWithAccount().catch(() => {
+      // Allow a later authenticated mount to retry after a real network error.
+      if (syncedUserRef.current === userKey) syncedUserRef.current = null
+    })
   }, [authHydrated, wishlistHydrated, user, syncWithAccount])
 
   return null

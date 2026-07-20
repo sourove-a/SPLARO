@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { TelegramService } from '../telegram/telegram.service'
 import { formatBDT } from '../../common/utils/currency'
+import { escapeTelegramHtml } from '../telegram/telegram.util'
 import type { OrderStatus } from '@prisma/client'
 
 const STATUS_EMOJI: Record<string, string> = {
@@ -15,10 +16,6 @@ const STATUS_EMOJI: Record<string, string> = {
   CANCELLED: '❌',
   RETURNED: '🔄',
   REFUNDED: '💸',
-}
-
-function escapeTelegramHtml(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
 @Injectable()

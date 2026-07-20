@@ -49,7 +49,8 @@ interface GlassStorefrontProps {
 export function GlassStorefront({
   departmentRows = [],
   heroBanners = [],
-  showHero = true,
+  /** Page owns the hero — default off so we never mount two HeroSliders. */
+  showHero = false,
   storySlot,
 }: GlassStorefrontProps) {
   const settings = useStorefrontSettings()

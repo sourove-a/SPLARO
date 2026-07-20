@@ -76,6 +76,10 @@ import {
   isDeliveryComplete,
 } from '@/lib/checkout/checkout-validation'
 import { fetchPromoAvailability } from '@/lib/checkout/promo-availability'
+import {
+  OrderDispatchCeremony,
+  markDispatchPending,
+} from '@/components/order/OrderDispatchCeremony'
 
 function buildDeliveryAddress(address: string, thana: string, city: string): string {
   const street = address.trim()
@@ -85,6 +89,13 @@ function buildDeliveryAddress(address: string, thana: string, city: string): str
 
 function withPendingPayment(path: string): string {
   return `${path}${path.includes('?') ? '&' : '?'}payment=pending`
+}
+
+type DispatchCeremonyState = {
+  orderId: string
+  invoiceNumber?: string | null
+  customerName: string
+  href: string
 }
 
 const ORDER_LOCK_KEY = 'splaro-last-order-id'
@@ -104,6 +115,15 @@ function getCheckoutIdempotencyKey(): string {
 
 function clearCheckoutIdempotencyKey() {
   window.sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_KEY)
+}
+
+/** Clear bag + mark pending so confirmation can play the ceremony after gateway return. */
+function redirectToPaymentGateway(orderId: string, gatewayUrl: string, clearCart: () => void) {
+  clearStagedCheckoutItems()
+  clearCart()
+  clearCheckoutIdempotencyKey()
+  markDispatchPending(orderId)
+  window.location.href = gatewayUrl
 }
 
 function readRecentOrderLock(): { id: string; ts: number } | null {
@@ -196,6 +216,7 @@ export default function CheckoutPageClient() {
   const [couponApplying, setCouponApplying] = useState(false)
   const [couponApplied, setCouponApplied] = useState(false)
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null)
+  const [dispatchCeremony, setDispatchCeremony] = useState<DispatchCeremonyState | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
 
   const deliveryFields = useMemo(
@@ -225,7 +246,7 @@ export default function CheckoutPageClient() {
   }
 
   useEffect(() => {
-    if (!cartHydrated || items.length > 0) return
+    if (!cartHydrated || items.length > 0 || dispatchCeremony) return
     const staged = consumeStagedCheckoutItems()
     if (staged?.length) {
       replaceItems(staged)
@@ -239,7 +260,7 @@ export default function CheckoutPageClient() {
       }
     }
     safeClientNavigate(router, '/cart', 'replace')
-  }, [cartHydrated, items.length, replaceItems, router])
+  }, [cartHydrated, dispatchCeremony, items.length, replaceItems, router])
 
   useEffect(() => {
     fetchPromoAvailability()
@@ -602,10 +623,7 @@ export default function CheckoutPageClient() {
               city: form.city,
             },
           })
-          clearStagedCheckoutItems()
-          clearCart()
-          clearCheckoutIdempotencyKey()
-          window.location.href = ssl.gatewayUrl
+          redirectToPaymentGateway(saved.id, ssl.gatewayUrl, clearCart)
           return
         } catch {
           if (saved.invoiceNumber) {
@@ -650,10 +668,7 @@ export default function CheckoutPageClient() {
                     amount: totalBdt,
                   })
                 ).redirectUrl
-          clearStagedCheckoutItems()
-          clearCart()
-          clearCheckoutIdempotencyKey()
-          window.location.href = redirectUrl
+          redirectToPaymentGateway(saved.id, redirectUrl, clearCart)
           return
         } catch {
           if (saved.invoiceNumber) {
@@ -673,10 +688,16 @@ export default function CheckoutPageClient() {
         clearRecentOrderLock()
       }
 
+      const confirmHref = buildOrderConfirmationPath(saved)
+      setDispatchCeremony({
+        orderId: saved.id,
+        invoiceNumber: saved.invoiceNumber ?? null,
+        customerName: form.name,
+        href: confirmHref,
+      })
       clearStagedCheckoutItems()
       clearCart()
       clearCheckoutIdempotencyKey()
-      safeClientNavigate(router, buildOrderConfirmationPath(saved), 'replace')
       return
     } catch {
       setSubmitError('Network error. Please try again.')
@@ -685,9 +706,27 @@ export default function CheckoutPageClient() {
     }
   }
 
+  useEffect(() => {
+    if (!dispatchCeremony?.href) return
+    router.prefetch(dispatchCeremony.href)
+  }, [dispatchCeremony, router])
+
   return (
     <CheckoutShell>
-      {!cartHydrated || !authHydrated ? (
+      {dispatchCeremony ? (
+        <section className="checkout-container">
+          <OrderDispatchCeremony
+            orderId={dispatchCeremony.orderId}
+            invoiceNumber={dispatchCeremony.invoiceNumber}
+            customerName={dispatchCeremony.customerName}
+            onComplete={() => {
+              const { href } = dispatchCeremony
+              setDispatchCeremony(null)
+              safeClientNavigate(router, href, 'replace')
+            }}
+          />
+        </section>
+      ) : !cartHydrated || !authHydrated ? (
         <section className="checkout-container">
           <div className="checkout-glass-panel checkout-glass-panel--center">
             <RefreshCw className="mx-auto h-8 w-8 animate-spin text-black/35" strokeWidth={2} />

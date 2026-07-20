@@ -1,44 +1,30 @@
 'use client'
 
-import { useLayoutEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from 'react'
+import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { ReactLenis, useLenis } from 'lenis/react'
 import { useUiStore } from '@/store/uiStore'
 import { unlockLenisPointer } from '@/lib/motion/unlock-lenis-pointer'
 import {
   buildLenisOptions,
-  detectScrollProfile,
   SCROLL_BOOT,
   SCROLL_ROUTE_TOP,
-  subscribeScrollProfile,
-  type ScrollProfile,
 } from '@/lib/motion/scroll'
 
-function usePrefersReducedMotion() {
-  return useSyncExternalStore(
-    (onChange) => {
-      const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-      mq.addEventListener('change', onChange)
-      return () => mq.removeEventListener('change', onChange)
-    },
-    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-    () => false,
-  )
-}
+/** Survives click/focus zeroing window/lenis scroll before lock effects run. */
+let lastLenisScrollY = 0
 
-function useScrollProfile() {
-  return useSyncExternalStore(
-    subscribeScrollProfile,
-    detectScrollProfile,
-    (): ScrollProfile => 'mac',
-  )
+function rememberLenisScrollY(y: number) {
+  if (Number.isFinite(y) && y > 0) lastLenisScrollY = y
 }
 
 function LenisBootSync() {
   const lenis = useLenis()
+  const booted = useRef(false)
 
   useLayoutEffect(() => {
-    if (!lenis) return
+    if (!lenis || booted.current) return
+    booted.current = true
 
     if ('scrollRestoration' in history) {
       history.scrollRestoration = 'manual'
@@ -46,12 +32,26 @@ function LenisBootSync() {
 
     const html = document.documentElement
     html.setAttribute('data-scroll-engine', 'lenis')
+    ;(window as Window & { __SPLARO_LENIS?: typeof lenis }).__SPLARO_LENIS = lenis
     lenis.start()
     lenis.resize()
-    lenis.scrollTo(0, SCROLL_BOOT)
+
+    // Remount (e.g. sibling dynamic chunk) must NOT snap to top — that flashes
+    // like a full reload when the header bag opens CartDrawer the first time.
+    const overlayLocked = html.getAttribute('data-scroll-lock') === 'overlay'
+    const lockY = Number(html.getAttribute('data-scroll-lock-y') || 0) || 0
+    const restoreY = Math.max(0, lastLenisScrollY, lockY, window.scrollY)
+    if (overlayLocked || restoreY > 1) {
+      rememberLenisScrollY(restoreY)
+      lenis.scrollTo(restoreY, { immediate: true })
+    } else {
+      lenis.scrollTo(0, SCROLL_BOOT)
+    }
     unlockLenisPointer()
 
-    requestAnimationFrame(() => {
+    const raf = requestAnimationFrame(() => {
+      // Don't restart if an overlay already locked scroll during boot.
+      if (html.getAttribute('data-scroll-lock') === 'overlay') return
       lenis.start()
       lenis.resize()
       unlockLenisPointer()
@@ -67,7 +67,13 @@ function LenisBootSync() {
     }
 
     window.addEventListener('pageshow', onPageShow)
-    return () => window.removeEventListener('pageshow', onPageShow)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('pageshow', onPageShow)
+      const win = window as Window & { __SPLARO_LENIS?: typeof lenis }
+      if (win.__SPLARO_LENIS === lenis) delete win.__SPLARO_LENIS
+      booted.current = false
+    }
   }, [lenis])
 
   return null
@@ -77,11 +83,26 @@ function LenisRouteSync() {
   const pathname = usePathname()
   const lenis = useLenis()
   const isFirstRoute = useRef(true)
+  const isPopNavigation = useRef(false)
+
+  useLayoutEffect(() => {
+    const onPopState = () => {
+      isPopNavigation.current = true
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   useLayoutEffect(() => {
     if (!lenis) return
     if (isFirstRoute.current) {
       isFirstRoute.current = false
+      return
+    }
+    if (isPopNavigation.current) {
+      isPopNavigation.current = false
+      lenis.resize()
+      unlockLenisPointer()
       return
     }
     lenis.scrollTo(0, SCROLL_ROUTE_TOP)
@@ -98,16 +119,56 @@ function LenisScrollLock() {
   const isCartOpen = useUiStore((s) => s.isCartOpen)
   const scrollLockCount = useUiStore((s) => s.scrollLockCount)
   const locked = isMobileMenuOpen || isSearchOpen || isCartOpen || scrollLockCount > 0
+  const freezeRef = useRef(0)
+
+  useLayoutEffect(() => {
+    if (!lenis) return
+    const win = window as Window & { __SPLARO_LENIS?: typeof lenis }
+    win.__SPLARO_LENIS = lenis
+
+    const onScroll = () => rememberLenisScrollY(lenis.scroll)
+    const onPointerDown = () => rememberLenisScrollY(lenis.scroll)
+    lenis.on('scroll', onScroll)
+    document.addEventListener('pointerdown', onPointerDown, true)
+    rememberLenisScrollY(lenis.scroll)
+
+    return () => {
+      lenis.off('scroll', onScroll)
+      document.removeEventListener('pointerdown', onPointerDown, true)
+    }
+  }, [lenis])
 
   useLayoutEffect(() => {
     if (!lenis) return
     const html = document.documentElement
+    const win = window as Window & { __SPLARO_LENIS?: typeof lenis }
+    win.__SPLARO_LENIS = lenis
+
     if (locked) {
+      const freezeY =
+        lenis.scroll > 1
+          ? lenis.scroll
+          : lastLenisScrollY > 1
+            ? lastLenisScrollY
+            : Number(html.getAttribute('data-scroll-lock-y') || 0) || 0
+      freezeRef.current = freezeY
+      rememberLenisScrollY(freezeY)
       html.setAttribute('data-scroll-lock', 'overlay')
+      html.setAttribute('data-scroll-lock-y', String(freezeY))
       lenis.stop()
+      html.classList.add('lenis-stopped')
+      lenis.scrollTo(freezeY, { immediate: true })
     } else {
+      const freezeY =
+        freezeRef.current ||
+        Number(html.getAttribute('data-scroll-lock-y') || 0) ||
+        lastLenisScrollY ||
+        0
       html.removeAttribute('data-scroll-lock')
+      html.classList.remove('lenis-stopped')
       lenis.start()
+      lenis.scrollTo(freezeY, { immediate: true })
+      rememberLenisScrollY(freezeY)
       unlockLenisPointer()
       html.setAttribute('data-lenis-ready', '1')
     }
@@ -130,8 +191,9 @@ function LenisHeightSync() {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
         const next = document.documentElement.scrollHeight
+        // Always refresh limit — deferring during scroll left mid-page freezes
+        // when images/rails change document height under the cursor.
         lenis.resize()
-        // If content grew after first paint (rails/images), force another pass.
         if (Math.abs(next - lastHeight) > 8) {
           lastHeight = next
           requestAnimationFrame(() => lenis.resize())
@@ -143,7 +205,14 @@ function LenisHeightSync() {
 
     const scheduleResize = () => {
       window.clearTimeout(timer)
-      timer = window.setTimeout(runResize, 60)
+      timer = window.setTimeout(runResize, 80)
+    }
+
+    const syncLimitOnScroll = () => {
+      const nativeMax = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
+      if (Math.abs(nativeMax - lenis.limit) > 12) {
+        lenis.resize()
+      }
     }
 
     const target = document.getElementById('main-content') ?? document.body
@@ -155,9 +224,9 @@ function LenisHeightSync() {
     window.addEventListener('orientationchange', scheduleResize)
     window.addEventListener('load', scheduleResize)
     window.visualViewport?.addEventListener('resize', scheduleResize)
+    lenis.on('scroll', syncLimitOnScroll)
 
-    // Late catalog/image layout — keep limit fresh through first seconds.
-    const bootPasses = [120, 400, 900, 1800].map((ms) => window.setTimeout(runResize, ms))
+    const bootPasses = [120, 400, 900, 1800, 3500].map((ms) => window.setTimeout(runResize, ms))
 
     runResize()
 
@@ -170,45 +239,9 @@ function LenisHeightSync() {
       window.removeEventListener('orientationchange', scheduleResize)
       window.removeEventListener('load', scheduleResize)
       window.visualViewport?.removeEventListener('resize', scheduleResize)
+      lenis.off('scroll', syncLimitOnScroll)
     }
   }, [lenis])
-
-  return null
-}
-
-function LenisScrollIdleRecovery() {
-  const lenis = useLenis()
-  const locked = useUiStore(
-    (s) =>
-      s.isMobileMenuOpen || s.isSearchOpen || s.isCartOpen || s.scrollLockCount > 0,
-  )
-
-  useLayoutEffect(() => {
-    if (!lenis) return
-
-    let idleTimer = 0
-
-    const onIdle = () => {
-      window.clearTimeout(idleTimer)
-      idleTimer = window.setTimeout(() => {
-        if (locked) return
-        document.documentElement.classList.remove('lenis-scrolling')
-        lenis.start()
-      }, 140)
-    }
-
-    const onScroll = () => {
-      onIdle()
-    }
-
-    lenis.on('scroll', onScroll)
-    onIdle()
-
-    return () => {
-      window.clearTimeout(idleTimer)
-      lenis.off('scroll', onScroll)
-    }
-  }, [lenis, locked])
 
   return null
 }
@@ -250,22 +283,31 @@ function LenisPointerGuard() {
   return null
 }
 
+/**
+ * Single Lenis instance for Mac fine-pointer desktop.
+ * Options are frozen to the desktop profile — this tree only mounts when
+ * shouldUseNativeScroll() is false, so profile churn must not remount ReactLenis.
+ */
 export function LenisSmoothScrollInner({ children }: { children: ReactNode }) {
-  const reducedMotion = usePrefersReducedMotion()
-  const profile = useScrollProfile()
+  const lenisOptions = useMemo(() => buildLenisOptions('mac'), [])
 
-  const lenisOptions = useMemo(() => {
-    const opts = buildLenisOptions(profile)
-    if (!reducedMotion) return opts
-    return {
-      ...opts,
-      lerp: 1,
-      smoothWheel: false,
-      syncTouch: false,
-      wheelMultiplier: 1,
-      touchMultiplier: 1,
+  useLayoutEffect(() => {
+    return () => {
+      const html = document.documentElement
+      // Sibling dynamic chunks can remount this tree briefly while cart/search
+      // is open — do not force engine=native (that flashes like a full reload).
+      if (html.getAttribute('data-scroll-lock') === 'overlay') {
+        unlockLenisPointer()
+        return
+      }
+      html.classList.remove('lenis', 'lenis-smooth', 'lenis-scrolling', 'lenis-stopped')
+      html.removeAttribute('data-lenis-ready')
+      if (html.getAttribute('data-scroll-engine') === 'lenis') {
+        html.setAttribute('data-scroll-engine', 'native')
+      }
+      unlockLenisPointer()
     }
-  }, [profile, reducedMotion])
+  }, [])
 
   return (
     <ReactLenis root options={lenisOptions}>
@@ -273,7 +315,6 @@ export function LenisSmoothScrollInner({ children }: { children: ReactNode }) {
       <LenisRouteSync />
       <LenisScrollLock />
       <LenisHeightSync />
-      <LenisScrollIdleRecovery />
       <LenisPointerGuard />
       {children}
     </ReactLenis>

@@ -8,7 +8,7 @@ import { useStorefrontSettings } from '@/components/providers/StorefrontSettings
 import { MotionAnchor, MotionPressable } from '@/components/ui/MotionPressable'
 import { submitContactForm } from '@/lib/api/contact'
 import { resolveWhatsAppNumber, resolveSupportPhone, whatsAppHref } from '@/lib/storefront/contact'
-import { DEFAULT_STORE_ADDRESS } from '@/lib/storefront/defaults'
+import { DEFAULT_STORE_ADDRESS, DEFAULT_SUPPORT_EMAIL } from '@/lib/storefront/defaults'
 
 type SubmitStatus = 'idle' | 'loading' | 'success' | 'error'
 
@@ -22,7 +22,7 @@ export function ContactExtras() {
   const email =
     settings.store.email?.trim() ||
     process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() ||
-    'support@splaro.co'
+    DEFAULT_SUPPORT_EMAIL
   const address = settings.store.address?.trim() || DEFAULT_STORE_ADDRESS
   const whatsappNumber = resolveWhatsAppNumber(settings)
   const whatsappLink = whatsAppHref(whatsappNumber)

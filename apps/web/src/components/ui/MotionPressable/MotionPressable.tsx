@@ -7,30 +7,30 @@ import { MICRO } from '@/lib/motion/config'
 
 export type MotionPressableVariant = 'cta' | 'icon' | 'chip' | 'nav' | 'subtle'
 
-/** Soft press only — no scale jump, no visible flash on nav/icon clicks. */
+/** Soft press only — quiet opacity, no scale jump. */
 const VARIANT_MOTION: Record<
   MotionPressableVariant,
   Pick<HTMLMotionProps<'button'>, 'whileHover' | 'whileTap'>
 > = {
   cta: {
-    whileHover: { opacity: 0.96 },
-    whileTap: { opacity: 0.94 },
+    whileHover: { opacity: 0.94 },
+    whileTap: { opacity: 0.9 },
   },
   icon: {
-    whileHover: { opacity: 0.96 },
-    whileTap: { opacity: 0.94 },
+    whileHover: { opacity: 0.88 },
+    whileTap: { opacity: 0.82 },
   },
   chip: {
-    whileHover: { opacity: 0.96 },
-    whileTap: { opacity: 0.94 },
+    whileHover: { opacity: 0.94 },
+    whileTap: { opacity: 0.9 },
   },
   nav: {
-    whileHover: { opacity: 0.96 },
-    whileTap: { opacity: 0.94 },
+    whileHover: { opacity: 0.88 },
+    whileTap: { opacity: 0.82 },
   },
   subtle: {
-    whileHover: { opacity: 0.97 },
-    whileTap: { opacity: 0.95 },
+    whileHover: { opacity: 0.92 },
+    whileTap: { opacity: 0.88 },
   },
 }
 

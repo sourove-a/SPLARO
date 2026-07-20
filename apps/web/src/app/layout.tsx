@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import Link from 'next/link'
 import { Cormorant_Garamond, Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/layout/Providers'
@@ -260,44 +259,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script dangerouslySetInnerHTML={{ __html: STRIP_EXTENSION_ATTRS_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: WINDOWS_NATIVE_SCROLL_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: CHUNK_RECOVERY_SCRIPT }} />
-        <div
-          id="splaro-boot-fallback"
-          role="alert"
-          suppressHydrationWarning
-          style={{
-            display: 'none',
-            position: 'fixed',
-            insetInline: 0,
-            bottom: 0,
-            zIndex: 99999,
-            padding: '12px 16px',
-            textAlign: 'center',
-            fontSize: '14px',
-            fontWeight: 600,
-            color: '#1c1917',
-            background: '#fef3c7',
-            borderTop: '1px solid rgba(217, 119, 6, 0.35)',
-            boxShadow: '0 -8px 30px rgba(0,0,0,0.12)',
-          }}
-        >
-          Site updated — please{' '}
-          <Link
-            href="/?_splaro=1"
-            style={{
-              marginInline: '4px',
-              padding: '4px 12px',
-              borderRadius: '8px',
-              border: '1px solid rgba(217, 119, 6, 0.45)',
-              background: '#fff',
-              fontWeight: 700,
-              color: 'inherit',
-              textDecoration: 'none',
-            }}
-          >
-            refresh the page
-          </Link>{' '}
-          (Ctrl+Shift+R)
-        </div>
         <Providers>
           <StorefrontSettingsProvider settings={settings}>
             <AnalyticsScripts envGaId={GA_ENV_ID} />

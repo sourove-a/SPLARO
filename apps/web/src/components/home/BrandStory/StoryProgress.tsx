@@ -32,9 +32,7 @@ export function StoryProgress({ activeIndex, count, loop = false }: StoryProgres
         </span>
       </div>
       {loop ? (
-        <span className="home-story-deck__loop-hint" aria-hidden>
-          Endless
-        </span>
+        <span className="home-story-deck__loop-hint sr-only">Endless</span>
       ) : null}
     </div>
   )

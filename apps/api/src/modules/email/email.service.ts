@@ -60,9 +60,11 @@ export class EmailService {
       }
     }
 
-    if (!transactional) {
-      this.logger.warn(`SMTP not configured for store ${input.storeId}`)
-    }
+    this.logger.warn(
+      transactional
+        ? `Transactional email to ${to} failed — no SMTP/Gmail for store ${input.storeId}`
+        : `SMTP not configured for store ${input.storeId}`,
+    )
     return false
   }
 

@@ -9,11 +9,20 @@ import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 import {
   ChevronLeft,
   ChevronRight,
+  Clock3,
+  Droplets,
+  Layers,
+  MapPin,
   Maximize2,
   Minus,
+  Package,
   Plus,
   Ruler,
+  Shirt,
+  Sparkles,
   Star,
+  Truck,
+  type LucideIcon,
 } from 'lucide-react'
 import { subscribeScroll } from '@/hooks/useScrollY'
 import { snapDocumentScrollToTop } from '@/lib/navigation/snap-scroll-top'
@@ -46,6 +55,7 @@ import { sanitizeStorefrontProductCode } from '@/lib/catalog/storefront-sanitize
 import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import type { ProductReview } from '@/lib/catalog/live'
 import { sortSizes } from '@/lib/catalog/live'
+import { resolveDetailsCategoryIcon } from '@/lib/catalog/details-category-icon'
 import { ProductReviews } from '@/components/product/ProductReviews/ProductReviews'
 import { ProductLightbox } from '@/components/product/ProductLightbox/ProductLightbox'
 import { ProductPurchaseExtras } from '@/components/product/ProductPurchaseExtras/ProductPurchaseExtras'
@@ -475,44 +485,74 @@ export default function ProductPageClient({
   }, [stock])
 
   const detailSections = useMemo(() => {
-    const sections: { id: string; content: string }[] = []
+    type DetailLine = { icon: LucideIcon; text: string }
+    type DetailSection = { id: string; icon: LucideIcon; lines: DetailLine[] }
 
-    const detailsParts = [
-      fullDescription,
-      product.weavingType ? `Weaving · ${product.weavingType}` : null,
-      product.fabricContent ? `Materials · ${product.fabricContent}` : null,
-      product.occasion ? `Occasion · ${product.occasion}` : null,
-      product.season ? `Season · ${product.season}` : null,
-    ].filter(Boolean) as string[]
+    const sections: DetailSection[] = []
 
-    if (detailsParts.length > 0) {
-      sections.push({ id: 'Details', content: detailsParts.join('\n\n') })
+    // Specs only — lead description stays above (no double paste).
+    const detailLines: DetailLine[] = []
+    if (product.fabricContent?.trim()) {
+      detailLines.push({ icon: Layers, text: `Materials · ${product.fabricContent.trim()}` })
+    }
+    if (product.weavingType?.trim()) {
+      detailLines.push({ icon: Sparkles, text: `Weaving · ${product.weavingType.trim()}` })
+    }
+    if (product.occasion?.trim()) {
+      detailLines.push({ icon: Shirt, text: `Occasion · ${product.occasion.trim()}` })
+    }
+    if (product.season?.trim()) {
+      detailLines.push({ icon: Sparkles, text: `Season · ${product.season.trim()}` })
+    }
+    if (detailLines.length > 0) {
+      sections.push({
+        id: 'Details',
+        icon: resolveDetailsCategoryIcon(product.category, product.categorySlug),
+        lines: detailLines,
+      })
     }
 
-    const shippingParts = [
-      `Delivery: Dhaka ${formatBDT(Math.round(shipping.dhakaDeliveryCharge))} · Outside ${formatBDT(Math.round(shipping.outsideDhakaCharge))}.`,
-      shipping.freeDeliveryThreshold > 0
-        ? `Free delivery on orders over ${formatBDT(Math.round(shipping.freeDeliveryThreshold))}.`
-        : null,
-      'Most orders arrive within 2–4 business days.',
-      product.origin ? `Origin · ${product.origin}` : null,
-    ].filter(Boolean) as string[]
+    const shippingLines: DetailLine[] = [
+      {
+        icon: MapPin,
+        text: `Dhaka ${formatBDT(Math.round(shipping.dhakaDeliveryCharge))} · Outside ${formatBDT(Math.round(shipping.outsideDhakaCharge))}`,
+      },
+    ]
+    if (shipping.freeDeliveryThreshold > 0) {
+      shippingLines.push({
+        icon: Package,
+        text: `Free delivery over ${formatBDT(Math.round(shipping.freeDeliveryThreshold))}`,
+      })
+    }
+    shippingLines.push({
+      icon: Clock3,
+      text: 'Most orders arrive within 2–4 business days',
+    })
+    if (product.origin?.trim()) {
+      shippingLines.push({ icon: MapPin, text: `Origin · ${product.origin.trim()}` })
+    }
+    sections.push({ id: 'Shipping', icon: Truck, lines: shippingLines })
 
-    sections.push({ id: 'Shipping', content: shippingParts.join('\n\n') })
-
-    const careParts = [
-      product.careInstructions,
-      product.fitType ? `Fit · ${product.fitType}` : null,
-    ].filter(Boolean) as string[]
-
-    if (careParts.length > 0) {
-      sections.push({ id: 'Care', content: careParts.join('\n\n') })
+    const careLines: DetailLine[] = []
+    if (product.careInstructions?.trim()) {
+      careLines.push({ icon: Droplets, text: product.careInstructions.trim() })
+    }
+    const fit = product.fitType?.trim()
+    if (fit) {
+      careLines.push({
+        icon: Shirt,
+        text: `Fit · ${/\bfit\b/i.test(fit) ? fit : `${fit} fit`}`,
+      })
+    }
+    if (careLines.length > 0) {
+      sections.push({ id: 'Care', icon: Sparkles, lines: careLines })
     }
 
     return sections
   }, [
-    fullDescription,
     product.careInstructions,
+    product.category,
+    product.categorySlug,
     product.fabricContent,
     product.weavingType,
     product.fitType,
@@ -1297,6 +1337,7 @@ export default function ProductPageClient({
                   <div className="pp-info__accordions">
                     {detailSections.map((section) => {
                       const open = openSection === section.id
+                      const SectionIcon = section.icon
                       return (
                         <div
                           key={section.id}
@@ -1309,7 +1350,14 @@ export default function ProductPageClient({
                             aria-expanded={open}
                             variant="subtle"
                           >
-                            <span>{section.id}</span>
+                            <span className="pp-accordion__title">
+                              <SectionIcon
+                                className="pp-accordion__title-icon"
+                                strokeWidth={1.7}
+                                aria-hidden
+                              />
+                              <span>{section.id}</span>
+                            </span>
                             <motion.span
                               animate={{ rotate: open ? 45 : 0 }}
                               transition={{ duration: PANEL_MS, ease: PANEL_EASE }}
@@ -1327,7 +1375,21 @@ export default function ProductPageClient({
                                 transition={{ duration: PANEL_MS, ease: PANEL_EASE }}
                                 className="pp-accordion__panel"
                               >
-                                <p className="pp-accordion__body">{section.content}</p>
+                                <ul className="pp-accordion__list">
+                                  {section.lines.map((line) => {
+                                    const LineIcon = line.icon
+                                    return (
+                                      <li key={line.text} className="pp-accordion__item">
+                                        <LineIcon
+                                          className="pp-accordion__item-icon"
+                                          strokeWidth={1.65}
+                                          aria-hidden
+                                        />
+                                        <span>{line.text}</span>
+                                      </li>
+                                    )
+                                  })}
+                                </ul>
                               </motion.div>
                             )}
                           </AnimatePresence>

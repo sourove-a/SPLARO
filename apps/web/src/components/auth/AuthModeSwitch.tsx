@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { motion } from '@/lib/motion/react'
 import { cn } from '@/lib/utils/cn'
 import { useAuthShowMotion } from '@/lib/auth/auth-motion'
+import { MICRO } from '@/lib/motion/config'
 
 interface AuthModeSwitchProps {
   nextPath?: string
@@ -32,7 +33,7 @@ export function AuthModeSwitch({ nextPath = '/account' }: AuthModeSwitchProps) {
             <motion.span
               layoutId="auth-mode-pill"
               className="auth-mode-switch__pill"
-              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+              transition={MICRO}
             />
           ) : (
             <span className="auth-mode-switch__pill" aria-hidden />
@@ -54,7 +55,7 @@ export function AuthModeSwitch({ nextPath = '/account' }: AuthModeSwitchProps) {
             <motion.span
               layoutId="auth-mode-pill"
               className="auth-mode-switch__pill"
-              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+              transition={MICRO}
             />
           ) : (
             <span className="auth-mode-switch__pill" aria-hidden />

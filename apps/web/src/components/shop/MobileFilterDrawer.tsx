@@ -13,6 +13,9 @@ import { getEnabledMobilePriceChips } from '@/lib/shop/filter-config'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { getShopSizeSectionMeta, type Category } from '@/data/storefront'
 import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
+import { MICRO, SETTLE } from '@/lib/motion/config'
+
+type FilterSectionId = 'color' | 'size' | 'price'
 
 const COLOR_SWATCH: Record<string, string> = {
   White: '#f5f5f3',
@@ -25,9 +28,6 @@ const COLOR_SWATCH: Record<string, string> = {
   Red: '#c0392b',
   Green: '#4a7c59',
 }
-
-const DRAWER_EASE = [0.22, 1, 0.36, 1] as const
-type FilterSectionId = 'color' | 'size' | 'price'
 
 interface PriceBounds {
   min: number
@@ -113,7 +113,7 @@ function AccordionSection({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.28, ease: DRAWER_EASE }}
+            transition={MICRO}
           >
             <div className="mobile-filter-drawer__accordion-inner">{children}</div>
           </motion.div>
@@ -338,7 +338,7 @@ export function MobileFilterDrawer({
 
   const fadeTransition = reduceMotion
     ? { duration: 0 }
-    : { duration: 0.32, ease: DRAWER_EASE }
+    : SETTLE
 
   const applyLabel =
     resultCount === 0

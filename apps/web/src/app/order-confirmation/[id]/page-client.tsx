@@ -21,6 +21,11 @@ import {
 } from 'lucide-react'
 import { DeliveryMotion } from '@/components/order/DeliveryMotion'
 import {
+  OrderDispatchCeremony,
+  isDispatchPending,
+  wasDispatchSeen,
+} from '@/components/order/OrderDispatchCeremony'
+import {
   formatOrderDate,
   fetchOrderById,
   getDeliveryStage,
@@ -31,7 +36,7 @@ import {
 } from '@/lib/orders'
 import { resolveConfirmationStage } from '@/lib/order/delivery-progress'
 import { buildInvoiceUrl } from '@/lib/invoice-url'
-import { displayOrderCode } from '@splaro/config'
+import { displayOrderCode, orderConfirmedDocumentTitle } from '@splaro/config'
 import { formatBDT } from '@/lib/utils/currency'
 import { checkoutMotionTransition, checkoutTapSpring } from '@/lib/checkout/checkout-motion'
 import { copyTextToClipboard } from '@/lib/utils/clipboard'
@@ -68,6 +73,7 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
   const [order, setOrder] = useState<StoredOrder | null>(null)
   const [hydrated, setHydrated] = useState(false)
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const [showDispatch, setShowDispatch] = useState(false)
   const reducedMotion = useReducedMotion()
 
   useEffect(() => {
@@ -132,6 +138,27 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
     }
   }, [accessKey, orderId, paymentPending])
 
+  useEffect(() => {
+    if (!hydrated) return
+    const brand = 'SPLARO'
+    if (!order) {
+      document.title = `Order not found | ${brand}`
+      return
+    }
+    document.title = `${orderConfirmedDocumentTitle(order.invoiceNumber || order.id)} | ${brand}`
+  }, [hydrated, order])
+
+  useEffect(() => {
+    if (!hydrated || !order || paymentPending) {
+      setShowDispatch(false)
+      return
+    }
+    const key = order.id || orderId
+    // Only celebrate when returning from a fresh checkout / payment handoff.
+    const pending = isDispatchPending(key) || isDispatchPending(orderId)
+    setShowDispatch(pending && !wasDispatchSeen(key))
+  }, [hydrated, order, orderId, paymentPending])
+
   const orderCode = order ? displayOrderCode(order.invoiceNumber, order.id) : orderId
   const deliveryStage = useMemo(() => {
     if (!order) return 'Confirmed' as const
@@ -155,6 +182,21 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
           <Package className="mx-auto h-8 w-8 text-black/35" strokeWidth={2} />
           <p className="mt-4 text-sm font-black text-black/55">Loading order...</p>
         </div>
+      </main>
+    )
+  }
+
+  if (order && showDispatch && !paymentPending) {
+    return (
+      <main className="checkout-shell">
+        <section className="checkout-container">
+          <OrderDispatchCeremony
+            orderId={order.id}
+            invoiceNumber={order.invoiceNumber ?? null}
+            customerName={order.customer.name}
+            onComplete={() => setShowDispatch(false)}
+          />
+        </section>
       </main>
     )
   }

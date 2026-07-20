@@ -13,7 +13,11 @@ import {
   type CatalogChannel,
   type ShopFiltersConfig,
 } from '@splaro/types'
-import { DEFAULT_STORE_ADDRESS, DEFAULT_STORE_LABEL } from '@/lib/storefront/defaults'
+import {
+  DEFAULT_STORE_ADDRESS,
+  DEFAULT_STORE_LABEL,
+  DEFAULT_SUPPORT_EMAIL,
+} from '@/lib/storefront/defaults'
 import { fetchLiveHeaderNav } from '@/lib/catalog/menu-nav'
 import {
   ACCESSORIES_MEGA_CATEGORIES,
@@ -158,7 +162,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
   store: {
     name: 'SPLARO',
     logo: '/images/logo/splaro-logo-black-premium.webp',
-    email: process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@splaro.co',
+    email: process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? DEFAULT_SUPPORT_EMAIL,
     phone: process.env.NEXT_PUBLIC_SUPPORT_PHONE ?? '',
     address: DEFAULT_STORE_ADDRESS,
   },

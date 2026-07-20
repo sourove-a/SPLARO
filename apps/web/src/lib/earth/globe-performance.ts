@@ -68,6 +68,19 @@ export function prefersReducedMotion(): boolean {
 
 export function isWindowsOS(): boolean {
   if (typeof navigator === 'undefined') return false
+
+  // Boot script tags OS before React — prefer it over UA heuristics alone.
+  if (typeof document !== 'undefined') {
+    const tagged = document.documentElement.getAttribute('data-os')
+    if (tagged === 'windows') return true
+    if (tagged === 'mac' || tagged === 'ios') return false
+  }
+
+  const uaData = (
+    navigator as Navigator & { userAgentData?: { platform?: string } }
+  ).userAgentData
+  if (uaData?.platform && /Win/i.test(uaData.platform)) return true
+  if (typeof navigator.platform === 'string' && /Win/i.test(navigator.platform)) return true
   return /Windows/i.test(navigator.userAgent || '')
 }
 
@@ -194,12 +207,8 @@ export function shouldPreloadEarthAssets(options?: EarthMotionOptions): boolean 
 }
 
 /**
- * Native scroll on Windows / mobile / lite / reduced-motion.
- * Mac / Linux desktop → Lenis (premium inertia).
- *
- * Owner lock: never Lenis on Windows (RDP hang).
- * Mac Lenis must NOT put `data-lenis-prevent` on page product rails — that froze
- * vertical wheel mid-home (~1100px). Rails use native overflow-x + trackpad deltaX.
+ * Native scroll on Windows / mobile / reduced-motion / lite.
+ * Mac fine-pointer desktop → Lenis (rail-safe virtualScroll in scroll.ts).
  */
 export function shouldUseNativeScroll(): boolean {
   if (typeof window === 'undefined') return true

@@ -1,4 +1,4 @@
-const AUTH_FETCH_TIMEOUT_MS = 12_000
+const AUTH_FETCH_TIMEOUT_MS = 18_000
 
 export async function authFetch(
   input: RequestInfo | URL,

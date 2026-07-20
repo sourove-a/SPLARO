@@ -19,7 +19,7 @@ Cache-Control on `/` (Contabo): both `s-maxage=60, stale-while-revalidate=300` a
 |--------|--------|
 | Phase 1–2 CSS purge/dedup | Dead rev/reels/story/ws + Lenis-only + legacy mm; superseded pp-view + dead product-sheet/ed-hero |
 | Phase 3 CSS route-split | Root `globals.css` ~192 KB; page sheets under `styles/pages/*` (auth/home/shop/checkout/account/content/pdp) |
-| Phase 4 JS | Lenis dependency + `LenisSmoothScrollInner` removed; WhySplaro/InstagramSection deleted |
+| Phase 4 JS | Lenis temporarily removed for reliability; **restored 2026-07-21** as Mac/Linux fine-desktop only (Windows stays native) — see `SKILL.md` Scroll + click |
 | Phase 5 images/cache | Local placeholders via `@splaro/config`; Next private-route cache; nginx `/images/hero/` immutable |
 | Phase 6 waterfall | Home defers `/api/auth/me` until interaction / 8s (2s if cart session); checkout/cart/auth immediate |
 

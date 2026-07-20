@@ -9,8 +9,9 @@ import { StoryExpandPanel } from './StoryExpandPanel'
 import { StoryNav } from './StoryNav'
 import type { BrandStorySectionProps } from './types'
 
-/** Ignore rapid next/prev while the spring is settling — prevents stacked jumps. */
-const STEP_LOCK_MS = 380
+/** Ignore rapid next/prev while the slide is settling — prevents stacked jumps. */
+/** Match StoryCard slide (~0.7s) so next clicks don't stack mid-tween */
+const STEP_LOCK_MS = 720
 
 export function BrandStorySection({ story, reviews }: BrandStorySectionProps) {
   const sectionRef = useRef<HTMLElement>(null)
@@ -88,6 +89,7 @@ export function BrandStorySection({ story, reviews }: BrandStorySectionProps) {
           activeIndex={safeIndex}
           onChange={selectIndex}
           onReadActive={() => setExpanded((v) => !v)}
+          sectionVisible={visible}
         />
 
         <StoryNav

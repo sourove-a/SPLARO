@@ -4,8 +4,8 @@ import { useSyncExternalStore } from 'react'
 import {
   Crown,
   Feather,
+  Flower2,
   Gem,
-  Leaf,
   Scissors,
   Shirt,
   Sparkles,
@@ -13,11 +13,16 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { motion } from '@/lib/motion/react'
+import { DURATION, EASE_EXPO_OUT } from '@/lib/motion/config'
 import { cn } from '@/lib/utils/cn'
 import type { StoryDeckCard, StoryDeckIconName } from './types'
 
-const ICONS: Record<StoryDeckIconName, LucideIcon> = {
-  leaf: Leaf,
+/**
+ * Story-matched crest icons — natural / floral / atelier (not brand wordmark).
+ * leaf → Flower2 so Origin reads premium botanical, not a random glyph.
+ */
+const STORY_ICONS: Record<StoryDeckIconName, LucideIcon> = {
+  leaf: Flower2,
   gem: Gem,
   people: UsersRound,
   sparkles: Sparkles,
@@ -27,9 +32,39 @@ const ICONS: Record<StoryDeckIconName, LucideIcon> = {
   feather: Feather,
 }
 
-const COVERFLOW_STEP = 118
+/**
+ * Desktop ILLIYEEN-style: wider horizontal step so ±1 cards read as solid peeks
+ * (not a tight 3D pile). Mobile keeps a larger step so text does not bleed.
+ */
+const DESKTOP_STEP = 200
 /** Cards beyond this stay mounted at opacity 0 so they can slide in (no mount pop). */
 const VISIBLE_RADIUS = 2
+
+const MOBILE_MQ = '(max-width: 767px)'
+
+function subscribeLayout(onChange: () => void) {
+  if (typeof window === 'undefined') return () => {}
+  const mq = window.matchMedia(MOBILE_MQ)
+  mq.addEventListener('change', onChange)
+  window.addEventListener('resize', onChange)
+  return () => {
+    mq.removeEventListener('change', onChange)
+    window.removeEventListener('resize', onChange)
+  }
+}
+
+/** `step:mobile` — stable primitive for useSyncExternalStore. */
+function getLayoutSnapshot(): string {
+  if (typeof window === 'undefined') return `${DESKTOP_STEP}:0`
+  const mobile = window.matchMedia(MOBILE_MQ).matches
+  if (mobile) {
+    return `${Math.round(Math.min(260, window.innerWidth * 0.66))}:1`
+  }
+  // ~52% of desktop card width — ILLIYEEN side peeks
+  const cardW = Math.min(320, window.innerWidth * 0.22)
+  const step = Math.round(Math.min(230, Math.max(180, cardW * 0.55)))
+  return `${step}:0`
+}
 
 function subscribePerf(onChange: () => void) {
   if (typeof document === 'undefined') return () => {}
@@ -62,6 +97,10 @@ interface StoryCardProps {
   card: StoryDeckCard
   active: boolean
   offset: number
+  dragX: number
+  dragging: boolean
+  /** Off-section or reduced-motion — snap transforms, skip heavy decor. */
+  paused?: boolean
   onActivate: () => void
   onRead: () => void
 }
@@ -69,63 +108,114 @@ interface StoryCardProps {
 function coverflowStyle(
   offset: number,
   flatMotion: boolean,
+  step: number,
+  dragX: number,
+  mobile: boolean,
 ) {
-  const abs = Math.abs(offset)
-  const inView = abs <= VISIBLE_RADIUS
-  const scale = abs === 0 ? 1 : abs === 1 ? 0.86 : abs === 2 ? 0.74 : 0.64
-  const opacity = !inView ? 0 : abs === 0 ? 1 : abs === 1 ? 0.78 : 0.45
-  // Windows / lite: 2D slide only — no rotateY/z (GPU + scroll-safe)
-  const rotateY = flatMotion ? 0 : Math.max(-5.5, Math.min(5.5, offset * -3.2))
-  const x = offset * COVERFLOW_STEP
-  const z = flatMotion ? 0 : -abs * 90
-  const y = abs === 0 ? 0 : flatMotion ? abs * 2 : 6 + abs * 2.5
+  const visual = offset + dragX / step
+  const abs = Math.abs(visual)
+  const inView = abs <= VISIBLE_RADIUS + 0.35
 
-  return { x, y, z, scale, opacity, rotateY, abs, inView }
-}
+  let scale: number
+  let opacity: number
+  if (abs < 0.02) {
+    scale = 1
+    opacity = 1
+  } else if (abs <= 1) {
+    const t = abs
+    // Desktop ILLIYEEN: neighbours stay large + readable
+    scale = mobile ? 1 - t * 0.18 : 1 - t * 0.1
+    opacity = mobile ? 1 - t * 0.45 : 1 - t * 0.12
+  } else if (abs <= 2) {
+    const t = abs - 1
+    scale = mobile ? 0.82 - t * 0.08 : 0.9 - t * 0.08
+    opacity = mobile ? 0.55 - t * 0.35 : 0.88 - t * 0.28
+  } else {
+    scale = 0.72
+    opacity = 0
+  }
 
-function EngravedCorner({ position }: { position: 'tl' | 'tr' | 'bl' | 'br' }) {
-  return (
-    <span className={cn('home-story-deck__corner', `home-story-deck__corner--${position}`)} aria-hidden>
-      <span className="home-story-deck__corner-outer" />
-      <span className="home-story-deck__corner-inner" />
-      <span className="home-story-deck__corner-dot" />
-    </span>
-  )
+  const x = visual * step
+  // Desktop ILLIYEEN = flat fan + light depth. Mobile/lite = 2D slide only.
+  const desktop = !mobile
+  const rotateY =
+    flatMotion || desktop ? 0 : Math.max(-5.5, Math.min(5.5, visual * -3.2))
+  const z = flatMotion ? 0 : desktop ? -Math.min(abs, 2) * 28 : -Math.min(abs, 2) * 90
+  const y = abs < 0.02 ? 0 : desktop ? abs * 1.2 : flatMotion ? abs * 2 : 6 + abs * 2.5
+  const contentOpacity = mobile
+    ? abs < 0.35
+      ? 1
+      : abs < 0.85
+        ? 1 - (abs - 0.35) / 0.5
+        : 0
+    : 1
+
+  return {
+    x,
+    y,
+    z,
+    scale,
+    opacity: Math.max(0, Math.min(1, opacity)),
+    rotateY,
+    abs,
+    inView,
+    contentOpacity: Math.max(0, Math.min(1, contentOpacity)),
+  }
 }
 
 export function StoryCard({
   card,
   active,
   offset,
+  dragX,
+  dragging,
+  paused = false,
   onActivate,
   onRead,
 }: StoryCardProps) {
   const perfSnapshot = useSyncExternalStore(subscribePerf, getPerfSnapshot, () => '0:0')
+  const layoutSnapshot = useSyncExternalStore(
+    subscribeLayout,
+    getLayoutSnapshot,
+    () => `${DESKTOP_STEP}:0`,
+  )
+  const [stepRaw, mobileRaw] = layoutSnapshot.split(':')
+  const step = Number(stepRaw) || DESKTOP_STEP
+  const mobile = mobileRaw === '1'
   const lite = perfSnapshot.startsWith('1:')
   const windows = perfSnapshot.endsWith(':1')
-  // Flat 2D path on Windows / lite — still animated (never hard-cut)
   const flatMotion = lite || windows
-  const Icon = ICONS[card.icon]
-  const style = coverflowStyle(offset, flatMotion)
-  const richDecor = active && !lite && !windows
-
-  // Parent MotionConfig forces reducedMotion="never" so Windows OS setting can't hard-cut.
-  const slideSpring = flatMotion
-    ? { type: 'spring' as const, stiffness: 340, damping: 36, mass: 0.8 }
-    : { type: 'spring' as const, stiffness: 280, damping: 32, mass: 0.85 }
-
-  const opacityTween = {
-    duration: flatMotion ? 0.28 : 0.36,
-    ease: [0.22, 1, 0.36, 1] as const,
+  const Icon = STORY_ICONS[card.icon]
+  const style = coverflowStyle(offset, flatMotion, step, dragX, mobile)
+  const offstage = !style.inView
+  const instant = { type: 'tween' as const, duration: 0 }
+  // Next/prev + release: long expo slide (not snappy spring cut)
+  const slideTween = {
+    type: 'tween' as const,
+    duration: DURATION.media,
+    ease: EASE_EXPO_OUT,
   }
+
+  const moveTransition = paused || offstage || dragging ? instant : slideTween
+  const opacityTween = paused || offstage || dragging
+    ? instant
+    : {
+        type: 'tween' as const,
+        duration: DURATION.enter,
+        ease: EASE_EXPO_OUT,
+      }
 
   return (
     <motion.article
       className={cn('home-story-deck__card', active && 'is-active')}
+      data-story={card.id}
+      data-icon={card.icon}
       style={{
-        zIndex: style.inView ? 30 - style.abs : 0,
+        zIndex: style.inView ? 30 - Math.min(Math.round(style.abs), 4) : 0,
         transformOrigin: 'center center',
         pointerEvents: style.inView ? 'auto' : 'none',
+        contentVisibility: offstage ? 'hidden' : undefined,
+        contain: offstage ? 'layout paint style' : undefined,
       }}
       initial={false}
       animate={{
@@ -137,38 +227,38 @@ export function StoryCard({
         rotateY: style.rotateY,
       }}
       transition={{
-        x: slideSpring,
-        y: slideSpring,
-        z: slideSpring,
-        scale: slideSpring,
-        rotateY: slideSpring,
+        x: moveTransition,
+        y: moveTransition,
+        z: moveTransition,
+        scale: moveTransition,
+        rotateY: moveTransition,
         opacity: opacityTween,
       }}
-      // Always keep a transform matrix — avoids none↔matrix snap on Windows
       transformTemplate={({ x, y, z, scale, rotateY }) =>
         `translate3d(${x ?? 0}, ${y ?? 0}, ${z ?? 0}) scale(${scale ?? 1}) rotateY(${rotateY ?? 0})`
       }
       aria-hidden={!active}
     >
-      <span className="home-story-deck__card-metal" aria-hidden />
-      {richDecor ? <span className="home-story-deck__card-brush" aria-hidden /> : null}
-      {richDecor ? <span className="home-story-deck__card-guilloche" aria-hidden /> : null}
-      {richDecor ? <span className="home-story-deck__card-foil" aria-hidden /> : null}
-      <span className="home-story-deck__card-engraved" aria-hidden />
-      {richDecor ? <span className="home-story-deck__card-bevel" aria-hidden /> : null}
-      <span className="home-story-deck__card-rim" aria-hidden />
-      <span className="home-story-deck__card-shine" aria-hidden />
-
-      <EngravedCorner position="tl" />
-      <EngravedCorner position="tr" />
-      <EngravedCorner position="bl" />
-      <EngravedCorner position="br" />
+      {!offstage ? (
+        <>
+          <span className="home-story-deck__card-glass" aria-hidden />
+          <span className="home-story-deck__card-depth" aria-hidden />
+          <span className="home-story-deck__card-specular" aria-hidden />
+          <span className="home-story-deck__card-rim" aria-hidden />
+          <span className="home-story-deck__card-edge" aria-hidden />
+          {/* Soft white → pearl → champagne beam orbits the 1px border */}
+          <span className="home-story-deck__card-beam" aria-hidden>
+            <span className="home-story-deck__card-beam-spin" />
+          </span>
+        </>
+      ) : null}
 
       <button
         type="button"
         className="home-story-deck__card-hit"
+        style={{ opacity: style.contentOpacity }}
         tabIndex={active ? 0 : -1}
-        aria-label={`${card.title}. ${card.statement}`}
+        aria-label={`${card.title}. ${card.statement}. ${card.body}`}
         onClick={() => {
           if (!active) {
             onActivate()
@@ -177,28 +267,18 @@ export function StoryCard({
           onRead()
         }}
       >
-        <span className="home-story-deck__card-index" aria-hidden>
-          <span>{card.indexLabel}</span>
-        </span>
-
         <span className="home-story-deck__card-top">
+          {/* Story crest — natural icon matched to this card (not SPLARO wordmark) */}
           <span className="home-story-deck__seal" aria-hidden>
+            <span className="home-story-deck__seal-glow" />
             <span className="home-story-deck__seal-ring home-story-deck__seal-ring--outer" />
-            {richDecor ? (
-              <span className="home-story-deck__seal-ring home-story-deck__seal-ring--inner" />
-            ) : null}
+            <span className="home-story-deck__seal-ring home-story-deck__seal-ring--mid" />
+            <span className="home-story-deck__seal-ring home-story-deck__seal-ring--inner" />
             <span className="home-story-deck__medallion">
-              <Icon strokeWidth={1.05} />
+              <Icon strokeWidth={1.15} />
             </span>
           </span>
-          <span className="home-story-deck__mark">SPLARO</span>
           <span className="home-story-deck__card-eyebrow">{card.eyebrow}</span>
-        </span>
-
-        <span className="home-story-deck__ornament" aria-hidden>
-          <span className="home-story-deck__ornament-line" />
-          <span className="home-story-deck__ornament-diamond" />
-          <span className="home-story-deck__ornament-line" />
         </span>
 
         <div className="home-story-deck__card-mid">
@@ -206,29 +286,11 @@ export function StoryCard({
           <p className="home-story-deck__card-body">{card.body}</p>
         </div>
 
-        <span className="home-story-deck__ornament home-story-deck__ornament--foot" aria-hidden>
-          <span className="home-story-deck__ornament-line" />
-          <span className="home-story-deck__ornament-diamond" />
-          <span className="home-story-deck__ornament-line" />
-        </span>
-
         <div className="home-story-deck__card-foot">
+          <span className="home-story-deck__rule" aria-hidden>
+            <span className="home-story-deck__rule-dot" />
+          </span>
           <h3 className="home-story-deck__card-title">{card.title}</h3>
-          <motion.span
-            className="home-story-deck__card-cta"
-            initial={false}
-            animate={{
-              opacity: active ? 1 : 0,
-              y: active ? 0 : 4,
-            }}
-            transition={opacityTween}
-            aria-hidden={!active}
-          >
-            <span className="home-story-deck__card-cta-line" aria-hidden />
-            {card.cta}
-            <span aria-hidden> →</span>
-            <span className="home-story-deck__card-cta-line" aria-hidden />
-          </motion.span>
         </div>
       </button>
     </motion.article>

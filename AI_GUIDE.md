@@ -97,8 +97,14 @@ Glass:        rgba(255,255,255,0.72) + backdrop-filter: blur(20px)
 - `.label-luxury` — uppercase tracking label (11px Inter)
 - `.divider-gold` — decorative gold line divider
 
+**Scroll engine (owner final — 2026-07-21):**
+- Mac / Linux fine desktop → **Lenis**; Windows / mobile / lite / reduced-motion → **native** (never Lenis on Windows)
+- Gate: `shouldUseNativeScroll()`; mount: `SmoothScroll.tsx` → `LenisSmoothScrollInner`
+- Never blanket-prevent `[data-h-scroll]` (mid-page freeze); overlay lock = body `position:fixed` pin + Lenis restore
+- Full rules: `.cursor/skills/splaro-platform/SKILL.md` → Scroll + click
+
 **PDP / scroll locks (do not regress):**
-- Size Guide opens as modal (`SizeGuideModal`) with `uiStore.acquireScrollLock` — Lenis must stop
+- Size Guide opens as modal (`SizeGuideModal`) with `uiStore.acquireScrollLock` — Lenis must stop when active
 - Mid-scroll clicks: `LenisPointerGuard` freezes Lenis inertia on `pointerdown`
 - PDP: no trust strip, no favorite heart; size pills = liquid glass + black text only
 - Sticky buy bar never covers footer — full rules in `.cursor/skills/splaro-platform/SKILL.md`

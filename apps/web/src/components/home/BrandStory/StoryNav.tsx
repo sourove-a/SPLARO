@@ -17,7 +17,7 @@ export function StoryNav({ activeIndex, count, onPrev, onNext }: StoryNavProps) 
         onClick={onPrev}
         aria-label="Previous story card"
       >
-        <ChevronLeft strokeWidth={1.75} aria-hidden />
+        <ChevronLeft strokeWidth={1.5} aria-hidden />
       </button>
 
       <StoryProgress activeIndex={activeIndex} count={count} loop />
@@ -28,7 +28,7 @@ export function StoryNav({ activeIndex, count, onPrev, onNext }: StoryNavProps) 
         onClick={onNext}
         aria-label="Next story card"
       >
-        <ChevronRight strokeWidth={1.75} aria-hidden />
+        <ChevronRight strokeWidth={1.5} aria-hidden />
       </button>
     </div>
   )

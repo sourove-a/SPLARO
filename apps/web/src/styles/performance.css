@@ -383,15 +383,13 @@ html[data-perf='lite'] .product-card-quickview {
 }
 
 /*
- * sharp (all platforms): catalog + mega — fixed box, opacity-only interaction.
- * Windows/lite still get extra GPU cuts below.
+ * sharp (all platforms): catalog + mega — media box stays fixed (no lift jump).
+ * Image ken-burns lives on the <img> itself (overflow clip) — Mac only, see shop.css.
  */
 .shop-product-grid .splaro-card:hover .splaro-card__media,
 .shop-product-grid .splaro-card:active .splaro-card__media,
 .shop-product-grid .splaro-card--shop:active .splaro-card__media,
-.splaro-card--pressed .splaro-card__media,
-.shop-product-card:hover .shop-product-card__img--primary,
-.shop-product-card:hover .shop-product-card__img--hover {
+.splaro-card--pressed .splaro-card__media {
   transform: none !important;
 }
 
@@ -432,6 +430,15 @@ html[data-perf='lite'] .home-hero-slider .hero-slide-arrows .splaro-nav-btn,
 html[data-perf='lite'] .home-hero-slider .hero-dot,
 html[data-perf='lite'] .home-hero-slider .hero-btn {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset !important;
+}
+
+html[data-os='windows'] .shop-product-card:hover .shop-product-card__img--primary,
+html[data-os='windows'] .shop-product-card:hover .shop-product-card__img--hover,
+html[data-perf='lite'] .shop-product-card:hover .shop-product-card__img--primary,
+html[data-perf='lite'] .shop-product-card:hover .shop-product-card__img--hover,
+html[data-os='windows'] .shop-product-grid .splaro-card:hover .splaro-card__img,
+html[data-perf='lite'] .shop-product-grid .splaro-card:hover .splaro-card__img {
+  transform: none !important;
 }
 
 html[data-os='windows'] .shop-product-card:hover .shop-product-card__img--primary,

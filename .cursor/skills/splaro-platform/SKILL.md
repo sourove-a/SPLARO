@@ -90,7 +90,7 @@ The 8GB VPS build is flaky under load. Skipping any step here has caused a live 
    ```
    If homepage returns 500 or `build-id` didn't change, treat it as **not deployed** — go back to step 3, don't tell the owner it shipped.
 5. **One agent deploys at a time.** If Claude and Cursor both push/deploy against this repo close together, the VPS build queue and PM2 restarts race and produce exactly the corrupted-`.next` failure in step 3. Check `git log --oneline -3` on the VPS before you deploy — if HEAD was touched in the last few minutes by a run you didn't trigger, wait.
-6. **Never re-enable Lenis smooth scroll on Windows.** `shouldUseNativeScroll()` in `apps/web/src/lib/earth/globe-performance.ts` force-returns `true` for any Windows UA — this is intentional, not a TODO. Lenis's JS-driven wheel handling hangs/dead-locks over RDP (input batching breaks its RAF timing). Tried removing this bypass on 2026-07-16, shipped, owner reported scroll broken within minutes, reverted immediately. Don't retry without owner sign-off and real Windows/RDP testing before shipping.
+6. **Scroll engine (owner final — 2026-07-21):** Mac / Linux **fine-pointer desktop** → Lenis. **Windows / mobile / tablet / reduced-motion / lite** → native forever. Never re-enable Lenis on Windows (RDP hang). See “Scroll + click” below.
 
 ### Auto-deploy reliability contract
 
@@ -191,44 +191,68 @@ Verified on `/products/[slug]` (`product-page-client.tsx` + `ProductPurchaseStic
 | PDP chrome | No trust strip (“Easy returns / COD / Usually 2–4 days”). No wishlist/favorite heart on PDP when Add to bag exists. |
 | Size pills | Liquid white glass + **black text always** (selected = ring, never black fill). No hover `translateY` (miss-click). |
 
-### Scroll + click (owner lock — do not regress)
+### Scroll + click (owner final — 2026-07-21 — do not regress)
 
-**Default 2026-07-16: native OS scroll everywhere** (`shouldUseNativeScroll()` always `true`). Lenis chunk stays lazy (`LenisSmoothScrollInner`) but is not mounted. Instagram/Windows wheel must work without virtual scroll.
+**Split engine (final):**
+
+| Surface | Engine | Notes |
+|---------|--------|-------|
+| Mac / Linux fine desktop (`pointer: fine`, width > 1023) | **Lenis** | Premium lerp inertia via `LenisSmoothScrollInner` |
+| Windows (any) | **Native** | Never Lenis — RDP/wheel hang (tried 2026-07-16, reverted) |
+| Mobile / tablet / coarse pointer | **Native** | |
+| `prefers-reduced-motion` / `data-perf=lite` / low-power | **Native** | |
+
+Gate: `shouldUseNativeScroll()` in `apps/web/src/lib/earth/globe-performance.ts` — return `true` → native; `false` → mount Lenis.  
+Mount: `SmoothScroll.tsx` dynamic-imports `LenisSmoothScrollInner` only when eligible.  
+Options: `apps/web/src/lib/motion/scroll.ts` — desktop `lerp: 0.085`, **no** `duration`+`lerp` together.
+
+#### Lenis rails (must not freeze mid-page)
+
+| Rule | Detail |
+|------|--------|
+| Never blanket-prevent `[data-h-scroll]` | That blocked vertical wheel over home product rails |
+| `virtualScroll` | Only consume **horizontal-dominant** gestures on rails; vertical wheel always pages |
+| `prevent` | Only `[data-lenis-prevent*]`, textarea, select |
+| Height | `autoResize: true` + `LenisHeightSync` — do not skip resize while scrolling |
 
 #### Dual-scrollport wheel bug (fixed — never reintroduce)
 
 | Bad | Why | Good |
 |-----|-----|------|
 | `body { overflow-x: hidden }` | CSS computes `overflow-y` → `auto` when the other axis is not `visible` | `overflow-x: clip` + `overflow-y: visible` on `body` |
-| `html` **and** `body` both `overflow-y: auto` | Dual scrollports — Chromium/Windows mouse wheel + trackpad **stop scrolling** (events fire, `scrollY` stays 0) | **Only `<html>`** is the vertical scrollport |
+| `html` **and** `body` both `overflow-y: auto` | Dual scrollports — Chromium/Windows mouse wheel + trackpad **stop scrolling** | **Only `<html>`** is the vertical scrollport |
 | `html:not(.lenis) body { overflow-y: auto !important }` | Same dual-port bug under native engine | `body { overflow-y: visible !important }` when native |
 
-Files: `apps/web/src/app/globals.css` (body + `data-scroll-engine=native` rules). Diagnose: `getComputedStyle(body).overflow` must be `clip visible` / `visible`, not `hidden auto`.
+Files: `apps/web/src/app/globals.css`. Diagnose: `getComputedStyle(body).overflow` ≈ `clip visible` / `visible`, not `hidden auto`.
 
-#### Overlay lock (Search / Cart / SizeGuide)
+#### Overlay lock (Search / Cart / Menu / SizeGuide)
 
 | Rule | Detail |
 |------|--------|
-| Attribute | `OverlayScrollLockAttr` sets `html[data-scroll-lock=overlay]` when menu/search/cart/`scrollLockCount` |
-| Native CSS | `html[data-scroll-engine=native][data-scroll-lock=overlay] { overflow: hidden }` — **Lenis-only** lock selectors are not enough now |
-| Unlock | `unlockLenisPointer()` must **not** clear overflow while overlay locked (`GlobalPointerSafety` runs on every `pointerdown`) |
-| Horizontal rails | `GlobalHorizontalWheelScroll` only for `[data-h-scroll=true]`; skip when overlay locked; never `preventDefault` on page vertical wheel |
+| Attribute | `OverlayScrollLockAttr` → `html[data-scroll-lock=overlay]` + `data-scroll-lock-y` |
+| Visual pin | `body { position: fixed; top: -Ypx }` while locked (native **and** Lenis) |
+| Lenis | `LenisScrollLock` → `lenis.stop()` + restore via `lastLenisScrollY` / `data-scroll-lock-y` |
+| Wheel | Non-passive capture blocker; allow only real overflow scrollers inside dialogs — **not** blanket `data-lenis-prevent` / `data-h-scroll` |
+| CSS | Overlay lock rules must beat `overflow-y: auto !important` scrollport (explicit `overflow-y: hidden !important` after) |
+| Unlock | `unlockLenisPointer()` must **not** clear overflow while overlay locked |
 
 #### Other scroll/click rules
 
 | Rule | Detail |
 |------|--------|
-| Lenis (legacy) | If Lenis remounted: `LenisScrollLock` + `LenisPointerGuard` (freeze inertia only on interactive targets) |
+| Lenis helpers | `LenisPointerGuard` — freeze inertia only on interactive targets |
 | Mobile dock | `MobileBottomNav` hides when `scrollLockCount > 0` |
-| Boot script | `windows-native-scroll-script.ts` — clear stale Lenis classes; never set `overflow:hidden` on html/body at boot |
+| Boot script | `windows-native-scroll-script.ts` — clear stale Lenis classes; never boot `overflow:hidden` on html/body |
 | PDP press | Opacity-only (`--press-scale: 1`) |
-| ScrollTo | Prefer native `window`/`scrollingElement` while engine=`native`; Lenis `scrollTo` only if Lenis context exists |
+| ScrollTo | Native → `window`/`scrollingElement`; Lenis context → `lenis.scrollTo` (never mix `scrollIntoView` + Lenis) |
 
-If owner says **“wheel scroll kore na / trackpad kaj kore na”** → check dual scrollport CSS first (`body` overflow-x:hidden), then overlay lock, then Lenis remount.
+If owner says **“wheel scroll kore na / mid-page atke”** → dual scrollport CSS, then rail `virtualScroll`, then overlay lock, then confirm engine (`data-scroll-engine`).
 
-If owner says **“scroll click jump / miss click”** → keep **native scroll** + opacity-only press (`--press-scale: 1`); never `scrollIntoView({ behavior:'smooth' })` on PDP while clicking; never Lenis + native `scrollIntoView` mix.
+If owner says **“scroll click jump / miss click”** → opacity-only press; never `scrollIntoView({ behavior:'smooth' })` on PDP click; Lenis → use `lenis.scrollTo`.
 
-If owner says “click lagge na” → pointer unlock + scrollLockCount.
+If owner says “click lagge na” → pointer unlock + `scrollLockCount`.
+
+**Do not** force “native everywhere” or “Lenis on Windows” without explicit owner ask.
 
 ### Speed / perf (owner lock — 2026-07-16)
 
@@ -238,7 +262,7 @@ If owner says “click lagge na” → pointer unlock + scrollLockCount.
 | Auth earth | `AuthEarthBackground` no-op; login/signup light glow only — Google glass **untouched** |
 | Home story | WhySplaro / WebGL earth off by default (`homepage.ourStory: false`) |
 | Homepage catalog | `getStorefrontCatalogPreview()` — SSR **8 products**, not full catalog |
-| Scroll engine | Native everywhere — do not re-enable Lenis on Mac “for luxury” without measuring Windows wheel |
+| Scroll engine | **Final 2026-07-21:** Mac/Linux fine desktop → Lenis; Windows/mobile/lite → native. Never Lenis on Windows |
 | First paint | Prefer local WebP heroes; skip blocking banner API on home first byte when defaults exist |
 | Session/cart | Defer hydrators past first paint (`requestIdleCallback`) |
 
@@ -252,7 +276,7 @@ If owner says “click lagge na” → pointer unlock + scrollLockCount.
 | Catalog SSR | `apps/web/src/lib/catalog/` (`getStorefrontCatalogPreview` for home) |
 | Cart store | `apps/web/src/store/cartStore.ts` |
 | Layout chrome | `components/layout/StorefrontChrome.tsx`, `Header/`, `Footer/` |
-| Scroll engine | `SmoothScroll.tsx`, `globe-performance.ts` `shouldUseNativeScroll`, `globals.css` native rules |
+| Scroll engine | `SmoothScroll.tsx`, `LenisSmoothScrollInner.tsx`, `lib/motion/scroll.ts`, `globe-performance.ts` `shouldUseNativeScroll`, `GlobalDeviceUx.tsx` overlay lock, `globals.css` |
 | Footer earth (unused) | `components/footer/EarthBackdrop.tsx` + `styles/earth-backdrop.css` — keep frozen; **not mounted** |
 | Currency | `lib/utils/currency.ts` → `formatBDT()` |
 | Delivery zones | `packages/config/src/delivery-zones.ts` |
@@ -394,7 +418,7 @@ Code: `apps/api/src/modules/courier/`, `orders/order-status.service.ts`, `common
 - Scroll hang: `apps/web/src/lib/hydration/windows-native-scroll-script.ts`
 - Hard refresh: `Ctrl+Shift+R`
 - **Never `npm install` at repo root** — use `pnpm install`. Guard: `scripts/only-pnpm.mjs` (`preinstall`). Swiper lives in `apps/web` (`pnpm --dir apps/web add swiper` if needed).
-- **Scroll (2026-07-17):** Mac / Linux desktop → Lenis again (lerp ~0.075) with freeze fixes: no `data-lenis-prevent` on product rails, `autoResize: true`, aggressive height sync. **Windows / mobile / lite** → always native. Never Lenis on Windows.
+- **Scroll (owner final 2026-07-21):** Mac / Linux fine desktop → Lenis (`lerp ~0.085`, rail-safe `virtualScroll`, no blanket `data-h-scroll` prevent). **Windows / mobile / lite / reduced-motion** → native. Never Lenis on Windows. Overlay: body `position:fixed` pin + `LenisScrollLock` restore via `lastLenisScrollY`.
 
 
 ## Department mega menus (Men / Women) — locked (2026-07-17)

@@ -1,11 +1,38 @@
 import type { Transition, Variants } from '@/lib/motion/react'
-import { EASE_EXPO_OUT, REVEAL_ENTER, fadeUpSoft, pageEnter } from './config'
+import {
+  DURATION,
+  EASE_EXPO_OUT,
+  EXIT,
+  MICRO,
+  MEDIA,
+  PAGE_ENTER,
+  PANEL_ENTER,
+  PRESS_DOWN,
+  REVEAL_ENTER,
+  SETTLE,
+  fadeUpSoft,
+  pageEnter,
+} from './config'
 
-export { pageEnter, fadeUpSoft }
+export {
+  pageEnter,
+  fadeUpSoft,
+  DURATION,
+  EASE_EXPO_OUT,
+  EXIT,
+  MICRO,
+  MEDIA,
+  PAGE_ENTER,
+  PANEL_ENTER,
+  PRESS_DOWN,
+  REVEAL_ENTER,
+  SETTLE,
+}
 
-export const SPRING = { type: 'tween' as const, duration: 0.22, ease: EASE_EXPO_OUT }
+/** @deprecated Prefer MICRO — kept for call sites expecting SPRING shape */
+export const SPRING = { type: 'tween' as const, duration: DURATION.base, ease: EASE_EXPO_OUT }
 
-export const EXPO_OUT: Transition = { ease: EASE_EXPO_OUT, duration: 0.6 }
+export const EXPO_OUT: Transition = PANEL_ENTER
 
 export const fadeUp: Variants = {
   hidden: { opacity: 0, y: 24 },
@@ -36,25 +63,25 @@ export const staggerContainer: Variants = {
 
 export const fadeUpPage = {
   initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0, transition: EXPO_OUT },
-  exit: { opacity: 0, y: -10, transition: { duration: 0.18, ease: EASE_EXPO_OUT } },
+  animate: { opacity: 1, y: 0, transition: PAGE_ENTER },
+  exit: { opacity: 0, y: -10, transition: EXIT },
 }
 
 /** Enter/exit pop — AnimatePresence swaps (add-to-bag, cart lines, status chips) */
 export const exitPop: Variants = {
   initial: { opacity: 0, scale: 0.88 },
-  animate: { opacity: 1, scale: 1, transition: { duration: 0.24, ease: EASE_EXPO_OUT } },
-  exit: { opacity: 0, scale: 0.88, transition: { duration: 0.2, ease: EASE_EXPO_OUT } },
+  animate: { opacity: 1, scale: 1, transition: MICRO },
+  exit: { opacity: 0, scale: 0.88, transition: EXIT },
 }
 
-/** Hover/tap — opacity only (sharp: no scale/translate jump). */
+/** Hover/tap — barely-there opacity (image crossfade carries the luxury cue). */
 export const cardHover = {
-  whileHover: { opacity: 0.94, transition: { duration: 0.2, ease: EASE_EXPO_OUT } },
-  whileTap: { opacity: 0.88, transition: { duration: 0.1, ease: EASE_EXPO_OUT } },
+  whileHover: { opacity: 0.99, transition: SETTLE },
+  whileTap: { opacity: 0.96, transition: PRESS_DOWN },
 }
 
 /** Shared press — use instead of `whileTap: { scale: 0.992 }`. */
-export const pressTap = { opacity: 0.9, transition: { duration: 0.1, ease: EASE_EXPO_OUT } }
+export const pressTap = { opacity: 0.9, transition: PRESS_DOWN }
 
 export const revealVariants = {
   fadeUp,

@@ -9,13 +9,9 @@ import { useStorefrontSettings } from '@/components/providers/StorefrontSettings
 import { cn } from '@/lib/utils/cn'
 import { MegaMenu } from './MegaMenu'
 import type { MegaMenuConfig } from '@/lib/storefront/settings'
+import { isNavActive } from '@/lib/navigation/is-nav-active'
 
 const CLOSE_DELAY_MS = 150
-
-function isNavActive(pathname: string, href: string) {
-  if (href === '/') return pathname === '/'
-  return pathname === href || pathname.startsWith(`${href}/`)
-}
 
 interface NavigationProps {
   onMegaMenuChange?: (open: boolean) => void

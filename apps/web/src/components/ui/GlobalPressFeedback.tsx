@@ -18,8 +18,8 @@ const PRESS_SELECTOR = [
 /** Soft press — opacity only, never scale (no click “jump”). */
 const PRESS_DOWN_OPACITY = 0.95
 const PRESS_REST_OPACITY = 1
-const DOWN_MS = 100
-const RELEASE_MS = 200
+const DOWN_MS = 110
+const RELEASE_MS = 220
 const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)'
 
 /** Skip elements that manage their own tap motion (Motion) or opt out. */

@@ -17,6 +17,7 @@ export default async function ShopPage() {
 
   return (
     <ShopExperience
+      key="shop:all"
       initialCatalog={catalog}
       listingMode="paged"
       showCollections={false}

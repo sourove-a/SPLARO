@@ -5,13 +5,12 @@ import { usePathname } from 'next/navigation'
 import { useScrollPastViewport, useScrollToTop } from '@/hooks/useScrollY'
 import { motion, AnimatePresence } from '@/lib/motion/react'
 import { ChevronUp } from 'lucide-react'
+import { MICRO } from '@/lib/motion/config'
 import { cn } from '@/lib/utils/cn'
 import { SupportBubbleIcon } from '@/components/ui/LuxuryIcons'
 import { useUiStore } from '@/store/uiStore'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { resolveWhatsAppNumber, whatsAppHref } from '@/lib/storefront/contact'
-
-const EASE = [0.16, 1, 0.3, 1] as const
 
 export function FloatingSystem() {
   const pathname = usePathname()
@@ -54,7 +53,7 @@ export function FloatingSystem() {
             exit={{ opacity: 0, y: 8, scale: 0.9 }}
             whileHover={{ opacity: 0.9 }}
             whileTap={{ opacity: 0.9 }}
-            transition={{ duration: 0.2, ease: EASE }}
+            transition={MICRO}
             className="support-glass-btn support-glass-btn--circle support-glass-btn--scroll"
           >
             <span className="support-glass-btn__shine" aria-hidden="true" />
@@ -73,7 +72,7 @@ export function FloatingSystem() {
           animate={{ opacity: 1, y: 0 }}
           whileHover={{ opacity: 0.92 }}
           whileTap={{ opacity: 0.9 }}
-          transition={{ duration: 0.2, ease: EASE }}
+          transition={MICRO}
           className={cn('support-glass-btn support-glass-btn--main support-glass-btn--pulse')}
         >
           <span className="support-glass-btn__shine" aria-hidden="true" />

@@ -2,11 +2,12 @@
 
 import { motion, type Variants } from '@/lib/motion/react'
 import type { ReactNode } from 'react'
-import { EASE_EXPO_OUT } from '@/lib/motion/config'
+import { DURATION, EASE_EXPO_OUT, REVEAL_ENTER } from '@/lib/motion/config'
 import { fadeUpSoft, staggerContainer } from '@/lib/motion/variants'
 import { useMotionReady } from '@/hooks/useMotionReady'
 
-export const PRODUCT_GALLERY_MS = 0.38
+/** Gallery swap — between slow and hover on the shared scale */
+export const PRODUCT_GALLERY_MS = DURATION.slow
 
 export const productGalleryEase = EASE_EXPO_OUT
 
@@ -20,7 +21,7 @@ export const productShake: Variants = {
   idle: { x: 0 },
   shake: {
     x: [0, -7, 7, -5, 5, -2, 0],
-    transition: { duration: 0.45, ease: EASE_EXPO_OUT },
+    transition: REVEAL_ENTER,
   },
 }
 
@@ -82,7 +83,7 @@ export function ProductFadeSwap({
       initial={{ opacity: 0, y: 5 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
-      transition={{ duration: 0.22, ease: EASE_EXPO_OUT }}
+      transition={{ duration: DURATION.base, ease: EASE_EXPO_OUT }}
     >
       {children}
     </motion.span>

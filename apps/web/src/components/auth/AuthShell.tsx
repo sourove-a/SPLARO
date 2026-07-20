@@ -12,6 +12,7 @@ import {
   getAuthReturnPath,
   isAuthPath,
 } from '@/lib/auth/auth-return'
+import { useAuthStore } from '@/store/authStore'
 
 interface AuthShellProps {
   children: ReactNode
@@ -43,6 +44,7 @@ function sameOriginNonAuthReferrer(): string | null {
 
 export function AuthShell({ children, hideSkipLink = false }: AuthShellProps) {
   const router = useRouter()
+  const signOut = useAuthStore((s) => s.signOut)
   const [skipCheckoutLink, setSkipCheckoutLink] = useState(hideSkipLink)
   const [returnPath, setReturnPath] = useState('/')
 
@@ -62,25 +64,49 @@ export function AuthShell({ children, hideSkipLink = false }: AuthShellProps) {
     setSkipCheckoutLink(next === '/checkout')
   }, [hideSkipLink])
 
+  /**
+   * Incomplete Google signup leaves a half session (cookie + needsPhone, no Customer).
+   * Clear it on leave so account/checkout don't look "broken."
+   */
+  const clearIncompleteGoogleSession = async () => {
+    const user = useAuthStore.getState().user
+    if (user?.needsPhone) {
+      await signOut()
+    }
+  }
+
   /** Leave auth with SPA navigation; hard reload creates visible flash. */
   const leaveAuth = () => {
-    const dest = returnPath || '/'
-    clearAuthReturnPath()
-    safeClientNavigate(router, dest, 'replace')
+    void (async () => {
+      await clearIncompleteGoogleSession()
+      const dest = returnPath || '/'
+      clearAuthReturnPath()
+      safeClientNavigate(router, dest, 'replace')
+    })()
   }
 
   const handleBack = () => {
-    const referrer = sameOriginNonAuthReferrer()
-    if (referrer) {
+    void (async () => {
+      await clearIncompleteGoogleSession()
+      const referrer = sameOriginNonAuthReferrer()
+      if (referrer) {
+        clearAuthReturnPath()
+        safeClientNavigate(router, referrer, 'replace')
+        return
+      }
+      const dest = returnPath || '/'
       clearAuthReturnPath()
-      safeClientNavigate(router, referrer, 'replace')
-      return
-    }
-    leaveAuth()
+      safeClientNavigate(router, dest, 'replace')
+    })()
   }
 
   return (
-    <main id="main-content" className="auth-shell auth-template-enter" tabIndex={-1}>
+    <main
+      id="main-content"
+      className="auth-shell auth-template-enter"
+      tabIndex={-1}
+      data-lenis-prevent
+    >
       <div className="auth-shell__glow" aria-hidden="true" />
 
       {/* Plain buttons — framer motion wrappers were swallowing Close Link clicks. */}

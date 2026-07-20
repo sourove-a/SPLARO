@@ -1,6 +1,8 @@
+import { DURATION, EASE_EXPO_OUT, MICRO } from '@/lib/motion/config'
 import type { Transition } from '@/lib/motion/react'
 
-export const checkoutEase = [0.16, 1, 0.3, 1] as const
+/** @deprecated Prefer EASE_EXPO_OUT from @/lib/motion/config */
+export const checkoutEase = EASE_EXPO_OUT
 
 export function checkoutSectionMotion(reduced: boolean | null) {
   return reduced
@@ -12,9 +14,12 @@ export function checkoutSectionMotion(reduced: boolean | null) {
       }
 }
 
-export function checkoutMotionTransition(reduced: boolean | null, ms = 0.24): Transition {
-  return reduced ? { duration: 0 } : { duration: ms, ease: checkoutEase }
+export function checkoutMotionTransition(
+  reduced: boolean | null,
+  ms: number = DURATION.base,
+): Transition {
+  return reduced ? { duration: 0 } : { duration: ms, ease: EASE_EXPO_OUT }
 }
 
-export const checkoutTapSpring = { opacity: 0.9 }
-export const checkoutHoverLift = { opacity: 0.92 }
+export const checkoutTapSpring = { opacity: 0.9, transition: MICRO }
+export const checkoutHoverLift = { opacity: 0.92, transition: MICRO }

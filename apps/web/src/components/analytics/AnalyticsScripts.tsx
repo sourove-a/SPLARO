@@ -19,7 +19,9 @@ export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
   // property in the same browser session; DB is only the fallback.
   const GA_ID = envGa ? '' : dbGa
   const rawFbPixelId = marketing?.facebookPixelId?.trim() || ENV_FB_PIXEL_ID.trim()
-  const FB_PIXEL_ID = /^\d+$/.test(rawFbPixelId) ? rawFbPixelId : ''
+  // Dev/local audits hit Meta CDN 503s — only ship the pixel in production builds.
+  const FB_PIXEL_ID =
+    process.env.NODE_ENV === 'production' && /^\d+$/.test(rawFbPixelId) ? rawFbPixelId : ''
   const serializedGaId = JSON.stringify(GA_ID)
   const serializedFbPixelId = JSON.stringify(FB_PIXEL_ID)
 

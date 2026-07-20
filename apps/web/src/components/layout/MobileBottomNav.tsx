@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useState, type SVGProps } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from '@/lib/motion/react'
-import { Home, ShoppingBag, Store, User } from 'lucide-react'
+import { DURATION, EASE_EXPO_OUT, EXIT } from '@/lib/motion/config'
 import { cn } from '@/lib/utils/cn'
 import { useAuthStore } from '@/store/authStore'
 import { useCartStore } from '@/store/cartStore'
@@ -25,21 +25,117 @@ const SHOP_PREFIXES = [
   '/footwear',
 ]
 
+type NavIconProps = SVGProps<SVGSVGElement> & { active?: boolean }
+
+/** ILYN-style: light dock, no black pill — solid ink when active, soft outline when idle. */
+function HomeNavIcon({ active, ...props }: NavIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden {...props}>
+      <path
+        d="M4.6 10.7 12 4.9l7.4 5.8V19a1.2 1.2 0 0 1-1.2 1.2h-3.5v-4.8h-5.4V20.2H5.8A1.2 1.2 0 0 1 4.6 19V10.7Z"
+        stroke="currentColor"
+        strokeWidth={1.7}
+        strokeLinejoin="round"
+        fill={active ? 'currentColor' : 'none'}
+      />
+    </svg>
+  )
+}
+
+/** Boutique storefront — peaked roof + arched door. */
+function ShopNavIcon({ active, ...props }: NavIconProps) {
+  const cut = active ? '#f7f7f8' : 'currentColor'
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden {...props}>
+      <path
+        d="M4.4 10.1 12 4.6l7.6 5.5"
+        stroke="currentColor"
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5.55 10.1h12.9v8.35a1.25 1.25 0 0 1-1.25 1.25H6.8a1.25 1.25 0 0 1-1.25-1.25V10.1Z"
+        stroke="currentColor"
+        strokeWidth={1.7}
+        strokeLinejoin="round"
+        fill={active ? 'currentColor' : 'none'}
+      />
+      <path
+        d="M9.55 19.7v-5.05a2.45 2.45 0 0 1 4.9 0V19.7"
+        stroke={cut}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        fill={active ? cut : 'none'}
+      />
+      <path
+        d="M7.15 12.35h2.05M14.8 12.35h2.05"
+        stroke={cut}
+        strokeWidth={1.55}
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+/** Solid bag + light handle notch when active — matches reference. */
+function BagNavIcon({ active, ...props }: NavIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden {...props}>
+      <path
+        d="M7.35 8.55h9.3l.65 9.85a1.25 1.25 0 0 1-1.25 1.35H7.95a1.25 1.25 0 0 1-1.25-1.35l.65-9.85Z"
+        stroke="currentColor"
+        strokeWidth={1.7}
+        strokeLinejoin="round"
+        fill={active ? 'currentColor' : 'none'}
+      />
+      <path
+        d="M9.2 8.55V7.2a2.8 2.8 0 0 1 5.6 0v1.35"
+        stroke={active ? '#fff' : 'currentColor'}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function AccountNavIcon({ active, ...props }: NavIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden {...props}>
+      <circle
+        cx="12"
+        cy="8.1"
+        r="3.05"
+        stroke="currentColor"
+        strokeWidth={1.7}
+        fill={active ? 'currentColor' : 'none'}
+      />
+      <path
+        d="M5.8 18.85c.85-2.7 2.95-4.15 6.2-4.15s5.35 1.45 6.2 4.15"
+        stroke="currentColor"
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        fill={active ? 'currentColor' : 'none'}
+      />
+    </svg>
+  )
+}
+
 /** Mobile dock: Home · Shop · Bag · Account — equal 4-col */
 const BASE_ITEMS = [
-  { id: 'home', href: '/', label: 'Home', icon: Home, match: (path: string) => path === '/' },
+  { id: 'home', href: '/', label: 'Home', icon: HomeNavIcon, match: (path: string) => path === '/' },
   {
     id: 'shop',
     href: '/shop',
     label: 'Shop',
-    icon: Store,
+    icon: ShopNavIcon,
     match: (path: string) => SHOP_PREFIXES.some((prefix) => path.startsWith(prefix)),
   },
   {
     id: 'bag',
     href: '/cart',
     label: 'Bag',
-    icon: ShoppingBag,
+    icon: BagNavIcon,
     match: (path: string) => path === '/cart' || path.startsWith('/cart/'),
   },
 ] as const
@@ -51,13 +147,13 @@ const ACCOUNT_MATCH = (path: string) =>
 const LOGIN_HREF = '/login?next=%2Faccount'
 
 const dockMotion = {
-  hidden: { y: 10, opacity: 0 },
+  hidden: { y: 4, opacity: 0 },
   show: {
     y: 0,
     opacity: 1,
-    transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] as const },
+    transition: { duration: DURATION.fast, ease: EASE_EXPO_OUT },
   },
-  exit: { y: 8, opacity: 0, transition: { duration: 0.16, ease: [0.4, 0, 1, 1] as const } },
+  exit: { y: 4, opacity: 0, transition: EXIT },
 }
 
 export function MobileBottomNav() {
@@ -81,6 +177,7 @@ export function MobileBottomNav() {
 
   useEffect(() => {
     router.prefetch('/cart')
+    router.prefetch('/shop')
     if (signedIn) return
     router.prefetch('/login')
     router.prefetch(LOGIN_HREF)
@@ -99,12 +196,10 @@ export function MobileBottomNav() {
       id: 'account' as const,
       href: accountHref,
       label: 'Account',
-      icon: User,
+      icon: AccountNavIcon,
       match: ACCOUNT_MATCH,
     },
   ]
-
-  const activeIndex = items.findIndex((item) => item.match(pathname))
 
   return createPortal(
     <AnimatePresence>
@@ -120,14 +215,6 @@ export function MobileBottomNav() {
           variants={dockMotion}
         >
           <div className="mobile-bottom-nav__inner">
-            {/* One pill only — CSS translate, no layoutId ghost/glitch */}
-            {activeIndex >= 0 ? (
-              <span
-                className="mobile-bottom-nav__active-pill"
-                aria-hidden
-                style={{ '--nav-active-i': activeIndex } as CSSProperties}
-              />
-            ) : null}
             {items.map((item) => {
               const Icon = item.icon
               const active = item.match(pathname)
@@ -149,7 +236,7 @@ export function MobileBottomNav() {
                   }
                 >
                   <span className="mobile-bottom-nav__icon-wrap">
-                    <Icon className="mobile-bottom-nav__icon" strokeWidth={active ? 2.25 : 1.7} />
+                    <Icon className="mobile-bottom-nav__icon" active={active} />
                     {showCartBadge ? (
                       <span className="mobile-bottom-nav__badge mobile-bottom-nav__badge--cart">
                         {cartCount > 99 ? '99+' : cartCount}

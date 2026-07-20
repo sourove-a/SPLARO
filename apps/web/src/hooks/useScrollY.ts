@@ -167,6 +167,11 @@ export function useScrollPastViewport(ratio = 0.55) {
 
 export function useScrollToTop() {
   return () => {
+    const html = document.documentElement
+    if (html.getAttribute('data-scroll-engine') === 'lenis') {
+      window.scrollTo({ top: 0, behavior: 'auto' })
+      return
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 }

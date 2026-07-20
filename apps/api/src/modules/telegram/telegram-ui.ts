@@ -125,16 +125,26 @@ export function inlineFinanceMenu(): InlineKeyboardMarkup {
   }
 }
 
-export function orderActionKeyboard(invoiceNumber: string): InlineKeyboardMarkup {
-  return {
-    inline_keyboard: [
-      [
-        { text: '✅ Confirm', callback_data: orderCallback('confirm', invoiceNumber) },
-        { text: '🚚 Book Courier', callback_data: orderCallback('courier', invoiceNumber) },
-      ],
-      [{ text: '📦 Track Order', callback_data: orderCallback('track', invoiceNumber) }],
+export function orderActionKeyboard(
+  invoiceNumber: string,
+  links?: { adminOrderUrl?: string; storefrontUrl?: string },
+): InlineKeyboardMarkup {
+  const rows: InlineKeyboardButton[][] = [
+    [
+      { text: '✅ Confirm', callback_data: orderCallback('confirm', invoiceNumber) },
+      { text: '🚚 Book Courier', callback_data: orderCallback('courier', invoiceNumber) },
     ],
+    [{ text: '📦 Track Order', callback_data: orderCallback('track', invoiceNumber) }],
+  ]
+  const linkRow: InlineKeyboardButton[] = []
+  if (links?.adminOrderUrl) {
+    linkRow.push({ text: '🖥 Open in Admin', url: links.adminOrderUrl })
   }
+  if (links?.storefrontUrl) {
+    linkRow.push({ text: '🌐 Store', url: links.storefrontUrl })
+  }
+  if (linkRow.length) rows.push(linkRow)
+  return { inline_keyboard: rows }
 }
 
 export function loginCopyKeyboard(code: string): InlineKeyboardMarkup {

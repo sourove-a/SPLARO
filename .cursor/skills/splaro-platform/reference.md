@@ -16,6 +16,15 @@ Env: `.env.example` — never commit real secrets.
 
 **Code fix complete → ask owner → ONE push/deploy only after yes.** Never mid-fix Deploy VPS. Never ship because “batch looks done” — wait for `push koro` / `deploy koro`. Local `tsc`/lint/dev OK without asking.
 
+## Scroll engine (owner final — 2026-07-21)
+
+| Surface | Engine |
+|---------|--------|
+| Mac / Linux fine desktop | **Lenis** — `LenisSmoothScrollInner`, `lerp ~0.085`, rail-safe |
+| Windows / mobile / lite / reduced-motion | **Native** — never Lenis on Windows |
+
+Gate: `shouldUseNativeScroll()` (`globe-performance.ts`). Full rules: `SKILL.md` → Scroll + click.
+
 ## Package scripts (root)
 
 ```bash
@@ -140,15 +149,16 @@ Do not: `window.open(..., 'noopener')` for blank docs; await-then-open; put cuid
 | CSS broken in admin | `pnpm css:fix` + restart |
 | Windows `db:*` / `doctor` fails | Use cross-platform scripts (`db-run.mjs`, `spawn-utils.mjs`) — no bash needed |
 | Windows port stuck / Ctrl+C zombies | `pnpm dev:reset` + `taskkill /T` via `killProcessTree` — do not remove `/T` |
-| Windows scroll hang | `windows-native-scroll-script.ts` clears Lenis lock at boot |
+| Windows scroll hang | Windows is **native only** — `windows-native-scroll-script.ts` clears stale Lenis; never remount Lenis on Windows |
+| Mid-page Lenis freeze over rails | Never blanket `prevent` on `[data-h-scroll]` — only horizontal-dominant `virtualScroll` |
+| Click miss while scrolling | `LenisPointerGuard` (Mac Lenis) freezes inertia only on interactive targets — do not remove |
+| Overlay still scrolls / dead click after modal | `uiStore.acquireScrollLock` + `OverlayScrollLockAttr` body pin; Size Guide must not depend on unstable `onClose` identity |
+| Size Guide leaves wrong chart | Modal is category-aware via `resolveSizeGuideKey` — footwear vs apparel |
+| Native scrollIntoView + Lenis | Use `lenis.scrollTo(element)` on PDP when `data-scroll-engine=lenis` — `scrollIntoView` desyncs virtual scroll |
 | Print/PDF “does nothing” | Popup blocked or `noopener` null — sync `window.open` first; see SKILL invoice rules |
 | Invoice footer `www.localhost` | Brand host sanitizer in `splaro-invoice-brand.ts` — restart API after fix |
 | Simulated courier shows BOOKED | Must not persist — check `courier.service.ts` simulated gate |
 | Double Steadfast booking | Redis lock fallthrough — never local-lock when Redis ready |
 | PDP sticky covers footer | Hide floating buy bar when `footer.site-footer` enters viewport — do **not** edit footer files |
-| Click miss while scrolling | `LenisPointerGuard` freezes inertia only on interactive targets — do not remove |
-| Overlay still scrolls / dead click after modal | Use `uiStore.acquireScrollLock` / `releaseScrollLock` (not only `body.overflow=hidden`); Size Guide must not depend on unstable `onClose` identity |
-| Size Guide leaves wrong chart | Modal is category-aware via `resolveSizeGuideKey` — footwear vs apparel |
-| Native scrollIntoView + Lenis | Use `lenis.scrollTo(element)` on PDP — `scrollIntoView` desyncs virtual scroll |
 | Google Continue = double G | Hidden GIS was under glass at `opacity: 0.02` — keep `.auth-google-glass__hidden` off-screen; one SVG mark only |
 | Homepage slow vs fast storefronts | Logo PNG 500KB+ / Unsplash @1920 / dead `cdn.splaro.co` — use WebP heroes+logos; skip dead CDN hosts |

@@ -30,7 +30,8 @@ export async function fetchStorefrontAuthConfig(): Promise<StorefrontAuthConfigP
     return {
       phoneOtpEnabled: Boolean(payload.phoneOtpEnabled),
       googleClientId,
-      googleSignInEnabled: Boolean(payload.googleSignInEnabled) || Boolean(googleClientId),
+      // Enable from NEXT_PUBLIC bake-in / config flag only — never admin GOOGLE_CLIENT_ID.
+      googleSignInEnabled: Boolean(payload.googleSignInEnabled) || Boolean(bakedGoogle),
     }
   } catch {
     return {

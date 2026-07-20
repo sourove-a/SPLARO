@@ -22,7 +22,9 @@ import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap'
 import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
+import { isNavActive } from '@/lib/navigation/is-nav-active'
 import { cn } from '@/lib/utils/cn'
+import { usePathname } from 'next/navigation'
 
 interface MobileMenuProps {
   isOpen: boolean
@@ -55,6 +57,7 @@ function GlassNavIcon({ label, href }: { label: string; href: string }) {
 }
 
 export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
+  const pathname = usePathname()
   const settings = useStorefrontSettings()
   const navItems = (settings.config.headerNav ?? []).filter((item) => !item.hidden)
   const [openLabel, setOpenLabel] = useState<string | null>(null)
@@ -194,6 +197,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             animate="show"
             exit="exit"
             className="mm-drawer mm-drawer--left z-menu-panel fixed inset-y-0 left-0 flex flex-col"
+            data-lenis-prevent
             onTouchStart={handleDrawerTouchStart}
             onTouchEnd={handleDrawerTouchEnd}
           >
@@ -244,6 +248,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 {navItems.map((navItem) => {
                   const subs = navItem.megaMenu?.categories ?? []
                   const expanded = openLabel === navItem.label
+                  const active = isNavActive(pathname, navItem.href)
 
                   return (
                     <motion.li key={navItem.label} variants={itemMotion} className="mm-drawer__group">
@@ -254,9 +259,11 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                             className={cn(
                               'mm-drawer__glass mm-drawer__glass--btn',
                               expanded && 'mm-drawer__glass--open',
+                              active && 'mm-drawer__glass--active',
                             )}
                             onClick={() => setOpenLabel(expanded ? null : navItem.label)}
                             aria-expanded={expanded}
+                            aria-current={active ? 'page' : undefined}
                             {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
                             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                           >
@@ -298,22 +305,33 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                                     <Link
                                       href={navItem.href}
                                       onClick={onClose}
-                                      className="mm-drawer__sub-link mm-drawer__sub-link--all"
+                                      className={cn(
+                                        'mm-drawer__sub-link mm-drawer__sub-link--all',
+                                        isNavActive(pathname, navItem.href) && 'mm-drawer__sub-link--active',
+                                      )}
+                                      aria-current={isNavActive(pathname, navItem.href) ? 'page' : undefined}
                                     >
                                       All {navItem.label}
                                     </Link>
                                   </motion.div>
-                                  {subs.map((sub) => (
-                                    <motion.div key={sub.href} variants={subItem}>
-                                      <Link
-                                        href={sub.href}
-                                        onClick={onClose}
-                                        className="mm-drawer__sub-link"
-                                      >
-                                        {sub.label}
-                                      </Link>
-                                    </motion.div>
-                                  ))}
+                                  {subs.map((sub) => {
+                                    const subActive = isNavActive(pathname, sub.href)
+                                    return (
+                                      <motion.div key={sub.href} variants={subItem}>
+                                        <Link
+                                          href={sub.href}
+                                          onClick={onClose}
+                                          className={cn(
+                                            'mm-drawer__sub-link',
+                                            subActive && 'mm-drawer__sub-link--active',
+                                          )}
+                                          aria-current={subActive ? 'page' : undefined}
+                                        >
+                                          {sub.label}
+                                        </Link>
+                                      </motion.div>
+                                    )
+                                  })}
                                 </motion.div>
                               </motion.div>
                             ) : null}
@@ -324,7 +342,12 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                           {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
                           transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                         >
-                          <Link href={navItem.href} onClick={onClose} className="mm-drawer__glass">
+                          <Link
+                            href={navItem.href}
+                            onClick={onClose}
+                            className={cn('mm-drawer__glass', active && 'mm-drawer__glass--active')}
+                            aria-current={active ? 'page' : undefined}
+                          >
                             <GlassNavIcon label={navItem.label} href={navItem.href} />
                             <span className="mm-drawer__glass-label">{navItem.label}</span>
                             <ChevronRight className="mm-drawer__chevron-icon h-3.5 w-3.5" strokeWidth={2} />

@@ -8,10 +8,7 @@ import { Check, ChevronDown } from 'lucide-react'
 import { AnimatePresence, m, useReducedMotion } from '@/lib/motion/react'
 import { cn } from '@/lib/utils/cn'
 
-/** Luxury ease — soft settle, no bounce / jump */
-const EASE_PREMIUM = [0.16, 1, 0.3, 1] as const
-const OPEN_MS = 0.36
-const CLOSE_MS = 0.24
+import { DURATION, EASE_EXPO_OUT, MICRO, SETTLE } from '@/lib/motion/config'
 
 interface ShopFilterDropdownProps {
   label: string
@@ -130,7 +127,7 @@ export function ShopFilterDropdown({
         initial: { opacity: 0 },
         animate: { opacity: 1 },
         exit: { opacity: 0 },
-        transition: { duration: 0.12 },
+        transition: { duration: DURATION.press },
       }
     : {
         // Unfolds from the trigger — soft settle, no teleport / spring thud
@@ -150,15 +147,14 @@ export function ShopFilterDropdown({
           scaleY: 0.94,
         },
         transition: {
-          duration: OPEN_MS,
-          ease: EASE_PREMIUM,
-          opacity: { duration: OPEN_MS * 0.75, ease: EASE_PREMIUM },
+          ...SETTLE,
+          opacity: { duration: DURATION.base, ease: EASE_EXPO_OUT },
         },
       }
 
   const exitTransition = reducedMotion
-    ? { duration: 0.1 }
-    : { duration: CLOSE_MS, ease: EASE_PREMIUM }
+    ? { duration: DURATION.press }
+    : MICRO
 
   return (
     <div ref={rootRef} className={cn('shop-filter-dropdown', open && 'shop-filter-dropdown--open')}>
@@ -191,7 +187,7 @@ export function ShopFilterDropdown({
           className="shop-filter-dropdown__chevron"
           aria-hidden
           animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.32, ease: EASE_PREMIUM }}
+          transition={SETTLE}
         >
           <ChevronDown className="h-3.5 w-3.5" strokeWidth={2.2} />
         </m.span>
@@ -212,6 +208,7 @@ export function ShopFilterDropdown({
                   id={panelId}
                   role="presentation"
                   className="shop-filter-dropdown__panel shop-filter-dropdown__panel--glass shop-filter-dropdown__panel--portal"
+                  data-lenis-prevent
                   style={{
                     position: 'fixed',
                     zIndex: 90,

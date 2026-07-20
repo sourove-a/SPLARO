@@ -159,6 +159,7 @@ export class InvoiceService {
         storeName: store.storeName,
       }),
       text: `Your SPLARO invoice ${order.invoiceNumber} total ${Number(order.total).toLocaleString()} BDT.`,
+      transactional: true,
     })
 
     if (sent) {

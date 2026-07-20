@@ -9,7 +9,11 @@ export const metadata: Metadata = {
 
 export default function ForgotPasswordPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <div className="auth-card auth-card--loading" aria-busy="true" aria-label="Loading reset form" />
+      }
+    >
       <ForgotPasswordPageClient />
     </Suspense>
   )

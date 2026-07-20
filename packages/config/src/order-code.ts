@@ -47,15 +47,22 @@ export function displayOrderCode(
   return 'Order'
 }
 
-/** Tab / SEO title — hides scary CUID slugs. */
+/** Tab / SEO title — never claim “confirmed” until the client verifies the order. */
 export function orderDocumentTitle(idOrInvoice: string): string {
   const raw = idOrInvoice.trim()
-  if (!raw) return 'Order confirmed'
-  if (isSplOrderCode(raw)) return `Order ${raw.toUpperCase()} confirmed`
+  if (!raw) return 'Order status'
+  if (isSplOrderCode(raw)) return `Order ${raw.toUpperCase()}`
   if (!looksLikeInternalOrderId(raw) && raw.length <= 24) {
-    return `Order ${raw.toUpperCase()} confirmed`
+    return `Order ${raw.toUpperCase()}`
   }
-  return 'Order confirmed'
+  return 'Order status'
+}
+
+/** Success tab title after the order payload is verified client-side. */
+export function orderConfirmedDocumentTitle(idOrInvoice: string): string {
+  const base = orderDocumentTitle(idOrInvoice)
+  if (base === 'Order status') return 'Order confirmed'
+  return `${base} confirmed`
 }
 
 export function formatSplOrderCode(sequence: number): string {

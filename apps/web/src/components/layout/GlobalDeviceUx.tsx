@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { unlockLenisPointer } from '@/lib/motion/unlock-lenis-pointer'
 import { applyScrollProfileAttributes, detectScrollProfile } from '@/lib/motion/scroll'
 import { isLowPowerDevice, isWindowsOS } from '@/lib/earth/globe-performance'
@@ -33,21 +33,155 @@ export function DesktopPerfParity() {
 }
 
 /**
+ * Allow wheel/touch only inside a real overflow scroller that still has room.
+ * Never treat `[data-lenis-prevent]` / `[data-h-scroll]` as a free pass — that
+ * chained wheel to the page behind cart/search/menu (F-001).
+ */
+function isScrollableOverflowY(el: HTMLElement): boolean {
+  const { overflowY } = getComputedStyle(el)
+  if (overflowY !== 'auto' && overflowY !== 'scroll' && overflowY !== 'overlay') return false
+  return el.scrollHeight > el.clientHeight + 1
+}
+
+function findScrollableAncestor(start: Element, root: Element): HTMLElement | null {
+  let el: Element | null = start
+  while (el && root.contains(el)) {
+    if (el instanceof HTMLElement && isScrollableOverflowY(el)) return el
+    if (el === root) break
+    el = el.parentElement
+  }
+  return null
+}
+
+function shouldAllowOverlayInnerScroll(target: EventTarget | null, deltaY: number): boolean {
+  if (!(target instanceof Element)) return false
+  if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
+    return true
+  }
+  const pane = target.closest(
+    '[data-overlay-scroll], [role="dialog"], [data-lenis-prevent], [data-lenis-prevent-wheel]',
+  )
+  if (!(pane instanceof Element)) return false
+
+  const scroller = findScrollableAncestor(target, pane)
+  if (!scroller) return false
+
+  const atTop = scroller.scrollTop <= 0
+  const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1
+  if (deltaY < 0 && atTop) return false
+  if (deltaY > 0 && atBottom) return false
+  return true
+}
+
+/**
  * Always mark overlay scroll-lock (even when Lenis is off / native scroll).
- * CSS: html[data-scroll-engine=native][data-scroll-lock=overlay] { overflow:hidden }
- * — Search/Cart/SizeGuide must freeze background wheel on Windows.
+ * CSS + non-passive wheel/touch blockers freeze the page behind overlays.
+ * Body `position:fixed` keeps the visual offset when browsers reset scrollY.
  */
 export function OverlayScrollLockAttr() {
   const locked = useUiStore(
     (s) => s.isMobileMenuOpen || s.isSearchOpen || s.isCartOpen || s.scrollLockCount > 0,
   )
+  const stableScrollY = useRef(0)
+  const unlockScrollY = useRef(0)
+
+  useEffect(() => {
+    let settleTimer = 0
+    const readY = () => {
+      const lenis = (window as Window & { __SPLARO_LENIS?: { scroll?: number } }).__SPLARO_LENIS
+      if (typeof lenis?.scroll === 'number' && Number.isFinite(lenis.scroll)) return lenis.scroll
+      return window.scrollY
+    }
+    const remember = () => {
+      if (document.documentElement.getAttribute('data-scroll-lock') === 'overlay') return
+      const y = readY()
+      if (y > 0) stableScrollY.current = y
+      window.clearTimeout(settleTimer)
+      settleTimer = window.setTimeout(() => {
+        if (document.documentElement.getAttribute('data-scroll-lock') === 'overlay') return
+        stableScrollY.current = readY()
+      }, 120)
+    }
+    // Capture before click/focus can zero scroll (cart icon scrollIntoView, etc.).
+    const onPointerDown = () => {
+      if (document.documentElement.getAttribute('data-scroll-lock') === 'overlay') return
+      const y = readY()
+      if (y > 0) stableScrollY.current = y
+    }
+    stableScrollY.current = readY()
+    window.addEventListener('scroll', remember, { passive: true })
+    document.addEventListener('pointerdown', onPointerDown, true)
+    return () => {
+      window.clearTimeout(settleTimer)
+      window.removeEventListener('scroll', remember)
+      document.removeEventListener('pointerdown', onPointerDown, true)
+    }
+  }, [])
 
   useLayoutEffect(() => {
     const html = document.documentElement
-    if (locked) {
-      html.setAttribute('data-scroll-lock', 'overlay')
-    } else {
+    const body = document.body
+    const lenisEngine = html.getAttribute('data-scroll-engine') === 'lenis'
+    const lenis = (window as Window & { __SPLARO_LENIS?: { scrollTo: (v: number, o?: object) => void; scroll: number } })
+      .__SPLARO_LENIS
+
+    if (!locked) {
+      const y = unlockScrollY.current
       html.removeAttribute('data-scroll-lock')
+      html.removeAttribute('data-scroll-lock-y')
+      html.style.removeProperty('--splaro-scroll-lock-y')
+      body.style.removeProperty('position')
+      body.style.removeProperty('top')
+      body.style.removeProperty('left')
+      body.style.removeProperty('right')
+      body.style.removeProperty('width')
+      if (lenisEngine && lenis) {
+        lenis.scrollTo(y, { immediate: true })
+      } else {
+        window.scrollTo(0, y)
+      }
+      stableScrollY.current = y
+      return
+    }
+
+    const liveY =
+      lenisEngine && typeof lenis?.scroll === 'number' ? lenis.scroll : window.scrollY
+    const freezeY = liveY > 0 ? liveY : Math.max(0, stableScrollY.current)
+    unlockScrollY.current = freezeY
+    html.setAttribute('data-scroll-lock-y', String(freezeY))
+    html.style.setProperty('--splaro-scroll-lock-y', `-${freezeY}px`)
+    html.setAttribute('data-scroll-lock', 'overlay')
+
+    // Pin visually for both engines — Lenis.stop() alone can report scroll=0 and jump the page.
+    body.style.position = 'fixed'
+    body.style.top = `-${freezeY}px`
+    body.style.left = '0'
+    body.style.right = '0'
+    body.style.width = '100%'
+    if (lenisEngine && lenis) {
+      lenis.scrollTo(freezeY, { immediate: true })
+    }
+  }, [locked])
+
+  useEffect(() => {
+    if (!locked) return
+
+    const blockPageWheel = (event: WheelEvent) => {
+      if (shouldAllowOverlayInnerScroll(event.target, event.deltaY)) return
+      event.preventDefault()
+    }
+
+    const blockPageTouch = (event: TouchEvent) => {
+      if (shouldAllowOverlayInnerScroll(event.target, 0)) return
+      event.preventDefault()
+    }
+
+    document.addEventListener('wheel', blockPageWheel, { passive: false, capture: true })
+    document.addEventListener('touchmove', blockPageTouch, { passive: false, capture: true })
+
+    return () => {
+      document.removeEventListener('wheel', blockPageWheel, { capture: true })
+      document.removeEventListener('touchmove', blockPageTouch, { capture: true })
     }
   }, [locked])
 

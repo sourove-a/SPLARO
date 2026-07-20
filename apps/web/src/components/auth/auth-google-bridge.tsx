@@ -12,7 +12,10 @@ import {
 
 type AuthGoogleStep = 'form' | 'google-phone'
 
-const AUTH_GOOGLE_TIMEOUT_MS = 15_000
+/** Must exceed authFetch timeout so the bridge doesn't lie about "timed out" first. */
+const AUTH_GOOGLE_TIMEOUT_MS = 20_000
+const HANDLER_READY_WAIT_MS = 400
+const HANDLER_READY_TRIES = 8
 
 interface AuthGoogleBridgeValue {
   step: AuthGoogleStep
@@ -40,24 +43,38 @@ export function AuthGoogleBridgeProvider({ children }: { children: ReactNode }) 
     [],
   )
 
-  const runGoogleSignIn = useCallback(async (credential: string) => {
-    if (!handlerRef.current) {
-      setGoogleError('Google sign-in is not ready yet. Please try again.')
-      return
+  const waitForHandler = useCallback(async () => {
+    for (let i = 0; i < HANDLER_READY_TRIES; i += 1) {
+      if (handlerRef.current) return handlerRef.current
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, HANDLER_READY_WAIT_MS)
+      })
     }
-    setGoogleLoading(true)
-    setGoogleError('')
-    const timeout = window.setTimeout(() => {
-      setGoogleLoading(false)
-      setGoogleError('Google sign-in timed out — try again.')
-    }, AUTH_GOOGLE_TIMEOUT_MS)
-    try {
-      await handlerRef.current(credential)
-    } finally {
-      window.clearTimeout(timeout)
-      setGoogleLoading(false)
-    }
+    return handlerRef.current
   }, [])
+
+  const runGoogleSignIn = useCallback(
+    async (credential: string) => {
+      const handler = await waitForHandler()
+      if (!handler) {
+        setGoogleError('Google sign-in is not ready yet. Please try again.')
+        return
+      }
+      setGoogleLoading(true)
+      setGoogleError('')
+      const timeout = window.setTimeout(() => {
+        setGoogleLoading(false)
+        setGoogleError('Google sign-in timed out — try again.')
+      }, AUTH_GOOGLE_TIMEOUT_MS)
+      try {
+        await handler(credential)
+      } finally {
+        window.clearTimeout(timeout)
+        setGoogleLoading(false)
+      }
+    },
+    [waitForHandler],
+  )
 
   const value = useMemo(
     () => ({

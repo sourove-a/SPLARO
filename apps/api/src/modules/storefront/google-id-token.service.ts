@@ -15,11 +15,9 @@ export class GoogleIdTokenService {
   private client: OAuth2Client | null = null
 
   private resolveClientId(): string {
-    return (
-      process.env.GOOGLE_OAUTH_CLIENT_ID?.trim() ||
-      process.env.GOOGLE_CLIENT_ID?.trim() ||
-      ''
-    )
+    // Storefront GIS + Nest verify must share GOOGLE_OAUTH_CLIENT_ID.
+    // Do not fall back to GOOGLE_CLIENT_ID (admin / Workspace) — audience mismatch → 401.
+    return process.env.GOOGLE_OAUTH_CLIENT_ID?.trim() || ''
   }
 
   isConfigured(): boolean {

@@ -1,12 +1,19 @@
 'use client'
 
 import { useEffect } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import { reconcileAuthSession } from '@/lib/api/session'
+import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 
 const CRITICAL_AUTH_PATH =
   /^\/(checkout|cart|account|login|signup|forgot-password|reset-password)(\/|$)/
+
+const NEEDS_PHONE_GATE =
+  /^\/(checkout|account)(\/|$)/
+
+/** Survives soft route changes — prevents duplicate /api/auth/me while first reconcile is in flight. */
+let softNavSessionStarted = false
 
 /**
  * Hydrate `/api/auth/me` after paint.
@@ -15,24 +22,38 @@ const CRITICAL_AUTH_PATH =
  */
 export function SessionHydrator() {
   const pathname = usePathname()
+  const router = useRouter()
   const setUser = useAuthStore((state) => state.setUser)
   const setHydrated = useAuthStore((state) => state.setHydrated)
 
   useEffect(() => {
     let cancelled = false
+    const criticalPath = CRITICAL_AUTH_PATH.test(pathname ?? '')
+
+    // Root provider survives soft navigation. Once session was reconciled
+    // (or a non-critical reconcile already started), skip repeated /api/auth/me.
+    if (!criticalPath && (useAuthStore.getState()._hydrated || softNavSessionStarted)) return
+    if (!criticalPath) softNavSessionStarted = true
+
+    const applyUser = (serverUser: Awaited<ReturnType<typeof reconcileAuthSession>>) => {
+      if (cancelled) return
+      if (serverUser === null) {
+        setUser(null)
+        return
+      }
+      setUser(serverUser)
+      // Incomplete Google signup — finish phone before account/checkout.
+      if (serverUser.needsPhone && NEEDS_PHONE_GATE.test(pathname ?? '')) {
+        safeClientNavigate(router, '/signup', 'replace')
+      }
+    }
 
     const run = () => {
       reconcileAuthSession()
-        .then((serverUser) => {
-          if (cancelled) return
-          if (serverUser === null) {
-            setUser(null)
-          } else {
-            setUser(serverUser)
-          }
-        })
+        .then(applyUser)
         .catch(() => {
           // Network/API outage — keep cached user; account page surfaces connection errors.
+          if (!criticalPath) softNavSessionStarted = false
         })
         .finally(() => {
           if (!cancelled) setHydrated()
@@ -55,7 +76,7 @@ export function SessionHydrator() {
       timer = undefined
     }
 
-    if (CRITICAL_AUTH_PATH.test(pathname ?? '')) {
+    if (criticalPath) {
       run()
       return () => {
         cancelled = true
@@ -102,7 +123,7 @@ export function SessionHydrator() {
       cancelled = true
       clearSchedulers()
     }
-  }, [pathname, setHydrated, setUser])
+  }, [pathname, router, setHydrated, setUser])
 
   return null
 }

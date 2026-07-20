@@ -28,7 +28,7 @@ interface ProductQuickViewProps {
   onAddToBag: (size?: string, colorHex?: string) => void
 }
 
-const PANEL_EASE = [0.16, 1, 0.3, 1] as const
+import { MICRO, SETTLE } from '@/lib/motion/config'
 
 export function ProductQuickView({ product, open, onClose, onAddToBag }: ProductQuickViewProps) {
   const reducedMotion = useReducedMotion()
@@ -104,7 +104,7 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
         initial: { x: '100%' },
         animate: { x: '0%' },
         exit: { x: '100%' },
-        transition: { duration: 0.36, ease: PANEL_EASE },
+        transition: SETTLE,
       }
 
   return (
@@ -116,7 +116,7 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.22 }}
+            transition={MICRO}
             className="pqv-backdrop fixed inset-0 z-[58] bg-luxury-black/42 backdrop-blur-[5px]"
             aria-label="Close quick view"
             onClick={onClose}
@@ -144,7 +144,10 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
               </button>
             </div>
 
-            <div className="pqv-panel__body flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+            <div
+              className="pqv-panel__body flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
+              data-lenis-prevent
+            >
               <div className="pqv-gallery relative bg-[#f6f4f1]">
                 <div className="pqv-gallery__stage relative aspect-[4/5] w-full overflow-hidden">
                   {galleryImages[imageIndex] ? (

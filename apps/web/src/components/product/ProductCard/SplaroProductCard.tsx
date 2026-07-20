@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, m, useReducedMotion } from '@/lib/motion/react'
+import { MEDIA, PRESS_DOWN } from '@/lib/motion/config'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import { ProductTransitionLink } from '@/components/product/ProductTransitionLink'
 import { LiquidGlassNavPair } from '@/components/ui/LiquidGlass'
@@ -13,7 +14,6 @@ import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
 import { trackAddToWishlist } from '@/lib/analytics/meta-pixel'
 
-const IMAGE_EASE = [0.16, 1, 0.3, 1] as const
 const IMAGE_SPRING = { type: 'spring' as const, stiffness: 380, damping: 34, mass: 0.82 }
 
 export interface SplaroProductCardProps {
@@ -115,7 +115,7 @@ export function SplaroProductCard({
 
   const imageTransition = reducedMotion
     ? { duration: 0 }
-    : { duration: 0.42, ease: IMAGE_EASE }
+    : MEDIA
 
   const imageEnter = reducedMotion
     ? { opacity: 1 }
@@ -259,7 +259,7 @@ export function SplaroProductCard({
             type="button"
             data-no-press=""
             {...(reducedMotion ? {} : { whileTap: { opacity: 0.9 } })}
-            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            transition={PRESS_DOWN}
             className={cn(
               'splaro-card__wish',
               !isShop && !isHomepage && saved && 'splaro-card__wish--saved',
@@ -287,7 +287,7 @@ export function SplaroProductCard({
                   initial={reducedMotion ? false : { opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   {...(reducedMotion ? {} : { exit: { opacity: 0, scale: 0.8 } })}
-                  transition={{ duration: 0.18 }}
+                  transition={PRESS_DOWN}
                   className="inline-flex"
                 >
                   <Loader2 className="splaro-card__wish-spinner h-3.5 w-3.5 animate-spin" strokeWidth={2} />
@@ -298,7 +298,7 @@ export function SplaroProductCard({
                   initial={reducedMotion ? false : { opacity: 0, scale: 0.85 }}
                   animate={{ opacity: 1, scale: 1 }}
                   {...(reducedMotion ? {} : { exit: { opacity: 0, scale: 0.85 } })}
-                  transition={{ duration: 0.18 }}
+                  transition={PRESS_DOWN}
                   className="inline-flex"
                 >
                   <ShoppingBag size={isHomepage ? 16 : 13} strokeWidth={1.5} />

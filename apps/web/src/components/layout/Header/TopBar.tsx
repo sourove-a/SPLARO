@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { Mail, PackageSearch, Phone, Truck } from 'lucide-react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
+import { DEFAULT_SUPPORT_EMAIL } from '@/lib/storefront/defaults'
 
 const linkClass = 'site-topbar__link'
 
@@ -11,7 +12,7 @@ export function TopBar() {
   const email =
     settings.store.email?.trim() ||
     process.env.NEXT_PUBLIC_SUPPORT_EMAIL ||
-    'support@splaro.co'
+    DEFAULT_SUPPORT_EMAIL
   const phone =
     settings.store.phone?.trim() ||
     process.env.NEXT_PUBLIC_SUPPORT_PHONE?.trim() ||

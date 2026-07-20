@@ -17,6 +17,7 @@ export function CollectionShopClient({
 }: CollectionShopClientProps) {
   return (
     <ShopExperience
+      key={`collection:${slug}`}
       initialCategory={context.initialCategory}
       showCollections={false}
       pageTitle={context.title}

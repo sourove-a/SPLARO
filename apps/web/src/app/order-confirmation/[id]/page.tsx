@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: OrderConfirmationPageProps): 
   const { id } = await params
   return {
     title: orderDocumentTitle(id),
-    description: 'Your SPLARO order has been placed successfully.',
+    description: 'Look up your SPLARO order status.',
   }
 }
 

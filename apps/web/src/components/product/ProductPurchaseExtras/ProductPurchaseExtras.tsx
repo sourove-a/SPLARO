@@ -10,13 +10,14 @@ import type { ProductDetailData } from '@/types/product'
 interface ProductPurchaseExtrasProps {
   product: ProductDetailData
   price: number
-  variant?: 'highlights' | 'trust' | 'payments'
+  variant?: 'highlights' | 'payments'
 }
 
 function materialLine(product: ProductDetailData): string | null {
   const parts: string[] = []
   if (product.fabricContent?.trim()) parts.push(product.fabricContent.trim())
-  if (product.fitType?.trim()) parts.push(`${product.fitType.trim()} fit`)
+  const fit = product.fitType?.trim()
+  if (fit) parts.push(/\bfit\b/i.test(fit) ? fit : `${fit} fit`)
   if (product.occasion?.trim()) parts.push(product.occasion.trim())
   return parts.length ? parts.join(' · ') : null
 }
@@ -34,10 +35,6 @@ export function ProductPurchaseExtras({ product, price: _price, variant }: Produ
   if (variant === 'highlights') {
     if (!highlights) return null
     return <p className="pp-info__highlights">{highlights}</p>
-  }
-
-  if (variant === 'trust') {
-    return null
   }
 
   if (variant === 'payments') {

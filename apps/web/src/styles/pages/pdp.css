@@ -701,10 +701,12 @@
 .pp-info__desc {
   margin-top: 0;
   margin-bottom: 0;
-  font-size: 0.8125rem;
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
+  font-size: 0.875rem;
   font-weight: 500;
-  line-height: 1.65;
-  color: rgba(16, 17, 20, 0.58);
+  line-height: 1.7;
+  letter-spacing: 0.005em;
+  color: rgba(16, 17, 20, 0.62);
 }
 
 .pp-info__options {
@@ -817,6 +819,45 @@
   font-size: 0.62rem;
   font-weight: 700;
   color: rgba(16, 17, 20, 0.42);
+}
+
+/* PDP — compact trust row under purchase panel */
+.pp-info__trust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.9rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(16, 17, 20, 0.06);
+}
+
+.pp-info__trust-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  font-size: 0.66rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: rgba(16, 17, 20, 0.5);
+}
+
+.pp-info__trust-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+  color: rgba(16, 17, 20, 0.4);
+}
+
+@media (max-width: 1023px) {
+  .pp-info__trust {
+    justify-content: space-between;
+    gap: 0.5rem 0.6rem;
+  }
+
+  .pp-info__trust-item {
+    font-size: 0.62rem;
+  }
 }
 
 /* Trust row */
@@ -1383,21 +1424,29 @@
   color: rgba(16, 17, 20, 0.72);
 }
 
-/* Accordions */
+/* Accordions — Details → Shipping → Care */
 .pp-info__accordions {
-  margin-top: 0.35rem;
+  margin-top: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
 .pp-accordion {
-  border-bottom: 1px solid rgba(16, 17, 20, 0.06);
-}
-
-.pp-accordion:first-child {
-  border-top: 1px solid rgba(16, 17, 20, 0.06);
+  border: 1px solid rgba(16, 17, 20, 0.06);
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.42);
+  overflow: hidden;
+  transition:
+    background 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .pp-accordion--open {
-  background: rgba(255, 255, 255, 0.38);
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(16, 17, 20, 0.09);
+  box-shadow: 0 10px 28px rgba(16, 17, 20, 0.05);
 }
 
 .pp-accordion__trigger {
@@ -1406,21 +1455,45 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.72rem 0;
-  font-size: 0.74rem;
+  padding: 0.9rem 0.85rem;
+  margin: 0;
+  border-radius: 0.85rem;
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
+  font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   text-align: left;
   color: #101114;
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: color 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    color 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pp-accordion__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.pp-accordion__title-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: rgba(16, 17, 20, 0.55);
+}
+
+.pp-accordion--open .pp-accordion__title-icon {
+  color: #101114;
 }
 
 .pp-accordion__trigger:hover {
-  color: rgba(16, 17, 20, 0.72);
+  color: rgba(16, 17, 20, 0.78);
+  background: rgba(16, 17, 20, 0.025);
 }
 
 .pp-accordion__icon {
@@ -1431,9 +1504,19 @@
   width: 1.65rem;
   height: 1.65rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(16, 17, 20, 0.06);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(16, 17, 20, 0.08);
   color: rgba(16, 17, 20, 0.45);
+  transition:
+    background 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pp-accordion--open .pp-accordion__icon {
+  background: rgba(16, 17, 20, 0.92);
+  border-color: rgba(16, 17, 20, 0.92);
+  color: #fff;
 }
 
 .pp-accordion__panel {
@@ -1441,12 +1524,41 @@
 }
 
 .pp-accordion__body {
-  padding: 0 0 1.1rem;
+  padding: 0 0.85rem 1.1rem;
   font-size: 0.8125rem;
   font-weight: 500;
   line-height: 1.7;
   color: rgba(16, 17, 20, 0.58);
   white-space: pre-line;
+}
+
+.pp-accordion__list {
+  list-style: none;
+  margin: 0;
+  padding: 0.05rem 0.85rem 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.pp-accordion__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  color: rgba(16, 17, 20, 0.62);
+}
+
+.pp-accordion__item-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin-top: 0.15rem;
+  flex-shrink: 0;
+  color: rgba(16, 17, 20, 0.42);
 }
 
 /* Reviews — product page accordion */
@@ -3319,6 +3431,12 @@
   transform: translateX(130%);
 }
 
+/* Primary CTAs also sweep on hover, not only on press — premium hint before commit. */
+.pp-view .pp-btn-add.pp-pressable:hover:not(:disabled)::after,
+.pp-view .pp-btn-store.pp-pressable:hover:not(:disabled)::after {
+  transform: translateX(130%);
+}
+
 /* No scale on :active — MotionPressable already taps softly; scale felt like a jump. */
 .pp-view .pp-pressable:active:not(:disabled) {
   transform: none;
@@ -3414,6 +3532,9 @@
   box-shadow:
     0 8px 20px rgba(16, 17, 20, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition:
+    border-color 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .pp-view .pp-color-thumb--active {
@@ -3539,10 +3660,17 @@
     bottom: var(--mobile-nav-total);
     z-index: 45;
     gap: 0.75rem;
-    padding: 0.65rem 1rem;
-    background: #ffffff;
-    border-top: 1px solid rgba(16, 17, 20, 0.08);
-    box-shadow: 0 -10px 28px rgba(16, 17, 20, 0.08);
+    padding: 0.7rem 1rem;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.96)),
+      rgba(255, 255, 255, 0.9);
+    border-top: 1px solid rgba(16, 17, 20, 0.07);
+    border-radius: 1rem 1rem 0 0;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      0 -12px 30px rgba(16, 17, 20, 0.1);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
     transition:
       opacity 260ms ease,
       transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -3550,6 +3678,7 @@
 
   .pp-mobile-sticky-bar--hidden {
     opacity: 0;
+    visibility: hidden;
     transform: translateY(110%);
     pointer-events: none;
   }

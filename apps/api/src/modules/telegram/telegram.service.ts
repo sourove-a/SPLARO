@@ -28,6 +28,10 @@ import type {
   Update,
 } from 'node-telegram-bot-api'
 import { mapStaffRoleToTelegram, maskTelegramId } from './telegram.util'
+import {
+  formatNewOrderTelegramMessage,
+  type TelegramNewOrderPayload,
+} from './telegram-order-message'
 import type { TelegramDeliveryDiagnostics, TelegramHealthSnapshot } from './telegram.types'
 import { formatBDT } from '../../common/utils/currency'
 import { SPLARO_DOMAINS } from '@splaro/config'
@@ -391,40 +395,28 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     }
   }
 
-  async notifyNewOrder(storeId: string, order: {
-    invoiceNumber: string
-    total: number
-    paymentMethod: string
-    shippingName: string
-    shippingPhone: string
-    shippingCity: string
-    itemCount: number
-    isCodRisk: boolean
-  }): Promise<void> {
+  async notifyNewOrder(storeId: string, order: TelegramNewOrderPayload): Promise<void> {
     const dedupeKey = `new-order:${storeId}:${order.invoiceNumber}`
     if (!this.shouldSendNotification(dedupeKey)) return
 
     const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
     if (!config?.notifyOrders) return
 
-    const riskWarning = order.isCodRisk ? '\n⚠️ <b>COD RISK DETECTED</b>' : ''
-    const msg = `
-🛍 <b>New Order Received</b>
+    const msg = formatNewOrderTelegramMessage(order)
+    const adminBase =
+      this.config.get<string>('ADMIN_URL')?.trim() ||
+      this.config.get<string>('NEXT_PUBLIC_ADMIN_URL')?.trim() ||
+      process.env['ADMIN_URL']?.trim() ||
+      process.env['NEXT_PUBLIC_ADMIN_URL']?.trim() ||
+      SPLARO_DOMAINS.admin
+    const adminOrderUrl = `${adminBase.replace(/\/+$/, '').replace(/\/login$/i, '')}/dashboard/orders/${encodeURIComponent(order.invoiceNumber)}`
+    const storefrontUrl = order.siteUrl.replace(/\/+$/, '') || SPLARO_DOMAINS.site
 
-Order: <code>${order.invoiceNumber}</code>
-Customer: ${order.shippingName}
-Phone: <code>${order.shippingPhone}</code>
-City: ${order.shippingCity}
-Payment: ${order.paymentMethod.replace(/_/g, ' ')}
-Total: <b>${formatBDT(order.total)}</b>
-Delivery: ${order.shippingCity.includes('Dhaka') ? 'Inside Dhaka' : 'Outside Dhaka'}
-Status: Pending
-Items: ${order.itemCount}${riskWarning}
-
-<i>Tap buttons below or send <code>${order.invoiceNumber}</code> to track.</i>
-`.trim()
-
-    await this.sendToStore(storeId, msg, orderActionKeyboard(order.invoiceNumber))
+    await this.sendToStore(
+      storeId,
+      msg,
+      orderActionKeyboard(order.invoiceNumber, { adminOrderUrl, storefrontUrl }),
+    )
   }
 
   async notifySmtpConfigured(

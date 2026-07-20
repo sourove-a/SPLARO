@@ -1,10 +1,17 @@
 'use client'
 
-import { useLayoutEffect, useState, type ReactNode } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
 import { unlockLenisPointer } from '@/lib/motion/unlock-lenis-pointer'
 import { shouldUseNativeScroll } from '@/lib/earth/globe-performance'
+import { subscribeSmoothScrollEligibility } from '@/lib/motion/scroll'
 import { snapDocumentScrollToTop } from '@/lib/navigation/snap-scroll-top'
 
 const LenisSmoothScrollInner = dynamic(
@@ -13,49 +20,63 @@ const LenisSmoothScrollInner = dynamic(
   { ssr: false },
 )
 
+/** Soft nav → top; browser back/forward (popstate) keeps position. */
+function usePopNavigationFlag() {
+  const isPopNavigation = useRef(false)
+
+  useEffect(() => {
+    const onPopState = () => {
+      isPopNavigation.current = true
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  return isPopNavigation
+}
+
 /** Snap to top on native scroll routes (Lenis path uses LenisRouteSync). */
 function RouteScrollTop() {
   const pathname = usePathname()
+  const isFirstRoute = useRef(true)
+  const isPopNavigation = usePopNavigationFlag()
 
   useLayoutEffect(() => {
+    if (isFirstRoute.current) {
+      isFirstRoute.current = false
+      return
+    }
+    if (isPopNavigation.current) {
+      isPopNavigation.current = false
+      return
+    }
     snapDocumentScrollToTop()
     const raf1 = requestAnimationFrame(() => {
       snapDocumentScrollToTop()
-      requestAnimationFrame(snapDocumentScrollToTop)
     })
-    const t50 = window.setTimeout(snapDocumentScrollToTop, 50)
-    const t150 = window.setTimeout(snapDocumentScrollToTop, 150)
-    const t300 = window.setTimeout(snapDocumentScrollToTop, 300)
     return () => {
       cancelAnimationFrame(raf1)
-      window.clearTimeout(t50)
-      window.clearTimeout(t150)
-      window.clearTimeout(t300)
     }
-  }, [pathname])
+  }, [pathname, isPopNavigation])
 
   return null
 }
 
 /**
- * Premium scroll:
- * - Mac / Linux desktop → Lenis inertia
- * - Windows / mobile / lite / reduced-motion → native (Windows lock)
+ * Maximum premium scroll without regressing stability:
+ * - Mac / Linux fine desktop → Lenis (lerp inertia, rail-safe virtualScroll)
+ * - Windows / mobile / lite / reduced-motion → native OS scroll
  */
-export function SmoothScroll({ children }: { children: ReactNode }) {
+export function SmoothScrollProvider({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false)
   const [useNative, setUseNative] = useState(true)
 
   useLayoutEffect(() => {
     setMounted(true)
-    const update = () => setUseNative(shouldUseNativeScroll())
-    update()
-    window.addEventListener('resize', update)
-    window.addEventListener('orientationchange', update)
-    return () => {
-      window.removeEventListener('resize', update)
-      window.removeEventListener('orientationchange', update)
-    }
+    setUseNative(shouldUseNativeScroll())
+    return subscribeSmoothScrollEligibility((eligible) => {
+      setUseNative(!eligible)
+    })
   }, [])
 
   useLayoutEffect(() => {
@@ -69,6 +90,8 @@ export function SmoothScroll({ children }: { children: ReactNode }) {
       history.scrollRestoration = 'manual'
     }
     unlockLenisPointer()
+    const win = window as Window & { __SPLARO_LENIS?: unknown }
+    delete win.__SPLARO_LENIS
   }, [mounted, useNative])
 
   if (!mounted || useNative) {
@@ -82,3 +105,6 @@ export function SmoothScroll({ children }: { children: ReactNode }) {
 
   return <LenisSmoothScrollInner>{children}</LenisSmoothScrollInner>
 }
+
+/** @deprecated Prefer SmoothScrollProvider — kept for StorefrontChrome import. */
+export const SmoothScroll = SmoothScrollProvider

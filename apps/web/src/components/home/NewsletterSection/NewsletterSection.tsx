@@ -8,7 +8,7 @@ import { useClientMounted } from '@/hooks/useClientMounted'
 import { subscribeNewsletter } from '@/lib/api/newsletter'
 import type { NewsletterConfig } from '@/lib/storefront/settings'
 
-const SHELL_EASE = [0.22, 1, 0.36, 1] as const
+import { MICRO } from '@/lib/motion/config'
 
 function resolveNewsletter(config: NewsletterConfig | undefined): NewsletterConfig {
   return {
@@ -62,7 +62,7 @@ export function NewsletterSection() {
     }
   }
 
-  const fade = reduceMotion ? { duration: 0 } : { duration: 0.24, ease: SHELL_EASE }
+  const fade = reduceMotion ? { duration: 0 } : MICRO
 
   return (
     <section className="ed-newsletter" aria-labelledby="newsletter-heading">

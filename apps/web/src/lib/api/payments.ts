@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from '@splaro/config'
+import { DEFAULT_SUPPORT_EMAIL } from '@/lib/storefront/defaults'
 
 function paymentsBase(): string {
   return `${getApiBaseUrl()}/payments`
@@ -73,7 +74,7 @@ export async function startSslCommerzCheckout(input: {
       invoiceNumber: input.invoiceNumber,
       amount: input.amount,
       customerName: input.customer.name,
-      customerEmail: input.customer.email || 'hello@splaro.co',
+      customerEmail: input.customer.email || DEFAULT_SUPPORT_EMAIL,
       customerPhone: input.customer.phone,
       customerAddress: input.customer.address,
       customerCity: input.customer.city,

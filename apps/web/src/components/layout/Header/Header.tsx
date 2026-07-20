@@ -2,7 +2,7 @@
 
 import '@/styles/pages/cart.css'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { usePathname, useRouter } from 'next/navigation'
 import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
@@ -11,6 +11,8 @@ import { AnimatePresence, motion } from '@/lib/motion/react'
 import { Menu, Search, ShoppingBag, User, X } from 'lucide-react'
 import { TopBar } from './TopBar'
 import { Navigation } from './Navigation'
+import { SearchModal } from './SearchModal'
+import { CartDrawer } from '@/components/cart'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
@@ -18,8 +20,6 @@ import { useHeaderScroll } from '@/hooks/useScrollY'
 import { cn } from '@/lib/utils/cn'
 
 const MobileMenu = dynamic(() => import('./MobileMenu').then((m) => m.MobileMenu))
-const CartDrawer = dynamic(() => import('@/components/cart').then((m) => m.CartDrawer))
-const SearchModal = dynamic(() => import('./SearchModal').then((m) => m.SearchModal))
 
 const DESKTOP_MQ = '(min-width: 1024px)'
 
@@ -34,7 +34,8 @@ export function Header() {
   const cartCount = useCartStore((s) => s.itemCount)
   const user = useAuthStore((s) => s.user)
   // Prefer cached user (persist) so guests never wait on /api/auth/me before /login.
-  const accountHref = user ? '/account' : '/login'
+  // Match mobile bottom nav — return to account after sign-in.
+  const accountHref = user ? '/account' : '/login?next=%2Faccount'
   const {
     isMobileMenuOpen,
     isSearchOpen,
@@ -53,30 +54,54 @@ export function Header() {
   }, [])
 
   useEffect(() => {
-    if (accountHref !== '/login') return
-    router.prefetch('/login')
-  }, [accountHref, router])
+    // Warm common destinations so first click isn't a multi-second Next compile.
+    const routes = [
+      '/shop',
+      '/c/men',
+      '/c/women',
+      '/c/kids',
+      '/c/footwear',
+      '/accessories',
+      '/cart',
+      '/account',
+    ]
+    for (const href of routes) router.prefetch(href)
+    if (!user) router.prefetch('/login')
+  }, [user, router])
 
   const headerPinned =
     isMobileMenuOpen || isSearchOpen || isCartOpen || isMegaMenuOpen
 
-  const { isScrolled } = useHeaderScroll(isHome ? 60 : 24, headerPinned)
+  // Same sticky threshold on every page — shared Header behavior.
+  const { isScrolled } = useHeaderScroll(24, headerPinned)
   // Mobile search needs solid chrome; desktop can stay over-hero with glass field
   const forceSolidForSearch = isSearchOpen && !isDesktop
-  const isOverHero = isHome && !isScrolled && !forceSolidForSearch
+  // Mobile home uses inset hero card (not under header) — keep solid chrome like Ghorer Bazar.
+  const isOverHero = isHome && isDesktop && !isScrolled && !forceSolidForSearch
 
-  useEffect(() => {
+  // Never set data-home-hero=scrolled until desktop MQ is known — that painted a
+  // white topbar flash on every hard reload (isDesktop starts false).
+  // First paint: critical CSS + :has(.home-hero-slider) keeps the bar dark.
+  useLayoutEffect(() => {
     const root = document.documentElement
     if (!isHome) {
       root.removeAttribute('data-home-hero')
       return
     }
+    if (!isDesktop) {
+      root.removeAttribute('data-home-hero')
+      return
+    }
     root.setAttribute('data-home-hero', isOverHero ? 'top' : 'scrolled')
     return () => root.removeAttribute('data-home-hero')
-  }, [isHome, isOverHero])
+  }, [isHome, isDesktop, isOverHero])
 
   // Route change must clear search overlay — otherwise mobile dock stays hidden.
+  // Skip same-path remounts (e.g. native→Lenis upgrade) so open search isn't killed.
+  const prevPathname = useRef(pathname)
   useEffect(() => {
+    if (prevPathname.current === pathname) return
+    prevPathname.current = pathname
     setSearchOpen(false)
   }, [pathname, setSearchOpen])
 
@@ -198,11 +223,19 @@ export function Header() {
                 )}
               >
                 <ShoppingBag strokeWidth={1.55} />
-                {cartHydrated && cartCount > 0 ? (
-                  <span className="site-header-glass__count-badge site-header-glass__count-badge--cart">
-                    {cartCount > 99 ? '99+' : cartCount}
-                  </span>
-                ) : null}
+                <AnimatePresence>
+                  {cartHydrated && cartCount > 0 ? (
+                    <motion.span
+                      key={cartCount}
+                      initial={{ scale: 0.6, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: 0.32, ease: [0.34, 1.56, 0.64, 1] }}
+                      className="site-header-glass__count-badge site-header-glass__count-badge--cart"
+                    >
+                      {cartCount > 99 ? '99+' : cartCount}
+                    </motion.span>
+                  ) : null}
+                </AnimatePresence>
               </MotionPressable>
             </div>
           </div>
@@ -212,7 +245,8 @@ export function Header() {
       {isMobileMenuOpen ? (
         <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
       ) : null}
-      {isCartOpen ? <CartDrawer isOpen={isCartOpen} onClose={closeCart} /> : null}
+      {/* Always mounted — conditional mount made first bag click feel like a reload/load. */}
+      <CartDrawer isOpen={isCartOpen} onClose={closeCart} />
     </>
   )
 }

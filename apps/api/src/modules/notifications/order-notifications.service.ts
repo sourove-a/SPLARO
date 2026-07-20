@@ -23,11 +23,21 @@ export class OrderNotificationsService {
   async onOrderPlaced(storeId: string, orderId: string, customerEmail?: string): Promise<void> {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, storeId },
-      include: { items: { include: { variant: true } }, courier: true },
+      include: {
+        items: {
+          include: {
+            variant: true,
+            product: { select: { slug: true, sku: true, rmCode: true } },
+          },
+        },
+        courier: true,
+      },
     })
     if (!order) return
 
     const store = await this.prisma.store.findUnique({ where: { id: storeId } })
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? SPLARO_INVOICE_BRAND.website
 
     await this.prisma.invoice.upsert({
       where: { orderId: order.id },
@@ -38,12 +48,36 @@ export class OrderNotificationsService {
     void this.telegram.notifyNewOrder(storeId, {
       invoiceNumber: order.invoiceNumber,
       total: Number(order.total),
+      subtotal: Number(order.subtotal),
+      deliveryCharge: Number(order.deliveryCharge),
+      discount: Number(order.discount),
       paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.status,
       shippingName: order.shippingName,
       shippingPhone: order.shippingPhone,
+      shippingEmail: order.shippingEmail,
+      shippingAddress: order.shippingAddress,
       shippingCity: order.shippingCity,
-      itemCount: order.items.length,
+      shippingDistrict: order.shippingDistrict,
+      isInsideDhaka: order.isInsideDhaka,
       isCodRisk: order.isCodRisk,
+      fraudFlags: order.fraudFlags,
+      notes: order.notes,
+      couponCode: order.couponCode,
+      createdAt: order.createdAt,
+      siteUrl,
+      items: order.items.map((item) => ({
+        productName: item.productName,
+        slug: item.product?.slug,
+        quantity: item.quantity,
+        price: Number(item.price),
+        subtotal: Number(item.subtotal),
+        size: item.variant?.size,
+        color: item.variant?.colorName || item.variant?.color,
+        sku: item.sku || item.variant?.sku || item.product?.sku || item.product?.rmCode,
+        variantName: item.variantName,
+      })),
     })
 
     // Auto-book courier only for orders that are payable on delivery.
@@ -68,8 +102,6 @@ export class OrderNotificationsService {
       (await this.resolveCustomerEmail(order.shippingPhone, storeId))
     if (!emailTo || !emailTo.includes('@') || emailTo.endsWith('@splaro.local')) return
 
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? SPLARO_INVOICE_BRAND.website
     const model = buildInvoiceViewModel({
       order,
       storeName: store?.name ?? SPLARO_INVOICE_BRAND.name,
@@ -95,13 +127,23 @@ export class OrderNotificationsService {
         storeName: store?.name ?? 'SPLARO',
       }),
       text: `Your SPLARO order ${order.invoiceNumber} is confirmed. Total: ৳${Number(order.total).toLocaleString()}. Track your order at ${siteUrl.replace(/\/$/, '')}/track-order.`,
+      transactional: true,
     })
 
     if (emailed) {
-      await this.prisma.invoice.update({
+      await this.prisma.invoice.upsert({
         where: { orderId: order.id },
-        data: { emailedAt: new Date() },
+        create: {
+          orderId: order.id,
+          invoiceNumber: order.invoiceNumber,
+          emailedAt: new Date(),
+        },
+        update: { emailedAt: new Date() },
       })
+    } else {
+      this.logger.warn(
+        `Order confirmation email not sent for ${order.invoiceNumber} → ${emailTo} (SMTP/Gmail unavailable)`,
+      )
     }
   }
 

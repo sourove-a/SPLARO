@@ -1,4 +1,5 @@
-import type { LenisOptions, ScrollToOptions } from 'lenis'
+import type { LenisOptions, ScrollToOptions, VirtualScrollData } from 'lenis'
+import { shouldUseNativeScroll } from '@/lib/earth/globe-performance'
 
 /** Expo-out — matches SPLARO --transition-expo feel */
 export const scrollEaseOutExpo = (t: number) =>
@@ -12,9 +13,9 @@ export const SCROLL_TO_TOP: ScrollToOptions = {
   easing: scrollEaseOutExpo,
 }
 
+/** Soft route changes — snap (no animated jump) */
 export const SCROLL_ROUTE_TOP: ScrollToOptions = {
-  duration: 0.38,
-  easing: scrollEaseOutExpo,
+  immediate: true,
 }
 
 /** Hard reload / bfcache — snap without animation */
@@ -24,11 +25,50 @@ export const SCROLL_BOOT: ScrollToOptions = {
 
 export const SCROLL_ANCHOR: ScrollToOptions = {
   offset: SCROLL_ANCHOR_OFFSET,
-  duration: 1.05,
+  duration: 0.65,
   easing: scrollEaseOutExpo,
 }
 
 export type ScrollProfile = 'mac' | 'windows' | 'mobile'
+
+/** Nested overlays and form fields stay native. Horizontal rails must NOT
+ *  blanket-prevent — that froze vertical page scroll over mid-page product rows. */
+const lenisPreventNode = (node: HTMLElement) => {
+  const tag = node.tagName
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return true
+  return Boolean(
+    node.closest(
+      '[data-lenis-prevent],[data-lenis-prevent-wheel],[data-lenis-prevent-touch]',
+    ),
+  )
+}
+
+/**
+ * Only hand off to horizontal rails when the gesture is clearly horizontal.
+ * Vertical wheel over product carousels must keep driving the page.
+ * Return false to stop Lenis from consuming the event.
+ */
+const lenisVirtualScroll = (data: VirtualScrollData): boolean => {
+  const target = data.event.target
+  if (!(target instanceof Element)) return true
+  const rail = target.closest('[data-h-scroll="true"]') as HTMLElement | null
+  if (!rail) return true
+
+  const horizontal = Math.abs(data.deltaX) > Math.abs(data.deltaY)
+  if (!horizontal) return true
+
+  const max = rail.scrollWidth - rail.clientWidth
+  if (max <= 1) return true
+
+  const goingRight = data.deltaX > 0
+  const atStart = rail.scrollLeft <= 1
+  const atEnd = rail.scrollLeft >= max - 1
+  if ((goingRight && atEnd) || (!goingRight && atStart)) return true
+
+  data.event.preventDefault()
+  rail.scrollLeft += data.deltaX
+  return false
+}
 
 const LENIS_SHARED = {
   infinite: false,
@@ -42,25 +82,32 @@ const LENIS_SHARED = {
   stopInertiaOnNavigate: true,
   anchors: SCROLL_ANCHOR,
   easing: scrollEaseOutExpo,
+  prevent: lenisPreventNode,
+  virtualScroll: lenisVirtualScroll,
 } satisfies Partial<LenisOptions>
 
-/** Mac / Linux desktop — noticeable inertia, still snappy */
+/**
+ * Mac / Linux desktop — lerp (not duration) for continuous trackpad/mouse wheel.
+ * duration:1 restarted a 1s ease on every wheel delta → sticky + skipped frames.
+ * Do not set duration + lerp together.
+ */
 const LENIS_DESKTOP: LenisOptions = {
   ...LENIS_SHARED,
-  lerp: 0.075,
+  /** Slightly softer than 0.1 — premium glide without duration restart stutter. */
+  lerp: 0.085,
   smoothWheel: true,
-  wheelMultiplier: 1.12,
+  wheelMultiplier: 0.88,
   syncTouch: false,
   touchMultiplier: 1,
   autoToggle: false,
 }
 
-/** Windows desktop profile — kept for edge cases; Windows always uses native scroll. */
+/** Windows desktop profile — unused; Windows always uses native scroll. */
 const LENIS_WINDOWS: LenisOptions = {
   ...LENIS_SHARED,
-  lerp: 0.14,
+  lerp: 0.1,
   smoothWheel: true,
-  wheelMultiplier: 1,
+  wheelMultiplier: 0.9,
   syncTouch: false,
   touchMultiplier: 1,
   autoToggle: false,
@@ -68,7 +115,7 @@ const LENIS_WINDOWS: LenisOptions = {
 
 /**
  * Phone / tablet profile — syncTouch MUST stay false.
- * syncTouch:true fought native iOS/Android momentum → jump + dead taps.
+ * Mobile prefers native via shouldUseNativeScroll; profile kept as safety net.
  */
 const LENIS_MOBILE: LenisOptions = {
   ...LENIS_SHARED,
@@ -131,17 +178,12 @@ export function buildLenisOptions(profile: ScrollProfile = detectScrollProfile()
 }
 
 /**
- * Lenis when motion is allowed AND the device isn't soft-GL/lite.
+ * Lenis only when native scroll is not required (Mac fine desktop).
  * Soft-GL + Lenis RAF + decorative WebGL starved Windows main thread.
  */
 export function isSmoothScrollEligible() {
-  const mq = getScrollMedia()
-  if (!mq) return false
-  if (mq.reduced.matches) return false
-  if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-perf') === 'lite') {
-    return false
-  }
-  return true
+  if (typeof window === 'undefined') return false
+  return !shouldUseNativeScroll()
 }
 
 /** @deprecated use isSmoothScrollEligible */
@@ -159,9 +201,13 @@ export function subscribeSmoothScrollEligibility(onChange: (eligible: boolean) =
   const update = () => onChange(isSmoothScrollEligible())
   update()
   mq.reduced.addEventListener('change', update)
+  mq.coarse.addEventListener('change', update)
+  mq.mobileLayout.addEventListener('change', update)
 
   return () => {
     mq.reduced.removeEventListener('change', update)
+    mq.coarse.removeEventListener('change', update)
+    mq.mobileLayout.removeEventListener('change', update)
   }
 }
 

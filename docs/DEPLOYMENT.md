@@ -82,6 +82,6 @@ gh run view <deploy-run-id> --log-failed
 - Do not deploy unrelated local changes.
 - Do not edit locked footer or Google auth code unless the owner explicitly asks.
 - Keep storefront browser requests behind same-origin BFF routes.
-- Keep native scroll on Windows/mobile and never introduce dual page scrollports.
+- Scroll (final 2026-07-21): Mac/Linux fine desktop → Lenis; Windows/mobile/lite → native. Never Lenis on Windows; never dual page scrollports.
 - Never expose secrets in output, commits, docs, or workflow logs.
 - Never report deployment success until CI, Deploy VPS, live HTTP checks, build ID, and PM2 state are verified.
