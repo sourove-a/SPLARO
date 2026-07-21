@@ -48,6 +48,7 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
     const ui = resolveSizeOptionUi({
       sizes: product.sizes,
       category: product.category,
+      categorySlug: product.categorySlug,
     })
     if (!ui.showSelector) {
       setSelectedSize(product.sizes[0] ?? null)
@@ -73,8 +74,9 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
       resolveSizeOptionUi({
         sizes: sortedSizes,
         category: product?.category,
+        categorySlug: product?.categorySlug,
       }),
-    [sortedSizes, product?.category],
+    [sortedSizes, product?.category, product?.categorySlug],
   )
 
   const selectedColorName = useMemo(() => {

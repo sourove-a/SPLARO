@@ -1614,10 +1614,20 @@
 }
 
 .pp-reviews__trigger-copy {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 0.22rem;
   min-width: 0;
   flex: 1;
+}
+
+.pp-reviews__trigger-eyebrow,
+.pp-reviews__trigger-title,
+.pp-reviews__trigger-hint {
+  display: block;
+  margin: 0;
+  max-width: 100%;
 }
 
 .pp-reviews__trigger-eyebrow {
@@ -1706,7 +1716,7 @@
 
   .pp-reviews__trigger-copy {
     text-align: center;
-    justify-items: center;
+    align-items: center;
   }
 
   .pp-reviews__chevron {
@@ -1991,9 +2001,17 @@
 }
 
 .pp-reviews__form-toggle-copy {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 0.12rem;
   min-width: 0;
+}
+
+.pp-reviews__form-toggle-title,
+.pp-reviews__form-toggle-hint {
+  display: block;
+  margin: 0;
 }
 
 .pp-reviews__form-toggle-title {

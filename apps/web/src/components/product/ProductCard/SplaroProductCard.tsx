@@ -12,6 +12,7 @@ import { useWishlistStore } from '@/store/wishlistStore'
 import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
+import { pluralize } from '@/lib/utils/pluralize'
 import { trackAddToWishlist } from '@/lib/analytics/meta-pixel'
 
 const IMAGE_SPRING = { type: 'spring' as const, stiffness: 380, damping: 34, mass: 0.82 }
@@ -333,9 +334,7 @@ export function SplaroProductCard({
 
         {colorHexes.length > 0 ? (
           <div className="splaro-card__colors">
-            <span>
-              {`${colorHexes.length} ${colorHexes.length === 1 ? 'color' : 'colors'}`}
-            </span>
+            <span>{pluralize(colorHexes.length, 'color')}</span>
             {isShop && !isHomepage ? (
               <ChevronDown size={11} strokeWidth={2} aria-hidden />
             ) : (

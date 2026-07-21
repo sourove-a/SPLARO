@@ -10,14 +10,19 @@ import { preferLocalHeroSrc } from '@/lib/assets/hero-cdn'
  * heavy autoplay video, so the hero stays fast and visually coherent.
  */
 export function heroBannersFromDefaults(): HeroBanner[] {
-  return HERO_DEFAULT_SLIDES.map((slide, index) => ({
-    id: `default-${slide.key}`,
-    title: slide.title,
-    subtitle: slide.subtitle,
-    image: slide.image,
-    linkUrl: slide.linkUrl,
-    sortOrder: index,
-  }))
+  return HERO_DEFAULT_SLIDES.map((slide, index) =>
+    sanitizeHeroBanner(
+      {
+        id: `default-${slide.key}`,
+        title: slide.title,
+        subtitle: slide.subtitle,
+        image: slide.image,
+        linkUrl: slide.linkUrl,
+        sortOrder: index,
+      },
+      index,
+    ),
+  )
 }
 
 /** Build hero slides from live catalog — last resort when defaults are unavailable. */
@@ -53,22 +58,56 @@ function isHeroVideoUrl(url: string): boolean {
   return /\.(mp4|webm|ogg)(\?|$)/i.test(url) || /videos\.pexels\.com\/video-files/i.test(url)
 }
 
-/**
- * Force premium light heroes: local WebP when known; never LCP on Pexels UHD
- * video-as-image (DB often stores mp4 in `image`).
- */
+/** Remap retired women-only default hero copy → family lifestyle positioning. */
+function alignHeroBrandCopy(banner: HeroBanner): HeroBanner {
+  const title = banner.title?.trim() ?? ''
+  const subtitle = banner.subtitle?.trim() ?? ''
+  let next = banner
+
+  if (/quiet luxury,\s*for her\.?/i.test(title)) {
+    next = {
+      ...next,
+      title: 'Quiet luxury, every day.',
+      subtitle: 'Men, women & kids — refined pieces for modern Bangladesh.',
+      ...(next.linkUrl === '/c/women' || !next.linkUrl ? { linkUrl: '/shop' } : {}),
+    }
+  } else if (
+    /editorial pieces for the modern wardrobe/i.test(subtitle) &&
+    /season edit/i.test(title)
+  ) {
+    next = {
+      ...next,
+      subtitle: 'New arrivals across apparel, footwear, and accessories.',
+      ...(next.linkUrl === '/c/women' ? { linkUrl: '/shop' } : {}),
+    }
+  }
+
+  if (/for the modern woman/i.test(next.subtitle ?? '')) {
+    next = {
+      ...next,
+      subtitle: (next.subtitle ?? '').replace(
+        /for the modern woman/gi,
+        'for modern Bangladesh',
+      ),
+    }
+  }
+
+  return next
+}
+
 function sanitizeHeroBanner(banner: HeroBanner, index: number): HeroBanner {
-  const image = banner.image?.trim() || ''
-  if (!image) return banner
+  const aligned = alignHeroBrandCopy(banner)
+  const image = aligned.image?.trim() || ''
+  if (!image) return aligned
 
   if (isHeroVideoUrl(image)) {
     const local =
       HERO_DEFAULT_SLIDES[index % HERO_DEFAULT_SLIDES.length]?.image ??
       HERO_DEFAULT_SLIDES[0]?.image
-    return local ? { ...banner, image: local } : banner
+    return local ? { ...aligned, image: local } : aligned
   }
 
-  return { ...banner, image: preferLocalHeroSrc(image) }
+  return { ...aligned, image: preferLocalHeroSrc(image) }
 }
 
 export function resolveHeroBanners(

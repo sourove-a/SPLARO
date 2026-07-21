@@ -179,6 +179,23 @@ export function ProductReviews({
     }
   }
 
+  const triggerEyebrow = 'গ্রাহক রিভিউ · Customer Reviews'
+  const triggerTitle =
+    displayCount > 0 ? 'Trusted by our community' : 'Fit, fabric & feel'
+  const triggerHint =
+    displayCount > 0
+      ? `${displayRating.toFixed(1)} · ${displayCount} review${displayCount === 1 ? '' : 's'}`
+      : 'Honest notes from real orders — none yet for this piece'
+  const triggerAriaLabel = `${triggerEyebrow}. ${triggerTitle}. ${triggerHint}`
+  const formTitle = isLoggedIn
+    ? 'রিভিউ লিখুন · Write a review'
+    : 'রিভিউ দিতে সাইন আপ করুন'
+  const formHint = isLoggedIn
+    ? displayCount > 0
+      ? 'ক্লিক করে ফর্ম খুলুন · Tap to open the form'
+      : 'ফিট ও ফিল এক লাইনে · A short honest note helps'
+    : 'অ্যাকাউন্ট লাগবে · Account required'
+
   return (
     <section className="pp-reviews" aria-labelledby="product-reviews-heading">
       <div className={cn('pp-reviews__drop', sectionOpen && 'pp-reviews__drop--open')}>
@@ -187,18 +204,17 @@ export function ProductReviews({
           className="pp-reviews__trigger"
           aria-expanded={sectionOpen}
           aria-controls={PANEL_ID}
+          aria-label={triggerAriaLabel}
           onClick={() => setSectionOpen((value) => !value)}
         >
           <div className="pp-reviews__trigger-copy">
-            <span className="pp-reviews__trigger-eyebrow">গ্রাহক রিভিউ · Customer Reviews</span>
-            <span id="product-reviews-heading" className="pp-reviews__trigger-title">
-              {displayCount > 0 ? 'Trusted by our community' : 'Fit, fabric & feel'}
-            </span>
-            <span className="pp-reviews__trigger-hint">
-              {displayCount > 0
-                ? `${displayRating.toFixed(1)} · ${displayCount} review${displayCount === 1 ? '' : 's'}`
-                : 'Honest notes from real orders — none yet for this piece'}
-            </span>
+            <p className="pp-reviews__trigger-eyebrow">{triggerEyebrow}</p>
+            {'\n'}
+            <p id="product-reviews-heading" className="pp-reviews__trigger-title">
+              {triggerTitle}
+            </p>
+            {'\n'}
+            <p className="pp-reviews__trigger-hint">{triggerHint}</p>
           </div>
           {displayCount > 0 ? (
             <div className="pp-reviews__trigger-score" aria-hidden>
@@ -324,19 +340,13 @@ export function ProductReviews({
                     onClick={() => setFormOpen((value) => !value)}
                     aria-expanded={formOpen}
                     aria-controls="product-review-form-panel"
+                    aria-label={`${formTitle}. ${formHint}`}
                   >
-                    <span className="pp-reviews__form-toggle-copy">
-                      <span className="pp-reviews__form-toggle-title">
-                        {isLoggedIn ? 'রিভিউ লিখুন · Write a review' : 'রিভিউ দিতে সাইন আপ করুন'}
-                      </span>
-                      <span className="pp-reviews__form-toggle-hint">
-                        {isLoggedIn
-                          ? displayCount > 0
-                            ? 'ক্লিক করে ফর্ম খুলুন · Tap to open the form'
-                            : 'ফিট ও ফিল এক লাইনে · A short honest note helps'
-                          : 'অ্যাকাউন্ট লাগবে · Account required'}
-                      </span>
-                    </span>
+                    <div className="pp-reviews__form-toggle-copy">
+                      <p className="pp-reviews__form-toggle-title">{formTitle}</p>
+                      {'\n'}
+                      <p className="pp-reviews__form-toggle-hint">{formHint}</p>
+                    </div>
                     <ChevronDown className="pp-reviews__form-toggle-icon" strokeWidth={2} aria-hidden />
                   </button>
 

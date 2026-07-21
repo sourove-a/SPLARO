@@ -22,6 +22,9 @@ export interface StorefrontProduct {
   name: string
   code: string
   category: Exclude<Category, 'All'>
+  /** Leaf category slug from API (e.g. wallets). */
+  categorySlug?: string
+  slug?: string
   /** Price in Bangladesh Taka (BDT) */
   price: number
   compareAtPrice?: number

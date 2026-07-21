@@ -109,7 +109,8 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'SPLARO — Luxury Fashion & Lifestyle',
-    description: 'Quiet luxury fashion — premium essentials, footwear, and accessories.',
+    description:
+      'Quiet luxury for men, women & kids — apparel, footwear, and accessories for modern Bangladesh.',
     images: [`${siteUrl}/og-image.jpg`],
     creator: '@splaro_official',
   },

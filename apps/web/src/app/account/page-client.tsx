@@ -718,24 +718,23 @@ export default function AccountDashboard() {
             </div>
           </div>
 
-          <nav className="account-nav" aria-label="Account navigation">
-            {navItems.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                type="button"
-                className={cn('account-nav__item', section === id && 'account-nav__item--active')}
-                onClick={() => setSection(id)}
-              >
-                <span className="account-nav__icon">
-                  <Icon className="h-4 w-4" strokeWidth={2} />
-                </span>
-                <span className="account-nav__label">{label}</span>
-                <ChevronRight className="account-nav__chevron" strokeWidth={2} />
-              </button>
-            ))}
-          </nav>
-
-          <div className="account-nav__footer">
+          <div className="account-nav-panel">
+            <nav className="account-nav" aria-label="Account navigation">
+              {navItems.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={cn('account-nav__item', section === id && 'account-nav__item--active')}
+                  onClick={() => setSection(id)}
+                  aria-current={section === id ? 'page' : undefined}
+                >
+                  <span className="account-nav__icon">
+                    <Icon className="h-4 w-4" strokeWidth={2} />
+                  </span>
+                  <span className="account-nav__label">{label}</span>
+                </button>
+              ))}
+            </nav>
             <button
               type="button"
               className="account-nav__signout"

@@ -3355,6 +3355,7 @@ button.splaro-card__details-btn {
   font-size: 0.6875rem;
   font-weight: 500;
   color: #9ca3af;
+  white-space: nowrap;
 }
 
 .shop-product-card__color-dots {
@@ -5369,6 +5370,7 @@ html[data-perf='lite'] .glass-nav-pair .splaro-nav-btn {
   margin-top: 0.3rem;
   font-size: 0.68rem;
   color: #6b6b6b;
+  white-space: nowrap;
 }
 
 .splaro-card__price-row {
@@ -5769,6 +5771,7 @@ html[data-perf='lite'] .glass-nav-pair .splaro-nav-btn {
   font-size: 0.8125rem;
   font-weight: 400;
   color: #111;
+  white-space: nowrap;
 }
 
 @media (min-width: 1024px) {

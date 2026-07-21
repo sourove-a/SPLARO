@@ -17,7 +17,7 @@ Read this skill **before** answering or editing anything in SPLARO-BRAND.
 
 | Item | Value |
 |------|-------|
-| Brand | SPLARO — luxury women's fashion, Bangladesh |
+| Brand | SPLARO — quiet luxury lifestyle fashion (men, women & kids), Bangladesh |
 | Domain | splaro.co |
 | Production | Contabo VPS `147.93.171.45` → https://splaro.co |
 | Monorepo | Turborepo + pnpm |

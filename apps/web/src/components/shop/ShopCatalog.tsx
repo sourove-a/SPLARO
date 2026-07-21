@@ -48,6 +48,7 @@ import { useCatalogChannels } from '@/lib/storefront/catalog-channels'
 import { deriveShopFilterCategories } from '@/lib/catalog/shop-categories'
 import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
+import { formatItemRange } from '@/lib/utils/pluralize'
 
 const ProductQuickView = dynamic(
   () =>
@@ -853,9 +854,7 @@ export function ShopCatalog({
               exit={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.28, ease: GRID_EASE }}
             >
-              {`1 – ${visibleProducts.length} of ${filteredProducts.length} ${
-                filteredProducts.length === 1 ? 'item' : 'items'
-              }`}
+              {formatItemRange(visibleProducts.length, filteredProducts.length)}
             </motion.p>
           ) : null}
         </AnimatePresence>

@@ -12,6 +12,7 @@ import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
+import { pluralize } from '@/lib/utils/pluralize'
 import { trackAddToCart, trackAddToWishlist } from '@/lib/analytics/meta-pixel'
 import { resolveQuickAddVariant } from '@/lib/catalog/index'
 import { fadeUp, cardHover } from '@/lib/motion/variants'
@@ -259,9 +260,7 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
 
         {colorCount > 0 && (
           <p className="pc-info__colors">
-            <span>
-              {`${colorCount} ${colorCount === 1 ? 'color' : 'colors'}`}
-            </span>
+            <span>{pluralize(colorCount, 'color')}</span>
             <ChevronDown size={12} strokeWidth={2} aria-hidden />
           </p>
         )}
@@ -362,7 +361,7 @@ function ProductCardShop({
             {colorHexes.length > 0 ? (
               <div className="shop-product-card__colors">
                 <span className="shop-product-card__colors-text">
-                  {`${colorHexes.length} ${colorHexes.length === 1 ? 'color' : 'colors'}`}
+                  {pluralize(colorHexes.length, 'color')}
                 </span>
                 <span className="shop-product-card__color-dots" aria-hidden>
                   {colorHexes.slice(0, 3).map((color) => (

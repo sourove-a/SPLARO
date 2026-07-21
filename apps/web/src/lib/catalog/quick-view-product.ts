@@ -17,6 +17,7 @@ export interface QuickViewProduct {
   colorOptions: { hex: string; name: string; image?: string }[]
   inStock: boolean
   category?: string
+  categorySlug?: string
   variantRefs?: StorefrontProduct['variantRefs']
 }
 
@@ -59,6 +60,7 @@ export function buildQuickViewProduct(
     colorOptions,
     inStock: product.inStock ?? true,
     ...(product.category ? { category: product.category } : {}),
+    ...(product.categorySlug ? { categorySlug: product.categorySlug } : {}),
     ...(product.variantRefs?.length ? { variantRefs: product.variantRefs } : {}),
   }
 }

@@ -16,7 +16,7 @@ import { resolveHomepageSections, resolveOurStory } from '@/lib/storefront/homep
 import { getStorefrontSettings } from '@/lib/storefront/settings'
 
 const HOME_DESCRIPTION =
-  'Discover SPLARO — quiet luxury fashion for women. Refined silhouettes, soft fabrics, and everyday elegance.'
+  'Discover SPLARO — quiet luxury fashion for men, women, and kids in Bangladesh. Apparel, footwear, and accessories for everyday elegance.'
 
 export const metadata = createRouteMetadata({
   title: 'SPLARO | Quiet Luxury Fashion',

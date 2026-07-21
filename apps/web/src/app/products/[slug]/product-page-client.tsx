@@ -654,7 +654,11 @@ export default function ProductPageClient({
     if (!selectionInStock) {
       setCtaShake(true)
       scrollElIntoView(optionsRef.current)
-      toast.error('This size or colour is out of stock — try another')
+      toast.error(
+        sizeOptionUi.showSelector
+          ? 'This size or colour is out of stock — try another'
+          : 'This colour is out of stock — try another',
+      )
       window.setTimeout(() => setCtaShake(false), 480)
       return false
     }

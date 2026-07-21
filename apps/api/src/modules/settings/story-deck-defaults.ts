@@ -88,7 +88,7 @@ export const DEFAULT_STORY_DECK_CARDS: StoryDeckCardConfig[] = [
     eyebrow: 'Form',
     title: 'Silhouette',
     statement: 'Line before ornament.',
-    body: 'Clean architecture for the modern woman — balance, length, and an effortless frame.',
+    body: 'Clean architecture for the modern wardrobe — balance, length, and an effortless frame.',
     detail:
       'A SPLARO silhouette is drawn like architecture: clear verticals, considered ease, and a frame that flatters without performance. The ornament is the line itself.',
     cta: 'Study form',
@@ -112,9 +112,9 @@ export const DEFAULT_STORY_DECK_CARDS: StoryDeckCardConfig[] = [
     eyebrow: 'Community',
     title: 'Voices',
     statement: 'Worn into meaning.',
-    body: 'Each woman who wears SPLARO writes a quieter chapter — of ritual, memory, and belonging across Bangladesh and beyond.',
+    body: 'Everyone who wears SPLARO writes a quieter chapter — of ritual, memory, and belonging across Bangladesh and beyond.',
     detail:
-      'Our community is not a chorus of slogans — it is real women, real rituals, and the private confidence of dressing well. Their stories complete the house we are building.',
+      'Our community is not a chorus of slogans — it is real families, real rituals, and the private confidence of dressing well. Their stories complete the house we are building.',
     cta: 'Hear voices',
   },
   {
@@ -131,13 +131,30 @@ export const DEFAULT_STORY_DECK_CARDS: StoryDeckCardConfig[] = [
   },
 ]
 
+/** Retired women-only defaults → lifestyle brand (men, women & kids). */
+function alignStoryDeckBrandCopy(card: StoryDeckCardConfig): StoryDeckCardConfig {
+  let body = card.body
+  let detail = card.detail
+  if (/for the modern woman/i.test(body)) {
+    body = body.replace(/for the modern woman/gi, 'for the modern wardrobe')
+  }
+  if (/Each woman who wears SPLARO/i.test(body)) {
+    body = body.replace(/Each woman who wears SPLARO/gi, 'Everyone who wears SPLARO')
+  }
+  if (/it is real women, real rituals/i.test(detail)) {
+    detail = detail.replace(/it is real women, real rituals/gi, 'it is real families, real rituals')
+  }
+  if (body === card.body && detail === card.detail) return card
+  return { ...card, body, detail }
+}
+
 /** Merge saved cards onto defaults by id (order follows defaults). */
 export function mergeStoryDeckCards(input?: StoryDeckCardConfig[] | null): StoryDeckCardConfig[] {
   const byId = new Map((input ?? []).map((card) => [card.id, card]))
   return DEFAULT_STORY_DECK_CARDS.map((fallback) => {
     const saved = byId.get(fallback.id)
-    if (!saved) return { ...fallback }
-    return {
+    if (!saved) return alignStoryDeckBrandCopy({ ...fallback })
+    return alignStoryDeckBrandCopy({
       ...fallback,
       ...saved,
       id: fallback.id,
@@ -149,6 +166,6 @@ export function mergeStoryDeckCards(input?: StoryDeckCardConfig[] | null): Story
       body: saved.body?.trim() ? saved.body : fallback.body,
       detail: saved.detail?.trim() ? saved.detail : fallback.detail,
       cta: saved.cta?.trim() ? saved.cta : fallback.cta,
-    }
+    })
   })
 }

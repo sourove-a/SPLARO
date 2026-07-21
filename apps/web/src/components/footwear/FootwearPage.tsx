@@ -8,6 +8,7 @@ import { LiquidGlassNavButton } from '@/components/ui/LiquidGlass'
 import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import { ChevronRight, ShoppingBag } from 'lucide-react'
 import { formatBDT } from '@/lib/utils/currency'
+import { pluralize } from '@/lib/utils/pluralize'
 import { useCartStore } from '@/store/cartStore'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { trackAddToCart } from '@/lib/analytics/meta-pixel'
@@ -198,10 +199,10 @@ function ProductCard({ item, index }: { item: FootwearProduct; index: number }) 
               href={href}
               className="text-xs text-[#6B6B6B] flex items-center gap-1 hover:text-[#111] transition-colors"
             >
-              {item.colors} colors <ChevronRight size={11} />
+              {pluralize(item.colors, 'color')} <ChevronRight size={11} />
             </Link>
           ) : (
-            <span className="text-xs text-[#6B6B6B]">{item.colors} colors</span>
+            <span className="text-xs text-[#6B6B6B]">{pluralize(item.colors, 'color')}</span>
           )}
           <span className="text-xs font-bold text-[#111]">{formatBDT(item.price)}</span>
         </div>

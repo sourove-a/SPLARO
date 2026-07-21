@@ -17,25 +17,25 @@ export interface HeroDefaultSlide {
  * Self-hosted WebP heroes (`apps/web/public/images/hero/*`) — same-origin / CDN cache,
  * ~50–60KB desktop / ~18KB mobile. Do not point defaults at Unsplash @1920 (slow LCP).
  *
- * Keep slides women-fashion only — streetwear / men / kids heroes dilute SPLARO identity.
+ * Brand direction: modern Bangladesh lifestyle — men, women & kids (not women-only).
  */
 export const HERO_DEFAULT_SLIDES: HeroDefaultSlide[] = [
   {
-    key: 'women-collection',
+    key: 'lifestyle-edit',
     eyebrow: 'SPLARO',
-    title: 'Quiet luxury, for her.',
-    subtitle: 'Refined silhouettes and soft fabrics for everyday elegance.',
+    title: 'Quiet luxury, every day.',
+    subtitle: 'Men, women & kids — refined pieces for modern Bangladesh.',
     image: '/images/hero/women-collection-1600.webp',
-    linkUrl: '/c/women',
+    linkUrl: '/shop',
     secondaryLinkUrl: '/new-arrivals',
   },
   {
     key: 'new-season',
     eyebrow: 'SPLARO',
     title: 'The season edit.',
-    subtitle: 'Editorial pieces for the modern wardrobe.',
+    subtitle: 'New arrivals across apparel, footwear, and accessories.',
     image: '/images/hero/new-season-1600.webp',
     linkUrl: '/new-arrivals',
-    secondaryLinkUrl: '/c/women',
+    secondaryLinkUrl: '/shop',
   },
 ]

@@ -11,10 +11,51 @@ import { productSlugExists } from '@/lib/server/product-exists'
 
 const MAINTENANCE_ENABLED = process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true'
 
-function redirectToShortCollection(request: NextRequest, slug: string) {
+/**
+ * Absolute redirect target that never leaks `https://localhost:3000` behind nginx.
+ * Prefer public SITE_URL / x-forwarded-* when NextURL host is loopback.
+ */
+function publicRedirectUrl(request: NextRequest, pathname: string, search?: string): URL {
+  const qs = search ?? request.nextUrl.search
+  const pathWithQuery = `${pathname}${qs}`
+
+  const siteEnv = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || '')
+    .trim()
+    .replace(/\/$/, '')
+  const nextHost = request.nextUrl.hostname.toLowerCase()
+  const loopback = nextHost === 'localhost' || nextHost === '127.0.0.1'
+
+  if (loopback && siteEnv && /^https?:\/\//i.test(siteEnv) && !/localhost|127\.0\.0\.1/i.test(siteEnv)) {
+    return new URL(pathWithQuery, `${siteEnv}/`)
+  }
+
+  const xfHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim()
+  if (xfHost && !/^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(xfHost)) {
+    const proto =
+      request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() ||
+      (xfHost.includes('splaro.co') ? 'https' : request.nextUrl.protocol.replace(':', ''))
+    return new URL(pathWithQuery, `${proto}://${xfHost}/`)
+  }
+
+  const hostHeader = request.headers.get('host')?.split(',')[0]?.trim()
+  if (hostHeader && /^(www\.)?splaro\.co$/i.test(hostHeader.split(':')[0] ?? '')) {
+    return new URL(pathWithQuery, 'https://splaro.co/')
+  }
+
+  if (loopback) {
+    const port = request.nextUrl.port || (hostHeader?.includes(':') ? hostHeader.split(':')[1] : '3000')
+    return new URL(pathWithQuery, `http://127.0.0.1:${port || '3000'}/`)
+  }
+
   const url = request.nextUrl.clone()
-  url.pathname = `/c/${slug}`
-  return NextResponse.redirect(url)
+  url.pathname = pathname
+  url.search = qs.startsWith('?') ? qs.slice(1) : qs.replace(/^\?/, '')
+  // Clone keeps search via nextUrl; reset from pathWithQuery for safety
+  return new URL(pathWithQuery, url.origin)
+}
+
+function redirectToShortCollection(request: NextRequest, slug: string) {
+  return NextResponse.redirect(publicRedirectUrl(request, `/c/${slug}`), 307)
 }
 
 function redirectToTarget(request: NextRequest, target: string, status = 307) {
@@ -24,11 +65,9 @@ function redirectToTarget(request: NextRequest, target: string, status = 307) {
     }
     return NextResponse.next()
   }
-  const url = request.nextUrl.clone()
   const [path, query] = target.split('?')
-  url.pathname = path ?? target
-  url.search = query ? `?${query}` : ''
-  return NextResponse.redirect(url, status)
+  const search = query ? `?${query}` : ''
+  return NextResponse.redirect(publicRedirectUrl(request, path ?? target, search), status)
 }
 
 export async function middleware(request: NextRequest) {
@@ -48,8 +87,11 @@ export async function middleware(request: NextRequest) {
 
   // Legacy chunk-recovery used ?_splaro=1 — strip so it never indexes / shares.
   if (request.nextUrl.searchParams.has('_splaro')) {
-    const clean = request.nextUrl.clone()
-    clean.searchParams.delete('_splaro')
+    const clean = publicRedirectUrl(request, request.nextUrl.pathname, '')
+    // Preserve other query params except _splaro
+    request.nextUrl.searchParams.forEach((value, key) => {
+      if (key !== '_splaro') clean.searchParams.set(key, value)
+    })
     const res = NextResponse.redirect(clean, 301)
     res.headers.set('X-Robots-Tag', 'noindex, nofollow')
     return res

@@ -1,14 +1,14 @@
 import { resolveShopCategory, type ShopCategory } from '@/lib/catalog/shop-category'
 
-export type SizeOptionKind = 'hidden' | 'clothing' | 'footwear' | 'variant'
+export type SizeOptionKind = 'hidden' | 'clothing' | 'footwear'
 
 export interface SizeOptionUi {
-  /** Show the size/variant chip row. */
+  /** Show the size chip row — only when the shopper must choose. */
   showSelector: boolean
   /** Chart modal — clothing + footwear only. */
   showSizeGuide: boolean
   kind: SizeOptionKind
-  /** Visible label, e.g. "Select Size" / "Shoe Size" / "Select Variant". */
+  /** Visible label, e.g. "Size" / "Shoe size". */
   label: string
   ariaLabel: string
   /** Toast when selection missing. */
@@ -16,41 +16,43 @@ export interface SizeOptionUi {
 }
 
 const ONE_SIZE_RE =
-  /^(one[\s-]?size|onesize|free[\s-]?size|freesize|os|o\/s|uni|universal|unique|std|standard)$/i
+  /^(one[\s-]?size(?:\s+fits\s+all)?|onesize|free[\s-]?size|freesize|os|o\/s|osfa|uni|universal|unique|std|standard|default|n\/?a|none|-|—|–)$/i
 
 export function isOneSizeLabel(label: string): boolean {
   return ONE_SIZE_RE.test(label.trim())
 }
 
-/** True when the only size option is a universal/one-size token (bags, watches, scarves…). */
+/**
+ * True when there is nothing meaningful to pick:
+ * zero/one option, or every option is a universal/one-size token.
+ */
 export function isEffectivelyOneSize(sizes: readonly string[]): boolean {
-  if (sizes.length === 0) return true
-  if (sizes.length === 1) return isOneSizeLabel(sizes[0]!)
+  if (sizes.length <= 1) return true
   return sizes.every((size) => isOneSizeLabel(size))
 }
 
 function kindForShopCategory(shop: ShopCategory): Exclude<SizeOptionKind, 'hidden'> {
-  if (shop === 'Footwear') return 'footwear'
-  if (shop === 'Accessories') return 'variant'
-  return 'clothing'
+  return shop === 'Footwear' ? 'footwear' : 'clothing'
 }
 
 /**
- * Product-type-aware size / variant chrome for PDP, quick view, and detail panel.
- * One-size accessories hide the selector (colour is enough); clothing keeps Size + guide.
+ * Size chrome for PDP / quick view / detail panel.
+ * Rule: show a size selector only when the shopper must choose among real sizes.
+ * Bags, wallets, watches with One Size → hidden (colour is enough).
  */
 export function resolveSizeOptionUi(input: {
   sizes: readonly string[]
   category?: string | null | undefined
   categorySlug?: string | null | undefined
 }): SizeOptionUi {
-  const sizes = input.sizes.filter((s) => Boolean(s?.trim()))
+  const sizes = input.sizes.map((s) => s?.trim()).filter(Boolean) as string[]
+
   if (sizes.length === 0 || isEffectivelyOneSize(sizes)) {
     return {
       showSelector: false,
       showSizeGuide: false,
       kind: 'hidden',
-      label: 'Select Size',
+      label: 'Size',
       ariaLabel: 'Select size',
       selectToast: 'Please select a size',
     }
@@ -64,20 +66,9 @@ export function resolveSizeOptionUi(input: {
       showSelector: true,
       showSizeGuide: true,
       kind,
-      label: 'Shoe Size',
+      label: 'Shoe size',
       ariaLabel: 'Select shoe size',
       selectToast: 'Please select a shoe size',
-    }
-  }
-
-  if (kind === 'variant') {
-    return {
-      showSelector: true,
-      showSizeGuide: false,
-      kind,
-      label: 'Select Variant',
-      ariaLabel: 'Select variant',
-      selectToast: 'Please select a variant',
     }
   }
 
@@ -85,7 +76,7 @@ export function resolveSizeOptionUi(input: {
     showSelector: true,
     showSizeGuide: true,
     kind: 'clothing',
-    label: 'Select Size',
+    label: 'Size',
     ariaLabel: 'Select size',
     selectToast: 'Please select a size',
   }

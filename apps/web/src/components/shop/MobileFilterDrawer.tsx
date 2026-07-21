@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 import { Check, ChevronDown, X } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { pluralize } from '@/lib/utils/pluralize'
 import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import { formatMobileBdt, isMobilePriceRangeActive } from '@/lib/shop/mobile-filter'
 import { getEnabledMobilePriceChips } from '@/lib/shop/filter-config'
@@ -341,9 +342,7 @@ export function MobileFilterDrawer({
     : SETTLE
 
   const applyLabel =
-    resultCount === 0
-      ? 'No matching items'
-      : `Show ${resultCount} result${resultCount === 1 ? '' : 's'}`
+    resultCount === 0 ? 'No matching items' : `Show ${pluralize(resultCount, 'result')}`
 
   const panel = (
     <AnimatePresence>
