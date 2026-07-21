@@ -1523,6 +1523,18 @@
   overflow: hidden;
 }
 
+/* Closed panels stay in the document (SSR/SEO) but take no layout space.
+   Framer height animation covers open/close; this is the no-JS / reduced-motion baseline. */
+.pp-accordion__panel--collapsed {
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pp-accordion__panel-inner {
+  overflow: hidden;
+}
+
 .pp-accordion__body {
   padding: 0 0.85rem 1.1rem;
   font-size: 0.8125rem;

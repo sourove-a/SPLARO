@@ -9,6 +9,17 @@ import { CATEGORY_DEPARTMENTS, CATEGORY_SUBCATEGORIES } from '@splaro/config'
 const prisma = new PrismaClient()
 
 type SeedColor = { name: string; hex: string; sizes: string[]; image?: string }
+type SeedSpecs = {
+  dimensions?: string
+  strapLength?: string
+  compartments?: string
+  closure?: string
+  capacity?: string
+  heelHeight?: string
+  caseSize?: string
+  waterResistance?: string
+  weight?: string
+}
 type SeedProduct = {
   name: string
   slug: string
@@ -24,7 +35,32 @@ type SeedProduct = {
   fitType?: string
   fabricContent?: string
   occasion?: string
+  shortDescription?: string
+  description?: string
+  careInstructions?: string
+  /** Product weight in grams */
+  weight?: number
+  specs?: SeedSpecs
   colors: SeedColor[]
+}
+
+function buildSeedDescription(seed: SeedProduct): string {
+  if (seed.description?.trim()) return seed.description.trim()
+  const material = (seed.fabricContent ?? 'premium materials').toLowerCase()
+  const silhouette = (seed.fitType ?? 'refined silhouette').toLowerCase()
+  const occasion = seed.occasion?.trim()
+    ? ` Ideal for ${seed.occasion.trim().toLowerCase()}.`
+    : ''
+  return `${seed.name} by SPLARO — made with ${material} in a ${silhouette} profile.${occasion} Quiet finishing for everyday wear in Bangladesh.`
+}
+
+function buildSeedShortDescription(seed: SeedProduct): string {
+  if (seed.shortDescription?.trim()) return seed.shortDescription.trim()
+  const material = seed.fabricContent?.trim()
+  const silhouette = seed.fitType?.trim()
+  if (material && silhouette) return `${seed.name} — ${material}, ${silhouette}.`
+  if (material) return `${seed.name} — ${material}.`
+  return `${seed.name} — quiet luxury from SPLARO.`
 }
 
 const PRODUCTS: SeedProduct[] = [
@@ -426,9 +462,22 @@ const PRODUCTS: SeedProduct[] = [
     image: 'https://images.unsplash.com/photo-1591561954557-26941169b49e?w=900&q=86&auto=format&fit=max',
     hoverImage: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=900&q=86&auto=format&fit=max',
     isFeatured: true,
-    fitType: 'Daily tote',
-    fabricContent: 'Canvas with vegan leather trim',
+    fitType: 'Open daily tote',
+    fabricContent: 'Heavy canvas with vegan leather trim',
     occasion: 'Daily, campus, office carry',
+    shortDescription: 'Roomy canvas tote with vegan leather trim — laptop-friendly daily carry.',
+    description:
+      'Heritage Canvas Tote is built for full days: a structured open body in heavy canvas, vegan leather handles, and an interior zip pocket for keys and cards. Soft enough to fold flat when empty, sturdy enough for books, a light laptop sleeve, and market stops.',
+    careInstructions:
+      'Spot clean with a damp cloth. Air dry away from direct sun. Avoid prolonged rain; wipe trim dry after damp weather.',
+    weight: 480,
+    specs: {
+      dimensions: '38 × 34 × 12 cm',
+      strapLength: 'Dual top handles, 24 cm drop',
+      compartments: 'Main open compartment, interior zip pocket, phone slip',
+      closure: 'Open top with magnetic snap tab',
+      capacity: 'Fits 13″ laptop sleeve + daily essentials',
+    },
     colors: [
       { name: 'Natural', hex: '#d8c7ac', sizes: ['One Size'] },
       { name: 'Black', hex: '#111111', sizes: ['One Size'] },
@@ -442,9 +491,21 @@ const PRODUCTS: SeedProduct[] = [
     compareAtPrice: 4490,
     image: 'https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=900&q=86&auto=format&fit=max',
     hoverImage: 'https://images.unsplash.com/photo-1508057198894-247b23fe5ade?w=900&q=86&auto=format&fit=max',
-    fitType: 'Adjustable strap',
-    fabricContent: 'Stainless steel',
+    fitType: 'Adjustable link strap',
+    fabricContent: 'Stainless steel case and bracelet',
     occasion: 'Office, gift, daily wear',
+    shortDescription: 'Slim stainless watch with a clean dial — office-ready, gift-ready.',
+    description:
+      'Minimal Steel Watch keeps the dial quiet: brushed stainless case, sapphire-glass clarity, and an adjustable link bracelet that sits flat under a cuff. Designed as a daily signature piece — not a sport chronograph.',
+    careInstructions:
+      'Wipe with a soft dry cloth. Avoid perfume and chlorine. Have links adjusted by a jeweller if needed.',
+    weight: 95,
+    specs: {
+      caseSize: '38 mm case · 8 mm thickness',
+      waterResistance: '3 ATM (splash resistant — not for swimming)',
+      strapLength: 'Adjustable stainless bracelet',
+      closure: 'Fold-over clasp with push security',
+    },
     colors: [
       { name: 'Silver', hex: '#bfc3c7', sizes: ['One Size'] },
       { name: 'Black', hex: '#111111', sizes: ['One Size'] },
@@ -477,6 +538,16 @@ const PRODUCTS: SeedProduct[] = [
     fitType: 'Lightweight drape',
     fabricContent: 'Modal blend',
     occasion: 'Daily, office, travel',
+    shortDescription: 'Featherweight modal scarf — soft drape for office and travel.',
+    description:
+      'Soft Modal Scarf drapes without bulk: a modal blend that stays cool against skin, holds colour cleanly, and packs into a bag pocket. Long enough for a classic wrap or a simple shoulder layer.',
+    careInstructions:
+      'Hand wash cold or gentle cycle in a mesh bag. Lay flat to dry. Low iron if needed.',
+    weight: 85,
+    specs: {
+      dimensions: '180 × 70 cm',
+      weight: 'Approx. 85 g',
+    },
     colors: [
       { name: 'Taupe', hex: '#a89482', sizes: ['One Size'] },
       { name: 'Dusty Pink', hex: '#d3a5ad', sizes: ['One Size'] },
@@ -494,6 +565,19 @@ const PRODUCTS: SeedProduct[] = [
     fitType: 'Structured travel carry',
     fabricContent: 'Genuine leather finish',
     occasion: 'Office, travel, daily',
+    shortDescription: 'Structured leather backpack with laptop sleeve and padded straps.',
+    description:
+      'Travel Leather Backpack balances a clean city profile with trip-ready structure: a padded laptop sleeve, dual zip compartments, and adjustable shoulder straps. Leather-finish exterior ages softly; interior lining keeps chargers and documents organised.',
+    careInstructions:
+      'Wipe with a dry or slightly damp cloth. Condition leather periodically. Keep away from prolonged moisture.',
+    weight: 920,
+    specs: {
+      dimensions: '42 × 30 × 14 cm',
+      strapLength: 'Adjustable padded shoulder straps',
+      compartments: 'Main zip, front zip pocket, padded 15″ laptop sleeve',
+      closure: 'Dual zippers on main compartment',
+      capacity: 'Fits 15″ laptop + travel day kit',
+    },
     colors: [
       { name: 'Brown', hex: '#6b3f2b', sizes: ['One Size'] },
       { name: 'Black', hex: '#111111', sizes: ['One Size'] },
@@ -507,8 +591,22 @@ const PRODUCTS: SeedProduct[] = [
     image: 'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=900&q=86&auto=format&fit=max',
     hoverImage: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=900&q=86&auto=format&fit=max',
     fitType: 'Compact crossbody',
-    fabricContent: 'Vegan leather',
+    fabricContent: 'Vegan leather with microfibre lining',
     occasion: 'Daily, travel, evening',
+    shortDescription:
+      'Compact vegan-leather crossbody wallet — cards, cash, and phone in one hands-free piece.',
+    description:
+      'Weekend Crossbody Wallet is a hands-free daily essential: soft vegan leather outside, microfibre lining inside, and a slim silhouette that sits flat against the body. Carry cards, folded cash, coins, and a phone without switching to a larger bag — ideal for markets, travel days, and evening plans.',
+    careInstructions:
+      'Wipe exterior with a soft dry cloth. Avoid prolonged sun and heat. Keep away from oils and solvents. Spot-clean lining gently if needed.',
+    weight: 220,
+    specs: {
+      dimensions: '18 × 11 × 4 cm',
+      strapLength: 'Adjustable crossbody strap, 110–130 cm',
+      compartments: 'Main zip pocket, 6 card slots, coin pouch, phone sleeve',
+      closure: 'Zip-around main + magnetic flap',
+      weight: 'Approx. 220 g',
+    },
     colors: [
       { name: 'Camel', hex: '#b6845c', sizes: ['One Size'] },
       { name: 'Black', hex: '#111111', sizes: ['One Size'] },
@@ -627,9 +725,8 @@ async function main() {
       categoryId,
       name: seed.name,
       slug: seed.slug,
-      shortDescription: `${seed.name} — premium SPLARO piece for everyday wear.`,
-      description:
-        `${seed.name} by SPLARO — crafted with quality materials and a refined finish. Designed for everyday comfort, easy styling, and lasting wear across Bangladesh.`,
+      shortDescription: buildSeedShortDescription(seed),
+      description: buildSeedDescription(seed),
       basePrice: seed.price,
       compareAtPrice: seed.compareAtPrice ?? null,
       isPublished: true,
@@ -644,11 +741,22 @@ async function main() {
       fabricContent: seed.fabricContent ?? 'Premium fabric',
       fitType: seed.fitType ?? 'Regular fit',
       occasion: seed.occasion ?? 'Everyday',
+      careInstructions: seed.careInstructions ?? null,
+      weight: seed.weight ?? null,
       origin: 'Bangladesh',
       tags: ['qa-catalog', seed.categorySlug],
       metaTitle: `${seed.name} | SPLARO`,
       metaDescription: `Shop ${seed.name} at SPLARO Bangladesh. Premium fashion with fast nationwide delivery and easy returns.`,
       metaKeywords: ['SPLARO', seed.name, seed.categorySlug, 'Bangladesh fashion'],
+      ...(seed.specs
+        ? {
+            schemaMarkup: {
+              specs: Object.fromEntries(
+                Object.entries(seed.specs).filter(([, value]) => Boolean(value?.trim())),
+              ),
+            },
+          }
+        : { schemaMarkup: null }),
     }
 
     const product = existing

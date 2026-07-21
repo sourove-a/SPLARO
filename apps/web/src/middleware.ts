@@ -40,7 +40,18 @@ export async function middleware(request: NextRequest) {
       `${request.nextUrl.pathname}${request.nextUrl.search}`,
       'https://splaro.co',
     )
+    // Never let cache-bust junk become a www→apex URL either.
+    target.searchParams.delete('_splaro')
     return NextResponse.redirect(target, 301)
+  }
+
+  // Legacy chunk-recovery used ?_splaro=1 — strip so it never indexes / shares.
+  if (request.nextUrl.searchParams.has('_splaro')) {
+    const clean = request.nextUrl.clone()
+    clean.searchParams.delete('_splaro')
+    const res = NextResponse.redirect(clean, 301)
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow')
+    return res
   }
 
   const { pathname } = request.nextUrl

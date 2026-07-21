@@ -174,7 +174,7 @@ export function ShopFilterDropdown({
       >
         {isSort ? (
           <span className="shop-filter-dropdown__trigger-label shop-filter-dropdown__trigger-label--sort">
-            <span className="shop-filter-dropdown__trigger-prefix">Sort:</span>
+            <span className="shop-filter-dropdown__trigger-prefix">Sort: </span>
             <span className="shop-filter-dropdown__trigger-value">{resolvedSort}</span>
           </span>
         ) : (

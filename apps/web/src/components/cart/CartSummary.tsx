@@ -7,7 +7,6 @@ import { Loader2 } from 'lucide-react'
 import { formatBDT } from '@/lib/utils/currency'
 import { getCheckoutEntryPath } from '@/lib/checkout/checkout-auth'
 import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
-import { useAuthStore } from '@/store/authStore'
 import { CartTrustSignals } from './CartTrustSignals'
 
 interface CartSummaryProps {
@@ -18,17 +17,15 @@ interface CartSummaryProps {
 
 export function CartSummary({ subtotal, onClose, continueHref = '/shop' }: CartSummaryProps) {
   const router = useRouter()
-  const user = useAuthStore((state) => state.user)
-  const authHydrated = useAuthStore((state) => state._hydrated)
   const [navigating, setNavigating] = useState(false)
 
   const handleCheckout = () => {
-    if (navigating || !authHydrated) return
+    if (navigating) return
     setNavigating(true)
+    const checkoutPath = getCheckoutEntryPath()
+    router.prefetch(checkoutPath)
     onClose?.()
-    window.setTimeout(() => {
-      safeClientNavigate(router, getCheckoutEntryPath(Boolean(user)))
-    }, 300)
+    safeClientNavigate(router, checkoutPath)
   }
 
   return (
@@ -44,13 +41,13 @@ export function CartSummary({ subtotal, onClose, continueHref = '/shop' }: CartS
       <button
         type="button"
         onClick={handleCheckout}
-        disabled={navigating || !authHydrated}
+        disabled={navigating}
         className="cart-summary__checkout"
       >
-        {navigating || !authHydrated ? (
+        {navigating ? (
           <>
             <Loader2 className="cart-summary__spinner" strokeWidth={2} aria-hidden />
-            {authHydrated ? 'Opening…' : 'Loading…'}
+            Opening…
           </>
         ) : (
           'Proceed to Checkout'

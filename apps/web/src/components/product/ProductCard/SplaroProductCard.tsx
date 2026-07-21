@@ -334,7 +334,7 @@ export function SplaroProductCard({
         {colorHexes.length > 0 ? (
           <div className="splaro-card__colors">
             <span>
-              {colorHexes.length} color{colorHexes.length > 1 ? 's' : ''}
+              {`${colorHexes.length} ${colorHexes.length === 1 ? 'color' : 'colors'}`}
             </span>
             {isShop && !isHomepage ? (
               <ChevronDown size={11} strokeWidth={2} aria-hidden />

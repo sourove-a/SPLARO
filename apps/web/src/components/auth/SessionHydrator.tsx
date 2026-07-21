@@ -77,6 +77,8 @@ export function SessionHydrator() {
     }
 
     if (criticalPath) {
+      // Unblock checkout/cart UI immediately — don't wait on /api/auth/me RTT.
+      setHydrated()
       run()
       return () => {
         cancelled = true

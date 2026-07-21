@@ -692,7 +692,7 @@ export function ShopCatalog({
               !isHomepage && gridDensity === 2 && 'shop-product-grid--cols-2',
             )}
             aria-busy="true"
-            aria-label="Loading products"
+            aria-hidden="true"
           >
             {Array.from({ length: isHomepage ? 8 : Math.min(PAGE_SIZE, 8) }, (_, index) => (
               <div key={`catalog-skeleton-${index}`} className="shop-product-grid__cell min-w-0">
@@ -853,8 +853,9 @@ export function ShopCatalog({
               exit={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.28, ease: GRID_EASE }}
             >
-              1 – {visibleProducts.length} of {filteredProducts.length} Item
-              {filteredProducts.length === 1 ? '' : 's'}
+              {`1 – ${visibleProducts.length} of ${filteredProducts.length} ${
+                filteredProducts.length === 1 ? 'item' : 'items'
+              }`}
             </motion.p>
           ) : null}
         </AnimatePresence>

@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { Suspense } from 'react'
 import TrackOrderClient from './page-client'
 
 export const metadata: Metadata = {
@@ -7,10 +6,26 @@ export const metadata: Metadata = {
   description: 'Track your SPLARO orders with the phone number used at checkout.',
 }
 
-export default function TrackOrderPage() {
+type TrackOrderPageProps = {
+  searchParams: Promise<{
+    phone?: string
+    order?: string
+    id?: string
+    invoice?: string
+  }>
+}
+
+/**
+ * Server page passes query prefill — avoids Suspense+useSearchParams empty shell
+ * so crawlers / no-JS still see the tracking form in HTML.
+ */
+export default async function TrackOrderPage({ searchParams }: TrackOrderPageProps) {
+  const params = await searchParams
+  const initialPhone = params.phone?.trim() ?? ''
+  const initialOrder =
+    params.order?.trim() || params.id?.trim() || params.invoice?.trim() || ''
+
   return (
-    <Suspense fallback={<main className="track-page min-h-screen" />}>
-      <TrackOrderClient />
-    </Suspense>
+    <TrackOrderClient initialPhone={initialPhone} initialOrder={initialOrder} />
   )
 }

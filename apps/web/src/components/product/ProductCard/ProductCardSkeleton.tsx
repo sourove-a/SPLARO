@@ -44,8 +44,7 @@ export function ShopProductGridSkeleton({
         density === 2 && 'shop-product-grid--cols-2',
         className,
       )}
-      aria-busy="true"
-      aria-label="Loading products"
+      aria-hidden="true"
     >
       {Array.from({ length: count }, (_, index) => (
         <div key={`skeleton-${index}`} className="shop-product-grid__cell min-w-0">

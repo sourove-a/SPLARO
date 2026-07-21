@@ -22,11 +22,11 @@ import {
 } from '@/components/product/ProductMotion'
 import { getCheckoutEntryPath } from '@/lib/checkout/checkout-auth'
 import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
-import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
 import { slugFromCategory } from '@/data/storefront'
 import { storefrontToDetailItem } from '@/lib/catalog/product-detail-map'
+import { resolveSizeOptionUi } from '@/lib/catalog/size-option-ui'
 import { getRecentlyViewed, trackRecentlyViewed } from '@/lib/recentlyViewed'
 import { ProductMiniRow } from '@/components/product/ProductMiniRow/ProductMiniRow'
 import { SizeGuideModal } from '@/components/product/SizeGuideModal/SizeGuideModal'
@@ -94,8 +94,6 @@ export function ProductDetailPanel({
   onSelectProduct,
 }: ProductDetailPanelProps) {
   const router = useRouter()
-  const user = useAuthStore((state) => state.user)
-  const authHydrated = useAuthStore((state) => state._hydrated)
   const [activeImage, setActiveImage] = useState(0)
   const [recentIds, setRecentIds] = useState<string[]>([])
   const [addedPulse, setAddedPulse] = useState(false)
@@ -106,6 +104,10 @@ export function ProductDetailPanel({
   const [youMayAlsoLike, setYouMayAlsoLike] = useState<ProductDetailItem[]>([])
 
   const colorOptions = useMemo(() => resolveColorOptions(product), [product])
+  const sizeOptionUi = useMemo(
+    () => resolveSizeOptionUi({ sizes: product.sizes, category: product.category }),
+    [product.sizes, product.category],
+  )
   const activeColorHex = modalColor ?? colorOptions[0]?.hex ?? product.colors[0] ?? ''
   const activeColor = useMemo(
     () => colorOptions.find((o) => o.hex === activeColorHex) ?? colorOptions[0],
@@ -221,10 +223,14 @@ export function ProductDetailPanel({
   }
 
   const handleCheckout = () => {
-    if (!authHydrated) return
-    if (onCheckout) { onCheckout(); return }
+    if (onCheckout) {
+      onCheckout()
+      return
+    }
     onAddToBag(quantity)
-    safeClientNavigate(router, getCheckoutEntryPath(Boolean(user)))
+    const checkoutPath = getCheckoutEntryPath()
+    router.prefetch(checkoutPath)
+    safeClientNavigate(router, checkoutPath)
   }
 
   const prevImage = () => setActiveImage((i) => (i - 1 + media.length) % media.length)
@@ -462,21 +468,23 @@ export function ProductDetailPanel({
                 </div>
               )}
 
-              {product.sizes.length > 0 && (
+              {sizeOptionUi.showSelector ? (
                 <div className="pdp-section">
                   <div className="flex items-center justify-between">
-                    <p className="pdp-label">Select Size</p>
-                    <MotionPressable
-                      type="button"
-                      className="pdp-size-guide"
-                      variant="subtle"
-                      onClick={() => setSizeGuideOpen(true)}
-                    >
-                      <Ruler className="h-3 w-3" strokeWidth={2} />
-                      Size Guide
-                    </MotionPressable>
+                    <p className="pdp-label">{sizeOptionUi.label}</p>
+                    {sizeOptionUi.showSizeGuide ? (
+                      <MotionPressable
+                        type="button"
+                        className="pdp-size-guide"
+                        variant="subtle"
+                        onClick={() => setSizeGuideOpen(true)}
+                      >
+                        <Ruler className="h-3 w-3" strokeWidth={2} />
+                        Size Guide
+                      </MotionPressable>
+                    ) : null}
                   </div>
-                  <div className="pdp-size-row">
+                  <div className="pdp-size-row" role="group" aria-label={sizeOptionUi.ariaLabel}>
                     {product.sizes.map((size) => {
                       const unavailable = product.unavailableSizes?.includes(size) ?? false
                       const active = modalSize === size && !unavailable
@@ -500,7 +508,7 @@ export function ProductDetailPanel({
                     })}
                   </div>
                 </div>
-              )}
+              ) : null}
 
               </ProductReveal>
 
@@ -654,7 +662,7 @@ export function ProductDetailPanel({
       </AnimatePresence>
 
       <SizeGuideModal
-        open={sizeGuideOpen}
+        open={sizeGuideOpen && sizeOptionUi.showSizeGuide}
         onClose={() => setSizeGuideOpen(false)}
         category={product.category}
         productName={product.name}

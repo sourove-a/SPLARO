@@ -1,9 +1,11 @@
+import { isGenericProductCopy } from '@/lib/catalog/product-copy'
+
 /** Internal demo-catalog markers — must not appear on the public storefront. */
 const DEMO_SKU_PREFIX = /^DEMO-/i
 /** Seed/QA SKUs like "SPL-QA-30-WEEKENDCROS" — internal test codes, never customer-facing. */
 const QA_SEED_SKU_PATTERN = /(?:^|[-_])QA(?:[-_]|\d)/i
 const SEED_DESCRIPTION_PATTERN =
-  /seeded demo product|seeded for storefront QA|SPLARO QA catalog|checkout QA coverage|replace with real inventory via admin when ready|demo catalog for (?:checkout testing|local development)/i
+  /seeded demo product|seeded for storefront QA|SPLARO QA catalog|checkout QA coverage|replace with real inventory via admin when ready|demo catalog for (?:checkout testing|local development)|crafted with quality materials(?:\s+and\s+a\s+refined finish)?|premium SPLARO piece for everyday wear/i
 
 export function isDemoCatalogSku(sku?: string | null): boolean {
   const trimmed = sku?.trim() ?? ''
@@ -34,7 +36,9 @@ export function sanitizeStorefrontDescription(
   fallback: string,
 ): string {
   const trimmed = description?.trim() ?? ''
-  if (!trimmed || SEED_DESCRIPTION_PATTERN.test(trimmed)) return fallback
+  if (!trimmed || SEED_DESCRIPTION_PATTERN.test(trimmed) || isGenericProductCopy(trimmed)) {
+    return fallback
+  }
   return trimmed
 }
 
@@ -43,7 +47,7 @@ export function sanitizeStorefrontShortDescription(
   fallback?: string,
 ): string | undefined {
   const trimmed = shortDescription?.trim() ?? ''
-  if (!trimmed || SEED_DESCRIPTION_PATTERN.test(trimmed)) {
+  if (!trimmed || SEED_DESCRIPTION_PATTERN.test(trimmed) || isGenericProductCopy(trimmed)) {
     return fallback?.trim() || undefined
   }
   return trimmed

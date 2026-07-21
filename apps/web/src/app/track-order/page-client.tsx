@@ -1,14 +1,14 @@
 'use client'
 
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
 import {
   ArrowRight,
   Check,
   ChevronRight,
   FileText,
+  Hash,
   Package,
   Phone,
   Shield,
@@ -345,10 +345,18 @@ function HistoryRow({ order }: { order: StoredOrder }) {
   )
 }
 
-export default function TrackOrderClient() {
+type TrackOrderClientProps = {
+  initialPhone?: string
+  initialOrder?: string
+}
+
+export default function TrackOrderClient({
+  initialPhone = '',
+  initialOrder = '',
+}: TrackOrderClientProps) {
   const { phoneOtpEnabled } = useStorefrontAuthConfig()
-  const searchParams = useSearchParams()
-  const [phone, setPhone] = useState('')
+  const [phone, setPhone] = useState(initialPhone)
+  const [orderRef, setOrderRef] = useState(initialOrder)
   const [otpCode, setOtpCode] = useState('')
   const [otpStep, setOtpStep] = useState(false)
   const [otpSending, setOtpSending] = useState(false)
@@ -357,34 +365,38 @@ export default function TrackOrderClient() {
   const [searched, setSearched] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const didPrefillSearch = useRef(false)
 
-  const runSearch = useCallback(async (nextPhone: string) => {
-    const trimmedPhone = nextPhone.trim()
-    if (!trimmedPhone) return
+  const runSearch = useCallback(
+    async (nextPhone: string, nextOrder?: string) => {
+      const trimmedPhone = nextPhone.trim()
+      if (!trimmedPhone) return
 
-    setLoading(true)
-    setSearched(true)
-    setError(null)
+      setLoading(true)
+      setSearched(true)
+      setError(null)
 
-    const payload = await trackOrdersByPhone(trimmedPhone)
-    if (!payload.ok) {
-      setResult(null)
-      if (payload.requiresOtp && phoneOtpEnabled) {
-        setOtpStep(true)
-        setError('Enter the code sent to your phone.')
+      const payload = await trackOrdersByPhone(trimmedPhone, nextOrder?.trim() || undefined)
+      if (!payload.ok) {
+        setResult(null)
+        if (payload.requiresOtp && phoneOtpEnabled) {
+          setOtpStep(true)
+          setError('Enter the code sent to your phone.')
+        } else {
+          setError(payload.error)
+        }
+      } else if (!payload.data.orders.length) {
+        setResult(null)
+        setError('No orders for this number.')
       } else {
-        setError(payload.error)
+        setOtpStep(false)
+        setResult(payload.data)
       }
-    } else if (!payload.data.orders.length) {
-      setResult(null)
-      setError('No orders for this number.')
-    } else {
-      setOtpStep(false)
-      setResult(payload.data)
-    }
 
-    setLoading(false)
-  }, [phoneOtpEnabled])
+      setLoading(false)
+    },
+    [phoneOtpEnabled],
+  )
 
   const sendOtp = async () => {
     const trimmedPhone = phone.trim()
@@ -429,7 +441,7 @@ export default function TrackOrderClient() {
         setLoading(false)
         return
       }
-      await runSearch(trimmedPhone)
+      await runSearch(trimmedPhone, orderRef)
     } catch {
       setError('Verification failed')
       setLoading(false)
@@ -437,12 +449,11 @@ export default function TrackOrderClient() {
   }
 
   useEffect(() => {
-    const queryPhone = searchParams.get('phone') ?? ''
-    if (queryPhone) {
-      setPhone(queryPhone)
-      void runSearch(queryPhone)
-    }
-  }, [searchParams, runSearch])
+    if (didPrefillSearch.current) return
+    if (!initialPhone.trim()) return
+    didPrefillSearch.current = true
+    void runSearch(initialPhone, initialOrder)
+  }, [initialPhone, initialOrder, runSearch])
 
   const historyOrders = useMemo(() => {
     if (!result) return []
@@ -456,7 +467,7 @@ export default function TrackOrderClient() {
       void verifyOtpAndSearch()
       return
     }
-    void runSearch(phone)
+    void runSearch(phone, orderRef)
   }
 
   return (
@@ -466,35 +477,57 @@ export default function TrackOrderClient() {
           <header className="track-header">
             <p className="track-eyebrow">Track order</p>
             <h1 className="track-title font-serif">Your orders</h1>
+            <p className="track-subtitle">
+              Enter the phone number used at checkout. Order number is optional.
+            </p>
           </header>
 
-          <form className="track-form track-form--phone-only" onSubmit={handleSubmit}>
+          <form className="track-form track-form--lookup" onSubmit={handleSubmit}>
             <label className="track-input">
-              <Phone className="track-input__icon" />
+              <Phone className="track-input__icon" aria-hidden />
               <span className="sr-only">Phone number</span>
               <input
                 required
                 type="tel"
+                name="phone"
                 inputMode="tel"
                 autoComplete="tel"
                 value={phone}
                 onChange={(event) => setPhone(event.target.value)}
                 placeholder="Phone number"
+                aria-label="Phone number"
+                disabled={phoneOtpEnabled && otpStep}
+              />
+            </label>
+
+            <label className="track-input">
+              <Hash className="track-input__icon" aria-hidden />
+              <span className="sr-only">Order number (optional)</span>
+              <input
+                type="text"
+                name="order"
+                autoComplete="off"
+                value={orderRef}
+                onChange={(event) => setOrderRef(event.target.value)}
+                placeholder="Order number (optional)"
+                aria-label="Order number (optional)"
                 disabled={phoneOtpEnabled && otpStep}
               />
             </label>
 
             {phoneOtpEnabled && otpStep ? (
               <label className="track-input">
-                <Shield className="track-input__icon" />
+                <Shield className="track-input__icon" aria-hidden />
                 <span className="sr-only">Verification code</span>
                 <input
                   required
                   inputMode="numeric"
+                  name="otp"
                   autoComplete="one-time-code"
                   value={otpCode}
                   onChange={(event) => setOtpCode(event.target.value)}
                   placeholder="6-digit code"
+                  aria-label="Verification code"
                   maxLength={6}
                 />
               </label>
@@ -509,8 +542,8 @@ export default function TrackOrderClient() {
                 ? 'Please wait…'
                 : phoneOtpEnabled && otpStep
                   ? 'Verify'
-                  : 'View orders'}
-              {!loading && !otpSending ? <ArrowRight className="h-4 w-4" /> : null}
+                  : 'Track order'}
+              {!loading && !otpSending ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
             </button>
 
             {phoneOtpEnabled ? (

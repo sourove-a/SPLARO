@@ -17,7 +17,12 @@ function materialLine(product: ProductDetailData): string | null {
   const parts: string[] = []
   if (product.fabricContent?.trim()) parts.push(product.fabricContent.trim())
   const fit = product.fitType?.trim()
-  if (fit) parts.push(/\bfit\b/i.test(fit) ? fit : `${fit} fit`)
+  if (fit) {
+    const isAccessory = /accessor|bag|wallet|watch|scarf|belt|tote|crossbody|footwear/i.test(
+      `${product.category ?? ''} ${product.categorySlug ?? ''} ${product.name}`,
+    )
+    parts.push(isAccessory || /\bfit\b/i.test(fit) ? fit : `${fit} fit`)
+  }
   if (product.occasion?.trim()) parts.push(product.occasion.trim())
   return parts.length ? parts.join(' · ') : null
 }

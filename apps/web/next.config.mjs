@@ -161,13 +161,15 @@ const nextConfig = {
         ],
       },
       // Marketing / ISR pages only — never CDN-cache account, cart, checkout, auth.
+      // Keep SWR short so post-deploy HTML (chunks / recovery script) does not linger
+      // with a stale "Site updated" shell for minutes.
       {
         source:
           '/((?!_next/static|_next/image|fonts|images|favicon|api|account|cart|checkout|login|signup|forgot-password|reset-password).*)',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, s-maxage=60, stale-while-revalidate=300',
+            value: 'public, s-maxage=30, stale-while-revalidate=60',
           },
         ],
       },

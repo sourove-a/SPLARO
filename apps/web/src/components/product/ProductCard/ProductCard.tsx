@@ -260,7 +260,7 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
         {colorCount > 0 && (
           <p className="pc-info__colors">
             <span>
-              {colorCount} color{colorCount > 1 ? 's' : ''}
+              {`${colorCount} ${colorCount === 1 ? 'color' : 'colors'}`}
             </span>
             <ChevronDown size={12} strokeWidth={2} aria-hidden />
           </p>
@@ -362,7 +362,7 @@ function ProductCardShop({
             {colorHexes.length > 0 ? (
               <div className="shop-product-card__colors">
                 <span className="shop-product-card__colors-text">
-                  {colorHexes.length} color{colorHexes.length > 1 ? 's' : ''}
+                  {`${colorHexes.length} ${colorHexes.length === 1 ? 'color' : 'colors'}`}
                 </span>
                 <span className="shop-product-card__color-dots" aria-hidden>
                   {colorHexes.slice(0, 3).map((color) => (

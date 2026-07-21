@@ -56,6 +56,7 @@ import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import type { ProductReview } from '@/lib/catalog/live'
 import { sortSizes } from '@/lib/catalog/live'
 import { resolveDetailsCategoryIcon } from '@/lib/catalog/details-category-icon'
+import { resolveSizeOptionUi } from '@/lib/catalog/size-option-ui'
 import { ProductReviews } from '@/components/product/ProductReviews/ProductReviews'
 import { ProductLightbox } from '@/components/product/ProductLightbox/ProductLightbox'
 import { ProductPurchaseExtras } from '@/components/product/ProductPurchaseExtras/ProductPurchaseExtras'
@@ -274,6 +275,16 @@ export default function ProductPageClient({
     return sortSizes(Array.from(unique) as string[], product.category)
   }, [product.variants, product.category])
 
+  const sizeOptionUi = useMemo(
+    () =>
+      resolveSizeOptionUi({
+        sizes,
+        category: product.category,
+        categorySlug: product.categorySlug,
+      }),
+    [sizes, product.category, product.categorySlug],
+  )
+
   const showColorPicker = colorOptions.length > 1
 
   const displayProductCode = sanitizeStorefrontProductCode(product.sku, product.slug)
@@ -481,6 +492,11 @@ export default function ProductPageClient({
   }, [media])
 
   useEffect(() => {
+    // Warm checkout RSC + JS so Buy Now is instant.
+    router.prefetch(getCheckoutEntryPath())
+  }, [router])
+
+  useEffect(() => {
     setQuantity((q) => Math.min(Math.max(1, q), Math.max(1, stock)))
   }, [stock])
 
@@ -497,6 +513,24 @@ export default function ProductPageClient({
     }
     if (product.weavingType?.trim()) {
       detailLines.push({ icon: Sparkles, text: `Weaving · ${product.weavingType.trim()}` })
+    }
+    const isAccessory = /accessor|bag|wallet|watch|scarf|belt|tote|crossbody/i.test(
+      `${product.category ?? ''} ${product.categorySlug ?? ''} ${product.name}`,
+    )
+    const fit = product.fitType?.trim()
+    if (fit) {
+      const fitLabel = isAccessory ? 'Carry' : 'Fit'
+      const fitValue =
+        isAccessory || /\bfit\b/i.test(fit) ? fit : `${fit} fit`
+      detailLines.push({ icon: Shirt, text: `${fitLabel} · ${fitValue}` })
+    }
+    for (const spec of product.specs ?? []) {
+      if (!spec.label?.trim() || !spec.value?.trim()) continue
+      // Weight may also come from weightGrams → already in specs via live map.
+      detailLines.push({
+        icon: Ruler,
+        text: `${spec.label.trim()} · ${spec.value.trim()}`,
+      })
     }
     if (product.occasion?.trim()) {
       detailLines.push({ icon: Shirt, text: `Occasion · ${product.occasion.trim()}` })
@@ -537,13 +571,6 @@ export default function ProductPageClient({
     if (product.careInstructions?.trim()) {
       careLines.push({ icon: Droplets, text: product.careInstructions.trim() })
     }
-    const fit = product.fitType?.trim()
-    if (fit) {
-      careLines.push({
-        icon: Shirt,
-        text: `Fit · ${/\bfit\b/i.test(fit) ? fit : `${fit} fit`}`,
-      })
-    }
     if (careLines.length > 0) {
       sections.push({ id: 'Care', icon: Sparkles, lines: careLines })
     }
@@ -556,9 +583,11 @@ export default function ProductPageClient({
     product.fabricContent,
     product.weavingType,
     product.fitType,
+    product.name,
     product.occasion,
     product.origin,
     product.season,
+    product.specs,
     shipping.dhakaDeliveryCharge,
     shipping.outsideDhakaCharge,
     shipping.freeDeliveryThreshold,
@@ -628,18 +657,18 @@ export default function ProductPageClient({
       window.setTimeout(() => setCtaShake(false), 480)
       return false
     }
-    if (sizes.length > 0) {
+    if (sizes.length > 0 && sizeOptionUi.showSelector) {
       if (!selectedSize) {
         setSizeShake(true)
         scrollElIntoView(sizeRowRef.current)
-        toast.error('Please select a size')
+        toast.error(sizeOptionUi.selectToast)
         window.setTimeout(() => setSizeShake(false), 520)
         return false
       }
       if ((sizeStock.get(selectedSize) ?? 0) === 0) {
         setSizeShake(true)
         scrollElIntoView(sizeRowRef.current)
-        toast.error('Selected size is out of stock')
+        toast.error('Selected option is out of stock')
         window.setTimeout(() => setSizeShake(false), 520)
         return false
       }
@@ -673,13 +702,16 @@ export default function ProductPageClient({
 
   const handleBuyNow = () => {
     if (isLightboxOpen) closeLightbox()
-    if (!authHydrated) return
     if (!validatePurchaseSelection()) return
     const item = buildSelectedCartItem()
     if (!item) return
     // Merge into cart — never wipe existing lines (Buy Now used to replaceItems).
     addItem(item)
     stageCheckoutItems(useCartStore.getState().items)
+    // Navigate first — never block on auth hydrate or analytics.
+    const checkoutPath = getCheckoutEntryPath()
+    router.prefetch(checkoutPath)
+    safeClientNavigate(router, checkoutPath)
     trackAddToCart({
       id: item.variantId ?? item.productId,
       name: item.name,
@@ -690,7 +722,6 @@ export default function ProductPageClient({
         ? { variant: [item.size, item.color].filter(Boolean).join(' / ') }
         : {}),
     })
-    safeClientNavigate(router, getCheckoutEntryPath(Boolean(user)))
   }
 
   const prevImage = () => {
@@ -1139,25 +1170,29 @@ export default function ProductPageClient({
                 </div>
               )}
 
-              {sizes.length > 0 && (
+              {sizeOptionUi.showSelector ? (
                 <div className="pp-info__option">
                   <div className="pp-info__option-head">
-                    <p className="pp-info__option-label pp-info__option-label--inline">Select Size</p>
-                    <MotionPressable
-                      type="button"
-                      className="pp-size-guide"
-                      variant="subtle"
-                      onClick={() => setSizeGuideOpen(true)}
-                    >
-                      <Ruler className="h-4 w-4" strokeWidth={1.75} />
-                      <span className="pp-size-guide__label">Size Guide</span>
-                    </MotionPressable>
+                    <p className="pp-info__option-label pp-info__option-label--inline">
+                      {sizeOptionUi.label}
+                    </p>
+                    {sizeOptionUi.showSizeGuide ? (
+                      <MotionPressable
+                        type="button"
+                        className="pp-size-guide"
+                        variant="subtle"
+                        onClick={() => setSizeGuideOpen(true)}
+                      >
+                        <Ruler className="h-4 w-4" strokeWidth={1.75} />
+                        <span className="pp-size-guide__label">Size Guide</span>
+                      </MotionPressable>
+                    ) : null}
                   </div>
                   <motion.div
                     ref={sizeRowRef}
                     className="pp-size-row"
                     role="group"
-                    aria-label="Select size"
+                    aria-label={sizeOptionUi.ariaLabel}
                     variants={productShake}
                     animate={sizeShake && showMotion ? 'shake' : 'idle'}
                   >
@@ -1171,7 +1206,11 @@ export default function ProductPageClient({
                           type="button"
                           onClick={() => !disabled && setSelectedSize(size)}
                           aria-pressed={active}
-                          aria-label={disabled ? `Size ${size}, out of stock` : `Size ${size}`}
+                          aria-label={
+                            disabled
+                              ? `${sizeOptionUi.ariaLabel} ${size}, out of stock`
+                              : `${sizeOptionUi.ariaLabel} ${size}`
+                          }
                           disabled={disabled}
                           className={cn(
                             'pp-size-btn',
@@ -1185,7 +1224,7 @@ export default function ProductPageClient({
                     })}
                   </motion.div>
                 </div>
-              )}
+              ) : null}
             </div>
             </ProductReveal>
 
@@ -1259,6 +1298,7 @@ export default function ProductPageClient({
                 type="button"
                 className="pp-btn-store pp-pressable"
                 onClick={handleBuyNow}
+                onPointerEnter={() => router.prefetch(getCheckoutEntryPath())}
                 disabled={!productHasStock || !selectionInStock}
                 variant="cta"
               >
@@ -1338,6 +1378,9 @@ export default function ProductPageClient({
                     {detailSections.map((section) => {
                       const open = openSection === section.id
                       const SectionIcon = section.icon
+                      const sectionKey = section.id.toLowerCase().replace(/\s+/g, '-')
+                      const triggerId = `pp-acc-trigger-${sectionKey}`
+                      const panelId = `pp-acc-panel-${sectionKey}`
                       return (
                         <div
                           key={section.id}
@@ -1345,9 +1388,11 @@ export default function ProductPageClient({
                         >
                           <MotionPressable
                             type="button"
+                            id={triggerId}
                             className="pp-accordion__trigger pp-pressable"
                             onClick={() => setOpenSection(open ? null : section.id)}
                             aria-expanded={open}
+                            aria-controls={panelId}
                             variant="subtle"
                           >
                             <span className="pp-accordion__title">
@@ -1359,40 +1404,55 @@ export default function ProductPageClient({
                               <span>{section.id}</span>
                             </span>
                             <motion.span
-                              animate={{ rotate: open ? 45 : 0 }}
+                              {...(reducedMotion
+                                ? {}
+                                : { animate: { rotate: open ? 45 : 0 } })}
                               transition={{ duration: PANEL_MS, ease: PANEL_EASE }}
                               className="pp-accordion__icon"
+                              aria-hidden
                             >
                               <Plus className="h-3 w-3" strokeWidth={2} />
                             </motion.span>
                           </MotionPressable>
-                          <AnimatePresence initial={false}>
-                            {open && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: PANEL_MS, ease: PANEL_EASE }}
-                                className="pp-accordion__panel"
-                              >
-                                <ul className="pp-accordion__list">
-                                  {section.lines.map((line) => {
-                                    const LineIcon = line.icon
-                                    return (
-                                      <li key={line.text} className="pp-accordion__item">
-                                        <LineIcon
-                                          className="pp-accordion__item-icon"
-                                          strokeWidth={1.65}
-                                          aria-hidden
-                                        />
-                                        <span>{line.text}</span>
-                                      </li>
-                                    )
-                                  })}
-                                </ul>
-                              </motion.div>
+                          {/* Panel always in DOM for SSR/SEO/AT — collapse visually when closed. */}
+                          <motion.div
+                            id={panelId}
+                            role="region"
+                            aria-labelledby={triggerId}
+                            aria-hidden={!open}
+                            {...(!open ? { inert: true as const } : {})}
+                            initial={false}
+                            {...(reducedMotion
+                              ? {}
+                              : {
+                                  animate: open
+                                    ? { height: 'auto', opacity: 1 }
+                                    : { height: 0, opacity: 0 },
+                                })}
+                            transition={{ duration: PANEL_MS, ease: PANEL_EASE }}
+                            className={cn(
+                              'pp-accordion__panel',
+                              !open && 'pp-accordion__panel--collapsed',
                             )}
-                          </AnimatePresence>
+                          >
+                            <div className="pp-accordion__panel-inner">
+                              <ul className="pp-accordion__list">
+                                {section.lines.map((line) => {
+                                  const LineIcon = line.icon
+                                  return (
+                                    <li key={line.text} className="pp-accordion__item">
+                                      <LineIcon
+                                        className="pp-accordion__item-icon"
+                                        strokeWidth={1.65}
+                                        aria-hidden
+                                      />
+                                      <span>{line.text}</span>
+                                    </li>
+                                  )
+                                })}
+                              </ul>
+                            </div>
+                          </motion.div>
                         </div>
                       )
                     })}
@@ -1442,7 +1502,7 @@ export default function ProductPageClient({
       />
 
       <SizeGuideModal
-        open={sizeGuideOpen}
+        open={sizeGuideOpen && sizeOptionUi.showSizeGuide}
         onClose={() => setSizeGuideOpen(false)}
         category={product.category ?? null}
         categorySlug={product.categorySlug ?? null}

@@ -5,6 +5,11 @@ import type { ProductDetailData, ProductVariantData } from '@splaro/types'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
 import {
+  buildProductDescriptionFallback,
+  formatProductWeightGrams,
+  parseProductSpecs,
+} from '@/lib/catalog/product-copy'
+import {
   sanitizeStorefrontDescription,
   sanitizeStorefrontProductCode,
   sanitizeStorefrontShortDescription,
@@ -78,6 +83,7 @@ interface LiveProduct {
   occasion?: string | null
   season?: string | null
   origin?: string | null
+  weight?: number | string | null
   tags?: string[]
   metaTitle?: string | null
   metaDescription?: string | null
@@ -344,6 +350,25 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
   const nameBn = typeof schema.nameBn === 'string' ? schema.nameBn : undefined
   const weavingType = typeof schema.weavingType === 'string' ? schema.weavingType : undefined
   const publicSku = sanitizeStorefrontProductCode(p.sku, p.slug)
+  const specs = parseProductSpecs(schema)
+  const weightLabel = formatProductWeightGrams(p.weight)
+  const weightGrams = (() => {
+    if (p.weight == null || p.weight === '') return undefined
+    const n = typeof p.weight === 'number' ? p.weight : Number(p.weight)
+    return Number.isFinite(n) && n > 0 ? n : undefined
+  })()
+  if (weightLabel && !specs.some((s) => s.label.toLowerCase() === 'weight')) {
+    specs.push({ label: 'Weight', value: weightLabel })
+  }
+
+  const descriptionFallback = buildProductDescriptionFallback({
+    name: p.name,
+    fabricContent: p.fabricContent,
+    fitType: p.fitType,
+    occasion: p.occasion,
+    category,
+    categorySlug: p.category?.slug,
+  })
 
   const product: ProductDetailData = {
     id: mapped.id,
@@ -363,10 +388,7 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
     category,
     ...(p.category?.slug ? { categorySlug: p.category.slug } : {}),
     collectionSlug: slugFromCategory(category),
-    description: sanitizeStorefrontDescription(
-      p.description,
-      `${p.name} is crafted with ${(p.fabricContent ?? 'premium fabric').toLowerCase()} and a ${(p.fitType ?? 'regular').toLowerCase()} fit.`,
-    ),
+    description: sanitizeStorefrontDescription(p.description, descriptionFallback),
     ...(() => {
       const short = sanitizeStorefrontShortDescription(p.shortDescription)
       return short ? { shortDescription: short } : {}
@@ -378,6 +400,8 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
     ...(p.fitType ? { fitType: p.fitType } : {}),
     ...(p.occasion ? { occasion: p.occasion } : {}),
     ...(p.season ? { season: p.season } : {}),
+    ...(weightGrams != null ? { weightGrams } : {}),
+    ...(specs.length ? { specs } : {}),
     origin: p.origin ?? 'Bangladesh',
     variants: buildVariants(p, Number(p.basePrice), img),
     tags: p.tags?.length ? p.tags : [category],

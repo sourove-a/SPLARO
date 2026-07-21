@@ -9,26 +9,44 @@ declare global {
 }
 
 const RELOAD_KEY = 'splaro_admin_chunk_reload'
-const MAX_RELOADS = 5
+const MAX_RELOADS = 2
+
+async function clearSiteCaches(): Promise<void> {
+  const tasks: Promise<unknown>[] = []
+  if (typeof caches !== 'undefined') {
+    tasks.push(
+      caches.keys().then((keys) => Promise.all(keys.map((name) => caches.delete(name)))),
+    )
+  }
+  if (typeof navigator !== 'undefined' && navigator.serviceWorker?.getRegistrations) {
+    tasks.push(
+      navigator.serviceWorker.getRegistrations().then((regs) =>
+        Promise.all(regs.map((reg) => reg.unregister())),
+      ),
+    )
+  }
+  await Promise.all(tasks).catch(() => undefined)
+}
+
+function reloadOnce(): void {
+  if (process.env.NODE_ENV === 'development') return
+  try {
+    const count = parseInt(sessionStorage.getItem(RELOAD_KEY) ?? '0', 10) || 0
+    if (count >= MAX_RELOADS) return
+    sessionStorage.setItem(RELOAD_KEY, String(count + 1))
+  } catch {
+    return
+  }
+  void clearSiteCaches().finally(() => {
+    window.location.reload()
+  })
+}
 
 /** After deploy, stale HTML can 404 old webpack chunks — auto-reload fixes it. */
 export function AdminChunkReloadGuard() {
   useEffect(() => {
     window.__splaroAdminBootOk?.()
     document.documentElement.setAttribute('data-splaro-admin-booted', '1')
-
-    const reloadOnce = () => {
-      try {
-        const count = parseInt(sessionStorage.getItem(RELOAD_KEY) ?? '0', 10) || 0
-        if (count >= MAX_RELOADS) return
-        sessionStorage.setItem(RELOAD_KEY, String(count + 1))
-      } catch {
-        return
-      }
-      const url = new URL(window.location.href)
-      url.searchParams.set('_splaro', Date.now().toString(36))
-      window.location.replace(url.toString())
-    }
 
     const onError = (event: ErrorEvent) => {
       const target = event.target

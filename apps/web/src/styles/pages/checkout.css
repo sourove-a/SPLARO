@@ -3232,7 +3232,8 @@
   margin-top: 1.55rem;
 }
 
-.track-form--phone-only {
+.track-form--phone-only,
+.track-form--lookup {
   grid-template-columns: 1fr;
 }
 
@@ -3248,6 +3249,21 @@
 
   .track-form--phone-only .track-input:nth-of-type(2),
   .track-form--phone-only .track-btn--otp {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .track-form--lookup {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .track-form--lookup .track-btn--submit {
+    min-width: 9.5rem;
+  }
+
+  .track-form--lookup .track-input:nth-of-type(3),
+  .track-form--lookup .track-btn--otp {
     grid-column: 1 / -1;
     justify-self: start;
   }

@@ -13,6 +13,7 @@ import {
   sanitizeStorefrontDescription,
   sanitizeStorefrontShortDescription,
 } from '@/lib/catalog/storefront-sanitize'
+import { buildProductDescriptionFallback } from '@/lib/catalog/product-copy'
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>
@@ -94,11 +95,19 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const safeShortDescription = sanitizeStorefrontShortDescription(
     rawProduct.shortDescription,
   )
+  const descriptionFallback = buildProductDescriptionFallback({
+    name: rawProduct.name,
+    fabricContent: rawProduct.fabricContent,
+    fitType: rawProduct.fitType,
+    occasion: rawProduct.occasion,
+    category: rawProduct.category,
+    categorySlug: rawProduct.categorySlug,
+  })
   const product = {
     ...rawProduct,
     description: sanitizeStorefrontDescription(
       rawProduct.description,
-      `${rawProduct.name} — a premium SPLARO piece, crafted with quality materials for everyday wear in Bangladesh.`,
+      descriptionFallback,
     ),
     ...(safeShortDescription
       ? { shortDescription: safeShortDescription }

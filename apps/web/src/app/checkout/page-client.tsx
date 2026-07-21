@@ -726,7 +726,7 @@ export default function CheckoutPageClient() {
             }}
           />
         </section>
-      ) : !cartHydrated || !authHydrated ? (
+      ) : !cartHydrated ? (
         <section className="checkout-container">
           <div className="checkout-glass-panel checkout-glass-panel--center">
             <RefreshCw className="mx-auto h-8 w-8 animate-spin text-black/35" strokeWidth={2} />

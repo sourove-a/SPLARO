@@ -15,6 +15,7 @@ import {
   type QuickViewProduct,
 } from '@/lib/catalog/quick-view-product'
 import { sortSizes } from '@/lib/catalog/live'
+import { resolveSizeOptionUi } from '@/lib/catalog/size-option-ui'
 import { formatBDT } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils/cn'
 import toast from 'react-hot-toast'
@@ -42,9 +43,17 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
   useEffect(() => {
     if (!open || !product) return
     setImageIndex(0)
-    setSelectedSize(null)
     setSelectedColor(product.colors[0] ?? product.colorOptions[0]?.hex ?? null)
     setSizeShake(false)
+    const ui = resolveSizeOptionUi({
+      sizes: product.sizes,
+      category: product.category,
+    })
+    if (!ui.showSelector) {
+      setSelectedSize(product.sizes[0] ?? null)
+    } else {
+      setSelectedSize(null)
+    }
   }, [open, product])
 
   useOverlayScrollLock(open)
@@ -57,6 +66,15 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
   const sortedSizes = useMemo(
     () => (product ? sortSizes(product.sizes, product.category) : []),
     [product],
+  )
+
+  const sizeOptionUi = useMemo(
+    () =>
+      resolveSizeOptionUi({
+        sizes: sortedSizes,
+        category: product?.category,
+      }),
+    [sortedSizes, product?.category],
   )
 
   const selectedColorName = useMemo(() => {
@@ -79,9 +97,9 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
 
   const handleAddToBag = useCallback(() => {
     if (!product) return
-    if (sortedSizes.length > 0 && !selectedSize) {
+    if (sizeOptionUi.showSelector && sortedSizes.length > 0 && !selectedSize) {
       setSizeShake(true)
-      toast.error('Please select a size')
+      toast.error(sizeOptionUi.selectToast)
       window.setTimeout(() => setSizeShake(false), 520)
       return
     }
@@ -90,13 +108,13 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
       !quickViewSizeInStock(product, selectedSize, selectedColor ?? undefined)
     ) {
       setSizeShake(true)
-      toast.error('Selected size is out of stock')
+      toast.error('Selected option is out of stock')
       window.setTimeout(() => setSizeShake(false), 520)
       return
     }
     onAddToBag(selectedSize ?? undefined, selectedColor ?? undefined)
     onClose()
-  }, [onAddToBag, onClose, product, selectedColor, selectedSize, sortedSizes.length])
+  }, [onAddToBag, onClose, product, selectedColor, selectedSize, sizeOptionUi, sortedSizes.length])
 
   const panelMotion = reducedMotion
     ? { initial: false as const }
@@ -231,14 +249,14 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
                   </div>
                 ) : null}
 
-                {sortedSizes.length > 0 ? (
+                {sizeOptionUi.showSelector ? (
                   <div className={cn('pqv-sizes mt-5', sizeShake && 'pqv-sizes--shake')}>
                     <div className="mb-2.5 flex items-center justify-between gap-3">
                       <p className="text-[0.68rem] font-black uppercase tracking-[0.14em] text-luxury-black">
-                        Select Size
+                        {sizeOptionUi.label}
                       </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2" role="group" aria-label={sizeOptionUi.ariaLabel}>
                       {sortedSizes.map((size) => {
                         const inStock = quickViewSizeInStock(
                           product,

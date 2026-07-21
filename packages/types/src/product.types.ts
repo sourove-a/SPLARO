@@ -52,6 +52,11 @@ export interface ProductVariantData {
   isActive: boolean
 }
 
+export interface ProductSpecFact {
+  label: string
+  value: string
+}
+
 export interface ProductDetailData extends ProductCardData {
   description: string
   shortDescription?: string
@@ -64,6 +69,10 @@ export interface ProductDetailData extends ProductCardData {
   occasion?: string
   season?: string
   origin?: string
+  /** Product weight in grams when set in admin/catalog. */
+  weightGrams?: number
+  /** Structured facts from schemaMarkup.specs (dimensions, strap, closure…). */
+  specs?: ProductSpecFact[]
   variants: ProductVariantData[]
   tags: string[]
   metaTitle?: string

@@ -1,6 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import { cache } from 'react'
-import { getServerApiBaseUrl } from '@splaro/config'
+import { CATEGORY_SUBCATEGORIES, getServerApiBaseUrl } from '@splaro/config'
 import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
 import { settingsFetchTimeoutMs } from '@/lib/server/fetch-timeouts'
 import {
@@ -60,6 +60,14 @@ export interface MegaMenuHero {
 export interface MegaMenuConfig {
   categories: MegaMenuCategory[]
   heroes: MegaMenuHero[]
+}
+
+/** Offline / build fallback megas — same labels as category-tree-defaults (never legacy T-Shirts copy). */
+function fallbackMegaCategories(department: keyof typeof CATEGORY_SUBCATEGORIES): MegaMenuCategory[] {
+  return (CATEGORY_SUBCATEGORIES[department] ?? []).map((entry) => ({
+    label: entry.name,
+    href: `/c/${entry.slug}`,
+  }))
 }
 
 export interface NavLink {
@@ -180,21 +188,13 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
     footerCopyright: '',
     storeLabel: DEFAULT_STORE_LABEL,
     headerNav: [
-      { label: 'Home', href: '/' },
       { label: 'Shop', href: '/shop' },
+      { label: 'Summer Edition', href: '/c/summer-edition' },
       {
         label: 'Men',
         href: '/c/men',
         megaMenu: {
-          // Slugs must match packages/config category-tree-defaults (NavBuilder)
-          categories: [
-            { label: 'Panjabi', href: '/c/panjabi' },
-            { label: 'T-Shirts', href: '/c/t-shirts' },
-            { label: 'Polo Shirts', href: '/c/polo-shirts' },
-            { label: 'Formal Shirts', href: '/c/formal-shirts' },
-            { label: 'Casual Wear', href: '/c/men-casual' },
-            { label: 'Trousers', href: '/c/trousers' },
-          ],
+          categories: fallbackMegaCategories('men'),
           heroes: [
             {
               label: 'New Arrivals',
@@ -218,14 +218,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
         label: 'Women',
         href: '/c/women',
         megaMenu: {
-          categories: [
-            { label: 'Sarees', href: '/c/sarees' },
-            { label: 'Ethnic Wear', href: '/c/ethnic-wear' },
-            { label: 'Kurti & Tunics', href: '/c/kurti-tunics' },
-            { label: 'Dresses', href: '/c/dresses' },
-            { label: 'Western Wear', href: '/c/western-wear' },
-            { label: 'Tops & Tees', href: '/c/tops-tees' },
-          ],
+          categories: fallbackMegaCategories('women'),
           heroes: [
             {
               label: 'New Arrivals',
@@ -238,7 +231,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
               image: EDITORIAL.womenBest,
             },
             {
-              label: 'Sarees',
+              label: 'Saree',
               href: '/c/sarees',
               image: EDITORIAL.womenPremium,
             },
@@ -249,12 +242,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
         label: 'Kids',
         href: '/c/kids',
         megaMenu: {
-          categories: [
-            { label: 'Girls Wear', href: '/c/girls-wear' },
-            { label: 'Boys Wear', href: '/c/boys-wear' },
-            { label: 'Party Wear', href: '/c/kids-party-wear' },
-            { label: 'School Wear', href: '/c/school-wear' },
-          ],
+          categories: fallbackMegaCategories('kids'),
           heroes: [
             {
               label: 'Girls Wear',
@@ -278,13 +266,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
         label: 'Footwear',
         href: '/c/footwear',
         megaMenu: {
-          categories: [
-            { label: 'Women Footwear', href: '/c/women-footwear' },
-            { label: 'Men Footwear', href: '/c/men-footwear' },
-            { label: 'Kids Footwear', href: '/c/kids-footwear' },
-            { label: 'Sneakers', href: '/c/sneakers' },
-            { label: 'Sandals', href: '/c/sandals' },
-          ],
+          categories: fallbackMegaCategories('footwear'),
           heroes: [
             {
               label: 'Sneakers',
@@ -318,33 +300,41 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
         id: 'shop',
         title: 'Shop',
         links: [
-          { label: 'All products', href: '/shop' },
-          { label: 'Men', href: '/c/men' },
+          { label: 'New Arrivals', href: '/new-arrivals' },
+          { label: 'Best Sellers', href: '/best-sellers' },
           { label: 'Women', href: '/c/women' },
-          { label: 'Kids', href: '/c/kids' },
+          { label: 'Men', href: '/c/men' },
           { label: 'Footwear', href: '/c/footwear' },
           { label: 'Accessories', href: '/accessories' },
+          { label: 'Collections', href: '/collections' },
         ],
       },
       {
-        id: 'support',
-        title: 'Support',
+        id: 'care',
+        title: 'Customer Care',
         links: [
-          { label: 'Contact', href: '/contact' },
-          { label: 'Track order', href: '/track-order' },
-          { label: 'Shipping', href: '/shipping' },
-          { label: 'Returns', href: '/returns' },
-          { label: 'Size guide', href: '/size-guide' },
+          { label: 'Track Order', href: '/track-order' },
+          { label: 'Returns & Exchange', href: '/returns' },
+          { label: 'Contact Us', href: '/contact' },
+          { label: 'Size Guide', href: '/size-guide' },
         ],
       },
       {
         id: 'company',
         title: 'Company',
         links: [
-          { label: 'About', href: '/about' },
-          { label: 'Editorial', href: '/editorial' },
-          { label: 'Privacy policy', href: '/privacy' },
-          { label: 'Terms', href: '/terms' },
+          { label: 'About SPLARO', href: '/about' },
+          { label: 'Journal', href: '/editorial' },
+        ],
+      },
+      {
+        id: 'policies',
+        title: 'Policies',
+        links: [
+          { label: 'Shipping Policy', href: '/shipping' },
+          { label: 'Privacy Policy', href: '/privacy' },
+          { label: 'Terms & Conditions', href: '/terms' },
+          { label: 'Payment Policy', href: '/payment-policy' },
         ],
       },
     ],
@@ -462,7 +452,7 @@ async function fetchSettingsRaw(): Promise<StorefrontSettings> {
 
 const getCachedSettingsProd = unstable_cache(
   fetchSettingsRaw,
-  ['splaro-storefront-settings', 'v5-dept-mega-live'],
+  ['splaro-storefront-settings', 'v6-unified-nav'],
   { revalidate: 30, tags: ['storefront-settings', 'storefront-nav'] },
 )
 

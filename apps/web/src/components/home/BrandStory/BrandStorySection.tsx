@@ -74,7 +74,7 @@ export function BrandStorySection({ story, reviews }: BrandStorySectionProps) {
       <StoryBackground activeIndex={safeIndex} cardCount={cards.length} />
 
       <div className="home-story-deck__inner">
-        <header className="home-story-deck__head">
+        <div className="home-story-deck__head">
           <p className="home-story-deck__eyebrow">Discover</p>
           <h2 id="home-story-deck-title" className="home-story-deck__title">
             Our Story
@@ -82,7 +82,7 @@ export function BrandStorySection({ story, reviews }: BrandStorySectionProps) {
           <p className="sr-only" aria-live="polite">
             {activeCard.title}
           </p>
-        </header>
+        </div>
 
         <StoryDeck
           cards={cards}
