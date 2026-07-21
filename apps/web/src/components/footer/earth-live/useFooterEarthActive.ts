@@ -22,26 +22,39 @@ export function useFooterEarthActive() {
     if (!host) return
 
     const sync = () => {
-      setNearViewport(isNearViewport(host, 200))
+      const next = isNearViewport(host, 200)
+      setNearViewport((prev) => (prev === next ? prev : next))
     }
 
     sync()
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setNearViewport(Boolean(entry?.isIntersecting) || isNearViewport(host, 200))
+        const next = Boolean(entry?.isIntersecting) || isNearViewport(host, 200)
+        setNearViewport((prev) => (prev === next ? prev : next))
       },
       { rootMargin: '120px 0px', threshold: 0.01 },
     )
 
     observer.observe(host)
-    window.addEventListener('scroll', sync, { passive: true, capture: true })
-    window.addEventListener('resize', sync, { passive: true })
+
+    let raf = 0
+    const onScroll = () => {
+      if (raf !== 0) return
+      raf = window.requestAnimationFrame(() => {
+        raf = 0
+        sync()
+      })
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true })
+    window.addEventListener('resize', onScroll, { passive: true })
 
     return () => {
       observer.disconnect()
-      window.removeEventListener('scroll', sync, { capture: true } as EventListenerOptions)
-      window.removeEventListener('resize', sync)
+      if (raf !== 0) window.cancelAnimationFrame(raf)
+      window.removeEventListener('scroll', onScroll, { capture: true } as EventListenerOptions)
+      window.removeEventListener('resize', onScroll)
     }
   }, [])
 

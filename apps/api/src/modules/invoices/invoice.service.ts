@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { PrismaService } from '../../common/prisma.service'
 import { EmailService } from '../email/email.service'
 import { buildInvoiceViewModel, type InvoiceOrder } from './invoice.helpers'
+import { generateInvoiceEmailBody } from './invoice-email-body.template'
 import { generateInvoiceHTML } from './invoice.template'
 import { generateInvoiceEmailHTML } from './invoice-email.template'
 import { SPLARO_INVOICE_BRAND } from '@splaro/config'
@@ -145,7 +146,7 @@ export class InvoiceService {
       customerEmail: emailTo,
       showToolbar: false,
     })
-    const invoiceHtml = generateInvoiceHTML(model, { showToolbar: false, mode: 'fragment' })
+    const invoiceHtml = generateInvoiceEmailBody(model)
     const sent = await this.email.sendForStore({
       storeId: order.storeId,
       to: emailTo,

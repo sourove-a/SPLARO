@@ -51,39 +51,40 @@ export class OrderSideEffectsQueueService {
   async processOrderPlaced(payload: OrderPlacedSideEffectPayload): Promise<void> {
     const { storeId, orderId, customerEmail, meta } = payload
 
-    await this.metaCapi
-      .trackPurchase({
-        storeId,
-        orderId,
-        total: meta.total,
-        email: meta.email,
-        phone: meta.phone,
-        fbclid: meta.fbclid,
-        clientIp: meta.clientIp,
-        userAgent: meta.userAgent,
-        eventSourceUrl: meta.eventSourceUrl,
-      })
-      .catch((err: unknown) =>
-        this.logger.error(
-          `trackPurchase failed for order ${orderId}: ${err instanceof Error ? err.message : err}`,
+    // Meta + email/Telegram + automations are independent — run in parallel.
+    await Promise.all([
+      this.metaCapi
+        .trackPurchase({
+          storeId,
+          orderId,
+          total: meta.total,
+          email: meta.email,
+          phone: meta.phone,
+          fbclid: meta.fbclid,
+          clientIp: meta.clientIp,
+          userAgent: meta.userAgent,
+          eventSourceUrl: meta.eventSourceUrl,
+        })
+        .catch((err: unknown) =>
+          this.logger.error(
+            `trackPurchase failed for order ${orderId}: ${err instanceof Error ? err.message : err}`,
+          ),
         ),
-      )
-
-    await this.orderNotifications
-      .onOrderPlaced(storeId, orderId, customerEmail)
-      .catch((err: unknown) =>
-        this.logger.error(
-          `Order confirmation notification failed for order ${orderId}: ${err instanceof Error ? err.message : err}`,
+      this.orderNotifications
+        .onOrderPlaced(storeId, orderId, customerEmail)
+        .catch((err: unknown) =>
+          this.logger.error(
+            `Order confirmation notification failed for order ${orderId}: ${err instanceof Error ? err.message : err}`,
+          ),
         ),
-      )
-
-    await this.orderEvents
-      ?.onOrderPlaced(storeId, orderId)
-      .catch((err: unknown) =>
-        this.logger.error(
-          `onOrderPlaced automation hook failed for order ${orderId}: ${err instanceof Error ? err.message : err}`,
-        ),
-      )
+      this.orderEvents
+        ?.onOrderPlaced(storeId, orderId)
+        .catch((err: unknown) =>
+          this.logger.error(
+            `onOrderPlaced automation hook failed for order ${orderId}: ${err instanceof Error ? err.message : err}`,
+          ),
+        ) ?? Promise.resolve(),
+    ])
   }
 }
 

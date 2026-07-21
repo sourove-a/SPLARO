@@ -7,6 +7,7 @@ import {
   redirectStatusCode,
 } from '@/lib/server/url-redirects'
 import { isAllowedExternalRedirect } from '@/lib/server/redirect-allowlist'
+import { productSlugExists } from '@/lib/server/product-exists'
 
 const MAINTENANCE_ENABLED = process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true'
 
@@ -76,6 +77,20 @@ export async function middleware(request: NextRequest) {
     const slug = pathname.slice('/collections/'.length).replace(/\/$/, '')
     if (slug) {
       return redirectToShortCollection(request, slug)
+    }
+  }
+
+  // Missing PDP: Next soft-200s streamed notFound() — enforce real HTTP 404 here.
+  const productMatch = pathname.match(/^\/products\/([^/]+)\/?$/)
+  if (productMatch?.[1]) {
+    const slug = decodeURIComponent(productMatch[1])
+    const exists = await productSlugExists(slug)
+    if (exists === false) {
+      const missing = request.nextUrl.clone()
+      missing.pathname = '/product-missing'
+      const response = NextResponse.rewrite(missing, { status: 404 })
+      response.headers.set('X-Robots-Tag', 'noindex, nofollow')
+      return response
     }
   }
 

@@ -265,6 +265,14 @@ export class StorefrontCartAddItemDto {
   variantId?: string
 
   @IsOptional()
+  @IsString()
+  size?: string
+
+  @IsOptional()
+  @IsString()
+  color?: string
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Max(500)
@@ -278,6 +286,14 @@ export class StorefrontCartReplaceItemDto {
   @IsOptional()
   @IsString()
   variantId?: string
+
+  @IsOptional()
+  @IsString()
+  size?: string
+
+  @IsOptional()
+  @IsString()
+  color?: string
 
   @IsOptional()
   @IsInt()

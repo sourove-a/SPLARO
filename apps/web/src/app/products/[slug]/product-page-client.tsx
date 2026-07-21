@@ -599,6 +599,7 @@ export default function ProductPageClient({
     // the API rejects them, so only send ids that came from the database.
     const realVariantId =
       activeVariant?.id &&
+      !activeVariant.id.startsWith('unavailable:') &&
       activeVariant.id !== product.id &&
       !activeVariant.id.startsWith(`${product.id}-`)
         ? activeVariant.id
@@ -1197,7 +1198,7 @@ export default function ProductPageClient({
                     animate={sizeShake && showMotion ? 'shake' : 'idle'}
                   >
                     {sizes.map((size) => {
-                      const qty = sizeStock.get(size) ?? stock
+                      const qty = sizeStock.get(size) ?? 0
                       const disabled = qty === 0
                       const active = selectedSize === size && !disabled
                       return (

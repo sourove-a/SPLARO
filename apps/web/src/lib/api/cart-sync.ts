@@ -159,6 +159,8 @@ export async function pushCartToServer(items: CartItem[]): Promise<CartSyncResul
         items: items.map((item) => ({
           productId: item.productId,
           ...(item.variantId ? { variantId: item.variantId } : {}),
+          ...(item.size ? { size: item.size } : {}),
+          ...(item.color ? { color: item.color } : {}),
           quantity: item.quantity,
         })),
       }),

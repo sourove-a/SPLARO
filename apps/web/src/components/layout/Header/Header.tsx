@@ -143,7 +143,7 @@ export function Header() {
                 mobileSearchActive && 'site-header-glass__chrome-hide',
               )}
             >
-              {isMobileMenuOpen ? <X strokeWidth={1.35} /> : <Menu strokeWidth={1.35} />}
+              {isMobileMenuOpen ? <X strokeWidth={1.55} /> : <Menu strokeWidth={1.55} />}
             </MotionPressable>
 
             <div
@@ -192,7 +192,7 @@ export function Header() {
                       variant="icon"
                       className={cn(iconBtnClass, 'site-header-glass__action-search')}
                     >
-                      <Search strokeWidth={1.35} />
+                      <Search className="site-header-glass__search-svg" strokeWidth={1.55} />
                     </MotionPressable>
                   </motion.div>
                 )}

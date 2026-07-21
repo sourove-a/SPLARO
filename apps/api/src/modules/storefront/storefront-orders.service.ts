@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common'
-import { verifyInvoiceAccessToken } from '@splaro/config'
+import { formatSplOrderCode, parseSplOrderNumber, verifyInvoiceAccessToken } from '@splaro/config'
 import { PrismaService } from '../../common/prisma.service'
 import { RedisService } from '../../common/redis.service'
 import { resolveStoreId } from '../../common/store.util'
@@ -8,8 +8,11 @@ import { generateOrderCode } from '../../common/order-code.util'
 import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
 import { isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
 import { assertCouponForOrder } from '../coupons/coupon-validate.util'
-import { resolveCheckoutVariant, type CheckoutVariantRow } from '../../common/cart-line.util'
-import { assertPaymentMethodEnabled, loadStorePaymentFlags } from '../../common/payment-flags.util'
+import {
+  resolveCheckoutVariantsBatch,
+  type CheckoutVariantRow,
+} from '../../common/cart-line.util'
+import { assertPaymentMethodEnabled, type StorePaymentFlags } from '../../common/payment-flags.util'
 import {
   computeExpectedDeliveryChargeBdt,
   resolveOrderDistrict,
@@ -104,9 +107,26 @@ function digitalPaymentProvider(method: PaymentMethod): DigitalPaymentProvider {
 export class StorefrontOrdersService {
   private readonly logger = new Logger(StorefrontOrdersService.name)
 
+  /** Slim include for create/idempotency responses — avoid pulling full Product rows. */
   private static readonly ORDER_INCLUDE = {
-    items: { include: { product: true, variant: true } },
-    customer: true,
+    items: {
+      include: {
+        product: { select: { id: true, slug: true, name: true, basePrice: true } },
+        variant: {
+          select: {
+            id: true,
+            sku: true,
+            size: true,
+            color: true,
+            colorName: true,
+            colorHex: true,
+            image: true,
+            price: true,
+          },
+        },
+      },
+    },
+    customer: { select: { id: true, email: true, phone: true, firstName: true, lastName: true } },
   } as const
 
   constructor(
@@ -178,44 +198,64 @@ export class StorefrontOrdersService {
     const sid = await resolveStoreId(this.prisma, input.storeId)
     const errors: string[] = []
 
-    // Resolve every line to a real DB variant and take prices from the
-    // database — client-sent prices are never trusted for money math.
+    for (const item of input.items) {
+      if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 500) {
+        throw new BadRequestException(`${item.name}: invalid quantity`)
+      }
+    }
+
+    const paymentMethod = mapPaymentMethod(input.paymentMethod)
+
+    // Variants + payment/delivery settings are independent — fetch together.
+    const [resolvedLines, settings] = await Promise.all([
+      resolveCheckoutVariantsBatch(this.prisma, sid, input.items),
+      this.prisma.siteSettings.findUnique({
+        where: { storeId: sid },
+        select: {
+          codEnabled: true,
+          bkashEnabled: true,
+          nagadEnabled: true,
+          sslcommerzEnabled: true,
+          freeDeliveryThreshold: true,
+          dhakaDeliveryCharge: true,
+          outsideDhakaCharge: true,
+        },
+      }),
+    ])
+
     const lines: {
       item: StorefrontOrderItemInput
       variant: CheckoutVariantRow
       unitPrice: number
     }[] = []
 
-    for (const item of input.items) {
-      if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 500) {
-        throw new BadRequestException(`${item.name}: invalid quantity`)
-      }
-
-      const resolved = await resolveCheckoutVariant(this.prisma, sid, item)
-      if (!resolved.ok) {
-        errors.push(resolved.error)
-        continue
+    input.items.forEach((item, index) => {
+      const resolved = resolvedLines[index]
+      if (!resolved?.ok) {
+        errors.push(resolved?.error ?? `${item.name}: selected variant is no longer available`)
+        return
       }
       const variant = resolved.variant
-
       const available = Math.max(0, variant.stock - variant.reservedStock)
       if (available < item.quantity) {
         errors.push(`${item.name}: only ${available} left in stock`)
-        continue
+        return
       }
-
       const variantPrice = Number(variant.price)
       const unitPrice = variantPrice > 0 ? variantPrice : Number(variant.product.basePrice)
       lines.push({ item, variant, unitPrice })
-    }
+    })
 
     if (errors.length) {
       throw new BadRequestException(errors.join('; '))
     }
 
-    const paymentMethod = mapPaymentMethod(input.paymentMethod)
-
-    const paymentFlags = await loadStorePaymentFlags(this.prisma, sid)
+    const paymentFlags: StorePaymentFlags = {
+      cod: settings?.codEnabled ?? true,
+      bkash: settings?.bkashEnabled ?? false,
+      nagad: settings?.nagadEnabled ?? false,
+      sslcommerz: settings?.sslcommerzEnabled ?? false,
+    }
     assertPaymentMethodEnabled(paymentMethod, paymentFlags)
     if (paymentMethod !== 'CASH_ON_DELIVERY') {
       const provider = digitalPaymentProvider(paymentMethod)
@@ -239,7 +279,6 @@ export class StorefrontOrdersService {
         : Math.round(serverSubtotal * DIGITAL_PAYMENT_DISCOUNT_RATE)
     const serverDiscount = digitalDiscount + (coupon?.discount ?? 0)
 
-    const settings = await this.prisma.siteSettings.findUnique({ where: { storeId: sid } })
     const freeThreshold = Number(settings?.freeDeliveryThreshold ?? 0)
     const freeDelivery =
       Boolean(coupon?.freeShipping) ||
@@ -293,39 +332,32 @@ export class StorefrontOrdersService {
     }))
 
     const idemKey = input.idempotencyKey?.trim()
-    if (idemKey) {
-      const durableExisting = await this.prisma.order.findUnique({
-        where: { storeId_idempotencyKey: { storeId: sid, idempotencyKey: idemKey } },
-        include: StorefrontOrdersService.ORDER_INCLUDE,
-      })
-      if (durableExisting) return durableExisting
-    }
-    if (idemKey && this.redis) {
-      const cached = await this.redis.getJson<{ orderId: string }>(
-        `splaro:order-idem:${sid}:${idemKey}`,
-      )
-      if (cached?.orderId) {
-        const existing = await this.loadOrderById(cached.orderId)
-        if (existing) return existing
-      }
-    }
-
-    const duplicate = await this.findRecentDuplicateOrder(
-      sid,
-      normalizedPhone,
-      serverTotal,
-      lineFingerprint,
-    )
-    if (duplicate) return duplicate
-
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    const recentPhoneOrders = await this.prisma.order.count({
-      where: {
-        storeId: sid,
-        shippingPhone: normalizedPhone,
-        createdAt: { gte: since24h },
-      },
-    })
+    const [durableExisting, redisCached, duplicate, recentPhoneOrders] = await Promise.all([
+      idemKey
+        ? this.prisma.order.findUnique({
+            where: { storeId_idempotencyKey: { storeId: sid, idempotencyKey: idemKey } },
+            include: StorefrontOrdersService.ORDER_INCLUDE,
+          })
+        : Promise.resolve(null),
+      idemKey && this.redis
+        ? this.redis.getJson<{ orderId: string }>(`splaro:order-idem:${sid}:${idemKey}`)
+        : Promise.resolve(null),
+      this.findRecentDuplicateOrder(sid, normalizedPhone, serverTotal, lineFingerprint),
+      this.prisma.order.count({
+        where: {
+          storeId: sid,
+          shippingPhone: normalizedPhone,
+          createdAt: { gte: since24h },
+        },
+      }),
+    ])
+    if (durableExisting) return durableExisting
+    if (redisCached?.orderId) {
+      const existing = await this.loadOrderById(redisCached.orderId)
+      if (existing) return existing
+    }
+    if (duplicate) return duplicate
 
     const fraud = assessOrderFraud({
       paymentMethod,
@@ -345,7 +377,12 @@ export class StorefrontOrdersService {
       | undefined
 
     for (let attempt = 0; attempt < 6; attempt++) {
-      const invoiceNumber = await generateOrderCode(this.prisma, sid)
+      let invoiceNumber = await generateOrderCode(this.prisma, sid)
+      if (attempt > 0) {
+        // Concurrent claim of the same SPL code — jump ahead of the contested window.
+        const n = parseSplOrderNumber(invoiceNumber)
+        if (n != null) invoiceNumber = formatSplOrderCode(n + attempt)
+      }
       try {
         order = await this.prisma.$transaction(async (tx) => {
           if (coupon) {

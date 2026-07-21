@@ -1,5 +1,6 @@
 import type { InvoiceViewModel } from './invoice.helpers'
 import { buildInvoiceViewModel, escapeHtml, formatBdt, paymentStatusLabel, statusBadgeClass } from './invoice.helpers'
+import { generateInvoiceEmailBody } from './invoice-email-body.template'
 
 export interface InvoiceTemplateOptions {
   showToolbar?: boolean
@@ -724,7 +725,9 @@ export function generateInvoiceHTML(
     </div>
   </article>`
 
-  if (fragment) return article
+  // Email must never receive this print/PDF article — Gmail strips <style> and
+  // product images explode. Prefer generateInvoiceEmailBody at call sites.
+  if (fragment) return generateInvoiceEmailBody(model)
 
   return `<!DOCTYPE html>
 <html lang="en">

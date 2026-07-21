@@ -192,12 +192,12 @@ export function ProductReviews({
           <div className="pp-reviews__trigger-copy">
             <span className="pp-reviews__trigger-eyebrow">গ্রাহক রিভিউ · Customer Reviews</span>
             <span id="product-reviews-heading" className="pp-reviews__trigger-title">
-              Trusted by our community
+              {displayCount > 0 ? 'Trusted by our community' : 'Fit, fabric & feel'}
             </span>
             <span className="pp-reviews__trigger-hint">
               {displayCount > 0
                 ? `${displayRating.toFixed(1)} · ${displayCount} review${displayCount === 1 ? '' : 's'}`
-                : 'Fresh in the collection — be the first to review'}
+                : 'Honest notes from real orders — none yet for this piece'}
             </span>
           </div>
           {displayCount > 0 ? (
@@ -222,7 +222,9 @@ export function ProductReviews({
             >
               <div className="pp-reviews__panel-inner">
                 <p className="pp-reviews__subtitle">
-                  আসল ক্রেতাদের অভিজ্ঞতা — Bangla বা English এ লিখতে পারবেন
+                  {displayCount > 0
+                    ? 'আসল ক্রেতাদের অভিজ্ঞতা — Bangla বা English এ লিখতে পারবেন'
+                    : 'We only show real buyer notes — fabric, fit, and finish after wear'}
                 </p>
 
                 {displayCount > 0 ? (
@@ -305,9 +307,12 @@ export function ProductReviews({
                 ) : (
                   <div className="pp-reviews__empty">
                     <MessageSquareQuote strokeWidth={1.5} />
-                    <p>নতুন কালেকশনের পিস — আপনার রিভিউই প্রথম হতে পারে</p>
+                    <p>এই পিসের জন্য এখনো রিভিউ নেই</p>
                     <p className="pp-reviews__empty-sub">
-                      Fresh in the collection — your review could be the first
+                      পরে থাকলে ফিট, কাপড় আর ফিনিশিং নিয়ে এক লাইন লিখুন — অন্যদের সাহায্য হবে
+                    </p>
+                    <p className="pp-reviews__empty-sub pp-reviews__empty-sub--en">
+                      After you wear it, share how it fits and feels — we keep every note real.
                     </p>
                   </div>
                 )}
@@ -326,7 +331,9 @@ export function ProductReviews({
                       </span>
                       <span className="pp-reviews__form-toggle-hint">
                         {isLoggedIn
-                          ? 'ক্লিক করে ফর্ম খুলুন · Tap to open the form'
+                          ? displayCount > 0
+                            ? 'ক্লিক করে ফর্ম খুলুন · Tap to open the form'
+                            : 'ফিট ও ফিল এক লাইনে · A short honest note helps'
                           : 'অ্যাকাউন্ট লাগবে · Account required'}
                       </span>
                     </span>

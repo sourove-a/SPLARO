@@ -29,6 +29,8 @@ export interface ProductCardData {
   reviewCount: number
   category?: string
   categorySlug?: string
+  /** Department slug when `categorySlug` is a leaf (e.g. wallets → accessories). */
+  parentCategorySlug?: string
   collectionSlug?: string
   media?: ProductMediaData[]
 }

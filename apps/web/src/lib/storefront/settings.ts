@@ -644,3 +644,56 @@ export const getStorefrontSettings = cache(async (): Promise<StorefrontSettings>
     return FALLBACK_SETTINGS
   }
 })
+
+export type CheckoutShippingSettings = StorefrontSettings['shipping']
+
+/**
+ * Shipping rates only for checkout BFF — skips nav megas / full settings merge.
+ * Nest still recomputes delivery from DB; this just builds the client delivery fee.
+ */
+async function fetchShippingRaw(): Promise<CheckoutShippingSettings> {
+  if (isCiOrProductionBuild()) return FALLBACK_SETTINGS.shipping
+
+  const base = getServerApiBaseUrl()
+  const shippingRes = await fetchWithTimeout(
+    `${base}/storefront/shipping?storeId=${encodeURIComponent(STORE_ID)}`,
+    {
+      next: { revalidate: 30, tags: ['storefront-settings-shipping'] },
+      timeoutMs: Math.min(settingsFetchTimeoutMs(), 1800),
+    },
+  )
+  if (!shippingRes?.ok) return FALLBACK_SETTINGS.shipping
+
+  try {
+    const data = (await shippingRes.json()) as CheckoutShippingSettings
+    return {
+      freeDeliveryThreshold: Number(
+        data.freeDeliveryThreshold ?? FALLBACK_SETTINGS.shipping.freeDeliveryThreshold,
+      ),
+      dhakaDeliveryCharge: Number(
+        data.dhakaDeliveryCharge ?? FALLBACK_SETTINGS.shipping.dhakaDeliveryCharge,
+      ),
+      outsideDhakaCharge: Number(
+        data.outsideDhakaCharge ?? FALLBACK_SETTINGS.shipping.outsideDhakaCharge,
+      ),
+    }
+  } catch {
+    return FALLBACK_SETTINGS.shipping
+  }
+}
+
+const getCachedShippingProd = unstable_cache(
+  fetchShippingRaw,
+  ['splaro-checkout-shipping', 'v1'],
+  { revalidate: 60, tags: ['storefront-settings', 'storefront-settings-shipping'] },
+)
+
+export const getCheckoutShippingSettings = cache(async (): Promise<CheckoutShippingSettings> => {
+  try {
+    return process.env.NODE_ENV === 'development'
+      ? await fetchShippingRaw()
+      : await getCachedShippingProd()
+  } catch {
+    return FALLBACK_SETTINGS.shipping
+  }
+})

@@ -29,7 +29,15 @@ export async function PUT(request: Request, context: RouteContext) {
     return NextResponse.json({ error: 'Missing cart session' }, { status: 400 })
   }
 
-  let body: { items?: { productId: string; variantId?: string; quantity: number }[] }
+  let body: {
+    items?: {
+      productId: string
+      variantId?: string
+      size?: string
+      color?: string
+      quantity: number
+    }[]
+  }
   try {
     body = (await request.json()) as typeof body
   } catch {

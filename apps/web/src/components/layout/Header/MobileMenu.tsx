@@ -10,6 +10,7 @@ import {
   Footprints,
   Gem,
   Home,
+  Search,
   ShoppingBag,
   Sparkles,
   Sun,
@@ -25,6 +26,7 @@ import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
 import { isNavActive } from '@/lib/navigation/is-nav-active'
 import { cn } from '@/lib/utils/cn'
 import { usePathname } from 'next/navigation'
+import { useUiStore } from '@/store/uiStore'
 
 interface MobileMenuProps {
   isOpen: boolean
@@ -59,6 +61,7 @@ function GlassNavIcon({ label, href }: { label: string; href: string }) {
 export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const pathname = usePathname()
   const settings = useStorefrontSettings()
+  const setSearchOpen = useUiStore((s) => s.setSearchOpen)
   const navItems = (settings.config.headerNav ?? []).filter((item) => !item.hidden)
   const [openLabel, setOpenLabel] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
@@ -67,6 +70,12 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const touchStartX = useRef(0)
   useDialogFocusTrap(isOpen, drawerRef, onClose)
   useOverlayScrollLock(isOpen)
+
+  const openSearch = () => {
+    onClose()
+    // Let the drawer unmount finish before expanding header search.
+    window.setTimeout(() => setSearchOpen(true), 80)
+  }
 
   useEffect(() => setMounted(true), [])
 
@@ -222,16 +231,28 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 onClick={onClose}
                 className="mm-drawer__logo"
               />
-              <motion.button
-                type="button"
-                onClick={onClose}
-                aria-label="Close menu"
-                className="mm-drawer__close"
-                {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
-                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              >
-                <X className="h-4 w-4" strokeWidth={1.75} />
-              </motion.button>
+              <div className="mm-drawer__head-actions">
+                <motion.button
+                  type="button"
+                  onClick={openSearch}
+                  aria-label="Search"
+                  className="mm-drawer__icon-btn"
+                  {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
+                  transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <Search className="h-4 w-4" strokeWidth={1.75} />
+                </motion.button>
+                <motion.button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close menu"
+                  className="mm-drawer__icon-btn"
+                  {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
+                  transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <X className="h-4 w-4" strokeWidth={1.75} />
+                </motion.button>
+              </div>
             </motion.header>
 
             <motion.p
@@ -245,6 +266,23 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
             <nav className="mm-drawer__nav" data-lenis-prevent aria-label="Mobile navigation">
               <motion.ul variants={list} initial="hidden" animate="show" className="mm-drawer__list">
+                <motion.li variants={itemMotion} className="mm-drawer__group">
+                  <motion.button
+                    type="button"
+                    className="mm-drawer__glass mm-drawer__glass--btn"
+                    onClick={openSearch}
+                    {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
+                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <span className="mm-drawer__glass-icon" aria-hidden>
+                      <Search className="h-[0.95rem] w-[0.95rem]" strokeWidth={1.85} />
+                    </span>
+                    <span className="mm-drawer__glass-label">Search</span>
+                    <span className="mm-drawer__chevron" aria-hidden>
+                      <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
+                    </span>
+                  </motion.button>
+                </motion.li>
                 {navItems.map((navItem) => {
                   const subs = navItem.megaMenu?.categories ?? []
                   const expanded = openLabel === navItem.label

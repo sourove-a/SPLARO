@@ -214,8 +214,10 @@ function mapReviews(reviews: LiveReview[] | undefined): ProductReview[] {
 function buildVariants(p: LiveProduct, basePrice: number, fallbackImg: string): ProductVariantData[] {
   const variants = p.variants ?? []
   if (!variants.length) {
+    // No sellable SKU — keep a placeholder row for layout, but never invent a
+    // cart-facing id (product.id would collide with real variant lookups).
     return [{
-      id: p.id,
+      id: `unavailable:${p.id}`,
       price: basePrice,
       stock: 0,
       image: fallbackImg,
@@ -223,29 +225,31 @@ function buildVariants(p: LiveProduct, basePrice: number, fallbackImg: string): 
     }]
   }
 
-  return variants.map((variant) => {
-    const hex = (variant.colorHex ?? '#111111').toLowerCase()
-    const colorName =
-      variant.colorName?.trim() ||
-      (variant.color && variant.color !== 'Default' ? variant.color : null) ||
-      labelFromHex(hex)
+  return variants
+    .filter((variant): variant is LiveVariant & { id: string } => Boolean(variant.id?.trim()))
+    .map((variant) => {
+      const hex = (variant.colorHex ?? '#111111').toLowerCase()
+      const colorName =
+        variant.colorName?.trim() ||
+        (variant.color && variant.color !== 'Default' ? variant.color : null) ||
+        labelFromHex(hex)
 
-    const row: ProductVariantData = {
-      id: variant.id ?? `${p.id}-${variant.size ?? 'one'}-${hex.replace('#', '')}`,
-      price: Number(variant.price ?? basePrice),
-      stock: Number(variant.stock ?? 0),
-      isActive: variant.isActive !== false,
-    }
-    if (variant.size) row.size = variant.size
-    if (hex) row.colorHex = hex
-    if (colorName) {
-      row.color = colorName
-      row.colorName = colorName
-    }
-    if (variant.image ?? fallbackImg) row.image = variant.image ?? fallbackImg
-    if (variant.compareAtPrice != null) row.compareAtPrice = Number(variant.compareAtPrice)
-    return row
-  })
+      const row: ProductVariantData = {
+        id: variant.id,
+        price: Number(variant.price ?? basePrice),
+        stock: Number(variant.stock ?? 0),
+        isActive: variant.isActive !== false,
+      }
+      if (variant.size) row.size = variant.size
+      if (hex) row.colorHex = hex
+      if (colorName) {
+        row.color = colorName
+        row.colorName = colorName
+      }
+      if (variant.image ?? fallbackImg) row.image = variant.image ?? fallbackImg
+      if (variant.compareAtPrice != null) row.compareAtPrice = Number(variant.compareAtPrice)
+      return row
+    })
 }
 
 export function mapLiveProduct(
@@ -387,6 +391,7 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
     reviewCount: reviewCount > 0 ? reviewCount : 0,
     category,
     ...(p.category?.slug ? { categorySlug: p.category.slug } : {}),
+    ...(p.category?.parent?.slug ? { parentCategorySlug: p.category.parent.slug } : {}),
     collectionSlug: slugFromCategory(category),
     description: sanitizeStorefrontDescription(p.description, descriptionFallback),
     ...(() => {

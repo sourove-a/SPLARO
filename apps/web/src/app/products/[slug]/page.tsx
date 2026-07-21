@@ -1,9 +1,7 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
-import { productSlug } from '@/lib/catalog/index'
-import { getProductDetailBySlug, getStorefrontCatalog } from '@/lib/catalog/server'
-import { isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
+import { getProductDetailBySlug } from '@/lib/catalog/server'
 import { pageTitleSegment } from '@/lib/seo/page-title'
 import { serializeJsonLd } from '@/lib/seo/json-ld'
 import ProductPageClient from './product-page-client'
@@ -20,27 +18,30 @@ interface ProductPageProps {
 }
 
 export const dynamicParams = true
+export const dynamic = 'force-dynamic'
 
-/** Pre-render only when live API catalog is available (avoids CI/build timeouts). */
+/** Empty — middleware enforces real HTTP 404 for unknown slugs. */
 export async function generateStaticParams() {
-  if (isCiOrProductionBuild()) return []
-  try {
-    const { products, source } = await getStorefrontCatalog()
-    if (source !== 'api' || !products.length) return []
-    return products.map((p) => ({
-      slug: (p.slug ?? productSlug(p)) as string,
-    }))
-  } catch {
-    return []
-  }
+  return []
 }
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { slug } = await params
-  const result = await getProductDetailBySlug(slug).catch(() => null)
+  let result: Awaited<ReturnType<typeof getProductDetailBySlug>> = null
+  try {
+    result = await getProductDetailBySlug(slug)
+  } catch {
+    return {
+      title: 'Product',
+      robots: { index: false, follow: false },
+    }
+  }
 
   if (!result) {
-    return { title: 'Product not found' }
+    return {
+      title: 'Product not found',
+      robots: { index: false, follow: false },
+    }
   }
 
   const { product } = result

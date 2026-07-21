@@ -3,7 +3,7 @@ import { cache } from 'react'
 import type { StorefrontProduct } from '@/data/storefront'
 import type { ProductDetailData, ProductCardData } from '@splaro/types'
 import { sanitizeStorefrontProduct } from '@/lib/assets/images'
-import { productSlug, toProductDetail } from '@/lib/catalog/index'
+import { productSlug } from '@/lib/catalog/index'
 import { storefrontToCardData } from '@/lib/catalog/product-card-map'
 import {
   fetchLiveProductDetailBySlug,
@@ -16,6 +16,47 @@ import type { CollectionShopContext } from '@/lib/storefront/collection-context'
 import { rememberGoodCatalog, resolveCatalogFailure, getStaleCatalog } from '@/lib/catalog/catalog-stale'
 import { catalogFetchAttempts } from '@/lib/server/fetch-timeouts'
 import { isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
+import { colorGroup } from '@/data/storefront'
+import type { ProductVariantData } from '@splaro/types'
+
+/** Stale listing → PDP detail with real variantRefs (never empty generateVariants). */
+function toProductDetailFromStale(
+  product: StorefrontProduct & { slug?: string },
+): ProductDetailData {
+  const card = storefrontToCardData(product)
+  const variants: ProductVariantData[] = (product.variantRefs ?? [])
+    .filter((ref) => ref.isActive)
+    .map((ref) => {
+      const row: ProductVariantData = {
+        id: ref.id,
+        price: product.price,
+        stock: ref.stock,
+        isActive: ref.isActive,
+        image: product.image,
+      }
+      if (ref.size) row.size = ref.size
+      if (ref.colorHex) {
+        const hex = ref.colorHex.toLowerCase()
+        row.colorHex = hex
+        row.color = colorGroup(hex)
+        row.colorName = colorGroup(hex)
+      }
+      if (product.compareAtPrice) row.compareAtPrice = product.compareAtPrice
+      return row
+    })
+
+  return {
+    ...card,
+    description: `${product.name} — premium piece from SPLARO.`,
+    shortDescription: `${product.fit} fit · ${product.material}`,
+    sku: product.code,
+    fabricContent: product.material,
+    variants,
+    tags: [product.category, product.status, product.fit].filter(Boolean) as string[],
+    metaTitle: product.name,
+    metaDescription: `Shop ${product.name} at SPLARO.`,
+  }
+}
 
 export type CatalogSource = 'api' | 'api-unavailable' | 'empty'
 
@@ -347,39 +388,65 @@ export const getProductDetailBySlug = cache(async function getProductDetailBySlu
 
   try {
     return await getCachedProductDetail(slug)
-  } catch {
-    /* API unavailable — fall back to last good catalog entry */
-  }
-
-  const stale = getStaleCatalog()
-  if (stale?.products.length) {
-    const match = stale.products.find(
-      (entry) => entry.slug === slug || productSlug(entry) === slug,
-    )
-    if (match) {
-      return { product: toProductDetail(match), reviews: [], source: 'api' }
+  } catch (error) {
+    /* Prefer a usable stale catalog entry over a blank error page, but never
+       invent empty-variant details (that looks like always OOS). */
+    const stale = getStaleCatalog()
+    if (stale?.products.length) {
+      const match = stale.products.find(
+        (entry) => entry.slug === slug || productSlug(entry) === slug,
+      )
+      if (match?.variantRefs?.length) {
+        return {
+          product: toProductDetailFromStale(match),
+          reviews: [],
+          source: 'api',
+        }
+      }
     }
+    // Transient API failure with no usable stale data → error boundary (not 404).
+    throw error
   }
-
-  return null
 })
 
+/**
+ * Related rail for PDP. Leaf categories (e.g. wallets) often have 1 SKU —
+ * broaden to parent department, then shop-wide, so the page never dead-ends.
+ */
 export async function getRelatedProducts(
   product: ProductDetailData,
-  limit = 4,
+  limit = 8,
 ): Promise<ProductCardData[]> {
   try {
-    const listing = await fetchStorefrontProductListing({
-      ...(product.categorySlug ? { categorySlug: product.categorySlug } : {}),
-      page: 1,
-      limit: limit + 2,
-    })
-    if (!listing.products.length) return []
+    const fetchLimit = Math.max(limit + 4, 12)
+    const queries: Array<Parameters<typeof fetchStorefrontProductListing>[0]> = []
+    if (product.categorySlug) {
+      queries.push({ categorySlug: product.categorySlug, page: 1, limit: fetchLimit })
+    }
+    if (product.parentCategorySlug) {
+      queries.push({
+        parentCategorySlug: product.parentCategorySlug,
+        page: 1,
+        limit: fetchLimit,
+      })
+    }
+    // Final fallback — never leave “You may also like” blank when catalog has stock.
+    queries.push({ page: 1, limit: fetchLimit })
 
-    return listing.products
-      .filter((entry) => entry.id !== product.id)
-      .slice(0, limit)
-      .map((entry) => storefrontToCardData(entry))
+    const listings = await Promise.all(queries.map((query) => fetchStorefrontProductListing(query)))
+    const seen = new Set<string>([product.id])
+    const merged: typeof listings[number]['products'] = []
+    for (const listing of listings) {
+      for (const entry of listing.products) {
+        if (seen.has(entry.id)) continue
+        seen.add(entry.id)
+        merged.push(entry)
+        if (merged.length >= limit) break
+      }
+      if (merged.length >= limit) break
+    }
+
+    return merged.map((entry) => storefrontToCardData(entry))
   } catch {
     return []
   }

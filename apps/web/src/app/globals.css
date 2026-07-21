@@ -2520,13 +2520,13 @@ body[data-hide-productDetail][data-section="productDetail"]{ display: none; }
 
   .footer-lux__pills {
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
   }
 
   .footer-lux__pill {
     width: auto;
-    max-width: 100%;
+    max-width: none;
   }
 
   .footer-lux__bottom {
@@ -3021,14 +3021,21 @@ body[data-hide-productDetail][data-section="productDetail"]{ display: none; }
     display: none;
   }
 
-  /* Icon-only contact jewelry row — hard contact shadow, no gray haze */
+  /* Icon-only contact jewelry — one compact capsule; shrink icons on narrow phones. */
   .footer-lux__pills {
+    --footer-contact-icon: clamp(2rem, 9.5vw, 2.45rem);
+    --footer-contact-glyph: clamp(0.85rem, 4vw, 1.05rem);
+    --footer-contact-gap: clamp(0.4rem, 2.2vw, 0.65rem);
     display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
     justify-content: center;
     align-items: center;
-    gap: 0.7rem;
-    margin: 0;
-    padding: 0.5rem 0.8rem;
+    gap: var(--footer-contact-gap);
+    width: max-content;
+    max-width: min(100%, 18rem);
+    margin: 0 auto;
+    padding: clamp(0.32rem, 1.8vw, 0.45rem) clamp(0.5rem, 2.5vw, 0.75rem);
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.2);
     background: linear-gradient(160deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
@@ -3040,19 +3047,26 @@ body[data-hide-productDetail][data-section="productDetail"]{ display: none; }
   }
 
   .footer-lux__pill {
-    flex-direction: column;
+    display: inline-flex;
+    flex-direction: row;
+    flex-shrink: 0;
     justify-content: center;
     align-items: center;
     gap: 0;
     width: auto;
     min-height: 0;
-    padding: 0.15rem;
+    min-width: 0;
+    padding: 0.08rem;
     border: none;
     border-radius: 999px;
     background: transparent;
     box-shadow: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    /* Hide raw text nodes (legacy prod markup) while keeping icons visible */
+    font-size: 0 !important;
+    line-height: 0 !important;
+    color: transparent !important;
   }
 
   .footer-lux__pill:hover,
@@ -3063,15 +3077,26 @@ body[data-hide-productDetail][data-section="productDetail"]{ display: none; }
   }
 
   .footer-lux__pill-icon {
-    height: 2.45rem;
-    width: 2.45rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--footer-contact-icon);
+    width: var(--footer-contact-icon);
+    flex-shrink: 0;
     border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 999px;
+    color: rgba(255, 255, 255, 0.95);
     background: linear-gradient(155deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.42),
       inset 0 -1px 0 rgba(0, 0, 0, 0.22),
       0 1px 1px rgba(0, 0, 0, 0.55);
     transition: transform 180ms ease, border-color 180ms ease;
+  }
+
+  .footer-lux__pill-icon svg {
+    width: var(--footer-contact-glyph);
+    height: var(--footer-contact-glyph);
   }
 
   .footer-lux__pill:active .footer-lux__pill-icon {
@@ -3087,8 +3112,8 @@ body[data-hide-productDetail][data-section="productDetail"]{ display: none; }
   }
 
   .footer-lux__email-svg {
-    width: 1.05rem;
-    height: 1.05rem;
+    width: var(--footer-contact-glyph);
+    height: var(--footer-contact-glyph);
     display: block;
   }
 
@@ -3102,8 +3127,16 @@ body[data-hide-productDetail][data-section="productDetail"]{ display: none; }
       0 1px 1px rgba(0, 0, 0, 0.5);
   }
 
-  .footer-lux__pill-text {
-    display: none;
+  /* Never show phone/email/WhatsApp labels inside the mobile capsule */
+  .footer-lux__pill-text,
+  .footer-lux__pill-text--full,
+  .footer-lux__pill-text--short {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    clip: rect(0, 0, 0, 0) !important;
   }
 
   .footer-lux__bottom {
@@ -3546,12 +3579,20 @@ body[data-hide-productDetail][data-section="productDetail"]{ display: none; }
   object-position: left center;
 }
 
+.mm-drawer__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.mm-drawer__icon-btn,
 .mm-drawer__close {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 2.15rem;
+  height: 2.15rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.88);
   background:
@@ -3567,6 +3608,7 @@ body[data-hide-productDetail][data-section="productDetail"]{ display: none; }
   transition: transform 160ms var(--transition-expo);
 }
 
+.mm-drawer__icon-btn:active,
 .mm-drawer__close:active {
   transform: scale(var(--press-scale));
 }

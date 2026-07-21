@@ -263,16 +263,37 @@ export default function CheckoutPageClient() {
   }, [cartHydrated, dispatchCeremony, items.length, replaceItems, router])
 
   useEffect(() => {
-    fetchPromoAvailability()
-      .then(({ hasActivePromo: active }) => {
-        setHasActivePromo(active)
-      })
-      .catch(() => {
-        setHasActivePromo(false)
-      })
-      .finally(() => {
-        setPromoChecked(true)
-      })
+    // Defer promo probe — place-order path does not need it; keep first paint free.
+    let cancelled = false
+    const run = () => {
+      if (cancelled) return
+      fetchPromoAvailability()
+        .then(({ hasActivePromo: active }) => {
+          if (!cancelled) setHasActivePromo(active)
+        })
+        .catch(() => {
+          if (!cancelled) setHasActivePromo(false)
+        })
+        .finally(() => {
+          if (!cancelled) setPromoChecked(true)
+        })
+    }
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
+      cancelIdleCallback?: (id: number) => void
+    }
+    let idleId: number | undefined
+    let timer: ReturnType<typeof setTimeout> | undefined
+    if (typeof idleWindow.requestIdleCallback === 'function') {
+      idleId = idleWindow.requestIdleCallback(run, { timeout: 2500 })
+    } else {
+      timer = setTimeout(run, 400)
+    }
+    return () => {
+      cancelled = true
+      if (idleId != null) idleWindow.cancelIdleCallback?.(idleId)
+      if (timer != null) clearTimeout(timer)
+    }
   }, [])
 
   useEffect(() => {

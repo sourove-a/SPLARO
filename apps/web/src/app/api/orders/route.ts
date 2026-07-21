@@ -3,7 +3,7 @@ import { apiAuthMe, getSessionToken } from '@/lib/server/api-auth'
 import { validateCoupon } from '@/lib/server/coupons'
 import { createOrderViaApi, fetchCustomerOrdersViaApi } from '@/lib/server/api-orders'
 import { cacheOrderInFile } from '@/lib/server/orders'
-import { getStorefrontSettings } from '@/lib/storefront/settings'
+import { getCheckoutShippingSettings } from '@/lib/storefront/settings'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
 import type { StoredOrderItem } from '@/lib/server/store'
 import {
@@ -122,8 +122,10 @@ export async function POST(request: Request) {
   }
 
   // Guest COD is allowed — only digital payments require a signed-in customer.
+  // Skip /auth/me for COD (Nest resolves the session token itself) to save a round-trip.
   const sessionToken = await getSessionToken()
-  const sessionUser = sessionToken ? await apiAuthMe(sessionToken) : null
+  const needsSessionUser = isDigitalPayment(paymentMethod)
+  const sessionUser = needsSessionUser && sessionToken ? await apiAuthMe(sessionToken) : null
   if (isDigitalPayment(paymentMethod)) {
     if (!sessionUser) {
       return NextResponse.json(
@@ -186,20 +188,24 @@ export async function POST(request: Request) {
     body.subtotal ??
     items.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
-  const settings = await getStorefrontSettings()
-
   let couponDiscount = 0
   let couponFreeShipping = false
-  if (body.couponCode) {
-    const coupon = await validateCoupon(body.couponCode, subtotal)
-    if (!coupon.valid) {
-      return NextResponse.json({ error: coupon.message }, { status: 400 })
+  // Shipping rates + optional coupon in parallel (Nest still re-validates both).
+  const shippingPromise = getCheckoutShippingSettings()
+  const couponPromise = body.couponCode
+    ? validateCoupon(body.couponCode, subtotal)
+    : Promise.resolve(null)
+
+  const [shipping, couponResult] = await Promise.all([shippingPromise, couponPromise])
+  if (couponResult) {
+    if (!couponResult.valid) {
+      return NextResponse.json({ error: couponResult.message }, { status: 400 })
     }
-    couponDiscount = coupon.discount
-    couponFreeShipping = Boolean(coupon.freeShipping)
+    couponDiscount = couponResult.discount
+    couponFreeShipping = Boolean(couponResult.freeShipping)
   }
 
-  const delivery = computeDeliveryFeeBdt(subtotal, normalizedCustomer.city, settings.shipping, {
+  const delivery = computeDeliveryFeeBdt(subtotal, normalizedCustomer.city, shipping, {
     freeShipping: couponFreeShipping,
   })
 
@@ -240,7 +246,8 @@ export async function POST(request: Request) {
       throw new Error('Unable to create order')
     }
 
-    await cacheOrderInFile(order)
+    // Dev file cache only — never block the place-order response.
+    void cacheOrderInFile(order)
 
     return NextResponse.json({ order }, { status: 201 })
   } catch (error) {

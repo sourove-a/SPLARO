@@ -1,9 +1,9 @@
 import { Inject, Injectable, Logger, Optional, forwardRef } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { EmailService } from '../email/email.service'
-import { generateInvoiceHTML } from '../invoices/invoice.template'
-import { buildInvoiceViewModel } from '../invoices/invoice.helpers'
+import { generateInvoiceEmailBody } from '../invoices/invoice-email-body.template'
 import { generateInvoiceEmailHTML } from '../invoices/invoice-email.template'
+import { buildInvoiceViewModel } from '../invoices/invoice.helpers'
 import { SPLARO_INVOICE_BRAND } from '@splaro/config'
 import { TelegramService } from '../telegram/telegram.service'
 import { CourierService } from '../courier/courier.service'
@@ -112,7 +112,7 @@ export class OrderNotificationsService {
       customerEmail: emailTo,
       showToolbar: false,
     })
-    const invoiceHtml = generateInvoiceHTML(model, { showToolbar: false, mode: 'fragment' })
+    const invoiceHtml = generateInvoiceEmailBody(model)
 
     const emailed = await this.email.sendForStore({
       storeId,

@@ -46,7 +46,7 @@ import {
   assertCartLineStock,
   CART_MAX_LINES,
   clampCartLineQuantity,
-  clampCartLineToStock,
+  resolveCartReplaceLines,
   resolveCartVariant,
 } from '../../common/cart-line.util'
 import { resolveStoreId } from '../../common/store.util'
@@ -175,6 +175,28 @@ export class StorefrontController {
           googleAnalyticsId: settings?.googleAnalyticsId ?? '',
         },
         config,
+      }
+    })
+  }
+
+  /** Checkout BFF only — 3 numbers, no payment probes / storefrontConfig merge. */
+  @Public()
+  @Get('shipping')
+  async getShipping(@Query('storeId') storeId: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.cache.getOrSet(this.cache.storeKey(sid, 'shipping'), 120, async () => {
+      const settings = await this.prisma.siteSettings.findUnique({
+        where: { storeId: sid },
+        select: {
+          freeDeliveryThreshold: true,
+          dhakaDeliveryCharge: true,
+          outsideDhakaCharge: true,
+        },
+      })
+      return {
+        freeDeliveryThreshold: Number(settings?.freeDeliveryThreshold ?? 0),
+        dhakaDeliveryCharge: Number(settings?.dhakaDeliveryCharge ?? 60),
+        outsideDhakaCharge: Number(settings?.outsideDhakaCharge ?? 120),
       }
     })
   }
@@ -1160,7 +1182,10 @@ export class StorefrontController {
     if (!product) throw new NotFoundException('Product not found or no longer available')
 
     const variantIdInput = body.variantId?.trim() || null
-    const variant = await resolveCartVariant(this.prisma, sid, body.productId, variantIdInput)
+    const variant = await resolveCartVariant(this.prisma, sid, body.productId, variantIdInput, {
+      size: body.size,
+      color: body.color,
+    })
     if (!variant) throw new NotFoundException('Product variant not found')
 
     const qty = clampCartLineQuantity(body.quantity)
@@ -1216,34 +1241,22 @@ export class StorefrontController {
     const sid = await resolveStoreId(this.prisma, storeId)
     const requested = Array.isArray(body.items) ? body.items.slice(0, CART_MAX_LINES) : []
 
-    // Validate up front — invalid lines are skipped, not fatal, so a single
-    // stale local item can't block syncing the rest of the cart.
-    const validated: { productId: string; variantId: string; quantity: number }[] = []
-    for (const item of requested) {
-      if (!item?.productId) continue
-      const product = await this.prisma.product.findFirst({
-        where: storefrontVisibleProductWhere({ id: item.productId, storeId: sid }),
-        select: { id: true },
-      })
-      if (!product) continue
+    // Batch resolve — invalid lines skipped (stale local item never blocks sync).
+    const validated = await resolveCartReplaceLines(this.prisma, sid, requested)
 
-      const variant = await resolveCartVariant(
-        this.prisma,
-        sid,
-        item.productId,
-        item.variantId?.trim() || null,
-      )
-      if (!variant) continue
-
-      const quantity = clampCartLineToStock(item.quantity ?? 1, variant.stock)
-      if (quantity === null) continue
-
-      validated.push({
-        productId: item.productId,
-        variantId: variant.id,
-        quantity,
-      })
+    // Merge duplicate product+variant lines before createMany — otherwise
+    // @@unique([cartId, productId, variantId]) throws P2002 → HTTP 500.
+    const merged = new Map<string, { productId: string; variantId: string; quantity: number }>()
+    for (const line of validated) {
+      const key = `${line.productId}:${line.variantId}`
+      const existing = merged.get(key)
+      if (existing) {
+        existing.quantity = clampCartLineQuantity(existing.quantity + line.quantity)
+      } else {
+        merged.set(key, { ...line })
+      }
     }
+    const lines = [...merged.values()]
 
     await this.prisma.$transaction(async (tx) => {
       const cart = await tx.cartSession.upsert({
@@ -1252,9 +1265,9 @@ export class StorefrontController {
         update: { updatedAt: new Date() },
       })
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } })
-      if (validated.length) {
+      if (lines.length) {
         await tx.cartItem.createMany({
-          data: validated.map((item) => ({ cartId: cart.id, ...item })),
+          data: lines.map((item) => ({ cartId: cart.id, ...item })),
         })
       }
     })

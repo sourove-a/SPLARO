@@ -241,8 +241,15 @@ export function ProductDetailPanel({
     `${product.name} is crafted from ${product.material.toLowerCase()} with a ${product.fit.toLowerCase()} fit for polished everyday wear.`
 
   const handleShare = async () => {
-    if (navigator.share) {
-      await navigator.share({ title: product.name, text: `Check out ${product.name}`, url: window.location.href })
+    if (!navigator.share) return
+    try {
+      await navigator.share({
+        title: product.name,
+        text: `Check out ${product.name}`,
+        url: window.location.href,
+      })
+    } catch {
+      // User cancelled share sheet — ignore.
     }
   }
 

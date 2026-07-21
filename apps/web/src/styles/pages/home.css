@@ -2333,6 +2333,13 @@ html[data-os='windows'] .home-dept-tile:hover .home-dept-tile__img {
   height: 1.15rem;
   stroke: #ffffff;
   color: #ffffff;
+  /* Keep white icons readable on mixed light/dark hero frames */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.42));
+}
+
+.site-header-glass__search-svg {
+  width: 1.1rem;
+  height: 1.1rem;
 }
 
 .site-header-glass.site-header-glass--over-hero:not(.site-header-glass--scrolled) .site-header-glass__logo-img {

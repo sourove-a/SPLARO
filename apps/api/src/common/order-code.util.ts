@@ -17,17 +17,38 @@ function isUniqueViolation(error: unknown, field?: string): boolean {
   return Array.isArray(target) && target.includes(field)
 }
 
+/**
+ * Highest SPL-#### for a store — O(1) Postgres MAX, not a full table pull.
+ * Falls back to a short recent window if raw SQL is unavailable.
+ */
 async function findHighestSplNumber(db: Db, storeId: string): Promise<number> {
-  const orders = await db.order.findMany({
+  try {
+    const rows = await db.$queryRaw<Array<{ max: number | null }>>`
+      SELECT MAX(
+        CAST(NULLIF(regexp_replace("invoiceNumber", '[^0-9]', '', 'g'), '') AS INTEGER)
+      ) AS max
+      FROM "Order"
+      WHERE "storeId" = ${storeId}
+        AND "invoiceNumber" ILIKE 'SPL-%'
+    `
+    const max = rows[0]?.max
+    if (typeof max === 'number' && Number.isFinite(max)) return max
+  } catch {
+    // Transaction / driver edge — fall through to bounded scan.
+  }
+
+  const recent = await db.order.findMany({
     where: {
       storeId,
       invoiceNumber: { startsWith: 'SPL-', mode: 'insensitive' },
     },
     select: { invoiceNumber: true },
+    orderBy: { createdAt: 'desc' },
+    take: 48,
   })
 
   let max = ORDER_CODE_START - 1
-  for (const row of orders) {
+  for (const row of recent) {
     const n = parseSplOrderNumber(row.invoiceNumber)
     if (n !== null && n > max) max = n
   }
@@ -35,23 +56,12 @@ async function findHighestSplNumber(db: Db, storeId: string): Promise<number> {
 }
 
 /**
- * Generate the next unique SPL-#### code for a store.
- * Retries when a concurrent checkout claims the same number.
+ * Next SPL-#### candidate. Uniqueness is enforced by the Order.invoiceNumber
+ * unique constraint + caller retry — no per-candidate findUnique round-trips.
  */
-export async function generateOrderCode(db: Db, storeId: string, maxAttempts = 12): Promise<string> {
-  let next = Math.max(ORDER_CODE_START, (await findHighestSplNumber(db, storeId)) + 1)
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const candidate = formatSplOrderCode(next)
-    const clash = await db.order.findUnique({
-      where: { invoiceNumber: candidate },
-      select: { id: true },
-    })
-    if (!clash) return candidate
-    next++
-  }
-
-  throw new Error('Unable to generate a unique order code — try again')
+export async function generateOrderCode(db: Db, storeId: string): Promise<string> {
+  const next = Math.max(ORDER_CODE_START, (await findHighestSplNumber(db, storeId)) + 1)
+  return formatSplOrderCode(next)
 }
 
 /** Assign SPL-#### to legacy orders that still expose raw ids or non-SPL codes. */

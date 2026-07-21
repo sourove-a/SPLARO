@@ -33,7 +33,13 @@ export async function clearCartOnApi(sessionId: string): Promise<Response> {
 
 export async function replaceCartOnApi(
   sessionId: string,
-  items: { productId: string; variantId?: string; quantity: number }[],
+  items: {
+    productId: string
+    variantId?: string
+    size?: string
+    color?: string
+    quantity: number
+  }[],
 ): Promise<Response> {
   return fetch(
     apiUrl(
