@@ -86,16 +86,15 @@ export async function middleware(request: NextRequest) {
     const slug = decodeURIComponent(productMatch[1])
     const exists = await productSlugExists(slug)
     if (exists === false) {
-      // Internal rewrite only (pathname on nextUrl). Behind nginx nextUrl is often
-      // https://localhost:3000 — HTTPS to the Node listener 500s; public absolute
-      // rewrite to splaro.co keeps the page but drops the 404 status to 200.
+      // Rewrite to route handler (not a page) — handler returns real HTTP 404 body.
+      // Behind nginx, prefer http on loopback so standalone does not TLS-fail.
       const missing = request.nextUrl.clone()
       missing.pathname = '/product-missing'
       missing.search = ''
       if (missing.hostname === 'localhost' || missing.hostname === '127.0.0.1') {
         missing.protocol = 'http:'
       }
-      const response = NextResponse.rewrite(missing, { status: 404 })
+      const response = NextResponse.rewrite(missing)
       response.headers.set('X-Robots-Tag', 'noindex, nofollow')
       response.headers.set('Cache-Control', 'private, no-store')
       return response
