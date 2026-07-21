@@ -86,8 +86,14 @@ export async function middleware(request: NextRequest) {
     const slug = decodeURIComponent(productMatch[1])
     const exists = await productSlugExists(slug)
     if (exists === false) {
-      const missing = request.nextUrl.clone()
-      missing.pathname = '/product-missing'
+      // Never rewrite via nextUrl.clone() — behind nginx NextURL stays on
+      // localhost:3000 and VPS returns 500 (x-middleware-rewrite: localhost).
+      const publicOrigin =
+        process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ||
+        (host && !host.includes('localhost') && !host.startsWith('127.')
+          ? `https://${host}`
+          : request.nextUrl.origin)
+      const missing = new URL('/product-missing', `${publicOrigin}/`)
       const response = NextResponse.rewrite(missing, { status: 404 })
       response.headers.set('X-Robots-Tag', 'noindex, nofollow')
       return response
