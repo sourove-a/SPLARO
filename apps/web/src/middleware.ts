@@ -86,16 +86,18 @@ export async function middleware(request: NextRequest) {
     const slug = decodeURIComponent(productMatch[1])
     const exists = await productSlugExists(slug)
     if (exists === false) {
-      // Never rewrite via nextUrl.clone() — behind nginx NextURL stays on
-      // localhost:3000 and VPS returns 500 (x-middleware-rewrite: localhost).
-      const publicOrigin =
-        process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ||
-        (host && !host.includes('localhost') && !host.startsWith('127.')
-          ? `https://${host}`
-          : request.nextUrl.origin)
-      const missing = new URL('/product-missing', `${publicOrigin}/`)
+      // Internal rewrite only (pathname on nextUrl). Behind nginx nextUrl is often
+      // https://localhost:3000 — HTTPS to the Node listener 500s; public absolute
+      // rewrite to splaro.co keeps the page but drops the 404 status to 200.
+      const missing = request.nextUrl.clone()
+      missing.pathname = '/product-missing'
+      missing.search = ''
+      if (missing.hostname === 'localhost' || missing.hostname === '127.0.0.1') {
+        missing.protocol = 'http:'
+      }
       const response = NextResponse.rewrite(missing, { status: 404 })
       response.headers.set('X-Robots-Tag', 'noindex, nofollow')
+      response.headers.set('Cache-Control', 'private, no-store')
       return response
     }
   }
