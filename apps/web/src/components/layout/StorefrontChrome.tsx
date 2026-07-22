@@ -17,8 +17,8 @@ const FloatingSystem = dynamic(
 const AUTH_PATH_PREFIXES = ['/login', '/signup', '/forgot-password', '/reset-password']
 const HEADER_ONLY_PATHS = ['/design/header']
 const CHROMELESS_PATHS = ['/maintenance']
-/** Focused flows — earth footer intrudes on short utility pages (cart, checkout). */
-const FOOTERLESS_PATHS = ['/cart', '/checkout']
+/** Focused flows — earth footer intrudes on short utility pages. */
+const FOOTERLESS_PATHS = ['/cart', '/checkout', '/account']
 /** These route components already own their semantic <main>. */
 const SELF_MAIN_PATHS = ['/account', '/collections', '/track-order', '/checkout', '/payment']
 

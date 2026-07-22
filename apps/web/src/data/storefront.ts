@@ -63,7 +63,7 @@ export interface CollectionCard {
   count: number
 }
 
-export const categories: Category[] = ['All', 'Summer Edition', 'Men', 'Women', 'Kids', 'Footwear', 'Accessories']
+export const categories: Category[] = ['All', 'Men', 'Women', 'Kids', 'Footwear', 'Accessories']
 
 export const shopFilterMenuCategories: Category[] = ['All', 'Women', 'Kids', 'Footwear', 'Accessories']
 

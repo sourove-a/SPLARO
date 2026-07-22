@@ -14,7 +14,8 @@ const BAKED_GOOGLE =
 
 export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: 'in-card' }) {
   const googleHostRef = useRef<HTMLDivElement>(null)
-  const [googleButtonWidth, setGoogleButtonWidth] = useState(320)
+  /** 0 until measured — avoids mounting GIS at a stale width (right-side gap in the pill). */
+  const [googleButtonWidth, setGoogleButtonWidth] = useState(0)
   const {
     googleSignInEnabled,
     googleClientId: runtimeGoogleClientId,
@@ -29,8 +30,9 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
     const host = googleHostRef.current
     if (!host) return
     const updateWidth = () => {
-      const width = Math.max(240, Math.min(400, Math.floor(host.getBoundingClientRect().width)))
-      setGoogleButtonWidth(width)
+      // GIS width is integer px; round so the pill matches the Sign in button edge.
+      const width = Math.max(200, Math.min(400, Math.round(host.getBoundingClientRect().width)))
+      setGoogleButtonWidth((prev) => (prev === width ? prev : width))
     }
     updateWidth()
     const observer = new ResizeObserver(updateWidth)
@@ -75,21 +77,26 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
           className={cn(
             'auth-google-glass__native',
             googleLoading && 'auth-google-glass__native--loading',
+            googleButtonWidth <= 0 && 'auth-google-glass__native--measuring',
           )}
         >
-          <GoogleLogin
-            onSuccess={handleCredential}
-            onError={() => setGoogleError('Google sign-in was cancelled or failed.')}
-            type="standard"
-            theme="outline"
-            size="large"
-            text="continue_with"
-            shape="pill"
-            logo_alignment="left"
-            width={String(googleButtonWidth)}
-            locale="en"
-            ux_mode="popup"
-          />
+          {googleButtonWidth > 0 ? (
+            <GoogleLogin
+              // Remount when width changes — GIS ignores prop updates and leaves a right gap.
+              key={googleButtonWidth}
+              onSuccess={handleCredential}
+              onError={() => setGoogleError('Google sign-in was cancelled or failed.')}
+              type="standard"
+              theme="outline"
+              size="large"
+              text="continue_with"
+              shape="pill"
+              logo_alignment="center"
+              width={googleButtonWidth}
+              locale="en"
+              ux_mode="popup"
+            />
+          ) : null}
           {googleLoading ? (
             <span className="auth-google-glass__loading-cover" aria-live="polite">
               <Loader2 className="auth-google-glass__spinner" strokeWidth={2.2} aria-hidden />

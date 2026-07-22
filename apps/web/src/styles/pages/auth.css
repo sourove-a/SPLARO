@@ -215,7 +215,7 @@ html[data-os='windows'] .auth-glass-panel::after {
 .auth-google-glass-footer {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 0.8rem;
   width: 100%;
 }
@@ -348,15 +348,19 @@ html[data-os='windows'] .auth-google-glass__backdrop {
 .auth-google-glass__native {
   position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: flex-start;
   width: 100%;
-  min-height: 44px;
+  min-height: 40px;
   border-radius: 999px;
   overflow: hidden;
-  box-shadow:
-    0 10px 26px rgba(16, 17, 20, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 1);
+  background: #ffffff;
+}
+
+.auth-google-glass__native--measuring {
+  min-height: 40px;
+  border: 1px solid #dadce0;
+  background: #ffffff;
 }
 
 /* Lenis sets iframe { pointer-events: none } — GIS needs real clicks on the iframe. */
@@ -368,7 +372,15 @@ body.auth-page .auth-google-glass__native iframe {
 .auth-google-glass__native > div,
 .auth-google-glass__native iframe {
   width: 100% !important;
-  max-width: 100% !important;
+  max-width: none !important;
+}
+
+/* Force GIS outline pill to the same edge as Sign in — ignores stale intrinsic width. */
+.auth-google-glass__native .nsm7Bb-HzV7m-LgbsSe {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
 }
 
 .auth-google-glass__native--loading {

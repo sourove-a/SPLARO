@@ -220,7 +220,6 @@ import {
 
 export const DEFAULT_HEADER_NAV: NavLink[] = [
   { label: 'Shop', href: '/shop' },
-  { label: 'Summer Edition', href: '/c/summer-edition' },
   { label: 'Men', href: '/c/men' },
   { label: 'Women', href: '/c/women' },
   { label: 'Kids', href: '/c/kids' },

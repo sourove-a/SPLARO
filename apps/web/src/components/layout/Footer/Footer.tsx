@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { AnimatePresence, motion } from '@/lib/motion/react'
 import {
   ChevronDown,
@@ -15,7 +14,6 @@ import { SOCIAL_BRAND_ICONS } from '@/components/ui/SocialBrandIcons'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import {
   DEFAULT_STORE_ADDRESS,
-  DEFAULT_STORE_LABEL,
   DEFAULT_SUPPORT_EMAIL,
 } from '@/lib/storefront/defaults'
 import { getStorefrontSocialLinks } from '@/lib/storefront/social-links'
@@ -125,8 +123,6 @@ export function Footer() {
   const tagline = settings.config.footerTagline?.trim() ?? ''
   const copyright = settings.config.footerCopyright?.trim() || `© ${CURRENT_YEAR} ${settings.store.name}. All rights reserved.`
   const linkGroups = settings.config.footerGroups ?? []
-  const storeImage = settings.config.storeImage?.trim()
-  const storeLabel = settings.config.storeLabel?.trim() || DEFAULT_STORE_LABEL
   const address = settings.store.address?.trim() || DEFAULT_STORE_ADDRESS
   const addressMobile = (() => {
     const flat = address.replace(/\s+/g, ' ').replace(/^SPLARO,?\s*/i, '').trim()
@@ -176,26 +172,20 @@ export function Footer() {
                   </Link>
                 </div>
 
-                <div className="footer-lux__store-card">
-                  <div className="footer-lux__store-copy">
-                    <div className="footer-lux__store-icon">
-                      <MapPin className="h-4 w-4" strokeWidth={2} />
-                    </div>
-                    <div>
-                      {storeLabel ? (
-                        <p className="footer-lux__store-label">{storeLabel}</p>
-                      ) : null}
-                      <address className="footer-lux__store-address whitespace-pre-line not-italic">
-                        {address}
-                      </address>
-                    </div>
-                  </div>
-                  {storeImage ? (
-                    <div className="footer-lux__store-visual">
-                      <Image src={storeImage} alt={storeLabel} fill sizes="180px" className="object-cover" unoptimized />
-                    </div>
-                  ) : null}
-                </div>
+                <Link
+                  href="/stores"
+                  className="footer-lux__store-card"
+                  title={address}
+                  aria-label={`Visit store — ${addressMobile}`}
+                >
+                  <span className="footer-lux__store-icon" aria-hidden="true">
+                    <MapPin className="h-3.5 w-3.5" strokeWidth={2} />
+                  </span>
+                  <span className="footer-lux__store-copy-text">
+                    <span className="footer-lux__store-label">Visit store</span>
+                    <span className="footer-lux__store-address">{addressMobile}</span>
+                  </span>
+                </Link>
               </div>
 
             {linkGroups.length > 0 ? (

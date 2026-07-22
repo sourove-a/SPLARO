@@ -13,7 +13,7 @@ export const DEFAULT_CATALOG_CHANNELS: CatalogChannel[] = [
     label: 'Summer Edition',
     shopCategory: 'Summer Edition',
     href: '/c/summer-edition',
-    published: true,
+    published: false,
   },
   {
     slug: 'men',

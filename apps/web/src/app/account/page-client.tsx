@@ -703,6 +703,7 @@ export default function AccountDashboard() {
                   <BadgeCheck className="account-verified-badge h-4 w-4" strokeWidth={2.2} aria-label="Verified email" />
                 ) : null}
               </p>
+              {user.email ? <p className="account-sidebar__email">{user.email}</p> : null}
               {loyaltyEnabled ? (
                 <>
                   <div className="account-badge">{tierLabel} Member</div>
@@ -838,7 +839,14 @@ export default function AccountDashboard() {
                   </div>
                 ) : (
                   <AccountGlass className="account-empty">
-                    <p className="account-empty__text text-sm font-medium">Your recent orders will appear here.</p>
+                    <Package className="account-icon-muted mx-auto h-8 w-8" strokeWidth={1.75} />
+                    <p className="account-empty__title mt-4 text-lg font-bold">No recent orders</p>
+                    <p className="account-empty__text mt-2 text-sm font-medium">
+                      Your past SPLARO orders will show up here after checkout.
+                    </p>
+                    <Link href="/shop" className="account-btn account-btn--primary mt-5">
+                      Start Shopping
+                    </Link>
                   </AccountGlass>
                 )}
               </section>
@@ -939,7 +947,11 @@ export default function AccountDashboard() {
                 </div>
               ) : (
                 <AccountGlass className="account-empty">
-                  <p className="account-empty__text text-sm font-medium">No orders yet.</p>
+                  <Package className="account-icon-muted mx-auto h-8 w-8" strokeWidth={1.75} />
+                  <p className="account-empty__title mt-4 text-lg font-bold">No orders yet</p>
+                  <p className="account-empty__text mt-2 text-sm font-medium">
+                    When you place an order, tracking and invoices will live here.
+                  </p>
                   <Link href="/shop" className="account-btn account-btn--primary mt-5">
                     Start Shopping
                   </Link>

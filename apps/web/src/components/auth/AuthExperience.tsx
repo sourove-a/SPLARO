@@ -58,6 +58,8 @@ export function AuthExperience() {
   const signIn = useAuthStore((state) => state.signIn)
   const signUp = useAuthStore((state) => state.signUp)
   const signOut = useAuthStore((state) => state.signOut)
+  const user = useAuthStore((state) => state.user)
+  const authHydrated = useAuthStore((state) => state._hydrated)
   const { setStep: setGoogleStep, registerGoogleHandler, setGoogleError } = useAuthGoogleBridge()
 
   const [identifier, setIdentifier] = useState('')
@@ -88,6 +90,15 @@ export function AuthExperience() {
     setOtpDevHint('')
     setGoogleError('')
   }, [mode, setGoogleStep, setGoogleError])
+
+  // Already signed in — skip login/signup UI (except incomplete Google phone step).
+  useEffect(() => {
+    if (!authHydrated || !user || user.needsPhone) return
+    const destination = resolvePostAuthDestination(nextPath, mode)
+    setSuccessCopy('Already signed in — taking you there…')
+    setRedirecting(true)
+    safeClientNavigate(router, destination, 'replace')
+  }, [authHydrated, user, nextPath, mode, router])
 
   useEffect(() => {
     if (mode !== 'login') return

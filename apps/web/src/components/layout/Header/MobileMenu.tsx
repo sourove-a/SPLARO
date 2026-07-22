@@ -6,7 +6,9 @@ import Link from 'next/link'
 import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 import {
   Baby,
+  BookOpen,
   ChevronRight,
+  Compass,
   Footprints,
   Gem,
   Home,
@@ -25,6 +27,7 @@ import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap'
 import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
 import { isNavActive } from '@/lib/navigation/is-nav-active'
 import { cn } from '@/lib/utils/cn'
+import { useAuthStore } from '@/store/authStore'
 import { usePathname } from 'next/navigation'
 import { useUiStore } from '@/store/uiStore'
 
@@ -35,6 +38,37 @@ interface MobileMenuProps {
 
 const DRAWER_EASE = [0.22, 1, 0.36, 1] as const
 const DRAWER_SPRING = { type: 'spring' as const, stiffness: 360, damping: 34, mass: 0.88 }
+
+/** Secondary mobile-only groups — keeps Discover / Our Story off the top rail. */
+const MOBILE_EXTRA_GROUPS: Array<{
+  label: string
+  href: string
+  icon: LucideIcon
+  links: Array<{ label: string; href: string }>
+}> = [
+  {
+    label: 'Discover',
+    href: '/shop',
+    icon: Compass,
+    links: [
+      { label: 'New Arrivals', href: '/new-arrivals' },
+      { label: 'Best Sellers', href: '/best-sellers' },
+      { label: 'Collections', href: '/collections' },
+      { label: 'Shop all', href: '/shop' },
+    ],
+  },
+  {
+    label: 'Our Story',
+    href: '/about',
+    icon: BookOpen,
+    links: [
+      { label: 'About SPLARO', href: '/about' },
+      { label: 'Journal', href: '/editorial' },
+      { label: 'Stores', href: '/stores' },
+      { label: 'Contact', href: '/contact' },
+    ],
+  },
+]
 
 function navIcon(label: string, href: string): LucideIcon {
   const key = `${label} ${href}`.toLowerCase()
@@ -62,6 +96,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const pathname = usePathname()
   const settings = useStorefrontSettings()
   const setSearchOpen = useUiStore((s) => s.setSearchOpen)
+  const user = useAuthStore((s) => s.user)
   const navItems = (settings.config.headerNav ?? []).filter((item) => !item.hidden)
   const [openLabel, setOpenLabel] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
@@ -70,6 +105,10 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const touchStartX = useRef(0)
   useDialogFocusTrap(isOpen, drawerRef, onClose)
   useOverlayScrollLock(isOpen)
+
+  const accountHref = user ? '/account' : '/login?next=%2Faccount'
+  const accountTitle = user ? (user.name?.split(' ')[0] || 'Account') : 'Sign in'
+  const accountHint = user ? 'Orders & profile' : 'Account & orders'
 
   const openSearch = () => {
     onClose()
@@ -395,6 +434,87 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                     </motion.li>
                   )
                 })}
+
+                {MOBILE_EXTRA_GROUPS.map((group) => {
+                  const Icon = group.icon
+                  const expanded = openLabel === group.label
+                  const active = group.links.some((link) => isNavActive(pathname, link.href))
+
+                  return (
+                    <motion.li key={group.label} variants={itemMotion} className="mm-drawer__group">
+                      <motion.button
+                        type="button"
+                        className={cn(
+                          'mm-drawer__glass mm-drawer__glass--btn',
+                          expanded && 'mm-drawer__glass--open',
+                          active && 'mm-drawer__glass--active',
+                        )}
+                        onClick={() => setOpenLabel(expanded ? null : group.label)}
+                        aria-expanded={expanded}
+                        {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
+                        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                      >
+                        <span className="mm-drawer__glass-icon" aria-hidden>
+                          <Icon className="h-[0.95rem] w-[0.95rem]" strokeWidth={1.85} />
+                        </span>
+                        <span className="mm-drawer__glass-label">{group.label}</span>
+                        <motion.span
+                          className="mm-drawer__chevron"
+                          animate={{ rotate: expanded ? 90 : 0 }}
+                          transition={
+                            reduceMotion
+                              ? { duration: 0 }
+                              : { type: 'spring', stiffness: 420, damping: 28 }
+                          }
+                        >
+                          <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
+                        </motion.span>
+                      </motion.button>
+                      <AnimatePresence initial={false}>
+                        {expanded ? (
+                          <motion.div
+                            key={`extra-${group.label}`}
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={
+                              reduceMotion
+                                ? { duration: 0 }
+                                : { type: 'spring', stiffness: 380, damping: 34, mass: 0.85 }
+                            }
+                            className="mm-drawer__sub-wrap"
+                          >
+                            <motion.div
+                              variants={subList}
+                              initial="hidden"
+                              animate="show"
+                              className="mm-drawer__sub"
+                            >
+                              {group.links.map((link) => {
+                                const subActive = isNavActive(pathname, link.href)
+                                return (
+                                  <motion.div key={link.href} variants={subItem}>
+                                    <Link
+                                      href={link.href}
+                                      onClick={onClose}
+                                      className={cn(
+                                        'mm-drawer__sub-link',
+                                        subActive && 'mm-drawer__sub-link--active',
+                                      )}
+                                      aria-current={subActive ? 'page' : undefined}
+                                    >
+                                      {link.label}
+                                    </Link>
+                                  </motion.div>
+                                )
+                              })}
+                            </motion.div>
+                          </motion.div>
+                        ) : null}
+                      </AnimatePresence>
+                    </motion.li>
+                  )
+                })}
               </motion.ul>
             </nav>
 
@@ -410,13 +530,13 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             >
               <div className="mm-drawer__foot-glass">
                 <motion.div {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}>
-                  <Link href="/login" onClick={onClose} className="mm-drawer__signin">
+                  <Link href={accountHref} onClick={onClose} className="mm-drawer__signin">
                     <span className="mm-drawer__signin-icon" aria-hidden>
                       <UserRound className="h-[1.05rem] w-[1.05rem]" strokeWidth={1.75} />
                     </span>
                     <span className="mm-drawer__signin-copy">
-                      <span className="mm-drawer__signin-title">Sign in</span>
-                      <span className="mm-drawer__signin-hint">Account & orders</span>
+                      <span className="mm-drawer__signin-title">{accountTitle}</span>
+                      <span className="mm-drawer__signin-hint">{accountHint}</span>
                     </span>
                     <ChevronRight className="mm-drawer__signin-arrow h-3.5 w-3.5" strokeWidth={2} />
                   </Link>

@@ -189,7 +189,6 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
     storeLabel: DEFAULT_STORE_LABEL,
     headerNav: [
       { label: 'Shop', href: '/shop' },
-      { label: 'Summer Edition', href: '/c/summer-edition' },
       {
         label: 'Men',
         href: '/c/men',
@@ -461,6 +460,16 @@ function normalizeHref(href: string): string {
   return href.replace(/^\/(collections|c)\//, '__col__/')
 }
 
+/** Seasonal drop — keep route, hide from storefront chrome until republished. */
+function isSummerEditionNavItem(item: { href: string; label?: string }): boolean {
+  const href = item.href.split('?')[0]?.replace(/\/$/, '') ?? ''
+  return (
+    href === '/c/summer-edition' ||
+    href === '/collections/summer-edition' ||
+    item.label?.trim().toLowerCase() === 'summer edition'
+  )
+}
+
 function mergeDynamicMegaMenus(nav: NavLink[], apiNav: NavLink[]): NavLink[] {
   const apiByHref = new Map(apiNav.map((item) => [normalizeHref(item.href), item]))
   const apiByLabel = new Map(apiNav.map((item) => [item.label.toLowerCase(), item]))
@@ -587,8 +596,13 @@ function applyStoreDefaults(settings: StorefrontSettings): StorefrontSettings {
 
   const catalogChannels = mergeCatalogChannels(
     settings.config.catalogChannels ?? FALLBACK_SETTINGS.config.catalogChannels,
+  ).map((channel) =>
+    channel.slug === 'summer-edition' ? { ...channel, published: false } : channel,
   )
-  const filteredHeaderNav = filterHeaderNavByCatalogChannels(normalizedHeaderNav, catalogChannels)
+  const filteredHeaderNav = filterHeaderNavByCatalogChannels(
+    normalizedHeaderNav,
+    catalogChannels,
+  ).filter((item) => !isSummerEditionNavItem(item))
   const footerGroupsSource =
     settings.config.footerGroups?.length ? settings.config.footerGroups : fallbackGroups
   const filteredFooterGroups = filterFooterGroupsByCatalogChannels(
