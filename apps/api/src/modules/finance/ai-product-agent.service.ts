@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { resolvePublicSiteUrl } from '@splaro/config'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { ModelRouter } from '../agent/providers/model-router'
@@ -190,7 +191,7 @@ export class AIProductAgentService {
       .slice(0, 6)
     const sku = `SPL-${skuBase}-${Date.now().toString().slice(-4)}`
     const rmCode = `RM-${skuBase}-${input.color?.slice(0, 3).toUpperCase() ?? 'STD'}`
-    const siteUrl = this.config.get('WEB_URL') ?? 'https://splaro.co'
+    const siteUrl = resolvePublicSiteUrl(this.config.get<string>('WEB_URL'))
     const slug = input.productName.toLowerCase().replace(/\s+/g, '-').slice(0, 60)
 
     const base = {

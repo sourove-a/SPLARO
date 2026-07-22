@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { resolvePublicApiOrigin } from '@splaro/config'
 import { createHmac, randomBytes } from 'crypto'
 import { google, type Auth } from 'googleapis'
 import { PrismaService } from '../../common/prisma.service'
@@ -42,11 +43,22 @@ export class GoogleOAuthService {
   }
 
   resolveRedirectUri(override?: string | null) {
-    return (
-      override?.trim() ||
-      this.config.get<string>('GOOGLE_REDIRECT_URI')?.trim() ||
-      `${this.config.get<string>('API_URL') ?? 'http://localhost:4000'}/api/v1/admin/google/callback`
-    )
+    const fallback = `${resolvePublicApiOrigin(this.config.get<string>('API_URL'))}/api/v1/admin/google/callback`
+    const candidate =
+      override?.trim() || this.config.get<string>('GOOGLE_REDIRECT_URI')?.trim() || fallback
+    // Never keep a loopback redirect in production (DB/env leftovers break OAuth).
+    try {
+      const url = new URL(candidate)
+      if (
+        process.env.NODE_ENV === 'production' &&
+        /^(localhost|127\.0\.0\.1)$/i.test(url.hostname)
+      ) {
+        return fallback
+      }
+    } catch {
+      return fallback
+    }
+    return candidate
   }
 
   private signState(payload: Record<string, unknown>) {

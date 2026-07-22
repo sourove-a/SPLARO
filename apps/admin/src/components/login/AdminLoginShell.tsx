@@ -2,13 +2,11 @@
 
 import { useLayoutEffect, type ReactNode } from 'react'
 import { ExternalLink } from 'lucide-react'
+import { resolvePublicSiteUrl } from '@splaro/config'
 import { SplaroAdminLogo } from '@/components/brand/SplaroAdminLogo'
 import { AdminAuthEarthBackground } from '@/components/login/AdminAuthEarthBackground'
 
-const STOREFRONT_URL =
-  process.env.NEXT_PUBLIC_WEB_URL?.trim() ||
-  process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-  'https://splaro.co'
+const STOREFRONT_URL = resolvePublicSiteUrl()
 
 export function AdminLoginShell({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {

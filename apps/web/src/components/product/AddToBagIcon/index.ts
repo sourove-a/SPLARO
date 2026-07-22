@@ -1,1 +1,1 @@
-export { AddToBagIcon, AddToBagIconBadge } from './AddToBagIcon'
+export { AddToBagIcon, AddToBagIconBadge, BagIcon } from './AddToBagIcon'

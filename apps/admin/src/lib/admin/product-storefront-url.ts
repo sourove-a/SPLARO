@@ -1,9 +1,8 @@
-import { SPLARO_DOMAINS } from '@splaro/config'
+import { resolvePublicSiteUrl } from '@splaro/config'
 
 export function productStorefrontUrl(slug: string): string {
   const clean = slug.trim().replace(/^\/+/, '')
-  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? SPLARO_DOMAINS.site).replace(/\/+$/, '')
-  return `${base}/products/${clean}`
+  return `${resolvePublicSiteUrl()}/products/${clean}`
 }
 
 export async function copyProductStorefrontUrl(slug: string): Promise<boolean> {

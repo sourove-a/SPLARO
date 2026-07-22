@@ -6,7 +6,8 @@ import Image from 'next/image'
 import { motion } from '@/lib/motion/react'
 import { LiquidGlassNavButton } from '@/components/ui/LiquidGlass'
 import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
-import { ChevronRight, ShoppingBag } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
+import { BagIcon } from '@/components/product/AddToBagIcon'
 import { formatBDT } from '@/lib/utils/currency'
 import { pluralize } from '@/lib/utils/pluralize'
 import { useCartStore } from '@/store/cartStore'
@@ -183,7 +184,7 @@ function ProductCard({ item, index }: { item: FootwearProduct; index: number }) 
             }}
             onClick={handleAddToBag}
           >
-            <ShoppingBag size={13} />
+            <BagIcon size={15} strokeWidth={1.37} plus />
             Add to Bag
           </button>
         </div>

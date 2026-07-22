@@ -34,7 +34,7 @@ import {
 } from './telegram-order-message'
 import type { TelegramDeliveryDiagnostics, TelegramHealthSnapshot } from './telegram.types'
 import { formatBDT } from '../../common/utils/currency'
-import { SPLARO_DOMAINS } from '@splaro/config'
+import { resolvePublicAdminUrl, resolvePublicSiteUrl } from '@splaro/config'
 import type { TelegramRole } from '@prisma/client'
 import {
   BOT_COMMANDS,
@@ -403,14 +403,11 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     if (!config?.notifyOrders) return
 
     const msg = formatNewOrderTelegramMessage(order)
-    const adminBase =
-      this.config.get<string>('ADMIN_URL')?.trim() ||
-      this.config.get<string>('NEXT_PUBLIC_ADMIN_URL')?.trim() ||
-      process.env['ADMIN_URL']?.trim() ||
-      process.env['NEXT_PUBLIC_ADMIN_URL']?.trim() ||
-      SPLARO_DOMAINS.admin
+    const adminBase = resolvePublicAdminUrl(
+      this.config.get<string>('ADMIN_URL') ?? this.config.get<string>('NEXT_PUBLIC_ADMIN_URL'),
+    )
     const adminOrderUrl = `${adminBase.replace(/\/+$/, '').replace(/\/login$/i, '')}/dashboard/orders/${encodeURIComponent(order.invoiceNumber)}`
-    const storefrontUrl = order.siteUrl.replace(/\/+$/, '') || SPLARO_DOMAINS.site
+    const storefrontUrl = resolvePublicSiteUrl(order.siteUrl)
 
     await this.sendToStore(
       storeId,
@@ -1456,12 +1453,9 @@ ${items}
   }
 
   private adminLoginUrl(): string {
-    const adminBase =
-      this.config.get<string>('ADMIN_URL')?.trim() ||
-      this.config.get<string>('NEXT_PUBLIC_ADMIN_URL')?.trim() ||
-      process.env['ADMIN_URL']?.trim() ||
-      process.env['NEXT_PUBLIC_ADMIN_URL']?.trim() ||
-      SPLARO_DOMAINS.admin
+    const adminBase = resolvePublicAdminUrl(
+      this.config.get<string>('ADMIN_URL') ?? this.config.get<string>('NEXT_PUBLIC_ADMIN_URL'),
+    )
     return adminBase.replace(/\/+$/, '').endsWith('/login')
       ? adminBase.replace(/\/+$/, '')
       : `${adminBase.replace(/\/+$/, '')}/login`

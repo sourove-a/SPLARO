@@ -2326,6 +2326,35 @@
   width: 100%;
 }
 
+/* Related rail — never show wishlist heart (bag add only) */
+.pp-related .shop-wishlist-btn,
+.pp-related .pc-wish-btn {
+  display: none !important;
+}
+
+/* ILYN-smooth: bag chip always visible + soft press */
+.pp-related .splaro-card__wish--touch {
+  opacity: 1 !important;
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pp-related .splaro-card__wish:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.pp-related .splaro-card__img-frame--crossfade .splaro-card__img--primary,
+.pp-related .splaro-card__img-frame--crossfade .splaro-card__img--hover {
+  transition: opacity 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pp-related .premium-swiper .swiper-wrapper {
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
 /* Shop card density inside related grid */
 .pp-related .shop-product-card__name,
 .pp-related .splaro-card--shop .splaro-card__name {

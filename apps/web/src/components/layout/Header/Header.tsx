@@ -8,7 +8,8 @@ import { usePathname, useRouter } from 'next/navigation'
 import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
 import { MotionLink, MotionPressable } from '@/components/ui/MotionPressable'
 import { AnimatePresence, motion } from '@/lib/motion/react'
-import { Menu, Search, ShoppingBag, User, X } from 'lucide-react'
+import { Menu, Search, User, X } from 'lucide-react'
+import { BagIcon } from '@/components/product/AddToBagIcon'
 import { TopBar } from './TopBar'
 import { Navigation } from './Navigation'
 import { SearchModal } from './SearchModal'
@@ -222,7 +223,7 @@ export function Header() {
                   mobileSearchActive && 'site-header-glass__chrome-hide',
                 )}
               >
-                <ShoppingBag strokeWidth={1.55} />
+                <BagIcon size={20} strokeWidth={1.55} className="site-header-glass__bag-icon" />
                 <AnimatePresence>
                   {cartHydrated && cartCount > 0 ? (
                     <motion.span

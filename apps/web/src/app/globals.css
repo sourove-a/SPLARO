@@ -3664,7 +3664,7 @@ body[data-hide-productDetail][data-section="productDetail"]{ display: none; }
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
-  padding: 0 0.7rem 0.35rem;
+  padding: 0 0.7rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
 }
 
 .mm-drawer__list {
@@ -3816,6 +3816,82 @@ body[data-hide-productDetail][data-section="productDetail"]{ display: none; }
   backdrop-filter: blur(18px) saturate(1.25);
   -webkit-backdrop-filter: blur(18px) saturate(1.25);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+/* Discover / Our Story — single accordion dropdown box (closed by default). */
+.mm-drawer__drop {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 247, 249, 0.82)),
+    rgba(255, 255, 255, 0.66);
+  box-shadow:
+    0 12px 28px rgba(20, 24, 32, 0.07),
+    inset 0 1.5px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.03);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  transition:
+    border-color 200ms ease,
+    box-shadow 220ms var(--transition-expo);
+}
+
+.mm-drawer__drop--open,
+.mm-drawer__drop--active {
+  border-color: rgba(16, 17, 20, 0.14);
+}
+
+.mm-drawer__drop-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 2.62rem;
+  padding: 0.46rem 0.7rem 0.46rem 0.52rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #101114;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mm-drawer__drop-head:focus-visible {
+  outline: none;
+}
+
+.mm-drawer__drop-chevron {
+  display: inline-flex;
+  margin-left: auto;
+  color: rgba(16, 17, 20, 0.34);
+}
+
+.mm-drawer__drop-body-wrap {
+  overflow: hidden;
+}
+
+.mm-drawer__drop-body {
+  padding: 0 0.45rem 0.5rem;
+  border-top: 1px solid rgba(16, 17, 20, 0.06);
+}
+
+.mm-drawer__drop-body .mm-drawer__sub-link {
+  padding-left: 0.7rem;
+}
+
+html[data-os='windows'] .mm-drawer__drop,
+html[data-perf='lite'] .mm-drawer__drop {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(255, 255, 255, 0.98);
 }
 
 .mm-drawer__sub-link {
@@ -4367,9 +4443,19 @@ body {
 }
 
 .shop-bag-btn {
-  height: 2.15rem;
-  width: 2.15rem;
-  border-radius: 12px;
+  height: 2.5rem;
+  width: 2.5rem;
+  border-radius: 0.4rem;
+  border: none;
+  background: rgba(255, 255, 255, 0.7);
+  color: #101114;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.shop-bag-btn:hover {
+  background: rgba(255, 255, 255, 0.88);
 }
 
 .ig-section {
@@ -8226,14 +8312,24 @@ body {
 }
 
 .site-header-glass__count-badge--cart {
-  top: -0.2rem;
-  right: -0.3rem;
-  min-width: 1rem;
-  height: 1rem;
-  max-width: 1.55rem;
-  padding: 0 0.2rem;
-  font-size: 0.46rem;
+  top: -0.18rem;
+  right: -0.28rem;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  max-width: 1.6rem;
+  padding: 0 0.22rem;
+  font-size: 0.48rem;
   letter-spacing: -0.03em;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.35) inset,
+    0 2px 8px rgba(16, 17, 20, 0.28);
+}
+
+.site-header-glass__bag-icon {
+  display: block;
+  width: 1.25rem;
+  height: 1.25rem;
+  shape-rendering: geometricPrecision;
 }
 
 @media (prefers-reduced-motion: reduce) {

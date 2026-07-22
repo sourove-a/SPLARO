@@ -37,6 +37,7 @@ export interface StoredOrder {
     trackingNumber?: string
     url?: string
     updatedAt?: string
+    estimatedDelivery?: string
   }
 }
 

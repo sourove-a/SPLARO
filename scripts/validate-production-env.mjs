@@ -135,6 +135,19 @@ if (process.env.REDIS_ENABLED?.trim() === 'false') {
   errors.push(
     'REDIS_ENABLED=false — production needs Redis (OTP limits, courier retry queue). Set REDIS_URL and REDIS_ENABLED=true',
   )
+} else if (!process.env.REDIS_URL?.trim()) {
+  errors.push(
+    'REDIS_URL is missing — production needs Redis (OTP limits, courier locks). Set REDIS_URL and REDIS_ENABLED=true',
+  )
+}
+
+// Live store must not hit payment sandboxes
+for (const flag of ['BKASH_SANDBOX', 'NAGAD_SANDBOX', 'SSLCOMMERZ_SANDBOX']) {
+  if (process.env[flag]?.trim() === 'true') {
+    warnings.push(
+      `${flag}=true — live customers would hit sandbox/test gateways. Set false before enabling digital payments.`,
+    )
+  }
 }
 
 // Half-built multi-tenant / loyalty must stay off for single-store launch

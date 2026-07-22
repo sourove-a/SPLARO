@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
+import { resolvePublicSiteUrl } from '@splaro/config'
 
 export async function POST(request: Request) {
   const secret = process.env.REVALIDATE_SECRET
+  // Same-box VPS: prefer loopback for server→server revalidate; else public site URL.
   const webUrl = (
-    process.env.WEB_URL ??
-    process.env.NEXT_PUBLIC_WEB_URL ??
-    'http://127.0.0.1:3000'
+    process.env.WEB_URL?.trim() ||
+    process.env.INTERNAL_WEB_URL?.trim() ||
+    (process.env.SPLARO_VPS === '1' || process.env.SPLARO_HOSTINGER === '1'
+      ? 'http://127.0.0.1:3000'
+      : resolvePublicSiteUrl())
   ).replace(/\/$/, '')
 
   if (!secret) {

@@ -80,3 +80,89 @@ export const SPLARO_PORTS = {
   admin: Number(env('PORT_ADMIN', '3001')),
   api: Number(env('PORT_API', env('API_PORT', '4000'))),
 } as const
+
+function isLoopbackHostname(hostname: string): boolean {
+  const h = hostname.replace(/^www\./, '').toLowerCase()
+  return (
+    !h ||
+    h === 'localhost' ||
+    h === '127.0.0.1' ||
+    h === '0.0.0.0' ||
+    h.endsWith('.local') ||
+    h.endsWith('.localhost')
+  )
+}
+
+/**
+ * Public storefront origin for emails, invoices, admin “open site” links.
+ * Never returns localhost/127.0.0.1 in production.
+ */
+export function resolvePublicSiteUrl(override?: string | null): string {
+  const candidates = [
+    override,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.WEB_URL,
+    process.env.NEXT_PUBLIC_WEB_URL,
+    process.env.SITE_URL,
+    SPLARO_DOMAINS.site,
+    isProd ? 'https://splaro.co' : devSite,
+  ]
+  for (const candidate of candidates) {
+    const raw = candidate?.trim()
+    if (!raw) continue
+    try {
+      const url = new URL(raw)
+      if (isProd && isLoopbackHostname(url.hostname)) continue
+      return url.origin
+    } catch {
+      /* try next */
+    }
+  }
+  return isProd ? 'https://splaro.co' : SPLARO_DOMAINS.site.replace(/\/+$/, '')
+}
+
+/** Public admin origin — never localhost in production. */
+export function resolvePublicAdminUrl(override?: string | null): string {
+  const candidates = [
+    override,
+    process.env.ADMIN_URL,
+    process.env.NEXT_PUBLIC_ADMIN_URL,
+    SPLARO_DOMAINS.admin,
+    isProd ? 'https://admin.splaro.co' : devAdmin,
+  ]
+  for (const candidate of candidates) {
+    const raw = candidate?.trim()
+    if (!raw) continue
+    try {
+      const url = new URL(raw)
+      if (isProd && isLoopbackHostname(url.hostname)) continue
+      return url.origin
+    } catch {
+      /* try next */
+    }
+  }
+  return isProd ? 'https://admin.splaro.co' : SPLARO_DOMAINS.admin.replace(/\/+$/, '')
+}
+
+/** Public API origin (no `/api/v1`) — OAuth callbacks, etc. */
+export function resolvePublicApiOrigin(override?: string | null): string {
+  const candidates = [
+    override,
+    process.env.API_URL,
+    process.env.NEXT_PUBLIC_API_URL,
+    SPLARO_DOMAINS.api,
+    isProd ? 'https://api.splaro.co' : devApi,
+  ]
+  for (const candidate of candidates) {
+    const raw = candidate?.trim()
+    if (!raw) continue
+    try {
+      const url = new URL(raw.replace(/\/api\/v1\/?$/i, '').replace(/\/api\/?$/i, ''))
+      if (isProd && isLoopbackHostname(url.hostname)) continue
+      return url.origin
+    } catch {
+      /* try next */
+    }
+  }
+  return isProd ? 'https://api.splaro.co' : 'http://localhost:4000'
+}

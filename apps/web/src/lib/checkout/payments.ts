@@ -34,9 +34,18 @@ export const DEFAULT_PAYMENT_VISIBILITY: PaymentVisibility = {
 /**
  * COD-first launch gate. Admin visibility alone must never expose a digital
  * gateway before credentials and callback smoke tests are explicitly approved.
+ *
+ * To enable bKash / Nagad / SSLCommerz on the storefront:
+ * 1. Set real gateway keys (and `*_SANDBOX=false` in production)
+ * 2. Turn the gateway on in Admin → Settings → Payments
+ * 3. Set `NEXT_PUBLIC_DIGITAL_PAYMENTS_ENABLED=true` on the web app and redeploy
  */
+export function isDigitalPaymentsLaunchEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_DIGITAL_PAYMENTS_ENABLED === 'true'
+}
+
 export function effectivePaymentVisibility(visibility: PaymentVisibility): PaymentVisibility {
-  const digitalEnabled = process.env.NEXT_PUBLIC_DIGITAL_PAYMENTS_ENABLED === 'true'
+  const digitalEnabled = isDigitalPaymentsLaunchEnabled()
   return {
     cod: visibility.cod,
     bkash: digitalEnabled && visibility.bkash,

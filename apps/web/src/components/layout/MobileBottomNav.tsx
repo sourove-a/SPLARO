@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from '@/lib/motion/react'
 import { DURATION, EASE_EXPO_OUT, EXIT } from '@/lib/motion/config'
 import { cn } from '@/lib/utils/cn'
+import { BagIcon } from '@/components/product/AddToBagIcon'
 import { useAuthStore } from '@/store/authStore'
 import { useCartStore } from '@/store/cartStore'
 import { useUiStore } from '@/store/uiStore'
@@ -78,24 +79,16 @@ function ShopNavIcon({ active, ...props }: NavIconProps) {
   )
 }
 
-/** Solid bag + light handle notch when active — matches reference. */
-function BagNavIcon({ active, ...props }: NavIconProps) {
+/** Shared luxury tote — solid fill + dock-cut handle when active. */
+function BagNavIcon({ active, className }: NavIconProps) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden {...props}>
-      <path
-        d="M7.35 8.55h9.3l.65 9.85a1.25 1.25 0 0 1-1.25 1.35H7.95a1.25 1.25 0 0 1-1.25-1.35l.65-9.85Z"
-        stroke="currentColor"
-        strokeWidth={1.7}
-        strokeLinejoin="round"
-        fill={active ? 'currentColor' : 'none'}
-      />
-      <path
-        d="M9.2 8.55V7.2a2.8 2.8 0 0 1 5.6 0v1.35"
-        stroke={active ? '#fff' : 'currentColor'}
-        strokeWidth={1.7}
-        strokeLinecap="round"
-      />
-    </svg>
+    <BagIcon
+      size={22}
+      strokeWidth={1.7}
+      filled={Boolean(active)}
+      cutColor="#f7f7f8"
+      {...(className ? { className } : {})}
+    />
   )
 }
 

@@ -555,6 +555,24 @@ export class StorefrontOrdersService {
     return order
   }
 
+  private readonly storefrontOrderInclude = {
+    courier: {
+      select: {
+        trackingCode: true,
+        consignmentId: true,
+        trackingUrl: true,
+        estimatedDelivery: true,
+        status: true,
+      },
+    },
+    items: {
+      include: {
+        product: { select: { slug: true } },
+        variant: { select: { size: true, colorName: true, color: true } },
+      },
+    },
+  } as const
+
   async listForUser(storeId: string | undefined, phone: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
     const normalized = phone.replace(/\D/g, '')
@@ -563,7 +581,7 @@ export class StorefrontOrdersService {
         storeId: sid,
         shippingPhone: { contains: normalized.slice(-10) },
       },
-      include: { items: true },
+      include: this.storefrontOrderInclude,
       orderBy: { createdAt: 'desc' },
       take: 50,
     })
@@ -585,7 +603,7 @@ export class StorefrontOrdersService {
           ...(email ? [{ shippingEmail: { equals: email, mode: 'insensitive' as const } }] : []),
         ],
       },
-      include: { items: true },
+      include: this.storefrontOrderInclude,
       orderBy: { createdAt: 'desc' },
       take: 50,
     })

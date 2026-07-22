@@ -1,4 +1,6 @@
 import { Inject, Injectable, Logger, BadRequestException, NotFoundException, forwardRef } from '@nestjs/common'
+import { resolvePublicSiteUrl } from '@splaro/config'
+import { bdPhoneLookupVariants } from '../../../common/bd-phone.util'
 import { OrderStatus, type CourierProvider } from '@prisma/client'
 import { PrismaService } from '../../../common/prisma.service'
 import { resolveStoreId } from '../../../common/store.util'
@@ -364,28 +366,10 @@ export class AgentToolsService {
     }
   }
 
-  private normalizeBdPhone(raw: string): string[] {
-    const digits = raw.replace(/\D/g, '')
-    const variants = new Set<string>()
-    if (!digits) return []
-    variants.add(digits)
-    if (digits.startsWith('880') && digits.length >= 13) {
-      variants.add(`0${digits.slice(3)}`)
-      variants.add(digits.slice(3))
-    } else if (digits.startsWith('0') && digits.length === 11) {
-      variants.add(`880${digits.slice(1)}`)
-      variants.add(digits.slice(1))
-    } else if (digits.length === 10 && digits.startsWith('1')) {
-      variants.add(`0${digits}`)
-      variants.add(`880${digits}`)
-    }
-    return [...variants]
-  }
-
   private async getOrdersByPhone(storeId: string, args: Record<string, unknown>) {
     const phone = String(args.phone ?? '').trim()
     if (!phone) return { error: 'phone required' }
-    const variants = this.normalizeBdPhone(phone)
+    const variants = bdPhoneLookupVariants(phone)
     if (!variants.length) return { error: 'Invalid phone' }
     const limit = Math.min(Number(args.limit ?? 10), 30)
 
@@ -663,7 +647,7 @@ export class AgentToolsService {
   }
 
   private async fixMissingSeoMeta(storeId: string, limit: number) {
-    const siteUrl = process.env['STOREFRONT_URL'] ?? process.env['NEXT_PUBLIC_SITE_URL'] ?? 'https://splaro.co'
+    const siteUrl = resolvePublicSiteUrl(process.env['STOREFRONT_URL'])
     const gaps = await this.getSeoGaps(storeId, Math.min(limit, 50))
     if (!gaps.length) {
       return { ok: true, message: 'No products with missing meta', updated: 0, total: 0 }

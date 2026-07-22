@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { buildInvoiceAccessToken } from '@splaro/config'
 import {
   apiTrackOrders,
   getPhoneAccessToken,
@@ -6,6 +7,7 @@ import {
 } from '@/lib/server/api-auth'
 import { getOrdersByPhone } from '@/lib/server/orders'
 import type { StoredOrder } from '@/lib/orders'
+import type { CartItem } from '@/store/cartStore'
 
 function isTerminalOrder(order: StoredOrder) {
   const status = order.status?.toLowerCase() ?? ''
@@ -16,22 +18,46 @@ function pickActiveOrder(orders: StoredOrder[]) {
   return orders.find((order) => !isTerminalOrder(order)) ?? null
 }
 
-function mapApiOrder(raw: Record<string, unknown>): StoredOrder {
+function mapTrackItem(raw: Record<string, unknown>): CartItem {
+  const name = String(raw.name ?? raw.productName ?? '').trim()
+  return {
+    productId: String(raw.productId ?? ''),
+    ...(raw.variantId ? { variantId: String(raw.variantId) } : {}),
+    quantity: Number(raw.quantity ?? 1),
+    name: name || 'Item',
+    price: Number(raw.price ?? 0),
+    image: String(raw.image ?? ''),
+    slug: String(raw.slug ?? ''),
+    ...(raw.size ? { size: String(raw.size) } : {}),
+    ...(raw.color ? { color: String(raw.color) } : {}),
+  }
+}
+
+function mapApiOrder(raw: Record<string, unknown>): StoredOrder | null {
   const payment = raw.payment as { method?: string } | undefined
   const customer = raw.customer as StoredOrder['customer'] | undefined
   const tracking = raw.tracking as StoredOrder['tracking'] | undefined
 
-  const id = String(raw.id)
+  const publicId = String(raw.invoiceNumber ?? raw.orderCode ?? '').trim()
+  if (!publicId || publicId === 'undefined') return null
+
+  const accessKeyRaw = raw.invoiceAccessKey
+  const invoiceAccessKey =
+    typeof accessKeyRaw === 'string' && accessKeyRaw.trim()
+      ? accessKeyRaw.trim()
+      : buildInvoiceAccessToken(publicId)
+
+  const rawItems = Array.isArray(raw.items) ? raw.items : []
   const mapped: StoredOrder = {
-    id,
-    ...(raw.invoiceNumber ? { invoiceNumber: String(raw.invoiceNumber) } : {}),
-    invoiceAccessKey: String(raw.invoiceAccessKey ?? id),
+    id: publicId,
+    invoiceNumber: publicId,
+    invoiceAccessKey,
     createdAt: String(raw.createdAt),
     ...(raw.updatedAt ? { updatedAt: String(raw.updatedAt) } : {}),
     ...(raw.status ? { status: String(raw.status) } : {}),
     customer: {
       name: customer?.name ?? String(raw.shippingName ?? ''),
-      email: customer?.email ?? '',
+      email: customer?.email ?? String(raw.shippingEmail ?? ''),
       phone: customer?.phone ?? String(raw.shippingPhone ?? ''),
       address: customer?.address ?? String(raw.shippingAddress ?? ''),
       city: customer?.city ?? String(raw.shippingCity ?? ''),
@@ -40,14 +66,24 @@ function mapApiOrder(raw: Record<string, unknown>): StoredOrder {
         payment?.method ??
         String(raw.paymentMethod ?? 'Cash on Delivery'),
     },
-    items: (raw.items as StoredOrder['items']) ?? [],
+    items: rawItems.map((item) => mapTrackItem(item as Record<string, unknown>)),
     subtotal: Number(raw.subtotal ?? 0),
     delivery: Number(raw.delivery ?? raw.deliveryCharge ?? 0),
     discount: Number(raw.discount ?? 0),
     total: Number(raw.total ?? 0),
   }
 
-  if (tracking) mapped.tracking = tracking
+  if (tracking && typeof tracking === 'object') {
+    mapped.tracking = {
+      ...(tracking.stage ? { stage: String(tracking.stage) } : {}),
+      ...(tracking.trackingNumber ? { trackingNumber: String(tracking.trackingNumber) } : {}),
+      ...(tracking.url ? { url: String(tracking.url) } : {}),
+      ...(tracking.updatedAt ? { updatedAt: String(tracking.updatedAt) } : {}),
+    }
+  } else if (raw.status) {
+    mapped.tracking = { stage: String(raw.status) }
+  }
+
   return mapped
 }
 
@@ -79,7 +115,9 @@ export async function GET(request: Request) {
   let orders: StoredOrder[] = []
 
   if ('orders' in trackResult) {
-    orders = trackResult.orders.map(mapApiOrder)
+    orders = trackResult.orders
+      .map(mapApiOrder)
+      .filter((order): order is StoredOrder => Boolean(order))
   } else {
     if (trackResult.requiresOtp) {
       return NextResponse.json(

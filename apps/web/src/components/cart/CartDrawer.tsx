@@ -4,7 +4,8 @@ import '@/styles/pages/cart.css'
 
 import { useRef } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from '@/lib/motion/react'
-import { X, ShoppingBag } from 'lucide-react'
+import { X } from 'lucide-react'
+import { BagIcon } from '@/components/product/AddToBagIcon'
 import { useCartStore, cartLineKey, toCartLineRef } from '@/store/cartStore'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { CartEmptyState } from './CartEmptyState'
@@ -86,7 +87,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
             <div className="flex items-center justify-between border-b border-black/5 px-6 py-5">
               <div className="flex items-center gap-2.5">
-                <ShoppingBag className="h-4 w-4 text-luxury-black" strokeWidth={1.5} />
+                <BagIcon size={17} strokeWidth={1.5} className="text-luxury-black" />
                 <h2 className="text-[0.6875rem] font-black uppercase tracking-[0.18em] text-luxury-black">
                   Your Bag
                   {items.length > 0 ? (

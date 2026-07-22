@@ -241,14 +241,35 @@ export function StoryCard({
     >
       {!offstage ? (
         <>
-          <span className="home-story-deck__card-glass" aria-hidden />
           <span className="home-story-deck__card-depth" aria-hidden />
-          <span className="home-story-deck__card-specular" aria-hidden />
-          <span className="home-story-deck__card-rim" aria-hidden />
-          <span className="home-story-deck__card-edge" aria-hidden />
-          {/* Soft white → pearl → champagne beam orbits the 1px border */}
+          <span className="home-story-deck__card-brush" aria-hidden />
+          <span className="home-story-deck__card-guilloche" aria-hidden />
+          <span className="home-story-deck__card-shine" aria-hidden />
+          <span className="home-story-deck__card-foil" aria-hidden />
+          <span className="home-story-deck__card-engraved" aria-hidden />
+          <span className="home-story-deck__card-bevel" aria-hidden />
           <span className="home-story-deck__card-beam" aria-hidden>
             <span className="home-story-deck__card-beam-spin" />
+          </span>
+          <span className="home-story-deck__corner home-story-deck__corner--tl" aria-hidden>
+            <span className="home-story-deck__corner-outer" />
+            <span className="home-story-deck__corner-inner" />
+            <span className="home-story-deck__corner-dot" />
+          </span>
+          <span className="home-story-deck__corner home-story-deck__corner--tr" aria-hidden>
+            <span className="home-story-deck__corner-outer" />
+            <span className="home-story-deck__corner-inner" />
+            <span className="home-story-deck__corner-dot" />
+          </span>
+          <span className="home-story-deck__corner home-story-deck__corner--bl" aria-hidden>
+            <span className="home-story-deck__corner-outer" />
+            <span className="home-story-deck__corner-inner" />
+            <span className="home-story-deck__corner-dot" />
+          </span>
+          <span className="home-story-deck__corner home-story-deck__corner--br" aria-hidden>
+            <span className="home-story-deck__corner-outer" />
+            <span className="home-story-deck__corner-inner" />
+            <span className="home-story-deck__corner-dot" />
           </span>
         </>
       ) : null}
@@ -268,26 +289,26 @@ export function StoryCard({
         }}
       >
         <span className="home-story-deck__card-top">
-          {/* Story crest — natural icon matched to this card (not SPLARO wordmark) */}
           <span className="home-story-deck__seal" aria-hidden>
             <span className="home-story-deck__seal-glow" />
             <span className="home-story-deck__seal-ring home-story-deck__seal-ring--outer" />
             <span className="home-story-deck__seal-ring home-story-deck__seal-ring--mid" />
             <span className="home-story-deck__seal-ring home-story-deck__seal-ring--inner" />
             <span className="home-story-deck__medallion">
-              <Icon strokeWidth={1.15} />
+              <Icon strokeWidth={1.1} />
             </span>
           </span>
           <span className="home-story-deck__card-eyebrow">{card.eyebrow}</span>
         </span>
 
         <div className="home-story-deck__card-mid">
-          <p className="home-story-deck__card-statement">{card.statement}</p>
+          <p className="home-story-deck__card-statement font-serif">{card.statement}</p>
           <p className="home-story-deck__card-body">{card.body}</p>
         </div>
 
         <div className="home-story-deck__card-foot">
           <span className="home-story-deck__rule" aria-hidden>
+            <span className="home-story-deck__rule-line" />
             <span className="home-story-deck__rule-dot" />
           </span>
           <h3 className="home-story-deck__card-title">{card.title}</h3>

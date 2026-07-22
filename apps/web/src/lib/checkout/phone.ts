@@ -9,13 +9,17 @@ export function formatBdPhoneInput(value: string): string {
 
 /**
  * Normalize to 11-digit local BD mobile (01XXXXXXXXX).
- * Accepts 880 / +880 international prefix.
+ * Accepts 880 / +880 and bare 10-digit (1XXXXXXXXX) forms.
+ * Keep in sync with apps/api/src/common/bd-phone.util.ts.
  */
 export function normalizeBdPhone(value: string): string {
   let digits = value.replace(/\D/g, '')
   if (digits.startsWith('880')) {
     const rest = digits.slice(3)
     digits = rest.startsWith('0') ? rest : `0${rest}`
+  }
+  if (digits.length === 10 && !digits.startsWith('0')) {
+    digits = `0${digits}`
   }
   return digits.slice(0, 11)
 }

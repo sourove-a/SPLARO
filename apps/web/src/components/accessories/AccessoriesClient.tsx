@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from '@/lib/motion/react'
-import { ChevronRight, Heart, ShoppingBag, Sparkles } from 'lucide-react'
+import { ChevronRight, Heart, Sparkles } from 'lucide-react'
+import { BagIcon } from '@/components/product/AddToBagIcon'
 import {
   LiquidGlassFilterRow,
   LiquidGlassPagination,
@@ -151,7 +152,7 @@ function AddToCartButton({ product }: { product: CatalogProduct }) {
       }}
       className="shop-bag-btn"
     >
-      <ShoppingBag className="h-3.5 w-3.5" strokeWidth={2} />
+      <BagIcon size={18} strokeWidth={1.37} plus />
     </button>
   )
 }

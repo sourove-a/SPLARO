@@ -119,6 +119,16 @@ else
   git reset --hard "origin/$BRANCH"
 fi
 
+# Fail fast on missing/placeholder production secrets before a long build.
+# Re-load .env after sync in case deploy pinned a commit that documents new keys.
+if [ -f .env ]; then
+  # shellcheck disable=SC1091
+  set -a && source .env && set +a
+fi
+log "Validating production env..."
+NODE_ENV=production FORCE_PRODUCTION_ENV_CHECK=1 node scripts/validate-production-env.mjs \
+  || die "Production env check failed — fix .env then redeploy"
+
 # ── pnpm ─────────────────────────────────────────────────────
 export PNPM_HOME="${PNPM_HOME:-/root/.local/share/pnpm}"
 export PATH="$PNPM_HOME:/root/.local/bin:$PATH"

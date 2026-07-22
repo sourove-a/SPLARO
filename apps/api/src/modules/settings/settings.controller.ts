@@ -3,6 +3,7 @@ import { PrismaService } from '../../common/prisma.service'
 import { CacheService } from '../../common/cache.service'
 import { EmailService } from '../email/email.service'
 import { OrderNotificationsService } from '../notifications/order-notifications.service'
+import { resolvePublicSiteUrl } from '@splaro/config'
 import { DEFAULT_CATALOG_CHANNELS, mergeShopFilters } from '@splaro/types'
 import { emptyStorefrontConfig, mergeStorefrontConfig, mergeHeaderNav, mergeCatalogChannels, type StorefrontConfig } from './storefront-config'
 import { mergeStoryDeckCards } from './story-deck-defaults'
@@ -33,9 +34,9 @@ export class SettingsController {
   }
 
   private async revalidateStorefrontWeb() {
-    const base = process.env['WEB_URL'] ?? process.env['NEXT_PUBLIC_SITE_URL']
     const secret = process.env['REVALIDATE_SECRET']
-    if (!base || !secret) return
+    if (!secret) return
+    const base = resolvePublicSiteUrl()
 
     try {
       await fetch(`${base.replace(/\/$/, '')}/api/revalidate`, {

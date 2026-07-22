@@ -9,9 +9,6 @@ export const metadata: Metadata = {
 type TrackOrderPageProps = {
   searchParams: Promise<{
     phone?: string
-    order?: string
-    id?: string
-    invoice?: string
   }>
 }
 
@@ -22,10 +19,6 @@ type TrackOrderPageProps = {
 export default async function TrackOrderPage({ searchParams }: TrackOrderPageProps) {
   const params = await searchParams
   const initialPhone = params.phone?.trim() ?? ''
-  const initialOrder =
-    params.order?.trim() || params.id?.trim() || params.invoice?.trim() || ''
 
-  return (
-    <TrackOrderClient initialPhone={initialPhone} initialOrder={initialOrder} />
-  )
+  return <TrackOrderClient initialPhone={initialPhone} />
 }

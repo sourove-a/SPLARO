@@ -7,7 +7,8 @@ import { MotionPressable } from '@/components/ui/MotionPressable'
 import { useMotionReady } from '@/hooks/useMotionReady'
 import { ProductTransitionLink } from '@/components/product/ProductTransitionLink'
 import { productMediaTransitionStyle } from '@/lib/navigation/view-transition'
-import { Heart, ShoppingBag, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
+import { Heart, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
+import { BagIcon } from '@/components/product/AddToBagIcon'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { cn } from '@/lib/utils/cn'
@@ -237,7 +238,7 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
           aria-label={`Add ${product.name} to cart`}
           type="button"
         >
-          <ShoppingBag size={14} strokeWidth={1.4} />
+          <BagIcon size={15} strokeWidth={1.37} plus />
         </MotionPressable>
 
         <motion.button
@@ -293,9 +294,7 @@ function ProductCardShop({
   productHref: string
   onShopAddToBag?: (size?: string, color?: string) => void
 }) {
-  const wishlistHydrated = useWishlistStore((s) => s._hydrated)
-  const { toggleWishlist, isInWishlist } = useWishlistStore()
-  const saved = wishlistHydrated && isInWishlist(product.id)
+  const addToCart = useCartStore((s) => s.addItem)
   const images = productImages(product)
   const primaryImage = images[0] ?? PRODUCT_IMAGE_PLACEHOLDER
   const hoverImage = images[1] ?? primaryImage
@@ -305,7 +304,38 @@ function ProductCardShop({
   const mediaTransition = productMediaTransitionStyle(product.id, reducedMotion)
 
   const handleBag = (size?: string, color?: string) => {
-    onShopAddToBag?.(size, color)
+    if (onShopAddToBag) {
+      onShopAddToBag(size, color)
+      return
+    }
+    const colorOpt = product.colorOptions?.find((c) => c.hex === color) ?? product.colorOptions?.[0]
+    const colorLabel = colorOpt?.name ?? color
+    const variant = resolveQuickAddVariant(
+      product.variantRefs?.length ? { variantRefs: product.variantRefs } : {},
+      size,
+      color,
+    )
+    addToCart({
+      productId: product.id,
+      quantity: 1,
+      name: product.name,
+      price: product.price,
+      image: primaryImage,
+      slug: product.slug,
+      ...(variant ? { variantId: variant.id } : {}),
+      ...(size ? { size } : {}),
+      ...(colorLabel ? { color: colorLabel } : {}),
+    })
+    trackAddToCart({
+      id: variant?.id ?? product.id,
+      name: product.name,
+      price: product.price,
+      quantity: 1,
+      brand: 'SPLARO',
+      ...(size || colorLabel
+        ? { variant: [size, colorLabel].filter(Boolean).join(' / ') }
+        : {}),
+    })
   }
 
   return (
@@ -391,33 +421,11 @@ function ProductCardShop({
           <MotionPressable
             type="button"
             variant="icon"
-            className={cn('shop-wishlist-btn', saved && 'shop-wishlist-btn--saved')}
-            onClick={() => {
-              const adding = !saved
-              toggleWishlist(product.id)
-              if (adding) {
-                trackAddToWishlist({
-                  id: product.id,
-                  name: product.name,
-                  price: product.price,
-                  quantity: 1,
-                  brand: 'SPLARO',
-                })
-              }
-            }}
-            aria-label={saved ? 'Remove from saved' : 'Save product'}
-          >
-            <Heart className={cn('h-3.5 w-3.5', saved && 'fill-current')} strokeWidth={2} />
-          </MotionPressable>
-
-          <MotionPressable
-            type="button"
-            variant="icon"
             className="shop-bag-btn"
             onClick={() => handleBag(sizes[0], colorHexes[0])}
             aria-label={`Add ${product.name} to bag`}
           >
-            <ShoppingBag className="h-4 w-4" strokeWidth={2} />
+            <BagIcon size={18} strokeWidth={1.37} plus />
           </MotionPressable>
 
           {sizes.length > 0 ? (

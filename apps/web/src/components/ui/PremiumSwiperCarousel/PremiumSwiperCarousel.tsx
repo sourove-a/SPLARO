@@ -23,7 +23,7 @@ import {
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import type { Swiper as SwiperInstance } from 'swiper'
-import { A11y, EffectCoverflow } from 'swiper/modules'
+import { A11y, EffectCoverflow, FreeMode } from 'swiper/modules'
 import { useReducedMotion } from '@/lib/motion/react'
 import { cn } from '@/lib/utils/cn'
 
@@ -67,6 +67,8 @@ interface PremiumSwiperCarouselProps {
   speed?: number
   spaceBetween?: number
   breakpoints?: PremiumSwiperBreakpoints
+  /** ILYN-like momentum drag (best with `effect="slide"`). */
+  freeScroll?: boolean
   className?: string
   ariaLabel?: string
 }
@@ -77,6 +79,7 @@ export function PremiumSwiperCarousel({
   speed = 300,
   spaceBetween = 24,
   breakpoints = DEFAULT_BREAKPOINTS,
+  freeScroll = false,
   className,
   ariaLabel = 'Carousel',
 }: PremiumSwiperCarouselProps) {
@@ -146,7 +149,7 @@ export function PremiumSwiperCarousel({
 
       <Swiper
         className="premium-swiper__track"
-        modules={[EffectCoverflow, A11y]}
+        modules={[EffectCoverflow, A11y, ...(freeScroll && !reducedMotion ? [FreeMode] : [])]}
         // effect — coverflow = mild 3D; slide = flat (also forced when reduced motion)
         effect={resolvedEffect}
         // speed — 300ms settle (matches --pp-dur-base / Framer MICRO feel)
@@ -172,8 +175,20 @@ export function PremiumSwiperCarousel({
         grabCursor
         watchOverflow
         // rewind — soft wrap without loop clone jump
-        rewind={slides.length > breakpoints.wide}
-        threshold={10}
+        rewind={!freeScroll && slides.length > breakpoints.wide}
+        freeMode={
+          freeScroll && !reducedMotion
+            ? {
+                enabled: true,
+                momentum: true,
+                momentumRatio: 0.85,
+                momentumVelocityRatio: 0.75,
+                sticky: false,
+              }
+            : false
+        }
+        resistanceRatio={freeScroll ? 0.65 : 0.85}
+        threshold={freeScroll ? 4 : 10}
         preventClicks
         preventClicksPropagation
         a11y={{

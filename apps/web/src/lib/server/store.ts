@@ -105,6 +105,7 @@ export interface StoredOrder {
     url?: string
     stage?: string
     updatedAt?: string
+    estimatedDelivery?: string
   }
 }
 

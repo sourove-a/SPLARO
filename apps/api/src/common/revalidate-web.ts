@@ -1,8 +1,10 @@
+import { resolvePublicSiteUrl } from '@splaro/config'
+
 /** Best-effort Next.js cache bust after admin writes (products, settings, etc.). */
 export async function revalidateStorefrontWeb(tags: string[]): Promise<void> {
-  const base = process.env.WEB_URL ?? process.env.NEXT_PUBLIC_SITE_URL
   const secret = process.env.REVALIDATE_SECRET
-  if (!base || !secret || !tags.length) return
+  if (!secret || !tags.length) return
+  const base = resolvePublicSiteUrl()
 
   try {
     await fetch(`${base.replace(/\/+$/, '')}/api/revalidate`, {

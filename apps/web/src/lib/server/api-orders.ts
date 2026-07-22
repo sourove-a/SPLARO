@@ -101,27 +101,47 @@ function mapApiOrderToStored(order: {
   id?: string
   orderCode?: string
   invoiceNumber: string
+  invoiceAccessKey?: string
   status: string
   createdAt: string | Date
   updatedAt: string | Date
-  shippingName: string
-  shippingPhone: string
-  shippingAddress: string
-  shippingCity: string
-  subtotal: unknown
-  deliveryCharge: unknown
-  discount: unknown
-  total: unknown
-  paymentMethod: string
-  paymentStatus: string
-  customer?: { email?: string | null } | null
+  shippingName?: string
+  shippingPhone?: string
+  shippingAddress?: string
+  shippingCity?: string
+  subtotal?: unknown
+  deliveryCharge?: unknown
+  delivery?: unknown
+  discount?: unknown
+  total?: unknown
+  paymentMethod?: string
+  paymentStatus?: string
+  customer?: {
+    name?: string | null
+    email?: string | null
+    phone?: string | null
+    address?: string | null
+    city?: string | null
+    payment?: string | null
+  } | null
+  tracking?: {
+    stage?: string
+    trackingNumber?: string
+    url?: string
+    updatedAt?: string
+    estimatedDelivery?: string
+  } | null
   items: {
-    productName: string
+    name?: string
+    productName?: string
     price: unknown
     quantity: number
     productId: string
     variantId?: string | null
     image?: string | null
+    slug?: string | null
+    size?: string | null
+    color?: string | null
     variantName?: string | null
   }[]
 }): StoredOrder {
@@ -131,43 +151,58 @@ function mapApiOrderToStored(order: {
     typeof order.updatedAt === 'string' ? order.updatedAt : order.updatedAt.toISOString()
 
   const publicCode = order.orderCode ?? order.invoiceNumber
+  const paymentMethod =
+    order.customer?.payment?.trim() || order.paymentMethod || 'Cash on Delivery'
 
   return {
     id: publicCode,
     invoiceNumber: publicCode,
-    invoiceAccessKey: buildInvoiceAccessToken(publicCode),
+    invoiceAccessKey: order.invoiceAccessKey?.trim() || buildInvoiceAccessToken(publicCode),
     createdAt,
     updatedAt,
     status: normalizeApiOrderStatus(order.status),
     customer: {
-      name: order.shippingName,
+      name: order.customer?.name?.trim() || order.shippingName || '',
       email: order.customer?.email?.trim() ?? '',
-      phone: order.shippingPhone,
-      address: order.shippingAddress,
-      city: order.shippingCity,
+      phone: order.customer?.phone?.trim() || order.shippingPhone || '',
+      address: order.customer?.address?.trim() || order.shippingAddress || '',
+      city: order.customer?.city?.trim() || order.shippingCity || '',
     },
-    items: order.items.map((item) => ({
-      productId: item.productId,
-      ...(item.variantId ? { variantId: item.variantId } : {}),
-      quantity: item.quantity,
-      name: item.productName,
-      price: Number(item.price),
-      image: item.image ?? '',
-      slug: '',
-      ...(item.variantName?.split(' / ')[0] ? { size: item.variantName.split(' / ')[0] } : {}),
-      ...(item.variantName?.split(' / ')[1] ? { color: item.variantName.split(' / ')[1] } : {}),
-    })),
-    subtotal: Number(order.subtotal),
-    delivery: Number(order.deliveryCharge),
-    discount: Number(order.discount),
-    total: Number(order.total),
+    items: order.items.map((item) => {
+      const [sizeFromName, colorFromName] = (item.variantName ?? '')
+        .split(' / ')
+        .map((part) => part.trim())
+        .filter(Boolean)
+      return {
+        productId: item.productId,
+        ...(item.variantId ? { variantId: item.variantId } : {}),
+        quantity: item.quantity,
+        name: (item.name ?? item.productName ?? 'Item').trim() || 'Item',
+        price: Number(item.price),
+        image: item.image ?? '',
+        slug: item.slug?.trim() || '',
+        ...(item.size || sizeFromName ? { size: item.size || sizeFromName } : {}),
+        ...(item.color || colorFromName ? { color: item.color || colorFromName } : {}),
+      }
+    }),
+    subtotal: Number(order.subtotal ?? 0),
+    delivery: Number(order.delivery ?? order.deliveryCharge ?? 0),
+    discount: Number(order.discount ?? 0),
+    total: Number(order.total ?? 0),
     payment: {
-      method: order.paymentMethod,
-      status: normalizeApiPaymentStatus(order.paymentStatus),
+      method: paymentMethod,
+      status: normalizeApiPaymentStatus(order.paymentStatus ?? 'unpaid'),
     },
     tracking: {
-      stage: order.status,
-      updatedAt,
+      stage: order.tracking?.stage ?? order.status,
+      updatedAt: order.tracking?.updatedAt ?? updatedAt,
+      ...(order.tracking?.trackingNumber
+        ? { trackingNumber: order.tracking.trackingNumber }
+        : {}),
+      ...(order.tracking?.url ? { url: order.tracking.url } : {}),
+      ...(order.tracking?.estimatedDelivery
+        ? { estimatedDelivery: order.tracking.estimatedDelivery }
+        : {}),
     },
   }
 }

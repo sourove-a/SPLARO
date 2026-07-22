@@ -22,16 +22,23 @@ const BETA_ROUTES = new Set<string>([
   '/dashboard/production/overview',
   '/dashboard/production/fabric-inventory',
   '/dashboard/support/helpdesk',
-  '/dashboard/support/live-chat',
   '/dashboard/delivery/agents',
   '/dashboard/delivery/assignments',
   '/dashboard/company/dashboard',
   '/dashboard/company/employees',
   '/dashboard/company/payroll',
   '/dashboard/company/tasks',
-  '/dashboard/company/documents',
   '/dashboard/warehouse',
   '/dashboard/supplier-management',
+])
+
+/**
+ * UI shells / read-only placeholders — no verified backend write path.
+ * Keep these out of BETA so the banner matches reality.
+ */
+const PROTOTYPE_SHELL_ROUTES = new Set<string>([
+  '/dashboard/support/live-chat',
+  '/dashboard/company/documents',
   '/dashboard/google-workspace/docs',
   '/dashboard/google-workspace/calendar',
   '/dashboard/google-workspace/contacts',
@@ -41,11 +48,15 @@ const BETA_ROUTES = new Set<string>([
 ])
 
 /** Nav routes without a dedicated panel — GenericModulePanel fallback. */
-const PROTOTYPE_ROUTES = new Set<string>(
-  flatAdminRoutes
+const PROTOTYPE_ROUTES = new Set<string>([
+  ...PROTOTYPE_SHELL_ROUTES,
+  ...flatAdminRoutes
     .map((r) => r.href.replace(/\/+$/, '') || '/dashboard')
-    .filter((href) => !LIVE_ROUTES.has(href) && !BETA_ROUTES.has(href)),
-)
+    .filter(
+      (href) =>
+        !LIVE_ROUTES.has(href) && !BETA_ROUTES.has(href) && !PROTOTYPE_SHELL_ROUTES.has(href),
+    ),
+])
 
 const MATURITY_META: Record<
   ModuleMaturity,
@@ -58,12 +69,12 @@ const MATURITY_META: Record<
   },
   beta: {
     label: 'Beta',
-    hint: 'Beta — core reads and selected writes via commerce-os; export, payroll pay, and doc upload not connected.',
+    hint: 'Beta — commerce-os reads and selected writes work; export / payroll pay and some actions stay disconnected.',
     className: 'admin-module-status--beta',
   },
   prototype: {
     label: 'Preview',
-    hint: 'UI shell only — no verified backend write path.',
+    hint: 'UI shell only — no verified backend write path. Nothing you click here is saved.',
     className: 'admin-module-status--prototype',
   },
 }
@@ -97,7 +108,10 @@ export function hasBackendCreateApi(moduleHref: string): boolean {
 
 export function getModuleMaturity(href: string): ModuleMaturity {
   const normalized = href.replace(/\/+$/, '') || '/dashboard'
-  if (PROTOTYPE_ROUTES.has(normalized)) return 'prototype'
+  // Shells first — never overstate as beta/live.
+  if (PROTOTYPE_SHELL_ROUTES.has(normalized) || PROTOTYPE_ROUTES.has(normalized)) {
+    return 'prototype'
+  }
   if (BETA_ROUTES.has(normalized)) return 'beta'
   if (LIVE_ROUTES.has(normalized)) return 'live'
   return 'prototype'

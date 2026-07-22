@@ -1,4 +1,5 @@
 import { Controller, Get, Header, Inject, Param, Post, Query } from '@nestjs/common'
+import { resolvePublicSiteUrl } from '@splaro/config'
 import { Public } from '../../common/auth/public.decorator'
 import { SeoService } from './seo.service'
 import { PrismaService } from '../../common/prisma.service'
@@ -19,7 +20,7 @@ export class SeoController {
     @Param('storeId') storeId: string,
     @Query('siteUrl') siteUrl: string,
   ) {
-    return this.seoService.generateDynamicSitemap(storeId, siteUrl)
+    return this.seoService.generateDynamicSitemap(storeId, resolvePublicSiteUrl(siteUrl))
   }
 
   /** Audit a single product's SEO */
@@ -67,7 +68,7 @@ export class SeoController {
   @Public()
   @Get('schema/organization')
   getOrganizationSchema(@Query('siteUrl') siteUrl?: string) {
-    return this.seoService.generateOrganizationSchema(siteUrl ?? process.env['SITE_URL'] ?? 'https://splaro.co')
+    return this.seoService.generateOrganizationSchema(resolvePublicSiteUrl(siteUrl))
   }
 
   /** Product JSON-LD schema */
@@ -83,7 +84,7 @@ export class SeoController {
     })
     if (!product) return { error: 'Product not found' }
 
-    const site = siteUrl ?? process.env['SITE_URL'] ?? 'https://splaro.co'
+    const site = resolvePublicSiteUrl(siteUrl)
     const variant = product.variants[0]
 
     return this.seoService.generateProductSchema({
@@ -103,7 +104,7 @@ export class SeoController {
   @Public()
   @Get('schema/breadcrumb')
   getBreadcrumbSchema(@Query('siteUrl') siteUrl: string, @Query('path') path?: string) {
-    const site = siteUrl ?? process.env['SITE_URL'] ?? 'https://splaro.co'
+    const site = resolvePublicSiteUrl(siteUrl)
     const parts = (path ?? '').split('/').filter(Boolean)
     const items = [{ name: 'Home', url: site }]
     let current = site
@@ -121,7 +122,7 @@ export class SeoController {
     @Query('siteUrl') siteUrl?: string,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
-    const site = siteUrl ?? process.env['SITE_URL'] ?? 'https://splaro.co'
+    const site = resolvePublicSiteUrl(siteUrl)
     return this.seoService.fillMissingProductMeta(sid, site)
   }
 

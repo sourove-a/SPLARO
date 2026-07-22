@@ -1,4 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common'
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common'
+import { Prisma } from '@prisma/client'
+import { bdPhoneLookupVariants, isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
 import { PrismaService } from '../../common/prisma.service'
 
 export interface RegisterCustomerInput {
@@ -7,18 +9,12 @@ export interface RegisterCustomerInput {
   phone: string
   passwordHash?: string
   source?: string
+  /** Website signup must fail on duplicate email/phone instead of overwriting. */
+  rejectIfExists?: boolean
 }
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase()
-}
-
-function normalizePhone(phone: string) {
-  return phone.replace(/\D/g, '')
-}
-
-function isValidBdPhone(phone: string) {
-  return /^01[3-9]\d{8}$/.test(normalizePhone(phone))
 }
 
 function splitName(name: string) {
@@ -28,154 +24,201 @@ function splitName(name: string) {
   return { firstName, lastName }
 }
 
+function accountExistsMessage(user: {
+  googleId?: string | null
+  authProvider?: string | null
+  passwordHash?: string | null
+}) {
+  const viaGoogle = Boolean(user.googleId) || user.authProvider === 'google'
+  return viaGoogle && !user.passwordHash
+    ? 'An account with this email already exists. Sign in with Google.'
+    : 'An account with this email or phone already exists. Please sign in.'
+}
+
 @Injectable()
 export class CustomersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Persist storefront signup as User + Customer (idempotent by email/phone). */
+  /**
+   * Persist storefront signup as User + Customer in one transaction.
+   * Website path rejects duplicates; internal events may upsert safely.
+   */
   async registerFromSignup(storeId: string, input: RegisterCustomerInput) {
     const email = normalizeEmail(input.email)
-    const phone = normalizePhone(input.phone)
+    const phone = normalizeBdPhone(input.phone)
     const { firstName, lastName } = splitName(input.name)
 
     if (!email || !phone) {
       throw new BadRequestException('Valid email and phone are required')
     }
-
-    let user = await this.prisma.user.findFirst({
-      where: { OR: [{ email }, { phone }] },
-    })
-
-    if (!user) {
-      if (!input.passwordHash?.trim()) {
-        throw new BadRequestException('passwordHash required for new customer')
-      }
-      user = await this.prisma.user.create({
-        data: {
-          email,
-          phone,
-          passwordHash: input.passwordHash,
-          firstName,
-          lastName,
-          role: 'CUSTOMER',
-          isActive: true,
-        },
-      })
-    } else {
-      user = await this.prisma.user.update({
-        where: { id: user.id },
-        data: {
-          email: user.email ?? email,
-          phone: user.phone ?? phone,
-          firstName,
-          lastName,
-          ...(input.passwordHash?.trim() ? { passwordHash: input.passwordHash } : {}),
-        },
-      })
+    if (!isValidBdMobile(phone)) {
+      throw new BadRequestException('Enter a valid Bangladesh mobile number (01XXXXXXXXX)')
     }
 
-    const existing = await this.prisma.customer.findUnique({
-      where: { userId: user.id },
-    })
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const existingUser = await tx.user.findFirst({
+          where: { OR: [{ email }, { phone: { in: bdPhoneLookupVariants(phone) } }] },
+        })
 
-    if (existing) {
-      if (existing.storeId !== storeId) {
-        return this.prisma.customer.update({
-          where: { id: existing.id },
+        if (existingUser && input.rejectIfExists) {
+          throw new ConflictException(accountExistsMessage(existingUser))
+        }
+
+        let userId: string
+
+        if (!existingUser) {
+          if (!input.passwordHash?.trim()) {
+            throw new BadRequestException('passwordHash required for new customer')
+          }
+          const created = await tx.user.create({
+            data: {
+              email,
+              phone,
+              passwordHash: input.passwordHash,
+              firstName,
+              lastName,
+              role: 'CUSTOMER',
+              isActive: true,
+              authProvider: 'password',
+            },
+            select: { id: true },
+          })
+          userId = created.id
+        } else {
+          const updated = await tx.user.update({
+            where: { id: existingUser.id },
+            data: {
+              email: existingUser.email ?? email,
+              phone: existingUser.phone ? normalizeBdPhone(existingUser.phone) || phone : phone,
+              firstName,
+              lastName,
+              // Never overwrite an existing password — blocks signup-based account takeover.
+              ...(input.passwordHash?.trim() && !existingUser.passwordHash
+                ? { passwordHash: input.passwordHash }
+                : {}),
+            },
+            select: { id: true },
+          })
+          userId = updated.id
+        }
+
+        const existingCustomer = await tx.customer.findUnique({
+          where: { userId },
+        })
+
+        if (existingCustomer) {
+          return tx.customer.update({
+            where: { id: existingCustomer.id },
+            data: {
+              storeId,
+              firstName,
+              lastName,
+              email,
+              phone,
+            },
+          })
+        }
+
+        const sourceTag = input.source?.trim()
+        return tx.customer.create({
           data: {
+            userId,
             storeId,
             firstName,
             lastName,
             email,
             phone,
+            ...(sourceTag ? { tags: [sourceTag] } : {}),
           },
         })
-      }
-      return this.prisma.customer.update({
-        where: { id: existing.id },
-        data: { firstName, lastName, email, phone },
       })
+    } catch (err) {
+      if (err instanceof ConflictException || err instanceof BadRequestException) throw err
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException(
+          'An account with this email or phone already exists. Please sign in.',
+        )
+      }
+      throw err
     }
-
-    const sourceTag = input.source?.trim()
-    return this.prisma.customer.create({
-      data: {
-        userId: user.id,
-        storeId,
-        firstName,
-        lastName,
-        email,
-        phone,
-        ...(sourceTag ? { tags: [sourceTag] } : {}),
-      },
-    })
   }
 
-  /** Finish Google signup — attach BD phone and create Customer row. */
+  /** Finish Google signup — attach BD phone and create Customer row atomically. */
   async completeGoogleSignup(
     storeId: string,
     userId: string,
     input: { phone: string; phoneVerified: boolean },
   ) {
-    const phone = normalizePhone(input.phone)
-    if (!isValidBdPhone(phone)) {
+    const phone = normalizeBdPhone(input.phone)
+    if (!isValidBdMobile(phone)) {
       throw new BadRequestException('Enter a valid Bangladesh mobile number (01XXXXXXXXX)')
     }
 
-    const phoneOwner = await this.prisma.user.findFirst({
-      where: { phone, NOT: { id: userId } },
-      select: { id: true },
-    })
-    if (phoneOwner) {
-      throw new BadRequestException('This phone number is already registered')
-    }
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const phoneOwner = await tx.user.findFirst({
+          where: { phone: { in: bdPhoneLookupVariants(phone) }, NOT: { id: userId } },
+          select: { id: true },
+        })
+        if (phoneOwner) {
+          throw new BadRequestException('This phone number is already registered')
+        }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        customer: { select: { id: true, storeId: true } },
-      },
-    })
-    if (!user) throw new BadRequestException('Account not found')
+        const user = await tx.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            customer: { select: { id: true, storeId: true } },
+          },
+        })
+        if (!user) throw new BadRequestException('Account not found')
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        phone,
-        phoneVerified: input.phoneVerified,
-      },
-    })
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            phone,
+            phoneVerified: input.phoneVerified,
+          },
+        })
 
-    const email = user.email ? normalizeEmail(user.email) : null
-    const existing = user.customer
+        const email = user.email ? normalizeEmail(user.email) : null
+        const existing = user.customer
 
-    if (existing) {
-      return this.prisma.customer.update({
-        where: { id: existing.id },
-        data: {
-          storeId,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          ...(email ? { email } : {}),
-          phone,
-        },
+        if (existing) {
+          return tx.customer.update({
+            where: { id: existing.id },
+            data: {
+              storeId,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              ...(email ? { email } : {}),
+              phone,
+            },
+          })
+        }
+
+        return tx.customer.create({
+          data: {
+            userId: user.id,
+            storeId,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            ...(email ? { email } : {}),
+            phone,
+            tags: ['Google signup'],
+          },
+        })
       })
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new BadRequestException('This phone number is already registered')
+      }
+      throw err
     }
-
-    return this.prisma.customer.create({
-      data: {
-        userId: user.id,
-        storeId,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        ...(email ? { email } : {}),
-        phone,
-        tags: ['Google signup'],
-      },
-    })
   }
 }

@@ -6,7 +6,7 @@ import { buildInvoiceViewModel, type InvoiceOrder } from './invoice.helpers'
 import { generateInvoiceEmailBody } from './invoice-email-body.template'
 import { generateInvoiceHTML } from './invoice.template'
 import { generateInvoiceEmailHTML } from './invoice-email.template'
-import { SPLARO_INVOICE_BRAND } from '@splaro/config'
+import { SPLARO_INVOICE_BRAND, resolvePublicSiteUrl } from '@splaro/config'
 
 function resolveChromeExecutable(puppeteerExecutablePath: () => string): string | undefined {
   const fromEnv = process.env.PUPPETEER_EXECUTABLE_PATH?.trim()
@@ -63,8 +63,7 @@ export class InvoiceService {
 
   private async storeContext(storeId: string) {
     const store = await this.prisma.store.findUnique({ where: { id: storeId } })
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? SPLARO_INVOICE_BRAND.website
+    const siteUrl = resolvePublicSiteUrl(SPLARO_INVOICE_BRAND.website)
     return {
       storeName: store?.name ?? SPLARO_INVOICE_BRAND.name,
       storeLogo: store?.logo ?? '',

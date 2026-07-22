@@ -30,6 +30,19 @@ export function isValidBdMobile(value: string): boolean {
   return BD_MOBILE_RE.test(normalizeBdPhone(value))
 }
 
+/** Local 01… plus legacy 880… / bare 10-digit forms for DB lookups. */
+export function bdPhoneLookupVariants(value: string): string[] {
+  const local = normalizeBdPhone(value)
+  if (!local) return []
+  const variants = new Set<string>([local])
+  if (local.startsWith('0') && local.length === 11) {
+    const withoutZero = local.slice(1)
+    variants.add(`880${withoutZero}`)
+    variants.add(withoutZero)
+  }
+  return [...variants]
+}
+
 /** Prefix with apostrophe so Google Sheets keeps 01XXXXXXXXX as text, not a number. */
 export function formatPhoneForGoogleSheet(value: string | null | undefined): string {
   const display = formatBdPhoneDisplay(value)

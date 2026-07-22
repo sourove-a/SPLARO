@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common'
 import { randomBytes, randomInt } from 'crypto'
+import { isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
 import { RedisService } from '../../common/redis.service'
 
 const OTP_TTL_SEC = 300
@@ -23,9 +24,11 @@ function phoneAccessKey(token: string) {
 }
 
 function normalizePhone(phone: string) {
-  const digits = phone.replace(/\D/g, '')
-  if (digits.length < 10) throw new BadRequestException('Enter a valid phone number')
-  return digits.slice(-11)
+  const normalized = normalizeBdPhone(phone)
+  if (!isValidBdMobile(normalized)) {
+    throw new BadRequestException('Enter a valid Bangladesh mobile number (01XXXXXXXXX)')
+  }
+  return normalized
 }
 
 /** OTP off by default — set STOREFRONT_PHONE_OTP_ENABLED=true when SMS provider is ready. */

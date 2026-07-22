@@ -1,15 +1,17 @@
 'use client'
 
-import { ProductCard } from '@/components/product/ProductCard/ProductCard'
+import { SplaroProductCard } from '@/components/product/ProductCard/SplaroProductCard'
 import { ProductCardSkeleton } from '@/components/product/ProductCard/ProductCardSkeleton'
 import {
   PremiumSwiperCarousel,
   RELATED_SWIPER_BREAKPOINTS,
 } from '@/components/ui/PremiumSwiperCarousel'
+import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import type { ProductCardData } from '@/types/product'
 
 /**
  * “You may also like” — flat slide rail (no coverflow tilt).
+ * Shop cards: bag add only — no wishlist heart (not useful on related rail).
  */
 export function ProductRelatedSection({ products }: { products: ProductCardData[] }) {
   if (!products.length) return null
@@ -20,16 +22,40 @@ export function ProductRelatedSection({ products }: { products: ProductCardData[
       <PremiumSwiperCarousel
         className="pp-related__swiper"
         effect="slide"
-        speed={300}
-        spaceBetween={24}
+        speed={420}
+        spaceBetween={16}
+        freeScroll
         breakpoints={RELATED_SWIPER_BREAKPOINTS}
         ariaLabel="Related products"
       >
-        {products.map((item) => (
-          <div key={item.id} className="pp-related__cell">
-            <ProductCard product={item} variant="shop" />
-          </div>
-        ))}
+        {products.map((item) => {
+          const images = (item.images ?? []).map((url) => url?.trim()).filter(Boolean) as string[]
+          const primary = images[0] ?? PRODUCT_IMAGE_PLACEHOLDER
+          const colors =
+            item.colorHexes ??
+            item.colorOptions?.map((c) => c.hex).filter(Boolean) ??
+            []
+
+          return (
+            <div key={item.id} className="pp-related__cell">
+              <SplaroProductCard
+                id={item.id}
+                name={item.name}
+                slug={item.slug}
+                price={item.price}
+                image={primary}
+                variant="shop"
+                fit="contain"
+                {...(item.compareAtPrice != null ? { compareAtPrice: item.compareAtPrice } : {})}
+                {...(images[1] ? { imageHover: images[1] } : {})}
+                {...(images.length > 2 ? { galleryImages: images } : {})}
+                {...(item.sizes?.length ? { sizes: item.sizes } : {})}
+                {...(colors.length ? { colorHexes: colors } : {})}
+                {...(item.category ? { category: item.category } : {})}
+              />
+            </div>
+          )
+        })}
       </PremiumSwiperCarousel>
     </section>
   )

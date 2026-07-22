@@ -8,7 +8,6 @@ import {
   Check,
   ChevronRight,
   FileText,
-  Hash,
   Package,
   Phone,
   Shield,
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react'
 import { displayOrderCode } from '@splaro/config'
 import { formatBDT } from '@/lib/utils/currency'
+import { formatBdPhoneInput, getBdPhoneError } from '@/lib/checkout/phone'
 import {
   openOrderInvoice,
   trackOrdersByPhone,
@@ -60,14 +60,26 @@ function getTrackStageIndex(order: StoredOrder): number {
   if (isCancelled(order)) return -1
   const status = (order.status ?? '').toLowerCase()
   if (status === 'delivered') return 4
-  if (status === 'in_transit') return 3
-  if (status === 'shipped') return 2
+  if (
+    status === 'in_transit' ||
+    status === 'out_for_delivery' ||
+    status === 'picked_up'
+  ) {
+    return 3
+  }
+  if (status === 'shipped' || status === 'courier_booked') return 2
   if (status === 'packed' || status === 'processing') return 1
   const stage = order.tracking?.stage?.toLowerCase() ?? ''
-  if (stage.includes('deliver')) return 4
-  if (stage.includes('transit') || stage.includes('out')) return 3
-  if (stage.includes('ship')) return 2
-  if (stage.includes('pack')) return 1
+  if (stage.includes('deliver') && !stage.includes('out')) return 4
+  if (
+    stage.includes('transit') ||
+    stage.includes('out_for') ||
+    stage.includes('picked')
+  ) {
+    return 3
+  }
+  if (stage.includes('ship') || stage.includes('courier')) return 2
+  if (stage.includes('pack') || stage.includes('process')) return 1
   return 0
 }
 
@@ -75,8 +87,9 @@ function getStatusLabel(order: StoredOrder) {
   if (isCancelled(order)) return 'Cancelled'
   const status = (order.status ?? '').toLowerCase()
   if (status === 'delivered') return 'Delivered'
-  if (status === 'in_transit') return 'Out for Delivery'
-  if (status === 'shipped') return 'Shipped'
+  if (status === 'out_for_delivery') return 'Out for Delivery'
+  if (status === 'in_transit' || status === 'picked_up') return 'In Transit'
+  if (status === 'shipped' || status === 'courier_booked') return 'Shipped'
   if (status === 'packed') return 'Packed'
   if (status === 'processing') return 'Processing'
   if (status === 'confirmed' || status === 'pending') return 'Confirmed'
@@ -105,9 +118,12 @@ function formatOrderDate(iso: string) {
 function estimatedDeliveryLabel(order: StoredOrder) {
   if (isDelivered(order)) return `Delivered ${formatOrderDate(order.updatedAt ?? order.createdAt)}`
   if (isCancelled(order)) return 'Order cancelled'
-  const eta = new Date(order.createdAt)
-  eta.setDate(eta.getDate() + 3)
-  return `Est. ${formatOrderDate(eta.toISOString())}`
+  const courierEta = order.tracking?.estimatedDelivery
+  if (courierEta) {
+    const parsed = new Date(courierEta)
+    if (!Number.isNaN(parsed.getTime())) return `Est. ${formatOrderDate(parsed.toISOString())}`
+  }
+  return 'Usually 2–4 days'
 }
 
 function itemCount(order: StoredOrder) {
@@ -347,16 +363,13 @@ function HistoryRow({ order }: { order: StoredOrder }) {
 
 type TrackOrderClientProps = {
   initialPhone?: string
-  initialOrder?: string
 }
 
 export default function TrackOrderClient({
   initialPhone = '',
-  initialOrder = '',
 }: TrackOrderClientProps) {
   const { phoneOtpEnabled } = useStorefrontAuthConfig()
-  const [phone, setPhone] = useState(initialPhone)
-  const [orderRef, setOrderRef] = useState(initialOrder)
+  const [phone, setPhone] = useState(() => formatBdPhoneInput(initialPhone))
   const [otpCode, setOtpCode] = useState('')
   const [otpStep, setOtpStep] = useState(false)
   const [otpSending, setOtpSending] = useState(false)
@@ -368,15 +381,22 @@ export default function TrackOrderClient({
   const didPrefillSearch = useRef(false)
 
   const runSearch = useCallback(
-    async (nextPhone: string, nextOrder?: string) => {
+    async (nextPhone: string) => {
       const trimmedPhone = nextPhone.trim()
-      if (!trimmedPhone) return
+      const phoneError = getBdPhoneError(trimmedPhone)
+      if (phoneError) {
+        setSearched(true)
+        setResult(null)
+        setError(phoneError)
+        return
+      }
 
       setLoading(true)
       setSearched(true)
       setError(null)
 
-      const payload = await trackOrdersByPhone(trimmedPhone, nextOrder?.trim() || undefined)
+      // Phone-only lookup — returns all orders for this checkout number.
+      const payload = await trackOrdersByPhone(trimmedPhone)
       if (!payload.ok) {
         setResult(null)
         if (payload.requiresOtp && phoneOtpEnabled) {
@@ -387,7 +407,7 @@ export default function TrackOrderClient({
         }
       } else if (!payload.data.orders.length) {
         setResult(null)
-        setError('No orders for this number.')
+        setError('No orders found for this phone number.')
       } else {
         setOtpStep(false)
         setResult(payload.data)
@@ -441,7 +461,7 @@ export default function TrackOrderClient({
         setLoading(false)
         return
       }
-      await runSearch(trimmedPhone, orderRef)
+      await runSearch(trimmedPhone)
     } catch {
       setError('Verification failed')
       setLoading(false)
@@ -452,8 +472,8 @@ export default function TrackOrderClient({
     if (didPrefillSearch.current) return
     if (!initialPhone.trim()) return
     didPrefillSearch.current = true
-    void runSearch(initialPhone, initialOrder)
-  }, [initialPhone, initialOrder, runSearch])
+    void runSearch(formatBdPhoneInput(initialPhone))
+  }, [initialPhone, runSearch])
 
   const historyOrders = useMemo(() => {
     if (!result) return []
@@ -467,50 +487,48 @@ export default function TrackOrderClient({
       void verifyOtpAndSearch()
       return
     }
-    void runSearch(phone, orderRef)
+    void runSearch(phone)
   }
 
+  const hasResults = Boolean(result?.orders?.length)
+
   return (
-    <main className="track-page">
+    <main className={cn('track-page', hasResults && 'track-page--filled')}>
       <section className="track-shell">
+        <div className="track-shell__glow" aria-hidden />
         <div className="track-glass">
-          <header className="track-header">
-            <p className="track-eyebrow">Track order</p>
-            <h1 className="track-title font-serif">Your orders</h1>
-            <p className="track-subtitle">
-              Enter the phone number used at checkout. Order number is optional.
-            </p>
+          <header className="track-header track-header--visual">
+            <div className="track-mark" aria-hidden>
+              <span className="track-mark__ring" />
+              <span className="track-mark__soft" />
+              <Package className="track-mark__icon" strokeWidth={1.55} />
+            </div>
+            <h1 className="track-title font-serif">Track</h1>
+            <div className="track-route" aria-hidden>
+              <span className="track-route__dot track-route__dot--on" />
+              <span className="track-route__line" />
+              <span className="track-route__dot" />
+              <span className="track-route__line" />
+              <span className="track-route__dot" />
+              <span className="track-route__line" />
+              <Truck className="track-route__truck" strokeWidth={1.7} />
+            </div>
           </header>
 
-          <form className="track-form track-form--lookup" onSubmit={handleSubmit}>
-            <label className="track-input">
+          <form className="track-form track-form--phone-only" onSubmit={handleSubmit}>
+            <label className="track-input track-input--phone">
               <Phone className="track-input__icon" aria-hidden />
               <span className="sr-only">Phone number</span>
               <input
                 required
                 type="tel"
                 name="phone"
-                inputMode="tel"
-                autoComplete="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
                 value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                placeholder="Phone number"
+                onChange={(event) => setPhone(formatBdPhoneInput(event.target.value))}
+                placeholder="01XXXXXXXXX"
                 aria-label="Phone number"
-                disabled={phoneOtpEnabled && otpStep}
-              />
-            </label>
-
-            <label className="track-input">
-              <Hash className="track-input__icon" aria-hidden />
-              <span className="sr-only">Order number (optional)</span>
-              <input
-                type="text"
-                name="order"
-                autoComplete="off"
-                value={orderRef}
-                onChange={(event) => setOrderRef(event.target.value)}
-                placeholder="Order number (optional)"
-                aria-label="Order number (optional)"
                 disabled={phoneOtpEnabled && otpStep}
               />
             </label>
@@ -525,8 +543,8 @@ export default function TrackOrderClient({
                   name="otp"
                   autoComplete="one-time-code"
                   value={otpCode}
-                  onChange={(event) => setOtpCode(event.target.value)}
-                  placeholder="6-digit code"
+                  onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="••••••"
                   aria-label="Verification code"
                   maxLength={6}
                 />
@@ -535,15 +553,21 @@ export default function TrackOrderClient({
 
             <button
               type="submit"
-              className="track-btn track-btn--primary track-btn--submit"
+              className="track-btn track-btn--primary track-btn--submit track-btn--icon"
               disabled={loading || otpSending}
+              aria-label={
+                loading || otpSending
+                  ? 'Searching'
+                  : phoneOtpEnabled && otpStep
+                    ? 'Verify'
+                    : 'Track order'
+              }
             >
-              {loading || otpSending
-                ? 'Please wait…'
-                : phoneOtpEnabled && otpStep
-                  ? 'Verify'
-                  : 'Track order'}
-              {!loading && !otpSending ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
+              {loading || otpSending ? (
+                <span className="track-btn__pulse" aria-hidden />
+              ) : (
+                <ArrowRight className="h-5 w-5" aria-hidden />
+              )}
             </button>
 
             {phoneOtpEnabled ? (
@@ -553,7 +577,7 @@ export default function TrackOrderClient({
                 onClick={() => void sendOtp()}
                 disabled={otpSending || !phone.trim()}
               >
-                {otpStep ? 'Resend code' : 'Send code'}
+                {otpStep ? 'Resend' : 'OTP'}
               </button>
             ) : null}
           </form>

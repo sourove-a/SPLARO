@@ -51,7 +51,8 @@ import {
 } from '../../common/cart-line.util'
 import { resolveStoreId } from '../../common/store.util'
 import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
-import { serializePublicOrder, serializePublicOrders } from '../../common/public-order.util'
+import { serializePublicOrder } from '../../common/public-order.util'
+import { toPublicStorefrontOrders } from '../../common/storefront-order-view.util'
 import { mergeStorefrontConfig } from '../settings/storefront-config'
 import { NavBuilderService } from '../settings/nav-builder.service'
 import { StorefrontOrdersService } from './storefront-orders.service'
@@ -831,7 +832,7 @@ export class StorefrontController {
     const sid = await resolveStoreId(this.prisma, storeId)
     const customerId = await this.storefrontAuth.ensureCustomerId(user, sid)
     const orders = await this.storefrontOrders.listForCustomer(sid, customerId)
-    return { orders: serializePublicOrders(orders) }
+    return { orders: toPublicStorefrontOrders(orders) }
   }
 
   @Post('orders/payment-event')
@@ -875,7 +876,7 @@ export class StorefrontController {
     await this.storefrontOtp.assertPhoneAccess(sid, phone, phoneAccess, sessionPhone)
 
     const orders = await this.storefrontOrders.listForUser(storeId, phone)
-    return { orders: serializePublicOrders(orders) }
+    return { orders: toPublicStorefrontOrders(orders) }
   }
 
   @Get('orders/:id/invoice')

@@ -47,9 +47,12 @@ import {
   updateGmailConfig,
   updateGoogleOAuthSettings,
 } from '@/lib/api/google-workspace'
+import { resolvePublicApiOrigin } from '@splaro/config'
 import { CEO_EMAIL } from '@/lib/auth/role-label'
 import { useClientMounted } from '@/lib/hooks/use-client-mounted'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
+
+const GOOGLE_CALLBACK_URI = `${resolvePublicApiOrigin()}/api/v1/admin/google/callback`
 
 function formatOAuthError(raw: string) {
   const lower = raw.toLowerCase()
@@ -57,14 +60,14 @@ function formatOAuthError(raw: string) {
     return {
       title: 'Google Client ID / Secret ঠিক নেই',
       body: 'Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client এ Client ID ও Secret মিলিয়ে দিন।',
-      hint: 'http://localhost:4000/api/v1/admin/google/callback',
+      hint: GOOGLE_CALLBACK_URI,
     }
   }
   if (lower.includes('redirect_uri_mismatch')) {
     return {
       title: 'Redirect URI মিলছে না',
       body: 'Google Console-এ exact redirect URI add করুন (নিচে Copy করুন)।',
-      hint: 'http://localhost:4000/api/v1/admin/google/callback',
+      hint: GOOGLE_CALLBACK_URI,
     }
   }
   if (lower.includes('refresh token')) {
@@ -279,7 +282,7 @@ function ConnectPanelInner() {
   const oauthReady = Boolean(status?.oauthConnected)
   const configReady = status?.oauthConfigReady !== false
   const loginHint = status?.oauthLoginHint ?? CEO_EMAIL
-  const redirectUri = status?.oauth.redirectUri ?? 'http://localhost:4000/api/v1/admin/google/callback'
+  const redirectUri = status?.oauth.redirectUri ?? GOOGLE_CALLBACK_URI
   const urlError = mounted ? searchParams.get('error') : null
 
   useEffect(() => {
@@ -775,8 +778,8 @@ function ServicePlaceholder({ title, desc, icon: Icon }: { title: string; desc: 
           },
           {
             label: title,
-            value: oauthReady ? 'API ready' : 'Needs OAuth',
-            ok: oauthReady,
+            value: 'Preview only — no backend write path',
+            ok: false,
           },
         ]}
       />
@@ -843,12 +846,11 @@ function OAuthSettingsPanel() {
   const saveMut = useMutation({ mutationFn: updateGoogleOAuthSettings })
 
   const secretSaved = Boolean(status?.oauth.clientSecret)
-  const defaultRedirect = 'http://localhost:4000/api/v1/admin/google/callback'
 
   useEffect(() => {
     if (!status || dirty) return
     setClientId(status.oauth.clientId ?? '')
-    setRedirectUri(status.oauth.redirectUri ?? defaultRedirect)
+    setRedirectUri(status.oauth.redirectUri ?? GOOGLE_CALLBACK_URI)
     setClientSecret('')
   }, [status, dirty])
 
@@ -927,7 +929,7 @@ function OAuthSettingsPanel() {
               className="admin-input w-full font-mono text-sm"
               value={redirectUri}
               onChange={(e) => { setRedirectUri(e.target.value); markDirty() }}
-              placeholder={defaultRedirect}
+              placeholder={GOOGLE_CALLBACK_URI}
             />
             <p className="text-[10px] font-medium text-[var(--admin-text-muted)]">
               Add this exact URI in Google Cloud Console → OAuth client → Authorized redirect URIs

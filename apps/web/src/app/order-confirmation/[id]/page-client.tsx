@@ -92,19 +92,8 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
         return
       }
 
-      const fromCache =
-        loadOrders().find(
-          (item) => item.id === orderId || item.invoiceNumber === orderId,
-        ) ?? null
-      if (fromCache) {
-        setOrder(fromCache)
-        if (typeof window !== 'undefined') {
-          window.sessionStorage.removeItem('splaro-last-order-id')
-        }
-        setHydrated(true)
-        return
-      }
-
+      // Prefer live track-by-phone over localStorage — cache is only a short
+      // post-checkout handoff, never an authoritative history source.
       if (typeof window !== 'undefined') {
         try {
           const savedCustomer = window.localStorage.getItem('splaro-customer')
@@ -116,17 +105,32 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
               if (tracked) {
                 setOrder(tracked)
                 saveOrderLocally(tracked)
-                if (typeof window !== 'undefined') {
-                  window.sessionStorage.removeItem('splaro-last-order-id')
-                }
+                window.sessionStorage.removeItem('splaro-last-order-id')
                 setHydrated(true)
                 return
               }
             }
           }
         } catch {
-          // fall through to not-found
+          // fall through to fresh handoff cache
         }
+      }
+
+      const fromCache =
+        loadOrders().find(
+          (item) => item.id === orderId || item.invoiceNumber === orderId,
+        ) ?? null
+      const cacheAgeMs = fromCache
+        ? Date.now() - new Date(fromCache.createdAt).getTime()
+        : Number.POSITIVE_INFINITY
+      // Only trust the handoff cache for ~30 minutes after place-order.
+      if (fromCache && cacheAgeMs >= 0 && cacheAgeMs < 30 * 60 * 1000) {
+        setOrder(fromCache)
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.removeItem('splaro-last-order-id')
+        }
+        setHydrated(true)
+        return
       }
 
       setHydrated(true)

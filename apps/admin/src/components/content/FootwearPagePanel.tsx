@@ -7,6 +7,7 @@ import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
 import { deepEqual } from '@/lib/admin/settings-save'
 import { fetchFootwearConfig, saveFootwearConfig } from '@/lib/api/footwear-config'
 import { revalidateWebCache } from '@/lib/api/revalidate'
+import { getStorefrontOrigin } from '@/lib/storefront-origin'
 import { cn } from '@/lib/utils/cn'
 
 interface CategoryItem {
@@ -51,7 +52,7 @@ interface FootwearConfig {
   productRows: ProductRow[]
 }
 
-const WEB_BASE = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000'
+const WEB_BASE = getStorefrontOrigin()
 
 function ToggleSwitch({
   checked,

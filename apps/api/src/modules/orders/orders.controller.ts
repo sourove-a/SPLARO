@@ -25,6 +25,7 @@ import {
   UpdateOrderStatusDto,
 } from '../../common/dtos/admin-orders.dto'
 import type { OrderStatus, Prisma } from '@prisma/client'
+import { resolvePublicSiteUrl } from '@splaro/config'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
@@ -173,8 +174,7 @@ export class OrdersController {
   async invoiceWhatsApp(@Param('id') id: string, @Req() req: AdminRequest) {
     const orderId = await this.ownedOrderId(id, req)
     const order = await this.invoices.loadOrder(orderId)
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? 'https://splaro.co'
+    const siteUrl = resolvePublicSiteUrl()
     return {
       supportUrl: this.invoices.buildWhatsAppShareUrl(order, siteUrl),
       customerUrl: this.invoices.buildCustomerWhatsAppUrl(order),

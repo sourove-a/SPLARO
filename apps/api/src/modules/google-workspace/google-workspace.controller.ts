@@ -10,6 +10,7 @@ import {
   Res,
 } from '@nestjs/common'
 import type { Request, Response } from 'express'
+import { resolvePublicAdminUrl } from '@splaro/config'
 import { Public } from '../../common/auth/public.decorator'
 import { RequireFeature } from '../../common/auth/require-feature.decorator'
 import { canWriteAdmin } from '../../common/auth/admin-session.util'
@@ -51,7 +52,7 @@ export class GoogleWorkspaceController {
     @Query('error') oauthError: string,
     @Res() res: Response,
   ) {
-    const adminUrl = process.env['ADMIN_URL'] ?? process.env['NEXT_PUBLIC_ADMIN_URL'] ?? 'http://localhost:3001'
+    const adminUrl = resolvePublicAdminUrl()
     if (oauthError?.trim()) {
       const message =
         oauthError === 'access_denied'

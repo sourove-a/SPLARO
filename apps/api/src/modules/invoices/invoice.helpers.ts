@@ -1,5 +1,5 @@
 import type { CourierShipment, Order, OrderItem, ProductVariant } from '@prisma/client'
-import { SPLARO_INVOICE_BRAND, resolveInvoiceLogoUrl } from '@splaro/config'
+import { SPLARO_INVOICE_BRAND, resolveInvoiceLogoUrl, resolvePublicSiteUrl } from '@splaro/config'
 
 export type InvoiceOrder = Order & {
   items: (OrderItem & { variant?: ProductVariant | null })[]
@@ -161,11 +161,7 @@ export function buildInvoiceViewModel(input: {
   showToolbar?: boolean
   autoPrint?: boolean
 }): InvoiceViewModel {
-  const siteUrl =
-    input.siteUrl ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.SITE_URL ??
-    SPLARO_INVOICE_BRAND.website
+  const siteUrl = resolvePublicSiteUrl(input.siteUrl ?? SPLARO_INVOICE_BRAND.website)
   const order = input.order
   const subtotal = Number(order.subtotal)
   const deliveryCharge = Number(order.deliveryCharge)

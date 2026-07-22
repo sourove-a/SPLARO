@@ -606,3 +606,18 @@ html[data-perf='lite'] .shop-product-grid .splaro-card__img-frame {
   transform: none !important;
   transition-property: opacity !important;
 }
+
+/* Track order — no GPU soft-blur / infinite spin fighting native Windows wheel. */
+html[data-os='windows'] .track-page,
+html[data-perf='lite'] .track-page {
+  background: linear-gradient(180deg, #f7f7f8 0%, #eceef2 100%);
+}
+
+html[data-os='windows'] .track-btn:hover:not(:disabled),
+html[data-os='windows'] .track-btn--primary:hover:not(:disabled),
+html[data-os='windows'] .track-btn--glass:hover:not(:disabled),
+html[data-perf='lite'] .track-btn:hover:not(:disabled),
+html[data-perf='lite'] .track-btn--primary:hover:not(:disabled),
+html[data-perf='lite'] .track-btn--glass:hover:not(:disabled) {
+  transform: none !important;
+}

@@ -66,8 +66,9 @@ export async function apiAuthSignup(input: {
     return { error: 'Signup service timed out — try again.', status: 503 }
   }
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { message?: string }
-    return { error: body.message ?? 'Could not create account', status: res.status }
+    const body = (await res.json().catch(() => ({}))) as { message?: string | string[] }
+    const message = Array.isArray(body.message) ? body.message[0] : body.message
+    return { error: message ?? 'Could not create account', status: res.status }
   }
   const payload = (await res.json()) as {
     sessionToken?: string
@@ -162,8 +163,9 @@ export async function apiAuthLogin(input: {
     return { error: 'Login service timed out — try again.' }
   }
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { message?: string }
-    return { error: body.message ?? 'Invalid email or password' }
+    const body = (await res.json().catch(() => ({}))) as { message?: string | string[] }
+    const message = Array.isArray(body.message) ? body.message[0] : body.message
+    return { error: message ?? 'Invalid email or password' }
   }
   const payload = (await res.json()) as {
     sessionToken?: string
@@ -421,6 +423,8 @@ export function attachSessionCookie(
     secure: process.env.NODE_ENV === 'production',
     path: '/',
     maxAge: 60 * 60 * 24 * 30,
+    // Prefer retention across browser restarts on supporting clients.
+    priority: 'high',
   })
   return response
 }

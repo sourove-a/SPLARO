@@ -7,6 +7,7 @@ import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 import {
   Baby,
   BookOpen,
+  ChevronDown,
   ChevronRight,
   Compass,
   Footprints,
@@ -16,7 +17,6 @@ import {
   ShoppingBag,
   Sparkles,
   Sun,
-  UserRound,
   Users,
   X,
   type LucideIcon,
@@ -27,7 +27,6 @@ import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap'
 import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
 import { isNavActive } from '@/lib/navigation/is-nav-active'
 import { cn } from '@/lib/utils/cn'
-import { useAuthStore } from '@/store/authStore'
 import { usePathname } from 'next/navigation'
 import { useUiStore } from '@/store/uiStore'
 
@@ -96,7 +95,6 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const pathname = usePathname()
   const settings = useStorefrontSettings()
   const setSearchOpen = useUiStore((s) => s.setSearchOpen)
-  const user = useAuthStore((s) => s.user)
   const navItems = (settings.config.headerNav ?? []).filter((item) => !item.hidden)
   const [openLabel, setOpenLabel] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
@@ -105,10 +103,6 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const touchStartX = useRef(0)
   useDialogFocusTrap(isOpen, drawerRef, onClose)
   useOverlayScrollLock(isOpen)
-
-  const accountHref = user ? '/account' : '/login?next=%2Faccount'
-  const accountTitle = user ? (user.name?.split(' ')[0] || 'Account') : 'Sign in'
-  const accountHint = user ? 'Orders & profile' : 'Account & orders'
 
   const openSearch = () => {
     onClose()
@@ -442,116 +436,91 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
                   return (
                     <motion.li key={group.label} variants={itemMotion} className="mm-drawer__group">
-                      <motion.button
-                        type="button"
+                      <div
                         className={cn(
-                          'mm-drawer__glass mm-drawer__glass--btn',
-                          expanded && 'mm-drawer__glass--open',
-                          active && 'mm-drawer__glass--active',
+                          'mm-drawer__drop',
+                          expanded && 'mm-drawer__drop--open',
+                          active && 'mm-drawer__drop--active',
                         )}
-                        onClick={() => setOpenLabel(expanded ? null : group.label)}
-                        aria-expanded={expanded}
-                        {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
-                        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                       >
-                        <span className="mm-drawer__glass-icon" aria-hidden>
-                          <Icon className="h-[0.95rem] w-[0.95rem]" strokeWidth={1.85} />
-                        </span>
-                        <span className="mm-drawer__glass-label">{group.label}</span>
-                        <motion.span
-                          className="mm-drawer__chevron"
-                          animate={{ rotate: expanded ? 90 : 0 }}
-                          transition={
-                            reduceMotion
-                              ? { duration: 0 }
-                              : { type: 'spring', stiffness: 420, damping: 28 }
-                          }
+                        <motion.button
+                          type="button"
+                          className="mm-drawer__drop-head"
+                          onClick={() => setOpenLabel(expanded ? null : group.label)}
+                          aria-expanded={expanded}
+                          aria-controls={`mm-drop-${group.label}`}
+                          {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
+                          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                         >
-                          <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
-                        </motion.span>
-                      </motion.button>
-                      <AnimatePresence initial={false}>
-                        {expanded ? (
-                          <motion.div
-                            key={`extra-${group.label}`}
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
+                          <span className="mm-drawer__glass-icon" aria-hidden>
+                            <Icon className="h-[0.95rem] w-[0.95rem]" strokeWidth={1.85} />
+                          </span>
+                          <span className="mm-drawer__glass-label">{group.label}</span>
+                          <motion.span
+                            className="mm-drawer__drop-chevron"
+                            animate={{ rotate: expanded ? 180 : 0 }}
                             transition={
                               reduceMotion
                                 ? { duration: 0 }
-                                : { type: 'spring', stiffness: 380, damping: 34, mass: 0.85 }
+                                : { type: 'spring', stiffness: 420, damping: 28 }
                             }
-                            className="mm-drawer__sub-wrap"
+                            aria-hidden
                           >
+                            <ChevronDown className="h-4 w-4" strokeWidth={2} />
+                          </motion.span>
+                        </motion.button>
+
+                        <AnimatePresence initial={false}>
+                          {expanded ? (
                             <motion.div
-                              variants={subList}
-                              initial="hidden"
-                              animate="show"
-                              className="mm-drawer__sub"
+                              id={`mm-drop-${group.label}`}
+                              key={`extra-${group.label}`}
+                              role="region"
+                              aria-label={group.label}
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={
+                                reduceMotion
+                                  ? { duration: 0 }
+                                  : { type: 'spring', stiffness: 380, damping: 34, mass: 0.85 }
+                              }
+                              className="mm-drawer__drop-body-wrap"
                             >
-                              {group.links.map((link) => {
-                                const subActive = isNavActive(pathname, link.href)
-                                return (
-                                  <motion.div key={link.href} variants={subItem}>
-                                    <Link
-                                      href={link.href}
-                                      onClick={onClose}
-                                      className={cn(
-                                        'mm-drawer__sub-link',
-                                        subActive && 'mm-drawer__sub-link--active',
-                                      )}
-                                      aria-current={subActive ? 'page' : undefined}
-                                    >
-                                      {link.label}
-                                    </Link>
-                                  </motion.div>
-                                )
-                              })}
+                              <motion.div
+                                variants={subList}
+                                initial="hidden"
+                                animate="show"
+                                className="mm-drawer__drop-body"
+                              >
+                                {group.links.map((link) => {
+                                  const subActive = isNavActive(pathname, link.href)
+                                  return (
+                                    <motion.div key={link.href} variants={subItem}>
+                                      <Link
+                                        href={link.href}
+                                        onClick={onClose}
+                                        className={cn(
+                                          'mm-drawer__sub-link',
+                                          subActive && 'mm-drawer__sub-link--active',
+                                        )}
+                                        aria-current={subActive ? 'page' : undefined}
+                                      >
+                                        {link.label}
+                                      </Link>
+                                    </motion.div>
+                                  )
+                                })}
+                              </motion.div>
                             </motion.div>
-                          </motion.div>
-                        ) : null}
-                      </AnimatePresence>
+                          ) : null}
+                        </AnimatePresence>
+                      </div>
                     </motion.li>
                   )
                 })}
               </motion.ul>
             </nav>
-
-            <motion.footer
-              className="mm-drawer__foot"
-              initial={reduceMotion ? false : { opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={
-                reduceMotion
-                  ? { duration: 0 }
-                  : { delay: 0.14, type: 'spring', stiffness: 360, damping: 32 }
-              }
-            >
-              <div className="mm-drawer__foot-glass">
-                <motion.div {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}>
-                  <Link href={accountHref} onClick={onClose} className="mm-drawer__signin">
-                    <span className="mm-drawer__signin-icon" aria-hidden>
-                      <UserRound className="h-[1.05rem] w-[1.05rem]" strokeWidth={1.75} />
-                    </span>
-                    <span className="mm-drawer__signin-copy">
-                      <span className="mm-drawer__signin-title">{accountTitle}</span>
-                      <span className="mm-drawer__signin-hint">{accountHint}</span>
-                    </span>
-                    <ChevronRight className="mm-drawer__signin-arrow h-3.5 w-3.5" strokeWidth={2} />
-                  </Link>
-                </motion.div>
-
-                <div className="mm-drawer__quick">
-                  <Link href="/contact" onClick={onClose} className="mm-drawer__quick-link">
-                    Contact
-                  </Link>
-                  <Link href="/shop" onClick={onClose} className="mm-drawer__quick-link">
-                    Shop all
-                  </Link>
-                </div>
-              </div>
-            </motion.footer>
           </motion.aside>
         </>
       ) : null}

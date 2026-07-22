@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { resolvePublicSiteUrl } from '@splaro/config'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import {
@@ -329,12 +330,7 @@ export class GoogleSheetsSyncService {
     ])
 
     const productRows: (string | number)[][] = []
-    const configuredStorefrontUrl = (
-      process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? 'https://splaro.co'
-    ).replace(/\/$/, '')
-    const storefrontUrl = /\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/|$)/i.test(configuredStorefrontUrl)
-      ? 'https://splaro.co'
-      : configuredStorefrontUrl
+    const storefrontUrl = resolvePublicSiteUrl()
     let totalStock = 0
     const stockByProduct = new Map<string, { name: string; stock: number }>()
     for (const product of products) {

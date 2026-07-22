@@ -25,8 +25,9 @@ import { deepEqual } from '@/lib/admin/settings-save'
 import { revalidateWebCache } from '@/lib/api/revalidate'
 import { DEFAULT_LEGAL_PAGES, LEGAL_PAGE_CATALOG, type LegalPageContent, type LegalPageSlug } from '@splaro/types'
 import { cn } from '@/lib/utils/cn'
+import { getStorefrontOrigin } from '@/lib/storefront-origin'
 
-const WEB_BASE = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://127.0.0.1:3000'
+const WEB_BASE = getStorefrontOrigin()
 
 function newSectionId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {

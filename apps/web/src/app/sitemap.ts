@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { isFeatureEnabled } from '@splaro/config'
 import { getStorefrontCatalog } from '@/lib/catalog/server'
 import { productSlug } from '@/lib/catalog/index'
 
@@ -36,7 +37,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/terms',
     '/faq',
     '/payment-policy',
-    '/loyalty',
+    ...(isFeatureEnabled('loyalty') ? ['/loyalty'] : []),
   ].map((path) => ({
     url: `${base}${path}`,
     lastModified: now,

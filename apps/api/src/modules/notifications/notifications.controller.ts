@@ -8,6 +8,7 @@ import {
   generateSmtpTestEmailHTML,
   generateSmtpTestEmailText,
 } from '../email/smtp-test-email.template'
+import { resolvePublicSiteUrl } from '@splaro/config'
 
 @Controller('admin/notifications')
 export class NotificationsController {
@@ -73,7 +74,7 @@ export class NotificationsController {
       subject: 'SPLARO email connection confirmed',
       html: generateSmtpTestEmailHTML({
         recipient: to,
-        siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL,
+        siteUrl: resolvePublicSiteUrl(),
       }),
       text: generateSmtpTestEmailText({ recipient: to }),
       transactional: true,

@@ -3128,70 +3128,251 @@
 
 /* ── Track Order — premium liquid glass ───────────────────── */
 .track-page {
+  --track-header-clear: 5.75rem;
+  box-sizing: border-box;
   min-height: 100vh;
   min-height: 100dvh;
-  padding: 7.5rem 0.85rem 4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding:
+    max(var(--track-header-clear), 10vh) 1.15rem
+    max(2.5rem, 8vh);
   color: #101114;
   background:
-    radial-gradient(circle at 50% -12%, rgba(255, 255, 255, 0.98), rgba(248, 249, 251, 1) 42%, rgba(236, 238, 242, 1) 100%);
+    radial-gradient(ellipse 70% 42% at 50% 42%, rgba(255, 255, 255, 0.95), transparent 62%),
+    radial-gradient(circle at 18% 78%, rgba(228, 230, 236, 0.7), transparent 40%),
+    radial-gradient(circle at 86% 28%, rgba(244, 241, 236, 0.55), transparent 36%),
+    linear-gradient(180deg, #f6f6f8 0%, #e9ebf0 100%);
+}
+
+.track-page--filled {
+  justify-content: flex-start;
+  padding-top: calc(var(--track-header-clear) + 1.25rem);
+  padding-bottom: 4rem;
 }
 
 .track-shell {
-  width: min(100%, 58rem);
+  position: relative;
+  width: min(100%, 26.5rem);
   margin: 0 auto;
 }
 
-.track-glass {
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 30px;
-  padding: 1.35rem;
+.track-page--filled .track-shell {
+  width: min(100%, 40rem);
+}
+
+.track-shell__glow {
+  position: absolute;
+  z-index: 0;
+  inset: -28% -20% -16%;
+  border-radius: 50%;
+  /* Soft wash via large gradients only — never CSS filter:blur (Windows ANGLE jank). */
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.42)),
-    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.95), transparent 36%);
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.88), transparent 62%),
+    radial-gradient(circle at 28% 72%, rgba(220, 224, 232, 0.28), transparent 52%);
+  pointer-events: none;
+}
+
+.track-glass {
+  position: relative;
+  z-index: 1;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 36px;
+  padding: 2.35rem 1.45rem 1.55rem;
+  background:
+    linear-gradient(168deg, rgba(255, 255, 255, 0.97), rgba(255, 255, 255, 0.62) 52%, rgba(248, 249, 252, 0.82)),
+    radial-gradient(circle at 50% -30%, rgba(255, 255, 255, 1), transparent 52%);
   box-shadow:
-    0 28px 90px rgba(16, 17, 20, 0.09),
-    0 10px 28px rgba(16, 17, 20, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
-    inset 0 0 0 1px rgba(16, 17, 20, 0.03);
+    0 40px 100px rgba(16, 17, 20, 0.1),
+    0 12px 28px rgba(16, 17, 20, 0.045),
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 0 0 1px rgba(16, 17, 20, 0.025);
   backdrop-filter: blur(30px) saturate(1.35);
   -webkit-backdrop-filter: blur(30px) saturate(1.35);
+  transform: translateY(0);
+}
+
+/* Windows / lite — solid card, no spin, cheap shadows (native scroll stays fluid). */
+html[data-os='windows'] .track-shell__glow,
+html[data-perf='lite'] .track-shell__glow {
+  display: none;
+}
+
+html[data-os='windows'] .track-glass,
+html[data-perf='lite'] .track-glass {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(16, 17, 20, 0.06);
+  box-shadow:
+    0 18px 48px rgba(16, 17, 20, 0.08),
+    0 1px 0 rgba(255, 255, 255, 1) inset;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-os='windows'] .track-mark__ring,
+html[data-perf='lite'] .track-mark__ring {
+  animation: none;
+  border-style: solid;
+  opacity: 0.55;
+}
+
+html[data-os='windows'] .track-input,
+html[data-os='windows'] .track-btn--glass,
+html[data-perf='lite'] .track-input,
+html[data-perf='lite'] .track-btn--glass {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 6px 16px rgba(16, 17, 20, 0.04);
+}
+
+html[data-os='windows'] .track-active-card,
+html[data-os='windows'] .track-history-row,
+html[data-perf='lite'] .track-active-card,
+html[data-perf='lite'] .track-history-row {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(255, 255, 255, 0.98);
 }
 
 @media (min-width: 640px) {
   .track-glass {
-    padding: 2rem 2.25rem 2.1rem;
+    padding: 2.85rem 2.35rem 1.95rem;
   }
 }
 
 .track-header {
-  max-width: 38rem;
+  max-width: 28rem;
+  text-align: left;
+}
+
+.track-header--visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: none;
+}
+
+.track-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 4.75rem;
+  height: 4.75rem;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 26%, rgba(255, 255, 255, 1), rgba(242, 243, 246, 0.92));
+  border: 1px solid rgba(16, 17, 20, 0.055);
+  box-shadow:
+    0 22px 48px rgba(16, 17, 20, 0.1),
+    0 4px 12px rgba(16, 17, 20, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.track-mark__soft {
+  position: absolute;
+  inset: 10%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 30%, rgba(255, 255, 255, 0.9), transparent 70%);
+  pointer-events: none;
+}
+
+.track-mark__ring {
+  position: absolute;
+  inset: -9px;
+  border-radius: 50%;
+  border: 1px dashed rgba(16, 17, 20, 0.11);
+  animation: track-mark-spin 22s linear infinite;
+}
+
+.track-mark__icon {
+  position: relative;
+  z-index: 1;
+  width: 1.7rem;
+  height: 1.7rem;
+  color: #101114;
+}
+
+@keyframes track-mark-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track-mark__ring {
+    animation: none;
+  }
+}
+
+.track-title {
+  margin: 0.95rem 0 0;
+  font-size: clamp(2.35rem, 5.8vw, 3.05rem);
+  line-height: 0.95;
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  color: #101114;
+}
+
+.track-header--visual .track-title {
+  margin-top: 1.15rem;
+}
+
+.track-route {
+  display: flex;
+  align-items: center;
+  gap: 0.32rem;
+  margin-top: 1.15rem;
+  color: rgba(16, 17, 20, 0.28);
+}
+
+.track-route__dot {
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 50%;
+  background: rgba(16, 17, 20, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(16, 17, 20, 0.04);
+}
+
+.track-route__dot--on {
+  background: #101114;
+  box-shadow: 0 0 0 3px rgba(16, 17, 20, 0.07);
+}
+
+.track-route__line {
+  width: 1.35rem;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(16, 17, 20, 0.2), rgba(16, 17, 20, 0.06));
+}
+
+.track-route__truck {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin-left: 0.1rem;
+  color: rgba(16, 17, 20, 0.4);
 }
 
 .track-eyebrow {
   margin: 0;
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 800;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(16, 17, 20, 0.42);
-}
-
-.track-title {
-  margin: 0.85rem 0 0;
-  font-size: clamp(2.2rem, 5vw, 3.35rem);
-  line-height: 0.98;
-  font-weight: 500;
-  letter-spacing: -0.03em;
-  color: #101114;
+  color: rgba(16, 17, 20, 0.38);
 }
 
 .track-subtitle {
-  margin: 0.95rem 0 0;
-  max-width: 34rem;
-  font-size: 0.95rem;
-  line-height: 1.65;
+  margin: 0.8rem 0 0;
+  max-width: 26rem;
+  font-size: 0.92rem;
+  line-height: 1.6;
   font-weight: 500;
-  color: rgba(16, 17, 20, 0.58);
+  color: rgba(16, 17, 20, 0.55);
 }
 
 .track-dev-hint {
@@ -3229,66 +3410,64 @@
 .track-form {
   display: grid;
   gap: 0.75rem;
-  margin-top: 1.55rem;
+  margin-top: 1.65rem;
 }
 
-.track-form--phone-only,
-.track-form--lookup {
-  grid-template-columns: 1fr;
+.track-form--phone-only {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 0.55rem;
 }
 
-@media (min-width: 640px) {
-  .track-form--phone-only {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-  }
+.track-form--phone-only .track-btn--submit {
+  width: 3.5rem;
+  min-width: 3.5rem;
+  height: 3.5rem;
+  padding: 0;
+}
 
-  .track-form--phone-only .track-btn--submit {
-    min-width: 9.5rem;
-  }
+.track-form--phone-only .track-input:nth-of-type(2),
+.track-form--phone-only .track-btn--otp {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+}
 
-  .track-form--phone-only .track-input:nth-of-type(2),
-  .track-form--phone-only .track-btn--otp {
-    grid-column: 1 / -1;
-    justify-self: start;
-  }
-
-  .track-form--lookup {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto;
-    align-items: center;
-  }
-
-  .track-form--lookup .track-btn--submit {
-    min-width: 9.5rem;
-  }
-
-  .track-form--lookup .track-input:nth-of-type(3),
-  .track-form--lookup .track-btn--otp {
-    grid-column: 1 / -1;
-    justify-self: start;
-  }
+.track-form--phone-only .track-btn--otp {
+  min-height: 2.65rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(16, 17, 20, 0.62);
 }
 
 .track-input {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  min-height: 3.35rem;
-  padding: 0 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.72);
+  min-height: 3.5rem;
+  padding: 0 1.1rem;
+  border: 1px solid rgba(16, 17, 20, 0.06);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.62);
+  background: rgba(255, 255, 255, 0.78);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
-    0 10px 28px rgba(16, 17, 20, 0.04);
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 8px 22px rgba(16, 17, 20, 0.04);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  transition: border-color 220ms ease, box-shadow 220ms ease, background 220ms ease;
+  transition:
+    border-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.track-input--phone {
+  padding-inline: 1.15rem 1.25rem;
 }
 
 .track-input:focus-within {
-  border-color: rgba(16, 17, 20, 0.14);
-  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(16, 17, 20, 0.16);
+  background: rgba(255, 255, 255, 0.95);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 1),
     0 0 0 3px rgba(16, 17, 20, 0.05),
@@ -3307,24 +3486,48 @@
   border: 0;
   background: transparent;
   outline: none;
-  font-size: 0.92rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
   color: #101114;
+  font-variant-numeric: tabular-nums;
 }
 
 .track-input input::placeholder {
-  color: rgba(16, 17, 20, 0.38);
+  color: rgba(16, 17, 20, 0.34);
   font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
-.track-trust {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  margin: 0.95rem 0 0;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: rgba(16, 17, 20, 0.48);
+.track-btn--icon {
+  border-radius: 50%;
+}
+
+.track-btn__pulse {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  animation: track-btn-pulse 900ms ease-in-out infinite;
+}
+
+@keyframes track-btn-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track-btn__pulse {
+    animation: none;
+    opacity: 0.85;
+  }
 }
 
 .track-btn {
@@ -3816,18 +4019,21 @@
 }
 
 .track-empty {
-  margin-top: 1.25rem;
-  padding: 1.1rem 1rem;
-  border-radius: 20px;
-  border: 1px solid rgba(16, 17, 20, 0.08);
-  background: rgba(255, 255, 255, 0.62);
+  margin-top: 1.1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 17, 20, 0.06);
+  background: rgba(255, 255, 255, 0.55);
   text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .track-empty__title {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 800;
+  font-size: 0.8rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: rgba(16, 17, 20, 0.62);
 }
 
 .track-empty__text {
@@ -3840,12 +4046,13 @@
 .track-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  margin-top: 1.35rem;
-  padding-top: 0.95rem;
-  border-top: 1px solid rgba(16, 17, 20, 0.06);
-  font-size: 0.76rem;
-  font-weight: 700;
+  justify-content: center;
+  margin-top: 1.25rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(16, 17, 20, 0.05);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
 }
 
 .track-footer a {

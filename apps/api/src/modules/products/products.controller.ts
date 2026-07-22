@@ -24,6 +24,7 @@ import { revalidateStorefrontWeb } from '../../common/revalidate-web'
 import { mergeStorefrontConfig } from '../settings/storefront-config'
 import { CreateAdminProductDto, AdminProductPatchDto } from '../../common/dtos/admin-products.dto'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
+import { resolvePublicSiteUrl } from '@splaro/config'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
@@ -792,7 +793,7 @@ export class ProductsController {
   @Get(':id/qr')
   async generateQR(@Param('id') id: string, @Query('siteUrl') siteUrl: string, @Req() req: AdminRequest) {
     await this.assertOwnedProduct(id, req)
-    const qr = await this.productAdvanced.generateProductQR(id, siteUrl)
+    const qr = await this.productAdvanced.generateProductQR(id, resolvePublicSiteUrl(siteUrl))
     return { qr }
   }
 

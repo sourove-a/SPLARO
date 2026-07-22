@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common'
 import { Prisma } from '@prisma/client'
+import { resolvePublicSiteUrl } from '@splaro/config'
 import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from 'crypto'
+import { bdPhoneLookupVariants, isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
 import { PrismaService } from '../../common/prisma.service'
 import { RedisService } from '../../common/redis.service'
 import { EmailService } from '../email/email.service'
@@ -18,9 +20,15 @@ import { StorefrontOtpService, isStorefrontPhoneOtpEnabled } from './storefront-
 
 const SCRYPT_KEYLEN = 64
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30
+const MAX_ACTIVE_SESSIONS = 8
+const LOGIN_FAIL_KEY_PREFIX = 'splaro:storefront:login:fail:'
+const LOGIN_FAIL_TTL_SEC = 15 * 60
+const MAX_LOGIN_FAILS = 8
 const EMAIL_VERIFY_TTL_SEC = 10 * 60
 const EMAIL_VERIFY_COOLDOWN_SEC = 60
 const EMAIL_VERIFY_MAX_ATTEMPTS = 5
+
+const memoryLoginFails = new Map<string, { count: number; expiresAt: number }>()
 
 interface EmailVerificationPayload {
   digest: string
@@ -47,12 +55,20 @@ function hashPassword(password: string): string {
   return `${salt}:${hash}`
 }
 
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase()
+function assertStrongPassword(password: string) {
+  if (!password || password.length < 8) {
+    throw new BadRequestException('Password must be at least 8 characters')
+  }
+  if (password.length > 128) {
+    throw new BadRequestException('Password is too long')
+  }
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    throw new BadRequestException('Password must include at least one letter and one number')
+  }
 }
 
-function normalizePhone(phone: string) {
-  return phone.replace(/\D/g, '')
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase()
 }
 
 function shouldUseGoogleAvatar(currentAvatar?: string | null): boolean {
@@ -94,15 +110,16 @@ export class StorefrontAuthService {
   ) {
     const name = input.name?.trim()
     const email = normalizeEmail(input.email ?? '')
-    const phone = normalizePhone(input.phone ?? '')
+    const phone = normalizeBdPhone(input.phone ?? '')
     const password = input.password
 
     if (!name || !email || !phone || !password) {
       throw new BadRequestException('Name, email, phone, and password are required')
     }
-    if (password.length < 8) {
-      throw new BadRequestException('Password must be at least 8 characters')
+    if (!isValidBdMobile(phone)) {
+      throw new BadRequestException('Enter a valid Bangladesh mobile number (01XXXXXXXXX)')
     }
+    assertStrongPassword(password)
 
     const passwordHash = hashPassword(password)
     const customer = await this.customers.registerFromSignup(storeId, {
@@ -111,6 +128,7 @@ export class StorefrontAuthService {
       phone,
       passwordHash,
       source: 'Website signup',
+      rejectIfExists: true,
     })
 
     const user = await this.prisma.user.findUnique({
@@ -126,7 +144,14 @@ export class StorefrontAuthService {
         emailVerified: true,
       },
     })
-    if (!user) throw new BadRequestException('Signup failed')
+    if (!user?.id || !customer.id) throw new BadRequestException('Signup failed')
+
+    // Re-read after commit so session never attaches to a phantom user.
+    const persisted = await this.prisma.user.findFirst({
+      where: { id: user.id, email, phone, isActive: true },
+      select: { id: true },
+    })
+    if (!persisted) throw new BadRequestException('Signup failed — account was not saved')
 
     const session = await this.createSession(user.id)
     return {
@@ -144,10 +169,16 @@ export class StorefrontAuthService {
     }
 
     const isEmail = identifier.includes('@')
+    const loginKey = isEmail
+      ? `email:${normalizeEmail(identifier)}`
+      : `phone:${normalizeBdPhone(identifier)}`
+    await this.assertLoginNotLocked(loginKey)
+
+    const phoneVariants = isEmail ? [] : bdPhoneLookupVariants(identifier)
     const user = await this.prisma.user.findFirst({
       where: isEmail
         ? { email: normalizeEmail(identifier) }
-        : { phone: normalizePhone(identifier) },
+        : { phone: { in: phoneVariants } },
       select: {
         id: true,
         email: true,
@@ -155,6 +186,8 @@ export class StorefrontAuthService {
         firstName: true,
         lastName: true,
         passwordHash: true,
+        googleId: true,
+        authProvider: true,
         isActive: true,
         avatar: true,
         phoneVerified: true,
@@ -163,15 +196,57 @@ export class StorefrontAuthService {
       },
     })
 
-    if (!user || !user.isActive || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
+    if (!user || !user.isActive) {
+      await this.recordLoginFailure(loginKey)
       throw new UnauthorizedException('Invalid email or password')
+    }
+
+    const googleOnly =
+      !user.passwordHash &&
+      (Boolean(user.googleId) || user.authProvider === 'google')
+    if (googleOnly) {
+      // Not a password guess — don't burn lockout budget; guide to Google.
+      throw new UnauthorizedException(
+        'This account uses Google sign-in. Continue with Google instead of a password.',
+      )
+    }
+
+    if (!user.passwordHash || !verifyPassword(password, user.passwordHash)) {
+      await this.recordLoginFailure(loginKey)
+      throw new UnauthorizedException('Invalid email or password')
+    }
+
+    await this.clearLoginFailures(loginKey)
+
+    // Repair legacy 880… phones so future logins always hit 01… form.
+    const canonicalPhone = user.phone ? normalizeBdPhone(user.phone) : ''
+    if (canonicalPhone && isValidBdMobile(canonicalPhone) && user.phone !== canonicalPhone) {
+      try {
+        await this.prisma.$transaction([
+          this.prisma.user.update({ where: { id: user.id }, data: { phone: canonicalPhone } }),
+          ...(user.customer?.id
+            ? [
+                this.prisma.customer.update({
+                  where: { id: user.customer.id },
+                  data: { phone: canonicalPhone },
+                }),
+              ]
+            : []),
+        ])
+      } catch {
+        // Unique clash with another account — leave legacy form; login still succeeds.
+      }
     }
 
     const session = await this.createSession(user.id)
     return {
       sessionToken: session.sessionToken,
       expiresAt: session.expiresAt.toISOString(),
-      user: this.toAuthUser(user, user.customer?.storeId === storeId ? user.customer.id : undefined, user.customer?.loyaltyTier),
+      user: this.toAuthUser(
+        { ...user, phone: canonicalPhone || user.phone },
+        user.customer?.storeId === storeId ? user.customer.id : undefined,
+        user.customer?.loyaltyTier,
+      ),
     }
   }
 
@@ -302,7 +377,9 @@ export class StorefrontAuthService {
         where: { id: user.id },
         data: {
           googleId: user.googleId ?? googleUser.googleId,
-          authProvider: user.authProvider === 'password' && !user.googleId ? 'google' : user.authProvider ?? 'google',
+          // Keep password accounts as password even after linking Google.
+          authProvider:
+            user.authProvider === 'password' ? 'password' : user.authProvider ?? 'google',
           email: user.email ?? googleUser.email,
           emailVerified: user.emailVerified || googleUser.emailVerified,
           firstName: googleUser.firstName,
@@ -405,7 +482,7 @@ export class StorefrontAuthService {
     if (existing) return existing.id
 
     // Incomplete Google signup — never invent a Customer with empty phone.
-    if (user.needsPhone || normalizePhone(user.phone ?? '').length < 11) {
+    if (user.needsPhone || !isValidBdMobile(user.phone ?? '')) {
       throw new BadRequestException('Complete your phone number before continuing')
     }
 
@@ -492,7 +569,7 @@ export class StorefrontAuthService {
     }
     await this.storeEmailVerification(key, payload)
 
-    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? 'https://splaro.co').replace(/\/$/, '')
+    const siteUrl = resolvePublicSiteUrl()
     const sent = await this.email.sendForStore({
       storeId,
       to: current.email,
@@ -654,11 +731,7 @@ export class StorefrontAuthService {
       data: { resetToken: token, resetTokenExp },
     })
 
-    const siteUrl = (
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      process.env.SITE_URL ??
-      'http://localhost:3000'
-    ).replace(/\/$/, '')
+    const siteUrl = resolvePublicSiteUrl()
     const resetUrl = `${siteUrl}/reset-password?token=${encodeURIComponent(token)}`
 
     const sent = await this.email.sendForStore({
@@ -691,9 +764,7 @@ export class StorefrontAuthService {
   async resetPassword(tokenRaw: string, password: string): Promise<{ success: true; message: string }> {
     const token = tokenRaw?.trim()
     if (!token) throw new BadRequestException('Token is required')
-    if (!password || password.length < 8) {
-      throw new BadRequestException('Password must be at least 8 characters')
-    }
+    assertStrongPassword(password)
 
     const user = await this.prisma.user.findFirst({
       where: {
@@ -713,6 +784,7 @@ export class StorefrontAuthService {
         where: { id: user.id },
         data: {
           passwordHash: hashPassword(password),
+          authProvider: 'password',
           resetToken: null,
           resetTokenExp: null,
         },
@@ -729,22 +801,97 @@ export class StorefrontAuthService {
   async sessionPhone(sessionToken: string): Promise<string | null> {
     const user = await this.validateSession(sessionToken)
     if (!user?.phone) return null
-    return normalizePhone(user.phone)
+    return normalizeBdPhone(user.phone)
   }
 
   private async createSession(userId: string) {
     const sessionToken = randomBytes(32).toString('hex')
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS)
+    const now = new Date()
 
-    return this.prisma.deviceSession.create({
-      data: {
-        userId,
-        sessionToken,
-        expiresAt,
-        deviceType: 'web',
-        browser: 'storefront',
-      },
+    return this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { lastLoginAt: now },
+      })
+
+      // Drop expired sessions + keep only the newest active ones.
+      await tx.deviceSession.updateMany({
+        where: {
+          userId,
+          isRevoked: false,
+          expiresAt: { lte: now },
+        },
+        data: { isRevoked: true },
+      })
+
+      const active = await tx.deviceSession.findMany({
+        where: { userId, isRevoked: false, expiresAt: { gt: now } },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+        take: MAX_ACTIVE_SESSIONS + 20,
+      })
+      if (active.length >= MAX_ACTIVE_SESSIONS) {
+        const revokeIds = active.slice(MAX_ACTIVE_SESSIONS - 1).map((row) => row.id)
+        if (revokeIds.length) {
+          await tx.deviceSession.updateMany({
+            where: { id: { in: revokeIds } },
+            data: { isRevoked: true },
+          })
+        }
+      }
+
+      return tx.deviceSession.create({
+        data: {
+          userId,
+          sessionToken,
+          expiresAt,
+          deviceType: 'web',
+          browser: 'storefront',
+        },
+      })
     })
+  }
+
+  private loginFailRedisKey(loginKey: string) {
+    return `${LOGIN_FAIL_KEY_PREFIX}${loginKey}`
+  }
+
+  private async assertLoginNotLocked(loginKey: string) {
+    const redisCount = await this.redis.getCounter(this.loginFailRedisKey(loginKey))
+    if (redisCount >= MAX_LOGIN_FAILS) {
+      throw new UnauthorizedException('Too many failed login attempts. Try again in 15 minutes.')
+    }
+    const memory = memoryLoginFails.get(loginKey)
+    if (memory && memory.expiresAt > Date.now() && memory.count >= MAX_LOGIN_FAILS) {
+      throw new UnauthorizedException('Too many failed login attempts. Try again in 15 minutes.')
+    }
+  }
+
+  private async recordLoginFailure(loginKey: string) {
+    const redisCount = await this.redis.incrWithExpiry(
+      this.loginFailRedisKey(loginKey),
+      LOGIN_FAIL_TTL_SEC,
+    )
+    if (redisCount >= MAX_LOGIN_FAILS) {
+      throw new UnauthorizedException('Too many failed login attempts. Try again in 15 minutes.')
+    }
+
+    const now = Date.now()
+    const entry = memoryLoginFails.get(loginKey)
+    if (!entry || entry.expiresAt <= now) {
+      memoryLoginFails.set(loginKey, { count: 1, expiresAt: now + LOGIN_FAIL_TTL_SEC * 1000 })
+      return
+    }
+    entry.count += 1
+    if (entry.count >= MAX_LOGIN_FAILS) {
+      throw new UnauthorizedException('Too many failed login attempts. Try again in 15 minutes.')
+    }
+  }
+
+  private async clearLoginFailures(loginKey: string) {
+    memoryLoginFails.delete(loginKey)
+    await this.redis.del(this.loginFailRedisKey(loginKey))
   }
 
   private emailVerificationKey(storeId: string, userId: string) {
@@ -783,8 +930,7 @@ export class StorefrontAuthService {
   }
 
   private userNeedsPhone(phone: string | null | undefined, customerId?: string | null) {
-    const digits = normalizePhone(phone ?? '')
-    if (digits.length < 11) return true
+    if (!isValidBdMobile(phone ?? '')) return true
     return !customerId
   }
 

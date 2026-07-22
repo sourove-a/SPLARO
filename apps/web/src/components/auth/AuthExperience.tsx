@@ -18,7 +18,7 @@ import { authFetch } from '@/lib/auth/auth-fetch'
 import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 import { resolvePostAuthDestination } from '@/lib/auth/post-auth-destination'
 import { loadCheckoutCustomerDraft } from '@/lib/checkout/customer-draft'
-import { formatBdPhoneInput, getBdPhoneError } from '@/lib/checkout/phone'
+import { formatBdPhoneInput, getBdPhoneError, normalizeBdPhone } from '@/lib/checkout/phone'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthGoogleBridge } from '@/components/auth/auth-google-bridge'
 import { AuthGoogleGlassFooter } from '@/components/auth/AuthGoogleGlassFooter'
@@ -298,6 +298,15 @@ export function AuthExperience() {
   const handleSignup = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError('')
+    const phoneError = getBdPhoneError(phone)
+    if (phoneError) {
+      setError(phoneError)
+      return
+    }
+    if (signupPassword.length < 8 || !/[A-Za-z]/.test(signupPassword) || !/\d/.test(signupPassword)) {
+      setError('Password must be at least 8 characters and include a letter and a number.')
+      return
+    }
     setLoading(true)
 
     try {
@@ -307,8 +316,8 @@ export function AuthExperience() {
         credentials: 'include',
         body: JSON.stringify({
           name: name.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
+          email: email.trim().toLowerCase(),
+          phone: normalizeBdPhone(phone),
           password: signupPassword,
         }),
       })
@@ -524,7 +533,7 @@ export function AuthExperience() {
       ) : null}
       {error ? <p className="auth-form__error">{error}</p> : null}
       <AuthSubmitButton loading={loading} loadingLabel="Saving…">
-        Complete signup
+        Save phone & continue
       </AuthSubmitButton>
       <button
         type="button"
