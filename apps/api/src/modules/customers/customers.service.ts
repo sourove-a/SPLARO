@@ -189,7 +189,7 @@ export class CustomersService {
         const existing = user.customer
 
         if (existing) {
-          return tx.customer.update({
+          const customer = await tx.customer.update({
             where: { id: existing.id },
             data: {
               storeId,
@@ -199,9 +199,10 @@ export class CustomersService {
               phone,
             },
           })
+          return { customer, created: false as const }
         }
 
-        return tx.customer.create({
+        const customer = await tx.customer.create({
           data: {
             userId: user.id,
             storeId,
@@ -212,6 +213,7 @@ export class CustomersService {
             tags: ['Google signup'],
           },
         })
+        return { customer, created: true as const }
       })
     } catch (err) {
       if (err instanceof BadRequestException) throw err

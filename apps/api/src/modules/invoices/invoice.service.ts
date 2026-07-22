@@ -149,7 +149,7 @@ export class InvoiceService {
     const sent = await this.email.sendForStore({
       storeId: order.storeId,
       to: emailTo,
-      subject: `SPLARO Invoice ${order.invoiceNumber}`,
+      subject: `Order confirmed – ${order.invoiceNumber}`,
       html: generateInvoiceEmailHTML({
         customerName: order.shippingName,
         invoiceNumber: order.invoiceNumber,
@@ -158,7 +158,7 @@ export class InvoiceService {
         siteUrl: store.siteUrl,
         storeName: store.storeName,
       }),
-      text: `Your SPLARO invoice ${order.invoiceNumber} total ${Number(order.total).toLocaleString()} BDT.`,
+      text: `SPLARO order ${order.invoiceNumber} confirmed. Total ${Number(order.total).toLocaleString()} BDT. Track: ${store.siteUrl.replace(/\/$/, '')}/track-order?invoice=${encodeURIComponent(order.invoiceNumber)}`,
       transactional: true,
     })
 

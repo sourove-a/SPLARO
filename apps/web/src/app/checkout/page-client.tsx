@@ -985,7 +985,9 @@ export default function CheckoutPageClient() {
                 </div>
                 <div className="checkout-coupon">
                   <div className="checkout-coupon__field">
-                    <FileText className="checkout-coupon__icon h-4 w-4" strokeWidth={2.1} aria-hidden />
+                    <span className="checkout-coupon__icon" aria-hidden>
+                      <FileText className="checkout-coupon__glyph" strokeWidth={2.15} />
+                    </span>
                     <input
                       value={couponCode}
                       onChange={(event) => {

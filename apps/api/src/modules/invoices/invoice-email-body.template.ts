@@ -1,58 +1,87 @@
 /**
- * Email-client-safe invoice body — table layout + fully inline styles.
- * Never embed the print/PDF invoice fragment (Gmail strips <style>, so images
- * and flex/grid layouts explode in the inbox).
+ * Email-client-safe invoice body — mobile-first table layout, inline styles.
+ * Single-column item rows so phones never crush price / meta text.
  */
 import type { InvoiceViewModel } from './invoice.helpers'
-import { escapeHtml, formatBdt, paymentStatusLabel } from './invoice.helpers'
+import { escapeHtml, formatBdt } from './invoice.helpers'
 
 function itemMeta(item: InvoiceViewModel['items'][number]): string {
-  const parts = [
-    item.sku !== '—' ? `SKU ${item.sku}` : '',
-    item.size !== '—' ? `Size ${item.size}` : '',
-    item.color !== '—' ? item.color : '',
-  ].filter(Boolean)
+  const size = item.size !== '—' ? item.size.trim() : ''
+  const color = item.color !== '—' ? item.color.trim() : ''
+  const parts: string[] = []
+  if (size) parts.push(size)
+  if (color && color.toLowerCase() !== size.toLowerCase()) parts.push(color)
+
+  const sku = item.sku !== '—' ? item.sku.trim() : ''
+  const skuLower = sku.toLowerCase()
+  const skuRedundant =
+    !sku ||
+    sku.length > 28 ||
+    parts.some((part) => skuLower.includes(part.toLowerCase().replace(/\s+/g, '')))
+
+  if (sku && !skuRedundant) parts.unshift(sku)
   return parts.join(' · ')
 }
 
 function productThumb(url: string, name: string): string {
   if (!url) {
     const initial = escapeHtml(name.charAt(0).toUpperCase() || 'S')
-    return `<td width="56" valign="top" style="width:56px;padding:12px 10px 12px 0;vertical-align:top;">
-      <div style="width:48px;height:60px;border-radius:8px;background:#eef0f4;border:1px solid #e5e7eb;text-align:center;line-height:60px;font-family:Georgia,serif;font-size:18px;color:#9ca3af;">${initial}</div>
+    return `<td width="72" valign="top" style="width:72px;padding:0 14px 0 0;vertical-align:top;">
+      <div style="width:64px;height:80px;border-radius:12px;background:#f3f1ed;border:1px solid #ebe6df;text-align:center;line-height:80px;font-family:Georgia,serif;font-size:20px;color:#a39e96;">${initial}</div>
     </td>`
   }
-  return `<td width="56" valign="top" style="width:56px;padding:12px 10px 12px 0;vertical-align:top;">
-    <img src="${escapeHtml(url)}" alt="" width="48" height="60" style="display:block;width:48px;height:60px;max-width:48px;border:1px solid #e5e7eb;border-radius:8px;object-fit:cover;" />
+  return `<td width="72" valign="top" style="width:72px;padding:0 14px 0 0;vertical-align:top;">
+    <img src="${escapeHtml(url)}" alt="" width="64" height="80" style="display:block;width:64px;height:80px;max-width:64px;border:1px solid #ebe6df;border-radius:12px;object-fit:cover;" />
   </td>`
 }
 
+function customerFacingOrderLabel(statusKey: string, status: string): string {
+  if (statusKey === 'PENDING') return 'Order received'
+  if (statusKey === 'CONFIRMED' || statusKey === 'PROCESSING') return 'Confirmed'
+  return status
+}
+
+function shortPaymentMethod(method: string): string {
+  if (method === 'Cash on Delivery') return 'Cash on delivery'
+  return method
+}
+
 export function generateInvoiceEmailBody(model: InvoiceViewModel): string {
-  const payLabel = paymentStatusLabel(model.paymentStatusKey)
   const itemCount = model.items.reduce((n, i) => n + i.quantity, 0)
   const totalDue =
     model.dueAmount > 0 && model.dueAmount !== model.grandTotal
       ? model.dueAmount
       : model.grandTotal
+  const orderLabel = customerFacingOrderLabel(model.orderStatusKey, model.orderStatus)
+  const payMethod = shortPaymentMethod(model.paymentMethod)
 
   const itemRows = model.items
-    .map((item) => {
+    .map((item, index) => {
       const meta = itemMeta(item)
+      const border = index < model.items.length - 1 ? 'border-bottom:1px solid #f0ebe3;' : ''
       return `<tr>
-        ${productThumb(item.imageUrl, item.productName)}
-        <td valign="top" style="padding:12px 8px 12px 0;vertical-align:top;border-bottom:1px solid #eee9e1;">
-          <p style="margin:0;color:#111111;font-size:14px;line-height:1.35;font-weight:700;">${escapeHtml(item.productName)}</p>
-          ${meta ? `<p style="margin:4px 0 0;color:#6b7280;font-size:11px;line-height:1.4;">${escapeHtml(meta)}</p>` : ''}
-          <p style="margin:8px 0 0;color:#6b7280;font-size:12px;line-height:1.4;">Qty ${item.quantity} · ${formatBdt(item.unitPrice)}</p>
-        </td>
-        <td width="88" valign="top" align="right" style="width:88px;padding:12px 0;vertical-align:top;border-bottom:1px solid #eee9e1;white-space:nowrap;">
-          <p style="margin:0;color:#111111;font-size:14px;line-height:1.35;font-weight:700;">${formatBdt(item.lineTotal)}</p>
+        <td style="padding:16px 0;${border}">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;">
+            <tr>
+              ${productThumb(item.imageUrl, item.productName)}
+              <td valign="top" style="padding:0;vertical-align:top;">
+                <p style="margin:0;color:#111111;font-size:15px;line-height:1.4;font-weight:700;">${escapeHtml(item.productName)}</p>
+                ${meta ? `<p style="margin:6px 0 0;color:#7a756e;font-size:12px;line-height:1.45;">${escapeHtml(meta)}</p>` : ''}
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;margin-top:10px;">
+                  <tr>
+                    <td style="color:#9a948c;font-size:12px;line-height:1.4;">Qty ${item.quantity}</td>
+                    <td align="right" style="color:#111111;font-size:15px;line-height:1.3;font-weight:700;white-space:nowrap;">${formatBdt(item.lineTotal)}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
         </td>
       </tr>`
     })
     .join('')
 
-  const totals: Array<{ label: string; value: string; bold?: boolean }> = [
+  const totals: Array<{ label: string; value: string }> = [
     { label: 'Subtotal', value: formatBdt(model.subtotal) },
   ]
   if (model.deliveryCharge > 0) {
@@ -71,117 +100,80 @@ export function generateInvoiceEmailBody(model: InvoiceViewModel): string {
   const totalRows = totals
     .map(
       (row) => `<tr>
-      <td style="padding:5px 0;color:#6b7280;font-size:13px;line-height:1.4;">${escapeHtml(row.label)}</td>
-      <td align="right" style="padding:5px 0;color:#111111;font-size:13px;line-height:1.4;font-weight:600;white-space:nowrap;">${row.value}</td>
+      <td style="padding:7px 0;color:#7a756e;font-size:13px;line-height:1.4;">${escapeHtml(row.label)}</td>
+      <td align="right" style="padding:7px 0;color:#111111;font-size:13px;line-height:1.4;font-weight:600;white-space:nowrap;">${row.value}</td>
     </tr>`,
     )
     .join('')
 
-  const emailLine =
+  const phone = model.customerPhone ? escapeHtml(model.customerPhone) : ''
+  const email =
     model.customerEmail && model.customerEmail !== '—'
-      ? `${escapeHtml(model.customerEmail)}<br />`
+      ? escapeHtml(model.customerEmail)
       : ''
 
-  const logo = model.logoUrl
-    ? `<img src="${escapeHtml(model.logoUrl)}" width="120" alt="${escapeHtml(model.brand.name)}" style="display:block;width:120px;max-width:120px;height:auto;border:0;margin:0 auto 10px;" />`
-    : `<p style="margin:0 0 8px;color:#111111;font-family:Georgia,'Times New Roman',serif;font-size:22px;letter-spacing:0.2em;text-transform:uppercase;">${escapeHtml(model.brand.name)}</p>`
-
   return `
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;background:#ffffff;font-family:Arial,'Helvetica Neue',sans-serif;color:#111111;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;background:#ffffff;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;color:#111111;">
   <tr>
-    <td style="padding:22px 20px 18px;background:#111111;text-align:center;">
-      ${logo}
-      <p style="margin:0;color:#c8a97e;font-size:10px;line-height:1.4;letter-spacing:2px;text-transform:uppercase;">Tax invoice</p>
-      <p style="margin:10px 0 0;color:#ffffff;font-size:20px;line-height:1.25;font-weight:700;letter-spacing:0.04em;">${escapeHtml(model.invoiceNumber)}</p>
-      <p style="margin:6px 0 0;color:rgba(255,255,255,0.55);font-size:12px;line-height:1.4;">${escapeHtml(model.issueDate)}</p>
+    <td style="padding:6px 2px 2px;">
+      <span style="display:inline-block;margin:0 6px 8px 0;padding:7px 12px;border-radius:999px;background:#f3f1ed;border:1px solid #e6e0d6;color:#3f3c38;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">${escapeHtml(orderLabel)}</span>
+      <span style="display:inline-block;margin:0 0 8px;padding:7px 12px;border-radius:999px;background:#111111;color:#ffffff;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">${escapeHtml(payMethod)}</span>
     </td>
   </tr>
+
   <tr>
-    <td style="padding:18px 20px 8px;">
+    <td style="padding:4px 2px 16px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;border:1px solid #ebe6df;border-radius:16px;background:#faf9f6;">
+        <tr>
+          <td style="padding:18px 16px;">
+            <p style="margin:0;color:#9a948c;font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;">Deliver to</p>
+            <p style="margin:10px 0 0;color:#111111;font-size:17px;line-height:1.3;font-weight:700;">${escapeHtml(model.customerName)}</p>
+            ${phone ? `<p style="margin:8px 0 0;color:#3f3c38;font-size:14px;line-height:1.45;">${phone}</p>` : ''}
+            ${email ? `<p style="margin:4px 0 0;color:#7a756e;font-size:13px;line-height:1.45;word-break:break-word;">${email}</p>` : ''}
+            <p style="margin:12px 0 0;color:#3f3c38;font-size:14px;line-height:1.65;">${escapeHtml(model.customerAddress)}</p>
+            <p style="margin:10px 0 0;color:#9a948c;font-size:12px;line-height:1.45;">${escapeHtml(model.deliveryArea)} · ${escapeHtml(model.estimatedDelivery)}</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:0 2px 4px;">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;">
         <tr>
-          <td style="padding:0 0 10px;">
-            <span style="display:inline-block;margin:0 6px 6px 0;padding:5px 10px;border-radius:999px;background:#f8fafc;border:1px solid #e2e8f0;color:#475569;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">${escapeHtml(model.orderStatus)}</span>
-            <span style="display:inline-block;margin:0 6px 6px 0;padding:5px 10px;border-radius:999px;background:#f8fafc;border:1px solid #e2e8f0;color:#475569;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">${escapeHtml(payLabel)}</span>
-            <span style="display:inline-block;margin:0 0 6px;padding:5px 10px;border-radius:999px;background:#111111;color:#ffffff;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">${escapeHtml(model.paymentMethod)}</span>
-          </td>
+          <td style="padding:0 0 8px;color:#9a948c;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">Items (${itemCount})</td>
         </tr>
       </table>
     </td>
   </tr>
+
   <tr>
-    <td style="padding:0 20px 16px;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;border:1px solid #eee9e1;border-radius:12px;">
-        <tr>
-          <td style="padding:14px 16px;border-bottom:1px solid #eee9e1;">
-            <p style="margin:0;color:#8b877f;font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">Bill &amp; ship to</p>
-            <p style="margin:8px 0 0;color:#111111;font-family:Georgia,'Times New Roman',serif;font-size:18px;line-height:1.3;">${escapeHtml(model.customerName)}</p>
-            <p style="margin:6px 0 0;color:#5d5a55;font-size:13px;line-height:1.65;">
-              ${emailLine}
-              ${escapeHtml(model.customerPhone)}<br />
-              ${escapeHtml(model.customerAddress)}<br />
-              ${model.shippingCityArea ? `${escapeHtml(model.shippingCityArea)} · ` : ''}${escapeHtml(model.deliveryArea)}
-            </p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:14px 16px;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;">
-              <tr>
-                <td width="50%" valign="top" style="width:50%;padding:0 8px 0 0;vertical-align:top;">
-                  <p style="margin:0;color:#8b877f;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">Delivery</p>
-                  <p style="margin:5px 0 0;color:#111111;font-size:13px;line-height:1.4;font-weight:600;">${escapeHtml(model.estimatedDelivery)}</p>
-                </td>
-                <td width="50%" valign="top" style="width:50%;padding:0;vertical-align:top;">
-                  <p style="margin:0;color:#8b877f;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">Items</p>
-                  <p style="margin:5px 0 0;color:#111111;font-size:13px;line-height:1.4;font-weight:600;">${itemCount} pcs</p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-  <tr>
-    <td style="padding:0 20px 8px;">
-      <p style="margin:0 0 8px;color:#8b877f;font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">Order items</p>
+    <td style="padding:0 2px 4px;">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;">
-        ${itemRows || `<tr><td style="padding:12px 0;color:#6b7280;font-size:13px;">No items</td></tr>`}
+        ${itemRows || `<tr><td style="padding:12px 0;color:#7a756e;font-size:13px;">No items</td></tr>`}
       </table>
     </td>
   </tr>
+
   <tr>
-    <td style="padding:8px 20px 18px;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;background:#f7f8fa;border:1px solid #eee9e1;border-radius:12px;">
+    <td style="padding:10px 2px 4px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;border:1px solid #ebe6df;border-radius:16px;background:#faf9f6;">
         <tr>
-          <td style="padding:14px 16px;">
-            <p style="margin:0 0 8px;color:#8b877f;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">Payment terms</p>
-            <p style="margin:0 0 14px;color:#111111;font-size:13px;line-height:1.55;">${escapeHtml(model.paymentTerms)}</p>
+          <td style="padding:16px;">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;">
               ${totalRows}
+            </table>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;margin-top:12px;border-top:1px solid #ebe6df;">
               <tr>
-                <td colspan="2" style="padding-top:10px;">
-                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;background:#111111;border-radius:10px;">
-                    <tr>
-                      <td style="padding:14px 16px;color:rgba(255,255,255,0.6);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">Total due</td>
-                      <td align="right" style="padding:14px 16px;color:#ffffff;font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:1.2;font-weight:600;white-space:nowrap;">${formatBdt(totalDue)}</td>
-                    </tr>
-                  </table>
-                </td>
+                <td style="padding:14px 0 0;color:#111111;font-size:12px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;">Total due</td>
+                <td align="right" style="padding:14px 0 0;color:#111111;font-size:24px;line-height:1.15;font-weight:700;white-space:nowrap;">${formatBdt(totalDue)}</td>
               </tr>
             </table>
+            <p style="margin:10px 0 0;color:#9a948c;font-size:12px;line-height:1.55;">${escapeHtml(model.paymentTerms)}</p>
           </td>
         </tr>
       </table>
-    </td>
-  </tr>
-  <tr>
-    <td style="padding:4px 20px 22px;text-align:center;">
-      <p style="margin:0;color:#111111;font-family:Georgia,'Times New Roman',serif;font-size:15px;font-style:italic;line-height:1.5;">${escapeHtml(model.brand.thankYouNote)}</p>
-      <p style="margin:10px 0 0;color:#6b7280;font-size:11px;line-height:1.7;">
-        ${escapeHtml(model.brand.websiteDisplay)} · ${escapeHtml(model.brand.phone)} · ${escapeHtml(model.brand.email)}
-      </p>
     </td>
   </tr>
 </table>`.trim()

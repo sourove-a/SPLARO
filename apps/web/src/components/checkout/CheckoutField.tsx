@@ -32,7 +32,7 @@ export function CheckoutField({
       <div className="checkout-input-wrap" suppressHydrationWarning>
         {clientReady ? children : <div className="checkout-input" aria-hidden />}
         <span className="checkout-input-chip" aria-hidden>
-          <Icon className="h-4 w-4" strokeWidth={2.1} />
+          <Icon className="checkout-input-chip__glyph" strokeWidth={2.15} />
         </span>
       </div>
       {error ? (

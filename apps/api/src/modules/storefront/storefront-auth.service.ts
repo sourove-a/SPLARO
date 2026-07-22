@@ -295,6 +295,7 @@ export class StorefrontAuthService {
 
     const googleUser = await this.googleIdToken.verify(credential)
 
+    let isNewUser = false
     let user = await this.prisma.user.findFirst({
       where: {
         OR: [{ googleId: googleUser.googleId }, { email: googleUser.email }],
@@ -349,6 +350,7 @@ export class StorefrontAuthService {
             customer: { select: { id: true, storeId: true, loyaltyTier: true } },
           },
         })
+        isNewUser = true
       } catch (err) {
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
           user = await this.prisma.user.findFirst({
@@ -416,6 +418,8 @@ export class StorefrontAuthService {
       sessionToken: session.sessionToken,
       expiresAt: session.expiresAt.toISOString(),
       needsPhone,
+      /** True only when this request created the User row — not returning logins. */
+      isNewUser,
       user: this.toAuthUser(
         user,
         customerId,
@@ -444,10 +448,14 @@ export class StorefrontAuthService {
       await this.otp.assertValidOtp(storeId, input.phone, input.code)
     }
 
-    const customer = await this.customers.completeGoogleSignup(storeId, current.id, {
-      phone: input.phone,
-      phoneVerified: isStorefrontPhoneOtpEnabled(),
-    })
+    const { customer, created } = await this.customers.completeGoogleSignup(
+      storeId,
+      current.id,
+      {
+        phone: input.phone,
+        phoneVerified: isStorefrontPhoneOtpEnabled(),
+      },
+    )
 
     const user = await this.prisma.user.findUnique({
       where: { id: current.id },
@@ -465,6 +473,8 @@ export class StorefrontAuthService {
     if (!user) throw new UnauthorizedException('Session expired')
 
     return {
+      /** True only when Customer row was created — not phone/profile updates. */
+      isNewCustomer: created,
       user: this.toAuthUser(user, customer.id, customer.loyaltyTier, false),
     }
   }

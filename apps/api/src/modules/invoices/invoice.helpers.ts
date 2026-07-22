@@ -121,25 +121,34 @@ function absoluteAssetUrl(siteUrl: string, value?: string | null): string {
   return trimmed.startsWith('/') ? `${base}${trimmed}` : `${base}/${trimmed}`
 }
 
-function formatShippingAddress(order: InvoiceOrder): string {
-  const street = order.shippingAddress?.trim()
-  const city = order.shippingCity?.trim()
-  const district = order.shippingDistrict?.trim()
-  const division = order.shippingDivision?.trim()
-  const postal = order.shippingPostal?.trim()
+function normalizeAddressToken(value: string): string {
+  return value.toLowerCase().replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim()
+}
 
-  const location: string[] = []
+/** Dedupe street / city / district crumbs so inbox addresses stay readable. */
+function formatShippingAddress(order: InvoiceOrder): string {
+  const parts: string[] = []
   const seen = new Set<string>()
 
-  for (const part of [city, district, division, postal]) {
-    if (!part) continue
-    const key = part.toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
-    location.push(part)
+  const push = (raw?: string | null) => {
+    if (!raw?.trim()) return
+    for (const bit of raw.split(/[,|]/).map((s) => s.trim()).filter(Boolean)) {
+      const key = normalizeAddressToken(bit)
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      parts.push(bit)
+    }
   }
 
-  return [street, location.join(', ')].filter(Boolean).join(', ')
+  push(order.shippingAddress)
+  push(order.shippingCity)
+  push(order.shippingDistrict)
+  const districtKey = normalizeAddressToken(order.shippingDistrict ?? '')
+  const division = order.shippingDivision?.trim() ?? ''
+  if (division && normalizeAddressToken(division) !== districtKey) push(division)
+  push(order.shippingPostal)
+
+  return parts.join(', ')
 }
 
 function formatShippingCityArea(order: InvoiceOrder): string {

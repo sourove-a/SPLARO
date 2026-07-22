@@ -502,7 +502,9 @@ export class StorefrontController {
     const sid = await resolveStoreId(this.prisma, storeId)
     const result = await this.storefrontAuth.googleSignIn(sid, body.credential)
 
-    if (!result.needsPhone) {
+    // Returning Google logins must not fire "New Customer" — only brand-new users
+    // who already have a phone on the User row (rare; normal path uses complete-phone).
+    if (result.isNewUser && !result.needsPhone) {
       void this.telegramHub.notifyCustomerRegistered(sid, {
         name: result.user.name,
         email: result.user.email,
@@ -531,12 +533,14 @@ export class StorefrontController {
       ...(body.code ? { code: body.code } : {}),
     })
 
-    void this.telegramHub.notifyCustomerRegistered(sid, {
-      name: result.user.name,
-      email: result.user.email,
-      phone: result.user.phone,
-      source: 'Google signup',
-    })
+    if (result.isNewCustomer) {
+      void this.telegramHub.notifyCustomerRegistered(sid, {
+        name: result.user.name,
+        email: result.user.email,
+        phone: result.user.phone,
+        source: 'Google signup',
+      })
+    }
 
     return result
   }
