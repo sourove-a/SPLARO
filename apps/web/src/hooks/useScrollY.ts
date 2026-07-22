@@ -100,8 +100,9 @@ export function useHeaderScroll(
       lastY = y
       const nextScrolled = y > threshold
 
+      // Body position:fixed scroll-lock reports scrollY=0. Freezing here keeps
+      // the mobile header height identical while menu/search/cart are open.
       if (pinned) {
-        showHeader(y)
         accumulated = 0
         return
       }

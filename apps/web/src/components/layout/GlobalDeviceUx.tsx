@@ -84,6 +84,7 @@ export function OverlayScrollLockAttr() {
   )
   const stableScrollY = useRef(0)
   const unlockScrollY = useRef(0)
+  const unlockScrollX = useRef(0)
 
   useEffect(() => {
     let settleTimer = 0
@@ -107,8 +108,10 @@ export function OverlayScrollLockAttr() {
       if (document.documentElement.getAttribute('data-scroll-lock') === 'overlay') return
       const y = readY()
       if (y > 0) stableScrollY.current = y
+      unlockScrollX.current = window.scrollX || 0
     }
     stableScrollY.current = readY()
+    unlockScrollX.current = window.scrollX || 0
     window.addEventListener('scroll', remember, { passive: true })
     document.addEventListener('pointerdown', onPointerDown, true)
     return () => {
@@ -127,6 +130,7 @@ export function OverlayScrollLockAttr() {
 
     if (!locked) {
       const y = unlockScrollY.current
+      const x = unlockScrollX.current
       html.removeAttribute('data-scroll-lock')
       html.removeAttribute('data-scroll-lock-y')
       html.style.removeProperty('--splaro-scroll-lock-y')
@@ -138,7 +142,7 @@ export function OverlayScrollLockAttr() {
       if (lenisEngine && lenis) {
         lenis.scrollTo(y, { immediate: true })
       } else {
-        window.scrollTo(0, y)
+        window.scrollTo(x, y)
       }
       stableScrollY.current = y
       return
@@ -147,15 +151,18 @@ export function OverlayScrollLockAttr() {
     const liveY =
       lenisEngine && typeof lenis?.scroll === 'number' ? lenis.scroll : window.scrollY
     const freezeY = liveY > 0 ? liveY : Math.max(0, stableScrollY.current)
+    const freezeX = window.scrollX || 0
     unlockScrollY.current = freezeY
+    unlockScrollX.current = freezeX
     html.setAttribute('data-scroll-lock-y', String(freezeY))
     html.style.setProperty('--splaro-scroll-lock-y', `-${freezeY}px`)
     html.setAttribute('data-scroll-lock', 'overlay')
 
     // Pin visually for both engines — Lenis.stop() alone can report scroll=0 and jump the page.
+    // Preserve horizontal offset so iOS/Android don't nudge the page sideways when locked.
     body.style.position = 'fixed'
     body.style.top = `-${freezeY}px`
-    body.style.left = '0'
+    body.style.left = `-${freezeX}px`
     body.style.right = '0'
     body.style.width = '100%'
     if (lenisEngine && lenis) {

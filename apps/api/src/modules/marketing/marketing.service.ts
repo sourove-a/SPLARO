@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config'
 import { BadRequestException } from '@nestjs/common'
 import { EmailService } from '../email/email.service'
 import { generateCampaignEmailHTML } from './campaign-email.template'
-import { resolvePublicSiteUrl } from '@splaro/config'
+import { resolveCustomerFacingSiteUrl } from '@splaro/config'
 
 type OpenAIClient = {
   chat: {
@@ -90,7 +90,7 @@ export class MarketingService {
           subject: campaign.subject?.trim() || campaign.name,
           body: campaign.body,
           customerName: `${recipient.firstName} ${recipient.lastName}`.trim(),
-          siteUrl: resolvePublicSiteUrl(),
+          siteUrl: resolveCustomerFacingSiteUrl(),
         }),
         text: campaign.body,
       })

@@ -46,7 +46,7 @@ import {
 import { computeDeliveryFeeBdt } from '@/lib/checkout/shipping'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { useClientMounted } from '@/hooks/useClientMounted'
-import { getStoredAttribution } from '@/lib/analytics/attribution'
+import { attributionForOrder, getStoredAttribution } from '@/lib/analytics/attribution'
 import { notifyOrderPaymentEvent } from '@/lib/api/order-events'
 import { fetchAccountProfile } from '@/lib/api/account'
 import { startBkashCheckout, startNagadCheckout, startSslCommerzCheckout } from '@/lib/api/payments'
@@ -527,7 +527,7 @@ export default function CheckoutPageClient() {
     })
 
     try {
-      const attribution = getStoredAttribution()
+      const orderAttribution = attributionForOrder(getStoredAttribution())
       const idempotencyKey = getCheckoutIdempotencyKey()
       const response = await fetch('/api/orders', {
         method: 'POST',
@@ -549,21 +549,7 @@ export default function CheckoutPageClient() {
           delivery,
           discount,
           total: totalBdt,
-          ...(attribution
-            ? {
-                attribution: {
-                  utmSource: attribution.utmSource,
-                  utmMedium: attribution.utmMedium,
-                  utmCampaign: attribution.utmCampaign,
-                  utmContent: attribution.utmContent,
-                  utmTerm: attribution.utmTerm,
-                  fbclid: attribution.fbclid,
-                  referrer: attribution.referrer,
-                  trafficSource: attribution.trafficSource,
-                  landingPage: attribution.landingPage,
-                },
-              }
-            : {}),
+          ...(orderAttribution ? { attribution: orderAttribution } : {}),
         }),
       })
 
@@ -814,7 +800,7 @@ export default function CheckoutPageClient() {
             className="checkout-form checkout-glass-panel"
             noValidate
           >
-            <CheckoutSection className="checkout-section checkout-section-card" delay={0}>
+            <CheckoutSection className="checkout-section checkout-section-card" delay={0.14}>
               <div className="checkout-section__head">
                 <span className="checkout-section__badge">1</span>
                 <h2>Delivery details</h2>
@@ -992,7 +978,7 @@ export default function CheckoutPageClient() {
             </CheckoutSection>
 
             {showPromoStep ? (
-              <CheckoutSection className="checkout-section checkout-section-card" delay={0.06}>
+              <CheckoutSection className="checkout-section checkout-section-card" delay={0.26}>
                 <div className="checkout-section__head">
                   <span className="checkout-section__badge">2</span>
                   <h2>Promo code</h2>
@@ -1035,7 +1021,7 @@ export default function CheckoutPageClient() {
               </CheckoutSection>
             ) : null}
 
-            <CheckoutSection className="checkout-section checkout-section-card" delay={0.08}>
+            <CheckoutSection className="checkout-section checkout-section-card" delay={0.38}>
               <div className="checkout-section__head">
                 <span className="checkout-section__badge">{showPromoStep ? '3' : '2'}</span>
                 <h2>Payment method</h2>

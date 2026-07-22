@@ -124,6 +124,18 @@ export class StorefrontOrderAttributionDto {
 
   @IsOptional()
   @IsString()
+  gclid?: string
+
+  @IsOptional()
+  @IsString()
+  fbp?: string
+
+  @IsOptional()
+  @IsString()
+  fbc?: string
+
+  @IsOptional()
+  @IsString()
   referrer?: string
 
   @IsOptional()

@@ -1007,6 +1007,9 @@ model Order {
   utmContent        String?
   utmTerm           String?
   fbclid            String?
+  fbp               String?
+  fbc               String?
+  gclid             String?
   referrer          String?
   trafficSource     String?
   landingPage       String?

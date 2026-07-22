@@ -12,7 +12,11 @@ APP_DIR="${SPLARO_APP_DIR:-/var/www/splaro}"
 LOG_DIR="${SPLARO_LOG_DIR:-/var/log/splaro}"
 LOG_FILE="${LOG_DIR}/watchdog.log"
 LOCK_FILE="/var/run/splaro-watchdog.lock"
+DEPLOY_LOCK="${SPLARO_DEPLOY_LOCK:-/var/run/splaro-deploy.lock}"
 PM2_CONFIG="${APP_DIR}/infrastructure/pm2/ecosystem.config.js"
+# After a reload, Next/Nest often need >8s. Retry before Telegram spam.
+HEALTH_RETRIES="${SPLARO_WATCHDOG_RETRIES:-8}"
+HEALTH_SLEEP_SECS="${SPLARO_WATCHDOG_SLEEP_SECS:-5}"
 
 mkdir -p "$LOG_DIR"
 log() { echo "[watchdog $(date '+%F %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
@@ -42,12 +46,40 @@ ensure_service() {
   return 1
 }
 
+deploy_in_progress() {
+  # Explicit lock from deploy.sh
+  if [ -f "$DEPLOY_LOCK" ]; then
+    local age
+    age=$(( $(date +%s) - $(stat -c %Y "$DEPLOY_LOCK" 2>/dev/null || echo 0) ))
+    # Stale lock > 45m means a crashed deploy — allow watchdog to heal.
+    if [ "$age" -lt 2700 ]; then
+      return 0
+    fi
+    log "Stale deploy lock (${age}s) — ignoring"
+    return 1
+  fi
+  # Fallback: deploy.log touched very recently (lock missing on older deploys)
+  if [ -f "${LOG_DIR}/deploy.log" ]; then
+    local dage
+    dage=$(( $(date +%s) - $(stat -c %Y "${LOG_DIR}/deploy.log" 2>/dev/null || echo 0) ))
+    if [ "$dage" -lt 180 ]; then
+      return 0
+    fi
+  fi
+  return 1
+}
+
 exec 9>"$LOCK_FILE"
 flock -n 9 || exit 0
 
 if [ -f "$APP_DIR/.env" ]; then
   # shellcheck disable=SC1091
   set -a && source "$APP_DIR/.env" && set +a
+fi
+
+if deploy_in_progress; then
+  log "Deploy in progress — skip health probes (no Telegram alert)"
+  exit 0
 fi
 
 ensure_service postgresql@16-main.service PostgreSQL || true
@@ -67,6 +99,20 @@ admin_ok() {
   curl -sf -m 8 -o /dev/null http://127.0.0.1:3001/login 2>/dev/null
 }
 
+wait_healthy() {
+  local name=$1
+  local fn=$2
+  local i
+  for i in $(seq 1 "$HEALTH_RETRIES"); do
+    if "$fn"; then
+      log "$name healthy (attempt $i/$HEALTH_RETRIES)"
+      return 0
+    fi
+    sleep "$HEALTH_SLEEP_SECS"
+  done
+  return 1
+}
+
 reload_pm2() {
   log "PM2 reload — health probe failed"
   pm2 startOrReload "$PM2_CONFIG" --update-env 2>>"$LOG_FILE" || pm2 resurrect 2>>"$LOG_FILE" || true
@@ -74,25 +120,37 @@ reload_pm2() {
 }
 
 if ! api_ok || ! web_ok; then
+  # Mid-deploy race: lock may appear between our check and probe.
+  if deploy_in_progress; then
+    log "Deploy started during probe — skip reload/alert"
+    exit 0
+  fi
   reload_pm2
-  sleep 8
 fi
 
-if ! api_ok; then
-  log "WARN: API still down after reload"
-  telegram_alert "🚨 SPLARO API still down after watchdog reload on $(hostname)"
-else
-  log "API healthy"
+if ! wait_healthy API api_ok; then
+  if deploy_in_progress; then
+    log "WARN: API down but deploy active — no alert"
+  else
+    log "WARN: API still down after reload"
+    telegram_alert "🚨 SPLARO API still down after watchdog reload on $(hostname)"
+  fi
 fi
 
-if ! web_ok; then
-  log "WARN: web still down after reload"
-  telegram_alert "🚨 SPLARO web still down after watchdog reload on $(hostname)"
-else
-  log "web healthy"
+if ! wait_healthy web web_ok; then
+  if deploy_in_progress; then
+    log "WARN: web down but deploy active — no alert"
+  else
+    log "WARN: web still down after reload"
+    telegram_alert "🚨 SPLARO web still down after watchdog reload on $(hostname)"
+  fi
 fi
 
-if ! admin_ok; then
-  log "WARN: admin not responding on :3001"
-  telegram_alert "🚨 SPLARO admin not responding on $(hostname)"
+if ! wait_healthy admin admin_ok; then
+  if deploy_in_progress; then
+    log "WARN: admin down but deploy active — no alert"
+  else
+    log "WARN: admin not responding on :3001"
+    telegram_alert "🚨 SPLARO admin not responding on $(hostname)"
+  fi
 fi

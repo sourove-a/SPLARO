@@ -94,8 +94,9 @@ function isLoopbackHostname(hostname: string): boolean {
 }
 
 /**
- * Public storefront origin for emails, invoices, admin “open site” links.
- * Never returns localhost/127.0.0.1 in production.
+ * Public storefront origin for apps / SSR / admin “open site” links.
+ * In production never returns localhost/127.0.0.1.
+ * Local dev may return localhost so browser tools still work.
  */
 export function resolvePublicSiteUrl(override?: string | null): string {
   const candidates = [
@@ -119,6 +120,35 @@ export function resolvePublicSiteUrl(override?: string | null): string {
     }
   }
   return isProd ? 'https://splaro.co' : SPLARO_DOMAINS.site.replace(/\/+$/, '')
+}
+
+/**
+ * Customer-facing storefront origin for emails, invoices, SMS, Telegram store links.
+ * Never returns localhost / 127.0.0.1 / *.local — even in development —
+ * so order confirmation emails always deep-link to https://splaro.co.
+ */
+export function resolveCustomerFacingSiteUrl(override?: string | null): string {
+  const candidates = [
+    override,
+    process.env.COMPANY_WEBSITE,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.WEB_URL,
+    process.env.NEXT_PUBLIC_WEB_URL,
+    process.env.SITE_URL,
+    'https://splaro.co',
+  ]
+  for (const candidate of candidates) {
+    const raw = candidate?.trim()
+    if (!raw) continue
+    try {
+      const url = new URL(raw.startsWith('http') ? raw : `https://${raw}`)
+      if (isLoopbackHostname(url.hostname)) continue
+      return url.origin
+    } catch {
+      /* try next */
+    }
+  }
+  return 'https://splaro.co'
 }
 
 /** Public admin origin — never localhost in production. */

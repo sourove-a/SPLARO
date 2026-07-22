@@ -16,7 +16,8 @@ export function resolveOrderDistrict(customer: OrderCustomerLocation): string {
 
 /** Dhaka district gets the lower metro delivery rate (matches apps/web checkout). */
 export function isDhakaDistrict(district: string | undefined): boolean {
-  return district?.trim().toLowerCase() === 'dhaka'
+  const normalized = district?.trim().toLowerCase() ?? ''
+  return normalized === 'dhaka' || normalized === 'dhaka city' || normalized === 'ঢাকা'
 }
 
 /** Authoritative delivery fee from district + store settings (never trust client amount). */

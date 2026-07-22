@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common'
 import { Prisma } from '@prisma/client'
-import { resolvePublicSiteUrl } from '@splaro/config'
+import { resolveCustomerFacingSiteUrl } from '@splaro/config'
 import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from 'crypto'
 import { bdPhoneLookupVariants, isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
+import { isDhakaDistrict } from '../../common/delivery-charge.util'
 import { PrismaService } from '../../common/prisma.service'
 import { RedisService } from '../../common/redis.service'
 import { EmailService } from '../email/email.service'
@@ -569,7 +570,7 @@ export class StorefrontAuthService {
     }
     await this.storeEmailVerification(key, payload)
 
-    const siteUrl = resolvePublicSiteUrl()
+    const siteUrl = resolveCustomerFacingSiteUrl()
     const sent = await this.email.sendForStore({
       storeId,
       to: current.email,
@@ -663,7 +664,7 @@ export class StorefrontAuthService {
     const parts = user.name.trim().split(/\s+/).filter(Boolean)
     const firstName = parts[0] ?? 'Customer'
     const lastName = parts.slice(1).join(' ') || firstName
-    const isInsideDhaka = district.toLowerCase() === 'dhaka'
+    const isInsideDhaka = isDhakaDistrict(district)
 
     const data = {
       label: 'Default',
@@ -731,7 +732,7 @@ export class StorefrontAuthService {
       data: { resetToken: token, resetTokenExp },
     })
 
-    const siteUrl = resolvePublicSiteUrl()
+    const siteUrl = resolveCustomerFacingSiteUrl()
     const resetUrl = `${siteUrl}/reset-password?token=${encodeURIComponent(token)}`
 
     const sent = await this.email.sendForStore({

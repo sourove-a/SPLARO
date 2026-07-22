@@ -1,9 +1,13 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
 import { Headphones, RefreshCw, ShieldCheck, ShoppingBag, Truck } from 'lucide-react'
+import { motion, useReducedMotion } from '@/lib/motion/react'
 import type { CartItem } from '@/store/cartStore'
 import { formatBDT, DIGITAL_PAYMENT_DISCOUNT_RATE } from '@/lib/utils/currency'
 import type { PaymentMethod } from '@/lib/checkout/payments'
+import { checkoutChromeMotion, checkoutEnterTransition } from '@/lib/checkout/checkout-motion'
 
 interface CheckoutOrderSummaryProps {
   items: CartItem[]
@@ -43,9 +47,14 @@ export function CheckoutOrderSummary({
 }: CheckoutOrderSummaryProps) {
   const paymentLabel =
     payment === 'Cash on Delivery' ? 'Cash on delivery' : payment
+  const reduced = useReducedMotion()
 
   return (
-    <aside className="checkout-summary checkout-glass-panel">
+    <motion.aside
+      className="checkout-summary checkout-glass-panel"
+      {...checkoutChromeMotion(reduced)}
+      transition={checkoutEnterTransition(reduced, 0.3)}
+    >
       <div className="checkout-summary__head">
         <h2>Order summary</h2>
         <span className="checkout-summary__badge">
@@ -64,7 +73,15 @@ export function CheckoutOrderSummary({
             </span>
           </div>
           <div className="checkout-delivery-progress__track" aria-hidden>
-            <span style={{ width: `${deliveryProgress}%` }} />
+            <motion.span
+              initial={false}
+              animate={{ width: `${deliveryProgress}%` }}
+              transition={
+                reduced
+                  ? { duration: 0 }
+                  : { duration: 0.45, ease: [0.16, 1, 0.3, 1] }
+              }
+            />
           </div>
         </div>
       ) : delivery === 0 && subtotal > 0 ? (
@@ -123,7 +140,14 @@ export function CheckoutOrderSummary({
             <div className="checkout-divider" />
             <div className="checkout-summary-line checkout-summary-line--total">
               <span>Total</span>
-              <span>{formatBDT(totalBdt)}</span>
+              <motion.span
+                key={totalBdt}
+                initial={reduced ? false : { opacity: 0.45, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: reduced ? 0 : 0.28, ease: [0.16, 1, 0.3, 1] }}
+              >
+                {formatBDT(totalBdt)}
+              </motion.span>
             </div>
             <div className="checkout-summary-line checkout-summary-line--payment">
               <span>Payment</span>
@@ -167,6 +191,6 @@ export function CheckoutOrderSummary({
           </div>
         </>
       )}
-    </aside>
+    </motion.aside>
   )
 }

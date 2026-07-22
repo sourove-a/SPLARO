@@ -8,6 +8,7 @@ import { useStorefrontSettings } from '@/components/providers/StorefrontSettings
 const ENV_GA_ID =
   process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? process.env.NEXT_PUBLIC_GA_ID ?? ''
 const ENV_FB_PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID ?? ''
+const ENV_GOOGLE_ADS_ID = (process.env.NEXT_PUBLIC_GOOGLE_ADS_ID ?? '').trim()
 
 export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
   const { marketing } = useStorefrontSettings()
@@ -18,31 +19,39 @@ export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
   // Env GA is already configured in the layout. Never configure a second
   // property in the same browser session; DB is only the fallback.
   const GA_ID = envGa ? '' : dbGa
+  const GOOGLE_ADS_ID = /^AW-\d+$/i.test(ENV_GOOGLE_ADS_ID) ? ENV_GOOGLE_ADS_ID : ''
   const rawFbPixelId = marketing?.facebookPixelId?.trim() || ENV_FB_PIXEL_ID.trim()
   // Dev/local audits hit Meta CDN 503s — only ship the pixel in production builds.
   const FB_PIXEL_ID =
     process.env.NODE_ENV === 'production' && /^\d+$/.test(rawFbPixelId) ? rawFbPixelId : ''
   const serializedGaId = JSON.stringify(GA_ID)
+  const serializedAdsId = JSON.stringify(GOOGLE_ADS_ID)
   const serializedFbPixelId = JSON.stringify(FB_PIXEL_ID)
+  const gtagLoaderId = GA_ID || GOOGLE_ADS_ID
 
-  if (!GA_ID && !FB_PIXEL_ID) return null
+  if (!GA_ID && !GOOGLE_ADS_ID && !FB_PIXEL_ID) return null
 
   return (
     <>
-      {GA_ID ? (
+      {gtagLoaderId ? (
         <>
-          <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="lazyOnload" />
+          <Script src={`https://www.googletagmanager.com/gtag/js?id=${gtagLoaderId}`} strategy="lazyOnload" />
           <Script id="splaro-ga4" strategy="lazyOnload">
             {`
               (function () {
-                var id = ${serializedGaId};
+                var gaId = ${serializedGaId};
+                var adsId = ${serializedAdsId};
                 window.dataLayer = window.dataLayer || [];
                 window.gtag = window.gtag || function(){window.dataLayer.push(arguments);};
                 window.__splaroGaConfigured = window.__splaroGaConfigured || {};
-                if (!window.__splaroGaConfigured[id]) {
-                  window.gtag('js', new Date());
-                  window.gtag('config', id, { anonymize_ip: true, send_page_view: false });
-                  window.__splaroGaConfigured[id] = true;
+                window.gtag('js', new Date());
+                if (gaId && !window.__splaroGaConfigured[gaId]) {
+                  window.gtag('config', gaId, { anonymize_ip: true, send_page_view: false });
+                  window.__splaroGaConfigured[gaId] = true;
+                }
+                if (adsId && !window.__splaroGaConfigured[adsId]) {
+                  window.gtag('config', adsId);
+                  window.__splaroGaConfigured[adsId] = true;
                 }
                 window.__splaroAnalyticsReady = window.__splaroAnalyticsReady || {};
                 window.__splaroAnalyticsReady.ga = true;
@@ -70,6 +79,7 @@ export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
                 var id = ${serializedFbPixelId};
                 if (!window.__splaroMetaInitialized[id]) {
                   window.fbq('init', id);
+                  window.fbq('set', 'autoConfig', true, id);
                   window.__splaroMetaInitialized[id] = true;
                 }
                 window.__splaroAnalyticsReady = window.__splaroAnalyticsReady || {};

@@ -284,6 +284,27 @@ export function trackSelectPayment(input: {
   trackAddPaymentInfo({ ...input, value })
 }
 
+function trackGoogleAdsPurchase(input: {
+  transactionId: string
+  value: number
+  currency: string
+}): void {
+  const adsId = (process.env.NEXT_PUBLIC_GOOGLE_ADS_ID ?? '').trim()
+  const label = (process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_LABEL ?? '').trim()
+  if (!adsId || !label || typeof window === 'undefined') return
+  const sendTo = `${adsId}/${label}`
+  try {
+    window.gtag?.('event', 'conversion', {
+      send_to: sendTo,
+      value: input.value,
+      currency: input.currency,
+      transaction_id: input.transactionId,
+    })
+  } catch {
+    // Ads tag optional — never block checkout UX.
+  }
+}
+
 export function trackPurchase(input: PurchaseAnalyticsInput): void {
   const transactionId = (input.transactionId ?? input.orderId ?? '').trim()
   if (!transactionId || input.verified === false || wasPurchaseTracked(transactionId)) return
@@ -306,6 +327,7 @@ export function trackPurchase(input: PurchaseAnalyticsInput): void {
     ...metaCommercePayload(items, input.value, currency),
     order_id: transactionId,
   }, transactionId)
+  trackGoogleAdsPurchase({ transactionId, value: input.value, currency })
 }
 
 export function trackSearch(input: { query: string; resultCount?: number }): void {

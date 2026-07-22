@@ -13,6 +13,7 @@ BRANCH="${SPLARO_BRANCH:-main}"
 DEPLOY_SHA="${SPLARO_DEPLOY_SHA:-}"
 REPO_SSH="${SPLARO_REPO_SSH:-git@github.com:sourove-a/SPLARO.git}"
 DEPLOY_KEY="${SPLARO_DEPLOY_KEY:-/root/.ssh/github_deploy}"
+DEPLOY_LOCK="${SPLARO_DEPLOY_LOCK:-/var/run/splaro-deploy.lock}"
 TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
 
 log() { echo "[$TIMESTAMP] $*" | tee -a "$LOG_FILE"; }
@@ -25,6 +26,7 @@ die() { log "ERROR: $*"; exit 1; }
 # extended outage — worst case it serves the last good build.
 on_exit() {
   local code=$?
+  rm -f "$DEPLOY_LOCK"
   if [ "$code" -ne 0 ]; then
     log "Deploy failed (exit $code) — rolling back so the site stays up."
     # New build didn't finish — restore the last good .next if we moved it aside.
@@ -44,6 +46,9 @@ on_exit() {
   fi
 }
 trap on_exit EXIT
+
+# Tell cron watchdog to stay quiet while PM2 is mid-reload / Next is booting.
+echo "$$ $(date -Is)" >"$DEPLOY_LOCK"
 
 log "========== VPS DEPLOY START =========="
 

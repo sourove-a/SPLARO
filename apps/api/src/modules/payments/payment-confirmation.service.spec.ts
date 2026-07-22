@@ -15,6 +15,8 @@ const order = {
   shippingEmail: 'buyer@example.com',
   shippingPhone: '01700000000',
   fbclid: null,
+  fbp: null,
+  fbc: null,
   clientIp: null,
   landingPage: null,
 }

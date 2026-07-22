@@ -8,7 +8,17 @@ export interface EmailVerificationInput {
 
 export function generateEmailVerificationHTML(input: EmailVerificationInput): string {
   const store = input.storeName?.trim() || 'SPLARO'
-  const site = (input.siteUrl ?? 'https://splaro.co').replace(/\/$/, '')
+  const raw = (input.siteUrl ?? 'https://splaro.co').replace(/\/$/, '')
+  let site = 'https://splaro.co'
+  try {
+    const u = new URL(raw.startsWith('http') ? raw : `https://${raw}`)
+    const h = u.hostname.replace(/^www\./, '').toLowerCase()
+    if (h && h !== 'localhost' && h !== '127.0.0.1' && !h.endsWith('.local') && !h.endsWith('.localhost')) {
+      site = u.origin
+    }
+  } catch {
+    site = 'https://splaro.co'
+  }
   const name = input.firstName?.trim() || 'there'
   const minutes = input.expiresInMinutes ?? 10
 

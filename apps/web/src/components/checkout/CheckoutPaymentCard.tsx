@@ -39,9 +39,17 @@ export function CheckoutPaymentCard({
       aria-pressed={isActive}
       aria-disabled={disabled}
       {...pressMotion}
-      transition={checkoutMotionTransition(reduced, 0.18)}
+      transition={checkoutMotionTransition(reduced, 0.22)}
       layout={!reduced}
     >
+      {isActive && !reduced ? (
+        <motion.span
+          layoutId="checkout-payment-glow"
+          className="checkout-payment__glow"
+          aria-hidden
+          transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
+        />
+      ) : null}
       <div className="checkout-payment__main">
         {option.logo ? (
           <div className="checkout-payment__logo">
@@ -66,7 +74,20 @@ export function CheckoutPaymentCard({
           ) : null}
         </div>
       </div>
-      <span className="checkout-payment__radio" aria-hidden />
+      <span className="checkout-payment__radio" aria-hidden>
+        {isActive ? (
+          reduced ? (
+            <span className="checkout-payment__radio-core" />
+          ) : (
+            <motion.span
+              className="checkout-payment__radio-core"
+              initial={{ scale: 0.4, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            />
+          )
+        ) : null}
+      </span>
     </motion.button>
   )
 }

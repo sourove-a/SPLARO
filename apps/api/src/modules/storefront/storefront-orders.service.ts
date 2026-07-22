@@ -15,6 +15,7 @@ import {
 import { assertPaymentMethodEnabled, type StorePaymentFlags } from '../../common/payment-flags.util'
 import {
   computeExpectedDeliveryChargeBdt,
+  isDhakaDistrict,
   resolveOrderDistrict,
 } from '../../common/delivery-charge.util'
 import { CommerceEventOutboxService } from '../orders/commerce-event-outbox.service'
@@ -29,6 +30,9 @@ export interface OrderAttributionInput {
   utmContent?: string
   utmTerm?: string
   fbclid?: string
+  gclid?: string
+  fbp?: string
+  fbc?: string
   referrer?: string
   trafficSource?: string
   landingPage?: string
@@ -285,13 +289,14 @@ export class StorefrontOrdersService {
       serverSubtotal === 0 ||
       (freeThreshold > 0 && serverSubtotal >= freeThreshold)
 
+    const district = resolveOrderDistrict(input.customer)
+    if (!freeDelivery && !district) {
+      throw new BadRequestException('Delivery district is required')
+    }
+    const isInsideDhaka = isDhakaDistrict(district)
+
     let delivery = 0
     if (!freeDelivery) {
-      const district = resolveOrderDistrict(input.customer)
-      if (!district) {
-        throw new BadRequestException('Delivery district is required')
-      }
-
       const expectedDelivery = computeExpectedDeliveryChargeBdt(
         district,
         {
@@ -429,6 +434,7 @@ export class StorefrontOrdersService {
               shippingCity: input.customer.city,
               shippingDistrict: input.customer.district ?? input.customer.city,
               shippingDivision: input.customer.division ?? 'Dhaka',
+              isInsideDhaka,
               confirmedAt: null,
               fraudScore: fraud.score,
               fraudFlags: fraud.flags,
@@ -439,6 +445,9 @@ export class StorefrontOrdersService {
               utmContent: attr?.utmContent ?? null,
               utmTerm: attr?.utmTerm ?? null,
               fbclid: attr?.fbclid ?? null,
+              gclid: attr?.gclid ?? null,
+              fbp: attr?.fbp ?? null,
+              fbc: attr?.fbc ?? null,
               referrer: attr?.referrer ?? null,
               trafficSource: attr?.trafficSource ?? null,
               landingPage: attr?.landingPage ?? null,
@@ -509,6 +518,8 @@ export class StorefrontOrdersService {
                 email: input.customer.email,
                 phone: normalizedPhone,
                 fbclid: attr?.fbclid ?? null,
+                fbp: attr?.fbp ?? null,
+                fbc: attr?.fbc ?? null,
                 clientIp: input.clientIp ?? null,
                 userAgent: input.userAgent ?? null,
                 eventSourceUrl: attr?.landingPage ?? null,

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { motion, useReducedMotion } from '@/lib/motion/react'
-import { checkoutMotionTransition, checkoutSectionMotion } from '@/lib/checkout/checkout-motion'
+import { checkoutEnterTransition, checkoutSectionMotion } from '@/lib/checkout/checkout-motion'
 
 interface CheckoutSectionProps {
   children: ReactNode
@@ -17,10 +17,7 @@ export function CheckoutSection({ children, className = '', delay = 0 }: Checkou
     <motion.section
       className={className}
       {...checkoutSectionMotion(reduced)}
-      transition={{
-        ...checkoutMotionTransition(reduced, 0.28),
-        delay: reduced ? 0 : delay,
-      }}
+      transition={checkoutEnterTransition(reduced, delay)}
     >
       {children}
     </motion.section>

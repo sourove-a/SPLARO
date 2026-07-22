@@ -4,7 +4,7 @@ import { EmailService } from '../email/email.service'
 import { generateInvoiceEmailBody } from '../invoices/invoice-email-body.template'
 import { generateInvoiceEmailHTML } from '../invoices/invoice-email.template'
 import { buildInvoiceViewModel } from '../invoices/invoice.helpers'
-import { resolvePublicSiteUrl, SPLARO_INVOICE_BRAND } from '@splaro/config'
+import { resolveCustomerFacingSiteUrl, SPLARO_INVOICE_BRAND } from '@splaro/config'
 import { TelegramService } from '../telegram/telegram.service'
 import { CourierService } from '../courier/courier.service'
 
@@ -36,7 +36,7 @@ export class OrderNotificationsService {
     if (!order) return
 
     const store = await this.prisma.store.findUnique({ where: { id: storeId } })
-    const siteUrl = resolvePublicSiteUrl()
+    const siteUrl = resolveCustomerFacingSiteUrl()
 
     await this.prisma.invoice.upsert({
       where: { orderId: order.id },

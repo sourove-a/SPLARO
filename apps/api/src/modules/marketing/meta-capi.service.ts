@@ -15,6 +15,8 @@ interface PurchaseEventInput {
   email?: string
   phone?: string
   fbclid?: string | null
+  fbp?: string | null
+  fbc?: string | null
   clientIp?: string | null
   userAgent?: string | null
   eventSourceUrl?: string | null
@@ -74,13 +76,46 @@ export class MetaCapiService {
     const pixelId = await this.resolvePixelId(input.storeId)
     const token = resolveMetaAccessToken()
     if (!pixelId || !token) return
+
     const order = await this.prisma.order.findUnique({
       where: { id: input.orderId },
-      select: { invoiceNumber: true },
+      select: {
+        invoiceNumber: true,
+        fbclid: true,
+        fbp: true,
+        fbc: true,
+        landingPage: true,
+        clientIp: true,
+        items: {
+          select: {
+            productId: true,
+            quantity: true,
+            price: true,
+            productName: true,
+          },
+        },
+      },
     })
-    const eventId = order?.invoiceNumber ?? input.orderId
+    if (!order) return
 
+    const eventId = order.invoiceNumber ?? input.orderId
     const eventTime = Math.floor(Date.now() / 1000)
+    const fbclid = input.fbclid ?? order.fbclid
+    const fbp = input.fbp ?? order.fbp
+    const fbc =
+      input.fbc ??
+      order.fbc ??
+      (fbclid ? `fb.1.${eventTime}.${fbclid}` : null)
+    const contentIds = order.items.map((item) => item.productId)
+    const contents = order.items.map((item) => ({
+      id: item.productId,
+      quantity: item.quantity,
+      item_price: Number(item.price),
+    }))
+    const phone = this.normalizeBdPhone(input.phone)
+    const sourceUrl = this.resolveEventSourceUrl(input.eventSourceUrl ?? order.landingPage)
+    const clientIp = input.clientIp ?? order.clientIp
+
     const payload = {
       data: [
         {
@@ -88,18 +123,25 @@ export class MetaCapiService {
           event_time: eventTime,
           event_id: eventId,
           action_source: 'website',
-          event_source_url: input.eventSourceUrl ?? resolveMetaWebUrl(),
+          event_source_url: sourceUrl,
           user_data: {
-            ...(input.email ? { em: [this.hash(input.email.toLowerCase())] } : {}),
-            ...(input.phone ? { ph: [this.hash(input.phone.replace(/\D/g, ''))] } : {}),
-            ...(input.clientIp ? { client_ip_address: input.clientIp } : {}),
+            ...(input.email ? { em: [this.hash(input.email.trim().toLowerCase())] } : {}),
+            ...(phone ? { ph: [this.hash(phone)] } : {}),
+            ...(phone ? { external_id: [this.hash(phone)] } : {}),
+            ...(clientIp ? { client_ip_address: clientIp } : {}),
             ...(input.userAgent ? { client_user_agent: input.userAgent } : {}),
-            ...(input.fbclid ? { fbc: `fb.1.${eventTime}.${input.fbclid}` } : {}),
+            ...(fbp ? { fbp } : {}),
+            ...(fbc ? { fbc } : {}),
+            country: [this.hash('bd')],
           },
           custom_data: {
             currency: input.currency ?? 'BDT',
             value: input.total,
             order_id: eventId,
+            content_type: 'product',
+            ...(contentIds.length ? { content_ids: contentIds } : {}),
+            ...(contents.length ? { contents } : {}),
+            num_items: order.items.reduce((sum, item) => sum + item.quantity, 0),
           },
         },
       ],
@@ -121,6 +163,25 @@ export class MetaCapiService {
     } catch (err) {
       this.logger.warn(`Meta CAPI error: ${err instanceof Error ? err.message : 'unknown'}`)
     }
+  }
+
+  private resolveEventSourceUrl(raw: string | null | undefined): string {
+    const base = resolveMetaWebUrl().replace(/\/$/, '')
+    const value = (raw ?? '').trim()
+    if (!value) return base
+    if (/^https?:\/\//i.test(value)) return value
+    return `${base}${value.startsWith('/') ? value : `/${value}`}`
+  }
+
+  /** Meta expects digits-only E.164-style (8801XXXXXXXXX for BD). */
+  private normalizeBdPhone(phone?: string): string {
+    if (!phone) return ''
+    const digits = phone.replace(/\D/g, '')
+    if (!digits) return ''
+    if (digits.startsWith('880') && digits.length >= 13) return digits
+    if (digits.startsWith('0') && digits.length === 11) return `880${digits.slice(1)}`
+    if (digits.length === 10 && digits.startsWith('1')) return `880${digits}`
+    return digits
   }
 
   private hash(value: string): string {

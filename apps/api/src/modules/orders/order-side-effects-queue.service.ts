@@ -15,6 +15,8 @@ export interface OrderPlacedSideEffectPayload {
     email?: string
     phone?: string
     fbclid?: string | null
+    fbp?: string | null
+    fbc?: string | null
     clientIp?: string | null
     userAgent?: string | null
     eventSourceUrl?: string | null
@@ -61,6 +63,8 @@ export class OrderSideEffectsQueueService {
           email: meta.email,
           phone: meta.phone,
           fbclid: meta.fbclid,
+          fbp: meta.fbp,
+          fbc: meta.fbc,
           clientIp: meta.clientIp,
           userAgent: meta.userAgent,
           eventSourceUrl: meta.eventSourceUrl,

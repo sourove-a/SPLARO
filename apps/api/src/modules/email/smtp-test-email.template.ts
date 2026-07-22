@@ -5,7 +5,17 @@ export interface SmtpTestEmailInput {
 }
 
 export function generateSmtpTestEmailHTML(input: SmtpTestEmailInput): string {
-  const site = (input.siteUrl?.trim() || 'https://splaro.co').replace(/\/$/, '')
+  const raw = (input.siteUrl?.trim() || 'https://splaro.co').replace(/\/$/, '')
+  let site = 'https://splaro.co'
+  try {
+    const u = new URL(raw.startsWith('http') ? raw : `https://${raw}`)
+    const h = u.hostname.replace(/^www\./, '').toLowerCase()
+    if (h && h !== 'localhost' && h !== '127.0.0.1' && !h.endsWith('.local') && !h.endsWith('.localhost')) {
+      site = u.origin
+    }
+  } catch {
+    site = 'https://splaro.co'
+  }
   const sentAt = (input.sentAt ?? new Date()).toLocaleString('en-GB', {
     timeZone: 'Asia/Dhaka',
     dateStyle: 'medium',

@@ -17,6 +17,9 @@ describe('delivery-charge.util', () => {
 
   it('charges Dhaka metro rate only for Dhaka district', () => {
     expect(isDhakaDistrict('Dhaka')).toBe(true)
+    expect(isDhakaDistrict('Dhaka City')).toBe(true)
+    expect(isDhakaDistrict('  dhaka  ')).toBe(true)
+    expect(isDhakaDistrict('Gazipur')).toBe(false)
     expect(computeExpectedDeliveryChargeBdt('Dhaka', settings)).toBe(60)
     expect(computeExpectedDeliveryChargeBdt('Chittagong', settings)).toBe(120)
   })

@@ -74,6 +74,9 @@ interface CreateOrderBody {
     utmContent?: string
     utmTerm?: string
     fbclid?: string
+    gclid?: string
+    fbp?: string
+    fbc?: string
     referrer?: string
     trafficSource?: string
     landingPage?: string

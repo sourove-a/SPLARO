@@ -137,7 +137,7 @@ export function Header() {
               onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}
               aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={isMobileMenuOpen}
-              variant="nav"
+              variant="subtle"
               className={cn(
                 iconBtnClass,
                 'site-header-glass__menu-btn lg:hidden',
@@ -243,9 +243,8 @@ export function Header() {
         </div>
       </header>
 
-      {isMobileMenuOpen ? (
-        <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
-      ) : null}
+      {/* Keep mounted so exit opacity/translate can finish without killing the portal. */}
+      <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
       {/* Always mounted — conditional mount made first bag click feel like a reload/load. */}
       <CartDrawer isOpen={isCartOpen} onClose={closeCart} />
     </>

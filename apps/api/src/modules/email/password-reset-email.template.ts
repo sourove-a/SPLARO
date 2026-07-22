@@ -7,8 +7,29 @@ export interface PasswordResetEmailInput {
 
 export function generatePasswordResetEmailHTML(input: PasswordResetEmailInput): string {
   const store = input.storeName?.trim() || 'SPLARO'
-  const site = (input.siteUrl ?? 'https://splaro.co').replace(/\/$/, '')
+  const raw = (input.siteUrl ?? 'https://splaro.co').replace(/\/$/, '')
+  let site = 'https://splaro.co'
+  try {
+    const u = new URL(raw.startsWith('http') ? raw : `https://${raw}`)
+    const h = u.hostname.replace(/^www\./, '').toLowerCase()
+    if (h && h !== 'localhost' && h !== '127.0.0.1' && !h.endsWith('.local') && !h.endsWith('.localhost')) {
+      site = u.origin
+    }
+  } catch {
+    site = 'https://splaro.co'
+  }
   const name = input.firstName?.trim() || 'there'
+  // Reset links must also never point at localhost
+  let resetUrl = input.resetUrl
+  try {
+    const ru = new URL(input.resetUrl)
+    const rh = ru.hostname.replace(/^www\./, '').toLowerCase()
+    if (!rh || rh === 'localhost' || rh === '127.0.0.1' || rh.endsWith('.local') || rh.endsWith('.localhost')) {
+      resetUrl = `${site}${ru.pathname}${ru.search}`
+    }
+  } catch {
+    resetUrl = `${site}/reset-password`
+  }
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -40,7 +61,7 @@ export function generatePasswordResetEmailHTML(input: PasswordResetEmailInput): 
               <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 28px;">
                 <tr>
                   <td style="border-radius:999px;background:#ffffff;">
-                    <a href="${escapeHtml(input.resetUrl)}" style="display:inline-block;padding:14px 28px;color:#111111;text-decoration:none;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;">
+                    <a href="${escapeHtml(resetUrl)}" style="display:inline-block;padding:14px 28px;color:#111111;text-decoration:none;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;">
                       Reset password
                     </a>
                   </td>
@@ -51,7 +72,7 @@ export function generatePasswordResetEmailHTML(input: PasswordResetEmailInput): 
               </p>
               <p style="margin:0;font-size:12px;line-height:1.6;color:rgba(255,255,255,0.35);word-break:break-all;">
                 Or copy this link:<br />
-                <a href="${escapeHtml(input.resetUrl)}" style="color:#c8a97e;text-decoration:none;">${escapeHtml(input.resetUrl)}</a>
+                <a href="${escapeHtml(resetUrl)}" style="color:#c8a97e;text-decoration:none;">${escapeHtml(resetUrl)}</a>
               </p>
             </td>
           </tr>
@@ -70,7 +91,18 @@ export function generatePasswordResetEmailHTML(input: PasswordResetEmailInput): 
 
 export function generatePasswordResetEmailText(input: PasswordResetEmailInput): string {
   const name = input.firstName?.trim() || 'there'
-  return `Hi ${name},\n\nReset your SPLARO password:\n${input.resetUrl}\n\nThis link expires in 1 hour.\n\nIf you didn't request this, ignore this email.`
+  const site = 'https://splaro.co'
+  let resetUrl = input.resetUrl
+  try {
+    const ru = new URL(input.resetUrl)
+    const rh = ru.hostname.replace(/^www\./, '').toLowerCase()
+    if (!rh || rh === 'localhost' || rh === '127.0.0.1' || rh.endsWith('.local') || rh.endsWith('.localhost')) {
+      resetUrl = `${site}${ru.pathname}${ru.search}`
+    }
+  } catch {
+    resetUrl = `${site}/reset-password`
+  }
+  return `Hi ${name},\n\nReset your SPLARO password:\n${resetUrl}\n\nThis link expires in 1 hour.\n\nIf you didn't request this, ignore this email.`
 }
 
 function escapeHtml(str: string): string {

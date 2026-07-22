@@ -1,6 +1,10 @@
+'use client'
+
 import Link from 'next/link'
 import { ArrowLeft, ShieldCheck, UserRound } from 'lucide-react'
+import { motion, useReducedMotion } from '@/lib/motion/react'
 import { CHECKOUT_LOGIN_PATH } from '@/lib/checkout/checkout-auth'
+import { checkoutChromeMotion, checkoutEnterTransition } from '@/lib/checkout/checkout-motion'
 
 interface CheckoutHeaderProps {
   userName?: string | undefined
@@ -8,8 +12,14 @@ interface CheckoutHeaderProps {
 }
 
 export function CheckoutHeader({ userName, isSignedIn }: CheckoutHeaderProps) {
+  const reduced = useReducedMotion()
+
   return (
-    <div className="checkout-header checkout-glass-panel">
+    <motion.div
+      className="checkout-header checkout-glass-panel"
+      {...checkoutChromeMotion(reduced)}
+      transition={checkoutEnterTransition(reduced, 0.04)}
+    >
       <div>
         <div className="checkout-header__meta">
           <p className="checkout-eyebrow">Secure checkout</p>
@@ -40,6 +50,6 @@ export function CheckoutHeader({ userName, isSignedIn }: CheckoutHeaderProps) {
         <ArrowLeft className="h-4 w-4" />
         Back to shop
       </Link>
-    </div>
+    </motion.div>
   )
 }

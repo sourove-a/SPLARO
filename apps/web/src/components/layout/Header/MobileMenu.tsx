@@ -35,8 +35,8 @@ interface MobileMenuProps {
   onClose: () => void
 }
 
-const DRAWER_EASE = [0.22, 1, 0.36, 1] as const
-const DRAWER_SPRING = { type: 'spring' as const, stiffness: 360, damping: 34, mass: 0.88 }
+/** Soft ease — opacity + subtle translate only (no spring bounce). */
+const PANEL_EASE = [0.22, 1, 0.36, 1] as const
 
 /** Secondary mobile-only groups — keeps Discover / Our Story off the top rail. */
 const MOBILE_EXTRA_GROUPS: Array<{
@@ -126,11 +126,11 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
   const fadeTransition = reduceMotion
     ? { duration: 0 }
-    : { duration: 0.32, ease: DRAWER_EASE }
+    : { duration: 0.28, ease: PANEL_EASE }
 
-  const drawerTransition = reduceMotion
+  const panelTransition = reduceMotion
     ? { duration: 0 }
-    : DRAWER_SPRING
+    : { duration: 0.3, ease: PANEL_EASE }
 
   const backdrop = {
     hidden: { opacity: 0 },
@@ -140,23 +140,21 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     },
     exit: {
       opacity: 0,
-      transition: reduceMotion ? { duration: 0 } : { duration: 0.24, ease: [0.4, 0, 1, 1] as const },
+      transition: reduceMotion ? { duration: 0 } : { duration: 0.2, ease: PANEL_EASE },
     },
   }
 
   const drawer = {
-    hidden: { x: '-104%', opacity: reduceMotion ? 1 : 0.92 },
+    hidden: { opacity: 0, y: -10 },
     show: {
-      x: 0,
       opacity: 1,
-      transition: drawerTransition,
+      y: 0,
+      transition: panelTransition,
     },
     exit: {
-      x: '-104%',
-      opacity: reduceMotion ? 1 : 0.96,
-      transition: reduceMotion
-        ? { duration: 0 }
-        : { type: 'spring' as const, stiffness: 420, damping: 38, mass: 0.82 },
+      opacity: 0,
+      y: -8,
+      transition: reduceMotion ? { duration: 0 } : { duration: 0.22, ease: PANEL_EASE },
     },
   }
 
@@ -165,18 +163,18 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     show: {
       transition: reduceMotion
         ? { duration: 0 }
-        : { staggerChildren: 0.045, delayChildren: 0.1 },
+        : { staggerChildren: 0.03, delayChildren: 0.04 },
     },
   }
 
   const itemMotion = {
-    hidden: { opacity: 0, x: -12 },
+    hidden: { opacity: 0, y: 4 },
     show: {
       opacity: 1,
-      x: 0,
+      y: 0,
       transition: reduceMotion
         ? { duration: 0 }
-        : { type: 'spring' as const, stiffness: 420, damping: 32, mass: 0.75 },
+        : { duration: 0.22, ease: PANEL_EASE },
     },
   }
 
@@ -185,18 +183,17 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     show: {
       transition: reduceMotion
         ? { duration: 0 }
-        : { staggerChildren: 0.035, delayChildren: 0.05 },
+        : { staggerChildren: 0.025, delayChildren: 0.02 },
     },
   }
 
   const subItem = {
-    hidden: { opacity: 0, y: -5 },
+    hidden: { opacity: 0 },
     show: {
       opacity: 1,
-      y: 0,
       transition: reduceMotion
         ? { duration: 0 }
-        : { type: 'spring' as const, stiffness: 460, damping: 34 },
+        : { duration: 0.18, ease: PANEL_EASE },
     },
   }
 
@@ -212,7 +209,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   if (!mounted) return null
 
   return createPortal(
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode="sync">
       {isOpen ? (
         <>
           <motion.button
@@ -222,7 +219,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             initial="hidden"
             animate="show"
             exit="exit"
-            className="mm-drawer-backdrop z-menu-backdrop fixed inset-0"
+            className="mm-drawer-backdrop z-menu-backdrop fixed inset-x-0 bottom-0"
             aria-label="Close menu"
             onClick={onClose}
           />
@@ -238,7 +235,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             initial="hidden"
             animate="show"
             exit="exit"
-            className="mm-drawer mm-drawer--left z-menu-panel fixed inset-y-0 left-0 flex flex-col"
+            className="mm-drawer mm-drawer--left z-menu-panel fixed left-0 flex flex-col"
             data-lenis-prevent
             onTouchStart={handleDrawerTouchStart}
             onTouchEnd={handleDrawerTouchEnd}
@@ -247,16 +244,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             <div className="mm-drawer__shine" aria-hidden />
             <div className="mm-drawer__sweep" aria-hidden />
 
-            <motion.header
-              className="mm-drawer__head"
-              initial={reduceMotion ? false : { opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={
-                reduceMotion
-                  ? { duration: 0 }
-                  : { delay: 0.08, type: 'spring', stiffness: 400, damping: 32 }
-              }
-            >
+            <header className="mm-drawer__head">
               <SplaroBrandLogo
                 href="/"
                 size="header"
@@ -265,47 +253,34 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 className="mm-drawer__logo"
               />
               <div className="mm-drawer__head-actions">
-                <motion.button
+                <button
                   type="button"
                   onClick={openSearch}
                   aria-label="Search"
                   className="mm-drawer__icon-btn"
-                  {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
-                  transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                 >
                   <Search className="h-4 w-4" strokeWidth={1.75} />
-                </motion.button>
-                <motion.button
+                </button>
+                <button
                   type="button"
                   onClick={onClose}
                   aria-label="Close menu"
                   className="mm-drawer__icon-btn"
-                  {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
-                  transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                 >
                   <X className="h-4 w-4" strokeWidth={1.75} />
-                </motion.button>
+                </button>
               </div>
-            </motion.header>
+            </header>
 
-            <motion.p
-              className="mm-drawer__eyebrow"
-              initial={reduceMotion ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={reduceMotion ? { duration: 0 } : { delay: 0.12, duration: 0.28 }}
-            >
-              Menu
-            </motion.p>
+            <p className="mm-drawer__eyebrow">Menu</p>
 
             <nav className="mm-drawer__nav" data-lenis-prevent aria-label="Mobile navigation">
               <motion.ul variants={list} initial="hidden" animate="show" className="mm-drawer__list">
                 <motion.li variants={itemMotion} className="mm-drawer__group">
-                  <motion.button
+                  <button
                     type="button"
                     className="mm-drawer__glass mm-drawer__glass--btn"
                     onClick={openSearch}
-                    {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
-                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                   >
                     <span className="mm-drawer__glass-icon" aria-hidden>
                       <Search className="h-[0.95rem] w-[0.95rem]" strokeWidth={1.85} />
@@ -314,7 +289,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                     <span className="mm-drawer__chevron" aria-hidden>
                       <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
                     </span>
-                  </motion.button>
+                  </button>
                 </motion.li>
                 {navItems.map((navItem) => {
                   const subs = navItem.megaMenu?.categories ?? []
@@ -325,7 +300,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                     <motion.li key={navItem.label} variants={itemMotion} className="mm-drawer__group">
                       {subs.length > 0 ? (
                         <>
-                          <motion.button
+                          <button
                             type="button"
                             className={cn(
                               'mm-drawer__glass mm-drawer__glass--btn',
@@ -335,95 +310,75 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                             onClick={() => setOpenLabel(expanded ? null : navItem.label)}
                             aria-expanded={expanded}
                             aria-current={active ? 'page' : undefined}
-                            {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
-                            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                           >
                             <GlassNavIcon label={navItem.label} href={navItem.href} />
                             <span className="mm-drawer__glass-label">{navItem.label}</span>
-                            <motion.span
+                            <span
                               className="mm-drawer__chevron"
-                              animate={{ rotate: expanded ? 90 : 0 }}
-                              transition={
-                                reduceMotion
-                                  ? { duration: 0 }
-                                  : { type: 'spring', stiffness: 420, damping: 28 }
-                              }
+                              style={{
+                                transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                transition: reduceMotion
+                                  ? undefined
+                                  : 'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)',
+                              }}
                             >
                               <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
-                            </motion.span>
-                          </motion.button>
-                          <AnimatePresence initial={false}>
-                            {expanded ? (
+                            </span>
+                          </button>
+                          {expanded ? (
+                            <div className="mm-drawer__sub-wrap">
                               <motion.div
-                                key={`sub-${navItem.label}`}
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={
-                                  reduceMotion
-                                    ? { duration: 0 }
-                                    : { type: 'spring', stiffness: 380, damping: 34, mass: 0.85 }
-                                }
-                                className="mm-drawer__sub-wrap"
+                                variants={subList}
+                                initial="hidden"
+                                animate="show"
+                                className="mm-drawer__sub"
                               >
-                                <motion.div
-                                  variants={subList}
-                                  initial="hidden"
-                                  animate="show"
-                                  className="mm-drawer__sub"
-                                >
-                                  <motion.div variants={subItem}>
-                                    <Link
-                                      href={navItem.href}
-                                      onClick={onClose}
-                                      className={cn(
-                                        'mm-drawer__sub-link mm-drawer__sub-link--all',
-                                        isNavActive(pathname, navItem.href) && 'mm-drawer__sub-link--active',
-                                      )}
-                                      aria-current={isNavActive(pathname, navItem.href) ? 'page' : undefined}
-                                    >
-                                      All {navItem.label}
-                                    </Link>
-                                  </motion.div>
-                                  {subs.map((sub) => {
-                                    const subActive = isNavActive(pathname, sub.href)
-                                    return (
-                                      <motion.div key={sub.href} variants={subItem}>
-                                        <Link
-                                          href={sub.href}
-                                          onClick={onClose}
-                                          className={cn(
-                                            'mm-drawer__sub-link',
-                                            subActive && 'mm-drawer__sub-link--active',
-                                          )}
-                                          aria-current={subActive ? 'page' : undefined}
-                                        >
-                                          {sub.label}
-                                        </Link>
-                                      </motion.div>
-                                    )
-                                  })}
+                                <motion.div variants={subItem}>
+                                  <Link
+                                    href={navItem.href}
+                                    onClick={onClose}
+                                    className={cn(
+                                      'mm-drawer__sub-link mm-drawer__sub-link--all',
+                                      isNavActive(pathname, navItem.href) && 'mm-drawer__sub-link--active',
+                                    )}
+                                    aria-current={isNavActive(pathname, navItem.href) ? 'page' : undefined}
+                                  >
+                                    All {navItem.label}
+                                  </Link>
                                 </motion.div>
+                                {subs.map((sub) => {
+                                  const subActive = isNavActive(pathname, sub.href)
+                                  return (
+                                    <motion.div key={sub.href} variants={subItem}>
+                                      <Link
+                                        href={sub.href}
+                                        onClick={onClose}
+                                        className={cn(
+                                          'mm-drawer__sub-link',
+                                          subActive && 'mm-drawer__sub-link--active',
+                                        )}
+                                        aria-current={subActive ? 'page' : undefined}
+                                      >
+                                        {sub.label}
+                                      </Link>
+                                    </motion.div>
+                                  )
+                                })}
                               </motion.div>
-                            ) : null}
-                          </AnimatePresence>
+                            </div>
+                          ) : null}
                         </>
                       ) : (
-                        <motion.div
-                          {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
-                          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                        <Link
+                          href={navItem.href}
+                          onClick={onClose}
+                          className={cn('mm-drawer__glass', active && 'mm-drawer__glass--active')}
+                          aria-current={active ? 'page' : undefined}
                         >
-                          <Link
-                            href={navItem.href}
-                            onClick={onClose}
-                            className={cn('mm-drawer__glass', active && 'mm-drawer__glass--active')}
-                            aria-current={active ? 'page' : undefined}
-                          >
-                            <GlassNavIcon label={navItem.label} href={navItem.href} />
-                            <span className="mm-drawer__glass-label">{navItem.label}</span>
-                            <ChevronRight className="mm-drawer__chevron-icon h-3.5 w-3.5" strokeWidth={2} />
-                          </Link>
-                        </motion.div>
+                          <GlassNavIcon label={navItem.label} href={navItem.href} />
+                          <span className="mm-drawer__glass-label">{navItem.label}</span>
+                          <ChevronRight className="mm-drawer__chevron-icon h-3.5 w-3.5" strokeWidth={2} />
+                        </Link>
                       )}
                     </motion.li>
                   )
@@ -443,78 +398,65 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                           active && 'mm-drawer__drop--active',
                         )}
                       >
-                        <motion.button
+                        <button
                           type="button"
                           className="mm-drawer__drop-head"
                           onClick={() => setOpenLabel(expanded ? null : group.label)}
                           aria-expanded={expanded}
                           aria-controls={`mm-drop-${group.label}`}
-                          {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
-                          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                         >
                           <span className="mm-drawer__glass-icon" aria-hidden>
                             <Icon className="h-[0.95rem] w-[0.95rem]" strokeWidth={1.85} />
                           </span>
                           <span className="mm-drawer__glass-label">{group.label}</span>
-                          <motion.span
+                          <span
                             className="mm-drawer__drop-chevron"
-                            animate={{ rotate: expanded ? 180 : 0 }}
-                            transition={
-                              reduceMotion
-                                ? { duration: 0 }
-                                : { type: 'spring', stiffness: 420, damping: 28 }
-                            }
+                            style={{
+                              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                              transition: reduceMotion
+                                ? undefined
+                                : 'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)',
+                            }}
                             aria-hidden
                           >
                             <ChevronDown className="h-4 w-4" strokeWidth={2} />
-                          </motion.span>
-                        </motion.button>
+                          </span>
+                        </button>
 
-                        <AnimatePresence initial={false}>
-                          {expanded ? (
+                        {expanded ? (
+                          <div
+                            id={`mm-drop-${group.label}`}
+                            role="region"
+                            aria-label={group.label}
+                            className="mm-drawer__drop-body-wrap"
+                          >
                             <motion.div
-                              id={`mm-drop-${group.label}`}
-                              key={`extra-${group.label}`}
-                              role="region"
-                              aria-label={group.label}
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={
-                                reduceMotion
-                                  ? { duration: 0 }
-                                  : { type: 'spring', stiffness: 380, damping: 34, mass: 0.85 }
-                              }
-                              className="mm-drawer__drop-body-wrap"
+                              variants={subList}
+                              initial="hidden"
+                              animate="show"
+                              className="mm-drawer__drop-body"
                             >
-                              <motion.div
-                                variants={subList}
-                                initial="hidden"
-                                animate="show"
-                                className="mm-drawer__drop-body"
-                              >
-                                {group.links.map((link) => {
-                                  const subActive = isNavActive(pathname, link.href)
-                                  return (
-                                    <motion.div key={link.href} variants={subItem}>
-                                      <Link
-                                        href={link.href}
-                                        onClick={onClose}
-                                        className={cn(
-                                          'mm-drawer__sub-link',
-                                          subActive && 'mm-drawer__sub-link--active',
-                                        )}
-                                        aria-current={subActive ? 'page' : undefined}
-                                      >
-                                        {link.label}
-                                      </Link>
-                                    </motion.div>
-                                  )
-                                })}
-                              </motion.div>
+                              {group.links.map((link) => {
+                                const subActive = isNavActive(pathname, link.href)
+                                return (
+                                  <motion.div key={link.href} variants={subItem}>
+                                    <Link
+                                      href={link.href}
+                                      onClick={onClose}
+                                      className={cn(
+                                        'mm-drawer__sub-link',
+                                        subActive && 'mm-drawer__sub-link--active',
+                                      )}
+                                      aria-current={subActive ? 'page' : undefined}
+                                    >
+                                      {link.label}
+                                    </Link>
+                                  </motion.div>
+                                )
+                              })}
                             </motion.div>
-                          ) : null}
-                        </AnimatePresence>
+                          </div>
+                        ) : null}
                       </div>
                     </motion.li>
                   )

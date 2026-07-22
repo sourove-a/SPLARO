@@ -4,7 +4,17 @@ export function generateCampaignEmailHTML(input: {
   customerName: string
   siteUrl?: string
 }): string {
-  const site = (input.siteUrl?.trim() || 'https://splaro.co').replace(/\/$/, '')
+  const raw = (input.siteUrl?.trim() || 'https://splaro.co').replace(/\/$/, '')
+  let site = 'https://splaro.co'
+  try {
+    const u = new URL(raw.startsWith('http') ? raw : `https://${raw}`)
+    const h = u.hostname.replace(/^www\./, '').toLowerCase()
+    if (h && h !== 'localhost' && h !== '127.0.0.1' && !h.endsWith('.local') && !h.endsWith('.localhost')) {
+      site = u.origin
+    }
+  } catch {
+    site = 'https://splaro.co'
+  }
   const paragraphs = escapeHtml(input.body).replace(/\n/g, '<br />')
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(input.subject)}</title></head>
 <body style="margin:0;background:#f3f0ea;color:#111;font-family:Arial,'Helvetica Neue',sans-serif"><div style="display:none;max-height:0;overflow:hidden">${escapeHtml(input.subject)}</div>

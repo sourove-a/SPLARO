@@ -12,6 +12,7 @@ export function CheckoutShell({ children, withAmbient = true }: CheckoutShellPro
         <div className="checkout-shell__ambient" aria-hidden>
           <span className="checkout-shell__orb checkout-shell__orb--gold" />
           <span className="checkout-shell__orb checkout-shell__orb--cool" />
+          <span className="checkout-shell__sheen" />
         </div>
       ) : null}
       {children}
