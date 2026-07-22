@@ -14,10 +14,15 @@ DEPLOY_SHA="${SPLARO_DEPLOY_SHA:-}"
 REPO_SSH="${SPLARO_REPO_SSH:-git@github.com:sourove-a/SPLARO.git}"
 DEPLOY_KEY="${SPLARO_DEPLOY_KEY:-/root/.ssh/github_deploy}"
 DEPLOY_LOCK="${SPLARO_DEPLOY_LOCK:-/var/run/splaro-deploy.lock}"
-TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
 
-log() { echo "[$TIMESTAMP] $*" | tee -a "$LOG_FILE"; }
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
 die() { log "ERROR: $*"; exit 1; }
+
+# Keep deploy.lock mtime fresh so watchdog's age check never treats a long
+# build as "stale" and starts PM2 mid-compile (admin MODULE_NOT_FOUND storm).
+touch_deploy_lock() {
+  echo "$$ $(date -Is)" >"$DEPLOY_LOCK"
+}
 
 # Safety net — if this script dies AFTER web/admin were stopped for the build
 # (to free RAM) but BEFORE the new build finishes and PM2 reloads, the site
@@ -48,7 +53,7 @@ on_exit() {
 trap on_exit EXIT
 
 # Tell cron watchdog to stay quiet while PM2 is mid-reload / Next is booting.
-echo "$$ $(date -Is)" >"$DEPLOY_LOCK"
+touch_deploy_lock
 
 log "========== VPS DEPLOY START =========="
 
@@ -178,21 +183,25 @@ log "Building sequentially (TURBO_CONCURRENCY=$TURBO_CONCURRENCY)…"
 if command -v pm2 >/dev/null 2>&1; then
   pm2 stop splaro-web splaro-admin 2>/dev/null || true
 fi
+touch_deploy_lock
 pnpm --filter @splaro/types build
 pnpm --filter @splaro/config build
 pnpm --filter @splaro/invoice-generator build
 pnpm --filter @splaro/print-service build
 pnpm --filter @splaro/api build
 pnpm --filter @splaro/worker build
+touch_deploy_lock
 # One Next app at a time; verify standalone output before continuing.
 pnpm --filter @splaro/web build
 [ -f apps/web/.next/standalone/apps/web/server.js ] \
   || die "Web standalone missing after build — likely OOM. Check free -h / swap."
+touch_deploy_lock
 pnpm --filter @splaro/admin build
 [ -f apps/admin/.next/standalone/apps/admin/server.js ] \
   || die "Admin standalone missing after build — likely OOM."
 node scripts/prepare-next-standalone.mjs apps/web
 node scripts/prepare-next-standalone.mjs apps/admin
+touch_deploy_lock
 
 # ── PM2 ──────────────────────────────────────────────────────
 PM2_CONFIG="infrastructure/pm2/ecosystem.config.js"
@@ -201,6 +210,7 @@ PM2_CONFIG="infrastructure/pm2/ecosystem.config.js"
 log "PM2 reload..."
 pm2 startOrReload "$PM2_CONFIG" --update-env
 pm2 save
+touch_deploy_lock
 
 # Build succeeded and PM2 is up on the new code — drop the rollback copies.
 rm -rf apps/web/.next.prev apps/admin/.next.prev 2>/dev/null || true
@@ -349,6 +359,7 @@ fi
 
 # API restarts after telegram enable — cluster mode needs time to bind :4000
 wait_for_local_health "http://127.0.0.1:3000/" "web" 20 2 || true
+wait_for_local_health "http://127.0.0.1:3001/login" "admin" 30 2 || true
 wait_for_local_health "http://127.0.0.1:4000/api/v1/health" "api" 40 3 || die "Health check failed — pm2 logs splaro-api"
 
 maybe_purge_demo_catalog
@@ -357,10 +368,11 @@ maybe_reindex_search
 maybe_revalidate_storefront
 
 WEB="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3000/ 2>/dev/null || echo 000)"
+ADMIN="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3001/login 2>/dev/null || echo 000)"
 API="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:4000/api/v1/health 2>/dev/null || echo 000)"
 
-log "Health — web:$WEB api:$API"
+log "Health — web:$WEB admin:$ADMIN api:$API"
 log "========== VPS DEPLOY COMPLETE =========="
 log "Tip: install watchdog cron — see infrastructure/vps/splaro-watchdog.sh"
 
-[ "$WEB" = "200" ] && [ "$API" = "200" ] || die "Health check failed — pm2 logs"
+[ "$WEB" = "200" ] && [ "$ADMIN" = "200" ] && [ "$API" = "200" ] || die "Health check failed — pm2 logs"

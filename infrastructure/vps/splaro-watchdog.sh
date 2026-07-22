@@ -58,11 +58,18 @@ deploy_in_progress() {
     log "Stale deploy lock (${age}s) — ignoring"
     return 1
   fi
-  # Fallback: deploy.log touched very recently (lock missing on older deploys)
+  # Fallback: deploy.log touched during a long build (lock missing on stale
+  # /opt/splaro/deploy.sh copies). Builds routinely take 10–20 minutes.
   if [ -f "${LOG_DIR}/deploy.log" ]; then
     local dage
     dage=$(( $(date +%s) - $(stat -c %Y "${LOG_DIR}/deploy.log" 2>/dev/null || echo 0) ))
-    if [ "$dage" -lt 180 ]; then
+    if [ "$dage" -lt 1200 ]; then
+      return 0
+    fi
+  fi
+  # Mid-build: web/admin stopped for RAM — never alert/reload over that.
+  if command -v pm2 >/dev/null 2>&1; then
+    if pm2 jlist 2>/dev/null | grep -Eq '"name":"splaro-(web|admin)".*"status":"stopped"'; then
       return 0
     fi
   fi
@@ -146,11 +153,22 @@ if ! wait_healthy web web_ok; then
   fi
 fi
 
-if ! wait_healthy admin admin_ok; then
-  if deploy_in_progress; then
-    log "WARN: admin down but deploy active — no alert"
-  else
-    log "WARN: admin not responding on :3001"
-    telegram_alert "🚨 SPLARO admin not responding on $(hostname)"
+if deploy_in_progress; then
+  : # already skipped at top; keep quiet if race appeared mid-run
+elif admin_ok; then
+  log "admin healthy (attempt 1/$HEALTH_RETRIES)"
+else
+  # Targeted heal before Telegram — full PM2 reload above may have raced a deploy.
+  if [ -f "${APP_DIR}/apps/admin/.next/standalone/apps/admin/server.js" ]; then
+    log "Admin down — restarting splaro-admin"
+    pm2 restart splaro-admin --update-env 2>>"$LOG_FILE" || true
+  fi
+  if ! wait_healthy admin admin_ok; then
+    if deploy_in_progress; then
+      log "WARN: admin down but deploy active — no alert"
+    else
+      log "WARN: admin not responding on :3001"
+      telegram_alert "🚨 SPLARO admin not responding on $(hostname)"
+    fi
   fi
 fi
