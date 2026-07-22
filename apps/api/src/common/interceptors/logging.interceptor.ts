@@ -29,6 +29,14 @@ export class LoggingInterceptor implements NestInterceptor {
         next: () => {
           const ms = Date.now() - started
           const status = response.statusCode
+          // Production: skip fast 2xx noise (was filling ~2GB api logs with every GET).
+          // Still log errors, client faults, and slow responses.
+          const quietSuccess =
+            process.env.NODE_ENV === 'production' &&
+            process.env.LOG_HTTP_SUCCESS !== '1' &&
+            status < 400 &&
+            ms < 1500
+          if (quietSuccess) return
           const level = status >= 500 ? 'error' : status >= 400 ? 'warn' : 'log'
           this.logger[level](
             `[${requestId}] ${request.method} ${request.url} ${status} ${ms}ms`,
