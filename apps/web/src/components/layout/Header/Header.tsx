@@ -289,21 +289,27 @@ export function Header() {
                 />
               </MotionLink>
 
-              <MotionPressable
-                onClick={() => setCartOpen(true)}
-                aria-label={`Cart (${cartCount} items)`}
-                variant="icon"
+              {/* Badge is a sibling of the icon button — never a child.
+                  backdrop-filter / border-radius on the disk clips overflow
+                  children even when overflow:visible (ruined bag circle). */}
+              <div
                 className={cn(
-                  iconBtnClass,
                   'site-header-glass__action-cart relative hidden lg:inline-flex',
                   mobileSearchActive && 'site-header-glass__chrome-hide',
                 )}
               >
-                <ShoppingBag
-                  className="site-header-glass__nav-icon site-header-glass__nav-icon--bag"
-                  strokeWidth={1.5}
-                  absoluteStrokeWidth
-                />
+                <MotionPressable
+                  onClick={() => setCartOpen(true)}
+                  aria-label={`Cart (${cartCount} items)`}
+                  variant="icon"
+                  className={iconBtnClass}
+                >
+                  <ShoppingBag
+                    className="site-header-glass__nav-icon site-header-glass__nav-icon--bag"
+                    strokeWidth={1.5}
+                    absoluteStrokeWidth
+                  />
+                </MotionPressable>
                 <AnimatePresence>
                   {cartHydrated && cartCount > 0 ? (
                     <motion.span
@@ -312,12 +318,13 @@ export function Header() {
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ duration: 0.32, ease: [0.22, 0.61, 0.36, 1] }}
                       className="site-header-glass__count-badge site-header-glass__count-badge--cart"
+                      aria-hidden
                     >
                       {cartCount > 99 ? '99+' : cartCount}
                     </motion.span>
                   ) : null}
                 </AnimatePresence>
-              </MotionPressable>
+              </div>
             </div>
           </div>
         </div>
