@@ -24,21 +24,12 @@ export function BrandStorySection({ story, reviews }: BrandStorySectionProps) {
   )
   const [expanded, setExpanded] = useState(false)
   const [visible, setVisible] = useState(false)
-  /** Mobile accordion only — desktop CSS always reveals the panel. */
+  /** Discover / Our Story accordion — closed until user opens (mobile + desktop). */
   const [panelOpen, setPanelOpen] = useState(false)
-  const [isNarrow, setIsNarrow] = useState(false)
 
   const safeIndex = wrapIndex(activeIndex, Math.max(cards.length, 1))
   const activeCard = cards[safeIndex]
-  const deckLive = visible && (!isNarrow || panelOpen)
-
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1023px)')
-    const sync = () => setIsNarrow(mq.matches)
-    sync()
-    mq.addEventListener('change', sync)
-    return () => mq.removeEventListener('change', sync)
-  }, [])
+  const deckLive = visible && panelOpen
 
   useEffect(() => {
     const el = sectionRef.current
@@ -93,13 +84,9 @@ export function BrandStorySection({ story, reviews }: BrandStorySectionProps) {
           <button
             type="button"
             className={cn('home-story-deck__drop', panelOpen && 'is-open')}
-            onClick={() => {
-              if (!isNarrow) return
-              setPanelOpen((value) => !value)
-            }}
-            aria-expanded={!isNarrow || panelOpen}
+            onClick={() => setPanelOpen((value) => !value)}
+            aria-expanded={panelOpen}
             aria-controls="home-story-deck-panel"
-            tabIndex={isNarrow ? 0 : -1}
           >
             <span className="home-story-deck__drop-copy">
               <span className="home-story-deck__eyebrow">Discover</span>

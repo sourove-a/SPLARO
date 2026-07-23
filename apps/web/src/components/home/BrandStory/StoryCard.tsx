@@ -242,12 +242,16 @@ export function StoryCard({
       {!offstage ? (
         <>
           <span className="home-story-deck__card-depth" aria-hidden />
+          <span className="home-story-deck__card-glass" aria-hidden />
           <span className="home-story-deck__card-brush" aria-hidden />
           <span className="home-story-deck__card-guilloche" aria-hidden />
           <span className="home-story-deck__card-shine" aria-hidden />
           <span className="home-story-deck__card-foil" aria-hidden />
+          <span className="home-story-deck__card-specular" aria-hidden />
           <span className="home-story-deck__card-engraved" aria-hidden />
           <span className="home-story-deck__card-bevel" aria-hidden />
+          <span className="home-story-deck__card-rim" aria-hidden />
+          <span className="home-story-deck__card-edge" aria-hidden />
           <span className="home-story-deck__card-beam" aria-hidden>
             <span className="home-story-deck__card-beam-spin" />
           </span>
@@ -295,7 +299,7 @@ export function StoryCard({
             <span className="home-story-deck__seal-ring home-story-deck__seal-ring--mid" />
             <span className="home-story-deck__seal-ring home-story-deck__seal-ring--inner" />
             <span className="home-story-deck__medallion">
-              <Icon strokeWidth={1.1} />
+              <Icon strokeWidth={1} />
             </span>
           </span>
           <span className="home-story-deck__card-eyebrow">{card.eyebrow}</span>

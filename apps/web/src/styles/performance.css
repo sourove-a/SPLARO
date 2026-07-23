@@ -119,10 +119,11 @@ a:active .product-transition-link__hit .pc-media {
     -webkit-backdrop-filter: none !important;
   }
 
-  /* ILYN liquid support FAB — keep frosted face on mobile */
+  /* Support FAB — ILYN frost face; plate blocks page bleed */
   .support-glass-btn__face {
     backdrop-filter: blur(8px) !important;
     -webkit-backdrop-filter: blur(8px) !important;
+    background: rgba(255, 255, 255, 0.42) !important;
   }
 
   .trust-bar__panel,

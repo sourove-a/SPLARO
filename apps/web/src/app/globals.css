@@ -3287,21 +3287,36 @@ html[data-perf='lite'] .footer-lux__address-mobile:active {
   position: absolute;
   top: 50%;
   left: 50%;
-  z-index: 0;
-  width: 2.5rem;
-  height: 2.5rem;
+  z-index: 1;
+  /* Slightly larger than the face so liquid tint reads like ILYN */
+  width: 3.25rem;
+  height: 3.25rem;
   transform: translate(-50%, -50%);
+  opacity: 1;
 }
 
 .support-glass-btn__glow--dim {
-  opacity: 0.5;
+  opacity: 0.72;
 }
 
 @media (min-width: 640px) {
   .support-glass-btn__glow {
-    width: 4rem;
-    height: 4rem;
+    width: 5rem;
+    height: 5rem;
   }
+}
+
+/*
+ * Soft white under-plate — keeps ILYN pearl on dark sections
+ * without the graphite bake. Orbs sit above; frost face on top.
+ */
+.support-glass-btn__plate {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: var(--support-radius);
+  background: #ffffff;
 }
 
 /* Gradient rim via mask — bright corners like ILYN */
@@ -3309,7 +3324,7 @@ html[data-perf='lite'] .footer-lux__address-mobile:active {
   pointer-events: none;
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 3;
   border: 2.5px solid transparent;
   border-radius: var(--support-radius);
   background:
@@ -3331,23 +3346,27 @@ html[data-perf='lite'] .footer-lux__address-mobile:active {
   mask-composite: exclude;
 }
 
+/*
+ * ILYN face: bg-white/30 + light frost.
+ * Plate blocks page bleed; orbs tint through the translucent face.
+ */
 .support-glass-btn__face {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   height: 100%;
   border-radius: var(--support-radius);
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.42);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 0 20px 10px rgba(255, 255, 255, 0.1);
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 18px 8px rgba(255, 255, 255, 0.18);
   overflow: hidden;
 }
 
@@ -3935,82 +3954,7 @@ html[data-perf='lite'] .support-live-bubble__dot {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
-/* Discover / Our Story — single accordion dropdown box (closed by default). */
-.mm-drawer__drop {
-  position: relative;
-  overflow: hidden;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 247, 249, 0.82)),
-    rgba(255, 255, 255, 0.66);
-  box-shadow:
-    0 12px 28px rgba(20, 24, 32, 0.07),
-    inset 0 1.5px 0 rgba(255, 255, 255, 1),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.03);
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
-  transition:
-    border-color 200ms ease,
-    box-shadow 220ms var(--transition-expo);
-}
-
-.mm-drawer__drop--open,
-.mm-drawer__drop--active {
-  border-color: rgba(16, 17, 20, 0.14);
-}
-
-.mm-drawer__drop-head {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  width: 100%;
-  min-height: 2.62rem;
-  padding: 0.46rem 0.7rem 0.46rem 0.52rem;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: #101114;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.mm-drawer__drop-head:focus-visible {
-  outline: none;
-}
-
-.mm-drawer__drop-chevron {
-  display: inline-flex;
-  margin-left: auto;
-  color: rgba(16, 17, 20, 0.34);
-}
-
-.mm-drawer__drop-body-wrap {
-  overflow: hidden;
-}
-
-.mm-drawer__drop-body {
-  padding: 0 0.45rem 0.5rem;
-  border-top: 1px solid rgba(16, 17, 20, 0.06);
-}
-
-.mm-drawer__drop-body .mm-drawer__sub-link {
-  padding-left: 0.7rem;
-}
-
-html[data-os='windows'] .mm-drawer__drop,
-html[data-perf='lite'] .mm-drawer__drop {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  background: rgba(255, 255, 255, 0.98);
-}
-
+/* Accordion sub-links (mega categories). */
 .mm-drawer__sub-link {
   display: block;
   padding: 0.38rem 0.65rem 0.38rem 0.85rem;
@@ -8160,6 +8104,8 @@ body {
   border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
+  cursor: pointer;
+  font-family: inherit;
   transition:
     color 320ms cubic-bezier(0.22, 1, 0.36, 1),
     transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -8234,6 +8180,8 @@ body {
 }
 
 .site-header-glass__nav-chevron {
+  position: relative;
+  z-index: 1;
   width: 0.72rem;
   height: 0.72rem;
   opacity: 0;

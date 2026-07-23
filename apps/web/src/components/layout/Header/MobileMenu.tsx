@@ -6,10 +6,7 @@ import Link from 'next/link'
 import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 import {
   Baby,
-  BookOpen,
-  ChevronDown,
   ChevronRight,
-  Compass,
   Footprints,
   Gem,
   Home,
@@ -38,37 +35,6 @@ interface MobileMenuProps {
 
 /** Soft ease — opacity + subtle translate only (no spring bounce). */
 const PANEL_EASE = [0.22, 1, 0.36, 1] as const
-
-/** Secondary mobile-only groups — keeps Discover / Our Story off the top rail. */
-const MOBILE_EXTRA_GROUPS: Array<{
-  label: string
-  href: string
-  icon: LucideIcon
-  links: Array<{ label: string; href: string }>
-}> = [
-  {
-    label: 'Discover',
-    href: '/shop',
-    icon: Compass,
-    links: [
-      { label: 'New Arrivals', href: '/new-arrivals' },
-      { label: 'Best Sellers', href: '/best-sellers' },
-      { label: 'Collections', href: '/collections' },
-      { label: 'Shop all', href: '/shop' },
-    ],
-  },
-  {
-    label: 'Our Story',
-    href: '/about',
-    icon: BookOpen,
-    links: [
-      { label: 'About SPLARO', href: '/about' },
-      { label: 'Journal', href: '/editorial' },
-      { label: 'Stores', href: '/stores' },
-      { label: 'Contact', href: '/contact' },
-    ],
-  },
-]
 
 function navIcon(label: string, href: string): LucideIcon {
   const key = `${label} ${href}`.toLowerCase()
@@ -375,82 +341,6 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                           <ChevronRight className="mm-drawer__chevron-icon h-3.5 w-3.5" strokeWidth={2} />
                         </Link>
                       )}
-                    </motion.li>
-                  )
-                })}
-
-                {MOBILE_EXTRA_GROUPS.map((group) => {
-                  const Icon = group.icon
-                  const expanded = openLabel === group.label
-                  const active = group.links.some((link) => isNavActive(pathname, link.href))
-
-                  return (
-                    <motion.li key={group.label} variants={itemMotion} className="mm-drawer__group">
-                      <div
-                        className={cn(
-                          'mm-drawer__drop',
-                          expanded && 'mm-drawer__drop--open',
-                          active && 'mm-drawer__drop--active',
-                        )}
-                      >
-                        <button
-                          type="button"
-                          className="mm-drawer__drop-head"
-                          onClick={() => setOpenLabel(expanded ? null : group.label)}
-                          aria-expanded={expanded}
-                          aria-controls={`mm-drop-${group.label}`}
-                        >
-                          <PremiumIcon icon={Icon} size="sm" className="mm-drawer__glass-icon" />
-                          <span className="mm-drawer__glass-label">{group.label}</span>
-                          <span
-                            className="mm-drawer__drop-chevron"
-                            style={{
-                              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                              transition: reduceMotion
-                                ? undefined
-                                : 'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)',
-                            }}
-                            aria-hidden
-                          >
-                            <ChevronDown className="h-4 w-4" strokeWidth={2} />
-                          </span>
-                        </button>
-
-                        {expanded ? (
-                          <div
-                            id={`mm-drop-${group.label}`}
-                            role="region"
-                            aria-label={group.label}
-                            className="mm-drawer__drop-body-wrap"
-                          >
-                            <motion.div
-                              variants={subList}
-                              initial="hidden"
-                              animate="show"
-                              className="mm-drawer__drop-body"
-                            >
-                              {group.links.map((link) => {
-                                const subActive = isNavActive(pathname, link.href)
-                                return (
-                                  <motion.div key={link.href} variants={subItem}>
-                                    <Link
-                                      href={link.href}
-                                      onClick={onClose}
-                                      className={cn(
-                                        'mm-drawer__sub-link',
-                                        subActive && 'mm-drawer__sub-link--active',
-                                      )}
-                                      aria-current={subActive ? 'page' : undefined}
-                                    >
-                                      {link.label}
-                                    </Link>
-                                  </motion.div>
-                                )
-                              })}
-                            </motion.div>
-                          </div>
-                        ) : null}
-                      </div>
                     </motion.li>
                   )
                 })}
