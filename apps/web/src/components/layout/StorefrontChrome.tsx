@@ -19,11 +19,19 @@ const HEADER_ONLY_PATHS = ['/design/header']
 const CHROMELESS_PATHS = ['/maintenance']
 /** Focused flows — earth footer intrudes on short utility pages. */
 const FOOTERLESS_PATHS = ['/cart', '/checkout', '/account']
+/** Checkout owns its chrome — no site header/menu/search competing with Place order. */
+const CHECKOUT_FOCUS_PATHS = ['/checkout']
 /** These route components already own their semantic <main>. */
 const SELF_MAIN_PATHS = ['/account', '/collections', '/track-order', '/checkout', '/payment']
 
 function isFooterlessPath(pathname: string): boolean {
   return FOOTERLESS_PATHS.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  )
+}
+
+function isCheckoutFocusPath(pathname: string): boolean {
+  return CHECKOUT_FOCUS_PATHS.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   )
 }
@@ -120,6 +128,16 @@ function StorefrontChromeInner({ children }: { children: ReactNode }) {
 
   if (isAuth) {
     return <AuthRoutePaintGuard>{children}</AuthRoutePaintGuard>
+  }
+
+  if (isCheckoutFocusPath(pathname)) {
+    return (
+      <SmoothScroll>
+        <div id="main-content" className="checkout-focus-root" tabIndex={-1}>
+          {children}
+        </div>
+      </SmoothScroll>
+    )
   }
 
   if (isHeaderOnly) {

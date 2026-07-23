@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { ArrowLeft, UserRound } from 'lucide-react'
 import { motion, useReducedMotion } from '@/lib/motion/react'
+import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
 import { CHECKOUT_LOGIN_PATH } from '@/lib/checkout/checkout-auth'
 import { checkoutChromeMotion, checkoutEnterTransition } from '@/lib/checkout/checkout-motion'
 
@@ -23,7 +24,16 @@ export function CheckoutHeader({ isSignedIn }: CheckoutHeaderProps) {
         <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
         <span>Shop</span>
       </Link>
-      <h1 className="checkout-title">Checkout</h1>
+      <div className="checkout-header__center">
+        <SplaroBrandLogo
+          href="/"
+          size="footer"
+          tone="light"
+          priority
+          className="checkout-header__logo"
+        />
+        <h1 className="checkout-title">Checkout</h1>
+      </div>
       {!isSignedIn ? (
         <Link href={CHECKOUT_LOGIN_PATH} className="checkout-header__signin">
           <UserRound className="h-3.5 w-3.5" aria-hidden />

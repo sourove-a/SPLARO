@@ -69,6 +69,9 @@ export function CheckoutPaymentCard({
         )}
         <div>
           <p className="checkout-payment__label">{option.label}</p>
+          {!disabled && option.hint ? (
+            <p className="checkout-payment__hint">{option.hint}</p>
+          ) : null}
           {disabled && disabledReason ? (
             <p className="checkout-payment__hint">{disabledReason}</p>
           ) : null}
