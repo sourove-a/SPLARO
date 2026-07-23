@@ -32,6 +32,11 @@ export interface ProductCardData {
   /** Department slug when `categorySlug` is a leaf (e.g. wallets → accessories). */
   parentCategorySlug?: string
   collectionSlug?: string
+  /** Explicit Unisex tag/category — show on card + PDP. */
+  isUnisex?: boolean
+  tags?: string[]
+  /** Sum of active variant stock for card stock labels. */
+  stockUnits?: number
   media?: ProductMediaData[]
 }
 
