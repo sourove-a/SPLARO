@@ -23,7 +23,7 @@ export function CheckoutMobileBar({
 
   return (
     <div className="checkout-mobile-bar lg:hidden">
-      <div>
+      <div className="checkout-mobile-bar__meta">
         <p className="checkout-mobile-bar__label">
           Total · {itemCount} {itemCount === 1 ? 'item' : 'items'}
         </p>

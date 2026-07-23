@@ -939,7 +939,7 @@ export default function CheckoutPageClient() {
                       aria-describedby={errors.thana ? 'checkout-thana-error' : undefined}
                     >
                       <option value="">
-                        {city ? 'Select thana' : 'Select district first'}
+                        {city ? 'Select thana' : 'District first'}
                       </option>
                       {thanaOptions.map((option) => (
                         <option key={option} value={option}>

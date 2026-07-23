@@ -111,6 +111,7 @@ export function FloatingSystem() {
   const pathname = usePathname()
   const isHome = pathname === '/'
   const isPdp = pathname.startsWith('/products/')
+  const isCheckout = pathname.startsWith('/checkout')
   // Home + PDP: wait until the visitor scrolls before showing chat — the
   // bubble was covering the product description / CTA area on first paint.
   const pastHero = useScrollPastViewport(isPdp ? 0.35 : 0.7)
@@ -134,7 +135,8 @@ export function FloatingSystem() {
   const hasWhatsApp = whatsappUrl !== '#'
   const chatVisible = hasWhatsApp && showChat
 
-  if (isMobileMenuOpen || filterOpen) return null
+  /* Checkout sticky Place-order bar owns the bottom — hide floating chrome. */
+  if (isCheckout || isMobileMenuOpen || filterOpen) return null
 
   return (
     <div data-floating-system className="support-floating-system z-floating-actions">
