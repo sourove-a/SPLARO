@@ -1247,8 +1247,10 @@ html[data-scroll-profile='mobile'].lenis [data-lenis-prevent] {
 }
 
 .cart-drawer__panel {
+  /* Do not set transform here — Framer animates x via transform; a competing
+     translateZ(0) can leave the sheet stuck off-screen (blur only, empty bag). */
   will-change: transform;
-  transform: translateZ(0);
+  color: #101114;
 }
 
 html[data-perf='lite'] .cart-drawer__backdrop,

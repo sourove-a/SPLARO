@@ -2,7 +2,8 @@
 
 import '@/styles/pages/cart.css'
 
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence, useReducedMotion } from '@/lib/motion/react'
 import { X } from 'lucide-react'
 import { BagIcon } from '@/components/product/AddToBagIcon'
@@ -28,10 +29,13 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const { shipping } = useStorefrontSettings()
   const reducedMotion = useReducedMotion()
   const drawerRef = useRef<HTMLDivElement>(null)
+  const [mounted, setMounted] = useState(false)
   useDialogFocusTrap(isOpen, drawerRef, onClose)
   useOverlayScrollLock(isOpen)
   const freeShippingThreshold = shipping.freeDeliveryThreshold
   const showFreeShippingBar = freeShippingThreshold > 0
+
+  useEffect(() => setMounted(true), [])
 
   const lineMotion = reducedMotion
     ? { initial: false as const }
@@ -51,12 +55,15 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     ? { duration: 0 }
     : { duration: 0.28, ease: EASE_EXPO_OUT }
 
-  return (
-    <AnimatePresence>
+  if (!mounted) return null
+
+  return createPortal(
+    <AnimatePresence mode="sync">
       {isOpen ? (
         <>
           {/* Opacity-only dim — blur is static via CSS so it doesn't recompute every frame */}
           <motion.button
+            key="cart-backdrop"
             type="button"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -68,6 +75,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
           />
 
           <motion.aside
+            key="cart-panel"
             ref={drawerRef}
             initial={reducedMotion ? { x: 0 } : { x: '100%' }}
             animate={{ x: 0 }}
@@ -150,6 +158,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
           </motion.aside>
         </>
       ) : null}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }
