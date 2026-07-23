@@ -891,6 +891,12 @@ export default function ProductPageClient({
           <Link href="/">Home</Link>
           <span aria-hidden>/</span>
           <Link href={collectionHref(product.collectionSlug ?? 'all')}>{product.category}</Link>
+          {product.isUnisex ? (
+            <>
+              <span aria-hidden>/</span>
+              <span className="pp-breadcrumb__audience">Unisex</span>
+            </>
+          ) : null}
           <span aria-hidden>/</span>
           <span aria-current="page">{product.name}</span>
         </nav>
@@ -996,30 +1002,31 @@ export default function ProductPageClient({
                   >
                     <ChevronRight size={18} strokeWidth={1.75} />
                   </MotionPressable>
+                  <span className="sr-only" aria-live="polite">
+                    Image {activeImage + 1} of {media.length}
+                  </span>
+                  <div className="pp-gallery__counter" aria-hidden>
+                    {activeImage + 1} / {media.length}
+                  </div>
                 </>
               )}
             </div>
 
             {/* Colour thumbs choose look; arrows / stage click cycle gallery — no second thumb strip. */}
             {media.length > 1 ? (
-              <>
-                <span className="sr-only" aria-live="polite">
-                  Image {activeImage + 1} of {media.length}
+              <div className="pp-gallery__progress" aria-hidden>
+                <span className="pp-gallery__progress-label">
+                  {activeImage + 1} / {media.length}
                 </span>
-                <div className="pp-gallery__progress" aria-hidden>
-                  <span className="pp-gallery__progress-label">
-                    {activeImage + 1} / {media.length}
-                  </span>
-                  <span className="pp-gallery__progress-track">
-                    <span
-                      className="pp-gallery__progress-fill"
-                      style={{
-                        width: `${((activeImage + 1) / media.length) * 100}%`,
-                      }}
-                    />
-                  </span>
-                </div>
-              </>
+                <span className="pp-gallery__progress-track">
+                  <span
+                    className="pp-gallery__progress-fill"
+                    style={{
+                      width: `${((activeImage + 1) / media.length) * 100}%`,
+                    }}
+                  />
+                </span>
+              </div>
             ) : null}
           </div>
 
@@ -1028,6 +1035,11 @@ export default function ProductPageClient({
             <ProductStagger>
             <ProductReveal className="pp-info__header">
               <h1 className="pp-info__name">{product.name}</h1>
+              {product.isUnisex ? (
+                <p className="pp-info__audience" aria-label="Audience">
+                  Unisex
+                </p>
+              ) : null}
               {product.nameBn ? (
                 <p className="pp-info__name-bn" lang="bn">{product.nameBn}</p>
               ) : null}

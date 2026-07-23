@@ -32,16 +32,20 @@ export function CheckoutHeader({ userName, isSignedIn }: CheckoutHeaderProps) {
         <p className="checkout-subtitle">
           {isSignedIn && userName ? (
             <>
-              Signed in as <strong>{userName}</strong> · Saved details applied
+              Welcome back, <strong>{userName}</strong>
+              <span className="checkout-subtitle__quiet"> · Details filled in</span>
             </>
           ) : (
             <>
-              Guest checkout — no account needed for Cash on Delivery.{' '}
-              <Link href={CHECKOUT_LOGIN_PATH} className="checkout-signin-link">
-                <UserRound className="h-3 w-3" aria-hidden />
-                Sign in
-              </Link>{' '}
-              for saved details &amp; online payment.
+              <span className="checkout-subtitle__lead">Pay COD as guest — no account needed.</span>
+              <span className="checkout-subtitle__quiet">
+                {' '}
+                <Link href={CHECKOUT_LOGIN_PATH} className="checkout-signin-link">
+                  <UserRound className="h-3 w-3" aria-hidden />
+                  Sign in
+                </Link>{' '}
+                for saved details &amp; online pay.
+              </span>
             </>
           )}
         </p>

@@ -803,7 +803,10 @@ export default function CheckoutPageClient() {
             <CheckoutSection className="checkout-section checkout-section-card" delay={0.14}>
               <div className="checkout-section__head">
                 <span className="checkout-section__badge">1</span>
-                <h2>Delivery details</h2>
+                <div className="checkout-section__titles">
+                  <h2>Delivery details</h2>
+                  <p className="checkout-section__sub">Where should we send this?</p>
+                </div>
               </div>
               <div className="checkout-fields">
                 <CheckoutField
@@ -981,7 +984,10 @@ export default function CheckoutPageClient() {
               <CheckoutSection className="checkout-section checkout-section-card" delay={0.26}>
                 <div className="checkout-section__head">
                   <span className="checkout-section__badge">2</span>
-                  <h2>Promo code</h2>
+                  <div className="checkout-section__titles">
+                    <h2>Promo code</h2>
+                    <p className="checkout-section__sub">Optional — apply if you have one</p>
+                  </div>
                 </div>
                 <div className="checkout-coupon">
                   <div className="checkout-coupon__field">
@@ -1026,7 +1032,10 @@ export default function CheckoutPageClient() {
             <CheckoutSection className="checkout-section checkout-section-card" delay={0.38}>
               <div className="checkout-section__head">
                 <span className="checkout-section__badge">{showPromoStep ? '3' : '2'}</span>
-                <h2>Payment method</h2>
+                <div className="checkout-section__titles">
+                  <h2>Payment method</h2>
+                  <p className="checkout-section__sub">Choose how you&apos;d like to pay</p>
+                </div>
               </div>
               <div className="checkout-payments">
                 {paymentOptions.map((option) => {

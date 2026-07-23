@@ -202,8 +202,9 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     storeId: string,
     message: string,
     replyMarkup?: InlineKeyboardMarkup,
+    extras?: { disableWebPagePreview?: boolean },
   ): Promise<void> {
-    await this.sendToStoreWithResult(storeId, message, replyMarkup)
+    await this.sendToStoreWithResult(storeId, message, replyMarkup, extras)
   }
 
   /** Returns whether the message was delivered to the store Telegram chat. */
@@ -211,6 +212,7 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     storeId: string,
     message: string,
     replyMarkup?: InlineKeyboardMarkup,
+    extras?: { disableWebPagePreview?: boolean },
   ): Promise<boolean> {
     const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
     if (!config?.isActive || !this.bot) return false
@@ -218,6 +220,9 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     try {
       await this.bot.sendMessage(config.chatId, message, {
         parse_mode: 'HTML',
+        link_preview_options: {
+          is_disabled: extras?.disableWebPagePreview ?? true,
+        },
         ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
       })
       await this.prisma.telegramLog.create({
@@ -413,6 +418,7 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
       storeId,
       msg,
       orderActionKeyboard(order.invoiceNumber, { adminOrderUrl, storefrontUrl }),
+      { disableWebPagePreview: true },
     )
   }
 

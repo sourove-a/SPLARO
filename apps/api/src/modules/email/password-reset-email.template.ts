@@ -45,7 +45,7 @@ export function generatePasswordResetEmailHTML(input: PasswordResetEmailInput): 
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;">
           <tr>
             <td align="center" style="padding-bottom:28px;">
-              <img src="${escapeHtml(site)}/images/logo/splaro-logo-white-premium.png" alt="${escapeHtml(store)}" width="132" height="auto" style="display:block;margin:0 auto 14px;max-width:132px;height:auto;" />
+              <img src="${escapeHtml(site)}/images/logo/splaro-logo-invoice-white.png" alt="${escapeHtml(store)}" width="132" height="auto" style="display:block;margin:0 auto 14px;max-width:132px;height:auto;" />
               <div style="font-size:11px;letter-spacing:0.32em;text-transform:uppercase;color:#c8a97e;">${escapeHtml(store)}</div>
               <div style="margin-top:8px;font-size:13px;color:rgba(255,255,255,0.45);">Commerce Operating System</div>
             </td>

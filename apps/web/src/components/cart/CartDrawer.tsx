@@ -75,7 +75,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             transition={panelTransition}
             className={cn(
               'cart-drawer__panel spl-glass-sheet z-drawer-panel',
-              'fixed right-0 top-0 flex h-full w-96 max-w-[95vw] flex-col border-l',
+              'fixed right-0 top-0 flex h-full w-[min(24rem,95vw)] flex-col border-l',
             )}
             role="dialog"
             aria-modal="true"
@@ -83,33 +83,38 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             tabIndex={-1}
             data-lenis-prevent
           >
-            <div className="h-px bg-gradient-to-r from-transparent via-gold/50 to-transparent" />
+            <div className="cart-drawer__accent" aria-hidden />
 
-            <div className="flex items-center justify-between border-b border-black/5 px-6 py-5">
-              <div className="flex items-center gap-2.5">
-                <BagIcon size={17} strokeWidth={1.5} className="text-luxury-black" />
-                <h2 className="text-[0.6875rem] font-black uppercase tracking-[0.18em] text-luxury-black">
-                  Your Bag
-                  {items.length > 0 ? (
-                    <span className="ml-2 font-normal text-luxury-gray">({items.length})</span>
-                  ) : null}
-                </h2>
+            <div className="cart-drawer__header">
+              <div className="cart-drawer__title-wrap">
+                <span className="cart-drawer__icon" aria-hidden>
+                  <BagIcon size={16} strokeWidth={1.6} />
+                </span>
+                <div>
+                  <p className="cart-drawer__eyebrow">SPLARO</p>
+                  <h2 className="cart-drawer__title">
+                    Your Bag
+                    {items.length > 0 ? (
+                      <span className="cart-drawer__count">{items.length}</span>
+                    ) : null}
+                  </h2>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="cart-drawer__header-actions">
                 {items.length > 0 ? (
                   <button
                     type="button"
                     onClick={clearCart}
-                    className="px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-luxury-gray transition-colors hover:text-red-600"
+                    className="cart-drawer__clear"
                   >
-                    Clear all
+                    Clear
                   </button>
                 ) : null}
                 <button
                   type="button"
                   onClick={onClose}
                   aria-label="Close cart"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition-all hover:bg-black hover:text-white"
+                  className="cart-drawer__close"
                 >
                   <X className="h-3.5 w-3.5" strokeWidth={1.5} />
                 </button>
@@ -120,11 +125,11 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               <CartFreeShippingBar subtotal={subtotal} threshold={freeShippingThreshold} />
             ) : null}
 
-            <div className="flex-1 overflow-y-auto" data-lenis-prevent>
+            <div className="cart-drawer__body" data-lenis-prevent>
               {items.length === 0 ? (
                 <CartEmptyState onClose={onClose} />
               ) : (
-                <motion.ul className="divide-y divide-black/5" layout={!reducedMotion}>
+                <motion.ul className="cart-drawer__list" layout={!reducedMotion}>
                   <AnimatePresence initial={false} mode="popLayout">
                     {items.map((item) => (
                       <motion.li key={cartLineKey(item)} layout={!reducedMotion} {...lineMotion}>

@@ -41,11 +41,16 @@ export interface TelegramNewOrderPayload {
 const TG_MSG_MAX = 3900
 
 function prettyPayment(method: string): string {
+  const key = method.trim().toUpperCase()
+  if (key === 'COD' || key === 'CASH_ON_DELIVERY') return 'COD'
+  if (key === 'BKASH') return 'bKash'
+  if (key === 'NAGAD') return 'Nagad'
+  if (key === 'SSLCOMMERZ' || key === 'CARD') return 'Card'
   return method.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 function prettyStatus(status: string): string {
-  return status.replace(/_/g, ' ')
+  return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 function formatDhakaTime(value?: Date | string | null): string {
@@ -57,7 +62,6 @@ function formatDhakaTime(value?: Date | string | null): string {
       timeZone: 'Asia/Dhaka',
       day: '2-digit',
       month: 'short',
-      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
@@ -81,109 +85,82 @@ function resolveSizeColor(item: TelegramOrderItemLine): { size?: string; color?:
   return { ...(size ? { size } : {}), ...(color ? { color } : {}) }
 }
 
-function productHref(siteUrl: string, slug?: string | null): string | null {
-  const cleanSlug = slug?.trim()
-  if (!cleanSlug) return null
-  const base = siteUrl.replace(/\/+$/, '')
-  return `${base}/products/${encodeURIComponent(cleanSlug)}`
-}
-
-function formatItemBlock(
-  item: TelegramOrderItemLine,
-  index: number,
-  siteUrl: string,
-): string {
+/** One compact line per item — no SKU / product URL (those bloat mobile + force link previews). */
+function formatItemLine(item: TelegramOrderItemLine, index: number): string {
   const name = escapeTelegramHtml(item.productName.trim() || 'Product')
   const { size, color } = resolveSizeColor(item)
-  const meta: string[] = []
-  if (size) meta.push(`Size <b>${escapeTelegramHtml(size)}</b>`)
-  if (color) meta.push(`Colour <b>${escapeTelegramHtml(color)}</b>`)
-  meta.push(`Qty <b>${item.quantity}</b>`)
-  meta.push(escapeTelegramHtml(formatBDT(item.price)))
-
-  const sku = item.sku?.trim()
-  const link = productHref(siteUrl, item.slug)
-  const lines = [
-    `<b>${index + 1}.</b> ${name}`,
-    `   ${meta.join(' · ')}`,
-    `   Line: <b>${escapeTelegramHtml(formatBDT(item.subtotal))}</b>`,
-  ]
-  if (sku) lines.push(`   SKU: <code>${escapeTelegramHtml(sku)}</code>`)
-  if (link) {
-    lines.push(`   🔗 <a href="${escapeTelegramHtml(link)}">Open product</a>`)
-  }
-  return lines.join('\n')
+  const bits: string[] = [`<b>${index + 1}.</b> ${name}`]
+  if (size) bits.push(escapeTelegramHtml(size))
+  if (color) bits.push(escapeTelegramHtml(color))
+  bits.push(`×${item.quantity}`)
+  const amount = item.quantity > 1 ? item.subtotal : item.price
+  bits.push(`<b>${escapeTelegramHtml(formatBDT(amount))}</b>`)
+  return bits.join(' · ')
 }
 
-/** Premium HTML body for Telegram new-order alerts (parse_mode HTML). */
+/** Premium compact HTML body for Telegram new-order alerts (parse_mode HTML). */
 export function formatNewOrderTelegramMessage(order: TelegramNewOrderPayload): string {
   const when = formatDhakaTime(order.createdAt)
-  const zone = order.isInsideDhaka ? 'Inside Dhaka' : 'Outside Dhaka'
+  const zone = order.isInsideDhaka ? 'Dhaka' : 'Outside'
   const addressParts = [order.shippingAddress, order.shippingCity, order.shippingDistrict]
     .map((p) => (p ?? '').trim())
     .filter((p): p is string => p.length > 0)
-  // Dedupe if city already embedded in the street line from checkout.
   const street = (addressParts[0] ?? '').toLowerCase()
   const uniqueAddress = addressParts.filter(
     (part, index) => index === 0 || !street.includes(part.toLowerCase()),
   )
   const address = escapeTelegramHtml(uniqueAddress.join(', '))
 
-  const itemBlocks = order.items.map((item, i) => formatItemBlock(item, i, order.siteUrl))
-  let itemsSection = itemBlocks.join('\n\n')
+  const itemLines = order.items.map((item, i) => formatItemLine(item, i))
+  let itemsSection = itemLines.join('\n')
   let hidden = 0
-  while (itemsSection.length > 2200 && itemBlocks.length - hidden > 1) {
+  while (itemsSection.length > 1800 && itemLines.length - hidden > 1) {
     hidden += 1
     itemsSection =
-      itemBlocks.slice(0, itemBlocks.length - hidden).join('\n\n') +
-      `\n\n… +${hidden} more item${hidden > 1 ? 's' : ''}`
+      itemLines.slice(0, itemLines.length - hidden).join('\n') +
+      `\n… +${hidden} more`
   }
 
   const unitCount = order.items.reduce((sum, item) => sum + Math.max(0, item.quantity), 0)
   const riskBlock = order.isCodRisk
-    ? '\n\n⚠️ <b>COD RISK</b> — verify phone / address before courier.'
+    ? '\n⚠️ <b>COD risk</b> — verify before courier'
     : ''
   const fraudBlock =
     order.fraudFlags && order.fraudFlags.length > 0
-      ? `\nFlags: ${order.fraudFlags.map((f) => escapeTelegramHtml(f)).join(', ')}`
+      ? `\n⚑ ${order.fraudFlags.map((f) => escapeTelegramHtml(f)).join(' · ')}`
       : ''
   const notesBlock = order.notes?.trim()
-    ? `\n\n📝 Note: <i>${escapeTelegramHtml(order.notes.trim())}</i>`
+    ? `\n📝 <i>${escapeTelegramHtml(order.notes.trim())}</i>`
     : ''
-  const couponBlock = order.couponCode?.trim()
-    ? `\nCoupon: <code>${escapeTelegramHtml(order.couponCode.trim())}</code>`
-    : ''
-  const emailBlock = order.shippingEmail?.trim()
-    ? `\nEmail: <code>${escapeTelegramHtml(order.shippingEmail.trim())}</code>`
+  const couponBit = order.couponCode?.trim()
+    ? ` · <code>${escapeTelegramHtml(order.couponCode.trim())}</code>`
     : ''
 
-  const moneyLines = [
-    `Subtotal: ${escapeTelegramHtml(formatBDT(order.subtotal))}`,
-    `Delivery: ${escapeTelegramHtml(formatBDT(order.deliveryCharge))} · ${zone}`,
+  const payLine = [
+    escapeTelegramHtml(prettyPayment(order.paymentMethod)),
+    escapeTelegramHtml(prettyStatus(order.paymentStatus)),
+  ].join(' · ')
+
+  const moneyBits = [
+    `Sub ${escapeTelegramHtml(formatBDT(order.subtotal))}`,
+    `Ship ${escapeTelegramHtml(formatBDT(order.deliveryCharge))} (${zone})`,
   ]
   if (order.discount > 0) {
-    moneyLines.push(`Discount: −${escapeTelegramHtml(formatBDT(order.discount))}`)
+    moneyBits.push(`−${escapeTelegramHtml(formatBDT(order.discount))}`)
   }
-  moneyLines.push(`Total: <b>${escapeTelegramHtml(formatBDT(order.total))}</b>`)
 
   const msg = `
-🛍 <b>New SPLARO Order</b>
-<code>${escapeTelegramHtml(order.invoiceNumber)}</code>${when ? ` · ${escapeTelegramHtml(when)}` : ''}
+🛍 <b>New order</b> · <code>${escapeTelegramHtml(order.invoiceNumber)}</code>${when ? `\n${escapeTelegramHtml(when)}` : ''}
 
-👤 <b>Customer</b>
-${escapeTelegramHtml(order.shippingName)}
-Phone: <code>${escapeTelegramHtml(order.shippingPhone)}</code>${emailBlock}
+👤 ${escapeTelegramHtml(order.shippingName)} · <code>${escapeTelegramHtml(order.shippingPhone)}</code>
 📍 ${address}
 
-💳 <b>Payment</b>
-${escapeTelegramHtml(prettyPayment(order.paymentMethod))} · ${escapeTelegramHtml(prettyStatus(order.paymentStatus))}
-Status: ${escapeTelegramHtml(prettyStatus(order.orderStatus))}
-${moneyLines.join('\n')}${couponBlock}
+💳 ${payLine}
+${moneyBits.join(' · ')}${couponBit}
+<b>Total ${escapeTelegramHtml(formatBDT(order.total))}</b>
 
-📦 <b>Items</b> (${order.items.length} line${order.items.length === 1 ? '' : 's'} · ${unitCount} unit${unitCount === 1 ? '' : 's'})
+📦 <b>${order.items.length}</b> item${order.items.length === 1 ? '' : 's'} · ${unitCount} unit${unitCount === 1 ? '' : 's'}
 ${itemsSection}${riskBlock}${fraudBlock}${notesBlock}
-
-<i>Confirm / book courier below — or send <code>${escapeTelegramHtml(order.invoiceNumber)}</code></i>
 `.trim()
 
   if (msg.length <= TG_MSG_MAX) return msg

@@ -34,7 +34,7 @@ export function generateEmailVerificationHTML(input: EmailVerificationInput): st
     <tr><td align="center">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:540px;">
         <tr><td align="center" style="padding-bottom:26px;">
-          <img src="${escapeHtml(site)}/images/logo/splaro-logo-black-premium.webp" alt="${escapeHtml(store)}" width="138" style="display:block;max-width:138px;height:auto;margin:0 auto 12px;" />
+          <img src="${escapeHtml(site)}/images/logo/splaro-logo-email.png" alt="${escapeHtml(store)}" width="132" style="display:block;max-width:132px;height:auto;margin:0 auto 12px;" />
           <div style="font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:#8f714d;">Quiet luxury · Bangladesh</div>
         </td></tr>
         <tr><td style="overflow:hidden;border:1px solid rgba(17,17,17,.09);border-radius:28px;background:#ffffff;box-shadow:0 24px 70px rgba(39,29,18,.10);">

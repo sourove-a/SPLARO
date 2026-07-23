@@ -49,19 +49,40 @@ export const SPLARO_INVOICE_BRAND = {
   websiteDisplay: process.env.COMPANY_WEBSITE_DISPLAY ?? `www.${host}`,
   office: 'Uttara Sector 13, Dhaka - 1230',
   supportLine: 'Online Order & Client Support',
-  arabicLogoPath: '/images/logo/splaro-logo-white-premium.png',
+  /** Dark-hero PDF/print — compact white PNG (email clients + Puppeteer both render PNG). */
+  arabicLogoPath: '/images/logo/splaro-logo-invoice-white.png',
+  /** Light-surface email header — compact black PNG (WebP breaks in Gmail/Outlook). */
+  emailLogoPath: '/images/logo/splaro-logo-email.png',
   thankYouNote:
-    'Thank you for choosing SPLARO. Your order has been carefully prepared with premium quality, modest elegance, and care.',
+    'Thank you for choosing SPLARO. Crafted with care — quiet luxury, delivered.',
   codPaymentTerms: 'Pay after receiving product',
 } as const
+
+function isUsableRemoteLogo(url: string): boolean {
+  const lower = url.toLowerCase()
+  // Prefer official assets — store uploads are often relative/webp/broken in mail + PDF.
+  if (lower.includes('localhost') || lower.includes('127.0.0.1')) return false
+  if (lower.endsWith('.webp')) return false
+  return true
+}
 
 export function resolveInvoiceLogoUrl(siteUrl: string, storeLogo?: string | null): string {
   const base = siteUrl.replace(/\/$/, '')
   const trimmed = storeLogo?.trim()
   if (trimmed) {
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed
-    if (trimmed.startsWith('/')) return `${base}${trimmed}`
-    return `${base}/${trimmed}`
+    const resolved =
+      trimmed.startsWith('http://') || trimmed.startsWith('https://')
+        ? trimmed
+        : trimmed.startsWith('/')
+          ? `${base}${trimmed}`
+          : `${base}/${trimmed}`
+    if (isUsableRemoteLogo(resolved)) return resolved
   }
   return `${base}${SPLARO_INVOICE_BRAND.arabicLogoPath}`
+}
+
+/** Absolute black wordmark for order confirmation emails (PNG only). */
+export function resolveEmailLogoUrl(siteUrl: string): string {
+  const base = siteUrl.replace(/\/$/, '')
+  return `${base}${SPLARO_INVOICE_BRAND.emailLogoPath}`
 }

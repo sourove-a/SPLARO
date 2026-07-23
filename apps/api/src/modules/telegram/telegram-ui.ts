@@ -132,18 +132,18 @@ export function orderActionKeyboard(
   const rows: InlineKeyboardButton[][] = [
     [
       { text: '✅ Confirm', callback_data: orderCallback('confirm', invoiceNumber) },
-      { text: '🚚 Book Courier', callback_data: orderCallback('courier', invoiceNumber) },
+      { text: '🚚 Courier', callback_data: orderCallback('courier', invoiceNumber) },
     ],
-    [{ text: '📦 Track Order', callback_data: orderCallback('track', invoiceNumber) }],
   ]
-  const linkRow: InlineKeyboardButton[] = []
+  const second: InlineKeyboardButton[] = [
+    { text: '📦 Track', callback_data: orderCallback('track', invoiceNumber) },
+  ]
   if (links?.adminOrderUrl) {
-    linkRow.push({ text: '🖥 Open in Admin', url: links.adminOrderUrl })
+    second.push({ text: '🖥 Admin', url: links.adminOrderUrl })
+  } else if (links?.storefrontUrl) {
+    second.push({ text: '🌐 Store', url: links.storefrontUrl })
   }
-  if (links?.storefrontUrl) {
-    linkRow.push({ text: '🌐 Store', url: links.storefrontUrl })
-  }
-  if (linkRow.length) rows.push(linkRow)
+  rows.push(second)
   return { inline_keyboard: rows }
 }
 

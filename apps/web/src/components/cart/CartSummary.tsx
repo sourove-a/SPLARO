@@ -7,7 +7,6 @@ import { Loader2 } from 'lucide-react'
 import { formatBDT } from '@/lib/utils/currency'
 import { getCheckoutEntryPath } from '@/lib/checkout/checkout-auth'
 import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
-import { CartTrustSignals } from './CartTrustSignals'
 
 interface CartSummaryProps {
   subtotal: number
@@ -30,8 +29,6 @@ export function CartSummary({ subtotal, onClose, continueHref = '/shop' }: CartS
 
   return (
     <div className="cart-summary">
-      <CartTrustSignals />
-
       <div className="cart-summary__row">
         <span className="cart-summary__label">Subtotal</span>
         <span className="cart-summary__value">{formatBDT(subtotal)}</span>

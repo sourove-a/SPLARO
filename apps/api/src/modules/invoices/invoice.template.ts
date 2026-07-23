@@ -18,9 +18,9 @@ function itemThumb(url: string, name: string): string {
 }
 
 function itemMeta(item: InvoiceViewModel['items'][number]): string {
+  // Keep print compact — long SKUs force a second page on A4.
   const parts = [
-    item.sku !== '—' ? `SKU ${item.sku}` : '',
-    item.size !== '—' ? `Size ${item.size}` : '',
+    item.size !== '—' ? item.size : '',
     item.color !== '—' ? item.color : '',
   ].filter(Boolean)
   return parts.join(' · ')
@@ -123,13 +123,13 @@ export function generateInvoiceHTML(
       background: #eceef2;
       color: var(--ink);
       font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 11px;
-      line-height: 1.55;
+      font-size: 10.5px;
+      line-height: 1.45;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
-    @page { size: A4 portrait; margin: 10mm 12mm; }
+    @page { size: A4 portrait; margin: 8mm 10mm; }
 
     .toolbar {
       position: sticky;
@@ -173,7 +173,7 @@ export function generateInvoiceHTML(
 
     .sheet__hero {
       position: relative;
-      padding: 30px 32px 28px;
+      padding: 22px 26px 20px;
       background:
         radial-gradient(circle at 88% 0%, rgba(255, 255, 255, 0.06), transparent 34%),
         linear-gradient(135deg, #0a0a0c 0%, #101114 48%, #1a1b1f 100%);
@@ -212,26 +212,22 @@ export function generateInvoiceHTML(
 
     .brand__logo {
       display: block;
-      height: 52px;
+      height: 44px;
       width: auto;
-      max-width: 148px;
+      max-width: 150px;
       object-fit: contain;
-      opacity: 0.96;
+      opacity: 1;
       flex-shrink: 0;
+      filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.08));
     }
 
     .brand__name {
-      font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif;
-      font-size: 24px;
-      font-weight: 500;
-      letter-spacing: 0.26em;
-      text-transform: uppercase;
-      line-height: 1;
+      display: none;
     }
 
     .brand__tagline {
-      margin-top: 6px;
-      font-size: 9px;
+      margin-top: 4px;
+      font-size: 8px;
       font-weight: 600;
       letter-spacing: 0.22em;
       text-transform: uppercase;
@@ -239,11 +235,11 @@ export function generateInvoiceHTML(
     }
 
     .brand__office {
-      margin-top: 8px;
-      font-size: 10px;
+      margin-top: 5px;
+      font-size: 9px;
       color: rgba(255, 255, 255, 0.46);
-      line-height: 1.6;
-      max-width: 22rem;
+      line-height: 1.45;
+      max-width: 20rem;
     }
 
     .doc {
@@ -261,9 +257,9 @@ export function generateInvoiceHTML(
     }
 
     .doc__title {
-      margin-top: 8px;
+      margin-top: 6px;
       font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: 38px;
+      font-size: 30px;
       font-weight: 400;
       letter-spacing: 0.14em;
       text-transform: uppercase;
@@ -272,28 +268,28 @@ export function generateInvoiceHTML(
     }
 
     .doc__number {
-      margin-top: 12px;
-      font-size: 14px;
+      margin-top: 8px;
+      font-size: 13px;
       font-weight: 700;
       letter-spacing: 0.08em;
       color: rgba(255, 255, 255, 0.92);
     }
 
     .doc__date {
-      margin-top: 5px;
-      font-size: 11px;
+      margin-top: 4px;
+      font-size: 10px;
       color: rgba(255, 255, 255, 0.5);
     }
 
     .sheet__body {
-      padding: 26px 30px 28px;
+      padding: 18px 24px 20px;
     }
 
     .badges {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 22px;
+      gap: 6px;
+      margin-bottom: 14px;
     }
 
     .badge {
@@ -317,14 +313,14 @@ export function generateInvoiceHTML(
     .grid {
       display: grid;
       grid-template-columns: 1.15fr 0.85fr;
-      gap: 14px;
-      margin-bottom: 24px;
+      gap: 10px;
+      margin-bottom: 14px;
     }
 
     .panel {
       border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 15px 16px;
+      border-radius: 12px;
+      padding: 12px 14px;
       background: linear-gradient(180deg, #ffffff 0%, var(--surface) 100%);
     }
 
@@ -339,16 +335,16 @@ export function generateInvoiceHTML(
 
     .panel__name {
       font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: 19px;
+      font-size: 17px;
       font-weight: 500;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       color: var(--ink);
     }
 
     .panel__text {
-      font-size: 11px;
+      font-size: 10.5px;
       color: var(--muted);
-      line-height: 1.65;
+      line-height: 1.5;
     }
 
     .meta-grid {
@@ -393,11 +389,11 @@ export function generateInvoiceHTML(
     table.items {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 22px;
+      margin-bottom: 14px;
     }
 
     table.items thead th {
-      padding: 11px 8px;
+      padding: 8px 6px;
       border-top: 2px solid var(--ink);
       border-bottom: 1px solid var(--line);
       font-size: 8px;
@@ -410,7 +406,7 @@ export function generateInvoiceHTML(
     }
 
     table.items tbody td {
-      padding: 12px 8px;
+      padding: 8px 6px;
       border-bottom: 1px solid var(--line);
       vertical-align: middle;
     }
@@ -423,16 +419,16 @@ export function generateInvoiceHTML(
       border-bottom: 2px solid var(--ink);
     }
 
-    .col-thumb { width: 58px; }
+    .col-thumb { width: 46px; }
     .col-product { min-width: 0; }
-    .col-qty { width: 48px; }
-    .col-total { width: 88px; }
+    .col-qty { width: 42px; }
+    .col-total { width: 80px; }
     .num { text-align: right; white-space: nowrap; }
 
     .thumb {
-      width: 48px;
-      height: 60px;
-      border-radius: 8px;
+      width: 38px;
+      height: 48px;
+      border-radius: 6px;
       overflow: hidden;
       border: 1px solid var(--line);
       background: var(--surface);
@@ -451,14 +447,14 @@ export function generateInvoiceHTML(
     }
 
     .product-name {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
-      line-height: 1.35;
+      line-height: 1.3;
       color: var(--ink);
     }
 
     .product-meta {
-      margin-top: 3px;
+      margin-top: 2px;
       font-size: 9px;
       color: var(--muted);
       letter-spacing: 0.02em;
@@ -468,19 +464,19 @@ export function generateInvoiceHTML(
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 28px;
-      height: 28px;
+      min-width: 24px;
+      height: 24px;
       border-radius: 999px;
       background: var(--ink);
       color: #fff;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
     }
 
     .foot {
       display: grid;
-      grid-template-columns: 1fr 300px;
-      gap: 20px;
+      grid-template-columns: 1fr 260px;
+      gap: 14px;
       align-items: start;
     }
 
@@ -547,19 +543,19 @@ export function generateInvoiceHTML(
 
     .grand strong {
       font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: 26px;
+      font-size: 22px;
       font-weight: 600;
       letter-spacing: 0.02em;
       color: #ffffff;
     }
 
     .notes {
-      margin-top: 20px;
-      padding-top: 16px;
+      margin-top: 12px;
+      padding-top: 10px;
       border-top: 1px solid var(--line);
-      font-size: 10px;
+      font-size: 9.5px;
       color: var(--muted);
-      line-height: 1.65;
+      line-height: 1.5;
     }
 
     .notes p + p { margin-top: 8px; }
@@ -575,33 +571,33 @@ export function generateInvoiceHTML(
     }
 
     .footer {
-      margin-top: 24px;
-      padding-top: 18px;
+      margin-top: 14px;
+      padding-top: 12px;
       border-top: 1px solid var(--line);
       text-align: center;
     }
 
     .footer__rule {
-      width: 56px;
+      width: 48px;
       height: 1px;
-      margin: 0 auto 14px;
+      margin: 0 auto 10px;
       background: linear-gradient(90deg, transparent, var(--ink), transparent);
       opacity: 0.22;
     }
 
     .footer__thanks {
       font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: 15px;
+      font-size: 13px;
       font-style: italic;
       color: var(--ink);
-      margin-bottom: 10px;
-      line-height: 1.5;
+      margin-bottom: 6px;
+      line-height: 1.4;
     }
 
     .footer__meta {
-      font-size: 9px;
+      font-size: 8.5px;
       color: var(--muted);
-      line-height: 1.8;
+      line-height: 1.6;
       letter-spacing: 0.04em;
     }
 
@@ -609,9 +605,21 @@ export function generateInvoiceHTML(
       .toolbar { display: none !important; }
       html, body { background: #fff; }
       .shell { padding: 0; max-width: none; }
-      .sheet { border: none; box-shadow: none; border-radius: 0; }
+      .sheet {
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
       .sheet__hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      tr { break-inside: avoid; page-break-inside: avoid; }
+      .sheet__hero-grid { display: none !important; }
+      .col-thumb, th.col-thumb { display: none !important; }
+      .brand__logo { height: 40px; max-width: 140px; }
+      tr, .panel, .totals, .terms, .foot, .footer {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
     }
 
     @media (max-width: 680px) {
@@ -677,10 +685,6 @@ export function generateInvoiceHTML(
               <strong>${model.items.reduce((n, i) => n + i.quantity, 0)} pcs</strong>
             </div>
             ${courierBlock}
-            <div class="chip">
-              <span class="chip__label">Invoice</span>
-              <strong>${escapeHtml(model.invoiceNumber)}</strong>
-            </div>
           </div>
         </section>
       </div>
