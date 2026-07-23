@@ -286,7 +286,10 @@ html[data-perf='lite'] .premium-icon__sheen::after {
   pointer-events: none;
 }
 
-.site-header-glass__icon-btn > * {
+/* Raise glyphs above ::before sheen — never the cart count badge
+   (position:relative was overriding badge absolute and dumping a black
+   disc beside the bag when cart had items). */
+.site-header-glass__icon-btn > *:not(.site-header-glass__count-badge) {
   position: relative;
   z-index: 1;
 }

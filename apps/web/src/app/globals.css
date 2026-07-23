@@ -8433,7 +8433,8 @@ body {
 }
 
 .site-header-glass__count-badge {
-  position: absolute;
+  /* !important: beats .icon-btn > * { position:relative } specificity */
+  position: absolute !important;
   top: -0.15rem;
   right: -0.2rem;
   z-index: 3;
@@ -8459,8 +8460,8 @@ body {
 }
 
 .site-header-glass__count-badge--cart {
-  top: -0.12rem;
-  right: -0.12rem;
+  top: -0.12rem !important;
+  right: -0.12rem !important;
   min-width: 1.05rem;
   height: 1.05rem;
   max-width: 1.6rem;
