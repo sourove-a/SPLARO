@@ -3,6 +3,7 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   ArrowRight,
   Check,
@@ -363,11 +364,16 @@ function HistoryRow({ order }: { order: StoredOrder }) {
 
 type TrackOrderClientProps = {
   initialPhone?: string
+  initialInvoice?: string
+  initialKey?: string
 }
 
 export default function TrackOrderClient({
   initialPhone = '',
+  initialInvoice = '',
+  initialKey = '',
 }: TrackOrderClientProps) {
+  const router = useRouter()
   const { phoneOtpEnabled } = useStorefrontAuthConfig()
   const [phone, setPhone] = useState(() => formatBdPhoneInput(initialPhone))
   const [otpCode, setOtpCode] = useState('')
@@ -379,6 +385,19 @@ export default function TrackOrderClient({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const didPrefillSearch = useRef(false)
+  const didKeyRedirect = useRef(false)
+
+  // Signed email / WhatsApp links: open confirmation instantly (no phone typing).
+  useEffect(() => {
+    if (didKeyRedirect.current) return
+    const invoice = initialInvoice.trim()
+    const key = initialKey.trim()
+    if (!invoice || !key) return
+    didKeyRedirect.current = true
+    router.replace(
+      `/order-confirmation/${encodeURIComponent(invoice)}?key=${encodeURIComponent(key)}`,
+    )
+  }, [initialInvoice, initialKey, router])
 
   const runSearch = useCallback(
     async (nextPhone: string) => {

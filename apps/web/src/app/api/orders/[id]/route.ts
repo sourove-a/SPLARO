@@ -28,7 +28,11 @@ export async function GET(request: Request, context: RouteContext) {
 
   const sessionPhone = sessionUser?.phone?.replace(/\D/g, '') ?? ''
   const orderPhone = order.customer.phone.replace(/\D/g, '')
-  const hasInvoiceKey = Boolean(key && verifyInvoiceAccessToken(order.id, key))
+  const hasInvoiceKey = Boolean(
+    key &&
+      (verifyInvoiceAccessToken(order.id, key) ||
+        verifyInvoiceAccessToken(order.invoiceNumber, key)),
+  )
   const ownsOrder =
     (sessionUser && order.userId === sessionUser.id) ||
     (sessionUser &&

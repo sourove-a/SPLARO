@@ -4,7 +4,7 @@ import { EmailService } from '../email/email.service'
 import { generateInvoiceEmailBody } from '../invoices/invoice-email-body.template'
 import { generateInvoiceEmailHTML } from '../invoices/invoice-email.template'
 import { buildInvoiceViewModel } from '../invoices/invoice.helpers'
-import { resolveCustomerFacingSiteUrl, SPLARO_INVOICE_BRAND } from '@splaro/config'
+import { resolveCustomerFacingSiteUrl, SPLARO_INVOICE_BRAND, buildInvoiceAccessToken } from '@splaro/config'
 import { TelegramService } from '../telegram/telegram.service'
 import { CourierService } from '../courier/courier.service'
 
@@ -112,6 +112,10 @@ export class OrderNotificationsService {
       showToolbar: false,
     })
     const invoiceHtml = generateInvoiceEmailBody(model)
+    const accessKey = buildInvoiceAccessToken(order.invoiceNumber)
+    const site = siteUrl.replace(/\/$/, '')
+    const trackUrl = `${site}/order-confirmation/${encodeURIComponent(order.invoiceNumber)}?key=${encodeURIComponent(accessKey)}`
+    const invoiceUrl = `${site}/api/orders/${encodeURIComponent(order.invoiceNumber)}/invoice?key=${encodeURIComponent(accessKey)}`
 
     const emailed = await this.email.sendForStore({
       storeId,
@@ -124,8 +128,9 @@ export class OrderNotificationsService {
         invoiceHtml,
         siteUrl,
         storeName: store?.name ?? 'SPLARO',
+        accessKey,
       }),
-      text: `Your SPLARO order ${order.invoiceNumber} is confirmed. Total: ৳${Number(order.total).toLocaleString()}. Track your order at ${siteUrl.replace(/\/$/, '')}/track-order.`,
+      text: `Your SPLARO order ${order.invoiceNumber} is confirmed. Total: ৳${Number(order.total).toLocaleString()}.\nTrack: ${trackUrl}\nInvoice: ${invoiceUrl}`,
       transactional: true,
     })
 

@@ -6,7 +6,7 @@ import { buildInvoiceViewModel, type InvoiceOrder } from './invoice.helpers'
 import { generateInvoiceEmailBody } from './invoice-email-body.template'
 import { generateInvoiceHTML } from './invoice.template'
 import { generateInvoiceEmailHTML } from './invoice-email.template'
-import { SPLARO_INVOICE_BRAND, resolveCustomerFacingSiteUrl } from '@splaro/config'
+import { SPLARO_INVOICE_BRAND, resolveCustomerFacingSiteUrl, buildInvoiceAccessToken } from '@splaro/config'
 
 function resolveChromeExecutable(puppeteerExecutablePath: () => string): string | undefined {
   const fromEnv = process.env.PUPPETEER_EXECUTABLE_PATH?.trim()
@@ -146,6 +146,10 @@ export class InvoiceService {
       showToolbar: false,
     })
     const invoiceHtml = generateInvoiceEmailBody(model)
+    const accessKey = buildInvoiceAccessToken(order.invoiceNumber)
+    const site = store.siteUrl.replace(/\/$/, '')
+    const trackUrl = `${site}/order-confirmation/${encodeURIComponent(order.invoiceNumber)}?key=${encodeURIComponent(accessKey)}`
+    const invoiceUrl = `${site}/api/orders/${encodeURIComponent(order.invoiceNumber)}/invoice?key=${encodeURIComponent(accessKey)}`
     const sent = await this.email.sendForStore({
       storeId: order.storeId,
       to: emailTo,
@@ -157,8 +161,9 @@ export class InvoiceService {
         invoiceHtml,
         siteUrl: store.siteUrl,
         storeName: store.storeName,
+        accessKey,
       }),
-      text: `SPLARO order ${order.invoiceNumber} confirmed. Total ${Number(order.total).toLocaleString()} BDT. Track: ${store.siteUrl.replace(/\/$/, '')}/track-order?invoice=${encodeURIComponent(order.invoiceNumber)}`,
+      text: `SPLARO order ${order.invoiceNumber} confirmed. Total ${Number(order.total).toLocaleString()} BDT.\nTrack: ${trackUrl}\nInvoice: ${invoiceUrl}`,
       transactional: true,
     })
 
@@ -174,13 +179,17 @@ export class InvoiceService {
   }
 
   buildWhatsAppShareUrl(order: InvoiceOrder, siteUrl: string): string {
-    const invoiceUrl = `${siteUrl.replace(/\/$/, '')}/track-order?invoice=${encodeURIComponent(order.invoiceNumber)}`
+    const accessKey = buildInvoiceAccessToken(order.invoiceNumber)
+    const base = siteUrl.replace(/\/$/, '')
+    const invoiceUrl = `${base}/api/orders/${encodeURIComponent(order.invoiceNumber)}/invoice?key=${encodeURIComponent(accessKey)}`
+    const trackUrl = `${base}/order-confirmation/${encodeURIComponent(order.invoiceNumber)}?key=${encodeURIComponent(accessKey)}`
     const message = [
       `SPLARO Invoice ${order.invoiceNumber}`,
       `Customer: ${order.shippingName}`,
       `Total: ৳${Number(order.total).toLocaleString()}`,
       `Payment: ${order.paymentMethod.replace(/_/g, ' ')}`,
-      `Track: ${invoiceUrl}`,
+      `Track: ${trackUrl}`,
+      `Invoice: ${invoiceUrl}`,
     ].join('\n')
 
     return `https://wa.me/${SPLARO_INVOICE_BRAND.phoneE164}?text=${encodeURIComponent(message)}`

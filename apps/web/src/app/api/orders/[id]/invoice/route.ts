@@ -52,7 +52,11 @@ export async function GET(request: Request, context: RouteContext) {
       order.customer.email &&
       sessionUser.email.toLowerCase() === order.customer.email.toLowerCase()) ||
     (sessionPhone.length >= 10 && sessionPhone === orderPhone)
-  const hasInvoiceKey = Boolean(key && verifyInvoiceAccessToken(order.id, key))
+  const hasInvoiceKey = Boolean(
+    key &&
+      (verifyInvoiceAccessToken(order.id, key) ||
+        verifyInvoiceAccessToken(order.invoiceNumber, key)),
+  )
 
   if (!ownsOrder && !hasInvoiceKey) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })

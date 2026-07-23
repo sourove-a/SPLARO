@@ -1,5 +1,5 @@
 import type { InvoiceViewModel } from './invoice.helpers'
-import { buildInvoiceViewModel, escapeHtml, formatBdt, paymentStatusLabel, statusBadgeClass } from './invoice.helpers'
+import { buildInvoiceViewModel, escapeHtml, formatBdt } from './invoice.helpers'
 import { generateInvoiceEmailBody } from './invoice-email-body.template'
 
 export interface InvoiceTemplateOptions {
@@ -7,6 +7,14 @@ export interface InvoiceTemplateOptions {
   autoPrint?: boolean
   /** `fragment` = inner invoice only (for email embed). Default `full` document. */
   mode?: 'full' | 'fragment'
+}
+
+function itemMeta(item: InvoiceViewModel['items'][number]): string {
+  const parts = [
+    item.size !== '—' ? item.size : '',
+    item.color !== '—' ? item.color : '',
+  ].filter(Boolean)
+  return parts.join(' · ')
 }
 
 function itemThumb(url: string, name: string): string {
@@ -17,15 +25,15 @@ function itemThumb(url: string, name: string): string {
   return `<div class="thumb"><img src="${escapeHtml(url)}" alt="" /></div>`
 }
 
-function itemMeta(item: InvoiceViewModel['items'][number]): string {
-  // Keep print compact — long SKUs force a second page on A4.
-  const parts = [
-    item.size !== '—' ? item.size : '',
-    item.color !== '—' ? item.color : '',
-  ].filter(Boolean)
-  return parts.join(' · ')
+function premiumLogoUrl(siteUrl: string): string {
+  const base = siteUrl.replace(/\/$/, '')
+  return `${base}/images/logo/splaro-logo-black-premium.png`
 }
 
+/**
+ * Premium cash-memo invoice — 1 page.
+ * Top: brand (logo, address, web, phone). Then customer. Then items + totals. Footer.
+ */
 export function generateInvoiceHTML(
   model: InvoiceViewModel,
   options: InvoiceTemplateOptions = {},
@@ -33,47 +41,48 @@ export function generateInvoiceHTML(
   const showToolbar = options.showToolbar ?? model.showToolbar
   const autoPrint = options.autoPrint ?? model.autoPrint
   const fragment = options.mode === 'fragment'
-  const payLabel = paymentStatusLabel(model.paymentStatusKey)
-  const orderBadge = statusBadgeClass('order', model.orderStatusKey)
-  const payBadge = statusBadgeClass('payment', model.paymentStatusKey)
+  const logoUrl = premiumLogoUrl(model.siteUrl)
 
   const itemRows = model.items
-    .map((item) => {
+    .map((item, index) => {
       const meta = itemMeta(item)
+      const no = String(index + 1).padStart(2, '0')
       return `
       <tr>
+        <td class="col-no">${no}</td>
         <td class="col-thumb">${itemThumb(item.imageUrl, item.productName)}</td>
         <td class="col-product">
           <div class="product-name">${escapeHtml(item.productName)}</div>
           ${meta ? `<div class="product-meta">${escapeHtml(meta)}</div>` : ''}
         </td>
-        <td class="num col-qty"><span class="qty">${item.quantity}</span></td>
-        <td class="num">${formatBdt(item.unitPrice)}</td>
-        <td class="num col-total"><strong>${formatBdt(item.lineTotal)}</strong></td>
+        <td class="num col-qty">${item.quantity}</td>
+        <td class="num col-rate">${formatBdt(item.unitPrice)}</td>
+        <td class="num col-total">${formatBdt(item.lineTotal)}</td>
       </tr>`
     })
     .join('')
 
-  const summaryRows = [
-    { label: 'Subtotal', value: formatBdt(model.subtotal), accent: false },
+  const sumLines = [
+    { label: 'Subtotal', value: formatBdt(model.subtotal) },
     model.deliveryCharge > 0
-      ? { label: 'Delivery', value: formatBdt(model.deliveryCharge), accent: false }
+      ? { label: 'Delivery charge', value: formatBdt(model.deliveryCharge) }
       : null,
     model.discount > 0
       ? {
           label: model.couponCode ? `Discount (${model.couponCode})` : 'Discount',
           value: `−${formatBdt(model.couponCode ? model.couponDiscount || model.discount : model.discount)}`,
-          accent: true,
         }
       : null,
-    model.advancePaid > 0 ? { label: 'Advance paid', value: `−${formatBdt(model.advancePaid)}`, accent: false } : null,
+    model.advancePaid > 0
+      ? { label: 'Advance paid', value: `−${formatBdt(model.advancePaid)}` }
+      : null,
   ]
     .filter(Boolean)
     .map(
       (row) => `
-      <div class="totals-row${row!.accent ? ' totals-row--accent' : ''}">
+      <div class="sum-row">
         <span>${escapeHtml(row!.label)}</span>
-        <strong>${row!.value}</strong>
+        <span>${row!.value}</span>
       </div>`,
     )
     .join('')
@@ -83,53 +92,59 @@ export function generateInvoiceHTML(
       ? model.dueAmount
       : model.grandTotal
 
-  const courierBlock =
-    model.courierPartner && model.courierPartner !== '—'
-      ? `<div class="chip">
-          <span class="chip__label">Courier</span>
-          <strong>${escapeHtml(model.courierPartner)}</strong>
-          ${model.courierTracking ? `<span class="chip__sub">Tracking ${escapeHtml(model.courierTracking)}</span>` : ''}
-        </div>`
-      : ''
-
   const noteBlock =
     model.customerNote || model.adminNote
-      ? `<section class="notes">
-          ${model.customerNote ? `<p><span>Note</span>${escapeHtml(model.customerNote)}</p>` : ''}
-          ${model.adminNote ? `<p><span>Remarks</span>${escapeHtml(model.adminNote)}</p>` : ''}
-        </section>`
+      ? `<div class="notes">
+          ${model.customerNote ? `<p><em>Note</em> ${escapeHtml(model.customerNote)}</p>` : ''}
+          ${model.adminNote ? `<p><em>Remarks</em> ${escapeHtml(model.adminNote)}</p>` : ''}
+        </div>`
       : ''
 
   const emailLine =
     model.customerEmail && model.customerEmail !== '—'
-      ? `${escapeHtml(model.customerEmail)}<br />`
+      ? `<span>${escapeHtml(model.customerEmail)}</span>`
       : ''
+
+  // Address already includes city/district — don't stack shippingCityArea again.
+  // Collapse accidental newlines from stored address into one readable line.
+  const addressLine = escapeHtml(model.customerAddress.replace(/\s+/g, ' ').trim())
+  const zoneLine = escapeHtml(model.deliveryArea)
+
+  const paymentTerms = escapeHtml(model.paymentTerms)
+  const lineCount = model.items.length
+  const memoClass = lineCount >= 4 ? 'memo memo--dense' : 'memo'
 
   const styles = `
     :root {
-      --ink: #101114;
-      --ink-soft: #1a1b1f;
-      --paper: #ffffff;
-      --surface: #f7f8fa;
-      --surface-2: #eef0f4;
-      --line: rgba(16, 17, 20, 0.09);
-      --muted: #6b7280;
-      --muted-soft: #9ca3af;
+      --ink: #111111;
+      --soft: #3a3733;
+      --muted: #8a847a;
+      --brass: #9a8b6e;
+      --brass-soft: rgba(154, 139, 110, 0.35);
+      --line: rgba(17, 17, 17, 0.11);
+      --line-soft: rgba(17, 17, 17, 0.055);
+      --paper: #fffcf7;
+      --wash: #f3efe8;
+      --wash-2: #f8f5ef;
+      --ivory: #fffcf7;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
-      background: #eceef2;
+      background:
+        radial-gradient(ellipse 90% 60% at 50% -10%, #e8e2d6 0%, transparent 55%),
+        linear-gradient(180deg, #d9d2c6 0%, #cfc7b9 100%);
       color: var(--ink);
-      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: "Manrope", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 10.5px;
       line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
-    @page { size: A4 portrait; margin: 8mm 10mm; }
+    @page { size: A4 portrait; margin: 10mm 12mm; }
 
     .toolbar {
       position: sticky;
@@ -137,600 +152,727 @@ export function generateInvoiceHTML(
       z-index: 20;
       display: flex;
       justify-content: center;
-      gap: 10px;
-      padding: 12px 16px;
-      background: rgba(255, 255, 255, 0.92);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--line);
+      padding: 12px 14px;
+      background: rgba(255,252,247,0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line-soft);
     }
 
     .toolbar button {
-      border: none;
-      border-radius: 999px;
+      border: 1px solid var(--ink);
       background: var(--ink);
-      color: #fff;
+      color: var(--ivory);
       cursor: pointer;
-      font: 600 10px/1 Inter, sans-serif;
-      letter-spacing: 0.14em;
-      padding: 10px 20px;
+      font: 700 9px/1 "Manrope", Inter, sans-serif;
+      letter-spacing: 0.22em;
+      padding: 11px 26px;
       text-transform: uppercase;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    .toolbar button:hover {
+      background: transparent;
+      color: var(--ink);
     }
 
     .shell {
-      max-width: 210mm;
+      max-width: 548px;
+      width: 100%;
       margin: 0 auto;
-      padding: ${fragment ? '0' : '20px 16px 32px'};
+      padding: ${fragment ? '0' : '28px 12px 48px'};
     }
 
-    .sheet {
+    .memo {
       position: relative;
-      background: var(--paper);
-      border: 1px solid var(--line);
-      border-radius: ${fragment ? '12px' : '6px'};
-      overflow: hidden;
-      box-shadow: ${fragment ? 'none' : '0 28px 72px rgba(16, 17, 20, 0.1)'};
-    }
-
-    .sheet__hero {
-      position: relative;
-      padding: 22px 26px 20px;
       background:
-        radial-gradient(circle at 88% 0%, rgba(255, 255, 255, 0.06), transparent 34%),
-        linear-gradient(135deg, #0a0a0c 0%, #101114 48%, #1a1b1f 100%);
-      color: #ffffff;
+        linear-gradient(180deg, rgba(255,255,255,0.55) 0%, transparent 42%),
+        var(--paper);
+      border: 1px solid rgba(17,17,17,0.14);
+      box-shadow: ${
+        fragment
+          ? 'none'
+          : '0 1px 0 rgba(255,255,255,0.7) inset, 0 32px 72px rgba(30,24,16,0.12), 0 8px 18px rgba(30,24,16,0.06)'
+      };
       overflow: hidden;
     }
 
-    .sheet__hero-grid {
+    /* Inner frame + stationery corners */
+    .memo__frame {
+      pointer-events: none;
+      position: absolute;
+      inset: 7px;
+      border: 1px solid rgba(17,17,17,0.06);
+      z-index: 2;
+    }
+    .memo::before,
+    .memo::after {
+      content: "";
+      pointer-events: none;
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-color: rgba(17,17,17,0.28);
+      border-style: solid;
+      z-index: 3;
+    }
+    .memo::before {
+      top: 11px; left: 11px;
+      border-width: 1.5px 0 0 1.5px;
+    }
+    .memo::after {
+      top: 11px; right: 11px;
+      border-width: 1.5px 1.5px 0 0;
+    }
+    .memo__corners {
       pointer-events: none;
       position: absolute;
       inset: 0;
-      opacity: 0.35;
-      background-image:
-        linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-      background-size: 28px 28px;
-      mask-image: linear-gradient(180deg, #000 0%, transparent 92%);
-      -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 92%);
+      z-index: 3;
     }
-
-    .sheet__hero-inner {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 28px;
+    .memo__corners::before,
+    .memo__corners::after {
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-color: rgba(17,17,17,0.28);
+      border-style: solid;
+    }
+    .memo__corners::before {
+      bottom: 11px; left: 11px;
+      border-width: 0 0 1.5px 1.5px;
+    }
+    .memo__corners::after {
+      bottom: 11px; right: 11px;
+      border-width: 0 1.5px 1.5px 0;
     }
 
     .brand {
-      display: flex;
-      align-items: flex-start;
-      gap: 16px;
-      min-width: 0;
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 28px 28px 16px;
+      background:
+        radial-gradient(ellipse 75% 70% at 50% 0%, rgba(255,255,255,0.95), transparent 72%);
     }
 
     .brand__logo {
       display: block;
-      height: 44px;
+      height: 42px;
       width: auto;
-      max-width: 150px;
+      max-width: 168px;
+      margin: 0 auto 12px;
       object-fit: contain;
-      opacity: 1;
-      flex-shrink: 0;
-      filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.08));
+      filter: contrast(1.04);
     }
 
-    .brand__name {
-      display: none;
+    .brand__rule {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin: 0 auto 10px;
+      max-width: 200px;
+    }
+    .brand__rule::before,
+    .brand__rule::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--brass), transparent);
+      opacity: 0.7;
+    }
+    .brand__diamond {
+      width: 5px;
+      height: 5px;
+      transform: rotate(45deg);
+      background: var(--brass);
+      flex-shrink: 0;
+      box-shadow: 0 0 0 3px rgba(154,139,110,0.12);
     }
 
     .brand__tagline {
-      margin-top: 4px;
-      font-size: 8px;
-      font-weight: 600;
-      letter-spacing: 0.22em;
+      font-size: 7.5px;
+      font-weight: 700;
+      letter-spacing: 0.34em;
       text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.58);
+      color: var(--brass);
+      margin-bottom: 9px;
     }
 
     .brand__office {
-      margin-top: 5px;
-      font-size: 9px;
-      color: rgba(255, 255, 255, 0.46);
-      line-height: 1.45;
-      max-width: 20rem;
+      font-size: 10px;
+      color: var(--soft);
+      margin-bottom: 3px;
+      letter-spacing: 0.03em;
+      font-weight: 500;
     }
 
-    .doc {
+    .brand__contact {
+      font-size: 8px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      line-height: 1.5;
+      font-weight: 500;
+    }
+
+    .titlebar {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      gap: 12px;
+      margin: 2px 18px 0;
+      padding: 12px 2px 11px;
+      border-top: 1.5px solid var(--ink);
+      border-bottom: 1px solid var(--ink);
+      box-shadow:
+        inset 0 3px 0 -2px var(--ink),
+        inset 0 -3px 0 -2px rgba(17,17,17,0.35);
+    }
+
+    .titlebar__name {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--ink);
+      line-height: 1;
+      padding-bottom: 1px;
+    }
+
+    .titlebar__meta {
       text-align: right;
-      min-width: 200px;
-      flex-shrink: 0;
+      display: grid;
+      gap: 2px;
     }
 
-    .doc__eyebrow {
-      font-size: 9px;
+    .titlebar__meta span {
+      display: block;
+      font-size: 6.5px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--brass);
+    }
+
+    .titlebar__meta strong {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--ink);
+      line-height: 1.15;
+    }
+
+    .titlebar__meta em {
+      font-style: normal;
+      font-size: 8px;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+      font-weight: 500;
+    }
+
+    .customer {
+      position: relative;
+      z-index: 1;
+      margin: 14px 18px 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: 1.4fr 0.9fr;
+      gap: 0;
+      border: 1px solid var(--line);
+      background: linear-gradient(135deg, #fff 0%, var(--wash-2) 100%);
+      overflow: hidden;
+    }
+    .customer::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 2px;
+      background: linear-gradient(180deg, var(--brass), rgba(154,139,110,0.2));
+    }
+
+    .customer__main,
+    .customer__side {
+      padding: 12px 14px;
+      min-width: 0;
+    }
+
+    .customer__side {
+      background: rgba(243,239,232,0.55);
+      border-left: 1px solid var(--line-soft);
+    }
+
+    .label {
+      font-size: 6.5px;
       font-weight: 700;
       letter-spacing: 0.28em;
       text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.48);
+      color: var(--brass);
+      margin-bottom: 6px;
     }
 
-    .doc__title {
-      margin-top: 6px;
-      font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: 30px;
-      font-weight: 400;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      line-height: 1;
-      color: #ffffff;
-    }
-
-    .doc__number {
-      margin-top: 8px;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      color: rgba(255, 255, 255, 0.92);
-    }
-
-    .doc__date {
-      margin-top: 4px;
-      font-size: 10px;
-      color: rgba(255, 255, 255, 0.5);
-    }
-
-    .sheet__body {
-      padding: 18px 24px 20px;
-    }
-
-    .badges {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 14px;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 5px 12px;
-      border-radius: 999px;
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      border: 1px solid transparent;
-    }
-
-    .badge--paid { background: #ecfdf3; color: #166534; border-color: #bbf7d0; }
-    .badge--pending { background: #f8fafc; color: #475569; border-color: #e2e8f0; }
-    .badge--processing { background: #eff6ff; color: #1d4ed8; border-color: #dbeafe; }
-    .badge--cancelled { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
-    .badge--method { background: var(--ink); color: #fff; border-color: var(--ink); }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1.15fr 0.85fr;
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-
-    .panel {
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 12px 14px;
-      background: linear-gradient(180deg, #ffffff 0%, var(--surface) 100%);
-    }
-
-    .panel__label {
-      font-size: 8px;
-      font-weight: 700;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 8px;
-    }
-
-    .panel__name {
+    .customer__name {
       font-family: "Cormorant Garamond", Georgia, serif;
       font-size: 17px;
       font-weight: 500;
       margin-bottom: 4px;
+      letter-spacing: -0.02em;
+      line-height: 1.05;
       color: var(--ink);
     }
 
-    .panel__text {
-      font-size: 10.5px;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-
-    .meta-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    .chip {
-      padding: 10px 12px;
-      border-radius: 12px;
-      background: var(--surface);
-      border: 1px solid var(--line);
-    }
-
-    .chip__label {
-      display: block;
-      font-size: 8px;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted-soft);
-      margin-bottom: 4px;
-    }
-
-    .chip strong {
-      display: block;
-      font-size: 11px;
-      font-weight: 600;
+    .customer__contact {
+      font-size: 9.5px;
+      color: var(--soft);
       line-height: 1.35;
-      color: var(--ink);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+    .customer__contact span + span::before {
+      content: " · ";
+      color: var(--muted);
     }
 
-    .chip__sub {
-      display: block;
-      margin-top: 3px;
-      font-size: 9px;
+    .customer__address {
+      font-size: 8.5px;
       color: var(--muted);
-      word-break: break-all;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .customer__kv { display: grid; gap: 10px; }
+
+    .customer__kv-row span {
+      display: block;
+      font-size: 6.5px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--brass);
+      margin-bottom: 3px;
+    }
+
+    .customer__kv-row strong {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+    }
+
+    .section-label {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 14px 18px 0;
+      font-size: 6.5px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--brass);
+    }
+    .section-label::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--brass-soft), transparent);
+    }
+
+    .items-wrap {
+      position: relative;
+      z-index: 1;
+      padding: 6px 14px 0;
     }
 
     table.items {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 14px;
+      table-layout: fixed;
     }
 
     table.items thead th {
-      padding: 8px 6px;
-      border-top: 2px solid var(--ink);
-      border-bottom: 1px solid var(--line);
-      font-size: 8px;
+      padding: 8px 5px;
+      border-bottom: 1.5px solid var(--ink);
+      font-size: 6.5px;
       font-weight: 700;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
       color: var(--muted);
       text-align: left;
-      background: var(--surface);
+      background: linear-gradient(180deg, rgba(243,239,232,0.65), transparent);
     }
 
     table.items tbody td {
-      padding: 8px 6px;
-      border-bottom: 1px solid var(--line);
+      padding: 8px 5px;
+      border-bottom: 1px solid var(--line-soft);
       vertical-align: middle;
-    }
-
-    table.items tbody tr:nth-child(even) td {
-      background: rgba(247, 248, 250, 0.72);
+      font-size: 10px;
     }
 
     table.items tbody tr:last-child td {
-      border-bottom: 2px solid var(--ink);
+      border-bottom: 1.5px solid var(--ink);
     }
 
-    .col-thumb { width: 46px; }
-    .col-product { min-width: 0; }
-    .col-qty { width: 42px; }
-    .col-total { width: 80px; }
-    .num { text-align: right; white-space: nowrap; }
+    .col-no {
+      width: 24px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .col-thumb { width: 42px; }
+    .col-product { width: auto; }
+    .col-qty { width: 34px; }
+    .col-rate { width: 70px; }
+    .col-total { width: 76px; }
+    .num {
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+      color: var(--soft);
+    }
+    .col-total.num { color: var(--ink); font-weight: 700; }
 
     .thumb {
-      width: 38px;
-      height: 48px;
-      border-radius: 6px;
+      width: 34px;
+      height: 42px;
+      border-radius: 0;
       overflow: hidden;
       border: 1px solid var(--line);
-      background: var(--surface);
+      background: var(--wash);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.4);
     }
-
     .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
     .thumb--empty {
       display: flex;
       align-items: center;
       justify-content: center;
       font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: 20px;
-      color: var(--muted);
-      background: var(--surface-2);
+      font-size: 14px;
+      color: var(--brass);
     }
 
     .product-name {
-      font-size: 11px;
       font-weight: 600;
-      line-height: 1.3;
+      line-height: 1.25;
       color: var(--ink);
+      font-size: 10.5px;
+      letter-spacing: -0.015em;
     }
-
     .product-meta {
       margin-top: 2px;
-      font-size: 9px;
+      font-size: 7.5px;
       color: var(--muted);
-      letter-spacing: 0.02em;
+      letter-spacing: 0.04em;
+      font-weight: 500;
     }
 
-    .qty {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 24px;
-      height: 24px;
-      border-radius: 999px;
-      background: var(--ink);
-      color: #fff;
-      font-size: 10px;
-      font-weight: 700;
-    }
+    /* 4+ lines: denser product list — chrome stays premium */
+    .memo--dense table.items tbody td { padding: 5px 4px; }
+    .memo--dense .thumb { width: 28px; height: 34px; }
+    .memo--dense .col-thumb { width: 34px; }
+    .memo--dense .product-name { font-size: 9.5px; }
+    .memo--dense .brand { padding: 20px 24px 12px; }
+    .memo--dense .brand__logo { height: 34px; max-width: 140px; margin-bottom: 8px; }
+    .memo--dense .customer { margin-top: 10px; }
+    .memo--dense .customer__main,
+    .memo--dense .customer__side { padding: 9px 11px; }
+    .memo--dense .customer__name { font-size: 15px; }
+    .memo--dense .footer { margin-top: 10px; padding: 12px 16px 14px; }
+    .memo--dense .footer__thanks { font-size: 11.5px; }
 
-    .foot {
+    .bottom {
+      position: relative;
+      z-index: 1;
       display: grid;
-      grid-template-columns: 1fr 260px;
-      gap: 14px;
-      align-items: start;
+      grid-template-columns: 1fr 210px;
+      gap: 16px;
+      align-items: end;
+      padding: 12px 18px 0;
     }
 
-    .terms {
-      padding: 14px 16px;
-      border-radius: 14px;
-      border: 1px dashed rgba(16, 17, 20, 0.14);
-      background: var(--surface);
-    }
-
-    .terms__label {
-      font-size: 8px;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-
+    .terms .label { margin-bottom: 4px; }
     .terms p {
-      font-size: 11px;
-      line-height: 1.62;
-      color: var(--ink);
+      font-size: 9.5px;
+      color: var(--soft);
+      line-height: 1.45;
+      max-width: 14rem;
+      font-weight: 500;
     }
 
-    .totals {
-      padding: 16px 18px;
-      border-radius: 14px;
-      background: var(--surface);
-      border: 1px solid var(--line);
+    .sums {
+      width: 100%;
+      padding: 8px 10px 0;
+      border: 1px solid var(--line-soft);
+      background: linear-gradient(180deg, rgba(255,255,255,0.7), var(--wash-2));
     }
 
-    .totals-row {
+    .sum-row {
       display: flex;
       justify-content: space-between;
-      gap: 12px;
-      padding: 6px 0;
-      font-size: 11px;
+      gap: 10px;
+      padding: 4px 2px;
+      font-size: 9px;
       color: var(--muted);
+      font-weight: 500;
     }
-
-    .totals-row strong { color: var(--ink); font-weight: 600; }
-    .totals-row--accent strong { color: var(--ink); }
+    .sum-row span:last-child {
+      color: var(--ink);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
 
     .grand {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      gap: 16px;
-      margin-top: 14px;
-      padding: 14px 16px;
-      border-radius: 12px;
-      background: var(--ink);
-      color: #ffffff;
+      gap: 10px;
+      margin: 6px -10px 0;
+      padding: 11px 12px;
+      background: linear-gradient(135deg, #161616 0%, #2a2723 100%);
+      color: var(--ivory);
+      box-shadow: inset 0 1px 0 rgba(154,139,110,0.35);
     }
-
-    .grand span {
-      font-size: 9px;
+    .grand span:first-child {
+      font-size: 6.5px;
       font-weight: 700;
-      letter-spacing: 0.18em;
+      letter-spacing: 0.22em;
       text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.58);
+      color: rgba(255,252,247,0.45);
     }
-
-    .grand strong {
+    .grand span:last-child {
       font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: 22px;
-      font-weight: 600;
+      font-size: 19px;
+      font-weight: 500;
+      line-height: 1;
       letter-spacing: 0.02em;
-      color: #ffffff;
     }
 
     .notes {
-      margin-top: 12px;
-      padding-top: 10px;
-      border-top: 1px solid var(--line);
-      font-size: 9.5px;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-
-    .notes p + p { margin-top: 8px; }
-
-    .notes span {
-      display: block;
+      position: relative;
+      z-index: 1;
+      padding: 8px 18px 0;
       font-size: 8px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .notes em {
+      font-style: normal;
+      font-size: 6px;
       font-weight: 700;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: var(--muted-soft);
-      margin-bottom: 2px;
+      margin-right: 5px;
+      color: var(--brass);
     }
 
     .footer {
+      position: relative;
+      z-index: 1;
       margin-top: 14px;
-      padding-top: 12px;
+      padding: 14px 22px 16px;
       border-top: 1px solid var(--line);
       text-align: center;
+      background:
+        linear-gradient(180deg, transparent, rgba(243,239,232,0.5));
     }
 
-    .footer__rule {
-      width: 48px;
-      height: 1px;
+    .footer__ornament {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
       margin: 0 auto 10px;
-      background: linear-gradient(90deg, transparent, var(--ink), transparent);
-      opacity: 0.22;
+      max-width: 96px;
+    }
+    .footer__ornament::before,
+    .footer__ornament::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--brass), transparent);
+      opacity: 0.55;
+    }
+    .footer__ornament span {
+      width: 4px;
+      height: 4px;
+      transform: rotate(45deg);
+      background: var(--brass);
+      opacity: 0.75;
     }
 
     .footer__thanks {
       font-family: "Cormorant Garamond", Georgia, serif;
       font-size: 13px;
       font-style: italic;
-      color: var(--ink);
-      margin-bottom: 6px;
+      color: var(--soft);
       line-height: 1.4;
+      margin-bottom: 6px;
+      max-width: 26rem;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     .footer__meta {
-      font-size: 8.5px;
+      font-size: 6.5px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
       color: var(--muted);
-      line-height: 1.6;
-      letter-spacing: 0.04em;
+      line-height: 1.55;
+      font-weight: 600;
     }
 
     @media print {
       .toolbar { display: none !important; }
-      html, body { background: #fff; }
-      .shell { padding: 0; max-width: none; }
-      .sheet {
-        border: none;
+      @page { size: A4 portrait; margin: 10mm 12mm; }
+      html, body {
+        background: #fff !important;
+      }
+      .shell { max-width: 170mm; margin: 0 auto; padding: 0; }
+      .memo {
+        border: 1px solid rgba(17,17,17,0.16);
         box-shadow: none;
-        border-radius: 0;
+      }
+      .memo__frame { inset: 5px; }
+      .brand { padding: 18px 20px 12px; }
+      .brand__logo { height: 36px; max-width: 148px; }
+      .titlebar { margin: 0 14px; padding: 9px 2px; }
+      .customer { margin: 10px 14px 0; }
+      .section-label { margin: 11px 14px 0; }
+      .items-wrap { padding: 4px 10px 0; }
+      .bottom { padding: 10px 14px 0; gap: 12px; }
+      .footer { padding: 12px 16px 14px; margin-top: 12px; }
+
+      .memo--dense .col-thumb,
+      .memo--dense th.col-thumb { display: none !important; }
+      .memo--dense table.items tbody td { padding: 4px 3px; }
+
+      tr, .brand, .customer, .bottom, .footer, .grand {
         break-inside: avoid;
         page-break-inside: avoid;
       }
-      .sheet__hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .sheet__hero-grid { display: none !important; }
-      .col-thumb, th.col-thumb { display: none !important; }
-      .brand__logo { height: 40px; max-width: 140px; }
-      tr, .panel, .totals, .terms, .foot, .footer {
+      table.items tbody tr {
         break-inside: avoid;
         page-break-inside: avoid;
       }
     }
 
-    @media (max-width: 680px) {
-      .sheet__hero { padding: 22px 18px 20px; }
-      .sheet__hero-inner { flex-direction: column; }
-      .doc { text-align: left; }
-      .sheet__body { padding: 20px 16px; }
-      .grid, .foot { grid-template-columns: 1fr; }
-      .meta-grid { grid-template-columns: 1fr; }
-      .brand { flex-direction: column; }
+    @media (max-width: 560px) {
+      .shell { padding: 12px 8px 28px; }
+      .titlebar { margin: 0 12px; grid-template-columns: 1fr; gap: 8px; }
+      .titlebar__meta { text-align: left; }
+      .customer { margin: 12px 12px 0; grid-template-columns: 1fr; }
+      .customer__side {
+        border-left: 0;
+        border-top: 1px solid var(--line-soft);
+      }
+      .customer__kv {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 12px;
+        display: grid;
+      }
+      .bottom { grid-template-columns: 1fr; gap: 12px; }
+      .sums { max-width: 260px; margin-left: auto; }
     }
   `
 
   const article = `
-  <article class="sheet">
-    <header class="sheet__hero">
-      <div class="sheet__hero-grid" aria-hidden="true"></div>
-      <div class="sheet__hero-inner">
-        <div class="brand">
-          <img class="brand__logo" src="${escapeHtml(model.logoUrl)}" alt="${escapeHtml(model.brand.name)}" />
-          <div class="brand__copy">
-            <div class="brand__name">${escapeHtml(model.brand.name)}</div>
-            <div class="brand__tagline">${escapeHtml(model.brand.tagline)}</div>
-            <div class="brand__office">${escapeHtml(model.brand.office)}</div>
-          </div>
-        </div>
-        <div class="doc">
-          <div class="doc__eyebrow">Tax Invoice</div>
-          <div class="doc__title">Invoice</div>
-          <div class="doc__number">${escapeHtml(model.invoiceNumber)}</div>
-          <div class="doc__date">${escapeHtml(model.issueDate)}</div>
-        </div>
+  <article class="${memoClass}">
+    <div class="memo__frame" aria-hidden="true"></div>
+    <div class="memo__corners" aria-hidden="true"></div>
+    <header class="brand">
+      <img class="brand__logo" src="${escapeHtml(logoUrl)}" alt="${escapeHtml(model.brand.name)}" />
+      <div class="brand__rule" aria-hidden="true"><span class="brand__diamond"></span></div>
+      <div class="brand__tagline">${escapeHtml(model.brand.tagline)}</div>
+      <div class="brand__office">${escapeHtml(model.brand.office)}</div>
+      <div class="brand__contact">
+        ${escapeHtml(model.brand.websiteDisplay)} · ${escapeHtml(model.brand.phone)} · ${escapeHtml(model.brand.email)}
       </div>
     </header>
 
-    <div class="sheet__body">
-      <div class="badges">
-        <span class="${orderBadge}">${escapeHtml(model.orderStatus)}</span>
-        <span class="${payBadge}">${escapeHtml(payLabel)}</span>
-        <span class="badge badge--method">${escapeHtml(model.paymentMethod)}</span>
+    <div class="titlebar">
+      <div class="titlebar__name">Cash Memo</div>
+      <div class="titlebar__meta">
+        <span>Invoice</span>
+        <strong>${escapeHtml(model.invoiceNumber)}</strong>
+        <em>${escapeHtml(model.issueDate)}</em>
       </div>
+    </div>
 
-      <div class="grid">
-        <section class="panel">
-          <div class="panel__label">Bill &amp; Ship To</div>
-          <div class="panel__name">${escapeHtml(model.customerName)}</div>
-          <div class="panel__text">
-            ${emailLine}
-            ${escapeHtml(model.customerPhone)}<br />
-            ${escapeHtml(model.customerAddress)}<br />
-            ${model.shippingCityArea ? `${escapeHtml(model.shippingCityArea)} · ` : ''}${escapeHtml(model.deliveryArea)}
-          </div>
-        </section>
-        <section class="panel">
-          <div class="panel__label">Order Details</div>
-          <div class="meta-grid">
-            <div class="chip">
-              <span class="chip__label">Delivery</span>
-              <strong>${escapeHtml(model.estimatedDelivery)}</strong>
-            </div>
-            <div class="chip">
-              <span class="chip__label">Items</span>
-              <strong>${model.items.reduce((n, i) => n + i.quantity, 0)} pcs</strong>
-            </div>
-            ${courierBlock}
-          </div>
-        </section>
+    <section class="customer">
+      <div class="customer__main">
+        <div class="label">Customer</div>
+        <div class="customer__name">${escapeHtml(model.customerName)}</div>
+        <div class="customer__contact">
+          <span>${escapeHtml(model.customerPhone)}</span>${emailLine}
+        </div>
+        <div class="customer__address">${addressLine}</div>
       </div>
+      <aside class="customer__side">
+        <div class="customer__kv">
+          <div class="customer__kv-row">
+            <span>Payment</span>
+            <strong>${escapeHtml(model.paymentMethod)}</strong>
+          </div>
+          <div class="customer__kv-row">
+            <span>Zone</span>
+            <strong>${zoneLine}</strong>
+          </div>
+        </div>
+      </aside>
+    </section>
 
+    <div class="section-label">Items</div>
+    <div class="items-wrap">
       <table class="items">
         <thead>
           <tr>
+            <th class="col-no">No</th>
             <th class="col-thumb"></th>
             <th>Product</th>
-            <th class="num">Qty</th>
-            <th class="num">Rate</th>
-            <th class="num">Amount</th>
+            <th class="num col-qty">Qty</th>
+            <th class="num col-rate">Price</th>
+            <th class="num col-total">Amount</th>
           </tr>
         </thead>
-        <tbody>${itemRows || '<tr><td colspan="5">No items</td></tr>'}</tbody>
+        <tbody>${itemRows || '<tr><td colspan="6">No items</td></tr>'}</tbody>
       </table>
-
-      <div class="foot">
-        <section class="terms">
-          <div class="terms__label">Payment Terms</div>
-          <p>${escapeHtml(model.paymentTerms)}</p>
-        </section>
-        <section class="totals">
-          ${summaryRows}
-          <div class="grand">
-            <span>Total Due</span>
-            <strong>${formatBdt(totalDue)}</strong>
-          </div>
-        </section>
-      </div>
-
-      ${noteBlock}
-
-      <footer class="footer">
-        <div class="footer__rule" aria-hidden="true"></div>
-        <div class="footer__thanks">${escapeHtml(model.brand.thankYouNote)}</div>
-        <div class="footer__meta">
-          ${escapeHtml(model.brand.supportLine)}<br />
-          ${escapeHtml(model.brand.websiteDisplay)} · ${escapeHtml(model.brand.phone)} · ${escapeHtml(model.brand.email)}
-        </div>
-      </footer>
     </div>
+
+    <div class="bottom">
+      <div class="terms">
+        <div class="label">Payment terms</div>
+        <p>${paymentTerms}</p>
+      </div>
+      <div class="sums">
+        ${sumLines}
+        <div class="grand">
+          <span>Total due</span>
+          <span>${formatBdt(totalDue)}</span>
+        </div>
+      </div>
+    </div>
+
+    ${noteBlock}
+
+    <footer class="footer">
+      <div class="footer__ornament" aria-hidden="true"><span></span></div>
+      <div class="footer__thanks">${escapeHtml(model.brand.thankYouNote)}</div>
+      <div class="footer__meta">
+        ${escapeHtml(model.brand.supportLine)} · ${escapeHtml(model.brand.websiteDisplay)}
+      </div>
+    </footer>
   </article>`
 
-  // Email must never receive this print/PDF article — Gmail strips <style> and
-  // product images explode. Prefer generateInvoiceEmailBody at call sites.
   if (fragment) return generateInvoiceEmailBody(model)
 
   return `<!DOCTYPE html>
@@ -738,10 +880,10 @@ export function generateInvoiceHTML(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Invoice ${escapeHtml(model.invoiceNumber)} — ${escapeHtml(model.brand.name)}</title>
+  <title>Cash Memo ${escapeHtml(model.invoiceNumber)} — ${escapeHtml(model.brand.name)}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>${styles}</style>
 </head>
 <body>
