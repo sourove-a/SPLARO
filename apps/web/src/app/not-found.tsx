@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import type { Metadata } from 'next'
 import { ArrowLeft } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 import '@/styles/pages/content.css'
 import '@/styles/pages/account.css'
 
@@ -18,10 +18,10 @@ export default function NotFound() {
         <p className="not-found-text">
           The page you are looking for may have moved or no longer exists.
         </p>
-        <Link href="/" className="account-btn account-btn--primary not-found-btn">
+        <Button href="/" className="not-found-btn">
           <ArrowLeft className="h-4 w-4" strokeWidth={2} />
           Return Home
-        </Link>
+        </Button>
       </div>
     </div>
   )

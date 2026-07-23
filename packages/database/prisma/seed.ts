@@ -257,6 +257,12 @@ async function main() {
   let demoProductsSeeded = 0
   for (const demo of DEMO_PRODUCTS) {
     const categoryId = categories[demo.categorySlug]
+    if (!categoryId) {
+      throw new Error(
+        `[seed] Category slug "${demo.categorySlug}" missing for product "${demo.slug}". ` +
+          'Fix the seed slug to a real tree category — never fall back to women/another department.',
+      )
+    }
     const existing = await prisma.product.findUnique({
       where: { storeId_slug: { storeId: store.id, slug: demo.slug } },
       select: { id: true },
@@ -266,7 +272,7 @@ async function main() {
     const product = await prisma.product.create({
       data: {
         storeId: store.id,
-        categoryId: categoryId ?? categories['women'],
+        categoryId,
         slug: demo.slug,
         name: demo.name,
         shortDescription: 'Premium SPLARO piece — demo catalog for local development.',

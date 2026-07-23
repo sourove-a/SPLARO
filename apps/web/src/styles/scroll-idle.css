@@ -1,0 +1,36 @@
+/**
+ * Pause expensive continuous animations while scrolling.
+ * Keeps Lenis smooth; resumes when idle so the site stays alive (not boring).
+ */
+
+html[data-scrolling='1'] .account-glass__sheen,
+html[data-scrolling='1'] .account-glass__sheen::after,
+html[data-scrolling='1'] .pearl-glass::before,
+html[data-scrolling='1'] .pearl-glass::after,
+html[data-scrolling='1'] .premium-icon__sheen,
+html[data-scrolling='1'] .premium-icon__sheen::after,
+html[data-scrolling='1'] .home-story-deck__marble--base,
+html[data-scrolling='1'] .home-story-deck__marble--depth,
+html[data-scrolling='1'] .home-story-deck__marble-veins,
+html[data-scrolling='1'] .home-story-deck__card-beam-spin,
+html[data-scrolling='1'] .home-story-deck__card-foil,
+html[data-scrolling='1'] .home-story-deck__seal-ring--mid,
+html[data-scrolling='1'] .home-story-deck__seal-ring--inner,
+html[data-scrolling='1'] .home-story-deck__medallion,
+html[data-scrolling='1'] .home-story-deck__seal-glow,
+html[data-scrolling='1'] .ed-newsletter__sweep,
+html[data-scrolling='1'] .story-scroll--light::before {
+  animation-play-state: paused !important;
+}
+
+/* During scroll: don't promote transform layers that fight Lenis */
+html[data-scrolling='1'] .shop-product-card,
+html[data-scrolling='1'] .splaro-card,
+html[data-scrolling='1'] .pc-shell,
+html[data-scrolling='1'] .luxury-card {
+  transition: none !important;
+}
+
+html[data-scrolling='1'] .scroll-reveal-gpu {
+  transition: none !important;
+}

@@ -5,11 +5,11 @@ import type { Transition, Variants } from '@/lib/motion/react'
 export const checkoutEase = EASE_EXPO_OUT
 
 /**
- * Checkout page rhythm — readable, not rushed.
- * Between “snap” and “slow cinema”: ~0.48–0.55s settles.
+ * Checkout page rhythm — unhurried quiet luxury.
+ * Settle ~0.78s so sections float in without feeling rushed.
  */
 const SETTLE: Transition = {
-  duration: 0.52,
+  duration: 0.78,
   ease: EASE_EXPO_OUT,
 }
 
@@ -54,8 +54,8 @@ export const checkoutStaggerContainer: Variants = {
   hidden: {},
   show: {
     transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.08,
+      staggerChildren: 0.12,
+      delayChildren: 0.12,
     },
   },
 }

@@ -294,7 +294,7 @@ const PRODUCTS: SeedProduct[] = [
   {
     name: 'Premium Cotton Polo',
     slug: 'premium-cotton-polo',
-    categorySlug: 'polos',
+    categorySlug: 'polo-shirts',
     price: 1890,
     compareAtPrice: 2190,
     image: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=900&q=86&auto=format&fit=max',
@@ -712,8 +712,13 @@ async function main() {
   const touched: string[] = []
 
   for (const [index, seed] of PRODUCTS.entries()) {
-    const categoryId = categories.get(seed.categorySlug) ?? categories.get('women')
-    if (!categoryId) throw new Error(`Category missing for ${seed.slug}`)
+    // Never fall back to Women — a bad slug used to dump men's polos into Women.
+    const categoryId = categories.get(seed.categorySlug)
+    if (!categoryId) {
+      throw new Error(
+        `Category "${seed.categorySlug}" missing for ${seed.slug}. Use a real tree slug (e.g. polo-shirts).`,
+      )
+    }
     const sku = skuFor(seed.slug, index)
     const existing = await prisma.product.findUnique({
       where: { storeId_slug: { storeId: store.id, slug: seed.slug } },

@@ -1,13 +1,9 @@
-import type { Metadata } from 'next'
 import { ContentPage } from '@/components/content/ContentPage'
 import { getLegalPage } from '@/lib/content/get-legal-page'
+import { legalPageMetadata } from '@/lib/seo/legal-metadata'
 
-export async function generateMetadata(): Promise<Metadata> {
-  const page = await getLegalPage('payment-policy')
-  return {
-    title: page.metaTitle ?? page.title,
-    description: page.metaDescription ?? page.description,
-  }
+export async function generateMetadata() {
+  return legalPageMetadata('payment-policy', '/payment-policy')
 }
 
 export default async function PaymentPolicyPage() {

@@ -86,10 +86,10 @@ const navItems: {
 ]
 
 const trustItems = [
-  { icon: Truck, title: 'Fast Delivery', text: 'On all orders' },
-  { icon: Shield, title: 'Secure Payment', text: '100% protected' },
-  { icon: RotateCcw, title: 'Easy Returns', text: 'Hassle free' },
-  { icon: Headphones, title: '24/7 Support', text: 'Always here' },
+  { icon: Truck, title: 'Fast Delivery', text: 'Dhaka 1–2 days' },
+  { icon: Shield, title: 'Secure Payment', text: 'COD · bKash · card' },
+  { icon: RotateCcw, title: 'Easy Returns', text: '7 days · tags on' },
+  { icon: Headphones, title: 'Customer Care', text: 'Sat–Thu · 10–8' },
 ]
 
 function initials(name: string) {

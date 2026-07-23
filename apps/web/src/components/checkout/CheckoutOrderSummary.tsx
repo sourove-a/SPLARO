@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { Headphones, RefreshCw, ShieldCheck, ShoppingBag, Truck } from 'lucide-react'
+import { ShoppingBag, Truck } from 'lucide-react'
 import { motion, useReducedMotion } from '@/lib/motion/react'
 import type { CartItem } from '@/store/cartStore'
 import { formatBDT, DIGITAL_PAYMENT_DISCOUNT_RATE } from '@/lib/utils/currency'
@@ -53,7 +53,7 @@ export function CheckoutOrderSummary({
     <motion.aside
       className="checkout-summary checkout-glass-panel"
       {...checkoutChromeMotion(reduced)}
-      transition={checkoutEnterTransition(reduced, 0.3)}
+      transition={checkoutEnterTransition(reduced, 0.42)}
     >
       <div className="checkout-summary__head">
         <h2>Order summary</h2>
@@ -68,8 +68,8 @@ export function CheckoutOrderSummary({
             <Truck className="h-3.5 w-3.5" strokeWidth={2.2} />
             <span>
               {deliveryProgress >= 100
-                ? 'You unlocked free delivery'
-                : `Add ${formatBDT(freeDeliveryThreshold - subtotal)} more for free delivery`}
+                ? 'Free delivery unlocked'
+                : `Add ${formatBDT(freeDeliveryThreshold - subtotal)} for free delivery`}
             </span>
           </div>
           <div className="checkout-delivery-progress__track" aria-hidden>
@@ -87,15 +87,15 @@ export function CheckoutOrderSummary({
       ) : delivery === 0 && subtotal > 0 ? (
         <div className="checkout-delivery-progress checkout-delivery-progress--unlocked">
           <Truck className="h-3.5 w-3.5" strokeWidth={2.2} />
-          <span>Free delivery applied</span>
+          <span>Free delivery</span>
         </div>
       ) : null}
 
       {items.length === 0 ? (
         <div className="checkout-empty">
-          <ShoppingBag className="mx-auto h-9 w-9 text-black/25" strokeWidth={1.75} />
-          <p className="mt-4 text-lg font-black">Your bag is empty</p>
-          <Link href="/shop" className="checkout-btn checkout-btn--primary mt-5">
+          <ShoppingBag className="mx-auto h-8 w-8 text-black/25" strokeWidth={1.75} />
+          <p className="mt-3 text-base font-black">Your bag is empty</p>
+          <Link href="/shop" className="checkout-btn checkout-btn--primary mt-4">
             Shop products
           </Link>
         </div>
@@ -109,7 +109,7 @@ export function CheckoutOrderSummary({
                     src={item.image}
                     alt={item.name}
                     fill
-                    sizes="64px"
+                    sizes="56px"
                     className="object-contain object-center"
                   />
                 </div>
@@ -137,7 +137,6 @@ export function CheckoutOrderSummary({
                 <span>- {formatBDT(discount)}</span>
               </div>
             ) : null}
-            <div className="checkout-divider" />
             <div className="checkout-summary-line checkout-summary-line--total">
               <span>Total</span>
               <motion.span
@@ -160,35 +159,6 @@ export function CheckoutOrderSummary({
               {Math.round(DIGITAL_PAYMENT_DISCOUNT_RATE * 100)}% digital payment savings applied
             </p>
           ) : null}
-
-          <p className="checkout-security checkout-security--compact">
-            <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2.1} />
-            <span>Secure checkout · SSL encrypted</span>
-          </p>
-
-          <div className="checkout-sidebar-trust checkout-sidebar-trust--compact">
-            <div className="checkout-sidebar-trust__card">
-              <Truck className="h-3.5 w-3.5" strokeWidth={2} />
-              <div>
-                <strong>Fast delivery</strong>
-                <span>Dispatch with live updates</span>
-              </div>
-            </div>
-            <div className="checkout-sidebar-trust__card">
-              <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} />
-              <div>
-                <strong>Easy returns</strong>
-                <span>7-day hassle-free returns</span>
-              </div>
-            </div>
-            <div className="checkout-sidebar-trust__card">
-              <Headphones className="h-3.5 w-3.5" strokeWidth={2} />
-              <div>
-                <strong>Support</strong>
-                <span>We&apos;re here to help</span>
-              </div>
-            </div>
-          </div>
         </>
       )}
     </motion.aside>

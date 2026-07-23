@@ -10,6 +10,7 @@ import {
   Leaf,
   MapPinned,
   PenTool,
+  ShieldCheck,
   Sparkles,
   Sprout,
   Sunrise,
@@ -18,6 +19,10 @@ import {
 import { motion, useInView, useReducedMotion } from '@/lib/motion/react'
 
 import { AccountGlass } from '@/components/account/AccountGlass'
+import { PremiumIcon } from '@/components/ui/PremiumIcon'
+import { Button } from '@/components/ui/Button'
+import { ElectricBorder } from '@/components/ui/ElectricBorder'
+import { AboutParticlesField } from '@/components/content/AboutParticlesField'
 import { splitLegalLines } from '@/components/content/split-legal-lines'
 import type { SitePageSection } from '@/lib/content/site-pages'
 import { fadeUp, type staggerContainer } from '@/lib/motion/variants'
@@ -37,9 +42,14 @@ function resolveAboutIcon(heading: string): { Icon: LucideIcon; tone: AboutTone 
 
   if (h.includes('story')) return { Icon: Sunrise, tone: 'story' }
   if (h.includes('design')) return { Icon: PenTool, tone: 'design' }
+  if (h.includes('trust') || h.includes('earn')) return { Icon: ShieldCheck, tone: 'community' }
   if (h.includes('sustain')) return { Icon: Sprout, tone: 'sustain' }
   if (h.includes('community')) return { Icon: HeartHandshake, tone: 'community' }
-  if (h.includes('visit')) return { Icon: MapPinned, tone: 'visit' }
+  if (h.includes('visit') || h.includes('store')) return { Icon: MapPinned, tone: 'visit' }
+  if (h.includes('fabric') || h.includes('fit')) return { Icon: PenTool, tone: 'design' }
+  if (h.includes('summer') || h.includes('wardrobe') || h.includes('minimal'))
+    return { Icon: Sparkles, tone: 'story' }
+  if (h.includes('contributor')) return { Icon: HeartHandshake, tone: 'community' }
 
   return { Icon: Sparkles, tone: 'default' }
 }
@@ -63,6 +73,7 @@ type AboutStoryCardProps = {
 function AboutStoryCard({ section, index }: AboutStoryCardProps) {
   const ref = useRef<HTMLElement>(null)
   const inView = useInView(ref, { once: true, margin: '-8% 0px -6% 0px' })
+  const borderLive = useInView(ref, { once: false, amount: 0.2, margin: '12% 0px' })
   const reducedMotion = useReducedMotion()
   const { Icon, tone } = resolveAboutIcon(section.heading)
   const lines = splitLegalLines(section.body)
@@ -80,39 +91,49 @@ function AboutStoryCard({ section, index }: AboutStoryCardProps) {
         delay: reducedMotion ? 0 : index * 0.06,
       }}
     >
-      <div className="about-premium__story-rim">
-        <AccountGlass className="about-premium__story-glass">
-          <div className="about-premium__story-shimmer" aria-hidden="true" />
+      <ElectricBorder
+        className="about-premium__story-electric"
+        color="#96acfc"
+        speed={0.85}
+        chaos={0.1}
+        borderRadius={32}
+        active={borderLive && !reducedMotion}
+        style={{ borderRadius: 32 }}
+      >
+        <div className="about-premium__story-rim">
+          <AccountGlass className="about-premium__story-glass">
+            <div className="about-premium__story-shimmer" aria-hidden="true" />
 
-          <div className="about-premium__story-head">
-            <span className={`about-premium__story-icon about-premium__story-icon--${tone}`}>
-              <Icon className="h-5 w-5" strokeWidth={2.1} />
-            </span>
-            <div className="about-premium__story-meta">
-              <p className="about-premium__story-index">Chapter {formatStoryIndex(index)}</p>
-              <h2 className="about-premium__story-title">{section.heading}</h2>
+            <div className="about-premium__story-head">
+              <span className={`about-premium__story-icon about-premium__story-icon--${tone}`}>
+                <PremiumIcon icon={Icon} size="md" />
+              </span>
+              <div className="about-premium__story-meta">
+                <p className="about-premium__story-index">Chapter {formatStoryIndex(index)}</p>
+                <h2 className="about-premium__story-title">{section.heading}</h2>
+              </div>
             </div>
-          </div>
 
-          <motion.ul
-            className="about-premium__lines"
-            variants={lineStagger}
-            initial={reducedMotion ? false : 'hidden'}
-            animate={animate ? 'visible' : 'hidden'}
-          >
-            {lines.map((line, lineIndex) => (
-              <motion.li
-                key={`${section.heading}-${lineIndex}`}
-                className="about-premium__line"
-                variants={fadeUp}
-              >
-                <span className={`about-premium__line-accent about-premium__line-accent--${tone}`} />
-                <span className="about-premium__line-copy">{line}</span>
-              </motion.li>
-            ))}
-          </motion.ul>
-        </AccountGlass>
-      </div>
+            <motion.ul
+              className="about-premium__lines"
+              variants={lineStagger}
+              initial={reducedMotion ? false : 'hidden'}
+              animate={animate ? 'visible' : 'hidden'}
+            >
+              {lines.map((line, lineIndex) => (
+                <motion.li
+                  key={`${section.heading}-${lineIndex}`}
+                  className="about-premium__line"
+                  variants={fadeUp}
+                >
+                  <span className={`about-premium__line-accent about-premium__line-accent--${tone}`} />
+                  <span className="about-premium__line-copy">{line}</span>
+                </motion.li>
+              ))}
+            </motion.ul>
+          </AccountGlass>
+        </div>
+      </ElectricBorder>
     </motion.article>
   )
 }
@@ -145,7 +166,7 @@ export function ContentPremiumAbout({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.62, ease: [0.16, 1, 0.3, 1] }}
         >
-          <AccountGlass className="about-premium__hero">
+          <AccountGlass tilt className="about-premium__hero">
             <div className="about-premium__hero-shimmer" aria-hidden="true" />
 
             <Link href="/" className="content-page__back about-premium__back">
@@ -154,6 +175,7 @@ export function ContentPremiumAbout({
             </Link>
 
             <div className="about-premium__constellation" aria-hidden="true">
+              <AboutParticlesField className="about-premium__particles" />
               <span className="about-premium__constellation-ring" />
               {HERO_ORBIT_ICONS.map(({ Icon, position }, orbitIndex) => {
                 const floatMotion = reducedMotion
@@ -177,13 +199,13 @@ export function ContentPremiumAbout({
                     {...floatMotion}
                   >
                     <span className="about-premium__orbit-glass">
-                      <Icon className="h-4 w-4" strokeWidth={2.1} />
+                      <PremiumIcon icon={Icon} size="xs" />
                     </span>
                   </motion.span>
                 )
               })}
               <span className="about-premium__constellation-core">
-                <Crown className="h-6 w-6" strokeWidth={2} />
+                <PremiumIcon icon={Crown} size="lg" />
               </span>
             </div>
 
@@ -191,10 +213,19 @@ export function ContentPremiumAbout({
             <h1 className="about-premium__title">{title}</h1>
             <p className="about-premium__description">{description}</p>
 
-            <div className="about-premium__hero-pills" aria-hidden="true">
-              <span>Premium everyday</span>
-              <span>Designed in Dhaka</span>
-              <span>Made for Bangladesh</span>
+            <div className="about-premium__hero-pills" aria-label="Store promises">
+              <span className="about-premium__hero-pill">Authentic products</span>
+              <span className="about-premium__hero-pill">COD nationwide</span>
+              <span className="about-premium__hero-pill">7-day returns</span>
+            </div>
+
+            <div className="about-premium__hero-actions">
+              <Button href="/stores" variant="primary" className="about-premium__hero-cta">
+                Visit Uttara studio
+              </Button>
+              <Button href="/contact" variant="secondary" className="about-premium__hero-cta">
+                Talk to care
+              </Button>
             </div>
           </AccountGlass>
         </motion.div>

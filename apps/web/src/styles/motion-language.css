@@ -1,0 +1,111 @@
+/**
+ * SPLARO Motion Language
+ * Elegant · Heavy · Luxury — no bounce, no overshoot
+ *
+ * Hover lift 2px · Card scale 1.02 · Duration 320ms · Gentle settle · Tilt ≤2°
+ */
+
+:root {
+  --motion-lift: -2px;
+  --motion-card-scale: 1.02;
+  --motion-tilt-max: 2deg;
+  --motion-duration: var(--duration-luxury, 320ms);
+  --motion-ease: var(--ease-luxury, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+
+/* Shared luxury transform transition */
+.luxury-card,
+.shop-product-card,
+.splaro-card,
+.pc-shell,
+.pearl-glass,
+.spl-glass-card,
+.account-glass {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --motion-y: 0px;
+  --motion-scale: 1;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  html:not([data-perf='lite']) .luxury-card,
+  html:not([data-perf='lite']) .shop-product-card,
+  html:not([data-perf='lite']) .splaro-card,
+  html:not([data-perf='lite']) .pc-shell {
+    transition:
+      transform var(--motion-duration) var(--motion-ease),
+      box-shadow var(--motion-duration) var(--motion-ease);
+    transform: translate3d(0, var(--motion-y), 0) scale(var(--motion-scale));
+    will-change: transform;
+  }
+
+  html:not([data-perf='lite']) .luxury-card:hover,
+  html:not([data-perf='lite']) .shop-product-card:hover,
+  html:not([data-perf='lite']) .splaro-card:hover,
+  html:not([data-perf='lite']) .pc-shell:hover {
+    --motion-y: var(--motion-lift);
+    --motion-scale: var(--motion-card-scale);
+  }
+
+  /* Pearl panels — soft lift (scale reserved for commerce cards) */
+  html:not([data-perf='lite']) .pearl-glass,
+  html:not([data-perf='lite']) .spl-glass-card,
+  html:not([data-perf='lite']) .account-glass {
+    transition:
+      transform var(--motion-duration) var(--motion-ease),
+      box-shadow var(--motion-duration) var(--motion-ease);
+    transform:
+      perspective(900px)
+      translate3d(0, var(--motion-y), 0)
+      scale(var(--motion-scale))
+      rotateX(var(--tilt-x))
+      rotateY(var(--tilt-y));
+  }
+
+  html:not([data-perf='lite']) .pearl-glass:hover,
+  html:not([data-perf='lite']) .spl-glass-card:hover,
+  html:not([data-perf='lite']) .account-glass:hover {
+    --motion-y: var(--motion-lift);
+  }
+
+  /* Tilt-enabled glass — keep scale at 1 so layout stays calm */
+  html:not([data-perf='lite']) .account-glass--tilt:hover {
+    --motion-scale: 1;
+  }
+}
+
+/* Checkout / press: never fight CTA focus with card scale */
+.checkout-page .luxury-card:hover,
+.checkout-page .shop-product-card:hover,
+.checkout-page .splaro-card:hover,
+.checkout-page .pc-shell:hover,
+.checkout-page .account-glass:hover,
+.checkout-page .pearl-glass:hover {
+  --motion-y: 0px;
+  --motion-scale: 1;
+}
+
+/* Lite / reduced-motion: kill motion language transforms */
+@media (prefers-reduced-motion: reduce) {
+  .luxury-card,
+  .shop-product-card,
+  .splaro-card,
+  .pc-shell,
+  .pearl-glass,
+  .spl-glass-card,
+  .account-glass {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+html[data-perf='lite'] .luxury-card,
+html[data-perf='lite'] .shop-product-card,
+html[data-perf='lite'] .splaro-card,
+html[data-perf='lite'] .pc-shell,
+html[data-perf='lite'] .pearl-glass,
+html[data-perf='lite'] .spl-glass-card,
+html[data-perf='lite'] .account-glass {
+  transition: none !important;
+  transform: none !important;
+}

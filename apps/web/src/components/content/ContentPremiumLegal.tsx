@@ -19,6 +19,7 @@ import {
 import { motion, useInView, useReducedMotion } from '@/lib/motion/react'
 
 import { AccountGlass } from '@/components/account/AccountGlass'
+import { PremiumIcon } from '@/components/ui/PremiumIcon'
 import type { SitePageSection } from '@/lib/content/site-pages'
 import { fadeUp, type staggerContainer } from '@/lib/motion/variants'
 import { splitLegalLines } from '@/components/content/split-legal-lines'
@@ -74,7 +75,7 @@ function PremiumClause({ section, index, total }: PremiumClauseProps) {
       <div className="legal-premium__node" aria-hidden="true">
         <span className="legal-premium__node-ring" />
         <span className="legal-premium__node-icon">
-          <Icon className="h-4 w-4" strokeWidth={2.1} />
+          <PremiumIcon icon={Icon} size="sm" />
         </span>
         {index < total - 1 ? <span className="legal-premium__node-line" /> : null}
       </div>
@@ -149,7 +150,7 @@ export function ContentPremiumLegal({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.58, ease: [0.16, 1, 0.3, 1] }}
         >
-          <AccountGlass className="legal-premium__hero">
+          <AccountGlass tilt className="legal-premium__hero">
             <div className="legal-premium__hero-shimmer" aria-hidden="true" />
 
             <Link href="/" className="content-page__back legal-premium__back">

@@ -226,7 +226,8 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
   const handleAvatarUpload = async (partner: PartnerAccount, file: File) => {
     setUploadingSlug(partner.slug)
     try {
-      const url = await uploadAdminImage(file, 'partners')
+      const uploaded = await uploadAdminImage(file, 'partners')
+      const url = uploaded.url
       const saved = await updatePartnerProfile(partner.slug, { avatarUrl: url })
       if (!verifyStringEquals(saved.avatarUrl, url, 'Partner photo')) return
       toastApiSaved(`${partner.name} photo`)

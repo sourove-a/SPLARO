@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { AccountGlass } from '@/components/account/AccountGlass'
 import { ContentPremiumAbout } from '@/components/content/ContentPremiumAbout'
+import { ContentPremiumContact } from '@/components/content/ContentPremiumContact'
 import { ContentPremiumFaq } from '@/components/content/ContentPremiumFaq'
 import { ContentPremiumLegal } from '@/components/content/ContentPremiumLegal'
 import { ContentPremiumSizeGuide } from '@/components/content/ContentPremiumSizeGuide'
@@ -14,7 +15,7 @@ interface ContentPageProps {
   description: string
   sections: SitePageSection[]
   children?: ReactNode
-  variant?: 'default' | 'boxed' | 'premium' | 'about' | 'faq' | 'size-guide'
+  variant?: 'default' | 'boxed' | 'premium' | 'about' | 'faq' | 'size-guide' | 'contact'
   premiumBadge?: string
 }
 
@@ -66,6 +67,19 @@ export function ContentPage({
         description={description}
         {...(premiumBadge ? { badge: premiumBadge } : {})}
       />
+    )
+  }
+
+  if (variant === 'contact') {
+    return (
+      <ContentPremiumContact
+        title={title}
+        description={description}
+        sections={sections}
+        {...(premiumBadge ? { badge: premiumBadge } : {})}
+      >
+        {children}
+      </ContentPremiumContact>
     )
   }
 

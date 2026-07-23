@@ -16,7 +16,7 @@ import { ACCESSORIES_FILTER_CATEGORIES } from '@/lib/storefront/accessories-nav'
 import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 import type { CatalogProduct } from '@/lib/catalog/live'
 import { resolveQuickAddVariant } from '@/lib/catalog/index'
-import { formatBDT } from '@/lib/utils/currency'
+import { ProductPrice } from '@/components/product/ProductPrice'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { cn } from '@/lib/utils/cn'
@@ -162,7 +162,6 @@ function AccessoryProductCard({ product, index }: { product: CatalogProduct; ind
   const colorHexes = product.colorOptions?.map((c) => c.hex) ?? product.colors ?? []
 
   if (!product.image) {
-    const hasDiscount = Boolean(product.compareAtPrice && product.compareAtPrice > product.price)
     return (
       <motion.article
         initial={{ opacity: 0, y: 12 }}
@@ -180,14 +179,13 @@ function AccessoryProductCard({ product, index }: { product: CatalogProduct; ind
               <h3 className="line-clamp-2 text-[0.8125rem] font-semibold leading-snug text-[#111111]">
                 {product.name}
               </h3>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-sm font-bold text-[#111111]">{formatBDT(product.price)}</span>
-                {hasDiscount ? (
-                  <span className="text-xs text-[#9CA3AF] line-through">
-                    {formatBDT(product.compareAtPrice)}
-                  </span>
-                ) : null}
-              </div>
+              <ProductPrice
+                price={product.price}
+                compareAtPrice={product.compareAtPrice}
+                className="mt-2 flex items-baseline gap-2"
+                priceClassName="text-sm font-bold text-[#111111]"
+                compareClassName="text-xs text-[#9CA3AF] line-through"
+              />
             </div>
           </Link>
           <div className="pointer-events-none absolute inset-x-0 top-0 aspect-[4/5]">

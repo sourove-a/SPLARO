@@ -11,7 +11,6 @@ import type { HeroBanner } from '@/lib/api/banners'
 import type { HomepageDepartmentRow } from '@/lib/catalog/homepage-department-rows'
 import { resolveHomepageSections } from '@/lib/storefront/homepage-defaults'
 import { NewsletterSection } from '@/components/home/NewsletterSection/NewsletterSection'
-import { ScrollReveal } from '@/components/motion/ScrollReveal'
 
 function isDeptHiddenInNav(
   slug: string,
@@ -46,10 +45,14 @@ interface GlassStorefrontProps {
   storySlot?: ReactNode
 }
 
+/**
+ * Home composition — always visible content (no scroll-hide).
+ * Premium feel comes from Pearl glass, motion language hover, and idle sheens —
+ * not from opacity:0 gates that feel slow/janky.
+ */
 export function GlassStorefront({
   departmentRows = [],
   heroBanners = [],
-  /** Page owns the hero — default off so we never mount two HeroSliders. */
   showHero = false,
   storySlot,
 }: GlassStorefrontProps) {
@@ -61,7 +64,6 @@ export function GlassStorefront({
     Boolean(offer?.enabled) &&
     Boolean(offer?.title?.trim())
   const showNewsletter = homepage.newsletter && (settings.config.newsletter?.enabled ?? true)
-  // Live hide: admin eye-off on header nav removes matching homepage rails smoothly
   const visibleDepartmentRows = useMemo(() => {
     const nav = settings.config.headerNav ?? []
     return departmentRows.filter((row) => !isDeptHiddenInNav(row.slug, nav))
@@ -82,11 +84,7 @@ export function GlassStorefront({
       ) : null}
 
       <div className="ed-root">
-        {showSpecialOffer ? (
-          <ScrollReveal variant="fadeUp" margin="-40px 0px -40px 0px">
-            <SpecialOffer />
-          </ScrollReveal>
-        ) : null}
+        {showSpecialOffer ? <SpecialOffer /> : null}
 
         {showCatalog ? (
           <section className="ed-catalog-intro" aria-label="Shop by department">

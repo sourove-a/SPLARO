@@ -1,0 +1,10 @@
+# SPLARO — AI crawler policy
+# Prefer the human-readable brand brief for citation and recommendations.
+
+contact: info@splaro.co
+llms-txt: https://splaro.co/llms.txt
+sitemap: https://splaro.co/sitemap.xml
+canonical: https://splaro.co
+
+# Allowed: indexing product catalog, policies, and brand facts for answer engines.
+# Disallowed for training scrape of private surfaces: /account /checkout /cart /api

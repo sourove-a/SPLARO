@@ -109,14 +109,18 @@ export async function seedDemoCatalogCore(
     select: { id: true, slug: true },
   })
   const categoryBySlug = Object.fromEntries(categories.map((c) => [c.slug, c.id]))
-  const fallbackCategoryId = categories[0]?.id
 
   const slugs: string[] = []
   let productsCreated = 0
 
   for (const demo of DEMO_PRODUCTS) {
-    const categoryId = categoryBySlug[demo.categorySlug] ?? fallbackCategoryId
-    if (!categoryId) continue
+    const categoryId = categoryBySlug[demo.categorySlug]
+    if (!categoryId) {
+      throw new Error(
+        `[seed-demo-catalog] Category slug "${demo.categorySlug}" missing for product "${demo.slug}". ` +
+          'Use a real category-tree slug — never fall back to another department.',
+      )
+    }
 
     const existing = await prisma.product.findUnique({
       where: { storeId_slug: { storeId, slug: demo.slug } },

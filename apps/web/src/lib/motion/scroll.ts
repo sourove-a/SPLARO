@@ -93,10 +93,10 @@ const LENIS_SHARED = {
  */
 const LENIS_DESKTOP: LenisOptions = {
   ...LENIS_SHARED,
-  /** Slightly softer than 0.1 — premium glide without duration restart stutter. */
-  lerp: 0.085,
+  /** Snappier than 0.085 — premium glide without sticky / laggy scroll feel. */
+  lerp: 0.1,
   smoothWheel: true,
-  wheelMultiplier: 0.88,
+  wheelMultiplier: 0.95,
   syncTouch: false,
   touchMultiplier: 1,
   autoToggle: false,

@@ -8,8 +8,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
 import { MotionLink, MotionPressable } from '@/components/ui/MotionPressable'
 import { AnimatePresence, motion } from '@/lib/motion/react'
-import { Menu, Search, User, X } from 'lucide-react'
-import { BagIcon } from '@/components/product/AddToBagIcon'
+import { Menu, Search, ShoppingBag, User, X } from 'lucide-react'
 import { TopBar } from './TopBar'
 import { Navigation } from './Navigation'
 import { SearchModal } from './SearchModal'
@@ -30,6 +29,7 @@ export function Header() {
   const isHome = pathname === '/'
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false)
   const [isDesktop, setIsDesktop] = useState(false)
+  const pastHeroRef = useRef(false)
 
   const cartHydrated = useCartStore((s) => s._hydrated)
   const cartCount = useCartStore((s) => s.itemCount)
@@ -70,32 +70,100 @@ export function Header() {
     if (!user) router.prefetch('/login')
   }, [user, router])
 
+  // Hide utility topbar after home hero leaves viewport — DOM-only (no Header re-render).
+  // React setState here remounted Navigation mid-scroll and caused click jump / missed taps.
+  useEffect(() => {
+    const root = document.documentElement
+    const clearHeroChrome = () => {
+      pastHeroRef.current = false
+      root.removeAttribute('data-topbar')
+      const topbar = document.querySelector<HTMLElement>('[data-top-bar]')
+      const header = document.querySelector<HTMLElement>('[data-header-chrome]')
+      topbar?.classList.remove('site-topbar--hidden')
+      topbar?.setAttribute('aria-hidden', 'false')
+      header?.classList.remove('site-header-glass--topbar-collapsed')
+      // Drop IO-owned home chrome so non-home React classes take over cleanly.
+      header?.classList.remove('site-header-glass--over-hero')
+    }
+
+    if (!isHome || !isDesktop) {
+      clearHeroChrome()
+      return
+    }
+
+    let cancelled = false
+    let observer: IntersectionObserver | null = null
+    let raf = 0
+
+    const applyPastHero = (past: boolean) => {
+      if (past === pastHeroRef.current) return
+      pastHeroRef.current = past
+      const topbar = document.querySelector<HTMLElement>('[data-top-bar]')
+      const header = document.querySelector<HTMLElement>('[data-header-chrome]')
+
+      root.setAttribute('data-topbar', past ? 'hidden' : 'visible')
+      root.setAttribute('data-home-hero', past ? 'scrolled' : 'top')
+      topbar?.classList.toggle('site-topbar--hidden', past)
+      topbar?.setAttribute('aria-hidden', past ? 'true' : 'false')
+      header?.classList.toggle('site-header-glass--topbar-collapsed', past)
+      header?.classList.toggle('site-header-glass--over-hero', !past)
+      header?.classList.toggle('site-header-glass--scrolled', past)
+    }
+
+    const attach = () => {
+      const hero = document.querySelector('.home-hero-slider')
+      if (!hero) {
+        raf = window.requestAnimationFrame(attach)
+        return
+      }
+
+      // Hysteresis via rootMargin: hide a bit earlier, show only when hero is clearly back.
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          if (cancelled || !entry) return
+          applyPastHero(!entry.isIntersecting)
+        },
+        { root: null, threshold: 0, rootMargin: '-8px 0px 0px 0px' },
+      )
+      observer.observe(hero)
+      // Initial sync (e.g. restore scroll position below hero)
+      const rect = hero.getBoundingClientRect()
+      applyPastHero(rect.bottom <= 8)
+    }
+
+    attach()
+    return () => {
+      cancelled = true
+      if (raf) window.cancelAnimationFrame(raf)
+      observer?.disconnect()
+      clearHeroChrome()
+    }
+  }, [isHome, isDesktop])
+
   const headerPinned =
     isMobileMenuOpen || isSearchOpen || isCartOpen || isMegaMenuOpen
 
   // Same sticky threshold on every page — shared Header behavior.
   const { isScrolled } = useHeaderScroll(24, headerPinned)
-  // Mobile search needs solid chrome; desktop can stay over-hero with glass field
   const forceSolidForSearch = isSearchOpen && !isDesktop
-  // Mobile home uses inset hero card (not under header) — keep solid chrome like Ghorer Bazar.
-  const isOverHero = isHome && isDesktop && !isScrolled && !forceSolidForSearch
 
   // Never set data-home-hero=scrolled until desktop MQ is known — that painted a
   // white topbar flash on every hard reload (isDesktop starts false).
   // First paint: critical CSS + :has(.home-hero-slider) keeps the bar dark.
   useLayoutEffect(() => {
     const root = document.documentElement
-    if (!isHome) {
+    if (!isHome || !isDesktop) {
       root.removeAttribute('data-home-hero')
       return
     }
-    if (!isDesktop) {
-      root.removeAttribute('data-home-hero')
-      return
+    // Only seed initial attr if IO hasn't run yet — avoid fighting DOM toggles.
+    if (!root.hasAttribute('data-home-hero')) {
+      root.setAttribute('data-home-hero', pastHeroRef.current ? 'scrolled' : 'top')
     }
-    root.setAttribute('data-home-hero', isOverHero ? 'top' : 'scrolled')
-    return () => root.removeAttribute('data-home-hero')
-  }, [isHome, isDesktop, isOverHero])
+    return () => {
+      if (!isHome) root.removeAttribute('data-home-hero')
+    }
+  }, [isHome, isDesktop])
 
   // Route change must clear search overlay — otherwise mobile dock stays hidden.
   // Skip same-path remounts (e.g. native→Lenis upgrade) so open search isn't killed.
@@ -123,8 +191,12 @@ export function Header() {
         data-header-chrome
         className={cn(
           'site-header-glass z-chrome-header fixed inset-x-0 bottom-auto pt-[env(safe-area-inset-top)]',
-          isOverHero && 'site-header-glass--over-hero',
-          (isScrolled || forceSolidForSearch) && 'site-header-glass--scrolled',
+          // Home over-hero / scrolled / topbar-collapsed: IntersectionObserver owns via DOM
+          // so crossing the hero does not re-render Navigation (avoids click jump).
+          !isHome && (isScrolled || forceSolidForSearch) && 'site-header-glass--scrolled',
+          isHome && isDesktop && !pastHeroRef.current && !forceSolidForSearch && 'site-header-glass--over-hero',
+          isHome && (forceSolidForSearch || pastHeroRef.current) && 'site-header-glass--scrolled',
+          isHome && isDesktop && pastHeroRef.current && 'site-header-glass--topbar-collapsed',
           isSearchOpen && 'site-header-glass--search-open',
           desktopSearchActive && 'site-header-glass--search-desktop',
           mobileSearchActive && 'site-header-glass--search-mobile',
@@ -210,7 +282,11 @@ export function Header() {
                   mobileSearchActive && 'site-header-glass__chrome-hide',
                 )}
               >
-                <User strokeWidth={1.55} />
+                <User
+                  className="site-header-glass__nav-icon site-header-glass__nav-icon--account"
+                  strokeWidth={1.5}
+                  absoluteStrokeWidth
+                />
               </MotionLink>
 
               <MotionPressable
@@ -223,14 +299,18 @@ export function Header() {
                   mobileSearchActive && 'site-header-glass__chrome-hide',
                 )}
               >
-                <BagIcon size={20} strokeWidth={1.55} className="site-header-glass__bag-icon" />
+                <ShoppingBag
+                  className="site-header-glass__nav-icon site-header-glass__nav-icon--bag"
+                  strokeWidth={1.5}
+                  absoluteStrokeWidth
+                />
                 <AnimatePresence>
                   {cartHydrated && cartCount > 0 ? (
                     <motion.span
                       key={cartCount}
                       initial={{ scale: 0.6, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      transition={{ duration: 0.32, ease: [0.34, 1.56, 0.64, 1] }}
+                      transition={{ duration: 0.32, ease: [0.22, 0.61, 0.36, 1] }}
                       className="site-header-glass__count-badge site-header-glass__count-badge--cart"
                     >
                       {cartCount > 99 ? '99+' : cartCount}

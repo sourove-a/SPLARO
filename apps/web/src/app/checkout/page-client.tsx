@@ -9,12 +9,10 @@ import {
   Building2,
   AlertCircle,
   FileText,
-  Lock,
   MapPin,
   Mail,
   Phone,
   RefreshCw,
-  ShieldCheck,
   UserRound,
 } from 'lucide-react'
 import { type CartItem, useCartStore } from '@/store/cartStore'
@@ -781,10 +779,7 @@ export default function CheckoutPageClient() {
       ) : (
       <>
       <section className="checkout-container">
-        <CheckoutHeader
-          isSignedIn={authHydrated && !!user}
-          userName={user?.name}
-        />
+        <CheckoutHeader isSignedIn={authHydrated && !!user} />
 
         <CheckoutSteps
           stepStatuses={stepStatuses}
@@ -800,12 +795,10 @@ export default function CheckoutPageClient() {
             className="checkout-form checkout-glass-panel"
             noValidate
           >
-            <CheckoutSection className="checkout-section checkout-section-card" delay={0.14}>
+            <CheckoutSection className="checkout-section checkout-section-card checkout-section--delivery" delay={0.2}>
               <div className="checkout-section__head">
-                <span className="checkout-section__badge">1</span>
                 <div className="checkout-section__titles">
                   <h2>Delivery details</h2>
-                  <p className="checkout-section__sub">Where should we send this?</p>
                 </div>
               </div>
               <div className="checkout-fields">
@@ -981,12 +974,10 @@ export default function CheckoutPageClient() {
             </CheckoutSection>
 
             {showPromoStep ? (
-              <CheckoutSection className="checkout-section checkout-section-card" delay={0.26}>
+              <CheckoutSection className="checkout-section checkout-section-card" delay={0.38}>
                 <div className="checkout-section__head">
-                  <span className="checkout-section__badge">2</span>
                   <div className="checkout-section__titles">
                     <h2>Promo code</h2>
-                    <p className="checkout-section__sub">Optional — apply if you have one</p>
                   </div>
                 </div>
                 <div className="checkout-coupon">
@@ -1029,12 +1020,10 @@ export default function CheckoutPageClient() {
               </CheckoutSection>
             ) : null}
 
-            <CheckoutSection className="checkout-section checkout-section-card" delay={0.38}>
+            <CheckoutSection className="checkout-section checkout-section-card" delay={0.54}>
               <div className="checkout-section__head">
-                <span className="checkout-section__badge">{showPromoStep ? '3' : '2'}</span>
                 <div className="checkout-section__titles">
                   <h2>Payment method</h2>
-                  <p className="checkout-section__sub">Choose how you&apos;d like to pay</p>
                 </div>
               </div>
               <div className="checkout-payments">
@@ -1072,12 +1061,6 @@ export default function CheckoutPageClient() {
                 })}
               </div>
             </CheckoutSection>
-
-            <div className="checkout-trust">
-              <span><ShieldCheck className="h-3.5 w-3.5" /> Secure checkout</span>
-              <span><RefreshCw className="h-3.5 w-3.5" /> Easy returns</span>
-              <span><Lock className="h-3.5 w-3.5" /> Privacy protected</span>
-            </div>
 
             <CheckoutSubmitPanel
               totalBdt={totalBdt}

@@ -20,11 +20,12 @@ export function CheckoutSteps({
   const width = `${Math.max(0, Math.min(100, progressPercent))}%`
 
   return (
-    <motion.div
-      className="checkout-steps checkout-glass-panel"
+    <motion.nav
+      className="checkout-steps"
       aria-label="Checkout progress"
+      style={{ ['--checkout-step-count' as string]: String(steps.length) }}
       {...checkoutChromeMotion(reduced)}
-      transition={checkoutEnterTransition(reduced, 0.1)}
+      transition={checkoutEnterTransition(reduced, 0.14)}
     >
       <div className="checkout-steps__track" aria-hidden>
         <motion.span
@@ -34,7 +35,7 @@ export function CheckoutSteps({
           transition={
             reduced
               ? { duration: 0 }
-              : { duration: 0.7, ease: [0.16, 1, 0.3, 1] }
+              : { duration: 0.55, ease: [0.16, 1, 0.3, 1] }
           }
         />
       </div>
@@ -46,46 +47,37 @@ export function CheckoutSteps({
             className={`checkout-step checkout-step--${status}`}
             aria-current={status === 'active' ? 'step' : undefined}
           >
-            <motion.span
-              className="checkout-step__dot"
-              initial={false}
-              animate={{ scale: !reduced && status === 'active' ? 1.06 : 1 }}
-              transition={
-                reduced
-                  ? { duration: 0 }
-                  : { duration: 0.32, ease: [0.16, 1, 0.3, 1] }
-              }
-            >
+            <span className="checkout-step__dot">
               <AnimatePresence mode="popLayout" initial={false}>
                 {status === 'complete' ? (
                   <motion.span
                     key="check"
                     className="checkout-step__mark"
-                    initial={reduced ? false : { opacity: 0, scale: 0.7 }}
+                    initial={reduced ? false : { opacity: 0, scale: 0.75 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: reduced ? 1 : 0, scale: reduced ? 1 : 0.7 }}
-                    transition={{ duration: reduced ? 0 : 0.22, ease: [0.16, 1, 0.3, 1] }}
+                    exit={{ opacity: reduced ? 1 : 0, scale: reduced ? 1 : 0.75 }}
+                    transition={{ duration: reduced ? 0 : 0.18 }}
                   >
-                    <Check className="h-3 w-3" strokeWidth={2.8} />
+                    <Check className="h-3 w-3" strokeWidth={2.6} />
                   </motion.span>
                 ) : (
                   <motion.span
                     key="num"
                     className="checkout-step__mark"
-                    initial={reduced ? false : { opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: reduced ? 1 : 0, y: reduced ? 0 : -4 }}
-                    transition={{ duration: reduced ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] }}
+                    initial={reduced ? false : { opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: reduced ? 1 : 0 }}
+                    transition={{ duration: reduced ? 0 : 0.16 }}
                   >
                     {index + 1}
                   </motion.span>
                 )}
               </AnimatePresence>
-            </motion.span>
+            </span>
             <span className="checkout-step__label">{step}</span>
           </div>
         )
       })}
-    </motion.div>
+    </motion.nav>
   )
 }

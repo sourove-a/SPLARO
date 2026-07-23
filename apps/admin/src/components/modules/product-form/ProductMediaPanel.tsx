@@ -1,16 +1,37 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useDropzone } from 'react-dropzone'
 import { FolderOpen, ImagePlus, Link as LinkIcon, Loader2, PlayCircle, Plus, Trash2 } from 'lucide-react'
-import { uploadAdminImage } from '@/lib/api/upload'
-import { toastFail, toastInfo } from '@/lib/admin/feedback'
+import {
+  createUpscalePreview,
+  deleteProductPipelineUpload,
+  fetchUpscaleStatus,
+  readImageDimensions,
+  uploadAdminImage,
+  type UploadAdminImageResult,
+  type UpscaleStatus,
+} from '@/lib/api/upload'
+import { toastFail, toastInfo, toastWarn } from '@/lib/admin/feedback'
 import { MediaPickerModal } from '@/components/media/MediaPickerModal'
+import {
+  ProductImageUpscaleModal,
+  type UpscaleModalState,
+} from '@/components/modules/product-form/ProductImageUpscaleModal'
 import { cn } from '@/lib/utils/cn'
 
 export const MAX_PRODUCT_IMAGES = 10
 const RECOMMENDED_PRODUCT_IMAGES = 4
+const PIPELINE_STORAGE_KEY = 'splaro-product-image-pipeline'
+const UPSCALE_OFFER_BELOW = 1200
+
+function readPipelinePref(): boolean {
+  if (typeof window === 'undefined') return true
+  const raw = window.localStorage.getItem(PIPELINE_STORAGE_KEY)
+  if (raw === null) return true
+  return raw !== '0' && raw !== 'false'
+}
 
 interface ProductMediaPanelProps {
   imageUrls: string[]
@@ -43,6 +64,35 @@ export function ProductMediaPanel({
   const [imageLink, setImageLink] = useState('')
   const [activeMedia, setActiveMedia] = useState(0)
   const [libraryOpen, setLibraryOpen] = useState(false)
+  const [pipelineOn, setPipelineOn] = useState(true)
+  const [upscaleStatus, setUpscaleStatus] = useState<UpscaleStatus | null>(null)
+  const [upscaleModal, setUpscaleModal] = useState<UpscaleModalState | null>(null)
+  const [pendingQueue, setPendingQueue] = useState<File[]>([])
+  const collectedRef = useRef<string[]>([])
+  const aiUsedRef = useRef(false)
+  const warningsRef = useRef<string[]>([])
+  const optimizeFailedRef = useRef(false)
+
+  useEffect(() => {
+    setPipelineOn(readPipelinePref())
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchUpscaleStatus().then((status) => {
+      if (!cancelled) setUpscaleStatus(status)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const setPipelinePref = (next: boolean) => {
+    setPipelineOn(next)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(PIPELINE_STORAGE_KEY, next ? '1' : '0')
+    }
+  }
 
   const mediaItems = useMemo(
     () => [
@@ -73,6 +123,7 @@ export function ProductMediaPanel({
     onImageUrlsChange(imageUrls.filter((item) => item !== url))
     setActiveMedia(0)
     onDirty?.()
+    void deleteProductPipelineUpload(url)
   }
 
   const handleAddImageLink = () => {
@@ -85,26 +136,220 @@ export function ProductMediaPanel({
     setImageLink('')
   }
 
+  const resetUploadBatch = () => {
+    collectedRef.current = []
+    aiUsedRef.current = false
+    warningsRef.current = []
+    optimizeFailedRef.current = false
+  }
+
+  const recordUploadResult = (result: UploadAdminImageResult) => {
+    collectedRef.current = [...collectedRef.current, result.url]
+    if (result.aiUpscaled) aiUsedRef.current = true
+    if (result.pipeline === false && result.warning) {
+      optimizeFailedRef.current = true
+      warningsRef.current.push(result.warning)
+    } else if (result.warning) {
+      warningsRef.current.push(result.warning)
+    }
+  }
+
+  const closeUpscaleModal = useCallback(() => {
+    setUpscaleModal((prev) => {
+      if (prev?.objectUrl) URL.revokeObjectURL(prev.objectUrl)
+      return null
+    })
+    setPendingQueue([])
+    resetUploadBatch()
+    setUploading(false)
+  }, [])
+
+  const finishUploadUrls = useCallback(() => {
+    const urls = collectedRef.current
+    const aiUsed = aiUsedRef.current
+    const warnings = [...new Set(warningsRef.current)]
+    const optimizeFailed = optimizeFailedRef.current
+    resetUploadBatch()
+    if (!urls.length) return
+    addImageUrls(urls)
+
+    if (optimizeFailed) {
+      toastWarn(
+        warnings[0] ?? 'Image optimization failed; original was saved. Save product to persist.',
+      )
+      return
+    }
+
+    toastInfo(
+      aiUsed
+        ? `${urls.length} image${urls.length > 1 ? 's' : ''} AI-upscaled + optimized — original kept. Save product to persist.`
+        : pipelineOn
+          ? `${urls.length} image${urls.length > 1 ? 's' : ''} optimized — original kept. Save product to persist.`
+          : `${urls.length} image${urls.length > 1 ? 's' : ''} uploaded — save product to persist on catalog.`,
+    )
+    for (const warning of warnings) {
+      toastWarn(warning)
+    }
+  }, [addImageUrls, pipelineOn])
+
+  const uploadDirect = useCallback(
+    async (file: File, upscalePreviewId?: string) => {
+      return uploadAdminImage(file, 'products', {
+        pipeline: pipelineOn,
+        ...(upscalePreviewId ? { upscalePreviewId } : {}),
+      })
+    },
+    [pipelineOn],
+  )
+
+  const processRemaining = useCallback(
+    async (queue: File[]) => {
+      if (!queue.length) {
+        setUpscaleModal((prev) => {
+          if (prev?.objectUrl) URL.revokeObjectURL(prev.objectUrl)
+          return null
+        })
+        setPendingQueue([])
+        setUploading(false)
+        finishUploadUrls()
+        return
+      }
+
+      const [file, ...rest] = queue
+      if (!file) return
+
+      // Pipeline off or gif → no AI offer
+      if (!pipelineOn || file.type === 'image/gif') {
+        try {
+          const result = await uploadDirect(file)
+          recordUploadResult(result)
+          await processRemaining(rest)
+        } catch (err) {
+          setUploading(false)
+          setPendingQueue([])
+          resetUploadBatch()
+          setUpscaleModal((prev) => {
+            if (prev?.objectUrl) URL.revokeObjectURL(prev.objectUrl)
+            return null
+          })
+          toastFail(err instanceof Error ? err.message : 'Upload failed')
+        }
+        return
+      }
+
+      try {
+        const dims = await readImageDimensions(file)
+        const offerBelow = upscaleStatus?.offerBelow ?? UPSCALE_OFFER_BELOW
+        if (dims.width < offerBelow) {
+          setPendingQueue(rest)
+          setUpscaleModal({
+            file,
+            objectUrl: URL.createObjectURL(file),
+            width: dims.width,
+            height: dims.height,
+            aiAvailable: Boolean(upscaleStatus?.available),
+            aiReason: upscaleStatus?.reason ?? null,
+          })
+          return
+        }
+
+        const result = await uploadDirect(file)
+        recordUploadResult(result)
+        await processRemaining(rest)
+      } catch (err) {
+        setUploading(false)
+        setPendingQueue([])
+        resetUploadBatch()
+        setUpscaleModal((prev) => {
+          if (prev?.objectUrl) URL.revokeObjectURL(prev.objectUrl)
+          return null
+        })
+        toastFail(err instanceof Error ? err.message : 'Upload failed')
+      }
+    },
+    [finishUploadUrls, pipelineOn, uploadDirect, upscaleStatus],
+  )
+
   const onDrop = useCallback(
     async (files: File[]) => {
       const selected = files.slice(0, Math.max(0, MAX_PRODUCT_IMAGES - imageUrls.length))
       if (!selected.length) return
+      resetUploadBatch()
       setUploading(true)
-      try {
-        const urls: string[] = []
-        for (const file of selected) {
-          urls.push(await uploadAdminImage(file, 'products'))
-        }
-        addImageUrls(urls)
-        toastInfo(`${urls.length} image${urls.length > 1 ? 's' : ''} uploaded — save product to persist on catalog.`)
-      } catch (err) {
-        toastFail(err instanceof Error ? err.message : 'Upload failed')
-      } finally {
-        setUploading(false)
-      }
+      // Sequential queue — never Promise.all on pipeline uploads.
+      await processRemaining(selected)
     },
-    [addImageUrls, imageUrls.length],
+    [imageUrls.length, processRemaining],
   )
+
+  const handleSkipUpscale = useCallback(async () => {
+    if (!upscaleModal) return
+    const { file, objectUrl, width } = upscaleModal
+    const minW = upscaleStatus?.minWithoutUpscale ?? 800
+    if (width < minW) {
+      toastFail(`Need at least ${minW}px wide without AI upscale.`)
+      return
+    }
+    setUploading(true)
+    try {
+      const result = await uploadDirect(file)
+      recordUploadResult(result)
+      if (width < UPSCALE_OFFER_BELOW && !result.warning) {
+        warningsRef.current.push(
+          `Image accepted (${width}px), but 1200px+ is recommended for gallery quality.`,
+        )
+      }
+      URL.revokeObjectURL(objectUrl)
+      setUpscaleModal(null)
+      await processRemaining(pendingQueue)
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Upload failed')
+      setUploading(false)
+    }
+  }, [pendingQueue, processRemaining, uploadDirect, upscaleModal, upscaleStatus])
+
+  const handleGeneratePreview = useCallback(async () => {
+    if (!upscaleModal) return
+    if (!upscaleStatus?.available) {
+      toastWarn(upscaleStatus?.reason ?? 'AI upscale not configured')
+      return
+    }
+    setUpscaleModal((prev) => (prev ? { ...prev, generating: true } : prev))
+    try {
+      const preview = await createUpscalePreview(upscaleModal.file)
+      setUpscaleModal((prev) =>
+        prev
+          ? {
+              ...prev,
+              generating: false,
+              previewId: preview.previewId,
+              previewUrl: preview.previewUrl,
+              previewWidth: preview.width,
+              previewHeight: preview.height,
+            }
+          : prev,
+      )
+    } catch (err) {
+      setUpscaleModal((prev) => (prev ? { ...prev, generating: false } : prev))
+      toastFail(err instanceof Error ? err.message : 'AI preview failed')
+    }
+  }, [upscaleModal, upscaleStatus])
+
+  const handleApproveUpscale = useCallback(async () => {
+    if (!upscaleModal?.previewId) return
+    const { file, objectUrl, previewId } = upscaleModal
+    setUploading(true)
+    try {
+      const result = await uploadDirect(file, previewId)
+      recordUploadResult(result)
+      URL.revokeObjectURL(objectUrl)
+      setUpscaleModal(null)
+      await processRemaining(pendingQueue)
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Upload failed')
+      setUploading(false)
+    }
+  }, [pendingQueue, processRemaining, uploadDirect, upscaleModal])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -118,7 +363,9 @@ export function ProductMediaPanel({
       <header className="product-form-section__head product-form-section__head--media">
         <div>
           <h4 className="product-form-section__title">Product media</h4>
-          <p className="product-form-section__hint">Video + gallery · assign to colour variants</p>
+          <p className="product-form-section__hint">
+            Video + gallery · best at 1200px+ · original always kept
+          </p>
         </div>
         <span className="product-media-badge">
           {imageUrls.length}/{MAX_PRODUCT_IMAGES}
@@ -126,6 +373,26 @@ export function ProductMediaPanel({
       </header>
 
       <div className="product-form-section__body">
+      <label className="mb-3 flex cursor-pointer items-center justify-between gap-3 rounded-[12px] border border-[rgba(16,17,20,0.08)] bg-[rgba(255,255,255,0.55)] px-3 py-2.5">
+        <span className="min-w-0">
+          <span className="block text-xs font-bold text-[#3f3f46]">Auto optimize product images</span>
+          <span className="mt-0.5 block text-[11px] font-medium text-[#71717a]">
+            ON = original + WebP/AVIF sizes. OFF = single file like before.
+            {upscaleStatus?.available
+              ? ' Small photos can opt into AI upscale (preview first).'
+              : ''}
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          className="h-4 w-4 shrink-0 accent-[var(--admin-accent,#101114)]"
+          checked={pipelineOn}
+          disabled={disabled}
+          onChange={(e) => setPipelinePref(e.target.checked)}
+          aria-label="Auto optimize product images"
+        />
+      </label>
+
       <div className="product-media-preview">
         {previewOverrideUrl ? (
           <Image src={previewOverrideUrl} alt="Colour preview" fill unoptimized sizes="380px" className="product-media-preview__asset" />
@@ -279,6 +546,17 @@ export function ProductMediaPanel({
         </div>
       ) : null}
       </div>
+
+      {upscaleModal ? (
+        <ProductImageUpscaleModal
+          state={upscaleModal}
+          busy={uploading || Boolean(upscaleModal.generating)}
+          onClose={closeUpscaleModal}
+          onSkip={() => void handleSkipUpscale()}
+          onGeneratePreview={() => void handleGeneratePreview()}
+          onApprove={() => void handleApproveUpscale()}
+        />
+      ) : null}
     </aside>
   )
 }

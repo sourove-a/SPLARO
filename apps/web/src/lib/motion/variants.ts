@@ -2,7 +2,9 @@ import type { Transition, Variants } from '@/lib/motion/react'
 import {
   DURATION,
   EASE_EXPO_OUT,
+  EASE_LUXURY,
   EXIT,
+  GENTLE,
   MICRO,
   MEDIA,
   PAGE_ENTER,
@@ -19,7 +21,9 @@ export {
   fadeUpSoft,
   DURATION,
   EASE_EXPO_OUT,
+  EASE_LUXURY,
   EXIT,
+  GENTLE,
   MICRO,
   MEDIA,
   PAGE_ENTER,
@@ -29,13 +33,13 @@ export {
   SETTLE,
 }
 
-/** @deprecated Prefer MICRO — kept for call sites expecting SPRING shape */
-export const SPRING = { type: 'tween' as const, duration: DURATION.base, ease: EASE_EXPO_OUT }
+/** Gentle tween — never physics bounce / overshoot */
+export const SPRING = GENTLE
 
 export const EXPO_OUT: Transition = PANEL_ENTER
 
 export const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 24 },
+  hidden: { opacity: 0, y: 14 },
   visible: { opacity: 1, y: 0, transition: REVEAL_ENTER },
 }
 
@@ -54,10 +58,30 @@ export const slideLeft: Variants = {
   visible: { opacity: 1, x: 0, transition: REVEAL_ENTER },
 }
 
+/** Story scroll — fade + soft lift (no filter:blur — that freezes Lenis) */
+export const blurReveal: Variants = {
+  hidden: { opacity: 0, y: 18 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: REVEAL_ENTER,
+  },
+}
+
+/** Card layering — rises into depth (no scale fight with Lenis) */
+export const cardLayer: Variants = {
+  hidden: { opacity: 0, y: 22 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: REVEAL_ENTER,
+  },
+}
+
 export const staggerContainer: Variants = {
   hidden: {},
   visible: {
-    transition: { staggerChildren: 0.06, delayChildren: 0.04 },
+    transition: { staggerChildren: 0.08, delayChildren: 0.06 },
   },
 }
 
@@ -69,12 +93,12 @@ export const fadeUpPage = {
 
 /** Enter/exit pop — AnimatePresence swaps (add-to-bag, cart lines, status chips) */
 export const exitPop: Variants = {
-  initial: { opacity: 0, scale: 0.88 },
+  initial: { opacity: 0, scale: 0.96 },
   animate: { opacity: 1, scale: 1, transition: MICRO },
-  exit: { opacity: 0, scale: 0.88, transition: EXIT },
+  exit: { opacity: 0, scale: 0.96, transition: EXIT },
 }
 
-/** Hover/tap — barely-there opacity (image crossfade carries the luxury cue). */
+/** Hover/tap — CSS Motion Language owns 2px lift + 1.02 scale; Framer stays opacity-only. */
 export const cardHover = {
   whileHover: { opacity: 0.99, transition: SETTLE },
   whileTap: { opacity: 0.96, transition: PRESS_DOWN },
@@ -89,6 +113,8 @@ export const revealVariants = {
   fadeIn,
   scaleUp,
   slideLeft,
+  blurReveal,
+  cardLayer,
   staggerContainer,
 } as const
 

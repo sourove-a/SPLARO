@@ -12,8 +12,8 @@ import type { BrandStorySectionProps } from './types'
 import { cn } from '@/lib/utils/cn'
 
 /** Ignore rapid next/prev while the slide is settling — prevents stacked jumps. */
-/** Match StoryCard slide (~0.7s) so next clicks don't stack mid-tween */
-const STEP_LOCK_MS = 720
+/** Short lock — snappy deck clicks without mid-tween stack. */
+const STEP_LOCK_MS = 280
 
 export function BrandStorySection({ story, reviews }: BrandStorySectionProps) {
   const sectionRef = useRef<HTMLElement>(null)

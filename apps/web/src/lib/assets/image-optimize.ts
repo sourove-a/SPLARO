@@ -45,6 +45,63 @@ const REMOTE_WIDTH: Record<ImageProfile, number> = {
   lightbox: 1600,
 }
 
+/** Prebuilt product pipeline widths (admin upload). */
+const PRODUCT_VARIANT_WIDTH: Record<ImageProfile, number> = {
+  thumb: 160,
+  cardMobile: 480,
+  card: 828,
+  galleryMobile: 828,
+  gallery: 1200,
+  heroMobile: 828,
+  hero: 1600,
+  lightbox: 1600,
+}
+
+const PRODUCT_VARIANT_RE =
+  /\/uploads\/products\/([^/]+)\.w(\d+)\.(webp|avif)(?:\?.*)?$/i
+
+function productPipelinePathOnly(url: string): string {
+  if (!url.startsWith('http')) return url
+  try {
+    return new URL(url).pathname
+  } catch {
+    return url
+  }
+}
+
+/**
+ * Map `/uploads/products/{id}.w1200.webp` → sibling size for the render profile.
+ * Legacy single-file uploads (no `.wN.`) pass through unchanged.
+ */
+export function pickProductUploadVariant(
+  url: string,
+  profile: ImageProfile = 'card',
+  format: 'webp' | 'avif' = 'webp',
+): string {
+  const match = productPipelinePathOnly(url).match(PRODUCT_VARIANT_RE)
+  if (!match) return url
+  const id = match[1]
+  const target = PRODUCT_VARIANT_WIDTH[profile] ?? 1200
+  return `/uploads/products/${id}.w${target}.${format}`
+}
+
+/** True when URL is a Phase-1 product pipeline variant (webp/avif sized file). */
+export function isProductPipelineSrc(url: string | null | undefined): boolean {
+  if (!url) return false
+  return PRODUCT_VARIANT_RE.test(productPipelinePathOnly(url))
+}
+
+/** WebP + optional AVIF sibling for `<picture>` on the storefront. */
+export function productPipelinePictureSources(
+  url: string,
+  profile: ImageProfile = 'card',
+): { webp: string; avif: string } {
+  return {
+    webp: pickProductUploadVariant(url, profile, 'webp'),
+    avif: pickProductUploadVariant(url, profile, 'avif'),
+  }
+}
+
 export function mobileImageProfile(profile: ImageProfile): ImageProfile {
   if (profile === 'hero') return 'heroMobile'
   if (profile === 'card') return 'cardMobile'
@@ -60,7 +117,7 @@ function isOptimizableRemote(url: string): boolean {
   )
 }
 
-/** Normalize remote URLs for sharper, lighter delivery. Local `/uploads` paths pass through for Next optimizer. */
+/** Normalize remote URLs for sharper, lighter delivery. Local product pipeline picks sibling sizes. */
 export function optimizeImageSrc(
   url: string | null | undefined,
   profile: ImageProfile = 'card',
@@ -68,7 +125,16 @@ export function optimizeImageSrc(
   opts?: { allowStockMedia?: boolean },
 ): string {
   const sanitized = sanitizeRemoteImageUrl(url, fallback, opts)
-  if (!sanitized || sanitized.startsWith('/') || sanitized.startsWith('data:')) {
+  if (!sanitized) return sanitized
+
+  // Product pipeline variants — works for absolute or path-only URLs.
+  const pathOnly = productPipelinePathOnly(sanitized)
+
+  if (PRODUCT_VARIANT_RE.test(pathOnly)) {
+    return pickProductUploadVariant(pathOnly, profile, 'webp')
+  }
+
+  if (sanitized.startsWith('/') || sanitized.startsWith('data:')) {
     return sanitized
   }
 

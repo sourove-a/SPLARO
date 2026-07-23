@@ -23,6 +23,7 @@ const ICON_SIZE: Record<SplaroNavSize, number> = {
   lg: 18,
 }
 
+/** Pearl glass circle nav chevron — layered ambient + soft reflection via CSS. */
 export function LiquidGlassNavButton({
   direction,
   onClick,
@@ -44,6 +45,7 @@ export function LiquidGlassNavButton({
       aria-label={label}
       className={cn(
         'splaro-nav-btn',
+        'premium-nav-btn',
         size === 'sm' && 'splaro-nav-btn--sm',
         size === 'lg' && 'splaro-nav-btn--lg',
         variant === 'glass-dark' && 'splaro-nav-btn--glass-dark',
@@ -52,7 +54,8 @@ export function LiquidGlassNavButton({
         className,
       )}
     >
-      <Icon size={ICON_SIZE[size]} strokeWidth={2} />
+      <span className="premium-nav-btn__sheen" aria-hidden />
+      <Icon size={ICON_SIZE[size]} strokeWidth={2} absoluteStrokeWidth />
     </button>
   )
 }

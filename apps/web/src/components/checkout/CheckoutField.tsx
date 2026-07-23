@@ -1,3 +1,5 @@
+'use client'
+
 import type { ReactNode } from 'react'
 
 interface CheckoutFieldProps {
@@ -25,15 +27,15 @@ export function CheckoutField({
 }: CheckoutFieldProps) {
   return (
     <label
-      className={`checkout-field checkout-field--icon ${full ? 'checkout-field--full' : ''} ${filled ? 'checkout-field--filled' : ''} ${error ? 'checkout-field--error' : ''}`}
+      className={`checkout-field ${full ? 'checkout-field--full' : ''} ${filled ? 'checkout-field--filled' : ''} ${error ? 'checkout-field--error' : ''}`}
       {...(fieldId ? { htmlFor: fieldId } : {})}
     >
-      <span className="checkout-field__label">{label}</span>
+      <span className="checkout-field__label">
+        <Icon className="checkout-field__label-icon" strokeWidth={2} aria-hidden />
+        {label}
+      </span>
       <div className="checkout-input-wrap" suppressHydrationWarning>
         {clientReady ? children : <div className="checkout-input" aria-hidden />}
-        <span className="checkout-input-chip" aria-hidden>
-          <Icon className="checkout-input-chip__glyph" strokeWidth={2.15} />
-        </span>
       </div>
       {error ? (
         <span

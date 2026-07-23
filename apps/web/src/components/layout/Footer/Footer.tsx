@@ -1,16 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ComponentType } from 'react'
 import Link from 'next/link'
-import { AnimatePresence, motion } from '@/lib/motion/react'
+import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 import {
+  Building2,
   ChevronDown,
+  FileText,
+  Headphones,
   MapPin,
-  MessageCircle,
-  Phone,
+  ShoppingBag,
 } from 'lucide-react'
 import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
-import { SOCIAL_BRAND_ICONS } from '@/components/ui/SocialBrandIcons'
+import {
+  SOCIAL_BRAND_ICONS,
+  SplaroMailIcon,
+  SplaroPhoneIcon,
+  SplaroWhatsAppIcon,
+} from '@/components/ui/SocialBrandIcons'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import {
   DEFAULT_STORE_ADDRESS,
@@ -20,6 +27,25 @@ import { getStorefrontSocialLinks } from '@/lib/storefront/social-links'
 import { cn } from '@/lib/utils/cn'
 
 const CURRENT_YEAR = new Date().getFullYear()
+
+const ACCORDION_ICONS: Record<string, ComponentType<{ className?: string; strokeWidth?: number }>> = {
+  shop: ShoppingBag,
+  care: Headphones,
+  company: Building2,
+  policies: FileText,
+}
+
+function splitStoreAddress(address: string) {
+  const parts = address
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+  if (parts.length < 2) return { place: address, country: '' }
+  return {
+    place: parts.slice(0, -1).join(', '),
+    country: parts[parts.length - 1] ?? '',
+  }
+}
 
 function FooterColumn({
   title,
@@ -56,13 +82,17 @@ function FooterAccordion({
   links,
   open,
   onToggle,
+  reduceMotion,
 }: {
   id: string
   title: string
   links: { label: string; href: string; external?: boolean }[]
   open: boolean
   onToggle: () => void
+  reduceMotion: boolean
 }) {
+  const Icon = ACCORDION_ICONS[id] ?? FileText
+
   return (
     <section className={cn('footer-lux__accordion', open && 'footer-lux__accordion--open')}>
       <button
@@ -72,11 +102,16 @@ function FooterAccordion({
         aria-expanded={open}
         aria-controls={`footer-panel-${id}`}
       >
-        <span className="footer-lux__accordion-title">{title}</span>
+        <span className="footer-lux__accordion-lead">
+          <span className="footer-lux__accordion-icon" aria-hidden>
+            <Icon className="footer-lux__accordion-glyph" strokeWidth={1.5} />
+          </span>
+          <span className="footer-lux__accordion-title">{title}</span>
+        </span>
         <span className="footer-lux__accordion-chevron-wrap" aria-hidden>
           <ChevronDown
             className={cn('footer-lux__accordion-chevron', open && 'footer-lux__accordion-chevron--open')}
-            strokeWidth={1.75}
+            strokeWidth={1.5}
           />
         </span>
       </button>
@@ -87,14 +122,23 @@ function FooterAccordion({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+            transition={
+              reduceMotion
+                ? { duration: 0.12 }
+                : { duration: 0.28, ease: [0.16, 1, 0.3, 1] }
+            }
             className="overflow-hidden"
           >
             <ul className="footer-lux__accordion-panel">
               {links.map((link) => (
                 <li key={`${id}-${link.label}`}>
                   {link.external ? (
-                    <a href={link.href} target="_blank" rel="noopener noreferrer" className="footer-lux__link footer-lux__link--panel">
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="footer-lux__link footer-lux__link--panel"
+                    >
                       {link.label}
                     </a>
                   ) : (
@@ -112,8 +156,35 @@ function FooterAccordion({
   )
 }
 
+function FooterSocialButton({
+  href,
+  label,
+  id,
+}: {
+  href: string
+  label: string
+  id: string
+}) {
+  const Icon = SOCIAL_BRAND_ICONS[id as keyof typeof SOCIAL_BRAND_ICONS]
+  if (!Icon) return null
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn('footer-lux__social-btn', `footer-lux__social-btn--${id}`)}
+      aria-label={label}
+      title={label}
+    >
+      <Icon className="footer-lux__social-glyph" />
+    </a>
+  )
+}
+
 export function Footer() {
   const settings = useStorefrontSettings()
+  const reduceMotion = useReducedMotion() ?? false
   const [openSection, setOpenSection] = useState<string>('')
 
   const phone = settings.store.phone || process.env.NEXT_PUBLIC_SUPPORT_PHONE || ''
@@ -121,22 +192,19 @@ export function Footer() {
   // 1:1 with admin Contact & Social → WhatsApp; falls back to store phone when empty.
   const whatsapp = settings.social.whatsapp || settings.store.phone || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ''
   const tagline = settings.config.footerTagline?.trim() ?? ''
-  const copyright = settings.config.footerCopyright?.trim() || `© ${CURRENT_YEAR} ${settings.store.name}. All rights reserved.`
+  const copyright =
+    settings.config.footerCopyright?.trim() ||
+    `© ${CURRENT_YEAR} ${settings.store.name}. All rights reserved.`
   const linkGroups = settings.config.footerGroups ?? []
-  const address = settings.store.address?.trim() || DEFAULT_STORE_ADDRESS
-  const addressMobile = (() => {
-    const flat = address.replace(/\s+/g, ' ').replace(/^SPLARO,?\s*/i, '').trim()
-    const parts = flat.split(',').map((p) => p.trim()).filter(Boolean)
-    if (parts.length >= 3) {
-      const area = parts[parts.length - 3]
-      const city = parts[parts.length - 2]?.replace(/\s+\d{4}$/, '') || parts[parts.length - 2]
-      return [area, city].filter(Boolean).join(' · ')
-    }
-    if (parts.length === 2) return parts.join(' · ')
-    return flat.length > 42 ? `${flat.slice(0, 40)}…` : flat
-  })()
+  // Same full store address on every page (home / journal / shipping) — never shorten.
+  const address = (settings.store.address?.trim() || DEFAULT_STORE_ADDRESS)
+    .replace(/\s+/g, ' ')
+    .replace(/^SPLARO,?\s*/i, '')
+    .trim()
+  const { place, country } = splitStoreAddress(address)
 
   const socialLinks = getStorefrontSocialLinks(settings)
+  const visitStoreLabel = `Visit store — ${address}`
 
   return (
     <footer data-site-chrome className="site-footer site-footer--luxury" aria-label="Site footer">
@@ -145,29 +213,33 @@ export function Footer() {
 
         <div className="container-luxury site-footer__wrap">
           <div className="footer-lux__panel">
-            <div className="footer-lux__glass-surface" aria-hidden="true" />
-            <div className="footer-lux__sheen" aria-hidden="true" />
-
             <div className="footer-lux__body">
               <div className="footer-lux__top">
                 <div className="footer-lux__brand">
                   <div className="footer-lux__logo-wrap">
-                    <span className="footer-lux__logo-glow" aria-hidden />
                     <SplaroBrandLogo
                       href="/"
                       size="footerLuxury"
-                      tone="dark"
+                      tone="light"
                       className="footer-lux__logo"
                     />
                   </div>
                   {tagline ? <p className="footer-lux__tagline">{tagline}</p> : null}
-                  <Link href="/stores" className="footer-lux__address-mobile">
+
+                  <Link
+                    href="/stores"
+                    className="footer-lux__address-mobile"
+                    aria-label={visitStoreLabel}
+                  >
                     <span className="footer-lux__address-mobile-seal" aria-hidden>
-                      <MapPin className="footer-lux__address-mobile-icon" strokeWidth={1.8} />
+                      <MapPin className="footer-lux__address-mobile-icon" strokeWidth={1.5} />
                     </span>
                     <span className="footer-lux__address-mobile-copy">
                       <span className="footer-lux__address-mobile-label">Visit store</span>
-                      <span className="footer-lux__address-mobile-place">{addressMobile}</span>
+                      <span className="footer-lux__address-mobile-place">{place}</span>
+                      {country ? (
+                        <span className="footer-lux__address-mobile-country">{country}</span>
+                      ) : null}
                     </span>
                   </Link>
                 </div>
@@ -176,163 +248,144 @@ export function Footer() {
                   href="/stores"
                   className="footer-lux__store-card"
                   title={address}
-                  aria-label={`Visit store — ${addressMobile}`}
+                  aria-label={visitStoreLabel}
                 >
-                  <span className="footer-lux__store-icon" aria-hidden="true">
-                    <MapPin className="h-3.5 w-3.5" strokeWidth={2} />
-                  </span>
                   <span className="footer-lux__store-copy-text">
                     <span className="footer-lux__store-label">Visit store</span>
-                    <span className="footer-lux__store-address">{addressMobile}</span>
+                    <span className="footer-lux__store-address">{address}</span>
                   </span>
                 </Link>
               </div>
 
-            {linkGroups.length > 0 ? (
-              <>
-                <div className="footer-lux__columns hidden lg:grid">
-                  {linkGroups.map((group) => (
-                    <FooterColumn key={group.id} title={group.title} links={group.links} />
-                  ))}
-                </div>
-                <div className="footer-lux__accordions lg:hidden">
-                  {linkGroups.map((group) => (
-                    <FooterAccordion
-                      key={group.id}
-                      id={group.id}
-                      title={group.title}
-                      links={group.links}
-                      open={openSection === group.id}
-                      onToggle={() => setOpenSection((current) => (current === group.id ? '' : group.id))}
-                    />
-                  ))}
-                </div>
-              </>
-            ) : null}
-
-            <div className="footer-lux__contact-row">
-              <div className="footer-lux__contact-block">
-                <p className="footer-lux__micro-label">Contact</p>
-                <div className="footer-lux__pills">
-                  {phone ? (
-                    <a
-                      href={`tel:${phone.replace(/[^0-9+]/g, '')}`}
-                      className="footer-lux__pill"
-                      aria-label={`Call ${phone}`}
-                      title={phone}
-                    >
-                      <span className="footer-lux__pill-icon" aria-hidden="true">
-                        <Phone className="h-3.5 w-3.5" strokeWidth={2.2} />
-                      </span>
-                      <span className="footer-lux__pill-text footer-lux__pill-text--full">{phone}</span>
-                      <span className="footer-lux__pill-text footer-lux__pill-text--short" aria-hidden>
-                        Call
-                      </span>
-                    </a>
-                  ) : null}
-                  {email ? (
-                    <a
-                      href={`mailto:${email}`}
-                      className="footer-lux__pill"
-                      aria-label={`Email ${email}`}
-                      title={email}
-                    >
-                      <span className="footer-lux__pill-icon footer-lux__pill-icon--email" aria-hidden="true">
-                        <svg className="footer-lux__email-svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                          <path
-                            d="M3.75 7.4c0-.97.79-1.75 1.75-1.75h13c.97 0 1.75.78 1.75 1.75v9.2c0 .97-.78 1.75-1.75 1.75h-13c-.96 0-1.75-.78-1.75-1.75V7.4Z"
-                            fill="rgba(255,255,255,0.06)"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                          />
-                          <path
-                            d="M4.2 6.95 11.15 12.4a1.5 1.5 0 0 0 1.7 0L19.8 6.95"
-                            stroke="currentColor"
-                            strokeWidth="1.55"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <path
-                            d="M4.35 16.85 9.2 12.55M19.65 16.85 14.8 12.55"
-                            stroke="currentColor"
-                            strokeWidth="1.15"
-                            strokeLinecap="round"
-                            opacity="0.4"
-                          />
-                        </svg>
-                      </span>
-                      <span className="footer-lux__pill-text footer-lux__pill-text--full">{email}</span>
-                      <span className="footer-lux__pill-text footer-lux__pill-text--short" aria-hidden>
-                        Email
-                      </span>
-                    </a>
-                  ) : null}
-                  {whatsapp ? (
-                    <a
-                      href={`https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="footer-lux__pill footer-lux__pill--whatsapp"
-                      aria-label="WhatsApp"
-                      title="WhatsApp"
-                    >
-                      <span className="footer-lux__pill-icon footer-lux__pill-icon--whatsapp" aria-hidden="true">
-                        <MessageCircle className="h-3.5 w-3.5" strokeWidth={2.2} />
-                      </span>
-                      <span className="footer-lux__pill-text">WhatsApp</span>
-                    </a>
-                  ) : null}
-                </div>
-              </div>
-
-              {socialLinks.length > 0 ? (
-                <div className="footer-lux__social-block">
-                  <p className="footer-lux__micro-label">Follow {settings.store.name}</p>
-                  <div className="footer-lux__social">
-                    {socialLinks.map((item) => {
-                      const Icon = SOCIAL_BRAND_ICONS[item.id]
-                      return (
-                        <a
-                          key={item.id}
-                          href={item.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={cn('footer-lux__social-btn', `footer-lux__social-btn--${item.id}`)}
-                          aria-label={item.label}
-                          title={item.label}
-                        >
-                          <Icon />
-                        </a>
-                      )
-                    })}
+              {linkGroups.length > 0 ? (
+                <>
+                  <div className="footer-lux__columns hidden lg:grid">
+                    {linkGroups.map((group) => (
+                      <FooterColumn key={group.id} title={group.title} links={group.links} />
+                    ))}
                   </div>
-                </div>
+                  <div className="footer-lux__accordions lg:hidden">
+                    {linkGroups.map((group) => (
+                      <FooterAccordion
+                        key={group.id}
+                        id={group.id}
+                        title={group.title}
+                        links={group.links}
+                        open={openSection === group.id}
+                        onToggle={() =>
+                          setOpenSection((current) => (current === group.id ? '' : group.id))
+                        }
+                        reduceMotion={reduceMotion}
+                      />
+                    ))}
+                  </div>
+                </>
               ) : null}
-            </div>
 
-            <div className="footer-lux__bottom">
-              {socialLinks.length > 0 ? (
-                <div className="footer-lux__social footer-lux__social--bottom" aria-label={`Follow ${settings.store.name}`}>
-                  {socialLinks.map((item) => {
-                    const Icon = SOCIAL_BRAND_ICONS[item.id]
-                    return (
+              <div className="footer-lux__contact-row">
+                <div className="footer-lux__contact-block">
+                  <p className="footer-lux__micro-label">Contact</p>
+                  <div className="footer-lux__pills">
+                    {phone ? (
                       <a
-                        key={`bottom-${item.id}`}
-                        href={item.href}
+                        href={`tel:${phone.replace(/[^0-9+]/g, '')}`}
+                        className="footer-lux__pill footer-lux__pill--phone"
+                        aria-label={`Call ${phone}`}
+                        title={phone}
+                      >
+                        <span className="footer-lux__pill-icon" aria-hidden="true">
+                          <SplaroPhoneIcon className="footer-lux__contact-glyph" />
+                        </span>
+                        <span className="footer-lux__pill-copy">
+                          <span className="footer-lux__pill-kicker">Phone</span>
+                          <span className="footer-lux__pill-text footer-lux__pill-text--full">{phone}</span>
+                        </span>
+                        <span className="footer-lux__pill-text footer-lux__pill-text--short" aria-hidden>
+                          Call
+                        </span>
+                      </a>
+                    ) : null}
+                    {email ? (
+                      <a
+                        href={`mailto:${email}`}
+                        className="footer-lux__pill footer-lux__pill--email"
+                        aria-label={`Email ${email}`}
+                        title={email}
+                      >
+                        <span className="footer-lux__pill-icon footer-lux__pill-icon--email" aria-hidden="true">
+                          <SplaroMailIcon className="footer-lux__email-svg footer-lux__contact-glyph" />
+                        </span>
+                        <span className="footer-lux__pill-copy">
+                          <span className="footer-lux__pill-kicker">Email</span>
+                          <span className="footer-lux__pill-text footer-lux__pill-text--full">{email}</span>
+                        </span>
+                        <span className="footer-lux__pill-text footer-lux__pill-text--short" aria-hidden>
+                          Email
+                        </span>
+                      </a>
+                    ) : null}
+                    {whatsapp ? (
+                      <a
+                        href={`https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={cn('footer-lux__social-btn', `footer-lux__social-btn--${item.id}`)}
-                        aria-label={item.label}
-                        title={item.label}
+                        className="footer-lux__pill footer-lux__pill--whatsapp"
+                        aria-label="WhatsApp"
+                        title="WhatsApp"
                       >
-                        <Icon />
+                        <span
+                          className="footer-lux__pill-icon footer-lux__pill-icon--whatsapp"
+                          aria-hidden="true"
+                        >
+                          <SplaroWhatsAppIcon className="footer-lux__contact-glyph" />
+                        </span>
+                        <span className="footer-lux__pill-copy">
+                          <span className="footer-lux__pill-kicker">Message</span>
+                          <span className="footer-lux__pill-text footer-lux__pill-text--full">WhatsApp</span>
+                        </span>
+                        <span className="footer-lux__pill-text footer-lux__pill-text--short" aria-hidden>
+                          Chat
+                        </span>
                       </a>
-                    )
-                  })}
+                    ) : null}
+                  </div>
                 </div>
-              ) : null}
-              <p className="footer-lux__copy">{copyright}</p>
-            </div>
+
+                {socialLinks.length > 0 ? (
+                  <div className="footer-lux__social-block">
+                    <p className="footer-lux__micro-label">Follow {settings.store.name}</p>
+                    <div className="footer-lux__social">
+                      {socialLinks.map((item) => (
+                        <FooterSocialButton
+                          key={item.id}
+                          id={item.id}
+                          href={item.href}
+                          label={item.label}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="footer-lux__bottom">
+                {socialLinks.length > 0 ? (
+                  <div
+                    className="footer-lux__social footer-lux__social--bottom"
+                    aria-label={`Follow ${settings.store.name}`}
+                  >
+                    {socialLinks.map((item) => (
+                      <FooterSocialButton
+                        key={`bottom-${item.id}`}
+                        id={item.id}
+                        href={item.href}
+                        label={item.label}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+                <p className="footer-lux__copy">{copyright}</p>
+              </div>
             </div>
           </div>
         </div>

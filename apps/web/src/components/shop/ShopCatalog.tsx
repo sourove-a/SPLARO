@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from '@/lib/motion/react'
 import { X } from 'lucide-react'
-import { useMotionReady } from '@/hooks/useMotionReady'
 import { ShopFilterBar, type ShopGridDensity } from '@/components/shop/ShopFilterBar'
 import { SplaroProductCard } from '@/components/product/ProductCard/SplaroProductCard'
 import { ProductCardSkeleton } from '@/components/product/ProductCard/ProductCardSkeleton'
@@ -116,7 +115,6 @@ export function ShopCatalog({
   const router = useRouter()
   const homepageProductLimit = HOMEPAGE_PRODUCT_LIMIT
   const priorityCount = mounted && isMobile ? 2 : 4
-  const { allowRevealAnimation, showMotion } = useMotionReady()
   const addItem = useCartStore((state) => state.addItem)
   const setCartOpen = useUiStore((state) => state.setCartOpen)
   const scopedParentSlug = parentCategorySlug || collectionSlug
@@ -552,14 +550,8 @@ export function ShopCatalog({
     mobilePriceMax,
   ].join('|')
 
-  // Full catalog grids (shop/collections) skip the entrance stagger — with 18+
-  // cards the per-card motion.div setup cost was the largest Shop TBT driver.
-  // Homepage keeps it (fixed 8-item preview, cheap, already fast).
-  const animateGrid = isHomepage && showMotion && allowRevealAnimation
-  const useLiteGridMotion =
-    typeof document !== 'undefined' &&
-    (document.documentElement.getAttribute('data-os') === 'windows' ||
-      document.documentElement.getAttribute('data-perf') === 'lite')
+  // Product grid stays static — no entrance stagger (TBT / scroll-jank).
+  // Premium hover stays on the card components themselves.
 
   return (
     <>
@@ -701,84 +693,6 @@ export function ShopCatalog({
               </div>
             ))}
           </div>
-        ) : animateGrid ? (
-          <motion.div
-            key={gridFilterKey}
-            className={cn(
-              'shop-product-grid',
-              !isHomepage && 'shop-product-grid--soft-enter',
-              isHomepage && 'shop-product-grid--homepage',
-              !isHomepage && gridDensity === 1 && 'shop-product-grid--cols-1',
-              !isHomepage && gridDensity === 2 && 'shop-product-grid--cols-2',
-            )}
-            initial={false}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.24, ease: GRID_EASE }}
-          >
-            {visibleProducts.map((product, index) => {
-              const card = storefrontToCardData(product)
-              const motionProps = useLiteGridMotion
-                ? {
-                    initial: { opacity: 0 },
-                    animate: { opacity: 1 },
-                    transition: {
-                      duration: 0.18,
-                      delay: Math.min(index * 0.012, 0.08),
-                      ease: GRID_EASE,
-                    },
-                  }
-                : {
-                    initial: { opacity: 0, y: 12 },
-                    animate: { opacity: 1, y: 0 },
-                    transition: {
-                      duration: 0.3,
-                      delay: Math.min(index * 0.028, 0.2),
-                      ease: GRID_EASE,
-                    },
-                  }
-              const cardCode = resolveCardProductCode(product)
-
-              return (
-                <motion.div
-                  key={product.id}
-                  className="shop-product-grid__cell min-w-0"
-                  layout={false}
-                  {...motionProps}
-                >
-                  <SplaroProductCard
-                    id={card.id}
-                    slug={card.slug}
-                    name={card.name}
-                    price={card.price}
-                    variant={isHomepage ? 'homepage' : 'shop'}
-                    fit="contain"
-                    {...(card.compareAtPrice ? { compareAtPrice: card.compareAtPrice } : {})}
-                    image={card.images[0] ?? ''}
-                    {...(card.images[1] ? { imageHover: card.images[1] } : {})}
-                    {...(card.images.length > 2 ? { galleryImages: card.images } : {})}
-                    {...(cardCode ? { productCode: cardCode } : {})}
-                    colorHexes={product.colors}
-                    status={product.status}
-                    inStock={product.inStock ?? isStorefrontProductInStock(product)}
-                    sizes={product.sizes}
-                    href={getProductHref(product)}
-                    priority={index < priorityCount}
-                    onAddToBag={() =>
-                      addProductToBag(product, product.sizes[0], product.colors[0], true)
-                    }
-                    onShowDetails={() => setQuickViewProduct(product)}
-                  />
-                </motion.div>
-              )
-            })}
-            {loadingMore
-              ? Array.from({ length: loadMoreSkeletonCount }, (_, index) => (
-                  <div key={`more-skeleton-${index}`} className="shop-product-grid__cell min-w-0">
-                    <ProductCardSkeleton />
-                  </div>
-                ))
-              : null}
-          </motion.div>
         ) : (
           <div
             key={gridFilterKey}
@@ -810,7 +724,13 @@ export function ShopCatalog({
                     {...(cardCode ? { productCode: cardCode } : {})}
                     colorHexes={product.colors}
                     status={product.status}
+                    {...(product.isUnisex || card.isUnisex ? { isUnisex: true } : {})}
                     inStock={product.inStock ?? isStorefrontProductInStock(product)}
+                    {...(typeof product.stockUnits === 'number'
+                      ? { stockUnits: product.stockUnits }
+                      : typeof card.stockUnits === 'number'
+                        ? { stockUnits: card.stockUnits }
+                        : {})}
                     sizes={product.sizes}
                     href={getProductHref(product)}
                     priority={index < priorityCount}
@@ -860,36 +780,16 @@ export function ShopCatalog({
         </AnimatePresence>
 
         {canLoadMore ? (
-          animateGrid ? (
-            <motion.div
-              className="shop-load-more-wrap mt-8"
-              initial={{ opacity: 1, y: 0 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.32, ease: GRID_EASE }}
+          <div className="shop-load-more-wrap mt-8">
+            <button
+              type="button"
+              className="shop-load-more-btn"
+              disabled={loadingMore}
+              onClick={() => void handleLoadMore()}
             >
-              <motion.button
-                type="button"
-                className="shop-load-more-btn"
-                disabled={loadingMore}
-                onClick={() => void handleLoadMore()}
-                whileTap={{ opacity: 0.96 }}
-                whileHover={{ borderColor: 'rgba(16, 17, 20, 0.55)' }}
-              >
-                {loadingMore ? 'Loading…' : 'Load more'}
-              </motion.button>
-            </motion.div>
-          ) : (
-            <div className="shop-load-more-wrap mt-8">
-              <button
-                type="button"
-                className="shop-load-more-btn"
-                disabled={loadingMore}
-                onClick={() => void handleLoadMore()}
-              >
-                {loadingMore ? 'Loading…' : 'Load more'}
-              </button>
-            </div>
-          )
+              {loadingMore ? 'Loading…' : 'Load more'}
+            </button>
+          </div>
         ) : null}
 
         {!showProductSkeleton &&

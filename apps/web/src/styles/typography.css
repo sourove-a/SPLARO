@@ -1,0 +1,156 @@
+/**
+ * SPLARO Typography Rules
+ * ───────────────────────
+ * Heading  → Editorial Serif (Cormorant Garamond)
+ * Body     → Inter
+ * Tracking / spacing / hierarchy → same on every page
+ *
+ * Do not invent one-off title scales per route. Use tokens + `.type-*`.
+ */
+
+:root {
+  --font-heading: var(--font-cormorant, var(--font-cormorant-fallback, Georgia, serif));
+  --font-body: var(--font-inter, var(--font-inter-fallback, system-ui, sans-serif));
+
+  /* Tracking — locked sitewide */
+  --tracking-display: -0.02em;
+  --tracking-heading: -0.015em;
+  --tracking-title: -0.01em;
+  --tracking-body: 0;
+  --tracking-label: 0.18em;
+
+  /* Leading — locked */
+  --leading-display: 1.06;
+  --leading-heading: 1.12;
+  --leading-body: 1.65;
+  --leading-label: 1.2;
+
+  /* Hierarchy spacing after type blocks */
+  --type-space-xs: 0.5rem;
+  --type-space-sm: 0.75rem;
+  --type-space-md: 1rem;
+  --type-space-lg: 1.5rem;
+
+  /* Scale */
+  --type-display-size: clamp(1.65rem, 4.2vw, 2.35rem);
+  --type-heading-size: clamp(1.35rem, 3vw, 1.85rem);
+  --type-title-size: clamp(1.1rem, 2.2vw, 1.35rem);
+  --type-body-size: 0.92rem;
+  --type-label-size: 0.64rem;
+}
+
+/* Page hero / primary H1 */
+.type-display {
+  font-family: var(--font-heading);
+  font-size: var(--type-display-size);
+  font-weight: 500;
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
+  color: #101114;
+}
+
+/* Section H2 */
+.type-heading {
+  font-family: var(--font-heading);
+  font-size: var(--type-heading-size);
+  font-weight: 500;
+  line-height: var(--leading-heading);
+  letter-spacing: var(--tracking-heading);
+  color: #101114;
+}
+
+/* Card / clause titles */
+.type-title {
+  font-family: var(--font-heading);
+  font-size: var(--type-title-size);
+  font-weight: 500;
+  line-height: var(--leading-heading);
+  letter-spacing: var(--tracking-title);
+  color: #101114;
+}
+
+/* Supporting copy */
+.type-body {
+  font-family: var(--font-body);
+  font-size: var(--type-body-size);
+  font-weight: 500;
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking-body);
+  color: rgba(16, 17, 20, 0.58);
+}
+
+/* Eyebrow / badge / meta */
+.type-label {
+  font-family: var(--font-body);
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  line-height: var(--leading-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/* Shared content / premium page heroes — one hierarchy */
+.content-page__title,
+.search-page__title,
+.about-premium__title,
+.faq-premium__title,
+.contact-premium__title,
+.legal-premium__title,
+.not-found-title {
+  font-family: var(--font-heading);
+  font-size: var(--type-display-size);
+  font-weight: 500;
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
+  color: #101114;
+}
+
+.content-page__description,
+.search-page__subtitle,
+.about-premium__description,
+.faq-premium__description,
+.contact-premium__description,
+.legal-premium__description,
+.not-found-text {
+  font-family: var(--font-body);
+  font-size: var(--type-body-size);
+  font-weight: 500;
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking-body);
+  color: rgba(16, 17, 20, 0.58);
+}
+
+.about-premium__badge,
+.faq-premium__badge,
+.contact-premium__badge,
+.legal-premium__badge,
+.content-page__eyebrow,
+.not-found-code {
+  font-family: var(--font-body);
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/* Section cards / legal clauses / FAQ items */
+.content-page__section-title,
+.about-premium__story-title,
+.legal-premium__clause-title,
+.faq-premium__item-title,
+.faq-premium__question {
+  font-family: var(--font-heading);
+  font-size: var(--type-title-size);
+  font-weight: 500;
+  line-height: var(--leading-heading);
+  letter-spacing: var(--tracking-title);
+}
+
+.content-page__section-body,
+.about-premium__line-copy,
+.legal-premium__line-copy,
+.faq-premium__item-body {
+  font-family: var(--font-body);
+  letter-spacing: var(--tracking-body);
+  line-height: var(--leading-body);
+}

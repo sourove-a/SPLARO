@@ -22,6 +22,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
+import { PremiumIcon } from '@/components/ui/PremiumIcon'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap'
 import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
@@ -84,11 +85,7 @@ function navIcon(label: string, href: string): LucideIcon {
 
 function GlassNavIcon({ label, href }: { label: string; href: string }) {
   const Icon = navIcon(label, href)
-  return (
-    <span className="mm-drawer__glass-icon" aria-hidden>
-      <Icon className="h-[0.95rem] w-[0.95rem]" strokeWidth={1.85} />
-    </span>
-  )
+  return <PremiumIcon icon={Icon} size="sm" className="mm-drawer__glass-icon" />
 }
 
 export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
@@ -282,9 +279,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                     className="mm-drawer__glass mm-drawer__glass--btn"
                     onClick={openSearch}
                   >
-                    <span className="mm-drawer__glass-icon" aria-hidden>
-                      <Search className="h-[0.95rem] w-[0.95rem]" strokeWidth={1.85} />
-                    </span>
+                    <PremiumIcon icon={Search} size="sm" className="mm-drawer__glass-icon" />
                     <span className="mm-drawer__glass-label">Search</span>
                     <span className="mm-drawer__chevron" aria-hidden>
                       <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
@@ -405,9 +400,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                           aria-expanded={expanded}
                           aria-controls={`mm-drop-${group.label}`}
                         >
-                          <span className="mm-drawer__glass-icon" aria-hidden>
-                            <Icon className="h-[0.95rem] w-[0.95rem]" strokeWidth={1.85} />
-                          </span>
+                          <PremiumIcon icon={Icon} size="sm" className="mm-drawer__glass-icon" />
                           <span className="mm-drawer__glass-label">{group.label}</span>
                           <span
                             className="mm-drawer__drop-chevron"

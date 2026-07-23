@@ -33,16 +33,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/stores',
     '/size-guide',
     '/shipping',
+    '/returns',
     '/privacy',
     '/terms',
     '/faq',
     '/payment-policy',
+    '/gift-card-policy',
+    '/editorial',
+    '/llms.txt',
+    '/feed.xml',
+    '/feeds/google-merchant.xml',
+    '/sitemap-images.xml',
     ...(isFeatureEnabled('loyalty') ? ['/loyalty'] : []),
   ].map((path) => ({
     url: `${base}${path}`,
     lastModified: now,
-    changeFrequency: path === '' ? 'daily' : 'weekly',
-    priority: path === '' ? 1 : 0.7,
+    changeFrequency: path === '' || path === '/shop' ? 'daily' : 'weekly',
+    priority:
+      path === ''
+        ? 1
+        : path === '/shop' || path === '/llms.txt'
+          ? 0.9
+          : path === '/faq' || path === '/feeds/google-merchant.xml'
+            ? 0.75
+            : 0.7,
   }))
 
   let productRoutes: MetadataRoute.Sitemap = []

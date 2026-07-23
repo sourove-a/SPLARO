@@ -1,10 +1,12 @@
 import type { MetadataRoute } from 'next'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co').replace(/\/$/, '')
 
-// AI answer-engine + assistant crawlers. Explicitly welcomed so SPLARO products are
-// eligible to be cited when users ask ChatGPT / Claude / Perplexity / Gemini
-// "where can I buy …" — generative engine optimization (GEO/AEO).
+/**
+ * AI answer-engine crawlers — allow catalog + policies so ChatGPT / Claude /
+ * Perplexity / Gemini / Copilot can cite SPLARO when users ask where to buy
+ * premium fashion in Bangladesh (GEO / AEO).
+ */
 const AI_CRAWLERS = [
   'GPTBot',
   'OAI-SearchBot',
@@ -15,6 +17,10 @@ const AI_CRAWLERS = [
   'PerplexityBot',
   'Perplexity-User',
   'Google-Extended',
+  'GoogleOther',
+  'Googlebot',
+  'Googlebot-Image',
+  'Bingbot',
   'Applebot',
   'Applebot-Extended',
   'CCBot',
@@ -22,26 +28,34 @@ const AI_CRAWLERS = [
   'YouBot',
   'cohere-ai',
   'Meta-ExternalAgent',
+  'FacebookBot',
   'DuckAssistBot',
+  'Bytespider',
+  'Diffbot',
+  'OmigiliBot',
+  'AI2Bot',
 ]
 
-export default function robots(): MetadataRoute.Robots {
-  const base = siteUrl.replace(/\/$/, '')
+const PRIVATE = ['/account/', '/checkout/', '/cart', '/api/', '/auth/', '/reset-password', '/forgot-password']
 
+export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
         userAgent: '*',
-        allow: '/',
-        disallow: ['/account/', '/checkout/', '/cart', '/api/', '/auth/', '/reset-password', '/forgot-password'],
+        allow: ['/', '/llms.txt', '/ai.txt', '/.well-known/llms.txt', '/sitemap.xml'],
+        disallow: PRIVATE,
       },
       {
         userAgent: AI_CRAWLERS,
-        allow: '/',
+        allow: ['/', '/llms.txt', '/ai.txt', '/.well-known/llms.txt', '/shop', '/products/', '/faq', '/about', '/contact', '/stores'],
         disallow: ['/account/', '/checkout/', '/api/'],
       },
     ],
-    sitemap: `${base}/sitemap.xml`,
-    host: base,
+    sitemap: [
+      `${siteUrl}/sitemap.xml`,
+      `${siteUrl}/sitemap-images.xml`,
+    ],
+    host: siteUrl,
   }
 }

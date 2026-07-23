@@ -1,72 +1,239 @@
 /**
- * SPLARO Apple-style liquid glass — shared tokens + shell utilities.
- * Aliases onto the existing iOS glass system in globals.css.
- * Do not invent per-page glass; use these shells or existing component classes.
- * See apps/web/docs/UI_RULES.md
+ * SPLARO Pearl Glass™ — own glass system
+ * ─────────────────────────────────────
+ * Frost white · Pearl reflection · Thin white edge · Silver ambient
+ * Depth blur · Soft inner shadow · Dynamic reflection (motion-safe)
+ *
+ * Rule: do not invent one-off glass. Use tokens + `.pearl-glass` /
+ * `.account-glass` / `.spl-glass-*`. Legacy `--glass-*` aliases stay so
+ * existing surfaces keep working without markup changes.
  */
 
 :root {
-  /* Plan tokens — same computed values as legacy --glass-white* */
-  --glass-bg: var(--glass-white);
-  --glass-bg-strong: var(--glass-white-strong);
-  --glass-saturate: 1.2;
+  /* ── Pearl Glass™ core ── */
+  --pearl-frost: rgba(255, 255, 255, 0.78);
+  --pearl-frost-strong: rgba(255, 255, 255, 0.92);
+  --pearl-fill:
+    linear-gradient(
+      148deg,
+      rgba(255, 255, 255, 0.97) 0%,
+      rgba(252, 253, 255, 0.88) 38%,
+      rgba(244, 246, 250, 0.72) 72%,
+      rgba(255, 255, 255, 0.84) 100%
+    ),
+    var(--pearl-frost);
+  --pearl-edge: rgba(255, 255, 255, 0.96);
+  --pearl-edge-soft: rgba(255, 255, 255, 0.72);
+  --pearl-silver: rgba(186, 196, 210, 0.22);
+  --pearl-silver-deep: rgba(120, 132, 152, 0.1);
+  --pearl-ink: #101114;
+
+  --pearl-blur: blur(28px) saturate(1.45);
+  --pearl-blur-soft: blur(16px) saturate(1.28);
+  --pearl-blur-strong: blur(36px) saturate(1.55);
+
+  --pearl-inner:
+    inset 0 1.5px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 0 24px 8px rgba(255, 255, 255, 0.18);
+  --pearl-ambient:
+    0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 18px 48px rgba(16, 22, 36, 0.08),
+    0 4px 14px rgba(16, 22, 36, 0.04),
+    0 0 40px rgba(186, 196, 210, 0.18);
+  --pearl-shadow: var(--pearl-ambient), var(--pearl-inner);
+  --pearl-shadow-hover:
+    0 0 0 1px rgba(255, 255, 255, 0.75),
+    0 24px 56px rgba(16, 22, 36, 0.1),
+    0 6px 18px rgba(16, 22, 36, 0.05),
+    0 0 48px rgba(200, 210, 224, 0.28),
+    var(--pearl-inner);
+
+  --pearl-sheen:
+    linear-gradient(
+      118deg,
+      rgba(255, 255, 255, 0.78) 0%,
+      rgba(255, 255, 255, 0.28) 18%,
+      transparent 42%
+    ),
+    radial-gradient(ellipse 70% 55% at 86% 8%, rgba(255, 255, 255, 0.55), transparent 48%),
+    radial-gradient(ellipse 50% 40% at 12% 88%, rgba(220, 228, 240, 0.28), transparent 55%);
+
+  /* ── Legacy aliases → Pearl (safe for existing CSS) ── */
+  --glass-bg: var(--pearl-frost);
+  --glass-bg-strong: var(--pearl-frost-strong);
+  --glass-saturate: 1.45;
   --glass-radius: var(--r-xl);
   --glass-radius-pill: var(--r-full);
-  /* Stronger frost for dock / pills (existing surfaces keep their blur) */
-  --glass-blur-strong: blur(28px) saturate(1.65);
-  --glass-ink: #101114;
+  --glass-blur-strong: var(--pearl-blur-strong);
+  --glass-ink: var(--pearl-ink);
 }
 
-/* Sticky / header strips — light frosted bar */
+/* Sticky / header strips — Pearl frost bar */
 .spl-glass-bar {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.85);
-  box-shadow:
-    var(--glass-highlight),
-    0 4px 30px rgba(17, 17, 17, 0.04),
-    0 1px 0 rgba(17, 17, 17, 0.03);
-  color: var(--glass-ink);
+  background: var(--pearl-fill);
+  backdrop-filter: var(--pearl-blur-soft);
+  -webkit-backdrop-filter: var(--pearl-blur-soft);
+  border-bottom: 1px solid var(--pearl-edge);
+  box-shadow: var(--pearl-shadow);
+  color: var(--pearl-ink);
 }
 
-/* Elevated panels — filters, story rows, commerce cards */
-.spl-glass-card {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+/* Elevated panels — Pearl card */
+.spl-glass-card,
+.pearl-glass {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--pearl-fill);
+  backdrop-filter: var(--pearl-blur);
+  -webkit-backdrop-filter: var(--pearl-blur);
+  border: 1px solid var(--pearl-edge);
   border-radius: var(--glass-radius);
-  box-shadow: var(--glass-shadow);
-  color: var(--glass-ink);
+  box-shadow: var(--pearl-shadow);
+  color: var(--pearl-ink);
+}
+
+.pearl-glass::before {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--pearl-sheen);
+  opacity: 0.95;
+}
+
+.pearl-glass > * {
+  position: relative;
+  z-index: 1;
+}
+
+.pearl-glass--pill {
+  border-radius: var(--glass-radius-pill);
+}
+
+.pearl-glass--soft {
+  backdrop-filter: var(--pearl-blur-soft);
+  -webkit-backdrop-filter: var(--pearl-blur-soft);
 }
 
 /* Drawers / modals / bottom sheets */
 .spl-glass-sheet {
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border-color: rgba(255, 255, 255, 0.7);
+  background: var(--pearl-frost-strong);
+  backdrop-filter: var(--pearl-blur);
+  -webkit-backdrop-filter: var(--pearl-blur);
+  border-color: var(--pearl-edge-soft);
   box-shadow:
-    -18px 0 70px rgba(20, 24, 32, 0.16),
-    var(--glass-highlight);
-  color: var(--glass-ink);
+    -18px 0 70px rgba(16, 22, 36, 0.14),
+    var(--pearl-inner),
+    0 0 40px rgba(186, 196, 210, 0.12);
+  color: var(--pearl-ink);
 }
 
-/* Solid premium fill when blur is disabled (lite / Windows / mobile) */
+/* Continuous pearl reflection — soft sheen drift + light sweep (never glow) */
+.account-glass__sheen {
+  overflow: hidden;
+}
+
+.account-glass__sheen::after,
+.pearl-glass::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: -45%;
+  width: 38%;
+  z-index: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 35%,
+    rgba(255, 255, 255, 0.42) 50%,
+    rgba(255, 255, 255, 0.08) 65%,
+    transparent 100%
+  );
+  opacity: 0;
+  transform: translate3d(0, 0, 0) skewX(-14deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-perf='lite']) .account-glass__sheen,
+  html:not([data-perf='lite']) .pearl-glass::before {
+    animation: pearlSheenDrift 16s var(--ease-luxury, cubic-bezier(0.22, 0.61, 0.36, 1)) infinite
+      alternate;
+  }
+
+  html:not([data-perf='lite']) .account-glass__sheen::after,
+  html:not([data-perf='lite']) .pearl-glass::after {
+    animation: pearlLightSweep 18s var(--ease-luxury, cubic-bezier(0.22, 0.61, 0.36, 1)) infinite;
+  }
+}
+
+@keyframes pearlSheenDrift {
+  0% {
+    opacity: 0.88;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(1.2%, -0.8%, 0) scale(1.02);
+  }
+}
+
+@keyframes pearlLightSweep {
+  0%,
+  12% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) skewX(-14deg);
+  }
+  28% {
+    opacity: 0.55;
+  }
+  55% {
+    opacity: 0.22;
+    transform: translate3d(280%, 0, 0) skewX(-14deg);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: translate3d(320%, 0, 0) skewX(-14deg);
+  }
+}
+
+/* Solid frost when blur is disabled (lite / Windows / mobile) */
 @media (max-width: 1023px), (pointer: coarse) {
   .spl-glass-bar,
   .spl-glass-card,
-  .spl-glass-sheet {
+  .spl-glass-sheet,
+  .pearl-glass {
     background: rgba(255, 255, 255, 0.97);
+  }
+
+  html:not([data-perf='lite']) .account-glass__sheen,
+  html:not([data-perf='lite']) .pearl-glass::before,
+  html:not([data-perf='lite']) .account-glass__sheen::after,
+  html:not([data-perf='lite']) .pearl-glass::after {
+    animation: none;
   }
 }
 
 html[data-perf='lite'] .spl-glass-bar,
 html[data-perf='lite'] .spl-glass-card,
 html[data-perf='lite'] .spl-glass-sheet,
+html[data-perf='lite'] .pearl-glass,
 html[data-os='windows'] .spl-glass-bar,
 html[data-os='windows'] .spl-glass-card,
 html[data-os='windows'] .spl-glass-sheet {
   background: rgba(255, 255, 255, 0.97);
+}
+
+html[data-perf='lite'] .account-glass__sheen,
+html[data-perf='lite'] .pearl-glass::before,
+html[data-perf='lite'] .account-glass__sheen::after,
+html[data-perf='lite'] .pearl-glass::after {
+  animation: none !important;
 }

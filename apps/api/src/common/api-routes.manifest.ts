@@ -360,8 +360,10 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     p('storefront-track-order', 'Order Tracking', 'Storefront', q('/storefront/orders/track') + '&phone=01700000000', {
       allowUnauthorized: true,
     }),
-    pw('storefront-newsletter-post', 'Newsletter Subscribe (POST)', 'Storefront', q('/storefront/newsletter/subscribe'), '{"email":"health@splaro.test"}'),
-    pw('storefront-contact-post', 'Contact Form (POST)', 'Storefront', q('/storefront/contact'), '{"name":"Test User","contact":"test@example.com","subject":"Sizing","message":"Hello from health check"}'),
+    // Write probes must NOT mutate live data or fire Telegram/email.
+    // Intentionally invalid bodies → 400 (route registered) without side effects.
+    pw('storefront-newsletter-post', 'Newsletter Subscribe (POST)', 'Storefront', q('/storefront/newsletter/subscribe'), '{"email":"not-an-email"}'),
+    pw('storefront-contact-post', 'Contact Form (POST)', 'Storefront', q('/storefront/contact'), '{"name":"Health Probe","contact":"probe@invalid","message":"route health probe body"}'),
     pw('procurement-supplier-post', 'Create Supplier (POST)', 'Procurement', q('/admin/hub/procurement/suppliers')),
     pw('procurement-po-post', 'Create PO (POST)', 'Procurement', q('/admin/hub/procurement/purchase-orders')),
     pw('marketing-affiliate-post', 'Create Affiliate (POST)', 'Marketing', q('/admin/hub/marketing/affiliates')),

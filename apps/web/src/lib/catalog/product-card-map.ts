@@ -48,5 +48,17 @@ export function storefrontToCardData(
     rating: hasReviews ? apiRating : 0,
     reviewCount: hasReviews ? apiReviewCount : 0,
     category: product.category,
+    ...(product.categorySlug ? { categorySlug: product.categorySlug } : {}),
+    ...(product.tags?.length ? { tags: product.tags } : {}),
+    ...(product.isUnisex ? { isUnisex: true } : {}),
+    ...(typeof product.stockUnits === 'number'
+      ? { stockUnits: product.stockUnits }
+      : product.variantRefs?.length
+        ? {
+            stockUnits: product.variantRefs
+              .filter((ref) => ref.isActive !== false)
+              .reduce((sum, ref) => sum + Math.max(0, Number(ref.stock) || 0), 0),
+          }
+        : {}),
   }
 }

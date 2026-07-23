@@ -3,12 +3,14 @@
  *  Home topbar: dark from first paint (before React sets data-home-hero). */
 export const CRITICAL_HOME_CSS = `
 html,body{background:#fff;color:#111;scroll-behavior:auto!important}
-.home-flow-strip{overflow:hidden;margin:0 auto 1rem;max-width:min(1180px,calc(100% - 1.5rem));border-radius:999px}
-.home-flow-strip__viewport{overflow:hidden;padding:.78rem 0}
-.home-flow-strip__track{display:flex;width:max-content;align-items:center;flex-wrap:nowrap;animation:home-flow-marquee 42s linear infinite}
-.home-flow-strip__item{display:inline-flex;align-items:center;gap:.65rem;padding:0 1.35rem;flex-shrink:0;white-space:nowrap}
-.home-flow-strip__text{white-space:nowrap;font-size:.68rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase}
-@keyframes home-flow-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.home-flow-strip{overflow:hidden;margin:0 auto .85rem;max-width:min(920px,calc(100% - 2.5rem));border-radius:999px}
+.home-flow-strip__viewport{overflow:hidden;padding:.42rem 0}
+.home-flow-strip__track{display:flex;width:max-content;align-items:center;flex-wrap:nowrap;animation:home-flow-marquee 96s linear infinite}
+.home-flow-strip__group{display:flex;width:max-content;align-items:center;flex-shrink:0}
+.home-flow-strip__item{display:inline-flex;align-items:center;gap:.55rem;padding:0 1.5rem;flex-shrink:0;white-space:nowrap}
+.home-flow-strip__text{white-space:nowrap;font-size:.62rem;font-weight:550;letter-spacing:.14em;text-transform:uppercase;color:rgba(16,17,20,.62)}
+@keyframes home-flow-marquee{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
+@media (max-width:767px){.home-flow-strip{display:none!important}}
 .home-hero-slider{position:relative;overflow:hidden;background:#111}
 @media (min-width:1024px){.home-hero-slider{min-height:clamp(420px,72vh,760px)}}
 @media (max-width:1023px){.home-hero-slider{min-height:0;margin:.55rem .7rem .75rem;border-radius:.95rem}}

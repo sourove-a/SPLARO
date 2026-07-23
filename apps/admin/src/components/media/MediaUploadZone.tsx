@@ -23,8 +23,8 @@ export function MediaUploadZone({ folder, label = 'Upload image', className, onU
       if (!file) return
       setUploading(true)
       try {
-        const url = await uploadAdminImage(file, folder)
-        onUploaded(url)
+        const result = await uploadAdminImage(file, folder)
+        onUploaded(result.url)
         toastOk('Image uploaded to server.')
       } catch (err) {
         toastFail(err instanceof Error ? err.message : 'Upload failed')

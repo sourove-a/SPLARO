@@ -18,6 +18,7 @@ import { PrismaService } from '../../common/prisma.service'
 import { CacheService } from '../../common/cache.service'
 import { ProductAdvancedService } from './product-advanced.service'
 import { SearchService } from '../search/search.service'
+import { assertStoreCategoryId } from '../../common/assert-store-category'
 import { resolveStoreId, slugify } from '../../common/store.util'
 import { resolveAdminPagination } from '../../common/admin-pagination.util'
 import { revalidateStorefrontWeb } from '../../common/revalidate-web'
@@ -281,6 +282,9 @@ export class ProductsController {
     @Body() body: CreateAdminProductDto,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
+    const categoryId = await assertStoreCategoryId(this.prisma, sid, body.categoryId, {
+      required: true,
+    })
     let slug = slugify(body.name)
     const clash = await this.prisma.product.findFirst({ where: { storeId: sid, slug } })
     if (clash) slug = `${slug}-${Date.now().toString(36)}`
@@ -344,7 +348,7 @@ export class ProductsController {
         badge: optionalTrimmed(body.badge) ?? undefined,
         lowStockThreshold: body.lowStockThreshold ?? 5,
         tags: body.tags ?? [],
-        categoryId: body.categoryId,
+        categoryId,
         isPublished: publishState.isPublished,
         isHidden: body.isHidden ?? false,
         status: publishState.status,
@@ -467,6 +471,11 @@ export class ProductsController {
     const mediaUpdateRequested =
       body.imageUrls !== undefined || body.videoUrl !== undefined || body.imageUrl !== undefined
 
+    const nextCategoryId =
+      body.categoryId !== undefined
+        ? await assertStoreCategoryId(this.prisma, existing.storeId, body.categoryId)
+        : undefined
+
     const product = await this.prisma.product.update({
       where: { id },
       data: {
@@ -481,7 +490,7 @@ export class ProductsController {
         ...(body.lowStockThreshold !== undefined ? { lowStockThreshold: body.lowStockThreshold } : {}),
         ...(body.tags !== undefined ? { tags: body.tags } : {}),
         ...(schemaMarkup !== undefined ? { schemaMarkup } : {}),
-        ...(body.categoryId !== undefined ? { categoryId: body.categoryId || null } : {}),
+        ...(nextCategoryId !== undefined ? { categoryId: nextCategoryId } : {}),
         ...(publishPatch
           ? {
               isPublished: publishPatch.isPublished,

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, m, useReducedMotion } from '@/lib/motion/react'
-import { MEDIA, PRESS_DOWN } from '@/lib/motion/config'
+import { GENTLE, MEDIA, PRESS_DOWN } from '@/lib/motion/config'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import { ProductTransitionLink } from '@/components/product/ProductTransitionLink'
 import { LiquidGlassNavPair } from '@/components/ui/LiquidGlass'
@@ -14,13 +14,14 @@ import { useCartStore } from '@/store/cartStore'
 import { useUiStore } from '@/store/uiStore'
 import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
-import { formatBDT } from '@/lib/utils/currency'
+import { ProductDiscountBadge, ProductPrice } from '@/components/product/ProductPrice'
 import { pluralize } from '@/lib/utils/pluralize'
 import { trackAddToCart, trackAddToWishlist } from '@/lib/analytics/meta-pixel'
 import { resolveQuickAddVariant } from '@/lib/catalog/index'
+import { resolveStockStatus } from '@/lib/catalog/stock-status'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 
-const IMAGE_SPRING = { type: 'spring' as const, stiffness: 380, damping: 34, mass: 0.82 }
+const IMAGE_SPRING = GENTLE
 
 export interface SplaroProductCardProps {
   id: string
@@ -37,7 +38,11 @@ export interface SplaroProductCardProps {
   colorHexes?: string[]
   status?: string
   meta?: string
+  /** Show clear Unisex label when product is tagged/categorized as such. */
+  isUnisex?: boolean
   inStock?: boolean
+  /** Active variant stock sum — drives In Stock / Low Stock / Only N Left. */
+  stockUnits?: number
   sizes?: string[]
   href?: string
   priority?: boolean
@@ -62,7 +67,9 @@ export function SplaroProductCard({
   colorHexes = [],
   status = 'Ready',
   meta,
+  isUnisex = false,
   inStock = true,
+  stockUnits,
   sizes: productSizes = [],
   href,
   priority = false,
@@ -84,9 +91,6 @@ export function SplaroProductCard({
 
   const link = href ?? `/products/${slug}`
   const hasDiscount = Boolean(compareAtPrice && compareAtPrice > price)
-  const discount = hasDiscount
-    ? Math.round(((compareAtPrice! - price) / compareAtPrice!) * 100)
-    : 0
   const tag = collection ?? category
   const showStatus = status && status !== 'Ready'
   const imageGallery = useMemo(() => {
@@ -102,6 +106,18 @@ export function SplaroProductCard({
   const hoverSrc = imageGallery[1] ?? null
   const imageFit = isHomepage || isShop ? 'cover' : fit
   const showCollectionTag = Boolean(tag) && !isHomepage && !isShop
+  const stockStatus = resolveStockStatus(
+    typeof stockUnits === 'number' ? stockUnits : inStock ? undefined : 0,
+  )
+  // When units unknown but inStock true, treat as healthy In Stock (bundled catalog).
+  const stockLabel =
+    typeof stockUnits === 'number'
+      ? stockStatus.label
+      : inStock
+        ? 'In Stock'
+        : 'Sold Out'
+  const stockKind =
+    typeof stockUnits === 'number' ? stockStatus.kind : inStock ? 'in_stock' : 'sold_out'
   const mediaTransition = productMediaTransitionStyle(id, reducedMotion)
   const showGalleryNav = !isShop && !isHomepage && imageGallery.length > 1
   const displayImage = useMemo(() => {
@@ -318,7 +334,7 @@ export function SplaroProductCard({
             className="splaro-card__gallery-nav"
             initial={false}
             animate={{ opacity: 1, y: 0 }}
-            transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 32 }}
+            transition={reducedMotion ? { duration: 0 } : GENTLE}
             onClick={(event) => event.stopPropagation()}
           >
             <LiquidGlassNavPair onPrev={handleGalleryPrev} onNext={handleGalleryNext} />
@@ -336,16 +352,21 @@ export function SplaroProductCard({
           </span>
         ) : null}
         {hasDiscount && !showStatus ? (
-          <span className="splaro-card__badge splaro-card__badge--sale">
-            -{discount}%
-          </span>
+          <ProductDiscountBadge
+            price={price}
+            compareAtPrice={compareAtPrice!}
+            className="splaro-card__badge splaro-card__badge--sale"
+          />
         ) : null}
+        {isUnisex ? <span className="splaro-card__badge splaro-card__badge--unisex">Unisex</span> : null}
 
         {showCollectionTag ? (
           <span className="splaro-card__collection">{tag}</span>
         ) : null}
 
-        {!inStock ? <span className="splaro-card__sold-badge">Sold out</span> : null}
+        {stockKind === 'sold_out' ? (
+          <span className="splaro-card__sold-badge">Sold Out</span>
+        ) : null}
 
         {inStock ? (
           <m.button
@@ -423,13 +444,27 @@ export function SplaroProductCard({
           </div>
         ) : null}
 
-        <div className="splaro-card__price-row">
-          <span className="splaro-card__price">{formatBDT(price)}</span>
-          {hasDiscount ? (
-            <span className="splaro-card__compare">{formatBDT(compareAtPrice!)}</span>
-          ) : null}
+        <ProductPrice
+          price={price}
+          compareAtPrice={compareAtPrice}
+          className="splaro-card__price-row"
+          priceClassName="splaro-card__price"
+          compareClassName="splaro-card__compare"
+        >
           {meta ? <span className="splaro-card__meta">{meta}</span> : null}
-        </div>
+        </ProductPrice>
+
+        <p
+          className={cn(
+            'splaro-card__stock',
+            stockKind === 'in_stock' && 'splaro-card__stock--ok',
+            stockKind === 'low_stock' && 'splaro-card__stock--low',
+            stockKind === 'only_left' && 'splaro-card__stock--urgent',
+            stockKind === 'sold_out' && 'splaro-card__stock--out',
+          )}
+        >
+          {stockLabel}
+        </p>
       </ProductTransitionLink>
     </article>
   )

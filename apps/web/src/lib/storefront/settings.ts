@@ -303,6 +303,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
           { label: 'Best Sellers', href: '/best-sellers' },
           { label: 'Women', href: '/c/women' },
           { label: 'Men', href: '/c/men' },
+          { label: 'Kids', href: '/c/kids' },
           { label: 'Footwear', href: '/c/footwear' },
           { label: 'Accessories', href: '/accessories' },
           { label: 'Collections', href: '/collections' },
@@ -314,6 +315,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
         links: [
           { label: 'Track Order', href: '/track-order' },
           { label: 'Returns & Exchange', href: '/returns' },
+          { label: 'FAQ', href: '/faq' },
           { label: 'Contact Us', href: '/contact' },
           { label: 'Size Guide', href: '/size-guide' },
         ],
@@ -323,6 +325,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
         title: 'Company',
         links: [
           { label: 'About SPLARO', href: '/about' },
+          { label: 'Our Store', href: '/stores' },
           { label: 'Journal', href: '/editorial' },
         ],
       },
@@ -331,19 +334,19 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
         title: 'Policies',
         links: [
           { label: 'Shipping Policy', href: '/shipping' },
+          { label: 'Returns Policy', href: '/returns' },
+          { label: 'Payment Policy', href: '/payment-policy' },
           { label: 'Privacy Policy', href: '/privacy' },
           { label: 'Terms & Conditions', href: '/terms' },
-          { label: 'Payment Policy', href: '/payment-policy' },
         ],
       },
     ],
     marquee: {
       enabled: true,
       items: [
-        'SPLARO — Quiet luxury for Bangladesh',
-        'Cash on delivery nationwide',
-        'Free delivery on qualifying orders',
-        'New season edit — shop now',
+        'Quiet luxury for Bangladesh',
+        'New season edit',
+        'Crafted for everyday elegance',
       ],
     },
     specialOffer: { enabled: false, template: 'countdown', title: '', ctaLabel: 'Shop now', ctaHref: '/shop' },
@@ -529,6 +532,53 @@ function ensureFallbackNavItems(nav: NavLink[]): NavLink[] {
   return result
 }
 
+/** Department links that must appear in footer Shop (same set as header depts). */
+const FOOTER_SHOP_DEPT_HREFS = ['/c/women', '/c/men', '/c/kids', '/c/footwear', '/accessories'] as const
+
+/**
+ * DB-saved footer groups often predate Kids — inject missing department links
+ * into the Shop column without wiping custom care/company/policy links.
+ */
+function ensureFallbackFooterShopLinks(groups: FooterGroup[]): FooterGroup[] {
+  const fallbackShop =
+    FALLBACK_SETTINGS.config.footerGroups?.find((group) => group.id === 'shop')?.links ?? []
+
+  return groups.map((group) => {
+    if (group.id !== 'shop' && group.title.trim().toLowerCase() !== 'shop') return group
+
+    let links = [...group.links]
+    for (const href of FOOTER_SHOP_DEPT_HREFS) {
+      const exists = links.some((link) => normalizeHref(link.href) === normalizeHref(href))
+      if (exists) continue
+      const fallbackLink = fallbackShop.find((link) => normalizeHref(link.href) === normalizeHref(href))
+      if (!fallbackLink) continue
+
+      // Insert after Men (or Women) when adding Kids; otherwise append before Collections.
+      const menIdx = links.findIndex((link) => normalizeHref(link.href) === '/c/men')
+      const womenIdx = links.findIndex((link) => normalizeHref(link.href) === '/c/women')
+      const footwearIdx = links.findIndex((link) => normalizeHref(link.href) === '/c/footwear')
+      const collectionsIdx = links.findIndex(
+        (link) =>
+          normalizeHref(link.href) === '/collections' ||
+          link.label.toLowerCase() === 'collections',
+      )
+
+      let insertAt = links.length
+      if (href === '/c/kids') {
+        if (menIdx >= 0) insertAt = menIdx + 1
+        else if (womenIdx >= 0) insertAt = womenIdx + 1
+        else if (footwearIdx >= 0) insertAt = footwearIdx
+        else if (collectionsIdx >= 0) insertAt = collectionsIdx
+      } else if (collectionsIdx >= 0) {
+        insertAt = collectionsIdx
+      }
+
+      links = [...links.slice(0, insertAt), fallbackLink, ...links.slice(insertAt)]
+    }
+    return { ...group, links }
+  })
+}
+
 /** Men → Women → Kids → Footwear → Accessories among department links only. */
 const DEPARTMENT_NAV_RANK: Record<string, number> = {
   men: 0,
@@ -603,8 +653,9 @@ function applyStoreDefaults(settings: StorefrontSettings): StorefrontSettings {
     normalizedHeaderNav,
     catalogChannels,
   ).filter((item) => !isSummerEditionNavItem(item))
-  const footerGroupsSource =
-    settings.config.footerGroups?.length ? settings.config.footerGroups : fallbackGroups
+  const footerGroupsSource = ensureFallbackFooterShopLinks(
+    settings.config.footerGroups?.length ? settings.config.footerGroups : fallbackGroups,
+  )
   const filteredFooterGroups = filterFooterGroupsByCatalogChannels(
     footerGroupsSource,
     catalogChannels,

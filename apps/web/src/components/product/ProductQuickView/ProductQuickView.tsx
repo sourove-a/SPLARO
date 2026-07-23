@@ -16,7 +16,7 @@ import {
 } from '@/lib/catalog/quick-view-product'
 import { sortSizes } from '@/lib/catalog/live'
 import { resolveSizeOptionUi } from '@/lib/catalog/size-option-ui'
-import { formatBDT } from '@/lib/utils/currency'
+import { ProductPrice } from '@/components/product/ProductPrice'
 import { cn } from '@/lib/utils/cn'
 import toast from 'react-hot-toast'
 import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap'
@@ -86,8 +86,6 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
         ?.name ?? selectedColor
     )
   }, [product, selectedColor])
-
-  const hasDiscount = Boolean(product?.compareAtPrice && product.compareAtPrice > product.price)
 
   const handlePrevImage = useCallback(() => {
     setImageIndex((current) => (current - 1 + galleryImages.length) % galleryImages.length)
@@ -208,16 +206,13 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
                   </p>
                 ) : null}
 
-                <div className="mt-3 flex flex-wrap items-baseline gap-2">
-                  <span className="text-[0.95rem] font-semibold text-luxury-black">
-                    {formatBDT(product.price)}
-                  </span>
-                  {hasDiscount ? (
-                    <span className="text-[0.82rem] text-luxury-gray line-through">
-                      {formatBDT(product.compareAtPrice!)}
-                    </span>
-                  ) : null}
-                </div>
+                <ProductPrice
+                  price={product.price}
+                  compareAtPrice={product.compareAtPrice}
+                  className="mt-3 flex flex-wrap items-baseline gap-2"
+                  priceClassName="text-[0.95rem] font-semibold text-luxury-black"
+                  compareClassName="text-[0.82rem] text-luxury-gray line-through"
+                />
 
                 {selectedColorName ? (
                   <p className="mt-4 text-[0.78rem] text-luxury-gray">

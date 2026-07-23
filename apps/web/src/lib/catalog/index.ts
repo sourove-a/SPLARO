@@ -136,6 +136,20 @@ function baseCardFields(product: StorefrontProduct): ProductCardData {
     rating: rating > 0 && reviewCount > 0 ? rating : 0,
     reviewCount: reviewCount > 0 ? reviewCount : 0,
     category: product.category,
+    ...(product.categorySlug ? { categorySlug: product.categorySlug } : {}),
+    ...(product.tags?.length ? { tags: product.tags } : {}),
+    ...(product.isUnisex ? { isUnisex: true } : {}),
+    ...(typeof product.stockUnits === 'number'
+      ? { stockUnits: product.stockUnits }
+      : product.variantRefs?.length
+        ? {
+            stockUnits: product.variantRefs
+              .filter((ref) => ref.isActive !== false)
+              .reduce((sum, ref) => sum + Math.max(0, Number(ref.stock) || 0), 0),
+          }
+        : product.inStock === false
+          ? { stockUnits: 0 }
+          : {}),
     collectionSlug: slugFromCategory(product.category),
   }
 }

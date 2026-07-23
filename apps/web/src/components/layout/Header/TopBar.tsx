@@ -19,11 +19,7 @@ export function TopBar() {
     ''
 
   return (
-    <div
-      className="site-topbar z-chrome-header"
-      data-site-chrome
-      data-top-bar
-    >
+    <div className="site-topbar z-chrome-header" data-site-chrome data-top-bar>
       <div className="site-topbar__inner">
         <div className="site-topbar__group">
           <span className="site-topbar__label">৳ BDT</span>

@@ -10,7 +10,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
-  Droplets,
   Layers,
   MapPin,
   Maximize2,
@@ -47,6 +46,9 @@ import { stageCheckoutItems } from '@/lib/cart/checkout-intent'
 import { useUiStore } from '@/store/uiStore'
 import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
+import { ProductPrice } from '@/components/product/ProductPrice'
+import { PdpShippingStory } from '@/components/product/PdpShippingStory'
+import { PdpCareStory, splitCareInstructionLines } from '@/components/product/PdpCareStory'
 import { trackAddToCart, trackViewContent } from '@/lib/analytics/meta-pixel'
 import type { ProductDetailData } from '@/types/product'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
@@ -60,6 +62,7 @@ import { resolveSizeOptionUi } from '@/lib/catalog/size-option-ui'
 import { ProductReviews } from '@/components/product/ProductReviews/ProductReviews'
 import { ProductLightbox } from '@/components/product/ProductLightbox/ProductLightbox'
 import { ProductPurchaseExtras } from '@/components/product/ProductPurchaseExtras/ProductPurchaseExtras'
+import { ProductTrustStrip } from '@/components/product/ProductTrustStrip/ProductTrustStrip'
 import { ProductPurchaseSticky } from '@/components/product/ProductPurchaseSticky/ProductPurchaseSticky'
 import { SizeGuideModal } from '@/components/product/SizeGuideModal/SizeGuideModal'
 import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
@@ -321,10 +324,6 @@ export default function ProductPageClient({
   const lowStock = inStock && stock <= 5
   const unitPrice = activeVariant?.price ?? product.price
   const compareAtPrice = activeVariant?.compareAtPrice ?? product.compareAtPrice
-  const hasDiscount = Boolean(compareAtPrice && compareAtPrice > unitPrice)
-  const discountPct = hasDiscount
-    ? Math.round(((compareAtPrice! - unitPrice) / compareAtPrice!) * 100)
-    : 0
 
   const [shareUrl, setShareUrl] = useState('')
   const [ctaShake, setCtaShake] = useState(false)
@@ -562,14 +561,20 @@ export default function ProductPageClient({
       icon: Clock3,
       text: 'Most orders arrive within 2–4 business days',
     })
-    if (product.origin?.trim()) {
-      shippingLines.push({ icon: MapPin, text: `Origin · ${product.origin.trim()}` })
-    }
+    shippingLines.push({
+      icon: MapPin,
+      text: `Origin · ${(product.origin ?? 'Bangladesh').trim() || 'Bangladesh'}`,
+    })
     sections.push({ id: 'Shipping', icon: Truck, lines: shippingLines })
 
     const careLines: DetailLine[] = []
     if (product.careInstructions?.trim()) {
-      careLines.push({ icon: Droplets, text: product.careInstructions.trim() })
+      careLines.push(
+        ...splitCareInstructionLines(product.careInstructions).map((line) => ({
+          icon: line.icon,
+          text: line.text,
+        })),
+      )
     }
     if (careLines.length > 0) {
       sections.push({ id: 'Care', icon: Sparkles, lines: careLines })
@@ -1085,15 +1090,16 @@ export default function ProductPageClient({
             </ProductReveal>
 
             <ProductReveal className="pp-info__lead">
-              <div className="pp-info__price-row">
-                <span className="pp-info__price">{formatBDT(unitPrice)}</span>
-                {hasDiscount && (
-                  <>
-                    <span className="pp-info__compare">{formatBDT(compareAtPrice!)}</span>
-                    <span className="pp-info__discount-badge">-{discountPct}%</span>
-                  </>
-                )}
-              </div>
+              <ProductPrice
+                price={unitPrice}
+                compareAtPrice={compareAtPrice}
+                className="pp-info__price-row"
+                priceClassName="pp-info__price"
+                compareClassName="pp-info__compare"
+                badgeClassName="pp-info__discount-badge"
+                showBadge
+                badgeLabelStyle="off"
+              />
               <ProductPurchaseExtras product={product} price={unitPrice} variant="highlights" />
             </ProductReveal>
 
@@ -1362,6 +1368,10 @@ export default function ProductPageClient({
             <ProductReveal>
               <ProductPurchaseExtras product={product} price={unitPrice} variant="payments" />
             </ProductReveal>
+
+            <ProductReveal>
+              <ProductTrustStrip compact />
+            </ProductReveal>
             </div>
             </ProductStagger>
 
@@ -1431,7 +1441,30 @@ export default function ProductPageClient({
                               <Plus className="h-3 w-3" strokeWidth={2} />
                             </motion.span>
                           </MotionPressable>
-                          {/* Panel always in DOM for SSR/SEO/AT — collapse visually when closed. */}
+                          {/* Panel always in DOM for SSR/SEO/AT — collapse visually when closed.
+                              Shipping/Care use CSS grid expand so story scenes never clip lines. */}
+                          {section.id === 'Shipping' || section.id === 'Care' ? (
+                            <div
+                              id={panelId}
+                              role="region"
+                              aria-labelledby={triggerId}
+                              aria-hidden={!open}
+                              {...(!open ? { inert: true as const } : {})}
+                              className={cn(
+                                'pp-accordion__panel',
+                                'pp-accordion__panel--story',
+                                !open && 'pp-accordion__panel--collapsed',
+                              )}
+                            >
+                              <div className="pp-accordion__panel-inner">
+                                {section.id === 'Shipping' ? (
+                                  <PdpShippingStory active={open} lines={section.lines} />
+                                ) : (
+                                  <PdpCareStory active={open} lines={section.lines} />
+                                )}
+                              </div>
+                            </div>
+                          ) : (
                           <motion.div
                             id={panelId}
                             role="region"
@@ -1453,23 +1486,24 @@ export default function ProductPageClient({
                             )}
                           >
                             <div className="pp-accordion__panel-inner">
-                              <ul className="pp-accordion__list">
-                                {section.lines.map((line) => {
-                                  const LineIcon = line.icon
-                                  return (
-                                    <li key={line.text} className="pp-accordion__item">
-                                      <LineIcon
-                                        className="pp-accordion__item-icon"
-                                        strokeWidth={1.65}
-                                        aria-hidden
-                                      />
-                                      <span>{line.text}</span>
-                                    </li>
-                                  )
-                                })}
-                              </ul>
+                                <ul className="pp-accordion__list">
+                                  {section.lines.map((line) => {
+                                    const LineIcon = line.icon
+                                    return (
+                                      <li key={line.text} className="pp-accordion__item">
+                                        <LineIcon
+                                          className="pp-accordion__item-icon"
+                                          strokeWidth={1.65}
+                                          aria-hidden
+                                        />
+                                        <span>{line.text}</span>
+                                      </li>
+                                    )
+                                  })}
+                                </ul>
                             </div>
                           </motion.div>
+                          )}
                         </div>
                       )
                     })}

@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronDown, HelpCircle } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 
 import { AccountGlass } from '@/components/account/AccountGlass'
+import { PremiumIcon } from '@/components/ui/PremiumIcon'
 import type { SitePageSection } from '@/lib/content/site-pages'
 import { fadeUp, staggerContainer } from '@/lib/motion/variants'
 import { cn } from '@/lib/utils/cn'
@@ -81,14 +82,14 @@ export function ContentPremiumFaq({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.58, ease: [0.16, 1, 0.3, 1] }}
         >
-          <AccountGlass className="faq-premium__hero">
+          <AccountGlass tilt className="faq-premium__hero">
             <Link href="/" className="content-page__back faq-premium__back">
               <ArrowLeft className="h-4 w-4" strokeWidth={2.1} />
               Back to home
             </Link>
 
             <div className="faq-premium__hero-icon" aria-hidden="true">
-              <HelpCircle className="h-6 w-6" strokeWidth={2} />
+              <PremiumIcon icon={HelpCircle} size="lg" />
             </div>
 
             <p className="faq-premium__badge">{badge}</p>

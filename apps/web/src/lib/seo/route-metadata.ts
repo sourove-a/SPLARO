@@ -26,7 +26,7 @@ export function createRouteMetadata({
     openGraph: {
       type: 'website',
       siteName: 'SPLARO',
-      locale: 'en_US',
+      locale: 'en_BD',
       title,
       description,
       url: canonical,
@@ -37,6 +37,23 @@ export function createRouteMetadata({
       title,
       description,
       images: [socialImage],
+    },
+  }
+}
+
+/** For URL-based pagination (?page=2+): keep crawl focus on page 1. */
+export function createPaginatedRouteMetadata(
+  options: RouteMetadataOptions & { page?: number },
+): Metadata {
+  const page = Math.max(1, Number(options.page) || 1)
+  const base = createRouteMetadata(options)
+  if (page <= 1) return base
+  return {
+    ...base,
+    robots: {
+      index: false,
+      follow: true,
+      googleBot: { index: false, follow: true },
     },
   }
 }

@@ -138,6 +138,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       },
       {
         '@type': 'Product',
+        '@id': `${siteUrl}/products/${product.slug}#product`,
         name: product.name,
         description: sanitizeStorefrontDescription(
           product.description,
@@ -164,6 +165,25 @@ export default async function ProductPage({ params }: ProductPageProps) {
             '@type': 'Organization',
             name: 'SPLARO',
           },
+          ...(product.compareAtPrice != null &&
+          Number(product.compareAtPrice) > Number(product.price)
+            ? {
+                priceSpecification: [
+                  {
+                    '@type': 'UnitPriceSpecification',
+                    priceType: 'https://schema.org/SalePrice',
+                    price: String(product.price),
+                    priceCurrency: 'BDT',
+                  },
+                  {
+                    '@type': 'UnitPriceSpecification',
+                    priceType: 'https://schema.org/ListPrice',
+                    price: String(product.compareAtPrice),
+                    priceCurrency: 'BDT',
+                  },
+                ],
+              }
+            : {}),
         },
         ...(product.reviewCount > 0
           ? {

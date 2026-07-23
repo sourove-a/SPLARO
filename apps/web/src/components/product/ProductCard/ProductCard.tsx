@@ -12,14 +12,27 @@ import { BagIcon } from '@/components/product/AddToBagIcon'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { cn } from '@/lib/utils/cn'
-import { formatBDT } from '@/lib/utils/currency'
+import { ProductDiscountBadge, ProductPrice } from '@/components/product/ProductPrice'
 import { pluralize } from '@/lib/utils/pluralize'
 import { trackAddToCart, trackAddToWishlist } from '@/lib/analytics/meta-pixel'
 import { resolveQuickAddVariant } from '@/lib/catalog/index'
-import { fadeUp, cardHover } from '@/lib/motion/variants'
+import { resolveStockStatus } from '@/lib/catalog/stock-status'
+import { cardHover } from '@/lib/motion/variants'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import type { ProductCardData } from '@/types/product'
 import type { ProductStatus } from '@/data/storefront'
+
+function cardStock(product: ProductCardData) {
+  if (typeof product.stockUnits === 'number') return resolveStockStatus(product.stockUnits)
+  if (product.variantRefs?.length) {
+    const units = product.variantRefs
+      .filter((ref) => ref.isActive !== false)
+      .reduce((sum, ref) => sum + Math.max(0, Number(ref.stock) || 0), 0)
+    return resolveStockStatus(units)
+  }
+  // Bundled/static cards without inventory — don't fake Sold Out.
+  return { kind: 'in_stock' as const, units: 0, label: 'In Stock' }
+}
 
 function productImages(product: ProductCardData): string[] {
   const fromList = (product.images ?? []).map((url) => url?.trim()).filter(Boolean) as string[]
@@ -72,7 +85,7 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
   const [hovered, setHovered] = useState(false)
   const [imgIndex, setImgIndex] = useState(0)
   const reducedMotion = useReducedMotion()
-  const { showMotion, allowRevealAnimation } = useMotionReady()
+  const { showMotion } = useMotionReady()
   const images = productImages(product)
 
   const addToCart = useCartStore((s) => s.addItem)
@@ -156,24 +169,14 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
     [images.length],
   )
 
-  const hasDiscount = product.compareAtPrice && product.compareAtPrice > product.price
-  const discountPercent = hasDiscount
-    ? Math.round(((product.compareAtPrice! - product.price) / product.compareAtPrice!) * 100)
-    : 0
+  const hasDiscount = Boolean(product.compareAtPrice && product.compareAtPrice > product.price)
 
   const colorCount = product.colorOptions?.length ?? 0
   const hasMultipleImages = images.length > 1
   const currentImage = images[imgIndex] ?? images[0] ?? PRODUCT_IMAGE_PLACEHOLDER
 
-  const revealMotion = !allowRevealAnimation
-    ? { initial: false as const }
-    : {
-        initial: 'hidden' as const,
-        whileInView: 'visible' as const,
-        viewport: { once: true, margin: '-60px' as const },
-        variants: fadeUp,
-      }
-
+  // No whileInView on cards — grid opacity gates fight Lenis and feel like scroll jank.
+  // Premium stays via cardHover + Pearl CSS; content is always visible.
   const mediaTransition = productMediaTransitionStyle(product.id, reducedMotion)
 
   return (
@@ -181,7 +184,7 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
       className="pc-shell group"
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
-      {...revealMotion}
+      initial={false}
       {...(showMotion && !reducedMotion ? cardHover : {})}
     >
       <div className="pc-media">
@@ -203,8 +206,15 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
           </div>
         </ProductTransitionLink>
 
-        {hasDiscount && <span className="pc-badge pc-badge--sale">-{discountPercent}%</span>}
+        {hasDiscount && product.compareAtPrice ? (
+          <ProductDiscountBadge
+            price={product.price}
+            compareAtPrice={product.compareAtPrice}
+            className="pc-badge pc-badge--sale"
+          />
+        ) : null}
         {product.isNewArrival && !hasDiscount && <span className="pc-badge pc-badge--new">New</span>}
+        {product.isUnisex ? <span className="pc-badge pc-badge--unisex">Unisex</span> : null}
 
         {hasMultipleImages && (
           <>
@@ -256,7 +266,10 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
       <ProductTransitionLink href={`/products/${product.slug}`} className="pc-info" tabIndex={-1}>
         <div className="pc-info__row">
           <span className="pc-info__name">{product.name}</span>
-          {product.category && <span className="pc-info__sku">{product.category}</span>}
+          <span className="pc-info__meta">
+            {product.isUnisex ? <span className="pc-info__audience">Unisex</span> : null}
+            {product.category ? <span className="pc-info__sku">{product.category}</span> : null}
+          </span>
         </div>
 
         {colorCount > 0 && (
@@ -266,10 +279,21 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
           </p>
         )}
 
-        <div className="pc-info__price-row">
-          <span className="pc-info__price">{formatBDT(product.price)}</span>
-          {hasDiscount && <span className="pc-info__compare">{formatBDT(product.compareAtPrice!)}</span>}
-        </div>
+        <ProductPrice
+          price={product.price}
+          compareAtPrice={product.compareAtPrice}
+          className="pc-info__price-row"
+          priceClassName="pc-info__price"
+          compareClassName="pc-info__compare"
+        />
+        {(() => {
+          const stock = cardStock(product)
+          return (
+            <p className={cn('pc-info__stock', `pc-info__stock--${stock.kind.replaceAll('_', '-')}`)}>
+              {stock.label}
+            </p>
+          )
+        })()}
       </ProductTransitionLink>
     </motion.article>
   )
@@ -298,7 +322,6 @@ function ProductCardShop({
   const images = productImages(product)
   const primaryImage = images[0] ?? PRODUCT_IMAGE_PLACEHOLDER
   const hoverImage = images[1] ?? primaryImage
-  const hasDiscount = product.compareAtPrice && product.compareAtPrice > product.price
   const reducedMotion = useReducedMotion()
   const { showMotion } = useMotionReady()
   const mediaTransition = productMediaTransitionStyle(product.id, reducedMotion)
@@ -383,6 +406,9 @@ function ProductCardShop({
                 {productStatus === 'New' ? 'NEW' : productStatus.toUpperCase()}
               </span>
             ) : null}
+            {product.isUnisex ? (
+              <span className="shop-product-badge shop-product-badge--unisex">Unisex</span>
+            ) : null}
           </div>
 
           <div className="shop-product-card__info">
@@ -400,19 +426,27 @@ function ProductCardShop({
                 </span>
               </div>
             ) : null}
-            <div className="shop-product-card__price-row">
-              <span
-                className={cn(
-                  'shop-product-card__price',
-                  hasDiscount && 'shop-product-card__price--sale',
-                )}
-              >
-                {formatBDT(product.price)}
-              </span>
-              {hasDiscount ? (
-                <span className="shop-product-card__compare">{formatBDT(product.compareAtPrice!)}</span>
-              ) : null}
-            </div>
+            <ProductPrice
+              price={product.price}
+              compareAtPrice={product.compareAtPrice}
+              className="shop-product-card__price-row"
+              priceClassName="shop-product-card__price"
+              compareClassName="shop-product-card__compare"
+              salePriceClassName="shop-product-card__price--sale"
+            />
+            {(() => {
+              const stock = cardStock(product)
+              return (
+                <p
+                  className={cn(
+                    'shop-product-card__stock',
+                    `shop-product-card__stock--${stock.kind.replaceAll('_', '-')}`,
+                  )}
+                >
+                  {stock.label}
+                </p>
+              )
+            })()}
           </div>
         </ProductTransitionLink>
         </div>

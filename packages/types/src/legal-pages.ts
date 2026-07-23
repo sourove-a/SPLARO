@@ -232,15 +232,20 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
   },
   about: {
     title: 'About SPLARO',
-    description: 'Premium everyday fashion designed in Dhaka for modern Bangladesh.',
+    description:
+      'Quiet-luxury fashion designed in Dhaka for modern Bangladesh — authentic pieces, COD, and nationwide care.',
     sections: [
       {
         heading: 'Our story',
-        body: "SPLARO was founded in Dhaka with a simple belief: everyday clothing should feel premium, last longer, and suit Bangladesh's climate. From breathable summer edits to structured workwear, we design pieces that move with you — from Uttara mornings to Gulshan evenings.",
+        body: "SPLARO was founded in Dhaka with a simple belief: everyday clothing should feel premium, last longer, and suit Bangladesh's climate. From breathable summer edits to structured workwear, we design pieces that move with you — from Uttara mornings to Gulshan evenings. Every order ships with an authenticity guarantee.",
       },
       {
         heading: 'Design philosophy',
-        body: 'We favour clean lines, thoughtful fabrics, and restrained colour palettes. Each collection is developed in-house with local artisans and international fabric partners. Every garment is fit-tested on Bangladeshi body types before production.',
+        body: 'We favour clean lines, thoughtful fabrics, and restrained colour palettes. Each collection is developed in-house with local artisans and international fabric partners. Every garment is fit-tested on Bangladeshi body types before production — so size charts match real wear, not imported guesses.',
+      },
+      {
+        heading: 'How we earn trust',
+        body: 'Cash on delivery across Bangladesh. Unworn returns within 7 days with tags intact. Live courier tracking after dispatch. Customer Care on phone, email, and WhatsApp — Saturday to Thursday, 10:00 AM – 8:00 PM (BST). Studio try-ons welcome in Uttara.',
       },
       {
         heading: 'Sustainability',
@@ -248,33 +253,38 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
       },
       {
         heading: 'Community',
-        body: 'SPLARO supports local tailoring apprenticeships in Dhaka and partners with courier services that employ riders across Bangladesh. Follow @splaro.official for behind-the-scenes content and styling tips.',
+        body: 'SPLARO supports local tailoring apprenticeships in Dhaka and partners with courier services that employ riders across Bangladesh. Follow @splaro.bd for behind-the-scenes craft and styling.',
       },
       {
         heading: 'Visit us',
-        body: 'Experience SPLARO in person at our Uttara studio — Sector 13, Road 12, Dhaka 1230. Open Saturday–Thursday, 10:00 AM – 8:00 PM.',
+        body: 'Experience SPLARO in person at our Uttara studio — Sector 13, Road 12, Dhaka 1230. Open Saturday–Thursday, 10:00 AM – 8:00 PM. Prefer online? Shop with COD nationwide, or message care before you visit.',
       },
     ],
   },
   editorial: {
     title: 'SPLARO Journal',
-    description: 'Editorial stories on style, culture, and everyday life in Bangladesh.',
+    description:
+      'Quiet notes on style, fabric, and everyday life in Bangladesh — written for customers who want to know what they wear.',
     sections: [
       {
         heading: 'Summer in Dhaka',
-        body: 'Light linen, relaxed silhouettes, and breathable layers define our Summer Edition. Discover how SPLARO customers style overshirts from office to iftar gatherings.',
+        body: 'Humidity asks for breathable cloth. Our Summer Edition leans on light linen, relaxed silhouettes, and layers you can move from office to iftar without changing twice. Style tip: one overshirt, two tees, one trouser — rotate for a full week.',
       },
       {
-        heading: 'The minimal wardrobe',
-        body: 'Five SPLARO pieces, fifteen outfits. Our editorial team builds capsule wardrobes for Dhaka professionals who value quality over quantity.',
+        heading: 'The minimalwardrobe',
+        body: 'Five SPLARO pieces, fifteen outfits. Build a Dhaka capsule: one structured shirt, one soft knit, one tailored bottom, one easy dress or panjabi, one footwear staple. Quality over quantity — and every piece ships with our authenticity promise.',
       },
       {
         heading: 'Fabric notes',
-        body: "From Egyptian cotton to washed twill — we break down the materials behind our bestsellers and how to care for them in Bangladesh's humidity.",
+        body: "Egyptian cotton, washed twill, linen blends — we break down the materials behind bestsellers and how to care for them in Bangladesh's humidity. Hang-dry when you can; avoid high heat on lined pieces.",
+      },
+      {
+        heading: 'Fit & sizing honesty',
+        body: 'SPLARO size guides are built from Bangladeshi fit tests, not copied EU charts alone. Unsure? Message Customer Care with your height, weight, and the product name — or visit the Uttara studio to try before you buy.',
       },
       {
         heading: 'Contributors',
-        body: 'The SPLARO Journal features photographers, stylists, and writers from across Bangladesh. Interested in collaborating? Email editorial@splaro.co with your portfolio.',
+        body: 'The Journal features photographers, stylists, and writers from across Bangladesh. Interested in collaborating? Email editorial@splaro.co with your portfolio.',
       },
     ],
   },

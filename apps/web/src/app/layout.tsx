@@ -1,6 +1,13 @@
 import type { Metadata, Viewport } from 'next'
 import { Cormorant_Garamond, Inter } from 'next/font/google'
 import './globals.css'
+import '@/styles/typography.css'
+import '@/styles/motion-language.css'
+import '@/styles/premium-icons.css'
+import '@/styles/button-system.css'
+import '@/styles/nav-language.css'
+import '@/styles/scroll-story.css'
+import '@/styles/scroll-idle.css'
 import { Providers } from '@/components/layout/Providers'
 import { StorefrontChrome } from '@/components/layout/StorefrontChrome'
 import { Toaster } from '@/components/ui/Toast/Toaster'
@@ -29,7 +36,7 @@ const inter = Inter({
 
 const cormorant = Cormorant_Garamond({
   subsets: ['latin'],
-  weight: ['400', '500'],
+  weight: ['400', '500', '600'],
   variable: '--font-cormorant',
   display: 'swap',
   preload: false,
@@ -61,24 +68,37 @@ const cdnOrigin = (() => {
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'SPLARO — Luxury Fashion & Lifestyle',
+    default: 'SPLARO — Luxury Fashion Bangladesh | Men, Women & Kids',
     template: '%s | SPLARO',
   },
   description:
-    'Discover SPLARO — quiet luxury fashion for women, men, and kids. Premium essentials, footwear, and accessories with worldwide craft heritage.',
+    'SPLARO is Bangladesh’s quiet-luxury fashion store for men, women, and kids — premium apparel, ethnic wear, footwear, handbags, and accessories with COD and nationwide delivery.',
   keywords: [
     'SPLARO',
-    'premium fashion',
-    'summer edition',
-    'men fashion',
-    'women fashion',
-    'kids fashion',
-    'footwear',
-    'premium storefront',
+    'SPLARO Bangladesh',
+    'premium fashion Bangladesh',
+    'luxury fashion Dhaka',
+    'buy clothes online Bangladesh',
+    'COD fashion Bangladesh',
+    'men fashion Bangladesh',
+    'women fashion Bangladesh',
+    'kids fashion Bangladesh',
+    'ethnic wear Bangladesh',
+    'panjabi online',
+    'handbags Bangladesh',
+    'footwear Bangladesh',
+    'quiet luxury',
+    'Uttara fashion store',
   ],
   authors: [{ name: 'SPLARO', url: siteUrl }],
   creator: 'SPLARO',
   publisher: 'SPLARO',
+  category: 'shopping',
+  applicationName: 'SPLARO',
+  alternates: {
+    canonical: siteUrl,
+    languages: { 'en-BD': siteUrl, en: siteUrl },
+  },
   robots: {
     index: true,
     follow: true,
@@ -92,34 +112,51 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: 'website',
-    locale: 'en_US',
+    locale: 'en_BD',
+    alternateLocale: ['en_US'],
     siteName: 'SPLARO',
-    title: 'SPLARO — Luxury Fashion & Lifestyle',
+    title: 'SPLARO — Luxury Fashion Bangladesh',
     description:
-      'Discover SPLARO — quiet luxury fashion for women, men, and kids. Premium essentials, footwear, and accessories.',
+      'Quiet luxury fashion for men, women & kids in Bangladesh — apparel, footwear, handbags, and accessories with COD and nationwide courier.',
+    url: siteUrl,
     images: [
       {
         url: `${siteUrl}/og-image.jpg`,
         width: 1200,
         height: 630,
-        alt: 'SPLARO — Luxury Fashion & Lifestyle',
+        alt: 'SPLARO — Luxury Fashion Bangladesh',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'SPLARO — Luxury Fashion & Lifestyle',
+    title: 'SPLARO — Luxury Fashion Bangladesh',
     description:
-      'Quiet luxury for men, women & kids — apparel, footwear, and accessories for modern Bangladesh.',
+      'Quiet luxury for men, women & kids — apparel, footwear, and accessories with COD across Bangladesh.',
     images: [`${siteUrl}/og-image.jpg`],
     creator: '@splaro_official',
   },
   icons: splaroMetadataIcons,
-  ...(process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION?.trim()
+  ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim()
+    ? {
+        verification: {
+          google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION.trim(),
+        },
+      }
+    : {}),
+  ...(process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION?.trim() ||
+  process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION?.trim()
     ? {
         other: {
-          'facebook-domain-verification':
-            process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION.trim(),
+          ...(process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION?.trim()
+            ? { 'msvalidate.01': process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION.trim() }
+            : {}),
+          ...(process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION?.trim()
+            ? {
+                'facebook-domain-verification':
+                  process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION.trim(),
+              }
+            : {}),
         },
       }
     : {}),
@@ -181,6 +218,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="shortcut icon" href={faviconUrl || SPLARO_TAB_ICONS.faviconIco} />
         <link rel="apple-touch-icon" href={appleIconUrl} sizes="180x180" />
         <link rel="manifest" href="/icons/site.webmanifest" />
+        {/* GEO/AEO — machine-readable brand brief for ChatGPT / Claude / Perplexity / Gemini */}
+        <link rel="describedby" href="/llms.txt" type="text/plain" title="llms.txt" />
+        <link rel="alternate" href="/llms.txt" type="text/plain" title="LLM Brand Brief" />
+        <link rel="alternate" href="/ai.txt" type="text/plain" title="AI Crawler Policy" />
+        <link rel="alternate" type="application/rss+xml" title="SPLARO RSS" href="/feed.xml" />
+        <link
+          rel="alternate"
+          type="application/xml"
+          title="Google Merchant Feed"
+          href="/feeds/google-merchant.xml"
+        />
         {/* Structured Data — Organization
             Safe: content is fully static, no user-controlled input ever reaches here */}
         <script
@@ -189,15 +237,38 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             __html: serializeJsonLd({
               '@context': 'https://schema.org',
               '@type': 'Organization',
+              '@id': `${siteUrl}/#organization`,
               name: 'SPLARO',
+              legalName: 'SPLARO',
+              alternateName: ['SPLARO Bangladesh', 'SPLARO Fashion'],
               url: siteUrl,
               logo: `${siteUrl}/images/logo/splaro-logo-black-premium.png`,
-              description: 'Luxury fashion and lifestyle — designed for the world, rooted in heritage.',
+              image: `${siteUrl}/og-image.jpg`,
+              slogan: 'Modesty. Refined.',
+              description:
+                'SPLARO is a quiet-luxury fashion brand for men, women, and kids in Bangladesh — premium apparel, ethnic wear, footwear, handbags, and accessories with nationwide delivery.',
+              foundingLocation: {
+                '@type': 'Place',
+                name: 'Dhaka, Bangladesh',
+              },
+              areaServed: { '@type': 'Country', name: 'Bangladesh' },
+              knowsAbout: [
+                'premium fashion Bangladesh',
+                'quiet luxury',
+                'ethnic wear',
+                'men fashion',
+                'women fashion',
+                'kids fashion',
+                'handbags',
+                'footwear',
+                'cash on delivery Bangladesh',
+              ],
               contactPoint: {
                 '@type': 'ContactPoint',
                 telephone: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER,
                 contactType: 'customer service',
-                availableLanguage: ['English'],
+                areaServed: 'BD',
+                availableLanguage: ['English', 'Bengali'],
               },
               sameAs: [
                 'https://www.instagram.com/splaro.bd',
@@ -220,7 +291,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   '@id': `${siteUrl}/#website`,
                   url: siteUrl,
                   name: 'SPLARO',
-                  inLanguage: 'en',
+                  alternateName: 'SPLARO Bangladesh',
+                  inLanguage: ['en', 'en-BD'],
+                  publisher: { '@id': `${siteUrl}/#organization` },
                   potentialAction: {
                     '@type': 'SearchAction',
                     target: {
@@ -237,11 +310,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   url: siteUrl,
                   image: `${siteUrl}/images/logo/splaro-logo-black-premium.png`,
                   description:
-                    'Premium Bangladeshi fashion store — luxury women’s wear, ethnic & modest fashion, footwear, bags and accessories with nationwide delivery.',
+                    'Premium Bangladeshi fashion store — luxury apparel for men, women and kids, ethnic & modest fashion, footwear, bags and accessories with cash-on-delivery nationwide.',
                   priceRange: '৳৳',
                   currenciesAccepted: 'BDT',
-                  paymentAccepted: 'Cash on Delivery, Mobile Banking, Card',
+                  paymentAccepted: 'Cash on Delivery, bKash, Nagad, Card',
                   areaServed: { '@type': 'Country', name: 'Bangladesh' },
+                  availableLanguage: ['English', 'Bengali'],
+                  parentOrganization: { '@id': `${siteUrl}/#organization` },
                 },
               ],
             }),

@@ -19,11 +19,11 @@ export const DISPATCH_PENDING_KEY = 'splaro-dispatch-pending'
 
 const STAGES = ['pack', 'load', 'drive', 'confirm'] as const
 
-/** Snappy cinematic beat — total ~2s before confirm (was ~5s). */
+/** Cinematic beat — ~3.6s scenes before confirm (breathable, not sluggish). */
 const STAGE_MS = {
-  pack: 650,
-  load: 600,
-  drive: 750,
+  pack: 1100,
+  load: 1050,
+  drive: 1450,
 } as const
 
 const TOTAL_SCENE_MS = STAGE_MS.pack + STAGE_MS.load + STAGE_MS.drive
@@ -64,7 +64,7 @@ const SCENE_ENTER = {
   initial: { opacity: 0, y: 8, scale: 0.98 },
   animate: { opacity: 1, y: 0, scale: 1 },
   exit: { opacity: 0, y: -6, scale: 0.98 },
-  transition: { duration: 0.22, ease: EASE },
+  transition: { duration: 0.34, ease: EASE },
 } as const
 
 function sessionGet(key: string): string | null {
@@ -162,7 +162,7 @@ export function OrderDispatchCeremony({
             className="order-dispatch__progress-fill"
             initial={false}
             animate={{ width: `${Math.min(100, progress)}%` }}
-            transition={{ duration: 0.28, ease: EASE }}
+            transition={{ duration: 0.4, ease: EASE }}
           />
         </div>
 
@@ -218,7 +218,7 @@ export function OrderDispatchCeremony({
                   className="order-dispatch__parcel"
                   initial={{ x: -36, y: 8, opacity: 0.55, rotate: -6 }}
                   animate={{ x: 20, y: -6, opacity: 1, rotate: 0 }}
-                  transition={{ duration: 0.55, ease: EASE }}
+                  transition={{ duration: 0.9, ease: EASE }}
                 >
                   <Package className="h-4 w-4" strokeWidth={2.2} />
                 </motion.span>
@@ -239,7 +239,7 @@ export function OrderDispatchCeremony({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
+                transition={{ duration: 0.28 }}
               >
                 <span className="order-dispatch__skyline" />
                 <span className="order-dispatch__road" />
@@ -249,7 +249,7 @@ export function OrderDispatchCeremony({
                   className="order-dispatch__van order-dispatch__van--drive"
                   initial={{ x: '-18%', opacity: 0.92 }}
                   animate={{ x: '118%', opacity: 1 }}
-                  transition={{ duration: 0.7, ease: [0.22, 0.82, 0.28, 1] }}
+                  transition={{ duration: 1.25, ease: [0.22, 0.82, 0.28, 1] }}
                 >
                   <span className="order-dispatch__van-cab" />
                   <span className="order-dispatch__van-bay">
@@ -296,7 +296,7 @@ export function OrderDispatchCeremony({
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.2, ease: EASE }}
+            transition={{ duration: 0.28, ease: EASE }}
           >
             <p
               className={`order-dispatch__eyebrow${isConfirm ? ' order-dispatch__eyebrow--success' : ''}`}
@@ -319,7 +319,7 @@ export function OrderDispatchCeremony({
           className={`order-dispatch__popup${isConfirm ? '' : ' order-dispatch__popup--live'}`}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.28, ease: EASE }}
+          transition={{ duration: 0.36, ease: EASE }}
         >
           {isConfirm ? (
             <div className="order-dispatch__popup-badge">Order confirmed</div>

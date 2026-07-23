@@ -15,7 +15,13 @@ export async function generateMetadata() {
 export default async function ContactPage() {
   const page = await getLegalPage('contact')
   return (
-    <ContentPage title={page.title} description={page.description} sections={page.sections}>
+    <ContentPage
+      title={page.title}
+      description={page.description}
+      sections={page.sections}
+      variant="contact"
+      premiumBadge="Care · Studio"
+    >
       <ContactExtras />
     </ContentPage>
   )

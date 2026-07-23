@@ -1,0 +1,52 @@
+/**
+ * SPLARO Scroll Experience — story feel without freezing Lenis.
+ * Fade + soft lift only. No filter:blur. No per-frame parallax on home.
+ */
+
+.story-scroll {
+  position: relative;
+  isolation: isolate;
+}
+
+.story-scroll__reveal {
+  position: relative;
+  z-index: 1;
+}
+
+/* Optional static light wash — no continuous animation (was janking scroll) */
+.story-scroll--light::before {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse 70% 50% at 50% 0%,
+    rgba(255, 255, 255, 0.35),
+    transparent 70%
+  );
+  opacity: 0.4;
+}
+
+.story-scroll--layered .account-glass,
+.story-scroll--layered .pearl-glass,
+.story-scroll--layered .spl-glass-card {
+  transform: translateZ(0);
+}
+
+.story-parallax {
+  /* Kept for rare opt-in use — prefer off on home */
+  will-change: auto;
+  transform: translateZ(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-scroll--light::before {
+    display: none;
+  }
+}
+
+html[data-perf='lite'] .story-scroll--light::before,
+html[data-os='windows'] .story-scroll--light::before {
+  display: none;
+}

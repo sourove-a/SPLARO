@@ -266,6 +266,7 @@ export const DEFAULT_FOOTER_GROUPS: FooterGroup[] = [
       { label: 'Best Sellers', href: '/best-sellers' },
       { label: 'Women', href: '/c/women' },
       { label: 'Men', href: '/c/men' },
+      { label: 'Kids', href: '/c/kids' },
       { label: 'Footwear', href: '/c/footwear' },
       { label: 'Accessories', href: '/accessories' },
       { label: 'Collections', href: '/collections' },

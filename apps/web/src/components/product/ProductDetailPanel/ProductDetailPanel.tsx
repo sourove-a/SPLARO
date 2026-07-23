@@ -23,7 +23,7 @@ import {
 import { getCheckoutEntryPath } from '@/lib/checkout/checkout-auth'
 import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 import { cn } from '@/lib/utils/cn'
-import { formatBDT } from '@/lib/utils/currency'
+import { ProductDiscountBadge, ProductPrice } from '@/components/product/ProductPrice'
 import { slugFromCategory } from '@/data/storefront'
 import { storefrontToDetailItem } from '@/lib/catalog/product-detail-map'
 import { resolveSizeOptionUi } from '@/lib/catalog/size-option-ui'
@@ -132,10 +132,7 @@ export function ProductDetailPanel({
     return gallery
   }, [activeColor?.image, product.hoverImage, product.image, product.media])
 
-  const hasDiscount = product.compareAtPrice && product.compareAtPrice > product.price
-  const discountPct = hasDiscount
-    ? Math.round(((product.compareAtPrice! - product.price) / product.compareAtPrice!) * 100)
-    : 0
+  const hasDiscount = Boolean(product.compareAtPrice && product.compareAtPrice > product.price)
 
   useEffect(() => {
     setActiveImage(0)
@@ -283,7 +280,13 @@ export function ProductDetailPanel({
             {/* Badges */}
             <div className="pdp-badges">
               {product.status === 'New' && <span className="pdp-badge pdp-badge--new">New</span>}
-              {hasDiscount && <span className="pdp-badge pdp-badge--sale">-{discountPct}%</span>}
+              {hasDiscount && product.compareAtPrice ? (
+                <ProductDiscountBadge
+                  price={product.price}
+                  compareAtPrice={product.compareAtPrice}
+                  className="pdp-badge pdp-badge--sale"
+                />
+              ) : null}
             </div>
 
             <div className="pdp-gallery__inner">
@@ -420,15 +423,16 @@ export function ProductDetailPanel({
               </ProductReveal>
 
               <ProductReveal>
-              <div className="pdp-price-row">
-                <span className="pdp-price">{formatBDT(product.price)}</span>
-                {hasDiscount && (
-                  <>
-                    <span className="pdp-compare">{formatBDT(product.compareAtPrice!)}</span>
-                    <span className="pdp-discount-badge">-{discountPct}%</span>
-                  </>
-                )}
-              </div>
+              <ProductPrice
+                price={product.price}
+                compareAtPrice={product.compareAtPrice}
+                className="pdp-price-row"
+                priceClassName="pdp-price"
+                compareClassName="pdp-compare"
+                badgeClassName="pdp-discount-badge"
+                showBadge
+                badgeLabelStyle="off"
+              />
               </ProductReveal>
 
               <ProductReveal>

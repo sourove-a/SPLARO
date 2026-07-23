@@ -87,6 +87,14 @@ function clientIp(req: Request): string | undefined {
   return req.ip
 }
 
+/** Loopback /health/routes probes send `x-splaro-internal` — never page Telegram/email. */
+function isInternalHealthProbe(req: Request): boolean {
+  const secret = process.env['INTERNAL_HEALTH_SECRET']?.trim()
+  if (!secret) return false
+  const header = req.headers['x-splaro-internal']
+  return typeof header === 'string' && header === secret
+}
+
 @Public()
 @ApiTags('storefront')
 @Controller('storefront')
@@ -972,6 +980,7 @@ export class StorefrontController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async submitContact(
     @Query('storeId') storeId: string,
+    @Req() req: Request,
     @Body()
     body: {
       name?: string
@@ -1013,6 +1022,12 @@ export class StorefrontController {
     }
     if (phone && phone.length < 10) {
       throw new BadRequestException('Enter a valid phone number.')
+    }
+
+    // /health/routes write probes send INTERNAL_HEALTH_SECRET via x-splaro-internal.
+    // Never soft-ack on message text — real customers may say "health check".
+    if (isInternalHealthProbe(req)) {
+      return { ok: true, delivered: false, channel: 'skipped_health_probe' as const }
     }
 
     const sid = await resolveStoreId(this.prisma, storeId)

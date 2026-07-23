@@ -24,7 +24,12 @@ export interface StorefrontProduct {
   category: Exclude<Category, 'All'>
   /** Leaf category slug from API (e.g. wallets). */
   categorySlug?: string
+  /** Leaf category display name from API (e.g. Polo Shirt). */
+  categoryName?: string
   slug?: string
+  tags?: string[]
+  /** True when tagged/categorized Unisex — show clearly on card + PDP. */
+  isUnisex?: boolean
   /** Price in Bangladesh Taka (BDT) */
   price: number
   compareAtPrice?: number
@@ -34,6 +39,8 @@ export interface StorefrontProduct {
   status: ProductStatus
   /** When false, card shows Out Of Stock dock. Derived from API variants when live. */
   inStock?: boolean
+  /** Sum of active variant stock — drives In Stock / Low Stock / Only N Left. */
+  stockUnits?: number
   isNewArrival?: boolean
   isBestSeller?: boolean
   image: string

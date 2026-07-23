@@ -1,0 +1,170 @@
+/**
+ * SPLARO Navigation Language
+ * ──────────────────────────
+ * Navbar · Mobile Nav · Filter · Drawer
+ * All Glass · Floating · Identical Pearl feel
+ *
+ * Never invent a one-off nav glass recipe.
+ */
+
+:root {
+  --nav-glass-fill: var(--pearl-fill);
+  --nav-glass-frost: var(--pearl-frost, rgba(255, 255, 255, 0.82));
+  --nav-glass-edge: var(--pearl-edge, rgba(255, 255, 255, 0.96));
+  --nav-glass-blur: var(--pearl-blur, blur(28px) saturate(1.45));
+  --nav-glass-blur-soft: var(--pearl-blur-soft, blur(16px) saturate(1.28));
+  --nav-glass-ink: var(--pearl-ink, #101114);
+  --nav-glass-shadow: var(
+    --pearl-shadow,
+    0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 18px 48px rgba(16, 22, 36, 0.08),
+    0 4px 14px rgba(16, 22, 36, 0.04),
+    inset 0 1.5px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.45)
+  );
+  --nav-glass-shadow-float:
+    0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 22px 56px rgba(16, 22, 36, 0.1),
+    0 8px 20px rgba(16, 22, 36, 0.05),
+    0 0 40px rgba(186, 196, 210, 0.16),
+    inset 0 1.5px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+  --nav-glass-radius: 28px;
+  --nav-glass-radius-pill: 999px;
+}
+
+/* Shared Pearl glass surface recipe */
+.nav-glass,
+.site-header-glass:not(.site-header-glass--over-hero),
+.site-header-glass.site-header-glass--scrolled,
+.mobile-bottom-nav__inner,
+.shop-filter-dropdown__panel--glass,
+.shop-filter-dropdown__trigger--glass,
+.shop-filter-sheet,
+.mobile-filter-drawer__surface,
+.mm-drawer,
+.cart-drawer__panel {
+  background: var(--nav-glass-fill) !important;
+  border-color: var(--nav-glass-edge) !important;
+  color: var(--nav-glass-ink);
+  backdrop-filter: var(--nav-glass-blur) !important;
+  -webkit-backdrop-filter: var(--nav-glass-blur) !important;
+  box-shadow: var(--nav-glass-shadow-float) !important;
+}
+
+/* ── Navbar — floating Pearl bar ── */
+.site-header-glass:not(.site-header-glass--over-hero),
+.site-header-glass.site-header-glass--scrolled {
+  border-bottom: 1px solid var(--nav-glass-edge);
+  box-shadow:
+    var(--nav-glass-shadow-float),
+    0 1px 0 rgba(16, 17, 20, 0.03) !important;
+}
+
+/* Keep over-hero transparent (do not force glass disk) */
+.site-header-glass.site-header-glass--over-hero:not(.site-header-glass--scrolled) {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* ── Mobile Nav — floating glass dock ── */
+.mobile-bottom-nav__inner {
+  border-top: 1px solid var(--nav-glass-edge) !important;
+  border-radius: var(--nav-glass-radius) var(--nav-glass-radius) 0 0 !important;
+  box-shadow:
+    0 -12px 40px rgba(16, 22, 36, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.45),
+    inset 0 1.5px 0 rgba(255, 255, 255, 1) !important;
+}
+
+.mobile-bottom-nav__capsule {
+  border: 1px solid var(--nav-glass-edge) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 4px 14px rgba(16, 22, 36, 0.06) !important;
+}
+
+/* ── Filter — dropdown + sheet + drawer ── */
+.shop-filter-dropdown__panel--glass {
+  border-radius: 18px !important;
+  overflow: hidden;
+}
+
+.shop-filter-dropdown__trigger--glass {
+  border-radius: var(--nav-glass-radius-pill) !important;
+  box-shadow: var(--nav-glass-shadow) !important;
+}
+
+.shop-filter-sheet {
+  border-radius: var(--nav-glass-radius) var(--nav-glass-radius) 0 0 !important;
+  border: 1px solid var(--nav-glass-edge);
+  border-bottom: none;
+}
+
+.mobile-filter-drawer__surface {
+  /* Left sheet — float radius on the open (right) edge */
+  border-radius: 0 var(--nav-glass-radius) var(--nav-glass-radius) 0 !important;
+  border: 1px solid var(--nav-glass-edge) !important;
+  border-left: none !important;
+}
+
+/* ── Drawer — menu + bag ── */
+.mm-drawer {
+  border-radius: 0 var(--nav-glass-radius) var(--nav-glass-radius) 0 !important;
+  border: 1px solid var(--nav-glass-edge) !important;
+  border-left: none !important;
+}
+
+.cart-drawer__panel {
+  border-left: 1px solid var(--nav-glass-edge) !important;
+  background: var(--nav-glass-fill) !important;
+  backdrop-filter: var(--nav-glass-blur) !important;
+  -webkit-backdrop-filter: var(--nav-glass-blur) !important;
+  box-shadow:
+    -18px 0 70px rgba(16, 22, 36, 0.12),
+    inset 1px 0 0 rgba(255, 255, 255, 0.95),
+    inset 0 1.5px 0 rgba(255, 255, 255, 1) !important;
+}
+
+/* Mega menu panel — same floating glass */
+.site-header-glass__mega {
+  background: var(--nav-glass-fill) !important;
+  border: 1px solid var(--nav-glass-edge) !important;
+  backdrop-filter: var(--nav-glass-blur) !important;
+  -webkit-backdrop-filter: var(--nav-glass-blur) !important;
+  box-shadow: var(--nav-glass-shadow-float) !important;
+}
+
+/* Filter chips / pills — Pearl edge only (active states keep their own fill) */
+.lg-pill:not(.lg-pill--active):not(.lg-pill--unavailable):not(.lg-pill--ghost) {
+  border-color: var(--nav-glass-edge);
+  background: var(--nav-glass-frost);
+  backdrop-filter: var(--nav-glass-blur-soft);
+  -webkit-backdrop-filter: var(--nav-glass-blur-soft);
+  box-shadow: var(--nav-glass-shadow);
+}
+
+/* Lite / Windows — solid frost, identical family */
+html[data-perf='lite'] .site-header-glass:not(.site-header-glass--over-hero),
+html[data-perf='lite'] .site-header-glass.site-header-glass--scrolled,
+html[data-perf='lite'] .mobile-bottom-nav__inner,
+html[data-perf='lite'] .shop-filter-dropdown__panel--glass,
+html[data-perf='lite'] .shop-filter-dropdown__trigger--glass,
+html[data-perf='lite'] .shop-filter-sheet,
+html[data-perf='lite'] .mobile-filter-drawer__surface,
+html[data-perf='lite'] .mm-drawer,
+html[data-perf='lite'] .cart-drawer__panel,
+html[data-os='windows'] .mobile-bottom-nav__inner,
+html[data-os='windows'] .shop-filter-dropdown__panel--glass,
+html[data-os='windows'] .shop-filter-sheet,
+html[data-os='windows'] .mobile-filter-drawer__surface,
+html[data-os='windows'] .mm-drawer,
+html[data-os='windows'] .cart-drawer__panel {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.97) !important;
+}

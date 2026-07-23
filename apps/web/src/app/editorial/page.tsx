@@ -1,6 +1,7 @@
 import { ContentPage } from '@/components/content/ContentPage'
 import { getLegalPage } from '@/lib/content/get-legal-page'
 import { createRouteMetadata } from '@/lib/seo/route-metadata'
+import { buildArticleJsonLd } from '@/lib/seo/geo-json-ld'
 
 export async function generateMetadata() {
   const page = await getLegalPage('editorial')
@@ -13,12 +14,22 @@ export async function generateMetadata() {
 
 export default async function EditorialPage() {
   const page = await getLegalPage('editorial')
+  const articleLd = buildArticleJsonLd({
+    title: page.title,
+    description: page.description,
+    path: '/editorial',
+  })
+
   return (
-    <ContentPage
-      title={page.title}
-      description={page.description}
-      sections={page.sections}
-      variant="boxed"
-    />
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: articleLd }} />
+      <ContentPage
+        title={page.title}
+        description={page.description}
+        sections={page.sections}
+        variant="about"
+        premiumBadge="Journal · Style & Culture"
+      />
+    </>
   )
 }

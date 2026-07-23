@@ -7,8 +7,10 @@ import {
   IMAGE_BLUR_PLACEHOLDER,
   IMAGE_QUALITY,
   IMAGE_SIZES,
+  isProductPipelineSrc,
   mobileImageProfile,
   optimizeImageSrc,
+  productPipelinePictureSources,
   type ImageProfile,
 } from '@/lib/assets/image-optimize'
 import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
@@ -49,6 +51,10 @@ export function StorefrontImage({
     allowStockMedia ? { allowStockMedia: true } : undefined,
   )
   const [failed, setFailed] = useState(false)
+  const pipelinePicture =
+    !failed && isProductPipelineSrc(optimizedSrc)
+      ? productPipelinePictureSources(optimizedSrc, effectiveProfile)
+      : null
 
   useEffect(() => {
     setFailed(false)
@@ -77,7 +83,7 @@ export function StorefrontImage({
     lightbox: IMAGE_SIZES.lightbox,
   }
 
-  return (
+  const image = (
     <Image
       src={failed ? PRODUCT_IMAGE_PLACEHOLDER : optimizedSrc}
       alt={alt}
@@ -94,5 +100,21 @@ export function StorefrontImage({
       {...(useBlur ? { placeholder: 'blur' as const, blurDataURL: IMAGE_BLUR_PLACEHOLDER } : {})}
       {...rest}
     />
+  )
+
+  if (!pipelinePicture) return image
+
+  // Prefer AVIF when the browser supports it; WebP (and Next/Image) remain the fallback.
+  return (
+    <picture
+      className={cn(
+        'sf-image-picture',
+        rest.fill !== undefined && 'sf-image-picture--fill',
+      )}
+    >
+      <source srcSet={pipelinePicture.avif} type="image/avif" />
+      <source srcSet={pipelinePicture.webp} type="image/webp" />
+      {image}
+    </picture>
   )
 }

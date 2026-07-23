@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 
 import { AccountGlass } from '@/components/account/AccountGlass'
+import { PremiumIcon } from '@/components/ui/PremiumIcon'
 import type { SitePageSection } from '@/lib/content/site-pages'
 import { fadeUp, staggerContainer } from '@/lib/motion/variants'
 
@@ -58,7 +59,7 @@ export function ContentSectionGrid({ sections }: ContentSectionGridProps) {
             <div className="content-page__section-card-head">
               <span className="content-page__section-index">{formatSectionIndex(index)}</span>
               <span className="content-page__section-icon" aria-hidden="true">
-                <Icon className="h-4 w-4" strokeWidth={2.1} />
+                <PremiumIcon icon={Icon} size="sm" />
               </span>
             </div>
             <h2 className="content-page__section-title">{section.heading}</h2>

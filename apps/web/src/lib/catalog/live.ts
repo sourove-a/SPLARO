@@ -20,6 +20,7 @@ import {
 } from '@/lib/catalog/listing'
 import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
 import { catalogFetchTimeoutMs } from '@/lib/server/fetch-timeouts'
+import { isUnisexProduct } from '@/lib/catalog/product-audience'
 import { resolveShopCategory } from '@/lib/catalog/shop-category'
 import { pageTitleSegment } from '@/lib/seo/page-title'
 
@@ -293,6 +294,13 @@ export function mapLiveProduct(
         : 0
   const reviewCount = apiReviewCount > 0 ? apiReviewCount : mappedReviews.length
 
+  const tags = p.tags?.length ? p.tags : []
+  const unisex = isUnisexProduct({
+    tags,
+    ...(p.category?.slug ? { categorySlug: p.category.slug } : {}),
+    ...(p.category?.name ? { categoryName: p.category.name } : {}),
+  })
+
   return {
     id: p.id,
     slug: p.slug,
@@ -301,6 +309,8 @@ export function mapLiveProduct(
     category,
     ...(p.category?.slug ? { categorySlug: p.category.slug } : {}),
     ...(p.category?.name ? { categoryName: p.category.name } : {}),
+    ...(tags.length ? { tags } : {}),
+    ...(unisex ? { isUnisex: true } : {}),
     price: Number(p.basePrice),
     ...(p.compareAtPrice != null ? { compareAtPrice: Number(p.compareAtPrice) } : {}),
     colors,
@@ -308,6 +318,7 @@ export function mapLiveProduct(
     // Never invent M/L or shoe sizes — unsized products stay size-free.
     sizes: rawSizes.length ? sortSizes(rawSizes, category) : [],
     inStock: activeStock > 0,
+    stockUnits: activeStock,
     status: p.isNewArrival ? 'New' : p.isBestSeller ? 'Limited' : 'Ready',
     isNewArrival: Boolean(p.isNewArrival),
     isBestSeller: Boolean(p.isBestSeller),
@@ -392,6 +403,8 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
     category,
     ...(p.category?.slug ? { categorySlug: p.category.slug } : {}),
     ...(p.category?.parent?.slug ? { parentCategorySlug: p.category.parent.slug } : {}),
+    ...(mapped.isUnisex ? { isUnisex: true } : {}),
+    ...(typeof mapped.stockUnits === 'number' ? { stockUnits: mapped.stockUnits } : {}),
     collectionSlug: slugFromCategory(category),
     description: sanitizeStorefrontDescription(p.description, descriptionFallback),
     ...(() => {

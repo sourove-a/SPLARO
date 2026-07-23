@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { motion, useReducedMotion, type HTMLMotionProps } from '@/lib/motion/react'
 import { forwardRef, type ComponentProps } from 'react'
-import { MICRO } from '@/lib/motion/config'
+import { PRESS_DOWN } from '@/lib/motion/config'
 
 export type MotionPressableVariant = 'cta' | 'icon' | 'chip' | 'nav' | 'subtle'
 
@@ -52,7 +52,7 @@ export const MotionPressable = forwardRef<HTMLButtonElement, MotionPressableProp
         type="button"
         disabled={disabled}
         data-no-press=""
-        transition={transition ?? MICRO}
+        transition={transition ?? PRESS_DOWN}
         {...preset}
         {...props}
       >
@@ -77,7 +77,7 @@ export const MotionLink = forwardRef<HTMLAnchorElement, MotionLinkProps>(functio
     <Link ref={ref} className={className} {...props}>
       <motion.span
         className="inline-flex items-center gap-[inherit]"
-        transition={MICRO}
+        transition={PRESS_DOWN}
         {...preset}
       >
         {children}
@@ -98,7 +98,7 @@ export const MotionAnchor = forwardRef<HTMLAnchorElement, MotionAnchorProps>(fun
   const preset = reducedMotion ? {} : VARIANT_MOTION[variant]
 
   return (
-    <motion.a ref={ref} transition={transition ?? MICRO} {...preset} {...props}>
+    <motion.a ref={ref} transition={transition ?? PRESS_DOWN} {...preset} {...props}>
       {children}
     </motion.a>
   )
