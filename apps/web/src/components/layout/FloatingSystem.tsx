@@ -154,7 +154,6 @@ export function FloatingSystem() {
             transition={MICRO}
             className="support-glass-btn support-glass-btn--circle support-glass-btn--scroll"
           >
-            <span className="support-glass-btn__plate" aria-hidden="true" />
             <SupportLiquidGlow uid={`${glowId}-top`} dimmed />
             <span className="support-glass-btn__border" aria-hidden="true" />
             <span className="support-glass-btn__face">
@@ -177,7 +176,6 @@ export function FloatingSystem() {
           transition={MICRO}
           className={cn('support-glass-btn support-glass-btn--main')}
         >
-          <span className="support-glass-btn__plate" aria-hidden="true" />
           <SupportLiquidGlow uid={`${glowId}-chat`} />
           <span className="support-glass-btn__border" aria-hidden="true" />
           <span className="support-glass-btn__face">

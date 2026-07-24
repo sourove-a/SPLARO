@@ -119,11 +119,31 @@ a:active .product-transition-link__hit .pc-media {
     -webkit-backdrop-filter: none !important;
   }
 
-  /* Support FAB — ILYN frost face; plate blocks page bleed */
+  /* Support FAB — ILYN frost (white/30); keep blink/glow alive on mobile */
   .support-glass-btn__face {
     backdrop-filter: blur(8px) !important;
     -webkit-backdrop-filter: blur(8px) !important;
-    background: rgba(255, 255, 255, 0.42) !important;
+    background: rgba(255, 255, 255, 0.3) !important;
+  }
+
+  .support-glass-btn__glow {
+    display: block !important;
+  }
+
+  .support-live-bubble__dot {
+    animation: supportBlink 3s ease infinite !important;
+  }
+
+  .support-live-bubble__dot:nth-child(1) {
+    animation-delay: 0s !important;
+  }
+
+  .support-live-bubble__dot:nth-child(2) {
+    animation-delay: 0.4s !important;
+  }
+
+  .support-live-bubble__dot:nth-child(3) {
+    animation-delay: 0.8s !important;
   }
 
   .trust-bar__panel,

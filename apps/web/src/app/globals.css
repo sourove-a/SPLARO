@@ -3287,36 +3287,21 @@ html[data-perf='lite'] .footer-lux__address-mobile:active {
   position: absolute;
   top: 50%;
   left: 50%;
-  z-index: 1;
-  /* Slightly larger than the face so liquid tint reads like ILYN */
-  width: 3.25rem;
-  height: 3.25rem;
+  z-index: 0;
+  width: 2.5rem;
+  height: 2.5rem;
   transform: translate(-50%, -50%);
-  opacity: 1;
 }
 
 .support-glass-btn__glow--dim {
-  opacity: 0.72;
+  opacity: 0.5;
 }
 
 @media (min-width: 640px) {
   .support-glass-btn__glow {
-    width: 5rem;
-    height: 5rem;
+    width: 4rem;
+    height: 4rem;
   }
-}
-
-/*
- * Soft white under-plate — keeps ILYN pearl on dark sections
- * without the graphite bake. Orbs sit above; frost face on top.
- */
-.support-glass-btn__plate {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border-radius: var(--support-radius);
-  background: #ffffff;
 }
 
 /* Gradient rim via mask — bright corners like ILYN */
@@ -3324,7 +3309,7 @@ html[data-perf='lite'] .footer-lux__address-mobile:active {
   pointer-events: none;
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 2;
   border: 2.5px solid transparent;
   border-radius: var(--support-radius);
   background:
@@ -3346,27 +3331,24 @@ html[data-perf='lite'] .footer-lux__address-mobile:active {
   mask-composite: exclude;
 }
 
-/*
- * ILYN face: bg-white/30 + light frost.
- * Plate blocks page bleed; orbs tint through the translucent face.
- */
+/* ILYN face: bg-white/30 + light frost — orbs tint through */
 .support-glass-btn__face {
   position: relative;
-  z-index: 2;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   height: 100%;
   border-radius: var(--support-radius);
-  background: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.3);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 0 18px 8px rgba(255, 255, 255, 0.18);
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 20px 10px rgba(255, 255, 255, 0.1);
   overflow: hidden;
 }
 
@@ -3573,22 +3555,44 @@ html[data-perf='lite'] .footer-lux__address-mobile:active {
   }
 }
 
+/*
+ * Mobile always runs data-perf=lite for page paint — but the support FAB is
+ * tiny and must keep ILYN liquid orbs + typing blink (ilyn.global parity).
+ * Only strip backdrop blur; never kill glow or supportBlink on lite.
+ */
 html[data-perf='lite'] .support-glass-btn__face {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.55);
 }
 
 html[data-perf='lite'] .support-glass-btn__glow {
-  display: none;
+  display: block;
+  opacity: 0.92;
 }
 
 html[data-perf='lite'] .support-live-bubble__dot {
-  animation: none !important;
+  animation: supportBlink 3s ease infinite !important;
+}
+
+html[data-perf='lite'] .support-live-bubble__dot:nth-child(1) {
+  animation-delay: 0s !important;
+}
+
+html[data-perf='lite'] .support-live-bubble__dot:nth-child(2) {
+  animation-delay: 0.4s !important;
+}
+
+html[data-perf='lite'] .support-live-bubble__dot:nth-child(3) {
+  animation-delay: 0.8s !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .support-live-bubble__dot {
+    animation: none !important;
+  }
+
+  html[data-perf='lite'] .support-live-bubble__dot {
     animation: none !important;
   }
 }
