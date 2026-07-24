@@ -45,6 +45,7 @@ function StateIcon({ state }: { state: ConnectionChipState }) {
 }
 
 export function ConnectionChip({ label, value, hint, state = 'muted', href, compact }: ConnectionChipProps) {
+  const title = [label, value, hint].filter(Boolean).join(' — ')
   const inner = (
     <>
       {!compact ? <StateIcon state={state} /> : <span className={cn('admin-conn-chip__dot', state === 'ok' && 'admin-conn-chip__dot--on')} />}
@@ -60,11 +61,15 @@ export function ConnectionChip({ label, value, hint, state = 'muted', href, comp
 
   if (href) {
     return (
-      <Link href={href} className={className}>
+      <Link href={href} className={className} title={title}>
         {inner}
       </Link>
     )
   }
 
-  return <span className={className}>{inner}</span>
+  return (
+    <span className={className} title={title}>
+      {inner}
+    </span>
+  )
 }

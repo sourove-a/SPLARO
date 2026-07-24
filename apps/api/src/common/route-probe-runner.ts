@@ -17,12 +17,12 @@ export type RouteProbeOptions = {
   headers?: Record<string, string>
   /** Per-request timeout (ms). Default 12s — admin list endpoints can be slow on VPS. */
   timeoutMs?: number
-  /** Max in-flight probes — avoids saturating a single API worker + DB pool. Default 8. */
+  /** Max in-flight probes — keeps Nest + DB pool healthy during full catalog scans. Default 4. */
   concurrency?: number
 }
 
-const DEFAULT_TIMEOUT_MS = 12_000
-const DEFAULT_CONCURRENCY = 8
+const DEFAULT_TIMEOUT_MS = 8_000
+const DEFAULT_CONCURRENCY = 4
 
 function isTimeoutError(err: unknown): boolean {
   if (!(err instanceof Error)) return false

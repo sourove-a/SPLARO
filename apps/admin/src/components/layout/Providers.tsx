@@ -19,13 +19,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 30_000,
             retry: (count, error) => {
-              if (count >= 2) return false
+              if (count >= 1) return false
               if (error instanceof ApiError) {
-                return error.isNetworkError || error.isServerError
+                if (error.status === 502 || error.status === 503 || error.status === 504) return false
+                return error.isNetworkError
               }
-              return count < 1
+              return false
             },
-            retryDelay: (attempt) => Math.min(800 * (attempt + 1), 2400),
+            retryDelay: (attempt) => Math.min(600 * (attempt + 1), 1600),
             refetchOnWindowFocus: process.env.NODE_ENV === 'production',
             refetchOnReconnect: true,
             throwOnError: false,

@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from '@/lib/auth/session'
+import { formatAdminDisplayName } from '@/lib/auth/role-label'
 
 export async function GET() {
   const cookieStore = await cookies()
@@ -18,7 +19,7 @@ export async function GET() {
     user: {
       id: session.userId,
       email: session.email,
-      name: session.name,
+      name: formatAdminDisplayName(session.name, session.email),
       role: session.role,
       storeId: session.storeId,
       permissions: session.permissions ?? [],

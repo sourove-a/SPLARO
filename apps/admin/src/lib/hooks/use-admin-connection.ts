@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useSyncExternalStore } from 'react'
 
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -50,20 +50,54 @@ function mapService(row?: { online?: boolean; latencyMs?: number | null; message
   }
 }
 
-export function useAdminConnection(intervalMs = 20_000): AdminConnectionState {
-  const [api, setApi] = useState<ServiceConnection>(CHECKING)
-  const [storefront, setStorefront] = useState<ServiceConnection>(CHECKING)
-  const [database, setDatabase] = useState<ServiceConnection>(CHECKING)
-  const [lastChecked, setLastChecked] = useState<Date | null>(null)
-  const [checking, setChecking] = useState(true)
+/** Shared poller — one /api/ping for the whole admin shell (not per-component). */
+const DEFAULT_INTERVAL_MS = 45_000
+const PING_TIMEOUT_MS = 8_000
 
-  const refresh = useCallback(async () => {
-    setChecking(true)
+type Snapshot = {
+  api: ServiceConnection
+  storefront: ServiceConnection
+  database: ServiceConnection
+  lastChecked: Date | null
+  checking: boolean
+}
+
+let snapshot: Snapshot = {
+  api: CHECKING,
+  storefront: CHECKING,
+  database: CHECKING,
+  lastChecked: null,
+  checking: true,
+}
+
+const listeners = new Set<() => void>()
+let intervalId: number | null = null
+let inFlight: Promise<void> | null = null
+let subscriberCount = 0
+let activeIntervalMs = DEFAULT_INTERVAL_MS
+
+function emit() {
+  for (const listener of listeners) listener()
+}
+
+function setSnapshot(next: Partial<Snapshot>) {
+  snapshot = { ...snapshot, ...next }
+  emit()
+}
+
+async function runPing(): Promise<void> {
+  if (inFlight) return inFlight
+
+  inFlight = (async () => {
+    setSnapshot({ checking: true })
     try {
       let data: PingResponse | null = null
 
       try {
-        const res = await fetch('/api/ping', { cache: 'no-store', signal: AbortSignal.timeout(30000) })
+        const res = await fetch('/api/ping', {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(PING_TIMEOUT_MS),
+        })
         if (res.ok) {
           data = (await res.json()) as PingResponse
         }
@@ -74,7 +108,7 @@ export function useAdminConnection(intervalMs = 20_000): AdminConnectionState {
       if (!data) {
         const res = await fetch('/api/proxy/health', {
           cache: 'no-store',
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(5_000),
         })
         const online = res.ok
         let databaseOnline = false
@@ -82,7 +116,7 @@ export function useAdminConnection(intervalMs = 20_000): AdminConnectionState {
           try {
             const fullRes = await fetch('/api/proxy/health/full', {
               cache: 'no-store',
-              signal: AbortSignal.timeout(8000),
+              signal: AbortSignal.timeout(5_000),
             })
             if (fullRes.ok) {
               const full = (await fullRes.json()) as {
@@ -101,7 +135,11 @@ export function useAdminConnection(intervalMs = 20_000): AdminConnectionState {
           services: {
             api: {
               online,
-              message: online ? 'HTTP 200' : isProd ? 'API unreachable — check VPS splaro-api' : 'Start pnpm dev:api',
+              message: online
+                ? 'HTTP 200'
+                : isProd
+                  ? 'API unreachable — check VPS splaro-api'
+                  : 'Start pnpm dev:api',
             },
             storefront: {
               online: false,
@@ -115,35 +153,112 @@ export function useAdminConnection(intervalMs = 20_000): AdminConnectionState {
       const services = data.services
 
       if (services) {
-        setApi(mapService(services.api))
-        setStorefront(mapService(services.storefront))
-        setDatabase(mapService(services.database))
+        setSnapshot({
+          api: mapService(services.api),
+          storefront: mapService(services.storefront),
+          database: mapService(services.database),
+          lastChecked: data.checkedAt ? new Date(data.checkedAt) : new Date(),
+          checking: false,
+        })
       } else {
         const online = Boolean(data.online)
-        setApi({
-          pulse: toPulse(online),
-          latencyMs: typeof data.latencyMs === 'number' ? data.latencyMs : null,
+        setSnapshot({
+          api: {
+            pulse: toPulse(online),
+            latencyMs: typeof data.latencyMs === 'number' ? data.latencyMs : null,
+          },
+          storefront: { pulse: 'offline', latencyMs: null, message: 'Storefront probe unavailable' },
+          database: { pulse: online ? 'degraded' : 'offline', latencyMs: null },
+          lastChecked: data.checkedAt ? new Date(data.checkedAt) : new Date(),
+          checking: false,
         })
-        setStorefront({ pulse: 'offline', latencyMs: null, message: 'Storefront probe unavailable' })
-        setDatabase({ pulse: online ? 'degraded' : 'offline', latencyMs: null })
       }
-
-      setLastChecked(data.checkedAt ? new Date(data.checkedAt) : new Date())
     } catch {
-      setApi({ pulse: 'offline', latencyMs: null, message: isProd ? 'Admin API proxy unreachable' : 'Admin proxy unreachable — restart pnpm dev:admin' })
-      setStorefront({ pulse: 'offline', latencyMs: null })
-      setDatabase({ pulse: 'offline', latencyMs: null })
-      setLastChecked(new Date())
+      setSnapshot({
+        api: {
+          pulse: 'offline',
+          latencyMs: null,
+          message: isProd
+            ? 'Admin API proxy unreachable'
+            : 'Admin proxy unreachable — restart pnpm dev:admin',
+        },
+        storefront: { pulse: 'offline', latencyMs: null },
+        database: { pulse: 'offline', latencyMs: null },
+        lastChecked: new Date(),
+        checking: false,
+      })
     } finally {
-      setChecking(false)
+      inFlight = null
     }
-  }, [])
+  })()
+
+  return inFlight
+}
+
+function ensureInterval(intervalMs: number) {
+  activeIntervalMs = Math.min(activeIntervalMs, intervalMs)
+  if (typeof window === 'undefined') return
+  if (intervalId !== null) {
+    window.clearInterval(intervalId)
+  }
+  intervalId = window.setInterval(() => void runPing(), activeIntervalMs)
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener)
+  subscriberCount += 1
+  if (subscriberCount === 1) {
+    void runPing()
+    ensureInterval(activeIntervalMs)
+  }
+  return () => {
+    listeners.delete(listener)
+    subscriberCount = Math.max(0, subscriberCount - 1)
+    if (subscriberCount === 0 && intervalId !== null) {
+      window.clearInterval(intervalId)
+      intervalId = null
+      activeIntervalMs = DEFAULT_INTERVAL_MS
+    }
+  }
+}
+
+function getSnapshot(): Snapshot {
+  return snapshot
+}
+
+function getServerSnapshot(): Snapshot {
+  return {
+    api: CHECKING,
+    storefront: CHECKING,
+    database: CHECKING,
+    lastChecked: null,
+    checking: true,
+  }
+}
+
+/**
+ * Platform connection pulse for Nest / storefront / DB.
+ * All callers share one poller — avoids stampeding `/api/ping` from sidebar + header + panels.
+ */
+export function useAdminConnection(intervalMs = DEFAULT_INTERVAL_MS): AdminConnectionState {
+  const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 
   useEffect(() => {
-    void refresh()
-    const id = window.setInterval(() => void refresh(), intervalMs)
-    return () => window.clearInterval(id)
-  }, [intervalMs, refresh])
+    if (intervalMs < activeIntervalMs) {
+      ensureInterval(intervalMs)
+    }
+  }, [intervalMs])
 
-  return { api, storefront, database, lastChecked, checking, refresh }
+  const refresh = useCallback(async () => {
+    await runPing()
+  }, [])
+
+  return {
+    api: state.api,
+    storefront: state.storefront,
+    database: state.database,
+    lastChecked: state.lastChecked,
+    checking: state.checking,
+    refresh,
+  }
 }

@@ -4,8 +4,9 @@ import { clearAdminApiToken, getAdminApiToken, setAdminApiToken } from '@/lib/au
 export { SPLARO_DOMAINS, getApiBaseUrl }
 
 const DEFAULT_STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
-const DEFAULT_TIMEOUT_MS = 20_000
-const MAX_RETRIES = 2
+/** Fail fast under nginx 503 / Nest overload — long retries look like infinite spinners. */
+const DEFAULT_TIMEOUT_MS = 12_000
+const MAX_RETRIES = 1
 
 function parseApiErrorBody(body: string): string {
   try {
@@ -74,7 +75,9 @@ function shouldRetry(error: unknown, attempt: number, method: string): boolean {
   if (attempt >= MAX_RETRIES) return false
   if (method !== 'GET' && method !== 'HEAD') return false
   if (error instanceof ApiError) {
-    return error.isNetworkError || error.isServerError
+    // 503/502 usually mean Nest/nginx is saturated — retrying makes every module hang longer.
+    if (error.status === 502 || error.status === 503 || error.status === 504) return false
+    return error.isNetworkError
   }
   return true
 }

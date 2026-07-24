@@ -642,6 +642,18 @@ html:not(.dark) .admin-kpi__value {
   color: var(--admin-text-strong);
 }
 
+html:not(.dark) .admin-kpi__value--success {
+  color: #15803d !important;
+}
+
+html:not(.dark) .admin-kpi__value--warning {
+  color: #b45309 !important;
+}
+
+html:not(.dark) .admin-kpi__value--danger {
+  color: #b91c1c !important;
+}
+
 /* Sidebar */
 html:not(.dark) .admin-sidebar {
   border-color: rgba(255, 255, 255, 0.98);

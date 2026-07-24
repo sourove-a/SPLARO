@@ -64,7 +64,7 @@ async function authenticateAdminFromDatabase(
     return {
       id: user.id,
       email: user.email,
-      name: user.name,
+      name: formatAdminDisplayName(user.name, user.email),
       role: user.role,
       passwordHash: hashPassword(password),
       ...(user.storeId ? { storeId: user.storeId } : {}),

@@ -44,22 +44,24 @@ export function ApiHealthPanel() {
   const [checks, setChecks] = useState<ServiceHealthCheck[]>([])
   const [loading, setLoading] = useState(true)
   const [lastRun, setLastRun] = useState<Date | null>(null)
-  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [autoRefresh, setAutoRefresh] = useState(false)
+  const [scope, setScope] = useState<'core' | 'full'>('core')
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const run = useCallback(async () => {
+  const run = useCallback(async (nextScope: 'core' | 'full' = scope) => {
     setLoading(true)
+    setScope(nextScope)
     setChecks((prev) =>
       prev.length
         ? prev.map((c) => ({ ...c, status: 'checking' as HealthStatus, latencyMs: null }))
         : [],
     )
     try {
-      const results = await runAllHealthChecks()
+      const results = await runAllHealthChecks(nextScope)
       setChecks(results)
     } catch (err) {
       const isProd = process.env.NODE_ENV === 'production'
@@ -73,7 +75,7 @@ export function ApiHealthPanel() {
           status: 'down',
           latencyMs: null,
           message: timedOut
-            ? 'Health check timed out — first load can take ~20s on cold start'
+            ? 'Health check timed out — try Core check first, then Full scan'
             : 'Could not reach health endpoint',
           fixHint: isProd
             ? 'Wait and refresh — or check splaro-api on VPS (pm2 logs splaro-api)'
@@ -83,15 +85,16 @@ export function ApiHealthPanel() {
     }
     setLastRun(new Date())
     setLoading(false)
+  }, [scope])
+
+  useEffect(() => {
+    void run('core')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only core probe
   }, [])
 
   useEffect(() => {
-    void run()
-  }, [run])
-
-  useEffect(() => {
     if (!autoRefresh) return
-    const id = window.setInterval(() => void run(), 30_000)
+    const id = window.setInterval(() => void run('core'), 90_000)
     return () => window.clearInterval(id)
   }, [autoRefresh, run])
 
@@ -137,7 +140,17 @@ export function ApiHealthPanel() {
       {/* Summary strip */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          ['Overall', summary.overall, summary.overall === 'healthy' ? 'success' : summary.overall === 'down' ? 'danger' : 'warning'],
+          [
+            'Overall',
+            summary.overall,
+            summary.overall === 'healthy'
+              ? 'success'
+              : summary.overall === 'down'
+                ? 'danger'
+                : summary.overall === 'checking'
+                  ? 'warning'
+                  : 'warning',
+          ],
           ['Healthy', summary.healthy, 'success'],
           ['Degraded', summary.degraded, 'warning'],
           ['Down', summary.down, 'danger'],
@@ -209,7 +222,8 @@ export function ApiHealthPanel() {
             <p className="admin-health-toolbar__sub">
               {mounted && lastRun ? `Last checked ${lastRun.toLocaleTimeString()}` : 'Running checks…'}
               {checks.length > 0 ? ` · ${checks.length} endpoints` : ''}
-              {autoRefresh ? ' · auto-refresh 30s' : ''}
+              {` · ${scope === 'full' ? 'full catalog' : 'core'}`}
+              {autoRefresh ? ' · auto-refresh 90s' : ''}
             </p>
           </div>
         </div>
@@ -223,9 +237,13 @@ export function ApiHealthPanel() {
             />
             Auto refresh
           </label>
-          <AdminButton onClick={() => void run()} loading={loading}>
-            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-            Run check
+          <AdminButton onClick={() => void run('core')} loading={loading && scope === 'core'}>
+            <RefreshCw className={cn('h-4 w-4', loading && scope === 'core' && 'animate-spin')} />
+            Core check
+          </AdminButton>
+          <AdminButton variant="ghost" onClick={() => void run('full')} loading={loading && scope === 'full'}>
+            <Zap className={cn('h-4 w-4', loading && scope === 'full' && 'animate-spin')} />
+            Full scan
           </AdminButton>
         </div>
       </div>

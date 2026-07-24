@@ -51,7 +51,7 @@ export async function GET() {
     try {
       const fullRes = await fetch(`${base}/health/full`, {
         cache: 'no-store',
-        signal: AbortSignal.timeout(25000),
+        signal: AbortSignal.timeout(8_000),
         headers: probeHeaders,
       })
       if (fullRes.ok) {

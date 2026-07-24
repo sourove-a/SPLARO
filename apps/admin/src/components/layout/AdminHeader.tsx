@@ -20,6 +20,7 @@ import { MessagesDropdown } from '@/components/layout/MessagesDropdown'
 import { markAdminLinkNavigation } from '@/lib/navigation/client-nav'
 import { clearAdminApiToken } from '@/lib/auth/api-token'
 import { useAdminSession } from '@/lib/api/hooks'
+import { formatAdminDisplayName } from '@/lib/auth/role-label'
 import { SplaroAdminLogo } from '@/components/brand/SplaroAdminLogo'
 
 export function AdminHeader() {
@@ -27,10 +28,15 @@ export function AdminHeader() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const { setTheme, resolvedTheme } = useTheme()
-  const { data: sessionUser } = useAdminSession()
+  const { data: sessionUser, isLoading: sessionLoading } = useAdminSession()
+  const displayName = sessionUser
+    ? formatAdminDisplayName(sessionUser.name, sessionUser.email)
+    : sessionLoading
+      ? '…'
+      : 'SPLARO Admin'
   const user = sessionUser
-    ? { name: sessionUser.name, email: sessionUser.email, role: sessionUser.role }
-    : { name: 'Super Admin', email: 'splaro.bd@gmail.com', role: 'admin' }
+    ? { name: displayName, email: sessionUser.email, role: sessionUser.role }
+    : { name: displayName, email: sessionLoading ? '' : '—', role: 'admin' }
 
   useEffect(() => {
     setMounted(true)

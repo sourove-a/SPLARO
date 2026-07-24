@@ -102,7 +102,11 @@ export function SeoHealthPanel() {
           <p
             className={cn(
               'admin-kpi__value mt-1 text-3xl',
-              avgScore >= 80 ? 'text-emerald-600' : avgScore >= 60 ? 'text-amber-600' : 'text-red-500',
+              avgScore >= 80
+                ? 'admin-kpi__value--success'
+                : avgScore >= 60
+                  ? 'admin-kpi__value--warning'
+                  : 'admin-kpi__value--danger',
             )}
           >
             {isLoading ? '…' : avgScore}
@@ -110,11 +114,15 @@ export function SeoHealthPanel() {
         </div>
         <div className="admin-glass admin-kpi">
           <p className="admin-kpi__label">Critical errors</p>
-          <p className="admin-kpi__value mt-1 text-3xl text-red-500">{isLoading ? '…' : (summary?.criticalErrors ?? 0)}</p>
+          <p className="admin-kpi__value admin-kpi__value--danger mt-1 text-3xl">
+            {isLoading ? '…' : (summary?.criticalErrors ?? 0)}
+          </p>
         </div>
         <div className="admin-glass admin-kpi">
           <p className="admin-kpi__label">Warnings</p>
-          <p className="admin-kpi__value mt-1 text-3xl text-amber-600">{isLoading ? '…' : (summary?.warnings ?? 0)}</p>
+          <p className="admin-kpi__value admin-kpi__value--warning mt-1 text-3xl">
+            {isLoading ? '…' : (summary?.warnings ?? 0)}
+          </p>
         </div>
       </div>
 

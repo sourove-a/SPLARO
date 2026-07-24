@@ -7,8 +7,8 @@ import { cn } from '@/lib/utils/cn'
  * Black premium on light surfaces; white premium on always-dark shells (login).
  * Dark theme inverts the black wordmark to white via CSS (except onLightSurface).
  */
-const LOGO_WORDMARK_BLACK = '/images/logo/splaro-logo-black-premium.png'
-const LOGO_WORDMARK_WHITE = '/images/logo/splaro-logo-white-premium.png'
+const LOGO_WORDMARK_BLACK = '/images/logo/splaro-logo-black-premium.webp'
+const LOGO_WORDMARK_WHITE = '/images/logo/splaro-logo-white-premium.webp'
 const LOGO_ICON = SPLARO_TAB_ICONS.profile
 const WORDMARK_WIDTH = 220
 const WORDMARK_HEIGHT = 117

@@ -19,10 +19,12 @@ interface ServiceHealthCheck {
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
-/** Short cache — false “API down” must clear quickly after Nest restarts. */
+/** Short cache for core; full route catalog is expensive (~250 probes). */
 let healthCache: { at: number; key: string; payload: unknown } | null = null
-const HEALTH_CACHE_MS = 8_000
-const HEALTH_FETCH_TIMEOUT_MS = 120_000
+const HEALTH_CACHE_CORE_MS = 45_000
+const HEALTH_CACHE_FULL_MS = 60_000
+const HEALTH_FETCH_CORE_MS = 25_000
+const HEALTH_FETCH_FULL_MS = 90_000
 
 async function pingApiCore(base: string): Promise<{ ok: boolean; latencyMs: number | null; message: string }> {
   const start = Date.now()
@@ -103,9 +105,12 @@ function fixHintForCheck(c: { id: string; group: string; message?: string }): st
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
-  const cacheKey = authHeader ? 'auth' : 'anon'
+  const scope = request.nextUrl.searchParams.get('scope') === 'full' ? 'full' : 'core'
+  const cacheKey = `${scope}:${authHeader ? 'auth' : 'anon'}`
+  const cacheMs = scope === 'full' ? HEALTH_CACHE_FULL_MS : HEALTH_CACHE_CORE_MS
+  const fetchTimeoutMs = scope === 'full' ? HEALTH_FETCH_FULL_MS : HEALTH_FETCH_CORE_MS
 
-  if (healthCache && healthCache.key === cacheKey && Date.now() - healthCache.at < HEALTH_CACHE_MS) {
+  if (healthCache && healthCache.key === cacheKey && Date.now() - healthCache.at < cacheMs) {
     return NextResponse.json(healthCache.payload)
   }
 
@@ -114,13 +119,15 @@ export async function GET(request: NextRequest) {
   const routeProbeHeaders = probeAuthHeaders(authHeader)
   const fetchOpts = {
     cache: 'no-store' as const,
-    signal: AbortSignal.timeout(HEALTH_FETCH_TIMEOUT_MS),
+    signal: AbortSignal.timeout(fetchTimeoutMs),
     headers: routeProbeHeaders,
   }
 
   const [corePing, routesRes, fullRes, webCheck] = await Promise.all([
     pingApiCore(base),
-    fetch(`${base}/health/routes?storeId=${sid}`, fetchOpts).catch(() => null),
+    scope === 'full'
+      ? fetch(`${base}/health/routes?storeId=${sid}`, fetchOpts).catch(() => null)
+      : Promise.resolve(null),
     fetch(`${base}/health/full`, fetchOpts).catch(() => null),
     pingWebShop(),
   ])
@@ -139,7 +146,7 @@ export async function GET(request: NextRequest) {
   let apiChecks: ServiceHealthCheck[] = [coreCheck]
   const apiOnline = corePing.ok
 
-  if (apiOnline && routesRes) {
+  if (scope === 'full' && apiOnline && routesRes) {
     try {
       const data = (await routesRes.json()) as {
         status?: HealthStatus
@@ -206,6 +213,19 @@ export async function GET(request: NextRequest) {
     }
   } else if (!apiOnline) {
     apiChecks = [coreCheck]
+  } else if (scope === 'core') {
+    apiChecks = [
+      coreCheck,
+      {
+        id: 'health-routes-skipped',
+        name: 'Full route catalog',
+        group: 'Core',
+        endpoint: `${base}/health/routes`,
+        status: 'healthy',
+        latencyMs: null,
+        message: 'Skipped on core check — use Full scan for ~250 route probes',
+      },
+    ]
   }
 
   let infraChecks: ServiceHealthCheck[] = []
@@ -253,6 +273,7 @@ export async function GET(request: NextRequest) {
         : 'healthy',
     apiOnline,
     routeCount: apiChecks.length,
+    scope,
   }
 
   const payload = { timestamp: new Date().toISOString(), summary, checks }
