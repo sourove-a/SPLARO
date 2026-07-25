@@ -230,7 +230,7 @@ export function TelegramNotificationsPanelLive() {
             Automation rules could not load — Telegram notifications still work via bot config above.
           </p>
         ) : filtered.length === 0 ? (
-          <p style={{ padding: 20, fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>No automation rules yet — create in Automation Rules.</p>
+          <p style={{ padding: 20, fontSize: 13, fontWeight: 600, color: 'var(--admin-body-ink, var(--admin-text))' }}>No automation rules yet — create in Automation Rules.</p>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead><tr>{['Rule', 'Trigger', 'Runs', 'Status', 'Last run', ''].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>

@@ -16,6 +16,7 @@ export type TransactionUiType = 'payment' | 'refund' | 'payout'
 
 export interface TransactionListRow {
   id: string
+  paymentNumber: string | null
   orderId: string
   orderNumber: string
   gateway: string

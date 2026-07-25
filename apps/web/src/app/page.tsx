@@ -4,6 +4,7 @@ import '@/styles/pages/shop.css'
 import { BrandStorySection } from '@/components/home/BrandStory'
 import { GlassStorefront } from '@/components/home/GlassStorefront'
 import { HeroSlider } from '@/components/home/HeroSlider'
+import { fetchHeroBanners } from '@/lib/api/banners'
 import { resolveHeroBanners } from '@/lib/api/hero-banners'
 import { resolveLocalHeroVariants } from '@/lib/assets/hero-cdn'
 import { getHomepageDepartmentRows } from '@/lib/catalog/homepage-department-rows'
@@ -53,10 +54,11 @@ async function HomeCatalog() {
   )
 }
 
-export default function HomePage() {
-  // Curated local WebP defaults do not depend on catalog I/O, so the LCP hero
-  // can stream while the below-fold preview resolves.
-  const heroBanners = resolveHeroBanners([], [])
+export default async function HomePage() {
+  // Admin-managed Banner rows drive the hero; the fetch is ISR-cached (30s tag
+  // + push revalidation from the API) and falls back to curated local WebP
+  // defaults when no active slides exist or the API is unreachable.
+  const heroBanners = resolveHeroBanners(await fetchHeroBanners(), [])
   const lcp = resolveLocalHeroVariants(heroBanners[0]?.image)
 
   return (

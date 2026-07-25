@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import * as Icons from 'lucide-react'
-import { ChevronDown, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Menu, X } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { SplaroAdminLogo } from '@/components/brand/SplaroAdminLogo'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
@@ -48,24 +48,9 @@ function groupByName(name: string, session?: AdminNavSession | null) {
   return getSidebarNavGroups(session).find((group) => group.group === name)
 }
 
-const SECTION_ICON_MAP: Record<string, string> = {
-  Overview: 'LayoutDashboard',
-  Executive: 'Crown',
-  Commerce: 'ShoppingBag',
-  Catalog: 'Package',
-  Customers: 'Users',
-  Marketing: 'Megaphone',
-  Content: 'Layers',
-  Finance: 'Wallet',
-  Integrations: 'Plug',
-  'SEO & AI': 'Sparkles',
-  Operations: 'Workflow',
-  Platform: 'Boxes',
-}
-
 function NavIcon({ name }: { name: string }) {
   const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[name] ?? Icons.Circle
-  return <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+  return <Icon className="h-4 w-4 shrink-0" strokeWidth={1.6} />
 }
 
 function SidebarItem({
@@ -145,7 +130,11 @@ function SidebarFlatSection({
   }
 
   return (
-    <section className="admin-sidebar__flat-section" aria-label={group.group}>
+    <section
+      className="admin-sidebar__flat-section"
+      aria-label={group.group}
+      data-nav-group={group.group.toLowerCase().replace(/[^a-z0-9]+/g, '-')}
+    >
       <p className="admin-sidebar__flat-label">{group.group}</p>
       <div className="admin-sidebar__flat-items">
         {group.items.map((item) => {
@@ -165,130 +154,6 @@ function SidebarFlatSection({
   )
 }
 
-function SidebarDrawerSection({
-  title,
-  groups,
-  collapsed,
-  activePath,
-  defaultOpen = false,
-  variant = 'advanced',
-  onNavigate,
-  getCount,
-}: {
-  title: string
-  groups: AdminNavGroup[]
-  collapsed: boolean
-  activePath: string
-  defaultOpen?: boolean
-  variant?: 'primary' | 'advanced'
-  onNavigate?: () => void
-  getCount: (href: string) => number | undefined
-}) {
-  const reduceMotion = usePrefersReducedMotion()
-  const isActive = groups.some((group) =>
-    group.items.some((item) => activePath === item.href || activePath.startsWith(`${item.href}/`)),
-  )
-  const [open, setOpen] = useState(defaultOpen || isActive)
-  const itemCount = groups.reduce((total, group) => total + group.items.length, 0)
-  const toolCountLabel = itemCount === 1 ? 'tool' : 'tools'
-
-  useEffect(() => {
-    if (isActive) setOpen(true)
-  }, [isActive])
-
-  const sectionIcon = SECTION_ICON_MAP[title] ?? groups[0]?.items[0]?.icon ?? 'Folder'
-
-  if (collapsed) {
-    return (
-      <div className="mb-3 space-y-0.5">
-        {groups.map((group) => {
-          const c = getCount(group.items[0]!.href)
-          return (
-          <SidebarItem
-            key={group.group}
-            item={group.items[0]!}
-            collapsed
-            groupLabel={group.group}
-            {...(onNavigate ? { onNavigate } : {})}
-            {...(c !== undefined ? { count: c } : {})}
-          />
-          )
-        })}
-      </div>
-    )
-  }
-
-  return (
-    <div
-      className={cn(
-        'admin-sidebar__drawer',
-        `admin-sidebar__drawer--${variant}`,
-        isActive && 'admin-sidebar__drawer--active',
-        open && 'admin-sidebar__drawer--open',
-      )}
-    >
-      <span className="admin-sidebar__drawer-sheen" aria-hidden="true" />
-      <button
-        type="button"
-        className="admin-sidebar__drawer-trigger"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-      >
-        <span className="admin-sidebar__drawer-leading">
-          <span className="admin-sidebar__drawer-icon" aria-hidden="true">
-            <NavIcon name={sectionIcon} />
-          </span>
-          <span className="min-w-0">
-            <span className="admin-sidebar__drawer-title">{title}</span>
-            <span className="admin-sidebar__drawer-meta">
-              <span className="admin-sidebar__drawer-chip">{itemCount} {toolCountLabel}</span>
-            </span>
-          </span>
-        </span>
-        <span className={cn('admin-sidebar__drawer-chevron', open && 'admin-sidebar__drawer-chevron--open')}>
-          <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} />
-        </span>
-      </button>
-
-      <AnimatePresence initial={false}>
-        {open ? (
-          <motion.div
-            {...(reduceMotion
-              ? { initial: false, animate: { height: 'auto', opacity: 1 } }
-              : {
-                  initial: { height: 0, opacity: 0 },
-                  animate: { height: 'auto', opacity: 1 },
-                  exit: { height: 0, opacity: 0 },
-                })}
-            transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="admin-sidebar__drawer-panel"
-          >
-            {groups.map((group) => (
-              <div key={group.group} className="admin-sidebar__drawer-group">
-                {groups.length > 1 ? <p className="admin-sidebar__drawer-group-label">{group.group}</p> : null}
-                <div className="space-y-0.5">
-                  {group.items.map((item) => {
-                    const c = getCount(item.href)
-                    return (
-                    <SidebarItem
-                      key={`${group.group}-${item.label}-${item.href}`}
-                      item={item}
-                      collapsed={false}
-                      {...(onNavigate ? { onNavigate } : {})}
-                      {...(c !== undefined ? { count: c } : {})}
-                    />
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
-  )
-}
-
 function SidebarNav({
   collapsed,
   onNavigate,
@@ -300,13 +165,11 @@ function SidebarNav({
   getCount: (href: string) => number | undefined
   session?: AdminNavSession | null
 }) {
-  const pathname = usePathname()
   useFeatureFlags() // re-render sidebar when feature flags hydrate from API
   const primaryGroups = PRIMARY_SECTIONS.map((name) => groupByName(name, session)).filter(Boolean) as AdminNavGroup[]
-  const advancedGroups = ADVANCED_SECTIONS.map((section) => ({
-    ...section,
-    groups: section.groups.map((name) => groupByName(name, session)).filter(Boolean) as AdminNavGroup[],
-  })).filter((section) => section.groups.length > 0)
+  const advancedGroups = ADVANCED_SECTIONS.flatMap((section) =>
+    section.groups.map((name) => groupByName(name, session)).filter(Boolean) as AdminNavGroup[],
+  )
 
   return (
     <>
@@ -328,13 +191,12 @@ function SidebarNav({
         </p>
       ) : null}
 
-      {advancedGroups.map((section) => (
-        <SidebarDrawerSection
-          key={section.title}
-          title={section.title}
-          groups={section.groups}
+      {/* Always expanded — owner request: no collapsible dropdown sections */}
+      {advancedGroups.map((group) => (
+        <SidebarFlatSection
+          key={group.group}
+          group={group}
           collapsed={collapsed}
-          activePath={pathname}
           getCount={getCount}
           {...(onNavigate ? { onNavigate } : {})}
         />
@@ -392,7 +254,7 @@ export function AdminSidebar() {
       const navRect = nav.getBoundingClientRect()
       const activeRect = active.getBoundingClientRect()
       const outOfView = activeRect.top < navRect.top + 8 || activeRect.bottom > navRect.bottom - 8
-      if (outOfView) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      if (outOfView) active.scrollIntoView({ block: 'nearest', behavior: 'auto' })
     })
     return () => window.cancelAnimationFrame(frame)
   }, [pathname])

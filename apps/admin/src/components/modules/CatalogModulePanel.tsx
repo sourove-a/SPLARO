@@ -14,6 +14,8 @@ import { copyProductStorefrontUrl, productStorefrontUrl } from '@/lib/admin/prod
 import { downloadCsv, printProductLabel } from '@/lib/admin/admin-actions'
 import { AlertTriangle, Archive, Award, ChevronDown, Download, Layers, Package, Plus, Printer, RefreshCw, Search, Tags } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
+import { AdminStatusBadge, type AdminBadgeTone } from '@/components/ui/AdminStatusBadge'
+import { AdminTableSkeleton } from '@/components/ui/AdminUiPrimitives'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { useBrands, useCollections, useCreateBrand, useCreateCollection, useProducts, useDeleteProduct, useUpdateCollection, useUpdateBrand, usePublishedProductCount, useInventoryAlerts, useUpdateProductVariant, usePermission } from '@/lib/api/hooks'
 import { PERMISSION_DENIED_TITLE } from '@/lib/auth/permissions'
@@ -31,60 +33,88 @@ import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
 
 // ─── Design tokens (theme-aware via CSS variables) ────────────────────────────
-const STATUS_MAP: Record<string, { bg: string; text: string; border: string }> = {
-  active:   { bg: 'rgba(22,163,74,0.12)',  text: '#86d4a8', border: 'rgba(134,212,168,0.28)' },
-  draft:    { bg: 'rgba(255,255,255,0.08)', text: 'var(--admin-text-secondary)', border: 'rgba(255,255,255,0.12)' },
-  archived: { bg: 'rgba(255,255,255,0.06)', text: 'var(--admin-text-muted)', border: 'rgba(255,255,255,0.1)' },
-  low:      { bg: 'rgba(255,255,255,0.08)', text: 'var(--admin-text-secondary)', border: 'rgba(255,255,255,0.12)' },
-  warning:  { bg: 'rgba(239,68,68,0.12)',  text: '#f0a8a8', border: 'rgba(239,68,68,0.28)' },
+const STATUS_TONE: Record<string, AdminBadgeTone> = {
+  active: 'success',
+  published: 'success',
+  draft: 'muted',
+  archived: 'danger',
+  low: 'warning',
+  warning: 'danger',
+  'out of stock': 'warning',
 }
 
 function StatusPill({ value }: { value: string }) {
-  const fallback = { bg: 'rgba(156,163,175,0.10)', text: '#4B5563', border: 'rgba(156,163,175,0.30)' }
-  const s = STATUS_MAP[value.toLowerCase()] ?? fallback
-  return (
-    <span style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.text, borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' }}>
-      {value}
-    </span>
-  )
+  const label = value
+    .split(/[\s_]+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+  return <AdminStatusBadge label={label} tone={STATUS_TONE[value.toLowerCase()] ?? 'muted'} />
 }
 
-function KpiCard({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
-  const accentColor =
-    accent === 'gold' ? 'var(--admin-accent)' :
-    accent === 'success' ? '#86d4a8' :
-    accent === 'warning' ? 'var(--admin-text-secondary)' :
-    '#a5b4fc'
-  const accentBg =
-    accent === 'gold' ? 'var(--admin-accent-muted)' :
-    accent === 'success' ? 'rgba(134,212,168,0.12)' :
-    accent === 'warning' ? 'rgba(255,255,255,0.08)' :
-    'rgba(99,102,241,0.12)'
+function KpiCard({
+  label,
+  value,
+  accent,
+  delta,
+  deltaTone,
+}: {
+  label: string
+  value: string | number
+  accent?: string
+  delta?: string
+  deltaTone?: 'up' | 'down' | 'neutral'
+}) {
   return (
-    <div className="settings-card admin-panel-glass-subtle" style={{ padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, color-mix(in srgb, ${accentColor} 60%, transparent), transparent)` }} />
-      <div style={{ width: 28, height: 28, borderRadius: 8, background: accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: accentColor }} />
+    <div className={cn('admin-kpi-card', accent && `admin-kpi-card--${accent}`)}>
+      <p className="admin-kpi-card__label">{label}</p>
+      <div className="admin-kpi-card__row">
+        <p className="admin-kpi-card__value">{value}</p>
+        {delta ? (
+          <span className={cn('admin-kpi-card__delta', `admin-kpi-card__delta--${deltaTone ?? 'neutral'}`)}>
+            {delta}
+          </span>
+        ) : null}
       </div>
-      <p style={{ fontSize: 20, fontWeight: 900, color: 'var(--admin-text-primary)', lineHeight: 1, margin: 0 }}>{value}</p>
-      <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4, marginBottom: 0 }}>{label}</p>
     </div>
   )
 }
 
-function PanelHeader({ icon: Icon, title, kpis, children }: { icon: React.ElementType; title: string; kpis: [string, string | number, string?][]; children?: React.ReactNode }) {
+function PanelHeader({
+  icon: Icon,
+  title,
+  kpis,
+  children,
+  action,
+}: {
+  icon: React.ElementType
+  title: string
+  kpis: Array<{
+    label: string
+    value: string | number
+    accent?: string
+    delta?: string
+    deltaTone?: 'up' | 'down' | 'neutral'
+  }>
+  children?: React.ReactNode
+  action?: React.ReactNode
+}) {
   return (
-    <div className="admin-panel-glass" style={{ padding: 24, marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <div className="admin-catalog-icon-ring" style={{ width: 40, height: 40, borderRadius: 12 }}>
-          <Icon style={{ width: 18, height: 18 }} strokeWidth={2} />
+    <div className="admin-catalog-hero admin-panel-hero">
+      <div className="admin-catalog-hero__top">
+        <div className="admin-catalog-hero__title-row">
+          <div className="admin-catalog-icon-ring admin-catalog-icon-ring--lg">
+            <Icon strokeWidth={2} />
+          </div>
+          <h1 className="admin-catalog-hero__title">{title}</h1>
         </div>
-        <h3 style={{ fontSize: 16, fontWeight: 900, color: 'var(--admin-text-primary)', margin: 0 }}>{title}</h3>
-        {children}
+        <div className="admin-catalog-hero__actions">
+          {children}
+          {action}
+        </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${kpis.length}, 1fr)`, gap: 10 }}>
-        {kpis.map(([label, value, accent]) => (
-          <KpiCard key={label} label={label} value={value} {...(accent !== undefined ? { accent } : {})} />
+      <div className="admin-kpi-grid admin-kpi-grid--catalog">
+        {kpis.map((k) => (
+          <KpiCard key={k.label} {...k} />
         ))}
       </div>
     </div>
@@ -106,11 +136,10 @@ function Toolbar({
   extra?: React.ReactNode
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-        {/* Search */}
-        <div style={{ position: 'relative', flex: 1, minWidth: 200, maxWidth: 380 }}>
-          <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--admin-text-muted)', pointerEvents: 'none' }} />
+    <div className="admin-catalog-toolbar">
+      <div className="admin-catalog-toolbar__row">
+        <div className="admin-catalog-toolbar__search">
+          <Search className="admin-catalog-toolbar__search-icon" aria-hidden />
           <input
             value={query}
             onChange={(e) => onQuery(e.target.value)}
@@ -118,8 +147,9 @@ function Toolbar({
             className="admin-catalog-input"
           />
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {onCreate && (
+        {extra}
+        <div className="admin-catalog-toolbar__actions">
+          {onCreate ? (
             <button
               type="button"
               onClick={createDisabled ? undefined : onCreate}
@@ -127,38 +157,39 @@ function Toolbar({
               title={createDisabled ? (createDisabledTitle ?? 'Action unavailable') : undefined}
               className={cn('admin-catalog-action admin-catalog-action--primary', createDisabled && 'cursor-not-allowed opacity-50')}
             >
-              <Plus style={{ width: 13, height: 13 }} />
+              <Plus className="h-3.5 w-3.5" aria-hidden />
               {createLabel}
             </button>
-          )}
-          {onRefresh && (
-            <button type="button" onClick={onRefresh} className="admin-catalog-action">
-              <RefreshCw style={{ width: 12, height: 12 }} />
+          ) : null}
+          {onRefresh ? (
+            <button type="button" onClick={onRefresh} className="admin-catalog-action" aria-label="Refresh">
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden />
             </button>
-          )}
-          {onExport && (
-            <button type="button" onClick={onExport} className="admin-catalog-action">
-              <Download style={{ width: 12, height: 12 }} />
+          ) : null}
+          {onExport ? (
+            <button type="button" onClick={onExport} className="admin-catalog-action" aria-label="Export CSV">
+              <Download className="h-3.5 w-3.5" aria-hidden />
             </button>
-          )}
+          ) : null}
         </div>
-        {extra}
       </div>
-      {/* Tabs */}
-      {tabs && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      {tabs ? (
+        <div className="admin-catalog-toolbar__tabs" role="tablist">
           {tabs.map((t) => (
             <button
               key={t.key}
               type="button"
+              role="tab"
+              aria-selected={activeTab === t.key}
               onClick={() => onTab?.(t.key)}
               className={cn('admin-catalog-tab', activeTab === t.key && 'admin-catalog-tab--active')}
             >
-              {t.label} · {t.count}
+              {t.label}
+              <span className="admin-catalog-tab__count">{t.count}</span>
             </button>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
@@ -166,21 +197,15 @@ function Toolbar({
 function GlassTable({ title, footer, icon: Icon, children }: { title: string; footer?: string; icon?: React.ElementType; children: React.ReactNode }) {
   const I = Icon ?? Package
   return (
-    <div className="admin-panel-glass" style={{ padding: 0, overflow: 'hidden' }}>
-      <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--admin-table-row-border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div className="admin-catalog-icon-ring" style={{ width: 28, height: 28, borderRadius: 8 }}>
-          <I style={{ width: 13, height: 13 }} />
+    <div className="admin-panel-glass admin-catalog-table-shell">
+      <div className="admin-catalog-table-shell__head">
+        <div className="admin-catalog-icon-ring">
+          <I aria-hidden />
         </div>
-        <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>{title}</p>
+        <p className="admin-catalog-table-shell__title">{title}</p>
       </div>
-      <div style={{ overflowX: 'auto' }}>
-        {children}
-      </div>
-      {footer && (
-        <div style={{ padding: '10px 20px', borderTop: '1px solid var(--admin-table-row-border)', fontSize: 11, fontWeight: 600, color: 'var(--admin-text-muted)' }}>
-          {footer}
-        </div>
-      )}
+      <div className="admin-catalog-table-shell__scroll">{children}</div>
+      {footer ? <div className="admin-catalog-table-shell__footer">{footer}</div> : null}
     </div>
   )
 }
@@ -191,6 +216,12 @@ const TD = 'admin-catalog-td'
 
 // ─── Products ──────────────────────────────────────────────────────────────────
 type ProductStatus = 'active' | 'draft' | 'archived'
+
+function productImageUrl(p: ApiProduct): string | null {
+  const imgs = p.images ?? []
+  const preferred = imgs.find((i) => i.isDefault) ?? imgs[0]
+  return preferred?.url ?? p.variants?.find((v) => v.image)?.image ?? null
+}
 
 function mapApiProduct(p: ApiProduct) {
   const stock = productStock(p)
@@ -205,6 +236,8 @@ function mapApiProduct(p: ApiProduct) {
     stock,
     price: Number(p.basePrice),
     status: productStatus(p),
+    imageUrl: productImageUrl(p),
+    featured: Boolean(p.isFeatured || p.isBestSeller),
   }
 }
 
@@ -212,6 +245,7 @@ function ProductsPanel() {
   const { navigate } = useAdminNavigate()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<ProductStatus | 'all'>('all')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const { data: apiData, isError, isLoading, refetch } = useProducts({ limit: 50 })
   const { data: liveCount, isError: liveCountError, isLoading: liveCountLoading } = usePublishedProductCount()
@@ -220,14 +254,28 @@ function ProductsPanel() {
   const canCreateProducts = usePermission('products', 'create')
   const catalog = useMemo(() => (apiData?.products ? apiData.products.map(mapApiProduct) : []), [apiData])
 
+  const categories = useMemo(() => {
+    const set = new Set(catalog.map((p) => p.category).filter(Boolean))
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [catalog])
+
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
     return catalog.filter((p) => {
       const matchQ = !q || p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)
       const matchS = statusFilter === 'all' || p.status === statusFilter
-      return matchQ && matchS
+      const matchC = categoryFilter === 'all' || p.category === categoryFilter
+      return matchQ && matchS && matchC
     })
-  }, [query, statusFilter, catalog])
+  }, [query, statusFilter, categoryFilter, catalog])
+
+  const activeCount = catalog.filter((p) => p.status === 'active').length
+  const draftCount = catalog.filter((p) => p.status === 'draft').length
+  const lowStockCount = catalog.filter((p) => p.stock > 0 && p.stock <= 5).length
+  const outCount = catalog.filter((p) => p.stock === 0).length
+  const totalCount = apiData?.total ?? catalog.length
+  const activeShare = totalCount ? Math.round((activeCount / Math.max(catalog.length, 1)) * 100) : 0
+  const lowShare = catalog.length ? Math.round((lowStockCount / catalog.length) * 100) : 0
 
   const handleArchive = async (linkId: string, name: string) => {
     if (!window.confirm(`Archive "${name}"? It will be hidden from the storefront.`)) return
@@ -267,11 +315,11 @@ function ProductsPanel() {
   }
 
   return (
-    <div className="settings-section-enter admin-module-page" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+    <div className="settings-section-enter admin-module-page admin-products-page">
       {isError ? (
         <ApiOfflineBanner message="API offline — start SPLARO API on port 4000 and run `pnpm db:seed`." />
       ) : (
-        <div style={{ marginBottom: 12 }}>
+        <div className="admin-products-page__live">
           <ModuleLiveStrip
             onRefresh={() => void refreshWithToast(refetch, 'Catalog synced')}
             items={[
@@ -282,141 +330,239 @@ function ProductsPanel() {
               },
               {
                 label: 'Admin catalog',
-                value: isLoading ? '…' : `${apiData?.total ?? catalog.length} total`,
+                value: isLoading ? '…' : `${totalCount} total`,
                 ok: !isError,
               },
               {
                 label: 'Draft',
-                value: String(catalog.filter((p) => p.status === 'draft').length),
+                value: String(draftCount),
                 ok: true,
+                informational: true,
               },
             ]}
           />
         </div>
       )}
-      <PanelHeader icon={Package} title="Products" kpis={[
-        ['Live on site', liveCountLoading ? '…' : (liveCount ?? 0), 'success'],
-        ['Total', apiData?.total ?? catalog.length],
-        ['Active', catalog.filter((p) => p.status === 'active').length, 'success'],
-        ['Low stock', catalog.filter((p) => p.stock > 0 && p.stock <= 5).length, 'warning'],
-      ]} />
 
-      {catalog.some((p) => p.stock <= 5 && p.stock > 0) && (
-        <div className="admin-panel-glass-subtle" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, borderLeft: '3px solid rgba(255,255,255,0.2)' }}>
-          <AlertTriangle style={{ width: 14, height: 14, color: 'var(--admin-text-secondary)', flexShrink: 0 }} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--admin-text-secondary)' }}>
-            {catalog.filter((p) => p.stock <= 5 && p.stock > 0).length} product(s) need restock
+      <PanelHeader
+        icon={Package}
+        title="Products"
+        action={
+          <button
+            type="button"
+            className={cn('admin-catalog-action admin-catalog-action--primary admin-catalog-action--lg', !canCreateProducts && 'cursor-not-allowed opacity-50')}
+            disabled={!canCreateProducts}
+            title={!canCreateProducts ? PERMISSION_DENIED_TITLE : undefined}
+            onClick={() => {
+              if (!canCreateProducts) return
+              navigate('/dashboard/products/new')
+            }}
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+            Add Product
+          </button>
+        }
+        kpis={[
+          {
+            label: 'Live on site',
+            value: liveCountLoading ? '…' : (liveCount ?? 0),
+            accent: 'success',
+            ...(liveCountLoading ? {} : { delta: `${activeShare}% catalog`, deltaTone: 'up' as const }),
+          },
+          {
+            label: 'Total products',
+            value: isLoading ? '…' : totalCount,
+            delta: `${catalog.length} loaded`,
+            deltaTone: 'neutral',
+          },
+          {
+            label: 'Active',
+            value: activeCount,
+            accent: 'success',
+            delta: `${activeShare}%`,
+            deltaTone: 'up',
+          },
+          {
+            label: 'Low stock',
+            value: lowStockCount,
+            accent: 'warning',
+            delta: lowStockCount ? `-${lowShare}%` : '0%',
+            deltaTone: lowStockCount ? 'down' : 'neutral',
+          },
+        ]}
+      />
+
+      {(lowStockCount > 0 || outCount > 0) && (
+        <div className="admin-catalog-alert" role="status">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+          <span>
+            {lowStockCount > 0 ? `${lowStockCount} product(s) need restock` : null}
+            {lowStockCount > 0 && outCount > 0 ? ' · ' : null}
+            {outCount > 0 ? `${outCount} out of stock` : null}
           </span>
         </div>
       )}
 
       <Toolbar
-        query={query} onQuery={setQuery} placeholder="Search SKU, name, category…"
-        createLabel="Add product" onCreate={() => navigate('/dashboard/products/new')}
+        query={query}
+        onQuery={setQuery}
+        placeholder="Search products…"
+        createLabel="Add Product"
+        onCreate={() => navigate('/dashboard/products/new')}
         createDisabled={!canCreateProducts}
         createDisabledTitle={PERMISSION_DENIED_TITLE}
         onRefresh={() => void refreshWithToast(refetch, 'Catalog synced')}
         onExport={exportProducts}
         tabs={[
           { key: 'all', label: 'All', count: catalog.length },
-          { key: 'active', label: 'Active', count: catalog.filter((p) => p.status === 'active').length },
-          { key: 'draft', label: 'Draft', count: catalog.filter((p) => p.status === 'draft').length },
+          { key: 'active', label: 'Active', count: activeCount },
+          { key: 'draft', label: 'Draft', count: draftCount },
           { key: 'archived', label: 'Archived', count: catalog.filter((p) => p.status === 'archived').length },
         ]}
         activeTab={statusFilter}
         onTab={(k) => setStatusFilter(k as ProductStatus | 'all')}
+        extra={
+          <label className="admin-catalog-filter">
+            <span className="admin-catalog-filter__label">Category</span>
+            <select
+              className="admin-catalog-filter__select"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <option value="all">All categories</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </label>
+        }
       />
 
-      <GlassTable icon={Package} title={`Products · ${filtered.length} results`} footer={isLoading ? 'Loading products…' : `Showing ${filtered.length} of ${catalog.length} products`}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              {['SKU', 'Product', 'Category', 'Brand', 'Variants', 'Stock', 'Price', 'Status', ''].map((h) => (
-                <th key={h} className={TH}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((p) => (
-              <Fragment key={p.linkId}>
-                <tr className={expandedId === p.linkId ? 'bg-[var(--admin-surface-hover)]' : undefined}>
-                  <td className={TD}>
-                    <button type="button" onClick={() => setExpandedId(expandedId === p.linkId ? null : p.linkId)} className="admin-catalog-link">
-                      {p.id}
-                      <ChevronDown style={{ width: 12, height: 12, transition: 'transform 0.2s', transform: expandedId === p.linkId ? 'rotate(180deg)' : 'none' }} />
-                    </button>
-                  </td>
-                  <td className={TD} style={{ fontWeight: 700, color: 'var(--admin-text-primary)' }}>{p.name}</td>
-                  <td className={TD} style={{ fontSize: 12 }}>{p.category}</td>
-                  <td className={TD} style={{ fontSize: 12 }}>{p.brand}</td>
-                  <td className={TD} style={{ fontSize: 12 }}>{p.variants}</td>
-                  <td className={TD} style={{ fontWeight: 800, color: p.stock === 0 ? '#f0a8a8' : p.stock <= 5 ? 'var(--admin-text-secondary)' : 'var(--admin-text-primary)' }}>{p.stock}</td>
-                  <td className={TD} style={{ fontWeight: 800 }}>{formatBDT(p.price)}</td>
-                  <td className={TD}><StatusPill value={p.status} /></td>
-                  <td className={TD}>
-                    <RowActionsMenu
-                      recordName={p.name}
-                      moduleHref="/dashboard/products"
-                      recordId={p.linkId}
-                      actions={[
-                        { label: 'Edit product', onClick: () => navigate(`/dashboard/products/${p.linkId}/edit`) },
-                        ...(p.slug
-                          ? [
-                              {
-                                label: 'Copy storefront URL',
-                                onClick: () => {
-                                  if (p.status !== 'active') {
-                                    toastFail('Publish the product first — draft links do not work on the storefront.')
-                                    return
-                                  }
-                                  void copyProductStorefrontUrl(p.slug).then((ok) =>
-                                    ok ? toastOk('Storefront link copied') : toastFail('Could not copy link'),
-                                  )
+      <GlassTable
+        icon={Package}
+        title={`Products · ${filtered.length} results`}
+        footer={isLoading ? 'Loading products…' : `Showing ${filtered.length} of ${catalog.length} products`}
+      >
+        {isLoading && catalog.length === 0 ? (
+          <AdminTableSkeleton rows={8} />
+        ) : filtered.length === 0 ? (
+          <div className="admin-empty-state admin-catalog-empty">
+            <span className="admin-empty-state__icon"><Package aria-hidden /></span>
+            <p className="admin-empty-state__title">No products match</p>
+            <p className="admin-empty-state__text">Try another search, status, or category filter.</p>
+          </div>
+        ) : (
+          <table className="admin-catalog-data-table">
+            <thead>
+              <tr>
+                {['Product', 'Price', 'Category', 'Stock', 'SKU', 'Variants', 'Status', ''].map((h) => (
+                  <th key={h || 'actions'} className={TH}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p) => (
+                <Fragment key={p.linkId}>
+                  <tr className={cn('admin-catalog-row', expandedId === p.linkId && 'admin-catalog-row--open')}>
+                    <td className={TD}>
+                      <button
+                        type="button"
+                        className="admin-catalog-product"
+                        onClick={() => setExpandedId(expandedId === p.linkId ? null : p.linkId)}
+                      >
+                        <span className="admin-catalog-product__thumb">
+                          {p.imageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={p.imageUrl} alt="" width={40} height={40} />
+                          ) : (
+                            <Package className="h-4 w-4" aria-hidden />
+                          )}
+                        </span>
+                        <span className="admin-catalog-product__meta">
+                          <strong>{p.name}</strong>
+                          {p.featured ? <span className="admin-catalog-product__badge">Featured</span> : null}
+                        </span>
+                        <ChevronDown
+                          className={cn('admin-catalog-product__chevron', expandedId === p.linkId && 'admin-catalog-product__chevron--open')}
+                          aria-hidden
+                        />
+                      </button>
+                    </td>
+                    <td className={cn(TD, 'admin-catalog-td--strong')}>{formatBDT(p.price)}</td>
+                    <td className={TD}>{p.category}</td>
+                    <td className={cn(TD, 'admin-catalog-td--strong', p.stock === 0 && 'admin-catalog-td--danger', p.stock > 0 && p.stock <= 5 && 'admin-catalog-td--warn')}>
+                      {p.stock}
+                    </td>
+                    <td className={cn(TD, 'admin-catalog-td--mono')}>{p.id}</td>
+                    <td className={TD}>{p.variants}</td>
+                    <td className={TD}>
+                      <StatusPill value={p.stock === 0 && p.status === 'active' ? 'out of stock' : p.status} />
+                    </td>
+                    <td className={TD}>
+                      <RowActionsMenu
+                        recordName={p.name}
+                        moduleHref="/dashboard/products"
+                        recordId={p.linkId}
+                        actions={[
+                          { label: 'Edit product', onClick: () => navigate(`/dashboard/products/${p.linkId}/edit`) },
+                          ...(p.slug
+                            ? [
+                                {
+                                  label: 'Copy storefront URL',
+                                  onClick: () => {
+                                    if (p.status !== 'active') {
+                                      toastFail('Publish the product first — draft links do not work on the storefront.')
+                                      return
+                                    }
+                                    void copyProductStorefrontUrl(p.slug).then((ok) =>
+                                      ok ? toastOk('Storefront link copied') : toastFail('Could not copy link'),
+                                    )
+                                  },
                                 },
-                              },
-                              {
-                                label: 'View on storefront',
-                                onClick: () => {
-                                  if (p.status !== 'active') {
-                                    toastFail('Publish the product first.')
-                                    return
-                                  }
-                                  window.open(productStorefrontUrl(p.slug), '_blank', 'noopener,noreferrer')
+                                {
+                                  label: 'View on storefront',
+                                  onClick: () => {
+                                    if (p.status !== 'active') {
+                                      toastFail('Publish the product first.')
+                                      return
+                                    }
+                                    window.open(productStorefrontUrl(p.slug), '_blank', 'noopener,noreferrer')
+                                  },
                                 },
-                              },
-                            ]
-                          : []),
-                        {
-                          label: 'Archive',
-                          tone: 'danger' as const,
-                          onClick: () => handleArchive(p.linkId, p.name),
-                        },
-                      ]}
-                    />
-                  </td>
-                </tr>
-                {expandedId === p.linkId && (
-                  <tr>
-                    <td colSpan={9} className={TD} style={{ background: 'var(--admin-surface-hover)', padding: '12px 20px' }}>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        <a href={`/dashboard/products/${p.linkId}/edit`} className="admin-catalog-action admin-catalog-action--primary">Edit product</a>
-                        <a href={`/dashboard/inventory?sku=${p.id}`} className="admin-catalog-action">View inventory</a>
-                        <AdminButton size="sm" onClick={() => handlePrintLabel(p)}>
-                          <Printer className="h-3.5 w-3.5" /> Print label
-                        </AdminButton>
-                        {canDeleteProducts && (
-                          <AdminButton variant="danger" size="sm" loading={deleteProduct.isPending} onClick={() => handleArchive(p.linkId, p.name)}>
-                            Archive
-                          </AdminButton>
-                        )}
-                      </div>
+                              ]
+                            : []),
+                          {
+                            label: 'Archive',
+                            tone: 'danger' as const,
+                            onClick: () => handleArchive(p.linkId, p.name),
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
+                  {expandedId === p.linkId ? (
+                    <tr className="admin-catalog-row-expand">
+                      <td colSpan={8} className={TD}>
+                        <div className="admin-catalog-row-expand__actions">
+                          <a href={`/dashboard/products/${p.linkId}/edit`} className="admin-catalog-action admin-catalog-action--primary">Edit product</a>
+                          <a href={`/dashboard/inventory?sku=${encodeURIComponent(p.id)}`} className="admin-catalog-action">View inventory</a>
+                          <AdminButton size="sm" onClick={() => handlePrintLabel(p)}>
+                            <Printer className="h-3.5 w-3.5" aria-hidden /> Print label
+                          </AdminButton>
+                          {canDeleteProducts ? (
+                            <AdminButton variant="danger" size="sm" loading={deleteProduct.isPending} onClick={() => handleArchive(p.linkId, p.name)}>
+                              <Archive className="h-3.5 w-3.5" aria-hidden /> Archive
+                            </AdminButton>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        )}
       </GlassTable>
     </div>
   )
@@ -459,28 +605,30 @@ function CollectionsPanel() {
   if (isError) return <ApiOfflineBanner message="API offline — start API on port 4000, then run `pnpm db:push`." />
 
   return (
-    <div className="settings-section-enter admin-module-page" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+    <div className="settings-section-enter admin-module-page">
       <PanelHeader icon={Layers} title="Collections" kpis={[
-        ['Collections', isLoading ? '…' : rows.length],
-        ['Published', isLoading ? '…' : published, 'success'],
-        ['Draft', isLoading ? '…' : rows.length - published, 'warning'],
-        ['Products linked', isLoading ? '…' : linked, 'gold'],
+        { label: 'Collections', value: isLoading ? '…' : rows.length },
+        { label: 'Published', value: isLoading ? '…' : published, accent: 'success' },
+        { label: 'Draft', value: isLoading ? '…' : rows.length - published, accent: 'warning' },
+        { label: 'Products linked', value: isLoading ? '…' : linked, accent: 'gold' },
       ]} />
       <Toolbar query={query} onQuery={setQuery} placeholder="Search collection name…" createLabel="New collection" onCreate={handleCreate} onRefresh={() => void refreshWithToast(refetch, 'Collections refreshed')} />
       <GlassTable icon={Layers} title={`Collections · ${filtered.length} results`} footer={`Showing ${filtered.length} of ${rows.length} — live from database`}>
         {filtered.length === 0 && !isLoading ? (
-          <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>No collections yet. Click &apos;New collection&apos; to add one.</p>
+          <div className="admin-empty-state admin-catalog-empty">
+            <p className="admin-empty-state__text">No collections yet. Click &apos;New collection&apos; to add one.</p>
+          </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="admin-catalog-data-table">
             <thead><tr>{['Collection', 'Products', 'Slug', 'Visibility', 'Updated', ''].map((h) => <th key={h} className={TH}>{h}</th>)}</tr></thead>
             <tbody>
               {filtered.map((c) => (
-                <tr key={c.id}>
-                  <td className={TD} style={{ fontWeight: 700, color: 'var(--admin-text-primary)' }}>{c.name}</td>
+                <tr key={c.id} className="admin-catalog-row">
+                  <td className={cn(TD, 'admin-catalog-td--strong')}>{c.name}</td>
                   <td className={TD}>{c._count?.products ?? 0}</td>
-                  <td className={TD} style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: 'var(--admin-text-secondary)' }}>/{c.slug}</td>
+                  <td className={cn(TD, 'admin-catalog-td--mono')}>/{c.slug}</td>
                   <td className={TD}><StatusPill value={c.isActive ? 'published' : 'draft'} /></td>
-                  <td className={TD} style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>—</td>
+                  <td className={cn(TD, 'text-xs text-[var(--admin-text-muted)]')}>—</td>
                   <td className={TD}>
                     <AdminButton size="sm" onClick={() => toggleVisibility(c.id, c.name, c.isActive)}>
                       {c.isActive ? 'Hide' : 'Publish'}
@@ -533,12 +681,11 @@ function InventoryVariantAdjust({
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 12, fontWeight: 700, minWidth: 100 }}>{label}</span>
-      <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--admin-text-muted)' }}>{variant.sku ?? '—'}</span>
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="min-w-[100px] text-xs font-bold">{label}</span>
+      <span className="font-mono text-[10px] text-[var(--admin-text-muted)]">{variant.sku ?? '—'}</span>
       <input
-        className="admin-input"
-        style={{ width: 72, padding: '4px 8px', fontSize: 12 }}
+        className="admin-input w-[72px] px-2 py-1 text-xs"
         value={stock}
         onChange={(e) => setStock(e.target.value)}
       />
@@ -598,8 +745,8 @@ function InventoryPanel() {
   }
 
   return (
-    <div className="settings-section-enter admin-module-page" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      <div style={{ marginBottom: 12 }}>
+    <div className="settings-section-enter admin-module-page">
+      <div className="mb-3">
         <ModuleLiveStrip
           items={[
             {
@@ -624,16 +771,16 @@ function InventoryPanel() {
       </div>
 
       <PanelHeader icon={Archive} title="Inventory" kpis={[
-        ['SKUs tracked', isLoading ? '…' : rows.length],
-        ['Low stock', isLoading ? '…' : low, 'warning'],
-        ['Out of stock', isLoading ? '…' : out, 'gold'],
-        ['Units on hand', isLoading ? '…' : unitsOnHand, 'success'],
+        { label: 'SKUs tracked', value: isLoading ? '…' : rows.length },
+        { label: 'Low stock', value: isLoading ? '…' : low, accent: 'warning' },
+        { label: 'Out of stock', value: isLoading ? '…' : out, accent: 'gold' },
+        { label: 'Units on hand', value: isLoading ? '…' : unitsOnHand, accent: 'success' },
       ]} />
 
       {(low > 0 || out > 0) && (
-        <div className="admin-panel-glass-subtle" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, borderLeft: '3px solid rgba(255,255,255,0.2)' }}>
-          <AlertTriangle style={{ width: 14, height: 14, color: 'var(--admin-text-secondary)', flexShrink: 0 }} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--admin-text-secondary)' }}>
+        <div className="admin-catalog-alert" role="status">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+          <span>
             {out > 0 && `${out} variant(s) out of stock`}
             {out > 0 && low > 0 && ' · '}
             {low > 0 && `${low} variant(s) low stock (≤${LOW_STOCK_MAX})`}
@@ -652,7 +799,7 @@ function InventoryPanel() {
         onRefresh={() => void refreshWithToast(refetch, 'Inventory refreshed')}
       />
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+      <div className="mb-3 flex flex-wrap gap-1.5">
         {([
           ['all', 'All'],
           ['low', 'Low stock'],
@@ -676,31 +823,39 @@ function InventoryPanel() {
       </div>
 
       <GlassTable icon={Archive} title={`Inventory · ${filtered.length} results`} footer={`Live stock from ${rows.length} products · adjustments save to API`}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table className="admin-catalog-data-table">
           <thead><tr>{['SKU', 'Product', 'On hand', 'Reserved', 'Available', 'Status', ''].map((h) => <th key={h} className={TH}>{h}</th>)}</tr></thead>
           <tbody>
             {filtered.map((i) => (
               <Fragment key={i.linkId}>
-                <tr>
+                <tr className={cn('admin-catalog-row', expandedId === i.linkId && 'admin-catalog-row--open')}>
                   <td className={TD}>
                     <button
                       type="button"
                       onClick={() => setExpandedId(expandedId === i.linkId ? null : i.linkId)}
                       className="admin-catalog-link"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                     >
                       {i.id}
-                      <ChevronDown size={12} style={{ transition: 'transform 200ms', transform: expandedId === i.linkId ? 'rotate(180deg)' : 'none' }} />
+                      <ChevronDown
+                        className={cn('admin-catalog-product__chevron', expandedId === i.linkId && 'admin-catalog-product__chevron--open')}
+                        aria-hidden
+                      />
                     </button>
                   </td>
                   <td className={TD}>
-                    <button type="button" className="admin-catalog-link" onClick={() => navigate(`/dashboard/products/${i.linkId}`)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 700, color: 'var(--admin-text-primary)' }}>
+                    <button
+                      type="button"
+                      className="admin-catalog-link font-bold text-[var(--admin-text-primary)]"
+                      onClick={() => navigate(`/dashboard/products/${i.linkId}`)}
+                    >
                       {i.name}
                     </button>
                   </td>
-                  <td className={TD} style={{ fontWeight: 800, color: i.onHand === 0 ? '#f0a8a8' : i.onHand <= LOW_STOCK_MAX ? 'var(--admin-text-secondary)' : 'var(--admin-text-primary)' }}>{i.onHand}</td>
-                  <td className={TD} style={{ color: 'var(--admin-text-muted)', fontSize: 12 }}>{i.reserved}</td>
-                  <td className={TD} style={{ fontWeight: 800 }}>{i.available}</td>
+                  <td className={cn(TD, 'admin-catalog-td--strong', i.onHand === 0 && 'admin-catalog-td--danger', i.onHand > 0 && i.onHand <= LOW_STOCK_MAX && 'admin-catalog-td--warn')}>
+                    {i.onHand}
+                  </td>
+                  <td className={cn(TD, 'text-xs text-[var(--admin-text-muted)]')}>{i.reserved}</td>
+                  <td className={cn(TD, 'admin-catalog-td--strong')}>{i.available}</td>
                   <td className={TD}>
                     <StatusPill value={i.status === 'out' ? 'out of stock' : i.status === 'low' ? 'low stock' : 'healthy'} />
                   </td>
@@ -718,13 +873,13 @@ function InventoryPanel() {
                   </td>
                 </tr>
                 {expandedId === i.linkId && (
-                  <tr>
-                    <td colSpan={7} style={{ background: 'rgba(16, 17, 20, 0.08)', padding: '12px 16px' }}>
+                  <tr className="admin-catalog-row-expand">
+                    <td colSpan={7} className={TD}>
                       {i.variants.length === 0 ? (
-                        <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: 0 }}>No variants — add variants on the product edit page.</p>
+                        <p className="m-0 text-xs text-[var(--admin-text-muted)]">No variants — add variants on the product edit page.</p>
                       ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          <p className="admin-kpi__label" style={{ margin: 0 }}>Variant stock adjustment</p>
+                        <div className="flex flex-col gap-2">
+                          <p className="admin-kpi__label m-0">Variant stock adjustment</p>
                           {i.variants.map((v) => (
                             <InventoryVariantAdjust
                               key={v.id ?? `${i.linkId}-${v.sku}`}
@@ -786,25 +941,25 @@ function BrandsPanel() {
   if (isError) return <ApiOfflineBanner message="API offline — start API on port 4000, then run `pnpm db:push`." />
 
   return (
-    <div className="settings-section-enter admin-module-page" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+    <div className="settings-section-enter admin-module-page">
       <PanelHeader icon={Award} title="Brands" kpis={[
-        ['Brands', isLoading ? '…' : rows.length],
-        ['Active', isLoading ? '…' : active, 'success'],
-        ['Vendors', isLoading ? '…' : vendors, 'gold'],
-        ['Products', isLoading ? '…' : products],
+        { label: 'Brands', value: isLoading ? '…' : rows.length },
+        { label: 'Active', value: isLoading ? '…' : active, accent: 'success' },
+        { label: 'Vendors', value: isLoading ? '…' : vendors, accent: 'gold' },
+        { label: 'Products', value: isLoading ? '…' : products },
       ]} />
       <Toolbar query={query} onQuery={setQuery} placeholder="Search brand or vendor…" createLabel="Add brand" onCreate={handleCreate} onRefresh={() => void refreshWithToast(refetch, 'Brands refreshed')} />
       <GlassTable icon={Award} title={`Brands · ${filtered.length} results`} footer="Live brands from database — no demo rows">
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table className="admin-catalog-data-table">
           <thead><tr>{['Slug', 'Brand', 'Products', 'Vendor', 'Country', 'Status', ''].map((h) => <th key={h} className={TH}>{h}</th>)}</tr></thead>
           <tbody>
             {filtered.map((b) => (
-              <tr key={b.id}>
-                <td className={TD} style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: 'var(--admin-text-secondary)' }}>{b.slug}</td>
-                <td className={TD} style={{ fontWeight: 700, color: 'var(--admin-text-primary)' }}>{b.name}</td>
+              <tr key={b.id} className="admin-catalog-row">
+                <td className={cn(TD, 'admin-catalog-td--mono')}>{b.slug}</td>
+                <td className={cn(TD, 'admin-catalog-td--strong')}>{b.name}</td>
                 <td className={TD}>{b.productCount ?? 0}</td>
-                <td className={TD} style={{ fontSize: 12 }}>{b.vendorLabel ?? '—'}</td>
-                <td className={TD} style={{ fontSize: 12 }}>{b.country}</td>
+                <td className={cn(TD, 'text-xs')}>{b.vendorLabel ?? '—'}</td>
+                <td className={cn(TD, 'text-xs')}>{b.country}</td>
                 <td className={TD}><StatusPill value={b.isActive ? 'active' : 'draft'} /></td>
                 <td className={TD}><AdminButton size="sm" onClick={() => toggleActive(b.id, b.name, b.isActive)}>{b.isActive ? 'Deactivate' : 'Activate'}</AdminButton></td>
               </tr>
@@ -857,12 +1012,12 @@ function AttributesPanel() {
   if (isError) return <ApiOfflineBanner message="API offline — attributes are derived from live product variants." />
 
   return (
-    <div className="settings-section-enter admin-module-page" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+    <div className="settings-section-enter admin-module-page">
       <PanelHeader icon={Tags} title="Attributes" kpis={[
-        ['Attributes', attributes.length],
-        ['Option values', attributes.reduce((s, a) => s + a.values, 0), 'gold'],
-        ['Products', isLoading ? '…' : data?.products?.length ?? 0, 'success'],
-        ['Draft', attributes.filter((a) => a.status === 'draft').length, 'warning'],
+        { label: 'Attributes', value: attributes.length },
+        { label: 'Option values', value: attributes.reduce((s, a) => s + a.values, 0), accent: 'gold' },
+        { label: 'Products', value: isLoading ? '…' : data?.products?.length ?? 0, accent: 'success' },
+        { label: 'Draft', value: attributes.filter((a) => a.status === 'draft').length, accent: 'warning' },
       ]} />
       <Toolbar
         query={query} onQuery={setQuery} placeholder="Search attribute name…"
@@ -873,16 +1028,16 @@ function AttributesPanel() {
         onExport={exportAttributes}
       />
       <GlassTable icon={Tags} title={`Attributes · ${filtered.length} results`} footer="Derived from live product data — not demo rows">
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table className="admin-catalog-data-table">
           <thead><tr>{['ID', 'Attribute', 'Type', 'Values', 'Used in', 'Status', ''].map((h) => <th key={h} className={TH}>{h}</th>)}</tr></thead>
           <tbody>
             {filtered.map((a) => (
-              <tr key={a.id}>
-                <td className={TD} style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--admin-text-muted)' }}>{a.id}</td>
-                <td className={TD} style={{ fontWeight: 700, color: 'var(--admin-text-primary)' }}>{a.name}</td>
-                <td className={TD} style={{ fontSize: 12 }}>{a.type}</td>
+              <tr key={a.id} className="admin-catalog-row">
+                <td className={cn(TD, 'admin-catalog-td--mono')}>{a.id}</td>
+                <td className={cn(TD, 'admin-catalog-td--strong')}>{a.name}</td>
+                <td className={cn(TD, 'text-xs')}>{a.type}</td>
                 <td className={TD}>{a.values}</td>
-                <td className={TD} style={{ fontSize: 12 }}>{a.products} products</td>
+                <td className={cn(TD, 'text-xs')}>{a.products} products</td>
                 <td className={TD}><StatusPill value={a.status} /></td>
                 <td className={TD}><RowActionsMenu recordName={a.name} moduleHref="/dashboard/attributes" recordId={a.id} /></td>
               </tr>

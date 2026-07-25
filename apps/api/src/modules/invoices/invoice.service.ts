@@ -107,7 +107,10 @@ export class InvoiceService {
       })
       try {
         const page = await browser.newPage()
-        await page.setContent(html, { waitUntil: 'load', timeout: 45_000 })
+        await page.setContent(html, { waitUntil: 'load', timeout: 60_000 })
+        // Wait for @font-face (Cormorant / Manrope) before PDF paint
+        await page.evaluate('document.fonts.ready')
+        await new Promise((r) => setTimeout(r, 250))
         const pdf = await page.pdf({
           format: 'A4',
           printBackground: true,

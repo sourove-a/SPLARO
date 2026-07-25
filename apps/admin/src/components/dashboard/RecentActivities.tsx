@@ -19,10 +19,10 @@ const ICON_MAP = {
 }
 
 const COLOR_MAP = {
-  order: 'bg-zinc-900/10 text-zinc-800 dark:bg-white/10 dark:text-zinc-100',
-  customer: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-300',
-  payment: 'bg-emerald-500/10 text-emerald-600',
-  shipping: 'bg-cyan-500/10 text-cyan-600',
+  order: 'bg-sky-500/12 text-sky-700 dark:bg-sky-400/15 dark:text-sky-300',
+  customer: 'bg-teal-500/12 text-teal-700 dark:bg-teal-400/15 dark:text-teal-300',
+  payment: 'bg-emerald-500/12 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300',
+  shipping: 'bg-amber-500/12 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300',
 }
 
 export function RecentActivities({

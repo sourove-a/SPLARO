@@ -2,14 +2,14 @@
  * Public brand host for invoices / print / email footers.
  * Never use localhost / 127.0.0.1 — local NEXT_PUBLIC_SITE_URL is for apps only.
  */
-function siteHostname(): string {
-  const raw =
-    process.env.COMPANY_WEBSITE ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.WEB_URL ??
-    'https://splaro.co'
+
+/** Exported for unit tests — strip www + reject loopback / .local hosts. */
+export function sanitizePublicHostname(raw: string): string | null {
+  const input = raw.trim()
+  if (!input) return null
   try {
-    const hostname = new URL(raw).hostname.replace(/^www\./, '').toLowerCase()
+    const withProto = /^https?:\/\//i.test(input) ? input : `https://${input}`
+    const hostname = new URL(withProto).hostname.replace(/^www\./, '').toLowerCase()
     if (
       !hostname ||
       hostname === 'localhost' ||
@@ -18,20 +18,50 @@ function siteHostname(): string {
       hostname.endsWith('.local') ||
       hostname.endsWith('.localhost')
     ) {
-      return 'splaro.co'
+      return null
     }
     return hostname
   } catch {
-    return 'splaro.co'
+    return null
   }
 }
 
+function siteHostname(): string {
+  const raw =
+    process.env.COMPANY_WEBSITE ??
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.WEB_URL ??
+    'https://splaro.co'
+  return sanitizePublicHostname(raw) ?? 'splaro.co'
+}
+
+function isUnsafeSupportEmail(email: string): boolean {
+  return (
+    /@localhost\b/i.test(email) ||
+    /@127\.0\.0\.1\b/i.test(email) ||
+    /@0\.0\.0\.0\b/i.test(email) ||
+    /@[^@]+\.local\b/i.test(email) ||
+    /@[^@]+\.localhost\b/i.test(email)
+  )
+}
+
 function publicSupportEmail(host: string): string {
-  const fromEnv = (process.env.COMPANY_EMAIL ?? process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? '').trim()
-  if (fromEnv && !/@localhost\b/i.test(fromEnv) && !/@127\.0\.0\.1\b/i.test(fromEnv)) {
+  // Invoice contact is brand COMPANY_EMAIL only — do not inherit storefront NEXT_PUBLIC_SUPPORT_EMAIL
+  // (web/.env.local may use support@ while invoices must show info@splaro.co).
+  const fromEnv = (process.env.COMPANY_EMAIL ?? '').trim()
+  if (fromEnv && !isUnsafeSupportEmail(fromEnv)) {
     return fromEnv
   }
-  return `support@${host}`
+  return host === 'splaro.co' ? 'info@splaro.co' : `info@${host}`
+}
+
+/** Sanitize COMPANY_WEBSITE_DISPLAY so www.localhost never ships on invoices. */
+export function sanitizeWebsiteDisplay(raw: string | undefined, fallbackHost: string): string {
+  const candidate = (raw ?? '').trim()
+  if (!candidate) return `www.${fallbackHost}`
+  const host = sanitizePublicHostname(candidate)
+  if (!host) return `www.${fallbackHost}`
+  return candidate.toLowerCase().startsWith('www.') ? `www.${host}` : host
 }
 
 const host = siteHostname()
@@ -44,17 +74,24 @@ export const SPLARO_INVOICE_BRAND = {
   phoneE164: process.env.COMPANY_PHONE_E164 ?? '8801905010205',
   email: publicSupportEmail(host),
   website: process.env.COMPANY_WEBSITE?.startsWith('http')
-    ? process.env.COMPANY_WEBSITE
+    ? sanitizePublicHostname(process.env.COMPANY_WEBSITE)
+      ? process.env.COMPANY_WEBSITE
+      : `https://www.${host}`
     : `https://www.${host}`,
-  websiteDisplay: process.env.COMPANY_WEBSITE_DISPLAY ?? `www.${host}`,
+  websiteDisplay: sanitizeWebsiteDisplay(process.env.COMPANY_WEBSITE_DISPLAY, host),
   office: 'Uttara Sector 13, Dhaka - 1230',
   supportLine: 'Online Order & Client Support',
+  /** Light-surface print / web memo — black premium wordmark. */
+  printLogoPath: '/images/logo/splaro-logo-black-premium.png',
+  /** Ivory invoice — official gold wordmark (transparent PNG from brand gold mark). */
+  invoiceGoldLogoPath: '/images/logo/splaro-logo-gold-invoice.png',
+  /** Seamless ivory leather grain for invoice material layer. */
+  invoiceLeatherGrainPath: '/images/logo/invoice-leather-grain.png',
   /** Dark-hero PDF/print — compact white PNG (email clients + Puppeteer both render PNG). */
   arabicLogoPath: '/images/logo/splaro-logo-invoice-white.png',
   /** Light-surface email header — compact black PNG (WebP breaks in Gmail/Outlook). */
   emailLogoPath: '/images/logo/splaro-logo-email.png',
-  thankYouNote:
-    'Thank you for choosing SPLARO. Crafted with care — quiet luxury, delivered.',
+  thankYouNote: 'Thank you for choosing SPLARO. Crafted with care — quiet luxury, delivered.',
   codPaymentTerms: 'Pay after receiving product',
 } as const
 
@@ -78,7 +115,7 @@ export function resolveInvoiceLogoUrl(siteUrl: string, storeLogo?: string | null
           : `${base}/${trimmed}`
     if (isUsableRemoteLogo(resolved)) return resolved
   }
-  return `${base}${SPLARO_INVOICE_BRAND.arabicLogoPath}`
+  return `${base}${SPLARO_INVOICE_BRAND.printLogoPath}`
 }
 
 /** Absolute black wordmark for order confirmation emails (PNG only). */

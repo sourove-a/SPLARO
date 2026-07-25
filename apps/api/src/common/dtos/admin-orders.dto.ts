@@ -1,13 +1,17 @@
-import { CourierProvider, OrderStatus, PaymentStatus } from '@prisma/client'
+import { CourierProvider, OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client'
 import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsNumber,
   IsOptional,
   IsString,
+  Min,
+  MinLength,
 } from 'class-validator'
+import { Type } from 'class-transformer'
 
 export class UpdateOrderStatusDto {
   @IsEnum(OrderStatus)
@@ -49,6 +53,27 @@ export class AddOrderNoteDto {
 export class UpdateOrderPaymentDto {
   @IsEnum(PaymentStatus)
   paymentStatus!: PaymentStatus
+
+  /** Gateway / manual trx id — required when marking PAID */
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  reference?: string
+
+  /** Amount received — required when marking PAID */
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  amount?: number
+
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  method?: PaymentMethod
+
+  @IsOptional()
+  @IsString()
+  note?: string
 }
 
 export class BookCourierDto {

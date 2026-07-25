@@ -94,11 +94,11 @@ export function NotificationDropdown() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="admin-header-chip"
+        className="admin-header-chip admin-header-chip--bell"
         aria-label="Notifications"
         aria-expanded={open}
       >
-        <Bell className="h-4 w-4" strokeWidth={2} />
+        <Bell className="h-4 w-4" strokeWidth={1.5} />
         {unread > 0 ? (
           <span className="admin-header-badge" aria-hidden>
             {unread > 9 ? '9+' : unread}

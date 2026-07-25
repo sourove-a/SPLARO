@@ -5,7 +5,7 @@ import { AdminButton } from '@/components/ui/AdminButton'
 import { InvoiceActionsBar } from '@/components/modules/InvoiceActionsBar'
 import { STATUS_CLASS, formatBDT } from '@/components/modules/ModulePanelShell'
 import { useInvoices, useOrder, useUpdateOrderPayment } from '@/lib/api/hooks'
-import { confirmOrderPaymentSaved } from '@/lib/admin/payment-save'
+import { confirmOrderPaymentSaved, collectPaymentEvidence } from '@/lib/admin/payment-save'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 
 interface InvoiceDetailPanelProps {
@@ -30,9 +30,17 @@ export function InvoiceDetailPanel({ recordId, moduleHref }: InvoiceDetailPanelP
 
   const markPaid = async () => {
     if (!orderId || isPaid) return
+    const evidence = collectPaymentEvidence(Number(order?.total ?? 0))
+    if (!evidence) return
     const ok = await confirmOrderPaymentSaved(
       orderId,
-      () => updatePayment.mutateAsync({ id: orderId, paymentStatus: 'PAID' }),
+      () =>
+        updatePayment.mutateAsync({
+          id: orderId,
+          paymentStatus: 'PAID',
+          reference: evidence.reference,
+          amount: evidence.amount,
+        }),
       `Invoice ${invoice?.invoiceNumber ?? orderId}`,
     )
     if (ok) {

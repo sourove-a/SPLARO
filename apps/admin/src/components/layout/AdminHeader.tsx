@@ -27,6 +27,7 @@ export function AdminHeader() {
   const [quickOpen, setQuickOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const { setTheme, resolvedTheme } = useTheme()
   const { data: sessionUser, isLoading: sessionLoading } = useAdminSession()
   const displayName = sessionUser
@@ -42,9 +43,23 @@ export function AdminHeader() {
     setMounted(true)
   }, [])
 
+  useEffect(() => {
+    const main = document.querySelector<HTMLElement>('[data-admin-main-scroll]')
+    const target: HTMLElement | Window = main ?? window
+    const readScroll = () => {
+      const y = main ? main.scrollTop : window.scrollY
+      setScrolled(y > 8)
+    }
+    readScroll()
+    target.addEventListener('scroll', readScroll, { passive: true })
+    return () => target.removeEventListener('scroll', readScroll)
+  }, [])
+
   return (
     <>
-      <header className="admin-header admin-glass-panel admin-glass-panel--header mx-4 mb-0 flex items-center gap-3 px-4">
+      <header
+        className={`admin-header admin-glass-panel admin-glass-panel--header mx-4 mb-0 flex items-center gap-3 px-4${scrolled ? ' admin-header--scrolled' : ''}`}
+      >
         <span className="admin-glass-panel__surface" aria-hidden="true" />
         <span className="admin-glass-panel__sheen" aria-hidden="true" />
         <div className="admin-glass-panel__body relative z-[1] flex w-full min-w-0 items-center gap-3">
@@ -59,16 +74,16 @@ export function AdminHeader() {
           <button
             type="button"
             onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-            className="admin-header-chip"
+            className="admin-header-chip admin-header-chip--theme"
             aria-label="Toggle theme"
             title="Toggle light / dark"
             suppressHydrationWarning
           >
             <span suppressHydrationWarning>
               {mounted && resolvedTheme === 'dark' ? (
-                <Sun className="h-4 w-4" strokeWidth={2} />
+                <Sun className="h-4 w-4" strokeWidth={1.5} />
               ) : (
-                <Moon className="h-4 w-4" strokeWidth={2} />
+                <Moon className="h-4 w-4" strokeWidth={1.5} />
               )}
             </span>
           </button>
@@ -80,12 +95,12 @@ export function AdminHeader() {
             <button
               type="button"
               onClick={() => setQuickOpen((open) => !open)}
-              className="admin-header-chip"
+              className="admin-header-chip admin-header-chip--zap"
               aria-label="Quick Actions"
               title="Quick Actions"
               aria-expanded={quickOpen}
             >
-              <Zap className="h-4 w-4" strokeWidth={2} />
+              <Zap className="h-4 w-4" strokeWidth={1.5} />
             </button>
             <AnimatePresence>
               {quickOpen ? (
@@ -135,13 +150,13 @@ export function AdminHeader() {
               className="admin-profile-pill"
             >
               <div className="admin-profile-pill__avatar admin-profile-pill__logo">
-                <SplaroAdminLogo variant="avatar" />
+                <SplaroAdminLogo variant="avatar" className="h-full w-full" />
               </div>
               <div className="hidden text-left md:block">
                 <p className="text-xs font-black text-[var(--admin-text)]">{user.name}</p>
                 <p className="text-[10px] font-semibold text-[var(--admin-text-secondary)]">{user.email}</p>
               </div>
-              <ChevronDown className="hidden h-3.5 w-3.5 text-[var(--admin-text-secondary)] md:block" />
+              <ChevronDown className="hidden h-3.5 w-3.5 text-[var(--admin-text-secondary)] md:block" strokeWidth={1.5} />
             </button>
 
             <AnimatePresence>
@@ -169,7 +184,7 @@ export function AdminHeader() {
                       markAdminLinkNavigation('/dashboard/admin-users')
                     }}
                   >
-                    <UserRound className="h-4 w-4" />
+                    <UserRound className="h-4 w-4" strokeWidth={1.5} />
                     Profile
                   </Link>
                   <Link
@@ -182,7 +197,7 @@ export function AdminHeader() {
                       markAdminLinkNavigation('/dashboard/settings')
                     }}
                   >
-                    <Settings className="h-4 w-4" />
+                    <Settings className="h-4 w-4" strokeWidth={1.5} />
                     Settings
                   </Link>
                   <button
@@ -195,7 +210,7 @@ export function AdminHeader() {
                       window.location.href = '/login'
                     }}
                   >
-                    <LogOut className="h-4 w-4" />
+                    <LogOut className="h-4 w-4" strokeWidth={1.5} />
                     Sign out
                   </button>
                 </motion.div>

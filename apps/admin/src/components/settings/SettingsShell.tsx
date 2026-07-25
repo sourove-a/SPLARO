@@ -80,6 +80,21 @@ export function SettingsShell() {
       setDraft({
         ...EMPTY_SETTINGS,
         ...apiData,
+        store: { ...EMPTY_SETTINGS.store, ...(apiData.store ?? {}) },
+        branding: { ...EMPTY_SETTINGS.branding, ...(apiData.branding ?? {}) },
+        contact: { ...EMPTY_SETTINGS.contact, ...(apiData.contact ?? {}) },
+        social: { ...EMPTY_SETTINGS.social, ...(apiData.social ?? {}) },
+        shipping: {
+          ...EMPTY_SETTINGS.shipping,
+          ...(apiData.shipping ?? {}),
+          dhakaSameDay: apiData.shipping?.dhakaSameDay ?? true,
+          outsideDhaka: apiData.shipping?.outsideDhaka ?? true,
+          dhakaDeliveryCharge: Number(apiData.shipping?.dhakaDeliveryCharge ?? 60),
+          outsideDhakaCharge: Number(apiData.shipping?.outsideDhakaCharge ?? 120),
+          freeShippingMin: String(apiData.shipping?.freeShippingMin ?? '0'),
+        },
+        payments: { ...EMPTY_SETTINGS.payments, ...(apiData.payments ?? {}) },
+        marketing: { ...EMPTY_SETTINGS.marketing, ...(apiData.marketing ?? {}) },
         smtp: { ...EMPTY_SETTINGS.smtp, ...(apiData.smtp ?? {}), password: '' },
         smtpAccounts: (apiData.smtpAccounts ?? []).map((account) => ({ ...account, password: '' })),
         newsletter: { ...EMPTY_SETTINGS.newsletter, ...(apiData.newsletter ?? {}) },
@@ -100,6 +115,8 @@ export function SettingsShell() {
         catalogChannels: apiData.catalogChannels?.length
           ? apiData.catalogChannels
           : DEFAULT_CATALOG_CHANNELS.map((c) => ({ ...c })),
+        shopFilters: apiData.shopFilters ?? DEFAULT_SHOP_FILTERS,
+        menuOverrides: apiData.menuOverrides ?? { autoSync: true, departments: [] },
         catalog: { ...(apiData.catalog ?? {}), autoGenerateSku: apiData.catalog?.autoGenerateSku ?? false },
       })
     }

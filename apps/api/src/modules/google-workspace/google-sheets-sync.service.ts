@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { resolvePublicSiteUrl } from '@splaro/config'
+import {
+  resolveCustomerFacingAssetUrl,
+  resolveCustomerFacingSiteUrl,
+} from '@splaro/config'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import {
@@ -267,7 +270,14 @@ export class GoogleSheetsSyncService {
       this.prisma.newsletterSubscriber.findMany({ where: { storeId }, orderBy: { createdAt: 'desc' }, take: 5000 }),
       this.prisma.product.findMany({
         where: { storeId },
-        include: { variants: true },
+        include: {
+          variants: true,
+          images: {
+            where: { altText: { not: 'media:video' } },
+            orderBy: [{ isDefault: 'desc' }, { position: 'asc' }],
+            take: 1,
+          },
+        },
         orderBy: { updatedAt: 'desc' },
         take: 2000,
       }),
@@ -330,7 +340,9 @@ export class GoogleSheetsSyncService {
     ])
 
     const productRows: (string | number)[][] = []
-    const storefrontUrl = resolvePublicSiteUrl()
+    // Sheets are external/customer-facing even when sync runs from local dev.
+    // Never publish localhost links into a shared spreadsheet.
+    const storefrontUrl = resolveCustomerFacingSiteUrl()
     let totalStock = 0
     const stockByProduct = new Map<string, { name: string; stock: number }>()
     for (const product of products) {
@@ -341,6 +353,7 @@ export class GoogleSheetsSyncService {
             {
               id: '—',
               sku: product.sku,
+              image: null,
               size: '—',
               color: null,
               colorName: null,
@@ -352,6 +365,7 @@ export class GoogleSheetsSyncService {
       for (const v of variants) {
         const stock = v.stock ?? 0
         const reserved = v.reservedStock ?? 0
+        const imageUrl = resolveCustomerFacingAssetUrl(v.image ?? product.images[0]?.url)
         totalStock += stock
         productStock += stock
         productRows.push([
@@ -370,6 +384,7 @@ export class GoogleSheetsSyncService {
           formatDateTimeBD(v.updatedAt ?? product.updatedAt),
           product.id,
           v.id,
+          imageUrl || '—',
           `=HYPERLINK("${storefrontUrl}/products/${product.slug.replace(/"/g, '""')}","View Product")`,
         ])
       }
@@ -523,6 +538,15 @@ export class GoogleSheetsSyncService {
       return row
     }
 
+    // Remove stale columns/cells left by older sheet schemas before rewriting.
+    // Otherwise a retired "Image Link" column can keep localhost values forever.
+    await sheets.spreadsheets.values.batchClear({
+      spreadsheetId,
+      requestBody: {
+        ranges: BUSINESS_SHEET_TABS.map((tab) => `'${tab}'!A:Z`),
+      },
+    })
+
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId,
       requestBody: {
@@ -551,6 +575,20 @@ export class GoogleSheetsSyncService {
         ],
       },
     })
+
+    const written = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId,
+      ranges: BUSINESS_SHEET_TABS.map((tab) => `'${tab}'!A:Z`),
+      valueRenderOption: 'FORMULA',
+    })
+    const leakedLoopback = written.data.valueRanges?.some((range) =>
+      range.values?.some((row) =>
+        row.some((cell) => /(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?/i.test(String(cell))),
+      ),
+    )
+    if (leakedLoopback) {
+      throw new Error('Google Sheets sync blocked: a localhost URL remained after canonicalization.')
+    }
 
     return {
       orders: orders.length,

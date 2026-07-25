@@ -25,7 +25,7 @@ import { revalidateStorefrontWeb } from '../../common/revalidate-web'
 import { mergeStorefrontConfig } from '../settings/storefront-config'
 import { CreateAdminProductDto, AdminProductPatchDto } from '../../common/dtos/admin-products.dto'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
-import { resolvePublicSiteUrl } from '@splaro/config'
+import { resolveCustomerFacingSiteUrl, toStoredMediaUrl } from '@splaro/config'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
@@ -292,10 +292,10 @@ export class ProductsController {
     const sizes = body.sizes?.length ? body.sizes : ['M', 'L']
     const variantStock = Math.max(0, Math.min(9999, Number(body.defaultStock) || 10))
     const imageUrls = Array.from(new Set([body.imageUrl, ...(body.imageUrls ?? [])]
-      .map((url) => url?.trim())
+      .map((url) => toStoredMediaUrl(url))
       .filter(Boolean) as string[])).slice(0, MAX_PRODUCT_IMAGES)
     const primaryImage = imageUrls[0]
-    const videoUrl = body.videoUrl?.trim()
+    const videoUrl = toStoredMediaUrl(body.videoUrl) || undefined
     const mediaRows = [
       ...(videoUrl ? [{ url: videoUrl, altText: MEDIA_VIDEO_ALT, isDefault: imageUrls.length === 0, position: -1 }] : []),
       ...imageUrls.map((url, index) => ({
@@ -318,7 +318,7 @@ export class ProductsController {
       return {
         name: color.name,
         hex: color.hex,
-        image: color.image ?? imageUrls[index] ?? primaryImage,
+        image: toStoredMediaUrl(color.image) || imageUrls[index] || primaryImage,
       }
     })
 
@@ -463,11 +463,11 @@ export class ProductsController {
     const imageUrls = Array.from(
       new Set(
         [body.imageUrl, ...(body.imageUrls ?? [])]
-          .map((url) => url?.trim())
+          .map((url) => toStoredMediaUrl(url))
           .filter(Boolean) as string[],
       ),
     ).slice(0, MAX_PRODUCT_IMAGES)
-    const videoUrl = body.videoUrl !== undefined ? body.videoUrl?.trim() : undefined
+    const videoUrl = body.videoUrl !== undefined ? (toStoredMediaUrl(body.videoUrl) || undefined) : undefined
     const mediaUpdateRequested =
       body.imageUrls !== undefined || body.videoUrl !== undefined || body.imageUrl !== undefined
 
@@ -560,9 +560,12 @@ export class ProductsController {
       }
     } else if (body.imageUrl) {
       await this.prisma.productImage.deleteMany({ where: { productId: id } })
-      await this.prisma.productImage.create({
-        data: { productId: id, url: body.imageUrl, isDefault: true, position: 0 },
-      })
+      const stored = toStoredMediaUrl(body.imageUrl)
+      if (stored) {
+        await this.prisma.productImage.create({
+          data: { productId: id, url: stored, isDefault: true, position: 0 },
+        })
+      }
     }
 
     void this.search?.indexProducts(product.storeId)
@@ -802,7 +805,7 @@ export class ProductsController {
   @Get(':id/qr')
   async generateQR(@Param('id') id: string, @Query('siteUrl') siteUrl: string, @Req() req: AdminRequest) {
     await this.assertOwnedProduct(id, req)
-    const qr = await this.productAdvanced.generateProductQR(id, resolvePublicSiteUrl(siteUrl))
+    const qr = await this.productAdvanced.generateProductQR(id, resolveCustomerFacingSiteUrl(siteUrl))
     return { qr }
   }
 
@@ -905,7 +908,7 @@ export class ProductsController {
     const created = await this.prisma.productImage.create({
       data: {
         productId: id,
-        url: body.url,
+        url: toStoredMediaUrl(body.url) || body.url.trim(),
         altText: body.altText ?? (mediaType === 'video' ? MEDIA_VIDEO_ALT : MEDIA_IMAGE_ALT),
         isDefault: body.isDefault ?? count === 0,
         position: mediaType === 'video' ? -1 : count,

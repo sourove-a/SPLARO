@@ -26,7 +26,8 @@ interface CatalogVisibilityPanelProps {
   savedChannels?: CatalogChannel[]
   storefrontUrl?: string
   onChange: (channels: CatalogChannel[]) => void
-  onSave: () => void
+  /** Pass next channels to avoid stale React draft when auto-saving hide/publish. */
+  onSave: (channels?: CatalogChannel[]) => void
   saving?: boolean
 }
 
@@ -80,8 +81,13 @@ export function CatalogVisibilityPanel({
       .map((channel) => channel.label)
   }, [rows, statsData?.channels])
 
+  const persist = (next: CatalogChannel[]) => {
+    onChange(next)
+    onSave(next)
+  }
+
   const togglePublished = (slug: string) => {
-    onChange(
+    persist(
       rows.map((channel) =>
         channel.slug === slug ? { ...channel, published: !channel.published } : channel,
       ),
@@ -89,7 +95,7 @@ export function CatalogVisibilityPanel({
   }
 
   const hideEmptyCollections = () => {
-    onChange(
+    persist(
       rows.map((channel) => {
         const stats = getStatsForChannel(channel.slug, statsData?.channels)
         if (!stats || stats.inStockProducts > 0) return channel
@@ -99,7 +105,7 @@ export function CatalogVisibilityPanel({
   }
 
   const publishAll = () => {
-    onChange(rows.map((channel) => ({ ...channel, published: true })))
+    persist(rows.map((channel) => ({ ...channel, published: true })))
   }
 
   const resetChanges = () => {
@@ -160,11 +166,11 @@ export function CatalogVisibilityPanel({
             <Boxes className="h-3.5 w-3.5" />
             Refresh stock
           </AdminButton>
-          <AdminButton variant="ghost" size="sm" onClick={hideEmptyCollections}>
+          <AdminButton variant="ghost" size="sm" loading={saving} onClick={hideEmptyCollections}>
             <EyeOff className="h-3.5 w-3.5" />
             Hide empty collections
           </AdminButton>
-          <AdminButton variant="ghost" size="sm" onClick={publishAll}>
+          <AdminButton variant="ghost" size="sm" loading={saving} onClick={publishAll}>
             <Eye className="h-3.5 w-3.5" />
             Publish all
           </AdminButton>
@@ -174,7 +180,7 @@ export function CatalogVisibilityPanel({
               Reset
             </AdminButton>
           ) : null}
-          <AdminButton variant="gold" loading={saving} onClick={onSave}>
+          <AdminButton variant="gold" loading={saving} onClick={() => onSave()}>
             Save catalog visibility
           </AdminButton>
         </div>
@@ -278,6 +284,7 @@ export function CatalogVisibilityPanel({
                 <AdminButton
                   size="sm"
                   variant={channel.published ? 'ghost' : 'gold'}
+                  loading={saving}
                   onClick={() => togglePublished(channel.slug)}
                 >
                   {channel.published ? (
@@ -316,7 +323,7 @@ export function CatalogVisibilityPanel({
             <AdminButton variant="ghost" size="sm" onClick={resetChanges}>
               Discard
             </AdminButton>
-            <AdminButton variant="gold" loading={saving} onClick={onSave}>
+            <AdminButton variant="gold" loading={saving} onClick={() => onSave()}>
               Save now
             </AdminButton>
           </div>

@@ -84,7 +84,7 @@ export function IntelligencePanel() {
       <div className="admin-intel__surface flex h-full min-h-0 flex-col overflow-hidden">
         <div className={cn('admin-intel__head', collapsed && 'admin-intel__head--compact')}>
           <span className="admin-intel__icon-ring">
-            <Zap className="h-3.5 w-3.5 text-[var(--admin-text-secondary)]" strokeWidth={2} />
+            <Zap className="h-3.5 w-3.5 text-[var(--admin-text-secondary)]" strokeWidth={1.5} />
           </span>
           {!collapsed ? (
             <div className="min-w-0">

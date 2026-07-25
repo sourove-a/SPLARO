@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import type { Prisma, RMAStatus, RMAType } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import { backfillPaymentCodes } from '../../common/payment-code.util'
 import type {
   InvoiceListRow,
   RmaListRow,
@@ -81,11 +82,13 @@ export class CommerceFinanceService {
     stats: TransactionStats
   }> {
     const storeId = await this.sid(storeIdRaw)
+    await backfillPaymentCodes(this.prisma, storeId, 40)
     const where: Prisma.PaymentWhereInput = search
       ? {
           order: { storeId },
           OR: [
             { id: { contains: search, mode: 'insensitive' } },
+            { paymentNumber: { contains: search, mode: 'insensitive' } },
             { transactionId: { contains: search, mode: 'insensitive' } },
             { order: { invoiceNumber: { contains: search, mode: 'insensitive' } } },
             { order: { shippingName: { contains: search, mode: 'insensitive' } } },
@@ -104,6 +107,7 @@ export class CommerceFinanceService {
 
     const transactions = rows.map((row) => ({
       id: row.id,
+      paymentNumber: row.paymentNumber,
       orderId: row.order.id,
       orderNumber: row.order.invoiceNumber,
       gateway: gatewayLabel(row.method),
@@ -138,7 +142,7 @@ export class CommerceFinanceService {
       this.prisma.payment.findFirst({
         where: { order: { storeId } },
         orderBy: { createdAt: 'desc' },
-        select: { id: true, transactionId: true },
+        select: { id: true, paymentNumber: true, transactionId: true },
       }),
       this.prisma.payment.findMany({
         where: { order: { storeId } },
@@ -150,7 +154,7 @@ export class CommerceFinanceService {
     return {
       status: 'ok',
       paymentCount,
-      latestTxnId: latest?.transactionId ?? latest?.id ?? null,
+      latestTxnId: latest?.paymentNumber ?? latest?.transactionId ?? null,
       gateways: methods.map((row) => gatewayLabel(row.method)),
     }
   }
@@ -159,7 +163,7 @@ export class CommerceFinanceService {
     const storeId = await this.sid(storeIdRaw)
     const row = await this.prisma.payment.findFirst({
       where: {
-        OR: [{ id }, { transactionId: id }],
+        OR: [{ id }, { paymentNumber: id }, { transactionId: id }],
         order: { storeId },
       },
       include: {
@@ -170,6 +174,7 @@ export class CommerceFinanceService {
 
     return {
       id: row.id,
+      paymentNumber: row.paymentNumber,
       orderId: row.order.id,
       orderNumber: row.order.invoiceNumber,
       gateway: gatewayLabel(row.method),

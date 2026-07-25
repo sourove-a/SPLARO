@@ -9,6 +9,8 @@ export function invoiceApiUrl(orderId: string, suffix: InvoiceSuffix = ''): stri
   return `/api/orders/${encodeURIComponent(orderId)}/invoice${suffix}`
 }
 
+const INVOICE_FETCH_TIMEOUT_MS = 12_000
+
 /** Authenticated fetch for invoice HTML/PDF — session cookie (credentials include). */
 export async function fetchAdminInvoice(
   orderId: string,
@@ -17,6 +19,7 @@ export async function fetchAdminInvoice(
   return fetch(invoiceApiUrl(orderId, suffix), {
     credentials: 'include',
     cache: 'no-store',
+    signal: AbortSignal.timeout(INVOICE_FETCH_TIMEOUT_MS),
   })
 }
 

@@ -5,7 +5,7 @@ export const CRITICAL_HOME_CSS = `
 html,body{background:#fff;color:#111;scroll-behavior:auto!important}
 .home-flow-strip{overflow:hidden;margin:0 auto .85rem;max-width:min(920px,calc(100% - 2.5rem));border-radius:999px}
 .home-flow-strip__viewport{overflow:hidden;padding:.42rem 0}
-.home-flow-strip__track{display:flex;width:max-content;align-items:center;flex-wrap:nowrap;animation:home-flow-marquee 96s linear infinite}
+.home-flow-strip__track{display:flex;width:max-content;align-items:center;flex-wrap:nowrap;animation:home-flow-marquee 36s linear infinite}
 .home-flow-strip__group{display:flex;width:max-content;align-items:center;flex-shrink:0}
 .home-flow-strip__item{display:inline-flex;align-items:center;gap:.55rem;padding:0 1.5rem;flex-shrink:0;white-space:nowrap}
 .home-flow-strip__text{white-space:nowrap;font-size:.62rem;font-weight:550;letter-spacing:.14em;text-transform:uppercase;color:rgba(16,17,20,.62)}

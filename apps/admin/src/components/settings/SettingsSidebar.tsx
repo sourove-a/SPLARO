@@ -80,7 +80,7 @@ function ConnectionStatus({ settingsLoaded }: { settingsLoaded: boolean }) {
           online ? 'settings-nav-status__icon--online' : 'settings-nav-status__icon--offline',
         )}
       >
-        {online ? <Wifi style={{ height: 13, width: 13 }} strokeWidth={2.25} /> : <WifiOff style={{ height: 13, width: 13 }} strokeWidth={2.25} />}
+        {online ? <Wifi style={{ height: 13, width: 13 }} strokeWidth={1.5} /> : <WifiOff style={{ height: 13, width: 13 }} strokeWidth={1.5} />}
       </span>
       <div className="settings-nav-status__body">
         <p className="settings-nav-status__title">
@@ -124,7 +124,7 @@ export function SettingsSidebar({ active, onChange, settingsLoaded }: Props) {
             className={cn('settings-nav-item', isActive && 'settings-nav-item--active')}
           >
             <span className="settings-nav-item__icon">
-              <s.icon style={{ height: 15, width: 15 }} strokeWidth={1.75} />
+              <s.icon style={{ height: 16, width: 16 }} strokeWidth={1.5} />
             </span>
             <div className="settings-nav-item__text">
               <p className="settings-nav-item__label">{s.label}</p>

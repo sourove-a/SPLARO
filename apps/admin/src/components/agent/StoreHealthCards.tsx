@@ -11,11 +11,14 @@ interface StoreHealthCardsProps {
   onAsk?: (question: string) => void
 }
 
+type HealthTone = 'sky' | 'amber' | 'teal' | 'rose' | 'green'
+
 function HealthCard({
   label,
   value,
   sub,
   icon: Icon,
+  tone,
   action,
   onClick,
 }: {
@@ -23,6 +26,7 @@ function HealthCard({
   value: string
   sub?: string
   icon: typeof Package
+  tone: HealthTone
   action?: string
   onClick?: () => void
 }) {
@@ -37,7 +41,9 @@ function HealthCard({
     >
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--admin-text-muted)]">{label}</p>
-        <Icon className="h-4 w-4 text-[var(--admin-accent)]" strokeWidth={1.75} />
+        <span className={cn('premium-dash__health-icon', `premium-dash__health-icon--${tone}`)} aria-hidden>
+          <Icon className="h-4 w-4" strokeWidth={1.75} />
+        </span>
       </div>
       <p className="mt-2 text-xl font-black text-[var(--admin-text)]">{value}</p>
       {sub ? <p className="mt-1 text-[11px] font-semibold text-[var(--admin-text-secondary)]">{sub}</p> : null}
@@ -62,6 +68,7 @@ export function StoreHealthCards({ onAsk }: StoreHealthCardsProps) {
 
   const offline = Boolean(error && isNetworkOrServerError(error))
   const fmt = (n: number | undefined) => (n !== undefined ? String(n) : isLoading ? '…' : '—')
+  const lowStockWarn = (health?.lowStockCount ?? 0) > 0
 
   if (offline) {
     return (
@@ -92,6 +99,7 @@ export function StoreHealthCards({ onAsk }: StoreHealthCardsProps) {
         value={fmt(health?.ordersToday)}
         {...(health ? { sub: `Revenue ${formatBDT(health.revenueToday)}` } : {})}
         icon={ShoppingBag}
+        tone="sky"
         action="Ask AI"
         onClick={() => onAsk?.("Show me today's orders and revenue breakdown")}
       />
@@ -100,6 +108,7 @@ export function StoreHealthCards({ onAsk }: StoreHealthCardsProps) {
         value={fmt(health?.lowStockCount)}
         sub="products below threshold"
         icon={Package}
+        tone={lowStockWarn ? 'amber' : 'green'}
         action="View all"
         onClick={() => onAsk?.('List all low stock products')}
       />
@@ -108,6 +117,7 @@ export function StoreHealthCards({ onAsk }: StoreHealthCardsProps) {
         value={fmt(health?.seoGapCount)}
         sub="missing meta fields"
         icon={Search}
+        tone={(health?.seoGapCount ?? 0) > 0 ? 'rose' : 'teal'}
         action="Fix now"
         onClick={() => onAsk?.('Show me all products missing SEO meta title or description')}
       />
@@ -116,6 +126,7 @@ export function StoreHealthCards({ onAsk }: StoreHealthCardsProps) {
         value={health?.topCustomer?.name ?? (isLoading ? '…' : '—')}
         {...(health?.topCustomer ? { sub: `${health.topCustomer.orders} orders` } : {})}
         icon={User}
+        tone="teal"
         action="Details"
         onClick={() => onAsk?.('Who are my top customers by spend?')}
       />

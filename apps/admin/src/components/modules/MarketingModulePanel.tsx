@@ -11,6 +11,7 @@ import {
 } from '@/lib/admin/marketing-save'
 import { ChevronDown, Copy, Megaphone, Plus, RefreshCw, Search, Send, Trash2 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
+import { AdminStatusBadge, type AdminBadgeTone } from '@/components/ui/AdminStatusBadge'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { useCampaigns, useCampaignStats, useCreateCampaign, useDeleteCampaign, useDuplicateCampaign, useSendCampaign } from '@/lib/api/hooks'
 import { formatCampaignType, mapCampaignStatus } from '@/lib/api/marketing'
@@ -21,43 +22,31 @@ import { cn } from '@/lib/utils/cn'
 import { CouponsLivePanel } from '@/components/modules/CouponsLivePanel'
 import { WhatsAppPanelLive, AffiliatePanelLive, InfluencersPanelLive } from '@/components/modules/MarketingLivePanels'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
-
-// ─── Design tokens ─────────────────────────────────────────────────────────────
-const GOLD = '#16181d'
-const GOLD_LIGHT = 'rgba(16, 17, 20, 0.10)'
-const GOLD_BORDER = 'rgba(16, 17, 20, 0.32)'
-
-
-const TH: React.CSSProperties = { padding: '10px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }
-const TD: React.CSSProperties = { padding: '11px 16px', fontSize: 13, color: 'var(--admin-text-secondary)', borderBottom: '1px solid rgba(255,255,255,0.4)' }
+import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 
 // ─── Shared ────────────────────────────────────────────────────────────────────
-const STATUS_MAP: Record<string, { bg: string; text: string; border: string }> = {
-  live:        { bg: 'rgba(22,163,74,0.10)',  text: '#15803D', border: 'rgba(22,163,74,0.30)' },
-  active:      { bg: 'rgba(22,163,74,0.10)',  text: '#15803D', border: 'rgba(22,163,74,0.30)' },
-  scheduled:   { bg: 'rgba(59,130,246,0.10)', text: '#1D4ED8', border: 'rgba(59,130,246,0.30)' },
-  draft:       { bg: 'rgba(245,158,11,0.10)', text: '#B45309', border: 'rgba(245,158,11,0.30)' },
-  ended:       { bg: 'rgba(156,163,175,0.10)', text: '#4B5563', border: 'rgba(156,163,175,0.30)' },
-  archived:    { bg: 'rgba(156,163,175,0.10)', text: '#4B5563', border: 'rgba(156,163,175,0.30)' },
+const CAMPAIGN_STATUS_TONE: Record<string, AdminBadgeTone> = {
+  live: 'success',
+  active: 'success',
+  scheduled: 'info',
+  draft: 'warning',
+  ended: 'muted',
+  archived: 'muted',
 }
 
 function StatusPill({ value }: { value: string }) {
-  const fallback = { bg: 'rgba(156,163,175,0.10)', text: '#4B5563', border: 'rgba(156,163,175,0.30)' }
-  const s = STATUS_MAP[value.toLowerCase()] ?? fallback
-  return <span style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.text, borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' }}>{value}</span>
+  return <AdminStatusBadge label={value} tone={CAMPAIGN_STATUS_TONE[value.toLowerCase()] ?? 'muted'} />
 }
 
 function KpiCard({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
-  const accentColor = accent === 'gold' ? GOLD : accent === 'success' ? '#16A34A' : accent === 'warning' ? '#D97706' : '#6366F1'
-  const accentBg = accent === 'gold' ? GOLD_LIGHT : accent === 'success' ? 'rgba(22,163,74,0.08)' : accent === 'warning' ? 'rgba(217,119,6,0.08)' : 'rgba(99,102,241,0.08)'
+  const tone =
+    accent === 'success' ? 'success' : accent === 'warning' ? 'warning' : accent === 'gold' ? 'gold' : undefined
   return (
-    <div className="settings-card admin-panel-glass-subtle" style={{ padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${accentColor}60, transparent)` }} />
-      <div style={{ width: 28, height: 28, borderRadius: 8, background: accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: accentColor }} />
+    <div className={cn('admin-kpi-card', tone && `admin-kpi-card--${tone}`)}>
+      <p className="admin-kpi-card__label">{label}</p>
+      <div className="admin-kpi-card__row">
+        <p className="admin-kpi-card__value">{value}</p>
       </div>
-      <p style={{ fontSize: 20, fontWeight: 900, color: 'var(--admin-text-primary)', lineHeight: 1, margin: 0 }}>{value}</p>
-      <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4, marginBottom: 0 }}>{label}</p>
     </div>
   )
 }
@@ -169,49 +158,49 @@ function CampaignsPanel() {
     void refetch()
   }
 
-  if (isError) return (
-    <div className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', borderLeft: '3px solid #EF4444', color: '#B91C1C', fontSize: 13, fontWeight: 700 }}>
-      API offline — start backend on :4000. No fake campaigns are shown.
-    </div>
-  )
+  if (isError) {
+    return <ApiOfflineBanner message="API offline — start backend on :4000. No fake campaigns are shown." />
+  }
 
   const TABS = ['all', 'live', 'scheduled', 'draft', 'ended'] as const
   const busy = createCampaign.isPending || sendCampaignMut.isPending || duplicateCampaign.isPending || deleteCampaignMut.isPending
 
   return (
-    <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      <div style={{ marginBottom: 12 }}>
-        <ModuleLiveStrip
-          items={[
-            {
-              label: 'Campaigns API',
-              value: isFetched ? `${rows.length} campaigns loaded` : 'Connecting…',
-              ok: isFetched && !isError,
-              hint: 'GET /marketing/campaigns',
-            },
-            {
-              label: 'Delivery stats',
-              value: statsError ? 'Unreachable' : `${stats?.totalSent ?? 0} sent`,
-              ok: !statsError && stats !== undefined,
-              hint: stats ? `${stats.openRate}% open · ${stats.clickRate}% click` : 'GET /marketing/campaigns/stats',
-            },
-            {
-              label: 'Active channels',
-              value: stats?.byType?.map((t) => formatCampaignType(t.type)).join(', ') || '—',
-              ok: (stats?.byType?.length ?? 0) > 0 || rows.length === 0,
-            },
-          ]}
-        />
-      </div>
+    <div className="admin-panel-page settings-section-enter space-y-4">
+      <ModuleLiveStrip
+        items={[
+          {
+            label: 'Campaigns API',
+            value: isFetched ? `${rows.length} campaigns loaded` : 'Connecting…',
+            ok: isFetched && !isError,
+            hint: 'GET /marketing/campaigns',
+            critical: true,
+          },
+          {
+            label: 'Delivery stats',
+            value: statsError ? 'Unreachable' : `${stats?.totalSent ?? 0} sent`,
+            ok: !statsError && stats !== undefined,
+            hint: stats ? `${stats.openRate}% open · ${stats.clickRate}% click` : 'GET /marketing/campaigns/stats',
+          },
+          {
+            label: 'Active channels',
+            value: stats?.byType?.map((t) => formatCampaignType(t.type)).join(', ') || '—',
+            ok: (stats?.byType?.length ?? 0) > 0 || rows.length === 0,
+            informational: true,
+          },
+        ]}
+      />
 
-      <div className="settings-card admin-panel-glass" style={{ padding: 24, marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Megaphone style={{ width: 18, height: 18, color: GOLD }} strokeWidth={2} />
+      <div className="admin-catalog-hero admin-panel-hero">
+        <div className="admin-catalog-hero__top">
+          <div className="admin-catalog-hero__title-row">
+            <div className="admin-catalog-icon-ring admin-catalog-icon-ring--lg">
+              <Megaphone strokeWidth={2} />
+            </div>
+            <h1 className="admin-catalog-hero__title">Campaigns</h1>
           </div>
-          <h3 style={{ fontSize: 16, fontWeight: 900, color: 'var(--admin-text-primary)', margin: 0 }}>Campaigns</h3>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+        <div className="admin-kpi-grid admin-kpi-grid--catalog">
           <KpiCard label="Active" value={rows.filter((c) => c.status === 'live').length} accent="success" />
           <KpiCard label="Total sent" value={(stats?.totalSent ?? rows.reduce((s, c) => s + c.sent, 0)).toLocaleString('en-BD')} accent="gold" />
           <KpiCard label="Open rate" value={stats ? `${stats.openRate}%` : '—'} />
@@ -220,9 +209,9 @@ function CampaignsPanel() {
       </div>
 
       {showCreate && (
-        <div className="settings-card admin-panel-glass-subtle" style={{ padding: 16, marginBottom: 14, display: 'grid', gap: 10 }}>
-          <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>New campaign</p>
-          <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+        <div className="admin-catalog-hero admin-panel-hero !mb-0 grid gap-2.5 !p-4">
+          <p className="m-0 text-xs font-extrabold text-[var(--admin-text-primary)]">New campaign</p>
+          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
             <input className="admin-input" placeholder="Campaign name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
             <select className="admin-input" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as CampaignType }))}>
               {(['EMAIL'] as const).map((t) => (
@@ -232,29 +221,29 @@ function CampaignsPanel() {
             <input className="admin-input" placeholder="Subject / headline" value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} />
           </div>
           <textarea className="admin-input" rows={3} placeholder="Message body…" value={form.body} onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))} />
-          <div style={{ display: 'flex', gap: 8 }}>
-            <AdminButton variant="gold" loading={createCampaign.isPending} onClick={() => void handleCreate()}>Save draft</AdminButton>
+          <div className="flex gap-2">
+            <AdminButton variant="primary" loading={createCampaign.isPending} onClick={() => void handleCreate()}>Save draft</AdminButton>
             <AdminButton variant="ghost" onClick={() => setShowCreate(false)}>Cancel</AdminButton>
           </div>
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-          <div style={{ position: 'relative', flex: 1, minWidth: 200, maxWidth: 380 }}>
-            <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--admin-text-muted)', pointerEvents: 'none' }} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search campaign name or ID…" className="admin-catalog-input" style={{ width: '100%', paddingLeft: 36, outline: 'none' }} />
+      <div className="admin-catalog-toolbar">
+        <div className="admin-catalog-toolbar__row">
+          <div className="admin-catalog-toolbar__search">
+            <Search className="admin-catalog-toolbar__search-icon" aria-hidden />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search campaign name or ID…" className="admin-catalog-input" />
           </div>
-          <div className="flex gap-2">
-            <AdminButton variant="gold" size="sm" onClick={() => setShowCreate((v) => !v)}>
-              <Plus style={{ width: 13, height: 13 }} /> New campaign
+          <div className="admin-catalog-toolbar__actions">
+            <AdminButton variant="primary" size="sm" onClick={() => setShowCreate((v) => !v)}>
+              <Plus className="h-3.5 w-3.5" /> New campaign
             </AdminButton>
-            <button type="button" onClick={() => void refreshWithToast(refetch, 'Campaigns refreshed')} className="admin-catalog-action" aria-label="Refresh campaigns">
-              <RefreshCw style={{ width: 12, height: 12 }} />
-            </button>
+            <AdminButton variant="secondary" size="sm" onClick={() => void refreshWithToast(refetch, 'Campaigns refreshed')} aria-label="Refresh campaigns">
+              <RefreshCw className="h-3.5 w-3.5" />
+            </AdminButton>
           </div>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="mt-2 flex flex-wrap gap-1.5">
           {TABS.map((t) => {
             const count = t === 'all' ? rows.length : rows.filter((c) => c.status === t).length
             return (
@@ -271,46 +260,46 @@ function CampaignsPanel() {
         </div>
       </div>
 
-      <div className="settings-card admin-panel-glass" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Megaphone style={{ width: 13, height: 13, color: GOLD }} />
+      <div className="admin-catalog-table-shell">
+        <div className="admin-catalog-table-shell__head">
+          <div className="admin-catalog-icon-ring">
+            <Megaphone className="h-3.5 w-3.5" />
           </div>
-          <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>
+          <p className="admin-catalog-table-shell__title">
             {isLoading ? 'Campaigns · loading…' : `Campaigns · ${filtered.length} results`}
           </p>
         </div>
         {isLoading ? (
-          <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>Loading campaigns…</p>
+          <p className="p-5 text-sm font-semibold text-[var(--admin-text-muted)]">Loading campaigns…</p>
         ) : filtered.length === 0 ? (
-          <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>No email campaigns yet. Create a discount campaign for customers who accepted marketing.</p>
+          <p className="p-5 text-sm font-semibold text-[var(--admin-text-muted)]">No email campaigns yet. Create a discount campaign for customers who accepted marketing.</p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="admin-catalog-table-shell__scroll overflow-x-auto">
+            <table className="admin-catalog-data-table">
               <thead>
-                <tr>{['Campaign', 'Channel', 'Sent', 'Opened', 'Clicks', 'CTR', 'Status', 'Period', ''].map((h) => <th key={h} style={TH}>{h}</th>)}</tr>
+                <tr>{['Campaign', 'Channel', 'Sent', 'Opened', 'Clicks', 'CTR', 'Status', 'Period', ''].map((h) => <th key={h} className="admin-catalog-th">{h}</th>)}</tr>
               </thead>
               <tbody>
                 {filtered.map((c) => {
                   const source = campaigns.find((x) => x.id === c.id)
                   return (
                     <Fragment key={c.id}>
-                      <tr style={{ background: expandedId === c.id ? 'rgba(255,255,255,0.45)' : 'transparent' }}>
-                        <td style={TD}>
-                          <button type="button" onClick={() => setExpandedId(expandedId === c.id ? null : c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700, color: 'var(--admin-text-primary)', padding: 0, fontSize: 13 }}>
+                      <tr className={cn('admin-catalog-row', expandedId === c.id && 'admin-catalog-row--open')}>
+                        <td className="admin-catalog-td">
+                          <button type="button" onClick={() => setExpandedId(expandedId === c.id ? null : c.id)} className="flex items-center gap-1 border-0 bg-transparent p-0 text-[13px] font-bold text-[var(--admin-text-primary)]">
                             {c.name}
-                            <ChevronDown style={{ width: 12, height: 12, transition: 'transform 0.2s', transform: expandedId === c.id ? 'rotate(180deg)' : 'none' }} />
+                            <ChevronDown className={cn('h-3 w-3 transition-transform', expandedId === c.id && 'rotate-180')} />
                           </button>
-                          <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--admin-text-muted)' }}>{c.id.slice(0, 12)}…</span>
+                          <span className="font-mono text-[10px] text-[var(--admin-text-muted)]">{c.id.slice(0, 12)}…</span>
                         </td>
-                        <td style={TD}><span style={{ background: 'rgba(0,0,0,0.05)', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{c.channel}</span></td>
-                        <td style={TD}>{c.sent || '—'}</td>
-                        <td style={TD}>{c.opened || '—'}</td>
-                        <td style={{ ...TD, fontWeight: 900 }}>{c.clicked || '—'}</td>
-                        <td style={{ ...TD, fontWeight: 700, color: GOLD }}>{c.ctr}</td>
-                        <td style={TD}><StatusPill value={c.status} /></td>
-                        <td style={{ ...TD, fontSize: 12, color: 'var(--admin-text-muted)' }}>{c.period}</td>
-                        <td style={TD}>
+                        <td className="admin-catalog-td"><span className="rounded-md bg-black/5 px-2 py-0.5 text-[11px] font-bold">{c.channel}</span></td>
+                        <td className="admin-catalog-td">{c.sent || '—'}</td>
+                        <td className="admin-catalog-td">{c.opened || '—'}</td>
+                        <td className="admin-catalog-td admin-catalog-td--strong">{c.clicked || '—'}</td>
+                        <td className="admin-catalog-td font-bold text-[var(--admin-accent)]">{c.ctr}</td>
+                        <td className="admin-catalog-td"><StatusPill value={c.status} /></td>
+                        <td className="admin-catalog-td text-xs text-[var(--admin-text-muted)]">{c.period}</td>
+                        <td className="admin-catalog-td">
                           <RowActionsMenu
                             recordName={c.name}
                             moduleHref="/dashboard/campaigns"
@@ -328,20 +317,18 @@ function CampaignsPanel() {
                       </tr>
                       {expandedId === c.id && (
                         <tr>
-                          <td colSpan={9} style={{ ...TD, background: 'rgba(255,255,255,0.35)', padding: '12px 20px' }}>
+                          <td colSpan={9} className="admin-catalog-td bg-[rgba(113,46,255,0.03)] px-5 py-3">
                             {source?.subject && (
-                              <p style={{ fontSize: 12, fontWeight: 700, margin: '0 0 6px' }}>Subject: {source.subject}</p>
+                              <p className="mb-1.5 text-xs font-bold">Subject: {source.subject}</p>
                             )}
                             {source?.body && (
-                              <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: '0 0 10px', whiteSpace: 'pre-wrap' }}>{source.body.slice(0, 280)}{source.body.length > 280 ? '…' : ''}</p>
+                              <p className="mb-2.5 whitespace-pre-wrap text-xs text-[var(--admin-text-muted)]">{source.body.slice(0, 280)}{source.body.length > 280 ? '…' : ''}</p>
                             )}
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                            <div className="flex flex-wrap gap-2">
                               {(c.status === 'draft' || c.status === 'scheduled') && (
-                                <>
-                                  <AdminButton variant="gold" size="sm" loading={busy} onClick={() => void handleSend(c)}>
-                                    <Send className="h-3.5 w-3.5" /> Send now
-                                  </AdminButton>
-                                </>
+                                <AdminButton variant="primary" size="sm" loading={busy} onClick={() => void handleSend(c)}>
+                                  <Send className="h-3.5 w-3.5" /> Send now
+                                </AdminButton>
                               )}
                               <AdminButton size="sm" loading={busy} onClick={() => void handleDuplicate(c)}>
                                 <Copy className="h-3.5 w-3.5" /> Duplicate
@@ -363,7 +350,7 @@ function CampaignsPanel() {
             </table>
           </div>
         )}
-        <div style={{ padding: '10px 20px', borderTop: '1px solid rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 600, color: 'var(--admin-text-muted)' }}>
+        <div className="admin-catalog-table-shell__footer">
           {isLoading ? 'Loading campaigns…' : `Showing ${filtered.length} of ${rows.length} campaigns — live API`}
         </div>
       </div>

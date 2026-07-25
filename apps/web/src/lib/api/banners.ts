@@ -26,7 +26,9 @@ export async function fetchHeroBanners(): Promise<HeroBanner[]> {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const res = await fetchWithTimeout(url, {
-        next: { revalidate: 30, tags: ['hero-banners'] },
+        // 'storefront-banners' matches the tag the API pushes on banner writes
+        // (revalidateStorefrontWeb) so hide/add reflects immediately.
+        next: { revalidate: 30, tags: ['hero-banners', 'storefront-banners'] },
         timeoutMs: upstreamFetchTimeoutMs(),
       })
       if (!res?.ok) continue

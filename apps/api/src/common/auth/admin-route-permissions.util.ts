@@ -89,6 +89,14 @@ export function resolveRoutePermission(
     return null
   }
 
+  // Packing scan is a status change (edit), not a create — warehouse roles with orders:edit can scan
+  if (
+    method.toUpperCase() === 'POST' &&
+    (normalized === 'admin/fulfillment/scan' || normalized.startsWith('admin/fulfillment/scan/'))
+  ) {
+    return { moduleSlug: 'orders', action: 'edit' }
+  }
+
   for (const rule of ROUTE_RULES) {
     if (rule.test(normalized)) {
       return { moduleSlug: rule.module, action: methodToAction(method) }

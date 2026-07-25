@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -111,6 +112,13 @@ function XSocialIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+const DETAIL_SECTION_SUMMARY: Record<string, string> = {
+  Details: 'Fabric, fit & finish',
+  Shipping: 'Delivery & returns',
+  Care: 'Keep it looking new',
+}
+const DETAIL_SECTION_SUMMARY_FALLBACK = 'Product information'
 
 export default function ProductPageClient({
   product,
@@ -1379,7 +1387,9 @@ export default function ProductPageClient({
               <section className="pp-info__details" aria-label="Product details">
                 {shortDesc && (
                   <div className="pp-info__desc-block">
+                    <span className="pp-info__desc-eyebrow">The piece</span>
                     <p
+                      id="pp-product-description"
                       className={cn(
                         'pp-info__desc',
                         descExpanded && 'pp-info__desc--expanded',
@@ -1392,9 +1402,19 @@ export default function ProductPageClient({
                         type="button"
                         className="pp-info__read-more"
                         onClick={() => setDescExpanded((v) => !v)}
+                        aria-expanded={descExpanded}
+                        aria-controls="pp-product-description"
                         variant="subtle"
                       >
-                        {descExpanded ? 'Read less' : 'Read more'}
+                        <span>{descExpanded ? 'Read less' : 'Read more'}</span>
+                        <ChevronDown
+                          className={cn(
+                            'pp-info__read-more-icon',
+                            descExpanded && 'pp-info__read-more-icon--open',
+                          )}
+                          strokeWidth={1.8}
+                          aria-hidden
+                        />
                       </MotionPressable>
                     )}
                   </div>
@@ -1428,7 +1448,13 @@ export default function ProductPageClient({
                                 strokeWidth={1.7}
                                 aria-hidden
                               />
-                              <span>{section.id}</span>
+                              <span className="pp-accordion__title-copy">
+                                <span className="pp-accordion__title-label">{section.id}</span>
+                                <span className="pp-accordion__summary">
+                                  {DETAIL_SECTION_SUMMARY[section.id] ??
+                                    DETAIL_SECTION_SUMMARY_FALLBACK}
+                                </span>
+                              </span>
                             </span>
                             <motion.span
                               {...(reducedMotion

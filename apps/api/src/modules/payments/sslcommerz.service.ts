@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common'
 import { createHash } from 'crypto'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import { assertOrderStatusTransition } from '../../common/order-status.util'
+import { generatePaymentCode } from '../../common/payment-code.util'
 import { PaymentIntegrationService } from '../integrations/payment-integration.service'
 
 export interface SslCommerzInitPayload {
@@ -275,37 +277,60 @@ export class SslCommerzService {
     const txId = body.bank_tran_id ?? body.val_id ?? ''
     const dbStatus = (status === 'PAID' ? 'PAID' : status === 'FAILED' ? 'FAILED' : 'PENDING') as never
 
+    const paymentWrite = existing
+      ? this.prisma.payment.update({
+          where: { id: existing.id },
+          data: {
+            status: dbStatus,
+            transactionId: txId,
+            gatewayResponse: body as never,
+            ...(status === 'PAID' ? { paidAt: new Date() } : {}),
+          },
+        })
+      : this.prisma.payment.create({
+          data: {
+            paymentNumber: await generatePaymentCode(this.prisma, order.storeId),
+            orderId: order.id,
+            method: 'SSLCOMMERZ',
+            status: dbStatus,
+            amount: parseFloat(body.amount ?? '0'),
+            currency: body.currency ?? 'BDT',
+            transactionId: txId,
+            gatewayResponse: body as never,
+            ...(status === 'PAID' ? { paidAt: new Date() } : {}),
+          },
+        })
+
+    let nextStatus = order.status
+    if (status === 'PAID') {
+      try {
+        nextStatus = assertOrderStatusTransition(order.status, 'CONFIRMED')
+      } catch {
+        this.logger.warn(
+          `SSLCommerz PAID for ${invoiceNumber} while status is ${order.status} — keeping status`,
+        )
+        nextStatus = order.status
+      }
+    }
+
     await this.prisma.$transaction([
-      existing
-        ? this.prisma.payment.update({
-            where: { id: existing.id },
-            data: {
-              status: dbStatus,
-              transactionId: txId,
-              gatewayResponse: body as never,
-              ...(status === 'PAID' ? { paidAt: new Date() } : {}),
-            },
-          })
-        : this.prisma.payment.create({
-            data: {
-              orderId: order.id,
-              method: 'SSLCOMMERZ',
-              status: dbStatus,
-              amount: parseFloat(body.amount ?? '0'),
-              currency: body.currency ?? 'BDT',
-              transactionId: txId,
-              gatewayResponse: body as never,
-              ...(status === 'PAID' ? { paidAt: new Date() } : {}),
-            },
-          }),
+      paymentWrite,
       ...(status === 'PAID'
         ? [
             this.prisma.order.update({
               where: { id: order.id },
-              data: { status: 'CONFIRMED', paymentStatus: 'PAID' },
+              data: {
+                status: nextStatus,
+                paymentStatus: 'PAID' as const,
+                ...(nextStatus === 'CONFIRMED' ? { confirmedAt: new Date() } : {}),
+              },
             }),
             this.prisma.orderStatusHistory.create({
-              data: { orderId: order.id, status: 'CONFIRMED', note: 'SSLCommerz payment confirmed' },
+              data: {
+                orderId: order.id,
+                status: nextStatus,
+                note: 'SSLCommerz payment confirmed',
+              },
             }),
           ]
         : []),

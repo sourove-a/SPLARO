@@ -14,7 +14,7 @@ const FloatingSystem = dynamic(
   { ssr: false },
 )
 
-const AUTH_PATH_PREFIXES = ['/login', '/signup', '/forgot-password', '/reset-password']
+const AUTH_PATH_PREFIXES = ['/login', '/signup', '/forgot-password', '/reset-password', '/verify-email']
 const HEADER_ONLY_PATHS = ['/design/header']
 const CHROMELESS_PATHS = ['/maintenance']
 /** Focused flows — earth footer intrudes on short utility pages. */

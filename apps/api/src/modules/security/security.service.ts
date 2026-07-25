@@ -8,11 +8,17 @@ import {
 } from '@nestjs/common'
 import type { UserRole } from '@prisma/client'
 import type { Request } from 'express'
-import { hashPassword } from '../../common/password.util'
+import { resolvePublicAdminUrl } from '@splaro/config'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { PlatformService } from '../platform/platform.service'
+import { EmailService } from '../email/email.service'
+import { AuthService } from '../auth/auth.service'
+import {
+  generateAdminInviteEmailHTML,
+  generateAdminInviteEmailText,
+} from '../email/admin-invite-email.template'
 import {
   DEFAULT_ROLE_PERMISSIONS,
   encodePermissionTokens,
@@ -26,7 +32,11 @@ const CEO_EMAIL = (process.env['ADMIN_EMAIL'] ?? process.env['CEO_EMAIL'] ?? 'sp
   .trim()
   .toLowerCase()
 
-const INVITABLE_ROLES = new Set<UserRole>(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STAFF'])
+/** Password-invite path — Super Admin stays Telegram-only. */
+const INVITABLE_ROLES = new Set<UserRole>(['ADMIN', 'MANAGER', 'STAFF'])
+
+/** Roles that can be assigned on staff role updates (includes Super Admin). */
+const ASSIGNABLE_ROLES = new Set<UserRole>(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STAFF'])
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
@@ -35,7 +45,6 @@ export interface InviteStaffInput {
   firstName: string
   lastName?: string
   role: string
-  password: string
 }
 
 @Injectable()
@@ -43,6 +52,8 @@ export class SecurityService {
   constructor(
     private readonly platform: PlatformService,
     private readonly prisma: PrismaService,
+    private readonly email: EmailService,
+    private readonly auth: AuthService,
   ) {}
 
   overview(storeId: string, actor?: AdminSessionPayload) {
@@ -103,11 +114,17 @@ export class SecurityService {
 
   private assertRoleAssignment(actor: AdminSessionPayload | undefined, role: string) {
     const normalized = role.toUpperCase() as UserRole
-    if (!INVITABLE_ROLES.has(normalized)) {
+    if (!ASSIGNABLE_ROLES.has(normalized)) {
       throw new BadRequestException(`Invalid role: ${role}`)
     }
     if (normalized === 'SUPER_ADMIN' && this.actorRole(actor) !== 'SUPER_ADMIN') {
       throw new ForbiddenException('Only Super Admin can assign Super Admin role')
+    }
+  }
+
+  private assertInviteRole(role: UserRole) {
+    if (!INVITABLE_ROLES.has(role)) {
+      throw new BadRequestException('Super Admin cannot be invited by email — use Telegram seed account')
     }
   }
 
@@ -154,21 +171,20 @@ export class SecurityService {
     const email = body.email?.trim().toLowerCase()
     const firstName = body.firstName?.trim()
     const lastName = body.lastName?.trim() ?? ''
-    const password = body.password ?? ''
 
     if (!email || !email.includes('@')) throw new BadRequestException('Valid email is required')
     if (!firstName) throw new BadRequestException('First name is required')
-    if (password.length < 8) throw new BadRequestException('Password must be at least 8 characters')
     if (email === CEO_EMAIL) throw new ForbiddenException('CEO email is reserved')
 
     const role = body.role?.toUpperCase() as UserRole
     this.assertRoleAssignment(actor, role)
+    this.assertInviteRole(role)
 
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
 
     const storedPerms = await this.readRolePermissionStore(storeId)
     const permRows = storedPerms[role] ?? DEFAULT_ROLE_PERMISSIONS[role] ?? []
-    const permissionTokens = role === 'SUPER_ADMIN' ? ['*'] : encodePermissionTokens(permRows)
+    const permissionTokens = encodePermissionTokens(permRows)
 
     const existingStaff = await this.prisma.staffRole.findFirst({
       where: { storeId, user: { email } },
@@ -178,6 +194,8 @@ export class SecurityService {
       throw new ConflictException('This email already has admin access for this store')
     }
 
+    const { rawToken, tokenHash, expiresAt } = this.auth.createInviteTokenPair()
+
     const result = await this.prisma.$transaction(async (tx) => {
       let user = await tx.user.findFirst({ where: { email } })
 
@@ -185,12 +203,22 @@ export class SecurityService {
         if (!user.isActive) {
           throw new BadRequestException('User account is inactive — reactivate before granting admin access')
         }
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            firstName,
+            lastName: lastName || user.lastName || 'Staff',
+            role,
+            emailVerified: false,
+            passwordHash: null,
+          },
+        })
       } else {
         user = await tx.user.create({
           data: {
             email,
-            emailVerified: true,
-            passwordHash: hashPassword(password),
+            emailVerified: false,
+            passwordHash: null,
             firstName,
             lastName: lastName || 'Staff',
             role,
@@ -221,7 +249,47 @@ export class SecurityService {
         },
       })
 
+      await tx.adminInvite.create({
+        data: {
+          tokenHash,
+          email,
+          role,
+          storeId,
+          invitedById: actor?.userId,
+          firstName,
+          lastName: lastName || '',
+          userId: user.id,
+          expiresAt,
+        },
+      })
+
       return staffRole
+    })
+
+    const adminUrl = resolvePublicAdminUrl()
+    const inviteUrl = `${adminUrl}/invite/accept?token=${encodeURIComponent(rawToken)}`
+    const store = await this.prisma.store.findUnique({ where: { id: storeId }, select: { name: true } })
+    const roleLabel = ROLE_API_TO_UI[role] ?? role
+
+    const emailSent = await this.email.sendForStore({
+      storeId,
+      to: email,
+      subject: `${store?.name ?? 'SPLARO'} admin invite — set your password`,
+      html: generateAdminInviteEmailHTML({
+        firstName,
+        inviteUrl,
+        roleLabel,
+        inviterName: actor?.name,
+        storeName: store?.name ?? 'SPLARO',
+        adminUrl,
+        expiresHours: 48,
+      }),
+      text: generateAdminInviteEmailText({
+        firstName,
+        inviteUrl,
+        roleLabel,
+      }),
+      transactional: true,
     })
 
     await this.writeAudit(
@@ -229,7 +297,7 @@ export class SecurityService {
       actor,
       'staff.invited',
       result.userId,
-      { email, role },
+      { email, role, emailSent },
       undefined,
       req,
     )
@@ -239,7 +307,11 @@ export class SecurityService {
       email: result.user.email,
       name: `${result.user.firstName} ${result.user.lastName}`.trim(),
       role: result.role,
-      status: result.user.isActive ? 'active' : 'inactive',
+      status: 'pending',
+      emailSent,
+      message: emailSent
+        ? 'Invite email sent — they must verify and set a password'
+        : 'Invite created but email failed — check SMTP / Gmail, then re-invite',
     }
   }
 

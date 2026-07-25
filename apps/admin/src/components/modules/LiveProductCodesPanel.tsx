@@ -7,7 +7,8 @@ import { ModulePanelShell, STATUS_CLASS } from '@/components/modules/ModulePanel
 import { useProducts, useSettings } from '@/lib/api/hooks'
 import { fetchProductQR, productStatus } from '@/lib/api/products'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
-import { refreshWithToast, toastFail, toastWarn } from '@/lib/admin/feedback'
+import { refreshWithToast, toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
+import { downloadCsv } from '@/lib/admin/admin-actions'
 
 type CodeMode = 'sku' | 'qr' | 'barcode'
 
@@ -129,7 +130,25 @@ export function LiveProductCodesPanel({ mode }: { mode: CodeMode }) {
         createLabel={meta.createLabel}
         onCreate={bulkGenerate}
         onRefresh={() => void refreshWithToast(() => refetch(), 'Product codes synced.')}
-        onExport={() => toastFail('Export not available yet.')}
+        onExport={() => {
+          if (!filtered.length) {
+            toastFail('Nothing to export.')
+            return
+          }
+          const date = new Date().toISOString().slice(0, 10)
+          downloadCsv(`splaro-product-codes-${mode}-${date}.csv`, [
+            ['Product', 'SKU', 'RM code', 'Barcode', 'Variants', 'Status'],
+            ...filtered.map((row) => [
+              row.name,
+              row.variantSkus.join(', ') || row.productSku,
+              row.rmCode,
+              row.barcode,
+              String(row.variantCount),
+              row.status,
+            ]),
+          ])
+          toastOk(`Exported ${filtered.length} product code row(s).`)
+        }}
         tableIcon={Icon}
         tableTitle={`${meta.title} · ${filtered.length} products`}
         footer={isLoading ? 'Loading products…' : 'Live from database — RM/barcode/QR persist after product save'}

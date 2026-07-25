@@ -1,26 +1,45 @@
 'use client'
 
 import { useState } from 'react'
-import { Download, Eye, Mail, MessageCircle, Printer } from 'lucide-react'
+import { Download, Eye, Mail, MessageCircle, Printer, Tag, Truck } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import {
   downloadInvoice,
   downloadInvoicePdf,
   printInvoice,
+  printOrderLabel,
+  printOrderSticker,
 } from '@/lib/admin/admin-actions'
-import { toastApiSaved, toastFail, toastInfo } from '@/lib/admin/feedback'
+import { toastApiSaved, toastFail, toastInfo, toastWarn } from '@/lib/admin/feedback'
 import { verifyPersisted } from '@/lib/admin/mutation-verify'
 import { fetchOrderInvoiceWhatsApp, sendOrderInvoiceEmail } from '@/lib/api/orders'
+import { cancelCourierBookingLocal, trackCourierParcel } from '@/lib/api/fulfillment'
 
 interface InvoiceActionsBarProps {
   orderId: string
   invoiceNumber: string
   customerPhone?: string
+  hasCourier?: boolean
 }
 
-type BusyAction = 'view' | 'pdf' | 'print' | 'email' | 'whatsapp' | null
+type BusyAction =
+  | 'view'
+  | 'pdf'
+  | 'print'
+  | 'email'
+  | 'whatsapp'
+  | 'label'
+  | 'sticker'
+  | 'track'
+  | 'cancel-booking'
+  | null
 
-export function InvoiceActionsBar({ orderId, invoiceNumber, customerPhone }: InvoiceActionsBarProps) {
+export function InvoiceActionsBar({
+  orderId,
+  invoiceNumber,
+  customerPhone,
+  hasCourier = false,
+}: InvoiceActionsBarProps) {
   const [busy, setBusy] = useState<BusyAction>(null)
   // Prefer SPL-#### in the address bar — API accepts invoiceNumber or cuid.
   const invoiceRef = invoiceNumber?.trim() || orderId
@@ -68,6 +87,31 @@ export function InvoiceActionsBar({ orderId, invoiceNumber, customerPhone }: Inv
     }
   }
 
+  const trackParcel = async () => {
+    try {
+      const track = await trackCourierParcel(orderId)
+      if (!track.status && !track.trackingCode) {
+        toastFail('No courier tracking yet — book courier first.')
+        return
+      }
+      toastInfo(
+        [track.provider, track.status, track.trackingCode].filter(Boolean).join(' · '),
+      )
+      if (track.trackingUrl) window.open(track.trackingUrl, '_blank', 'noopener,noreferrer')
+    } catch {
+      toastFail('Could not fetch tracking status.')
+    }
+  }
+
+  const cancelBooking = async () => {
+    try {
+      const res = await cancelCourierBookingLocal(orderId)
+      toastWarn(res.message, `cancel-booking-${orderId}`)
+    } catch {
+      toastFail('Could not cancel booking locally.')
+    }
+  }
+
   return (
     <div className="rounded-[16px] border border-[#10111422] bg-white/80 p-3 backdrop-blur-xl dark:border-white/10 dark:bg-[#1c1c24]/95">
       <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#9a7848] dark:text-[#d4b896]">
@@ -101,6 +145,46 @@ export function InvoiceActionsBar({ orderId, invoiceNumber, customerPhone }: Inv
           <Printer className="h-3.5 w-3.5" />
           Print
         </AdminButton>
+        <AdminButton
+          size="sm"
+          variant="dark"
+          disabled={busy !== null}
+          loading={busy === 'label'}
+          onClick={() => void run('label', () => printOrderLabel(invoiceRef))}
+        >
+          <Tag className="h-3.5 w-3.5" />
+          Print Label
+        </AdminButton>
+        <AdminButton
+          size="sm"
+          disabled={busy !== null}
+          loading={busy === 'sticker'}
+          onClick={() => void run('sticker', () => printOrderSticker(invoiceRef))}
+        >
+          Sticker
+        </AdminButton>
+        {hasCourier ? (
+          <>
+            <AdminButton
+              size="sm"
+              disabled={busy !== null}
+              loading={busy === 'track'}
+              onClick={() => void run('track', trackParcel)}
+            >
+              <Truck className="h-3.5 w-3.5" />
+              Track Parcel
+            </AdminButton>
+            <AdminButton
+              size="sm"
+              variant="warning"
+              disabled={busy !== null}
+              loading={busy === 'cancel-booking'}
+              onClick={() => void run('cancel-booking', cancelBooking)}
+            >
+              Cancel Booking
+            </AdminButton>
+          </>
+        ) : null}
         <AdminButton
           size="sm"
           variant="gold"

@@ -107,7 +107,7 @@ export class SecurityController {
   @Post('staff/invite')
   inviteStaff(
     @Query('storeId') storeId: string,
-    @Body() body: { email: string; firstName: string; lastName?: string; role: string; password: string },
+    @Body() body: { email: string; firstName: string; lastName?: string; role: string },
     @Req() req: AdminRequest,
   ) {
     return this.security.inviteStaff(storeId, body, req.adminUser, req)

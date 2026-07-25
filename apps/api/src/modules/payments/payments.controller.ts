@@ -10,7 +10,13 @@ import {
   Res,
 } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
-import { buildInvoiceAccessToken, resolvePublicSiteUrl, verifyInvoiceAccessToken } from '@splaro/config'
+import {
+  buildInvoiceAccessToken,
+  resolveCustomerFacingApiBase,
+  resolveCustomerFacingAssetUrl,
+  resolveCustomerFacingSiteUrl,
+  verifyInvoiceAccessToken,
+} from '@splaro/config'
 import type { Prisma } from '@prisma/client'
 import type { Response } from 'express'
 import {
@@ -84,16 +90,24 @@ export class PaymentsController {
             quantity: true,
           },
         },
+        payments: {
+          where: { status: 'PAID' },
+          select: { transactionId: true, paidAt: true },
+          take: 1,
+          orderBy: { paidAt: 'desc' },
+        },
         updatedAt: true,
       },
     })
     if (!order) throw new BadRequestException('Order not found')
+    const paidEvidence = order.payments.find((p) => Boolean(p.transactionId?.trim()))
     return {
       invoiceNumber: order.invoiceNumber,
       orderStatus: order.status,
       paymentStatus: order.paymentStatus,
       paymentMethod: order.paymentMethod,
-      verified: order.paymentStatus === 'PAID',
+      // Verified only when a PAID Payment row carries a real reference — bare admin status flips do not count
+      verified: order.paymentStatus === 'PAID' && Boolean(paidEvidence?.transactionId),
       total: Number(order.total),
       shipping: Number(order.deliveryCharge),
       coupon: order.couponCode,
@@ -122,7 +136,10 @@ export class PaymentsController {
     const flags = await loadStorePaymentFlags(this.prisma, order.storeId)
     assertGatewayEnabled('bkash', flags)
     assertOrderPayable(order, Number(body.amount))
-    return this.bkash.createPayment(body)
+    const callbackUrl =
+      resolveCustomerFacingAssetUrl(body.callbackUrl) ||
+      `${resolveCustomerFacingApiBase()}/payments/bkash/callback`
+    return this.bkash.createPayment({ ...body, callbackUrl })
   }
 
   @Public()
@@ -174,7 +191,7 @@ export class PaymentsController {
     @Query('status') status: string,
     @Res() res: Response,
   ) {
-    const siteUrl = resolvePublicSiteUrl()
+    const siteUrl = resolveCustomerFacingSiteUrl()
     try {
       if (status === 'success' && paymentID) {
         const result = await this.bkash.executePayment(paymentID)
@@ -221,10 +238,13 @@ export class PaymentsController {
     const flags = await loadStorePaymentFlags(this.prisma, order.storeId)
     assertGatewayEnabled('nagad', flags)
     assertOrderPayable(order, Number(body.amount))
+    const callbackUrl =
+      resolveCustomerFacingAssetUrl(body.callbackUrl) ||
+      `${resolveCustomerFacingApiBase()}/payments/nagad/verify?invoiceNumber=${encodeURIComponent(order.invoiceNumber)}`
     return this.nagad.initPayment({
       orderId: order.invoiceNumber,
       amount: body.amount,
-      callbackUrl: body.callbackUrl,
+      callbackUrl,
     })
   }
 
@@ -235,7 +255,7 @@ export class PaymentsController {
     @Query('invoiceNumber') invoiceNumber: string,
     @Res() res: Response,
   ) {
-    const siteUrl = resolvePublicSiteUrl()
+    const siteUrl = resolveCustomerFacingSiteUrl()
     try {
       const order = await this.prisma.order.findUnique({
         where: { invoiceNumber },
@@ -297,13 +317,21 @@ export class PaymentsController {
     const flags = await loadStorePaymentFlags(this.prisma, order.storeId)
     assertGatewayEnabled('sslcommerz', flags)
     assertOrderPayable(order, Number(body.amount))
-    return this.ssl.initPayment(body)
+    const apiBase = resolveCustomerFacingApiBase()
+    return this.ssl.initPayment({
+      ...body,
+      successUrl:
+        resolveCustomerFacingAssetUrl(body.successUrl) || `${apiBase}/payments/ssl/success`,
+      failUrl: resolveCustomerFacingAssetUrl(body.failUrl) || `${apiBase}/payments/ssl/fail`,
+      cancelUrl:
+        resolveCustomerFacingAssetUrl(body.cancelUrl) || `${apiBase}/payments/ssl/cancel`,
+    })
   }
 
   @Public()
   @Post('ssl/success')
   async sslSuccess(@Body() body: SslCommerzIpnPayload, @Res() res: Response) {
-    const siteUrl = resolvePublicSiteUrl()
+    const siteUrl = resolveCustomerFacingSiteUrl()
     const result = await this.ssl.handleCallback(body, 'success')
     if (result.ok) {
       await this.confirmation.confirm({
@@ -322,7 +350,7 @@ export class PaymentsController {
   @Public()
   @Post('ssl/fail')
   sslFail(@Body() body: SslCommerzIpnPayload, @Res() res: Response) {
-    const siteUrl = resolvePublicSiteUrl()
+    const siteUrl = resolveCustomerFacingSiteUrl()
     void this.ssl.handleCallback(body, 'fail')
     return res.redirect(
       `${siteUrl}/payment/failed?invoice=${encodeURIComponent(body.tran_id)}&key=${encodeURIComponent(buildInvoiceAccessToken(body.tran_id))}`,
@@ -332,7 +360,7 @@ export class PaymentsController {
   @Public()
   @Post('ssl/cancel')
   sslCancel(@Body() body: SslCommerzIpnPayload, @Res() res: Response) {
-    const siteUrl = resolvePublicSiteUrl()
+    const siteUrl = resolveCustomerFacingSiteUrl()
     void this.ssl.handleCallback(body, 'cancel')
     return res.redirect(
       `${siteUrl}/payment/cancelled?invoice=${encodeURIComponent(body.tran_id)}&key=${encodeURIComponent(buildInvoiceAccessToken(body.tran_id))}`,

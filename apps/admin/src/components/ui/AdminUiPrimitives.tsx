@@ -1,7 +1,7 @@
 'use client'
 
 import { type ElementType, type ReactNode } from 'react'
-import { AlertCircle, Inbox, PlugZap, RefreshCw } from 'lucide-react'
+import { AlertCircle, Inbox, PlugZap, RefreshCw, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { AdminButton } from '@/components/ui/AdminButton'
 
@@ -93,6 +93,31 @@ export function AdminErrorState({
           Retry
         </AdminButton>
       ) : null}
+    </div>
+  )
+}
+
+interface AdminPermissionDeniedStateProps {
+  title?: string
+  description?: string
+  action?: ReactNode
+  className?: string
+}
+
+export function AdminPermissionDeniedState({
+  title = 'Access denied',
+  description = 'Your account does not have permission to open this section.',
+  action,
+  className,
+}: AdminPermissionDeniedStateProps) {
+  return (
+    <div className={cn('admin-permission-state', className)} role="alert">
+      <ShieldAlert className="admin-permission-state__icon" aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="admin-permission-state__title">{title}</p>
+        <p className="admin-permission-state__text">{description}</p>
+        {action ? <div className="mt-3">{action}</div> : null}
+      </div>
     </div>
   )
 }

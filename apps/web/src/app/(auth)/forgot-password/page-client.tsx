@@ -59,8 +59,8 @@ export default function ForgotPasswordPageClient() {
           <motion.div {...fadeSlide} transition={motionTransition}>
             <h1 className="auth-card__title">Forgot your password?</h1>
             <p className="auth-card__subtitle">
-              Enter the email linked to your SPLARO account. We&apos;ll send a reset link if it
-              exists.
+              Enter the email linked to your SPLARO account. We&apos;ll send a reset link — tap it,
+              then choose a new password. No code to type.
             </p>
           </motion.div>
         </motion.div>

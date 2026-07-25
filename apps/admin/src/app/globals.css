@@ -1,4 +1,5 @@
 @import '../styles/admin-tokens.css';
+@import '../styles/admin-design-system.css';
 @import '../styles/admin-ui-polish.css';
 @import '../styles/admin-sidebar-nav.css';
 @import '../styles/admin-liquid-shell.css';
@@ -10,54 +11,51 @@
 
 :root {
   --admin-input-text: #08090c;
-  --admin-bg: #eceef2;
+  --admin-bg: #fcfcfd;
   --admin-bg-dark: #070a12;
 
-  --admin-glass: rgba(255, 255, 255, 0.88);
-  --admin-glass-strong: rgba(255, 255, 255, 0.94);
-  --admin-glass-soft: rgba(255, 255, 255, 0.78);
+  --admin-glass: #ffffff;
+  --admin-glass-strong: #ffffff;
+  --admin-glass-soft: #ffffff;
   --admin-glass-dark: rgba(10, 14, 25, 0.92);
-  --admin-glass-border: rgba(16, 17, 20, 0.12);
-  --admin-glass-border-subtle: rgba(16, 17, 20, 0.08);
-  --admin-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.98);
-  --admin-glass-highlight-soft: inset 0 -1px 0 rgba(17, 17, 17, 0.04);
-  --admin-glass-shadow: 0 1px 2px rgba(16, 17, 20, 0.04), 0 16px 40px rgba(16, 17, 20, 0.06);
-  --admin-glass-shadow-hover: 0 6px 16px rgba(16, 17, 20, 0.08), 0 22px 52px rgba(16, 17, 20, 0.08);
-  --admin-glass-sheen:
-    linear-gradient(155deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.86) 48%, rgba(248, 249, 251, 0.78) 100%);
-  --admin-glass-saturate: saturate(1.06);
+  --admin-glass-border: rgba(15, 23, 42, 0.06);
+  --admin-glass-border-subtle: rgba(15, 23, 42, 0.05);
+  --admin-glass-highlight: none;
+  --admin-glass-highlight-soft: none;
+  --admin-glass-shadow: 0 12px 40px rgba(15, 23, 42, 0.06);
+  --admin-glass-shadow-hover: 0 18px 48px rgba(15, 23, 42, 0.09);
+  --admin-glass-sheen: #ffffff;
+  --admin-glass-saturate: saturate(1);
 
-  --admin-text: #08090c;
-  --admin-text-primary: #08090c;
-  --admin-text-secondary: #242830;
-  --admin-text-muted: #454b58;
-  --admin-text-strong: #040507;
+  --admin-text: #0f172a;
+  --admin-text-primary: #0f172a;
+  --admin-text-secondary: #475569;
+  --admin-text-muted: #94a3b8;
+  --admin-text-strong: #0a0a0a;
 
-  /* Monochrome graphite accent — white liquid-glass premium, no blue. */
-  --admin-accent: #111318;
-  --admin-accent-strong: #040507;
-  --admin-accent-ink: #000000;
-  --admin-accent-muted: rgba(17, 19, 24, 0.06);
-  --admin-accent-soft: rgba(17, 19, 24, 0.1);
-  --admin-accent-border: rgba(17, 19, 24, 0.18);
-  --admin-accent-glow: rgba(17, 19, 24, 0.1);
-  --admin-accent-cyan: #111318;
+  /* Design Monks violet — single accent (matches admin-tokens + designmonks layer) */
+  --admin-accent: #712eff;
+  --admin-accent-strong: #5b1fd9;
+  --admin-accent-ink: #712eff;
+  --admin-accent-muted: rgba(113, 46, 255, 0.08);
+  --admin-accent-soft: rgba(113, 46, 255, 0.12);
+  --admin-accent-border: rgba(113, 46, 255, 0.24);
+  --admin-accent-glow: rgba(113, 46, 255, 0.2);
+  --admin-accent-cyan: #7d40ff;
 
-  --admin-surface: rgba(255, 255, 255, 0.92);
-  --admin-surface-hover: rgba(255, 255, 255, 0.98);
-  --admin-surface-input: rgba(255, 255, 255, 0.96);
+  --admin-surface: #ffffff;
+  --admin-surface-hover: #ffffff;
+  --admin-surface-input: #ffffff;
   --admin-kpi-shine: none;
-  --admin-sidebar-bg:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.94) 100%);
-  --admin-header-bg:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.82));
+  --admin-sidebar-bg: #ffffff;
+  --admin-header-bg: #ffffff;
 
-  /* Accent = graphite (monochrome). Green/red stay semantic via success/danger. */
-  --admin-gold: #16181d;
-  --admin-gold-muted: rgba(16, 17, 20, 0.08);
-  --admin-gold-soft: rgba(16, 17, 20, 0.14);
-  --admin-gold-glow: rgba(16, 17, 20, 0.18);
-  --admin-success: #16a34a;
+  /* Brand accent aliases → violet (success/danger stay semantic) */
+  --admin-gold: #712eff;
+  --admin-gold-muted: rgba(113, 46, 255, 0.1);
+  --admin-gold-soft: rgba(113, 46, 255, 0.14);
+  --admin-gold-glow: rgba(113, 46, 255, 0.22);
+  --admin-success: #22c55e;
   --admin-warning: #d97706;
   --admin-danger: #dc2626;
   --admin-info: #3f3f46;
@@ -66,40 +64,36 @@
   --admin-intel: 236px;
   --admin-intel-collapsed: 56px;
   --admin-header: 64px;
-  --admin-blur: 28px;
-  --admin-blur-strong: 36px;
+  --admin-blur: 0px;
+  --admin-blur-strong: 0px;
 
-  --admin-radius: 8px;
-  --admin-radius-md: 8px;
-  --admin-radius-sm: 6px;
-  --admin-radius-xs: 4px;
+  --admin-radius: 24px;
+  --admin-radius-md: 28px;
+  --admin-radius-sm: 16px;
+  --admin-radius-xs: 12px;
 
-  --admin-shadow: 0 22px 70px rgba(16, 17, 20, 0.08);
-  --admin-shadow-soft: 0 12px 34px rgba(16, 17, 20, 0.06);
-  --admin-shadow-card:
-    0 20px 58px rgba(16, 17, 20, 0.07),
-    0 2px 8px rgba(16, 17, 20, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.28);
-  --admin-shadow-elevated: 0 30px 82px rgba(16, 17, 20, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.98);
+  --admin-shadow: 0 12px 40px rgba(15, 23, 42, 0.06);
+  --admin-shadow-soft: 0 8px 28px rgba(15, 23, 42, 0.04);
+  --admin-shadow-card: 0 12px 40px rgba(15, 23, 42, 0.06);
+  --admin-shadow-elevated: 0 18px 48px rgba(15, 23, 42, 0.09);
 
-  --admin-transition: 220ms cubic-bezier(0.16, 1, 0.3, 1);
-  --admin-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --admin-press-release-duration: 240ms;
+  --admin-transition: 150ms cubic-bezier(0.22, 1, 0.36, 1);
+  --admin-ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --admin-press-release-duration: 150ms;
   --admin-press-release-ease: var(--admin-ease-spring);
   --admin-press-down-duration: 80ms;
   --admin-press-down-ease: var(--admin-transition);
-  --admin-press-scale: 0.97;
-  --admin-press-translate-y: 1px;
+  --admin-press-scale: 0.985;
+  --admin-press-translate-y: 0.5px;
 
-  --admin-table-wrap-border: rgba(255, 255, 255, 0.72);
-  --admin-table-divider: rgba(17, 17, 17, 0.06);
-  --admin-table-head-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.28));
-  --admin-table-foot-bg: rgba(255, 255, 255, 0.28);
-  --admin-table-thead-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.22));
-  --admin-table-row-border: rgba(17, 17, 20, 0.05);
-  --admin-table-row-hover: rgba(17, 17, 20, 0.035);
-  --admin-table-row-selected: rgba(17, 17, 20, 0.06);
+  --admin-table-wrap-border: rgba(15, 23, 42, 0.06);
+  --admin-table-divider: rgba(15, 23, 42, 0.05);
+  --admin-table-head-bg: #fafafa;
+  --admin-table-foot-bg: #fafafa;
+  --admin-table-thead-bg: #fafafa;
+  --admin-table-row-border: rgba(15, 23, 42, 0.045);
+  --admin-table-row-hover: rgba(15, 23, 42, 0.025);
+  --admin-table-row-selected: rgba(15, 23, 42, 0.04);
 
   --admin-toast-bg: #111111;
   --admin-toast-text: #ffffff;
@@ -180,15 +174,15 @@
   --admin-input-text: rgba(255, 255, 255, 0.92);
   --admin-sidebar-bg: linear-gradient(180deg, #101018 0%, #0a0a10 100%);
   --admin-header-bg: linear-gradient(180deg, rgba(18, 18, 24, 0.96) 0%, rgba(12, 12, 17, 0.94) 100%);
-  --admin-accent: rgba(255, 255, 255, 0.92);
-  --admin-accent-strong: rgba(255, 255, 255, 0.78);
-  --admin-accent-ink: #0a0a0f;
-  --admin-accent-muted: rgba(255, 255, 255, 0.08);
-  --admin-accent-soft: rgba(255, 255, 255, 0.12);
-  --admin-accent-border: rgba(255, 255, 255, 0.14);
-  --admin-accent-glow: rgba(255, 255, 255, 0.06);
-  --admin-gold-muted: rgba(255, 255, 255, 0.08);
-  --admin-gold-soft: rgba(255, 255, 255, 0.12);
+  --admin-accent: #8b5cff;
+  --admin-accent-strong: #a078ff;
+  --admin-accent-ink: #c4b5ff;
+  --admin-accent-muted: rgba(139, 92, 255, 0.12);
+  --admin-accent-soft: rgba(139, 92, 255, 0.18);
+  --admin-accent-border: rgba(139, 92, 255, 0.32);
+  --admin-accent-glow: rgba(139, 92, 255, 0.28);
+  --admin-gold-muted: rgba(139, 92, 255, 0.14);
+  --admin-gold-soft: rgba(139, 92, 255, 0.2);
   --admin-success: #86d4a8;
   --admin-shadow: 0 12px 40px rgba(0, 0, 0, 0.38);
   --admin-shadow-soft: 0 6px 24px rgba(0, 0, 0, 0.32);
@@ -316,6 +310,7 @@ body {
   content: '';
   position: absolute;
   inset: 0;
+  z-index: 0;
   pointer-events: none;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.42) 0%, transparent 38%);
   border-radius: inherit;
@@ -416,7 +411,7 @@ body {
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--admin-text-secondary);
+  color: var(--admin-text);
 }
 
 .admin-kpi__value {
@@ -486,9 +481,9 @@ body {
   pointer-events: none;
   border-radius: inherit;
   background:
-    linear-gradient(118deg, rgba(255, 255, 255, 0.58) 0%, transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, transparent 40%);
-  z-index: 1;
+    linear-gradient(118deg, rgba(255, 255, 255, 0.22) 0%, transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 40%);
+  z-index: 0;
 }
 
 .admin-module-card > * {
@@ -5340,11 +5335,29 @@ select.admin-input {
   content: '';
   position: absolute;
   inset: 0;
+  z-index: 0;
   pointer-events: none;
   border-radius: inherit;
+  /* Soft highlight only — must stay under label/value or text washes out */
   background:
-    linear-gradient(118deg, rgba(255, 255, 255, 0.55) 0%, transparent 32%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, transparent 38%);
+    linear-gradient(118deg, rgba(255, 255, 255, 0.18) 0%, transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 36%);
+}
+
+.admin-kpi {
+  isolation: isolate;
+}
+
+.admin-kpi__label,
+.admin-kpi__value,
+.admin-kpi__empty-hint {
+  position: relative;
+  z-index: 1;
+}
+
+.admin-kpi__icon,
+.admin-stat-icon {
+  z-index: 2;
 }
 
 .admin-sidebar-profile {
@@ -8618,6 +8631,15 @@ select.admin-input {
   background: linear-gradient(90deg, transparent 0%, rgba(17, 17, 17, 0.08) 30%, rgba(17, 17, 17, 0.08) 70%, transparent 100%);
 }
 
+.settings-field__hint {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--admin-text-muted);
+}
+
 .settings-toggle {
   display: flex;
   align-items: center;
@@ -8629,7 +8651,7 @@ select.admin-input {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   padding: 0.875rem 1.125rem;
-  cursor: pointer;
+  cursor: default;
   box-shadow: var(--admin-glass-highlight), 0 2px 8px rgba(17, 17, 17, 0.03);
   transition:
     border-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -9434,7 +9456,7 @@ select.admin-input {
   position: fixed;
   top: 50%;
   left: 50%;
-  z-index: 60;
+  z-index: 502;
   display: flex;
   flex-direction: column;
   width: min(480px, calc(100vw - 1.5rem));
@@ -9447,15 +9469,21 @@ select.admin-input {
     0 0 0 1px rgba(255, 255, 255, 0.04),
     0 28px 80px rgba(0, 0, 0, 0.32);
   overflow: hidden;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
 }
 
 .admin-order-preview__backdrop {
   position: fixed;
   inset: 0;
-  z-index: 55;
+  z-index: 501;
   background: rgba(8, 8, 10, 0.52);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .admin-order-preview__header {
@@ -9541,6 +9569,9 @@ select.admin-input {
   align-items: center;
   gap: 0.25rem;
   flex-shrink: 0;
+  position: relative;
+  z-index: 3;
+  pointer-events: auto;
 }
 
 .admin-order-preview__icon-btn {
@@ -9555,6 +9586,9 @@ select.admin-input {
   color: rgba(255, 255, 255, 0.75);
   cursor: pointer;
   transition: background 140ms ease, color 140ms ease;
+  position: relative;
+  z-index: 3;
+  pointer-events: auto;
 }
 
 .admin-order-preview__icon-btn:hover {
@@ -9806,84 +9840,115 @@ select.admin-input {
   justify-content: center;
 }
 
+.admin-order-preview-root {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  pointer-events: auto;
+}
+
+.admin-order-preview-root > * {
+  pointer-events: auto;
+}
+
 .admin-order-preview__footer {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
   border-top: 1px solid rgba(17, 17, 17, 0.08);
-  background: #fafafa;
-  padding: 0.85rem 1rem 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, #f6f6f7 100%);
+  padding: 0.9rem 1rem 1.05rem;
   flex-shrink: 0;
 }
 
+.admin-order-preview__footer-label {
+  margin: 0;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
+.admin-order-preview__tools {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.admin-order-preview__footer-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.admin-order-preview__tool,
 .admin-order-preview__action {
   width: 100%;
   justify-content: center;
-  min-height: 2.25rem;
+  min-height: 2.35rem;
   font-size: 0.75rem !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.01em;
 }
 
 .admin-order-preview__action--row {
   justify-content: flex-start !important;
 }
 
-.admin-order-preview__action--courier {
-  grid-column: 1 / -1;
+.admin-order-preview__action--courier,
+.admin-order-preview__action--danger-full {
+  width: 100%;
+  justify-content: center;
+  min-height: 2.5rem;
 }
 
-.admin-order-preview__action--danger {
-  color: #b91c1c !important;
-  border-color: rgba(239, 68, 68, 0.2) !important;
-  background: #fff5f5 !important;
-}
-
-.admin-order-preview__action--danger:hover:not(:disabled) {
-  background: #fee2e2 !important;
-  color: #991b1b !important;
-}
-
-/* Light-surface modal: beat dark-theme admin button tokens */
-.dark .admin-order-preview .admin-btn,
-.dark .admin-order-preview .admin-btn--ghost,
-.dark .admin-order-preview .admin-btn--dark,
-.admin-order-preview .admin-order-preview__action {
-  color: #3f3f46;
-  background: #f4f4f5;
+/* Light-surface modal: secondary tools stay elevated, CTAs keep brand gold */
+.admin-order-preview .admin-btn--secondary.admin-order-preview__tool,
+.admin-order-preview .admin-btn--secondary.admin-order-preview__action {
+  color: #18181b;
+  background: linear-gradient(180deg, #ffffff 0%, #f4f4f5 100%);
   border: 1px solid rgba(17, 17, 17, 0.1);
-  box-shadow: none;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
-.dark .admin-order-preview .admin-btn:hover:not(:disabled),
-.dark .admin-order-preview .admin-btn--ghost:hover:not(:disabled),
-.admin-order-preview .admin-order-preview__action:hover:not(:disabled) {
-  background: #e4e4e7;
-  border-color: rgba(17, 17, 17, 0.14);
+.admin-order-preview .admin-btn--secondary.admin-order-preview__tool:hover:not(:disabled),
+.admin-order-preview .admin-btn--secondary.admin-order-preview__action:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ffffff 0%, #ebebed 100%);
+  border-color: rgba(17, 17, 17, 0.16);
+  color: #09090b;
+}
+
+.admin-order-preview .admin-order-preview__tool--ghost {
+  color: #3f3f46;
+  background: transparent;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+}
+
+.admin-order-preview .admin-order-preview__tool--ghost:hover:not(:disabled) {
+  background: rgba(17, 17, 17, 0.04);
   color: #111111;
 }
 
-.dark .admin-order-preview .admin-btn--ghost,
-.admin-order-preview .admin-btn--ghost.admin-order-preview__action {
-  background: #ffffff;
-  border-color: rgba(17, 17, 17, 0.12);
+.admin-order-preview .admin-order-preview__tool--cancel {
+  color: #b91c1c;
+  background: #fff7f7;
+  border: 1px solid rgba(239, 68, 68, 0.22);
 }
 
-.dark .admin-order-preview .admin-btn--ghost:hover:not(:disabled),
-.admin-order-preview .admin-btn--ghost.admin-order-preview__action:hover:not(:disabled) {
-  background: #f4f4f5;
+.admin-order-preview .admin-order-preview__tool--cancel:hover:not(:disabled) {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
-.dark .admin-order-preview .admin-btn--dark,
-.admin-order-preview .admin-btn--dark.admin-order-preview__action {
-  background: #111111;
-  color: #ffffff;
-  border-color: transparent;
-}
-
-.dark .admin-order-preview .admin-btn--dark:hover:not(:disabled),
-.admin-order-preview .admin-btn--dark.admin-order-preview__action:hover:not(:disabled) {
-  background: #27272a;
-  color: #ffffff;
+.admin-order-preview .admin-btn--gold.admin-order-preview__action--courier,
+.admin-order-preview .order-flow__action.admin-btn--gold {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 10px 28px rgba(124, 58, 237, 0.28);
 }
 
 .admin-status--paid {
@@ -9976,6 +10041,7 @@ select.admin-input {
   position: absolute;
   top: 1.1rem;
   right: 1.1rem;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9995,8 +10061,14 @@ select.admin-input {
 
 .admin-pipeline-bar {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
+}
+
+@media (min-width: 1024px) {
+  .admin-pipeline-bar {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
 }
 
 .admin-pipeline-bar__stage {
@@ -12135,61 +12207,49 @@ select.admin-input {
 }
 
 /* SPLARO admin premium pass — light mode only (must not override .dark tokens).
-   White liquid glass (monochrome) — no cream/olive/purple SaaS skins. */
+   Luxury 2027 flat white — no cream/olive/purple SaaS skins. */
 :root:not(.dark) {
-  --admin-bg: #f5f5f7;
-  --admin-glass: rgba(255, 255, 255, 0.72);
-  --admin-glass-strong: rgba(255, 255, 255, 0.88);
-  --admin-glass-soft: rgba(255, 255, 255, 0.58);
-  --admin-glass-border: rgba(255, 255, 255, 0.78);
-  --admin-glass-border-subtle: rgba(255, 255, 255, 0.55);
-  --admin-glass-sheen:
-    linear-gradient(155deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.72) 48%, rgba(250, 250, 252, 0.58) 100%);
-  --admin-text: #151515;
-  --admin-text-primary: #151515;
-  --admin-text-secondary: #5c5c66;
-  --admin-text-muted: #8a8a96;
-  --admin-text-strong: #0d0d0d;
-  --admin-accent: #111114;
-  --admin-accent-strong: #0a0a0c;
-  --admin-accent-ink: #0a0a0c;
-  --admin-accent-muted: rgba(17, 17, 20, 0.06);
-  --admin-accent-soft: rgba(17, 17, 20, 0.1);
-  --admin-accent-border: rgba(17, 17, 20, 0.14);
-  --admin-accent-glow: rgba(17, 17, 20, 0.08);
-  --admin-surface: rgba(255, 255, 255, 0.86);
-  --admin-surface-hover: rgba(255, 255, 255, 0.96);
-  --admin-surface-input: rgba(255, 255, 255, 0.94);
-  --admin-input-text: #151515;
-  --admin-sidebar-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.62));
-  --admin-header-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.64));
-  --admin-shadow-card:
-    0 1px 2px rgba(16, 17, 20, 0.03),
-    0 18px 48px rgba(16, 17, 20, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.98);
-  --admin-shadow-soft: 0 10px 26px rgba(16, 17, 20, 0.045);
-  --admin-shadow-elevated:
-    0 4px 12px rgba(16, 17, 20, 0.05),
-    0 28px 64px rgba(16, 17, 20, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 1);
-  --admin-radius: 18px;
-  --admin-radius-md: 20px;
-  --admin-radius-sm: 14px;
-  --admin-radius-xs: 10px;
+  --admin-bg: #fcfcfd;
+  --admin-glass: #ffffff;
+  --admin-glass-strong: #ffffff;
+  --admin-glass-soft: #ffffff;
+  --admin-glass-border: rgba(15, 23, 42, 0.06);
+  --admin-glass-border-subtle: rgba(15, 23, 42, 0.05);
+  --admin-glass-sheen: #ffffff;
+  --admin-text: #0f172a;
+  --admin-text-primary: #0f172a;
+  --admin-text-secondary: #475569;
+  --admin-text-muted: #94a3b8;
+  --admin-text-strong: #111111;
+  --admin-accent: #111111;
+  --admin-accent-strong: #0f172a;
+  --admin-accent-ink: #111111;
+  --admin-accent-muted: rgba(15, 23, 42, 0.04);
+  --admin-accent-soft: rgba(15, 23, 42, 0.08);
+  --admin-accent-border: rgba(15, 23, 42, 0.12);
+  --admin-accent-glow: rgba(15, 23, 42, 0.06);
+  --admin-surface: #ffffff;
+  --admin-surface-hover: #ffffff;
+  --admin-surface-input: #ffffff;
+  --admin-input-text: #0f172a;
+  --admin-sidebar-bg: #ffffff;
+  --admin-header-bg: #ffffff;
+  --admin-shadow-card: 0 12px 40px rgba(15, 23, 42, 0.06);
+  --admin-shadow-soft: 0 8px 28px rgba(15, 23, 42, 0.04);
+  --admin-shadow-elevated: 0 18px 48px rgba(15, 23, 42, 0.09);
+  --admin-radius: 24px;
+  --admin-radius-md: 28px;
+  --admin-radius-sm: 16px;
+  --admin-radius-xs: 12px;
+  --admin-success: #22c55e;
 }
 
 html:not(.dark) body {
-  background:
-    radial-gradient(ellipse 70% 50% at 10% 0%, rgba(255, 255, 255, 0.95), transparent 42%),
-    linear-gradient(180deg, #fbfbfc 0%, #f5f5f7 48%, #f0f0f2 100%);
+  background: #fcfcfd;
 }
 
 html:not(.dark) .admin-shell {
-  background:
-    radial-gradient(ellipse 70% 55% at 8% 0%, rgba(255, 255, 255, 0.95), transparent 58%),
-    radial-gradient(ellipse 55% 45% at 92% 12%, rgba(255, 255, 255, 0.7), transparent 52%),
-    radial-gradient(ellipse 60% 50% at 70% 100%, rgba(16, 17, 20, 0.025), transparent 55%),
-    linear-gradient(180deg, #fbfbfc 0%, #f5f5f7 50%, #f1f1f3 100%);
+  background: #fcfcfd;
 }
 
 html:not(.dark) .admin-module-card,
@@ -12201,18 +12261,19 @@ html:not(.dark) .admin-module-table-wrap,
 html:not(.dark) .admin-kpi,
 html:not(.dark) .admin-module-pipeline,
 html:not(.dark) .admin-module-toolbar {
-  border-color: rgba(255, 255, 255, 0.82);
-  background: transparent;
+  border-color: rgba(15, 23, 42, 0.06);
+  background: #ffffff;
   box-shadow: var(--admin-shadow-card);
 }
 
 html:not(.dark) .admin-module-card {
-  border-radius: 22px;
-  padding: 1.15rem;
+  border-radius: 28px;
+  padding: 1.25rem;
 }
 
 html:not(.dark) .admin-module-card::after {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), transparent 42%);
+  background: none;
+  opacity: 0;
 }
 
 html:not(.dark) .admin-module-card:hover {
@@ -12221,13 +12282,10 @@ html:not(.dark) .admin-module-card:hover {
 }
 
 html:not(.dark) .admin-header {
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.88);
-  background: transparent;
-  box-shadow:
-    0 2px 8px rgba(16, 17, 20, 0.03),
-    0 18px 44px rgba(16, 17, 20, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 1);
+  border-radius: 24px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  background: #ffffff;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.06);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -12235,100 +12293,92 @@ html:not(.dark) .admin-header {
 html:not(.dark) .admin-header-chip,
 html:not(.dark) .admin-profile-pill,
 html:not(.dark) .admin-search {
-  border-color: rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(16px) saturate(1.1);
-  -webkit-backdrop-filter: blur(16px) saturate(1.1);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 6px 18px rgba(16, 17, 20, 0.04);
+  border-color: rgba(15, 23, 42, 0.06);
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
 }
 
 html:not(.dark) .admin-header-chip:hover,
 html:not(.dark) .admin-profile-pill:hover,
 html:not(.dark) .admin-search:hover {
-  border-color: rgba(255, 255, 255, 0.92);
-  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(15, 23, 42, 0.1);
+  background: #ffffff;
   color: var(--admin-text);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
 }
 
 html:not(.dark) .admin-sidebar {
   border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  box-shadow:
-    0 2px 8px rgba(16, 17, 20, 0.03),
-    0 28px 64px rgba(16, 17, 20, 0.07),
-    inset 0 1px 0 rgba(255, 255, 255, 1);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.06);
 }
 
 html:not(.dark) .admin-sidebar__brand {
-  border-bottom-color: rgba(16, 17, 20, 0.06);
+  border-bottom-color: rgba(15, 23, 42, 0.05);
 }
 
 html:not(.dark) .admin-sidebar__drawer {
-  border-radius: 16px;
-  border-color: rgba(255, 255, 255, 0.65);
-  box-shadow: 0 8px 22px rgba(16, 17, 20, 0.04);
+  border-radius: 14px;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 html:not(.dark) .admin-sidebar__drawer-panel {
-  background: rgba(255, 255, 255, 0.35);
+  background: transparent;
 }
 
 html:not(.dark) .admin-sidebar__drawer--primary,
 html:not(.dark) .admin-sidebar__drawer--active {
-  box-shadow: 0 10px 26px rgba(16, 17, 20, 0.05);
+  box-shadow: none;
 }
 
 html:not(.dark) .admin-sidebar__drawer-title,
 html:not(.dark) .admin-module-card__title {
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
 }
 
 html:not(.dark) .admin-nav-item {
-  border-radius: 12px;
+  border-radius: 14px;
 }
 
 html:not(.dark) .admin-nav-item--active {
-  background: #111111;
-  border-color: rgba(17, 17, 17, 0.92);
-  color: #ffffff;
-  box-shadow:
-    0 10px 28px rgba(17, 17, 20, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.06);
+  color: #111111;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
 html:not(.dark) .admin-nav-item--active .admin-nav-count {
-  color: rgba(255, 255, 255, 0.65);
+  color: #94a3b8;
 }
 
 html:not(.dark) .admin-input,
 html:not(.dark) .admin-input--premium,
 html:not(.dark) .admin-premium-select,
 html:not(.dark) .admin-premium-select__input {
-  border-radius: 12px;
-  border-color: rgba(16, 17, 20, 0.1);
-  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 14px;
+  border-color: rgba(15, 23, 42, 0.08);
+  background-color: #ffffff;
   color: var(--admin-input-text);
 }
 
 html:not(.dark) .admin-input:focus,
 html:not(.dark) .admin-input--premium:focus,
 html:not(.dark) .admin-premium-select:focus-within {
-  border-color: rgba(16, 17, 20, 0.28);
-  box-shadow: 0 0 0 3px rgba(16, 17, 20, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  border-color: rgba(15, 23, 42, 0.22);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.06);
 }
 
 html:not(.dark) .product-create-hero {
-  border-radius: 24px;
-  border-color: rgba(255, 255, 255, 0.78);
-  background:
-    linear-gradient(155deg, rgba(255, 255, 255, 0.97) 0%, rgba(255, 255, 255, 0.8) 55%, rgba(250, 250, 252, 0.74) 100%);
+  border-radius: 28px;
+  border-color: rgba(15, 23, 42, 0.06);
+  background: #ffffff;
   background-size: auto;
-  backdrop-filter: blur(28px) saturate(1.12);
-  -webkit-backdrop-filter: blur(28px) saturate(1.12);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.98),
-    0 1px 2px rgba(16, 17, 20, 0.04),
-    0 18px 44px rgba(16, 17, 20, 0.06);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.06);
 }
 
 html:not(.dark) .product-create-shell {
@@ -12338,39 +12388,39 @@ html:not(.dark) .product-create-shell {
 html:not(.dark) .product-create-step {
   min-height: 4.25rem;
   border-radius: 16px;
-  border-color: rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  border-color: rgba(15, 23, 42, 0.06);
+  background: #ffffff;
+  box-shadow: none;
 }
 
 html:not(.dark) .product-create-step--active {
-  border-color: rgba(16, 17, 20, 0.16);
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.98), 0 0 0 2px rgba(16, 17, 20, 0.06), 0 10px 24px rgba(16, 17, 20, 0.05);
+  border-color: rgba(15, 23, 42, 0.14);
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.05), 0 10px 24px rgba(15, 23, 42, 0.05);
 }
 
 html:not(.dark) .product-create-step--done {
   opacity: 0.78;
-  background: rgba(255, 255, 255, 0.7);
+  background: #f8fafc;
 }
 
 html:not(.dark) .product-create-step__num {
-  background: rgba(255, 255, 255, 0.96);
-  color: #101114;
-  border: 1px solid rgba(16, 17, 20, 0.18);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  background: #ffffff;
+  color: #111111;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  box-shadow: none;
 }
 
 html:not(.dark) .product-upload-zone {
-  border-color: rgba(16, 17, 20, 0.12);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.78));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  border-color: rgba(15, 23, 42, 0.1);
+  background: #ffffff;
+  box-shadow: none;
 }
 
 html:not(.dark) .product-upload-zone--active,
 html:not(.dark) .product-upload-zone:hover {
-  border-color: rgba(16, 17, 20, 0.22);
-  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(15, 23, 42, 0.18);
+  background: #ffffff;
 }
 
 /* Dark mode — order fulfillment stepper */
@@ -13082,18 +13132,17 @@ html:not(.dark) .product-upload-zone:hover {
   align-items: stretch;
 }
 
-/* Final liquid-glass surface blur (CSS only — after premium pass). */
+/* Final shell surfaces — flat white (CSS only — after premium pass). */
 html:not(.dark) .admin-sidebar .admin-glass-panel__surface {
-  background:
-    linear-gradient(165deg, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.58) 55%, rgba(252, 252, 253, 0.5) 100%);
-  backdrop-filter: blur(36px) saturate(1.2);
-  -webkit-backdrop-filter: blur(36px) saturate(1.2);
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 html:not(.dark) .admin-header .admin-glass-panel__surface {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.62));
-  backdrop-filter: blur(28px) saturate(1.16);
-  -webkit-backdrop-filter: blur(28px) saturate(1.16);
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -13134,6 +13183,14 @@ html:not(.dark) .admin-header .admin-glass-panel__surface {
   background: linear-gradient(180deg, #10b981, rgba(16, 185, 129, 0.08));
 }
 
+.admin-conn-strip--off {
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+.admin-conn-strip--off::before {
+  background: linear-gradient(180deg, #ef4444, rgba(239, 68, 68, 0.08));
+}
+
 .dark .admin-conn-strip {
   border-color: rgba(255, 255, 255, 0.1);
   background:
@@ -13146,6 +13203,10 @@ html:not(.dark) .admin-header .admin-glass-panel__surface {
 
 .dark .admin-conn-strip--live {
   border-color: rgba(16, 185, 129, 0.3);
+}
+
+.dark .admin-conn-strip--off {
+  border-color: rgba(248, 113, 113, 0.35);
 }
 
 /* Live pulse badge */
@@ -13170,6 +13231,13 @@ html:not(.dark) .admin-header .admin-glass-panel__surface {
   color: #92600a;
 }
 
+.admin-conn-strip__pulse--off {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+  animation: none;
+}
+
 .dark .admin-conn-strip__pulse {
   color: #6ee7b7;
   background: rgba(16, 185, 129, 0.12);
@@ -13178,6 +13246,11 @@ html:not(.dark) .admin-header .admin-glass-panel__surface {
 .dark .admin-conn-strip__pulse--warn {
   color: #fcd34d;
   background: rgba(245, 158, 11, 0.12);
+}
+
+.dark .admin-conn-strip__pulse--off {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.14);
 }
 
 .admin-conn-strip__pulse-dot {
@@ -13281,7 +13354,7 @@ a.admin-conn-chip:hover {
 
 .ops-subnav__link {
   border: 1px solid transparent;
-  transition: background 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 120ms ease;
 }
 
 .ops-subnav__link:hover {

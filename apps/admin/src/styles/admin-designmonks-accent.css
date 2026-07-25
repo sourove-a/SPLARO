@@ -1,0 +1,701 @@
+/**
+ * Design Monks–inspired premium accent layer for SPLARO Admin
+ * Reference: https://www.designmonks.co/
+ *
+ * Language (not a clone):
+ * - Canvas #FAFAFA · ink near-black
+ * - Signature violet CTA #712EFF / #7D40FF
+ * - Soft violet washes for focus / active / glow
+ * - Rounded 8–24px · crisp cards · restrained colour (accent ≠ rainbow)
+ */
+
+:root {
+  /* Design Monks core */
+  --dm-violet: #712eff;
+  --dm-violet-bright: #7d40ff;
+  --dm-violet-deep: #5b1fd9;
+  --dm-violet-soft: rgba(113, 46, 255, 0.1);
+  --dm-violet-soft-strong: rgba(113, 46, 255, 0.16);
+  --dm-violet-glow: rgba(113, 46, 255, 0.28);
+  --dm-canvas: #fafafa;
+  --dm-ink: #0a0a0a;
+  --dm-ink-muted: #333333;
+  --dm-surface: #ffffff;
+  --dm-radius-btn: 8px;
+  --dm-radius-panel: 24px;
+
+  /* Map into admin foundation (accent channel) */
+  --admin-foundation-canvas: #fafafa;
+  --admin-foundation-canvas-raised: #ffffff;
+  --admin-foundation-surface: #ffffff;
+  --admin-foundation-ink: #0a0a0a;
+  --admin-foundation-ink-secondary: #4a4a4a;
+  --admin-foundation-ink-muted: #737373;
+
+  /* Accent = Design Monks violet (CTAs, focus, active bars) */
+  --admin-foundation-primary: #712eff;
+  --admin-foundation-primary-hover: #5b1fd9;
+  --admin-foundation-primary-pressed: #4a18b5;
+  --admin-foundation-primary-soft: rgba(113, 46, 255, 0.1);
+  --admin-foundation-primary-border: rgba(113, 46, 255, 0.28);
+  --admin-foundation-primary-glow: rgba(113, 46, 255, 0.22);
+
+  --admin-accent: #712eff;
+  --admin-accent-strong: #5b1fd9;
+  --admin-accent-ink: #712eff;
+  --admin-accent-muted: rgba(113, 46, 255, 0.08);
+  --admin-accent-soft: rgba(113, 46, 255, 0.12);
+  --admin-accent-border: rgba(113, 46, 255, 0.24);
+  --admin-accent-glow: rgba(113, 46, 255, 0.2);
+  --admin-accent-cyan: #7d40ff;
+
+  --admin-focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px rgba(113, 46, 255, 0.35);
+  --admin-brand-gold: #712eff;
+  --admin-brand-gold-rgb: 113 46 255;
+  --admin-brand-gold-strong: #5b1fd9;
+  --admin-brand-gold-muted: rgba(113, 46, 255, 0.1);
+  --admin-brand-gold-border: rgba(113, 46, 255, 0.28);
+  --admin-brand-gold-glow: rgba(113, 46, 255, 0.22);
+  --admin-brand-gold-ink: #712eff;
+  --admin-brand-gold-contrast: #ffffff;
+}
+
+.dark {
+  --admin-foundation-canvas: #0a0a0c;
+  --admin-foundation-canvas-raised: #121214;
+  --admin-foundation-surface: #161618;
+  --admin-foundation-primary: #8b5cff;
+  --admin-foundation-primary-hover: #a078ff;
+  --admin-foundation-primary-pressed: #712eff;
+  --admin-foundation-primary-soft: rgba(139, 92, 255, 0.16);
+  --admin-foundation-primary-border: rgba(139, 92, 255, 0.35);
+  --admin-foundation-primary-glow: rgba(139, 92, 255, 0.3);
+
+  --admin-accent: #8b5cff;
+  --admin-accent-strong: #a078ff;
+  --admin-accent-ink: #c4b5ff;
+  --admin-accent-muted: rgba(139, 92, 255, 0.12);
+  --admin-accent-soft: rgba(139, 92, 255, 0.18);
+  --admin-accent-border: rgba(139, 92, 255, 0.32);
+  --admin-accent-glow: rgba(139, 92, 255, 0.28);
+  --admin-accent-cyan: #a078ff;
+
+  --admin-focus-ring: 0 0 0 2px #161618, 0 0 0 4px rgba(139, 92, 255, 0.4);
+  --dm-violet: #8b5cff;
+  --dm-violet-bright: #a078ff;
+  --dm-violet-soft: rgba(139, 92, 255, 0.16);
+  --dm-violet-glow: rgba(139, 92, 255, 0.35);
+}
+
+/* ── Canvas wash ── */
+html:not(.dark) body,
+html:not(.dark) .admin-dashboard-canvas,
+html:not(.dark) .admin-module-page,
+html:not(.dark) .admin-module-canvas {
+  background-color: var(--dm-canvas) !important;
+}
+
+/* ── Primary CTAs — Design Monks violet (not flat black) ── */
+html:not(.dark) :is(
+  .admin-btn:not(.admin-btn--secondary):not(.admin-btn--ghost):not(.admin-btn--danger):not(.admin-btn--warning):not(.admin-btn--success),
+  .admin-btn--primary,
+  .admin-btn--gold,
+  a.admin-btn:not(.admin-btn--secondary):not(.admin-btn--ghost):not(.admin-btn--danger)
+) {
+  background: linear-gradient(180deg, #8450ff 0%, #712eff 55%, #5b1fd9 100%) !important;
+  border: 1px solid #5b1fd9 !important;
+  color: #fafafa !important;
+  border-radius: 10px !important;
+  box-shadow:
+    0 1px 2px rgba(91, 31, 217, 0.25),
+    0 10px 28px rgba(113, 46, 255, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+html:not(.dark) :is(
+  .admin-btn:not(.admin-btn--secondary):not(.admin-btn--ghost):not(.admin-btn--danger):not(.admin-btn--warning):not(.admin-btn--success),
+  .admin-btn--primary,
+  .admin-btn--gold
+):hover:not(:disabled) {
+  background: linear-gradient(180deg, #9566ff 0%, #7d40ff 50%, #712eff 100%) !important;
+  box-shadow:
+    0 2px 4px rgba(91, 31, 217, 0.28),
+    0 16px 36px rgba(113, 46, 255, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+.dark :is(
+  .admin-btn:not(.admin-btn--secondary):not(.admin-btn--ghost):not(.admin-btn--danger):not(.admin-btn--warning):not(.admin-btn--success),
+  .admin-btn--primary,
+  .admin-btn--gold
+) {
+  background: linear-gradient(180deg, #9566ff 0%, #8b5cff 55%, #712eff 100%) !important;
+  border-color: #a078ff !important;
+  color: #fafafa !important;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 12px 32px rgba(139, 92, 255, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+}
+
+/* Keep ink “dark” variant for rare cases */
+html:not(.dark) .admin-btn--dark {
+  background: linear-gradient(180deg, #1a1a1a, #0a0a0a) !important;
+  border-color: #0a0a0a !important;
+  color: #fafafa !important;
+  box-shadow: 0 8px 22px rgba(10, 10, 10, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Specular primary — violet tint wash */
+html:not(.dark) .specular-button--theme-light {
+  --sb-tint: #712eff !important;
+  --sb-tint-opacity: 0.92 !important;
+  --sb-text-color: #fafafa !important;
+  box-shadow:
+    0 1px 2px rgba(91, 31, 217, 0.25),
+    0 10px 28px rgba(113, 46, 255, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+}
+
+.dark .specular-button--theme-dark {
+  --sb-tint: #8b5cff !important;
+  --sb-tint-opacity: 0.95 !important;
+  --sb-text-color: #fafafa !important;
+  --sb-line-color: #e9e0ff;
+}
+
+/* ── Sidebar active — violet accent bar (Design Monks energy) ── */
+html:not(.dark) .admin-sidebar .admin-nav-item--active::before,
+.dark .admin-sidebar .admin-nav-item--active::before {
+  display: block !important;
+  background: linear-gradient(180deg, #a078ff, #712eff 50%, #5b1fd9) !important;
+  box-shadow: 0 0 12px rgba(113, 46, 255, 0.45) !important;
+  width: 3.5px !important;
+}
+
+html:not(.dark) .admin-sidebar .admin-nav-item--active {
+  border-color: rgba(113, 46, 255, 0.14) !important;
+  box-shadow:
+    0 1px 2px rgba(113, 46, 255, 0.06),
+    0 10px 28px rgba(113, 46, 255, 0.1),
+    0 4px 12px rgba(15, 23, 42, 0.04) !important;
+}
+
+.dark .admin-sidebar .admin-nav-item--active,
+.dark .admin-sidebar .admin-nav-item--active:hover {
+  background: linear-gradient(165deg, rgba(113, 46, 255, 0.22), rgba(113, 46, 255, 0.08)) !important;
+  border: 1px solid rgba(139, 92, 255, 0.28) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 12px 32px rgba(113, 46, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark .admin-sidebar .admin-nav-item--active .admin-nav-item__icon {
+  background: rgba(139, 92, 255, 0.25) !important;
+  border-color: rgba(167, 139, 250, 0.35) !important;
+  color: #e9e0ff !important;
+}
+
+/* ── Focus / search — violet ring ── */
+html:not(.dark) .admin-search:focus-within {
+  border-color: rgba(113, 46, 255, 0.45) !important;
+  box-shadow:
+    0 0 0 3px rgba(113, 46, 255, 0.14),
+    0 12px 28px rgba(113, 46, 255, 0.1),
+    inset 0 1px 0 #fff !important;
+}
+
+.dark .admin-search:focus-within {
+  border-color: rgba(139, 92, 255, 0.5) !important;
+  box-shadow:
+    0 0 0 3px rgba(139, 92, 255, 0.18),
+    0 12px 28px rgba(0, 0, 0, 0.4) !important;
+}
+
+html:not(.dark) :is(input, textarea, select, .admin-input, .admin-premium-select):focus {
+  border-color: rgba(113, 46, 255, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(113, 46, 255, 0.14) !important;
+}
+
+/* ── Live pill / segment active ── */
+.premium-dash__live {
+  border-color: rgba(113, 46, 255, 0.28) !important;
+  background: linear-gradient(180deg, rgba(113, 46, 255, 0.12), rgba(113, 46, 255, 0.06)) !important;
+  color: #5b1fd9 !important;
+  box-shadow: 0 0 0 3px rgba(113, 46, 255, 0.08), 0 4px 12px rgba(113, 46, 255, 0.12) !important;
+}
+
+.premium-dash__live-dot {
+  background: #712eff !important;
+  box-shadow: 0 0 0 3px rgba(113, 46, 255, 0.22) !important;
+}
+
+html:not(.dark) .premium-dash__segment .admin-segment__btn--active,
+html:not(.dark) .admin-segment__btn--active {
+  background: linear-gradient(180deg, #8450ff, #712eff) !important;
+  color: #fafafa !important;
+  box-shadow: 0 4px 14px rgba(113, 46, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+.dark .premium-dash__segment .admin-segment__btn--active,
+.dark .admin-segment__btn--active {
+  background: linear-gradient(180deg, #9566ff, #8b5cff) !important;
+  color: #fafafa !important;
+  box-shadow: 0 6px 18px rgba(113, 46, 255, 0.35) !important;
+}
+
+/* ── Hero atmospheric violet (Design Monks energy, restrained) ── */
+.premium-dash__hero {
+  background:
+    radial-gradient(ellipse 90% 80% at 100% -20%, rgba(113, 46, 255, 0.12), transparent 52%),
+    radial-gradient(ellipse 70% 60% at -10% 120%, rgba(125, 64, 255, 0.08), transparent 48%),
+    linear-gradient(165deg, #ffffff 0%, #fafafa 100%) !important;
+}
+
+.dark .premium-dash__hero {
+  background:
+    radial-gradient(ellipse 80% 70% at 100% -10%, rgba(139, 92, 255, 0.2), transparent 50%),
+    radial-gradient(ellipse 60% 50% at 0% 110%, rgba(113, 46, 255, 0.12), transparent 45%),
+    linear-gradient(165deg, rgba(28, 24, 40, 0.98) 0%, rgba(12, 10, 18, 0.96) 100%) !important;
+}
+
+.premium-dash__hero-copy::before {
+  background: linear-gradient(180deg, #a078ff 0%, #712eff 50%, #5b1fd9 100%) !important;
+  box-shadow: 0 0 14px rgba(113, 46, 255, 0.45) !important;
+}
+
+/* ── Module heroes ── */
+html:not(.dark) .admin-module-hero,
+html:not(.dark) .admin-page-header {
+  background:
+    radial-gradient(ellipse 80% 70% at 100% -20%, rgba(113, 46, 255, 0.1), transparent 50%),
+    linear-gradient(165deg, #ffffff, #fafafa) !important;
+}
+
+.dark .admin-module-hero,
+.dark .admin-page-header {
+  background:
+    radial-gradient(ellipse 80% 70% at 100% -10%, rgba(139, 92, 255, 0.16), transparent 50%),
+    linear-gradient(165deg, rgba(30, 26, 42, 0.96), rgba(14, 12, 20, 0.94)) !important;
+}
+
+/* ── Subnav active — violet glass on dark, ink+violet edge on light ── */
+html:not(.dark) .ops-subnav__link--active,
+html:not(.dark) .admin-tab-pill--active {
+  background: linear-gradient(180deg, #8450ff, #712eff) !important;
+  border-color: #5b1fd9 !important;
+  color: #fafafa !important;
+  box-shadow: 0 6px 18px rgba(113, 46, 255, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+.dark .ops-subnav__link--active,
+.dark .admin-tab-pill--active {
+  background: linear-gradient(180deg, rgba(139, 92, 255, 0.35), rgba(113, 46, 255, 0.18)) !important;
+  border: 1px solid rgba(167, 139, 250, 0.4) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 28px rgba(113, 46, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+/* ── Header zap chip — violet energy ── */
+html:not(.dark) .admin-header-chip--zap {
+  background: linear-gradient(165deg, #f3eeff, #e8deff) !important;
+  border-color: rgba(113, 46, 255, 0.3) !important;
+  color: #5b1fd9 !important;
+}
+
+html:not(.dark) .admin-header-chip--zap:hover {
+  border-color: rgba(113, 46, 255, 0.45) !important;
+  color: #712eff !important;
+  box-shadow: 0 0 0 3px rgba(113, 46, 255, 0.14), 0 12px 28px rgba(113, 46, 255, 0.18) !important;
+}
+
+.dark .admin-header-chip--zap {
+  background: linear-gradient(165deg, rgba(139, 92, 255, 0.28), rgba(113, 46, 255, 0.12)) !important;
+  border-color: rgba(139, 92, 255, 0.4) !important;
+  color: #c4b5ff !important;
+}
+
+/* ── Table hover wash ── */
+html:not(.dark) .admin-module-table tbody tr:hover,
+html:not(.dark) .admin-table tbody tr:hover {
+  background: rgba(113, 46, 255, 0.04) !important;
+}
+
+.dark .admin-module-table tbody tr:hover,
+.dark .admin-table tbody tr:hover {
+  background: rgba(139, 92, 255, 0.08) !important;
+}
+
+/* ── Profile hover ring — violet ── */
+html:not(.dark) .admin-profile-pill:hover .admin-profile-pill__avatar,
+html:not(.dark) .admin-profile-pill:hover .admin-profile-pill__logo {
+  box-shadow:
+    0 0 0 3px rgba(113, 46, 255, 0.18),
+    0 8px 20px rgba(17, 18, 22, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+}
+
+.dark .admin-profile-pill:hover .admin-profile-pill__avatar,
+.dark .admin-profile-pill:hover .admin-profile-pill__logo {
+  box-shadow:
+    0 0 0 3px rgba(139, 92, 255, 0.28),
+    0 8px 20px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PROFILE PILL — square brand mark (not crushed wordmark)
+   Design Monks energy: violet pad · crisp mark · live pulse
+   ═══════════════════════════════════════════════════════════════ */
+html:not(.dark) .admin-profile-pill,
+.dark .admin-profile-pill {
+  gap: 0.7rem !important;
+  border-radius: 16px !important;
+  padding: 0.28rem 0.8rem 0.28rem 0.28rem !important;
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease !important;
+}
+
+html:not(.dark) .admin-profile-pill {
+  border: 1px solid rgba(113, 46, 255, 0.12) !important;
+  background: linear-gradient(165deg, #ffffff 0%, #f7f5ff 100%) !important;
+  box-shadow:
+    0 1px 2px rgba(113, 46, 255, 0.06),
+    0 10px 24px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+}
+
+html:not(.dark) .admin-profile-pill:hover {
+  transform: translateY(-1px) !important;
+  border-color: rgba(113, 46, 255, 0.28) !important;
+  box-shadow:
+    0 2px 4px rgba(113, 46, 255, 0.1),
+    0 16px 36px rgba(113, 46, 255, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+}
+
+.dark .admin-profile-pill {
+  border: 1px solid rgba(139, 92, 255, 0.22) !important;
+  background: linear-gradient(165deg, rgba(36, 32, 52, 0.95), rgba(18, 16, 28, 0.92)) !important;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(139, 92, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark .admin-profile-pill:hover {
+  transform: translateY(-1px) !important;
+  border-color: rgba(167, 139, 250, 0.4) !important;
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.5),
+    0 0 24px rgba(113, 46, 255, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+html:not(.dark) .admin-profile-pill__avatar,
+html:not(.dark) .admin-profile-pill__logo,
+.dark .admin-profile-pill__avatar,
+.dark .admin-profile-pill__logo {
+  position: relative !important;
+  width: 2.45rem !important;
+  height: 2.45rem !important;
+  min-width: 2.45rem !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  padding: 0.32rem !important;
+  display: grid !important;
+  place-items: center !important;
+  transition:
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 200ms ease !important;
+}
+
+html:not(.dark) .admin-profile-pill__avatar,
+html:not(.dark) .admin-profile-pill__logo {
+  border: 1px solid rgba(15, 23, 42, 0.2) !important;
+  background: #0a0a0a !important;
+  box-shadow:
+    0 4px 14px rgba(113, 46, 255, 0.25),
+    0 0 0 2px rgba(113, 46, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  padding: 0.2rem !important;
+}
+
+.dark .admin-profile-pill__avatar,
+.dark .admin-profile-pill__logo {
+  border: 1px solid rgba(167, 139, 250, 0.45) !important;
+  background: #0a0a0a !important;
+  box-shadow:
+    0 4px 16px rgba(113, 46, 255, 0.4),
+    0 0 0 2px rgba(139, 92, 255, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  padding: 0.2rem !important;
+}
+
+/* Soft live pulse around mark */
+html:not(.dark) .admin-profile-pill__logo::after,
+.dark .admin-profile-pill__logo::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: -3px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(113, 46, 255, 0.45);
+  opacity: 0;
+  animation: dm-profile-pulse 2.4s ease-out infinite;
+}
+
+@keyframes dm-profile-pulse {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
+html:not(.dark) .admin-profile-pill:hover .admin-profile-pill__avatar,
+html:not(.dark) .admin-profile-pill:hover .admin-profile-pill__logo,
+.dark .admin-profile-pill:hover .admin-profile-pill__avatar,
+.dark .admin-profile-pill:hover .admin-profile-pill__logo {
+  transform: scale(1.07) rotate(-3deg) !important;
+}
+
+/* Square mark — white glyph on violet pad (legible) */
+html:not(.dark) .admin-profile-pill__logo .splaro-admin-logo,
+html:not(.dark) .admin-profile-pill__logo .splaro-admin-logo__img,
+.dark .admin-profile-pill__logo .splaro-admin-logo,
+.dark .admin-profile-pill__logo .splaro-admin-logo__img {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  filter: brightness(0) invert(1) !important;
+}
+
+/* White mark asset — never invert (was washing logo to blank) */
+html:not(.dark) .admin-profile-pill__logo .splaro-admin-logo--preinverted,
+html:not(.dark) .admin-profile-pill__logo .splaro-admin-logo--preinverted .splaro-admin-logo__img,
+.dark .admin-profile-pill__logo .splaro-admin-logo--preinverted,
+.dark .admin-profile-pill__logo .splaro-admin-logo--preinverted .splaro-admin-logo__img {
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+.admin-profile-pill:active .admin-profile-pill__logo {
+  transform: scale(0.94) !important;
+  transition-duration: 70ms !important;
+}
+
+/* ── Click ripple language (buttons / chips / nav) ── */
+:is(.admin-btn, .specular-button, .admin-header-chip, .admin-nav-item, .admin-quick-tile)::before {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at var(--dm-ripple-x, 50%) var(--dm-ripple-y, 50%), rgba(255, 255, 255, 0.45), transparent 55%);
+  opacity: 0;
+  transform: scale(0.4);
+  transition: opacity 280ms ease, transform 280ms ease;
+  z-index: 1;
+}
+
+:is(.admin-btn, .specular-button, .admin-header-chip, .admin-nav-item, .admin-quick-tile):active::before {
+  opacity: 0.55;
+  transform: scale(1.15);
+  transition-duration: 80ms;
+}
+
+.admin-nav-item,
+.admin-quick-tile,
+.admin-header-chip {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not(.dark) .admin-profile-pill__logo::after,
+  .dark .admin-profile-pill__logo::after {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+
+  html:not(.dark) .admin-profile-pill:hover,
+  .dark .admin-profile-pill:hover,
+  html:not(.dark) .admin-profile-pill:hover .admin-profile-pill__logo,
+  .dark .admin-profile-pill:hover .admin-profile-pill__logo {
+    transform: none !important;
+  }
+}
+
+/* ── Login CTA — Design Monks violet (glass earth shell) ── */
+.admin-auth-submit {
+  border: 1px solid rgba(167, 139, 250, 0.45) !important;
+  background:
+    linear-gradient(180deg, #9566ff 0%, #712eff 55%, #5b1fd9 100%) !important;
+  color: #fafafa !important;
+  box-shadow:
+    0 1px 2px rgba(91, 31, 217, 0.35),
+    0 14px 36px rgba(113, 46, 255, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+}
+
+.admin-auth-submit:hover:not(:disabled) {
+  background: linear-gradient(180deg, #a078ff 0%, #8450ff 50%, #712eff 100%) !important;
+  transform: translateY(-2px) !important;
+  box-shadow:
+    0 2px 4px rgba(91, 31, 217, 0.4),
+    0 20px 44px rgba(113, 46, 255, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+}
+
+.admin-auth-submit:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98) !important;
+  box-shadow:
+    0 1px 2px rgba(91, 31, 217, 0.4),
+    inset 0 2px 8px rgba(45, 10, 120, 0.45) !important;
+}
+
+/* Soft live pulse — disabled (felt laggy); keep static violet ring only */
+html:not(.dark) .admin-profile-pill__logo::after,
+.dark .admin-profile-pill__logo::after {
+  animation: none !important;
+  opacity: 0.35 !important;
+  transform: none !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Kill expensive ripple pseudo on nav (paint thrash) */
+.admin-nav-item::before,
+.admin-quick-tile::before,
+.admin-header-chip::before {
+  content: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PACKING STATION — Design Monks violet workspace
+   ═══════════════════════════════════════════════════════════════ */
+.packing-station {
+  --packing-control-active: #712eff !important;
+  --packing-control-active-text: #fafafa !important;
+  --packing-focus: rgba(113, 46, 255, 0.22) !important;
+  --packing-card-border: rgba(113, 46, 255, 0.1) !important;
+}
+
+.dark .packing-station {
+  --packing-control-active: #8b5cff !important;
+  --packing-control-active-text: #fafafa !important;
+  --packing-focus: rgba(139, 92, 255, 0.28) !important;
+}
+
+html:not(.dark) .packing-station .admin-kpi {
+  border: 1px solid rgba(113, 46, 255, 0.1) !important;
+  background: linear-gradient(165deg, #ffffff 0%, #f7f5ff 100%) !important;
+  box-shadow:
+    0 1px 2px rgba(113, 46, 255, 0.05),
+    0 10px 28px rgba(15, 23, 42, 0.05),
+    inset 0 1px 0 #fff !important;
+  border-radius: 18px !important;
+  transition: transform 90ms var(--admin-press-ease), box-shadow 90ms ease !important;
+}
+
+html:not(.dark) .packing-station .admin-kpi:hover {
+  transform: translateY(-2px) !important;
+  box-shadow:
+    0 2px 4px rgba(113, 46, 255, 0.08),
+    0 16px 36px rgba(113, 46, 255, 0.12),
+    inset 0 1px 0 #fff !important;
+}
+
+.packing-station .admin-kpi__icon {
+  background: linear-gradient(145deg, #f3eeff, #e8deff) !important;
+  border: 1px solid rgba(113, 46, 255, 0.22) !important;
+  color: #5b1fd9 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(113, 46, 255, 0.12), inset 0 1px 0 #fff !important;
+}
+
+.packing-station .admin-kpi:nth-child(1) .admin-kpi__icon { color: #0f766e !important; background: linear-gradient(145deg, #f0fdfa, #ccfbf1) !important; border-color: rgba(20, 184, 166, 0.25) !important; }
+.packing-station .admin-kpi:nth-child(2) .admin-kpi__icon { color: #0369a1 !important; background: linear-gradient(145deg, #f0f9ff, #e0f2fe) !important; border-color: rgba(14, 165, 233, 0.25) !important; }
+.packing-station .admin-kpi:nth-child(3) .admin-kpi__icon { color: #b45309 !important; background: linear-gradient(145deg, #fffbeb, #fef3c7) !important; border-color: rgba(245, 158, 11, 0.28) !important; }
+.packing-station .admin-kpi:nth-child(4) .admin-kpi__icon { color: #15803d !important; background: linear-gradient(145deg, #f0fdf4, #dcfce7) !important; border-color: rgba(34, 197, 94, 0.25) !important; }
+
+html:not(.dark) .packing-station__scanner,
+html:not(.dark) .packing-station__history {
+  border: 1px solid rgba(113, 46, 255, 0.1) !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%) !important;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 16px 40px rgba(113, 46, 255, 0.06),
+    inset 0 1px 0 #fff !important;
+  border-radius: 22px !important;
+}
+
+.packing-station__mode--active {
+  background: linear-gradient(180deg, #8450ff 0%, #712eff 55%, #5b1fd9 100%) !important;
+  border-color: #5b1fd9 !important;
+  color: #fafafa !important;
+  box-shadow:
+    0 1px 2px rgba(91, 31, 217, 0.25),
+    0 12px 28px rgba(113, 46, 255, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+.packing-station__mode--active .packing-station__mode-icon {
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+  opacity: 1 !important;
+}
+
+.packing-station__mode:not(.packing-station__mode--active) {
+  border: 1px solid rgba(15, 23, 42, 0.1) !important;
+  background: linear-gradient(180deg, #ffffff, #f4f6f9) !important;
+  transition: transform 90ms var(--admin-press-ease), box-shadow 90ms ease, border-color 90ms ease !important;
+}
+
+.packing-station__mode:active {
+  transform: scale(0.985) !important;
+  transition-duration: 50ms !important;
+}
+
+.packing-station__input:focus {
+  border-color: rgba(113, 46, 255, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(113, 46, 255, 0.16) !important;
+}
+
+.packing-station__input-state {
+  background: linear-gradient(180deg, #dcfce7, #bbf7d0) !important;
+  color: #166534 !important;
+  border: 1px solid rgba(34, 197, 94, 0.3) !important;
+  font-weight: 800 !important;
+}
+
+.packing-station__idle > span,
+.packing-station__result-icon {
+  background: linear-gradient(145deg, #f3eeff, #e8deff) !important;
+  border: 1px solid rgba(113, 46, 255, 0.22) !important;
+  color: #712eff !important;
+}
+
+.admin-module-page,
+.admin-module-canvas,
+.admin-dashboard-canvas,
+.settings-page {
+  animation-duration: 180ms !important;
+}

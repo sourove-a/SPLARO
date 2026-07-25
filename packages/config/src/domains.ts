@@ -88,6 +88,8 @@ function isLoopbackHostname(hostname: string): boolean {
     h === 'localhost' ||
     h === '127.0.0.1' ||
     h === '0.0.0.0' ||
+    h === '::1' ||
+    h === '[::1]' ||
     h.endsWith('.local') ||
     h.endsWith('.localhost')
   )
@@ -151,6 +153,31 @@ export function resolveCustomerFacingSiteUrl(override?: string | null): string {
   return 'https://splaro.co'
 }
 
+/**
+ * Absolute URL safe for Google Sheets, emails, invoices and other external
+ * surfaces. Loopback origins are rewritten to the customer-facing SPLARO
+ * origin while preserving the asset path and query string.
+ */
+export function resolveCustomerFacingAssetUrl(value?: string | null): string {
+  const raw = value?.trim()
+  if (!raw || raw.startsWith('data:') || raw.startsWith('blob:')) return ''
+
+  const site = resolveCustomerFacingSiteUrl()
+  try {
+    const url = new URL(raw, `${site}/`)
+    if (isLoopbackHostname(url.hostname)) {
+      const canonical = new URL(site)
+      url.protocol = canonical.protocol
+      url.hostname = canonical.hostname
+      url.port = canonical.port
+    }
+    return url.toString()
+  } catch {
+    const path = raw.startsWith('/') ? raw : `/${raw}`
+    return `${site}${path}`
+  }
+}
+
 /** Public admin origin — never localhost in production. */
 export function resolvePublicAdminUrl(override?: string | null): string {
   const candidates = [
@@ -174,6 +201,31 @@ export function resolvePublicAdminUrl(override?: string | null): string {
   return isProd ? 'https://admin.splaro.co' : SPLARO_DOMAINS.admin.replace(/\/+$/, '')
 }
 
+/**
+ * Admin origin for Telegram buttons / externally shared ops links.
+ * Never returns localhost — even in development.
+ */
+export function resolveCustomerFacingAdminUrl(override?: string | null): string {
+  const candidates = [
+    override,
+    process.env.ADMIN_URL,
+    process.env.NEXT_PUBLIC_ADMIN_URL,
+    'https://admin.splaro.co',
+  ]
+  for (const candidate of candidates) {
+    const raw = candidate?.trim()
+    if (!raw) continue
+    try {
+      const url = new URL(raw.startsWith('http') ? raw : `https://${raw}`)
+      if (isLoopbackHostname(url.hostname)) continue
+      return url.origin
+    } catch {
+      /* try next */
+    }
+  }
+  return 'https://admin.splaro.co'
+}
+
 /** Public API origin (no `/api/v1`) — OAuth callbacks, etc. */
 export function resolvePublicApiOrigin(override?: string | null): string {
   const candidates = [
@@ -195,4 +247,59 @@ export function resolvePublicApiOrigin(override?: string | null): string {
     }
   }
   return isProd ? 'https://api.splaro.co' : 'http://localhost:4000'
+}
+
+/**
+ * Public API base (`…/api/v1`) for payment-gateway callbacks and other
+ * externally reachable endpoints. Never returns loopback — gateways cannot
+ * hit 127.0.0.1 even when the Nest process itself is local to the VPS.
+ */
+export function resolveCustomerFacingApiBase(override?: string | null): string {
+  const candidates = [
+    override,
+    process.env.NEXT_PUBLIC_API_URL,
+    process.env.API_URL,
+    'https://splaro.co/api/v1',
+  ]
+  for (const candidate of candidates) {
+    const raw = candidate?.trim()
+    if (!raw) continue
+    try {
+      const normalized = normalizeApiBase(raw)
+      const origin = new URL(normalized.replace(/\/api\/v1\/?$/i, '') || normalized)
+      if (isLoopbackHostname(origin.hostname)) continue
+      return normalized
+    } catch {
+      /* try next */
+    }
+  }
+  return 'https://splaro.co/api/v1'
+}
+
+/**
+ * Persist media as portable paths when the host is loopback or SPLARO itself.
+ * External CDNs stay absolute. Loopback origins never enter the database.
+ */
+export function toStoredMediaUrl(value?: string | null): string {
+  const raw = value?.trim()
+  if (!raw || raw.startsWith('data:') || raw.startsWith('blob:')) return ''
+  if (raw.startsWith('/')) return raw
+
+  try {
+    const site = resolveCustomerFacingSiteUrl()
+    const url = new URL(raw)
+    const host = url.hostname.replace(/^www\./, '').toLowerCase()
+    const siteHost = new URL(site).hostname.replace(/^www\./, '').toLowerCase()
+    if (
+      isLoopbackHostname(host) ||
+      host === siteHost ||
+      host === 'admin.splaro.co' ||
+      host === 'api.splaro.co'
+    ) {
+      return `${url.pathname}${url.search}`
+    }
+    return url.toString()
+  } catch {
+    return raw.startsWith('/') ? raw : `/${raw}`
+  }
 }

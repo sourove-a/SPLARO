@@ -7,7 +7,7 @@ import { reconcileAuthSession } from '@/lib/api/session'
 import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 
 const CRITICAL_AUTH_PATH =
-  /^\/(checkout|cart|account|login|signup|forgot-password|reset-password)(\/|$)/
+  /^\/(checkout|cart|account|login|signup|forgot-password|reset-password|verify-email)(\/|$)/
 
 const NEEDS_PHONE_GATE =
   /^\/(checkout|account)(\/|$)/

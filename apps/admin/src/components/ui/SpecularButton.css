@@ -1,0 +1,144 @@
+.specular-button {
+  --sb-radius: 18px;
+  --sb-tint: #ffffff;
+  --sb-tint-opacity: 0;
+  --sb-blur: 0px;
+  --sb-text-color: #f5f5f5;
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: none;
+  margin: 0;
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: var(--sb-text-color);
+  background: color-mix(in srgb, var(--sb-tint) calc(var(--sb-tint-opacity) * 100%), transparent);
+  border-radius: var(--sb-radius);
+  backdrop-filter: blur(var(--sb-blur));
+  -webkit-backdrop-filter: blur(var(--sb-blur));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  outline: none;
+  transition:
+    transform 0.15s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.15s ease,
+    opacity 0.15s ease,
+    filter 0.15s ease;
+  isolation: isolate;
+}
+
+/* Light (day): soft lift, graphite fill */
+html:not(.dark) .specular-button--theme-light {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 1px 2px rgba(15, 23, 42, 0.1),
+    0 8px 20px rgba(15, 23, 42, 0.14);
+}
+
+html:not(.dark) .specular-button--theme-light:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 2px 4px rgba(15, 23, 42, 0.12),
+    0 12px 28px rgba(15, 23, 42, 0.18);
+}
+
+/* Dark (night): luminous rim, cool depth */
+.dark .specular-button--theme-dark {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+.dark .specular-button--theme-dark:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 2px 6px rgba(0, 0, 0, 0.4),
+    0 14px 32px rgba(0, 0, 0, 0.55);
+}
+
+.specular-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.specular-button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.96);
+  transition-duration: 70ms;
+}
+
+.specular-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--sb-text-color) 60%, transparent);
+  outline-offset: 3px;
+}
+
+.specular-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.specular-button:disabled:active,
+.specular-button:disabled:hover {
+  transform: none;
+}
+
+.specular-button--sm {
+  font-size: 0.75rem;
+  padding: 0.4rem 0.85rem;
+  min-height: var(--admin-control-height-sm, 32px);
+  border-radius: var(--admin-radius-compact, 10px);
+}
+
+.specular-button--md {
+  font-size: 0.8125rem;
+  padding: 0.55rem 1rem;
+  min-height: var(--admin-control-height, 36px);
+}
+
+.specular-button--lg {
+  font-size: 0.875rem;
+  padding: 0.7rem 1.2rem;
+  min-height: var(--admin-control-height-lg, 42px);
+}
+
+/* Canvas extends past the button so the rim glow can bleed outside the edge */
+.specular-button__fx {
+  position: absolute;
+  inset: -20px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.specular-button__fx canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.specular-button__label {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .specular-button,
+  .specular-button:hover:not(:disabled),
+  .specular-button:active:not(:disabled) {
+    transition: none;
+    transform: none;
+  }
+
+  .specular-button__fx {
+    display: none;
+  }
+}

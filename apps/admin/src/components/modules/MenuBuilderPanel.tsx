@@ -11,7 +11,8 @@ import type { MenuHeroOverride, MenuOverridesConfig } from '@/lib/api/settings'
 interface MenuBuilderPanelProps {
   menuOverrides: MenuOverridesConfig
   onChange: (next: MenuOverridesConfig) => void
-  onSave: () => void
+  /** Pass next overrides when auto-saving hide/unhide so parent never saves a stale draft. */
+  onSave: (overrides?: MenuOverridesConfig) => void
   saving?: boolean
 }
 
@@ -35,15 +36,21 @@ export function MenuBuilderPanel({ menuOverrides, onChange, onSave, saving }: Me
     })
   }, [menuOverrides.departments, treeData?.tree])
 
-  const patchDept = (slug: string, patch: Partial<NonNullable<MenuOverridesConfig['departments']>[number]>) => {
+  const patchDept = (
+    slug: string,
+    patch: Partial<NonNullable<MenuOverridesConfig['departments']>[number]>,
+    autoSave = false,
+  ) => {
     const existing = menuOverrides.departments ?? []
     const index = existing.findIndex((d) => d.departmentSlug === slug)
     const base = index >= 0 ? existing[index]! : { departmentSlug: slug }
     const nextDept = { ...base, ...patch, departmentSlug: slug }
-    const next = [...existing]
-    if (index >= 0) next[index] = nextDept
-    else next.push(nextDept)
-    onChange({ ...menuOverrides, departments: next })
+    const nextDepts = [...existing]
+    if (index >= 0) nextDepts[index] = nextDept
+    else nextDepts.push(nextDept)
+    const next = { ...menuOverrides, departments: nextDepts }
+    onChange(next)
+    if (autoSave) onSave(next)
   }
 
   const toggleHiddenCategory = (deptSlug: string, categoryId: string) => {
@@ -51,7 +58,7 @@ export function MenuBuilderPanel({ menuOverrides, onChange, onSave, saving }: Me
     const hidden = new Set(dept?.hiddenCategoryIds ?? [])
     if (hidden.has(categoryId)) hidden.delete(categoryId)
     else hidden.add(categoryId)
-    patchDept(deptSlug, { hiddenCategoryIds: [...hidden] })
+    patchDept(deptSlug, { hiddenCategoryIds: [...hidden] }, true)
   }
 
   const moveCategory = (deptSlug: string, categoryId: string, direction: -1 | 1) => {
@@ -101,7 +108,8 @@ export function MenuBuilderPanel({ menuOverrides, onChange, onSave, saving }: Me
               <AdminButton
                 size="sm"
                 variant="ghost"
-                onClick={() => patchDept(slug, { hidden: !override?.hidden })}
+                loading={Boolean(saving)}
+                onClick={() => patchDept(slug, { hidden: !override?.hidden }, true)}
               >
                 {override?.hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                 {override?.hidden ? 'Show dept' : 'Hide dept'}
@@ -109,7 +117,8 @@ export function MenuBuilderPanel({ menuOverrides, onChange, onSave, saving }: Me
               <AdminButton
                 size="sm"
                 variant="ghost"
-                onClick={() => patchDept(slug, { forceVisible: !override?.forceVisible })}
+                loading={Boolean(saving)}
+                onClick={() => patchDept(slug, { forceVisible: !override?.forceVisible }, true)}
               >
                 {override?.forceVisible ? 'Auto hide when empty' : 'Force visible'}
               </AdminButton>
@@ -144,7 +153,12 @@ export function MenuBuilderPanel({ menuOverrides, onChange, onSave, saving }: Me
                     <AdminButton size="sm" variant="ghost" onClick={() => moveCategory(slug, child.id, 1)}>
                       <ChevronDown className="h-3.5 w-3.5" />
                     </AdminButton>
-                    <AdminButton size="sm" variant="ghost" onClick={() => toggleHiddenCategory(slug, child.id)}>
+                    <AdminButton
+                      size="sm"
+                      variant="ghost"
+                      loading={Boolean(saving)}
+                      onClick={() => toggleHiddenCategory(slug, child.id)}
+                    >
                       {isHidden ? 'Unhide' : 'Hide'}
                     </AdminButton>
                   </div>
@@ -194,7 +208,7 @@ export function MenuBuilderPanel({ menuOverrides, onChange, onSave, saving }: Me
         </div>
       ))}
 
-      <AdminButton variant="gold" loading={Boolean(saving)} onClick={onSave}>
+      <AdminButton variant="gold" loading={Boolean(saving)} onClick={() => onSave()}>
         Save menu builder
       </AdminButton>
 

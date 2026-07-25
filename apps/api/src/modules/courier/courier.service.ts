@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, Optional, forwardRef } from '@nestjs/common'
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException, Optional, forwardRef } from '@nestjs/common'
 import { InjectQueue } from '@nestjs/bullmq'
 import type { Queue } from 'bullmq'
 import { PrismaService } from '../../common/prisma.service'
@@ -13,6 +13,7 @@ import { SundarbanService } from './providers/sundarban.service'
 import { SaParibahonService } from './providers/sa-paribahan.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { TelegramService } from '../telegram/telegram.service'
+import { OrderStatusService } from '../orders/order-status.service'
 import type { CourierProvider, Order } from '@prisma/client'
 
 export interface BookCourierOptions {
@@ -51,6 +52,7 @@ export class CourierService {
     private readonly telegram: TelegramService | null,
     @InjectQueue('courier') private readonly courierQueue: Queue,
     private readonly redis: RedisService,
+    private readonly orderStatus: OrderStatusService,
   ) {}
 
   /**
@@ -135,38 +137,36 @@ export class CourierService {
     }
 
     if (result.success) {
-      await this.prisma.$transaction([
-        this.prisma.courierShipment.upsert({
-          where: { orderId },
-          create: {
-            orderId,
-            provider: selectedProvider,
-            status: 'BOOKED',
-            consignmentId: result.consignmentId,
-            trackingCode: result.trackingCode,
-            trackingUrl: result.trackingUrl,
-            deliveryCharge: order.deliveryCharge,
-            codAmount: order.paymentMethod === 'CASH_ON_DELIVERY' ? order.total : 0,
-            bookedAt: new Date(),
-          },
-          update: {
-            provider: selectedProvider,
-            status: 'BOOKED',
-            consignmentId: result.consignmentId,
-            trackingCode: result.trackingCode,
-            trackingUrl: result.trackingUrl,
-            bookedAt: new Date(),
-            retryCount: { increment: 0 },
-          },
-        }),
-        this.prisma.order.update({
-          where: { id: orderId },
-          data: { status: 'COURIER_BOOKED' },
-        }),
-        this.prisma.orderStatusHistory.create({
-          data: { orderId, status: 'COURIER_BOOKED', note: `Booked via ${selectedProvider}` },
-        }),
-      ])
+      await this.prisma.courierShipment.upsert({
+        where: { orderId },
+        create: {
+          orderId,
+          provider: selectedProvider,
+          status: 'BOOKED',
+          consignmentId: result.consignmentId,
+          trackingCode: result.trackingCode,
+          trackingUrl: result.trackingUrl,
+          deliveryCharge: order.deliveryCharge,
+          codAmount: order.paymentMethod === 'CASH_ON_DELIVERY' ? order.total : 0,
+          bookedAt: new Date(),
+        },
+        update: {
+          provider: selectedProvider,
+          status: 'BOOKED',
+          consignmentId: result.consignmentId,
+          trackingCode: result.trackingCode,
+          trackingUrl: result.trackingUrl,
+          bookedAt: new Date(),
+          retryCount: { increment: 0 },
+        },
+      })
+      // Shared transition + history (never bypass OrderStatusService)
+      await this.orderStatus.applyStatusChange(
+        orderId,
+        'COURIER_BOOKED',
+        `Booked via ${selectedProvider}`,
+        order.storeId,
+      )
 
       this.logger.log(`Courier booked for order ${orderId}: ${result.consignmentId}`)
 
@@ -374,5 +374,74 @@ export class CourierService {
 
   async manualRetry(orderId: string, provider?: CourierProvider): Promise<CourierBookingResult> {
     return this.bookCourier(orderId, provider)
+  }
+
+  /**
+   * Local cancel only — Steadfast has no public cancel API.
+   * Marks CourierShipment CANCELLED + order history note. Owner must also
+   * cancel in the Steadfast merchant panel if the parcel was live-booked.
+   */
+  async cancelBookingLocal(
+    orderId: string,
+    opts?: { note?: string; storeId?: string },
+  ): Promise<{
+    ok: boolean
+    localOnly: true
+    consignmentId: string | null
+    trackingCode: string | null
+    provider: string
+    message: string
+  }> {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        OR: [{ id: orderId }, { invoiceNumber: orderId }],
+        ...(opts?.storeId ? { storeId: opts.storeId } : {}),
+      },
+      include: { courier: true },
+    })
+    if (!order) throw new NotFoundException('Order not found')
+    if (!order.courier) {
+      throw new BadRequestException('No courier booking on this order')
+    }
+    if (order.courier.status === 'CANCELLED') {
+      return {
+        ok: true,
+        localOnly: true,
+        consignmentId: order.courier.consignmentId,
+        trackingCode: order.courier.trackingCode,
+        provider: order.courier.provider,
+        message: 'Booking already marked cancelled locally',
+      }
+    }
+
+    const note =
+      opts?.note?.trim() ||
+      'Courier booking cancelled locally — also cancel in Steadfast merchant panel if live.'
+
+    await this.prisma.courierShipment.update({
+      where: { orderId: order.id },
+      data: {
+        status: 'CANCELLED',
+        failureReason: note,
+      },
+    })
+
+    await this.prisma.orderStatusHistory.create({
+      data: {
+        orderId: order.id,
+        status: order.status,
+        note: `[Courier] ${note}`,
+      },
+    })
+
+    return {
+      ok: true,
+      localOnly: true,
+      consignmentId: order.courier.consignmentId,
+      trackingCode: order.courier.trackingCode,
+      provider: order.courier.provider,
+      message:
+        'Marked cancelled in SPLARO only. Steadfast has no cancel API — cancel the consignment in the Steadfast merchant panel if it was live-booked.',
+    }
   }
 }

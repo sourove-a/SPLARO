@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import {
   Eye,
+  EyeOff,
   BookOpen,
   Home,
   Inbox,
@@ -332,9 +333,28 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
             <p className="admin-module-card__text mb-4">Top-level navigation labels and URLs.</p>
             <div className="space-y-3">
               {draft.navigation.headerNav.map((item, index) => (
-                <div key={`nav-${index}`} className="grid gap-2 rounded-[14px] border border-black/6 bg-white/70 p-3 md:grid-cols-[1fr_1fr_auto]">
+                <div key={`nav-${index}`} className="grid gap-2 rounded-[14px] border border-black/6 bg-white/70 p-3 md:grid-cols-[1fr_1fr_auto_auto]">
                   <input className="admin-input" placeholder="Label" value={item.label} onChange={(e) => updateNavItem(index, { label: e.target.value })} />
                   <input className="admin-input" placeholder="/shop" value={item.href} onChange={(e) => updateNavItem(index, { href: e.target.value })} />
+                  <AdminButton
+                    variant="ghost"
+                    loading={updateSettings.isPending}
+                    onClick={() => {
+                      const nextHidden = !item.hidden
+                      const headerNav = draft.navigation.headerNav.map((nav, i) =>
+                        i === index ? { ...nav, hidden: nextHidden } : nav,
+                      )
+                      const navigation = { ...draft.navigation, headerNav }
+                      setDraft((p) => ({ ...p, navigation }))
+                      save(
+                        { navigation },
+                        nextHidden ? `${item.label || 'Link'} hidden` : `${item.label || 'Link'} shown`,
+                      )
+                    }}
+                  >
+                    {item.hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                    {item.hidden ? 'Show' : 'Hide'}
+                  </AdminButton>
                   <AdminButton variant="ghost" onClick={() => setDraft((p) => ({ ...p, navigation: { ...p.navigation, headerNav: p.navigation.headerNav.filter((_, i) => i !== index) } }))}>
                     Remove
                   </AdminButton>
@@ -354,9 +374,9 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
           <MenuBuilderPanel
             menuOverrides={draft.menuOverrides ?? { autoSync: true, departments: [] }}
             onChange={(menuOverrides) => setDraft((p) => ({ ...p, menuOverrides }))}
-            onSave={() => {
-              const overrides = draft.menuOverrides ?? { autoSync: true, departments: [] }
-              save({ menuOverrides: overrides }, 'Menu builder')
+            onSave={(overrides) => {
+              const next = overrides ?? draft.menuOverrides ?? { autoSync: true, departments: [] }
+              save({ menuOverrides: next }, 'Menu builder')
             }}
             saving={updateSettings.isPending}
           />
@@ -369,7 +389,9 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
           {...(apiData?.catalogChannels ? { savedChannels: apiData.catalogChannels } : {})}
           storefrontUrl={apiData?.store.domain ? `https://${apiData.store.domain.replace(/^https?:\/\//, '')}` : SPLARO_DOMAINS.site}
           onChange={(catalogChannels) => setDraft((prev) => ({ ...prev, catalogChannels }))}
-          onSave={() => save({ catalogChannels: draft.catalogChannels }, 'Catalog visibility')}
+          onSave={(channels) =>
+            save({ catalogChannels: channels ?? draft.catalogChannels }, 'Catalog visibility')
+          }
           saving={updateSettings.isPending}
         />
       ) : null}

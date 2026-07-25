@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
+import { resolveCustomerFacingAssetUrl } from '@splaro/config'
 import { PrismaService } from '../../common/prisma.service'
 import { FinanceAuditService } from '../../common/finance-audit.service'
 import { ProfitLossService } from './profit-loss.service'
@@ -418,7 +419,7 @@ export class FinanceReportsService {
         costUnit,
         retailValue: stock * retailUnit,
         costValue: stock * costUnit,
-        imageUrl: p.images[0]?.url ?? null,
+        imageUrl: resolveCustomerFacingAssetUrl(p.images[0]?.url) || null,
         demandScore: p.soldCount * 3 + p.viewCount,
       }
     })

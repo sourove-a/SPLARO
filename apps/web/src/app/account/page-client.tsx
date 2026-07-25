@@ -55,7 +55,6 @@ import {
   fetchWishlistProducts,
   sendAccountEmailVerification,
   updateAccountProfile,
-  verifyAccountEmail,
 } from '@/lib/api/account'
 import { displayOrderCode, isFeatureEnabled } from '@splaro/config'
 import { cn } from '@/lib/utils/cn'
@@ -301,7 +300,6 @@ export default function AccountDashboard() {
   const [isSaving, setIsSaving] = useState(false)
   const [connectionError, setConnectionError] = useState('')
   const [verificationOpen, setVerificationOpen] = useState(false)
-  const [verificationCode, setVerificationCode] = useState('')
   const [verificationBusy, setVerificationBusy] = useState(false)
   const [verificationError, setVerificationError] = useState('')
   const [verificationMessage, setVerificationMessage] = useState('')
@@ -563,32 +561,6 @@ export default function AccountDashboard() {
         return
       }
       setVerificationError(error instanceof Error ? error.message : 'Could not send verification email.')
-    } finally {
-      setVerificationBusy(false)
-    }
-  }
-
-  const handleVerifyEmail = async () => {
-    if (verificationBusy) return
-    const code = verificationCode.replace(/\D/g, '')
-    if (code.length !== 6) {
-      setVerificationError('Enter the 6-digit code from your email.')
-      return
-    }
-    setVerificationBusy(true)
-    setVerificationError('')
-    try {
-      const result = await verifyAccountEmail(code)
-      setUser(result.user)
-      setVerificationCode('')
-      setVerificationOpen(false)
-      setVerificationMessage('Email verified successfully.')
-    } catch (error) {
-      if (error instanceof ApiError && error.isAuthError) {
-        await handleSessionExpired()
-        return
-      }
-      setVerificationError(error instanceof Error ? error.message : 'Could not verify email.')
     } finally {
       setVerificationBusy(false)
     }
@@ -1102,8 +1074,10 @@ export default function AccountDashboard() {
                           <div className="account-email-verify__intro">
                             <div className="account-email-verify__mark"><Mail className="h-5 w-5" strokeWidth={1.8} /></div>
                             <div>
-                              <p className="account-email-verify__title">Protect your order updates</p>
-                              <p className="account-email-verify__text">Optional: verify {profile.email} with a private 6-digit code.</p>
+                              <p className="account-email-verify__title">Optional email verification</p>
+                              <p className="account-email-verify__text">
+                                We&apos;ll email a secure link — tap to verify. No code to type. Shopping works either way.
+                              </p>
                             </div>
                             <button
                               type="button"
@@ -1111,28 +1085,18 @@ export default function AccountDashboard() {
                               onClick={() => void handleSendVerification()}
                               disabled={verificationBusy || verificationCooldown > 0}
                             >
-                              {verificationBusy && !verificationOpen ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                              {verificationCooldown > 0 ? `Resend in ${verificationCooldown}s` : verificationOpen ? 'Send again' : 'Verify email'}
+                              {verificationBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                              {verificationCooldown > 0
+                                ? `Resend in ${verificationCooldown}s`
+                                : verificationOpen
+                                  ? 'Resend link'
+                                  : 'Send verify link'}
                             </button>
                           </div>
                           {verificationOpen ? (
-                            <div className="account-email-verify__form">
-                              <input
-                                value={verificationCode}
-                                onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                                className="account-email-code"
-                                inputMode="numeric"
-                                autoComplete="one-time-code"
-                                aria-label="Six digit email verification code"
-                                placeholder="000000"
-                                maxLength={6}
-                                autoFocus
-                              />
-                              <button type="button" className="account-btn account-btn--primary" onClick={() => void handleVerifyEmail()} disabled={verificationBusy || verificationCode.length !== 6}>
-                                {verificationBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                                Confirm code
-                              </button>
-                            </div>
+                            <p className="account-email-verify__success" role="status">
+                              Check your inbox and tap <strong>Verify email</strong>. You can close this tab.
+                            </p>
                           ) : null}
                           {verificationMessage ? <p className="account-email-verify__success" role="status">{verificationMessage}</p> : null}
                           {verificationError ? <p className="account-email-verify__error" role="alert">{verificationError}</p> : null}

@@ -95,12 +95,20 @@ function alignHeroBrandCopy(banner: HeroBanner): HeroBanner {
   return next
 }
 
-function sanitizeHeroBanner(banner: HeroBanner, index: number): HeroBanner {
+function sanitizeHeroBanner(
+  banner: HeroBanner,
+  index: number,
+  options?: { allowVideo?: boolean },
+): HeroBanner {
   const aligned = alignHeroBrandCopy(banner)
   const image = aligned.image?.trim() || ''
   if (!image) return aligned
 
   if (isHeroVideoUrl(image)) {
+    // Admin-configured video slides stay videos — HeroSlider downgrades
+    // UHD→HD, picks mobile renditions, and derives a poster. Only the
+    // curated default path swaps video media for a local still.
+    if (options?.allowVideo) return aligned
     const local =
       HERO_DEFAULT_SLIDES[index % HERO_DEFAULT_SLIDES.length]?.image ??
       HERO_DEFAULT_SLIDES[0]?.image
@@ -116,7 +124,7 @@ export function resolveHeroBanners(
 ): HeroBanner[] {
   const fromApi = apiBanners
     .filter((banner) => banner.image?.trim())
-    .map((banner, index) => sanitizeHeroBanner(banner, index))
+    .map((banner, index) => sanitizeHeroBanner(banner, index, { allowVideo: true }))
   if (fromApi.length) return fromApi
   // Prefer the curated landscape defaults over cropping portrait product shots
   // into the wide hero — only fall to catalog if defaults somehow yield nothing.

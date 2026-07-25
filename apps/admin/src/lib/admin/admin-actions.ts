@@ -111,8 +111,23 @@ export async function downloadInvoice(orderId: string): Promise<boolean> {
     toastFail('Pop-up blocked — allow pop-ups to view invoice.')
     return false
   }
-  toastOk('Invoice opened', 'invoice-view')
-  return true
+  try {
+    const res = await fetchAdminInvoice(orderId, '')
+    if (!res.ok) {
+      try {
+        popup.close()
+      } catch {
+        /* ignore */
+      }
+      toastFail(await parseInvoiceError(res))
+      return false
+    }
+    toastOk('Invoice opened', 'invoice-view')
+    return true
+  } catch {
+    toastFail('Invoice failed — is the API running?')
+    return false
+  }
 }
 
 export async function printInvoice(orderId: string): Promise<boolean> {
@@ -122,8 +137,135 @@ export async function printInvoice(orderId: string): Promise<boolean> {
     toastFail('Pop-up blocked — allow pop-ups to print invoice.')
     return false
   }
-  toastOk('Print dialog opening…', 'invoice-print')
-  return true
+  try {
+    const res = await fetchAdminInvoice(orderId, '/print')
+    if (!res.ok) {
+      try {
+        popup.close()
+      } catch {
+        /* ignore */
+      }
+      toastFail(await parseInvoiceError(res))
+      return false
+    }
+    toastOk('Print dialog opening…', 'invoice-print')
+    return true
+  } catch {
+    toastFail('Invoice print failed — is the API running?')
+    return false
+  }
+}
+
+/** 4×6 thermal shipping label — sync open for popup blockers. Prefer SPL-####. */
+export function orderLabelUrl(orderId: string, kind: 'shipping' | 'sticker' = 'shipping'): string {
+  const suffix = kind === 'sticker' ? '/sticker' : ''
+  return `/api/orders/${encodeURIComponent(orderId)}/label${suffix}`
+}
+
+function openLabelTab(orderId: string, kind: 'shipping' | 'sticker' = 'shipping'): Window | null {
+  const popup = window.open(orderLabelUrl(orderId, kind), '_blank')
+  if (!popup) return null
+  try {
+    popup.opener = null
+  } catch {
+    /* ignore */
+  }
+  return popup
+}
+
+export async function printOrderLabel(orderId: string): Promise<boolean> {
+  const popup = openLabelTab(orderId, 'shipping')
+  if (!popup) {
+    toastFail('Pop-up blocked — allow pop-ups to print shipping label.')
+    return false
+  }
+  try {
+    const res = await fetch(orderLabelUrl(orderId, 'shipping'), {
+      credentials: 'include',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(12_000),
+    })
+    if (!res.ok) {
+      try {
+        popup.close()
+      } catch {
+        /* ignore */
+      }
+      toastFail('Could not open shipping label.')
+      return false
+    }
+    toastOk('Shipping label opening…', 'label-print')
+    return true
+  } catch {
+    toastFail('Shipping label failed — is the API running?')
+    return false
+  }
+}
+
+export async function printOrderSticker(orderId: string): Promise<boolean> {
+  const popup = openLabelTab(orderId, 'sticker')
+  if (!popup) {
+    toastFail('Pop-up blocked — allow pop-ups to print product stickers.')
+    return false
+  }
+  try {
+    const res = await fetch(orderLabelUrl(orderId, 'sticker'), {
+      credentials: 'include',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(12_000),
+    })
+    if (!res.ok) {
+      try {
+        popup.close()
+      } catch {
+        /* ignore */
+      }
+      toastFail('Could not open product stickers.')
+      return false
+    }
+    toastOk('Product stickers opening…', 'sticker-print')
+    return true
+  } catch {
+    toastFail('Product stickers failed — is the API running?')
+    return false
+  }
+}
+
+/** Bulk 4×6 labels — opens one HTML doc with a page per order. */
+export async function printBulkOrderLabels(orderIds: string[]): Promise<boolean> {
+  const ids = [...new Set(orderIds.map((id) => id.trim()).filter(Boolean))].slice(0, 50)
+  if (ids.length === 0) {
+    toastFail('Select orders to print labels.')
+    return false
+  }
+  // Sync blank tab first (user gesture), then POST and write HTML.
+  const popup = openBlankInvoiceTab()
+  if (!popup) {
+    toastFail('Pop-up blocked — allow pop-ups to print labels.')
+    return false
+  }
+  try {
+    const res = await fetch('/api/orders/labels/bulk', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderIds: ids }),
+      cache: 'no-store',
+    })
+    const html = await res.text()
+    if (!res.ok) {
+      popup.close()
+      toastFail(html.slice(0, 160) || 'Could not build bulk labels.')
+      return false
+    }
+    writePopupHtml(popup, html)
+    toastOk(`Opened ${ids.length} shipping label(s)`, 'bulk-labels')
+    return true
+  } catch {
+    popup.close()
+    toastFail('Bulk label print failed — is the API running?')
+    return false
+  }
 }
 
 export function printProductLabel(opts: {

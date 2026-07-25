@@ -85,6 +85,11 @@ export function isPublicApiPath(path: string, method = 'GET'): boolean {
 
   if (normalized === 'admin/auth/login' && verb === 'POST') return true
   if (normalized === 'admin/auth/request-login' && verb === 'POST') return true
+  if (normalized === 'admin/auth/login-method' && verb === 'POST') return true
+  if (normalized === 'admin/auth/forgot-password' && verb === 'POST') return true
+  if (normalized === 'admin/auth/reset-password' && verb === 'POST') return true
+  if (normalized === 'admin/auth/accept-invite' && verb === 'POST') return true
+  if (normalized.startsWith('admin/auth/invite/') && verb === 'GET') return true
 
   if (normalized.startsWith('health/')) {
     return false

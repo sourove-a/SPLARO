@@ -24,7 +24,10 @@ import { ModulePanelShell, STATUS_CLASS } from '@/components/modules/ModulePanel
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { cn } from '@/lib/utils/cn'
 import { SPLARO_DOMAINS } from '@splaro/config'
-import { useContentOverview, useCreateBlogPost, useBanners, useSettings, useSitePages, useCreateSitePage, useUpdateSitePage, useDeleteSitePage, useCreateCollection } from '@/lib/api/hooks'
+import { useContentOverview, useCreateBlogPost, useBanners, useSettings, useUpdateSettings, useSitePages, useCreateSitePage, useUpdateSitePage, useDeleteSitePage, useCreateCollection } from '@/lib/api/hooks'
+import { verifySettingsApplied } from '@/lib/admin/settings-save'
+import { DEFAULT_HOMEPAGE_SECTIONS } from '@/lib/storefront/homepage-defaults'
+import type { AdminSettingsData } from '@/lib/api/settings'
 import type { SitePageRow } from '@/lib/api/content-pages'
 import { formatRelativeTime } from '@/lib/api/orders'
 import { resolveMediaUrl } from '@/lib/media-url'
@@ -639,41 +642,149 @@ export function HomePagePanelLive() {
   const { data: content, isError, refetch } = useContentOverview()
   const { data: banners = [] } = useBanners()
   const { data: settings } = useSettings()
+  const updateSettings = useUpdateSettings()
   const [query, setQuery] = useState('')
-  const [hidden, setHidden] = useState<Set<string>>(new Set())
+
+  const homepage = { ...DEFAULT_HOMEPAGE_SECTIONS, ...(settings?.homepage ?? {}) }
 
   const sections = useMemo(() => {
     const heroCount = banners.filter((b) => b.position === 'hero' && b.isActive).length
     const collections = content?.collections.filter((c) => c.isActive) ?? []
     const campaigns = content?.campaigns ?? []
     const reels = content?.banners.filter((b) => b.isActive) ?? []
-    const marqueeOn = settings?.marquee?.enabled ?? false
+    const marqueeOn = (settings?.marquee?.enabled ?? false) && homepage.marquee
+
+    type Row = {
+      id: string
+      name: string
+      type: string
+      visible: boolean
+      order: number
+      source: string
+      settingKey?: keyof AdminSettingsData['homepage']
+      manageHref?: string
+    }
 
     return [
-      { id: 'hero', name: 'Hero Slider', type: 'Carousel', visible: heroCount > 0 && !hidden.has('hero'), order: 1, source: `${heroCount} banners` },
-      { id: 'collections', name: 'Featured Collections', type: 'Grid', visible: collections.length > 0 && !hidden.has('collections'), order: 2, source: `${collections.length} collections` },
-      { id: 'arrivals', name: 'New Arrivals', type: 'Product row', visible: !hidden.has('arrivals'), order: 3, source: 'Catalog API' },
-      { id: 'campaign', name: 'Campaign banner', type: 'Campaign', visible: campaigns.length > 0 && !hidden.has('campaign'), order: 4, source: campaigns[0]?.name ?? '—' },
-      { id: 'categories', name: 'Shop by Category', type: 'Category tiles', visible: !hidden.has('categories'), order: 5, source: `${content?.categories.length ?? 0} categories` },
-      { id: 'reels', name: 'Video / Reels strip', type: 'Video strip', visible: reels.length > 0 && !hidden.has('reels'), order: 6, source: `${reels.length} assets` },
-      { id: 'marquee', name: 'Announcement marquee', type: 'Ticker', visible: marqueeOn && !hidden.has('marquee'), order: 7, source: settings?.marquee?.items?.length ? `${settings.marquee.items.length} items` : 'Off' },
-      { id: 'trust', name: 'Trust badges', type: 'Icons row', visible: !hidden.has('trust'), order: 8, source: 'Storefront default' },
-    ]
-  }, [banners, content, settings, hidden])
+      {
+        id: 'hero',
+        name: 'Hero Slider',
+        type: 'Carousel',
+        visible: homepage.hero && heroCount > 0,
+        order: 1,
+        source: `${heroCount} banners`,
+        settingKey: 'hero' as const,
+        manageHref: '/dashboard/hero-slider',
+      },
+      {
+        id: 'marquee',
+        name: 'Announcement marquee',
+        type: 'Ticker',
+        visible: marqueeOn,
+        order: 2,
+        source: settings?.marquee?.items?.length ? `${settings.marquee.items.length} items` : 'Off',
+        settingKey: 'marquee' as const,
+      },
+      {
+        id: 'trust',
+        name: 'Trust badges',
+        type: 'Icons row',
+        visible: homepage.trustBar,
+        order: 3,
+        source: 'Storefront default',
+        settingKey: 'trustBar' as const,
+      },
+      {
+        id: 'catalog',
+        name: 'Product catalog',
+        type: 'Shop grid',
+        visible: homepage.catalog,
+        order: 4,
+        source: 'Catalog API',
+        settingKey: 'catalog' as const,
+      },
+      {
+        id: 'offer',
+        name: 'Special offer',
+        type: 'Promo',
+        visible: homepage.specialOffer && Boolean(settings?.specialOffer?.enabled),
+        order: 5,
+        source: settings?.specialOffer?.title || '—',
+        settingKey: 'specialOffer' as const,
+      },
+      {
+        id: 'story',
+        name: 'Our Story',
+        type: 'Brand story',
+        visible: homepage.ourStory,
+        order: 6,
+        source: 'Our Story settings',
+        settingKey: 'ourStory' as const,
+      },
+      {
+        id: 'newsletter',
+        name: 'Newsletter',
+        type: 'Email signup',
+        visible: homepage.newsletter && Boolean(settings?.newsletter?.enabled),
+        order: 7,
+        source: 'Newsletter settings',
+        settingKey: 'newsletter' as const,
+      },
+      {
+        id: 'collections',
+        name: 'Featured Collections',
+        type: 'Grid',
+        visible: collections.length > 0,
+        order: 8,
+        source: `${collections.length} collections`,
+        manageHref: '/dashboard/collections',
+      },
+      {
+        id: 'campaign',
+        name: 'Campaign banner',
+        type: 'Campaign',
+        visible: campaigns.length > 0,
+        order: 9,
+        source: campaigns[0]?.name ?? '—',
+        manageHref: '/dashboard/campaigns',
+      },
+      {
+        id: 'reels',
+        name: 'Video / Reels strip',
+        type: 'Video strip',
+        visible: reels.length > 0,
+        order: 10,
+        source: `${reels.length} assets`,
+        manageHref: '/dashboard/reels',
+      },
+    ] satisfies Row[]
+  }, [banners, content, settings, homepage.hero, homepage.marquee, homepage.trustBar, homepage.catalog, homepage.specialOffer, homepage.ourStory, homepage.newsletter])
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
     return sections.filter((s) => !q || s.name.toLowerCase().includes(q) || s.type.toLowerCase().includes(q))
   }, [query, sections])
 
-  const toggleVisible = (id: string) => {
-    setHidden((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-    toastInfo('Preview only — section visibility not saved to server.')
+  const toggleVisible = async (settingKey: keyof AdminSettingsData['homepage'], label: string) => {
+    const nextValue = !homepage[settingKey]
+    const nextHomepage = { ...homepage, [settingKey]: nextValue }
+    const patch: Partial<AdminSettingsData> = {
+      homepage: nextHomepage,
+      ...(settingKey === 'ourStory'
+        ? { ourStory: { ...(settings?.ourStory ?? {}), enabled: nextValue } as AdminSettingsData['ourStory'] }
+        : {}),
+    }
+    try {
+      const saved = await updateSettings.mutateAsync(patch)
+      const verified = verifySettingsApplied(patch, saved)
+      if (!verified.ok) {
+        toastFail(`Save failed — ${verified.reason}`)
+        return
+      }
+      toastApiSaved(nextValue ? `${label} shown` : `${label} hidden`)
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not update homepage visibility.')
+    }
   }
 
   if (isError) return <ApiOfflineBanner message="Content API offline." />
@@ -690,15 +801,17 @@ export function HomePagePanelLive() {
       query={query}
       onQuery={setQuery}
       searchPlaceholder="Search homepage section..."
-      createLabel="Add section"
-      onCreate={() => toastInfo('Homepage sections are driven by banners, collections, and settings.')}
+      createLabel="Manage storefront"
+      onCreate={() => {
+        window.location.href = '/dashboard/menu-control'
+      }}
       onRefresh={() => void refetch()}
       exportDisabled
       tableIcon={Home}
       tableTitle={`Homepage sections · ${filtered.length}`}
-      footer="Derived from live banners, collections, and storefront settings"
+      footer="Hide/Show saves to settings and revalidates the storefront"
       extraFilters={
-        <AdminLinkButton href="https://splaro.co" external size="sm">
+        <AdminLinkButton href={SPLARO_DOMAINS.site} external size="sm">
           <ExternalLink className="h-3.5 w-3.5" /> Preview storefront
         </AdminLinkButton>
       }
@@ -726,19 +839,36 @@ export function HomePagePanelLive() {
               <td className="text-xs text-[var(--admin-text-muted)]">{s.source}</td>
               <td className="font-bold">{s.order}</td>
               <td>
-                <button
-                  type="button"
-                  onClick={() => toggleVisible(s.id)}
-                  className={cn(
-                    'rounded-full px-2.5 py-0.5 text-[10px] font-black',
-                    s.visible ? 'bg-emerald-500/15 text-emerald-300' : 'bg-white/8 text-[var(--admin-text-muted)]',
-                  )}
-                >
-                  {s.visible ? 'Visible' : 'Hidden'}
-                </button>
+                {s.settingKey ? (
+                  <button
+                    type="button"
+                    disabled={updateSettings.isPending}
+                    onClick={() => void toggleVisible(s.settingKey!, s.name)}
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black',
+                      s.visible ? 'bg-emerald-500/15 text-emerald-700' : 'bg-black/8 text-[var(--admin-text-muted)]',
+                    )}
+                  >
+                    {s.visible ? <Eye className="h-3 w-3" /> : null}
+                    {s.visible ? 'Visible' : 'Hidden'}
+                  </button>
+                ) : (
+                  <span
+                    className={cn(
+                      'rounded-full px-2.5 py-0.5 text-[10px] font-black',
+                      s.visible ? 'bg-emerald-500/15 text-emerald-700' : 'bg-black/8 text-[var(--admin-text-muted)]',
+                    )}
+                  >
+                    {s.visible ? 'Live' : 'Empty'}
+                  </span>
+                )}
               </td>
               <td>
-                <RowActionsMenu recordName={s.name} moduleHref="/dashboard/home-page" recordId={s.id} />
+                <RowActionsMenu
+                  recordName={s.name}
+                  moduleHref={s.manageHref ?? '/dashboard/home-page'}
+                  recordId={s.id}
+                />
               </td>
             </tr>
           ))}

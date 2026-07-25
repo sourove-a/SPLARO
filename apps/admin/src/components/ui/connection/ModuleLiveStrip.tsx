@@ -8,12 +8,17 @@ export interface ModuleLiveItem {
   label: string
   value: string
   ok: boolean
+  /** When false and ok is false, chip is hard offline (not soft warn). */
+  critical?: boolean
+  /** Informational chip — never counts toward strip “Live” label. */
+  informational?: boolean
   hint?: string
   href?: string
 }
 
-function itemState(ok: boolean): ConnectionChipState {
-  return ok ? 'ok' : 'warn'
+function itemState(item: ModuleLiveItem): ConnectionChipState {
+  if (item.ok) return 'ok'
+  return item.critical ? 'off' : 'warn'
 }
 
 export function ModuleLiveStrip({
@@ -31,17 +36,44 @@ export function ModuleLiveStrip({
 }) {
   if (!items.length && !onRefresh) return null
 
-  const okCount = items.filter((item) => item.ok).length
-  const allOk = okCount === items.length
+  const healthItems = items.filter((item) => !item.informational)
+  const okCount = healthItems.filter((item) => item.ok).length
+  const allHealthOk = healthItems.length > 0 && okCount === healthItems.length
+  const anyCriticalOff = healthItems.some((item) => !item.ok && item.critical)
+
+  const pulseLabel =
+    healthItems.length === 0
+      ? 'Status'
+      : allHealthOk
+        ? 'Live'
+        : anyCriticalOff
+          ? 'Offline'
+          : `${okCount}/${healthItems.length}`
 
   return (
-    <div className={cn('admin-conn-strip', allOk && 'admin-conn-strip--live', className)} role="status" aria-live="polite">
+    <div
+      className={cn(
+        'admin-conn-strip',
+        allHealthOk && 'admin-conn-strip--live',
+        anyCriticalOff && 'admin-conn-strip--off',
+        className,
+      )}
+      role="status"
+      aria-live="polite"
+    >
       {title ? <p className="admin-conn-strip__title">{title}</p> : null}
       <div className="admin-conn-strip__row">
         <div className="admin-conn-strip__chips">
-          <span className={cn('admin-conn-strip__pulse', !allOk && 'admin-conn-strip__pulse--warn')} aria-hidden>
+          <span
+            className={cn(
+              'admin-conn-strip__pulse',
+              !allHealthOk && !anyCriticalOff && 'admin-conn-strip__pulse--warn',
+              anyCriticalOff && 'admin-conn-strip__pulse--off',
+            )}
+            aria-hidden
+          >
             <span className="admin-conn-strip__pulse-dot" />
-            {allOk ? 'Live' : `${okCount}/${items.length}`}
+            {pulseLabel}
           </span>
           {items.map((item) => (
             <ConnectionChip
@@ -50,7 +82,7 @@ export function ModuleLiveStrip({
               value={item.value}
               {...(item.hint ? { hint: item.hint } : {})}
               {...(item.href ? { href: item.href } : {})}
-              state={itemState(item.ok)}
+              state={itemState(item)}
               compact
             />
           ))}

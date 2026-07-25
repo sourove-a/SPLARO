@@ -130,6 +130,8 @@ import { CourierController } from './modules/courier/courier.controller'
 import { NotificationsController } from './modules/notifications/notifications.controller'
 import { InvoiceController } from './modules/invoices/invoice.controller'
 import { PosController } from './modules/pos/pos.controller'
+import { FulfillmentController } from './modules/fulfillment/fulfillment.controller'
+import { FulfillmentService } from './modules/fulfillment/fulfillment.service'
 import { PosService } from './modules/pos/pos.service'
 import { SaasController, SaasService } from './modules/saas'
 import { DatabaseConnectionService, SecurityController, SecurityService } from './modules/security'
@@ -280,6 +282,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     NotificationsController,
     InvoiceController,
     PosController,
+    FulfillmentController,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AppThrottlerGuard },
@@ -322,6 +325,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     OrderNotificationsService,
     OrderEventsService,
     OrderStatusService,
+    FulfillmentService,
     OrderSideEffectsQueueService,
     CommerceEventOutboxService,
     SmsService,

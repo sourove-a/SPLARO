@@ -3670,7 +3670,7 @@ html[data-perf='lite'] .support-live-bubble__dot:nth-child(3) {
   -webkit-backdrop-filter: blur(32px) saturate(1.45);
   overflow: hidden;
   contain: layout style;
-  will-change: opacity, transform;
+  will-change: transform;
   isolation: isolate;
 }
 

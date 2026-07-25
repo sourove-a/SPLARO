@@ -50,7 +50,7 @@ function BreadcrumbLink({ href, children }: { href: string; children: React.Reac
       scroll={false}
       prefetch
       onClick={() => markAdminLinkNavigation(href)}
-      className="transition-colors hover:text-[#111111]"
+      className="transition-colors hover:text-[var(--admin-accent)]"
     >
       {children}
     </Link>
@@ -124,11 +124,9 @@ export function AdminPageShell({
   className,
 }: AdminPageShellProps) {
   return (
-    <div className={cn('admin-module-canvas space-y-6', className)}>
-      <div className="admin-page-header admin-glass-panel">
-        <span className="admin-glass-panel__surface" aria-hidden="true" />
-        <span className="admin-glass-panel__sheen" aria-hidden="true" />
-        <div className="admin-page-header__inner admin-glass-panel__body flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className={cn('admin-module-canvas admin-panel-page space-y-6', className)}>
+      <div className="admin-page-header admin-catalog-hero admin-panel-hero !mb-0">
+        <div className="admin-page-header__inner flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1 space-y-2">
             {breadcrumbs && breadcrumbs.length > 0 ? (
               <nav aria-label="Breadcrumb" className="admin-breadcrumb">
@@ -146,9 +144,9 @@ export function AdminPageShell({
             ) : null}
 
             <div>
-              <h1 className="admin-page-title text-[1.35rem] sm:text-[1.45rem]">{title}</h1>
+              <h1 className="admin-catalog-hero__title">{title}</h1>
               {description ? (
-                <p className="mt-1.5 max-w-2xl text-sm font-medium text-[var(--admin-text-secondary)] leading-relaxed">
+                <p className="admin-page-header__description mt-1.5 max-w-2xl">
                   {description}
                 </p>
               ) : null}
@@ -156,37 +154,39 @@ export function AdminPageShell({
           </div>
 
           {actions ? (
-            <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
+            <div className="admin-page-header__actions shrink-0">{actions}</div>
           ) : null}
         </div>
       </div>
 
       {kpis && kpis.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="admin-kpi-grid admin-kpi-grid--catalog">
           {kpis.map((kpi) => (
-            <div key={kpi.label} className="admin-kpi">
-              <p className="admin-kpi__label">{kpi.label}</p>
-              <p className="admin-kpi__value">{kpi.value}</p>
-              {kpi.change !== undefined ? (
-                <p
-                  className={cn(
-                    'mt-1 text-xs font-bold',
-                    kpi.trend === 'up' && 'text-emerald-600',
-                    kpi.trend === 'down' && 'text-red-500',
-                    (!kpi.trend || kpi.trend === 'neutral') && 'text-[#6B6B6B]',
-                  )}
-                >
-                  {kpi.change > 0 ? '+' : ''}
-                  {kpi.change}%
-                </p>
-              ) : null}
+            <div key={kpi.label} className="admin-kpi-card">
+              <p className="admin-kpi-card__label">{kpi.label}</p>
+              <div className="admin-kpi-card__row">
+                <p className="admin-kpi-card__value">{kpi.value}</p>
+                {kpi.change !== undefined ? (
+                  <span
+                    className={cn(
+                      'admin-kpi-card__delta',
+                      kpi.trend === 'up' && 'admin-kpi-card__delta--up',
+                      kpi.trend === 'down' && 'admin-kpi-card__delta--down',
+                      (!kpi.trend || kpi.trend === 'neutral') && 'admin-kpi-card__delta--neutral',
+                    )}
+                  >
+                    {kpi.change > 0 ? '+' : ''}
+                    {kpi.change}%
+                  </span>
+                ) : null}
+              </div>
             </div>
           ))}
         </div>
       ) : null}
 
       {quickActions && quickActions.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="admin-page-quick-actions">
           {quickActions.map((action) => (
             <QuickActionChip key={action.label} action={action} />
           ))}

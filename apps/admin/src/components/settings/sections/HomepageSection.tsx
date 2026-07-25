@@ -18,8 +18,6 @@ const SECTION_LABELS: { key: keyof HomepageSectionsConfig; label: string; desc: 
 
 export function HomepageSection({ draft, setDraft, save, saving, apiOnline }: SectionProps) {
   const hp = draft.homepage
-  const setHp = (key: string, val: boolean) =>
-    setDraft((p) => ({ ...p, homepage: { ...p.homepage, [key]: val } }))
 
   const marquee = draft.marquee
   const offer = draft.specialOffer
@@ -34,7 +32,7 @@ export function HomepageSection({ draft, setDraft, save, saving, apiOnline }: Se
         badge="Storefront"
       />
       {/* Section visibility */}
-      <SectionCard title="Section visibility" subtitle="Show or hide homepage sections on the storefront.">
+      <SectionCard title="Section visibility" subtitle="Show or hide homepage sections. Each switch saves immediately.">
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           {SECTION_LABELS.map(({ key, label, desc }) => (
             <Toggle
@@ -42,11 +40,18 @@ export function HomepageSection({ draft, setDraft, save, saving, apiOnline }: Se
               label={label}
               desc={desc}
               checked={!!hp[key]}
-              onChange={() => setHp(key, !hp[key])}
+              disabled={saving || !apiOnline}
+              onChange={() => {
+                const homepage = { ...draft.homepage, [key]: !hp[key] }
+                setDraft((p) => ({ ...p, homepage }))
+                save(
+                  { homepage },
+                  homepage[key] ? `${label} shown` : `${label} hidden`,
+                )
+              }}
             />
           ))}
         </div>
-        <SaveBar label="Save visibility" saving={saving} disabled={!apiOnline} onClick={() => save({ homepage: draft.homepage }, 'Homepage visibility')} />
       </SectionCard>
 
       {/* Marquee */}

@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common'
+import { Inject, Injectable, Logger, Optional, forwardRef } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { AutomationService } from '../automation/automation.service'
 import { LoyaltyService } from '../loyalty/loyalty.service'
@@ -26,7 +26,9 @@ export class OrderEventsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Optional() private readonly automation: AutomationService,
+    @Optional()
+    @Inject(forwardRef(() => AutomationService))
+    private readonly automation: AutomationService,
     @Optional() private readonly loyalty: LoyaltyService,
     @Optional() private readonly notifications: NotificationsService,
     @Optional() private readonly telegramHub: AdminTelegramHubService,

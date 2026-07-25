@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { KeyRound, Plus, RefreshCw, ScrollText, Search, Send, Shield, ShieldCheck, Trash2, UserX, X } from 'lucide-react'
-import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
+import { toastApiSaved, toastFail, toastOk } from '@/lib/admin/feedback'
 import {
   confirmAdminInvited,
   confirmRolePermissionsSaved,
@@ -37,11 +37,14 @@ import {
 import { ASSIGNABLE_STAFF_ROLES, CEO_EMAIL } from '@/lib/auth/role-label'
 import { SecuritySubNav } from '@/components/security/SecuritySubNav'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
+import { AdminButton } from '@/components/ui/AdminButton'
+import { AdminStatusBadge } from '@/components/ui/AdminStatusBadge'
+import { cn } from '@/lib/utils/cn'
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
-const GOLD = '#16181d'
-const GOLD_LIGHT = 'rgba(16, 17, 20, 0.10)'
-const GOLD_BORDER = 'rgba(16, 17, 20, 0.32)'
+const GOLD = 'var(--admin-accent, #712eff)'
+const GOLD_LIGHT = 'rgba(113, 46, 255, 0.10)'
+const GOLD_BORDER = 'rgba(113, 46, 255, 0.28)'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -64,57 +67,49 @@ const DEFAULT_PERMISSIONS: PermissionRow[] = [
 
 // ─── Shared components ────────────────────────────────────────────────────────
 function KpiCard({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
-  const accentColor = accent === 'gold' ? 'var(--admin-text-secondary)' : accent === 'success' ? '#16A34A' : accent === 'warning' ? '#D97706' : '#6366F1'
-  const accentBg = accent === 'success' ? 'rgba(22,163,74,0.08)' : accent === 'warning' ? 'rgba(217,119,6,0.08)' : 'rgba(99,102,241,0.08)'
+  const tone =
+    accent === 'success' ? 'success' : accent === 'warning' ? 'warning' : accent === 'gold' ? 'gold' : undefined
   return (
-    <div className="settings-card admin-panel-glass-subtle admin-module-kpi" style={{ position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${accentColor}60, transparent)` }} />
-      <div style={{ width: 32, height: 32, borderRadius: 9, background: accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-        <div style={{ width: 10, height: 10, borderRadius: '50%', background: accentColor }} />
+    <div className={cn('admin-kpi-card', tone && `admin-kpi-card--${tone}`)}>
+      <p className="admin-kpi-card__label">{label}</p>
+      <div className="admin-kpi-card__row">
+        <p className="admin-kpi-card__value">{value}</p>
       </div>
-      <p style={{ fontSize: 22, fontWeight: 900, color: 'var(--admin-text-primary)', lineHeight: 1, margin: 0 }}>{value}</p>
-      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4, marginBottom: 0 }}>{label}</p>
     </div>
   )
 }
 
+function KpiRow({ children }: { children: React.ReactNode }) {
+  return <div className="admin-kpi-grid admin-kpi-grid--catalog">{children}</div>
+}
+
 function PanelHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-      <div className="admin-module-icon-ring" style={{ width: 40, height: 40, borderRadius: 12 }}>
-        <Icon style={{ width: 18, height: 18 }} strokeWidth={2} />
+    <div className="admin-catalog-hero__title-row mb-5">
+      <div className="admin-catalog-icon-ring admin-catalog-icon-ring--lg">
+        <Icon strokeWidth={2} />
       </div>
-      <h3 style={{ fontSize: 16, fontWeight: 900, color: 'var(--admin-text-primary)', margin: 0 }}>{title}</h3>
+      <h3 className="admin-catalog-hero__title !text-base">{title}</h3>
     </div>
   )
 }
 
 function GlassSearch({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
-    <div className="admin-glass-search-wrap" style={{ position: 'relative', flex: 1, maxWidth: 380 }}>
-      <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--admin-text-muted)', pointerEvents: 'none' }} />
+    <div className="admin-catalog-toolbar__search max-w-[380px] flex-1">
+      <Search className="admin-catalog-toolbar__search-icon" aria-hidden />
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder ?? 'Search…'}
-        className="admin-glass-search-input"
-        style={{ width: '100%', paddingLeft: 36, paddingRight: 14, paddingTop: 9, paddingBottom: 9 }}
+        className="admin-catalog-input"
       />
     </div>
   )
 }
 
 function StatusBadge({ value, ok }: { value: string; ok?: boolean }) {
-  return (
-    <span style={{
-      background: ok ? 'rgba(22,163,74,0.10)' : 'rgba(245,158,11,0.10)',
-      border: `1px solid ${ok ? 'rgba(22,163,74,0.30)' : 'rgba(245,158,11,0.30)'}`,
-      color: ok ? '#15803D' : '#B45309',
-      borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 800,
-    }}>
-      {value}
-    </span>
-  )
+  return <AdminStatusBadge label={value} tone={ok ? 'success' : 'warning'} />
 }
 
 function GoldBtn({ children, onClick, disabled }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean }) {
@@ -138,13 +133,14 @@ function isSuperAdmin(actorRole?: string) {
   return actorRole === 'SUPER_ADMIN'
 }
 
+const INVITE_ROLES = ASSIGNABLE_STAFF_ROLES.filter((r) => r.value !== 'SUPER_ADMIN')
+
 function InviteAdminModal({ open, onClose, actorRole }: { open: boolean; onClose: () => void; actorRole?: string | undefined }) {
   const invite = useInviteAdmin()
   const [email, setEmail] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [role, setRole] = useState<string>('STAFF')
-  const [password, setPassword] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -152,14 +148,18 @@ function InviteAdminModal({ open, onClose, actorRole }: { open: boolean; onClose
     setFirstName('')
     setLastName('')
     setRole('STAFF')
-    setPassword('')
   }, [open])
 
   if (!open) return null
 
+  const roleOptions =
+    actorRole === 'SUPER_ADMIN' || actorRole === 'ADMIN'
+      ? INVITE_ROLES
+      : INVITE_ROLES.filter((r) => r.value === 'STAFF' || r.value === 'MANAGER')
+
   const submit = async () => {
-    if (!email.trim() || !firstName.trim() || password.length < 8) {
-      toastFail('Email, first name, and password (min 8 chars) are required.')
+    if (!email.trim() || !firstName.trim()) {
+      toastFail('Email and first name are required.')
       return
     }
     const ok = await confirmAdminInvited(
@@ -170,7 +170,6 @@ function InviteAdminModal({ open, onClose, actorRole }: { open: boolean; onClose
           firstName: firstName.trim(),
           ...(lastName.trim() ? { lastName: lastName.trim() } : {}),
           role,
-          password,
         }),
     )
     if (ok) onClose()
@@ -185,7 +184,7 @@ function InviteAdminModal({ open, onClose, actorRole }: { open: boolean; onClose
             <p className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--admin-text-muted)]">Security</p>
             <h3 className="mt-1 text-lg font-black text-[var(--admin-text-primary)]">Invite admin</h3>
             <p className="mt-1 text-xs font-semibold text-[var(--admin-text-muted)]">
-              Creates a user in the database and assigns store access.
+              Sends a premium email — they verify and set their own password.
             </p>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-[var(--admin-text-muted)] hover:bg-black/5">
@@ -209,21 +208,17 @@ function InviteAdminModal({ open, onClose, actorRole }: { open: boolean; onClose
           <label className="block space-y-1.5">
             <span className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--admin-text-muted)]">Role</span>
             <select value={role} onChange={(e) => setRole(e.target.value)} className="admin-input w-full">
-              {assignableRolesForActor(actorRole).map((r) => (
+              {roleOptions.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
               ))}
             </select>
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--admin-text-muted)]">Temporary password</span>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="admin-input w-full" placeholder="Min 8 characters" />
           </label>
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
           <GoldBtn onClick={onClose}>Cancel</GoldBtn>
           <GoldBtn onClick={submit} disabled={invite.isPending}>
-            {invite.isPending ? 'Creating…' : 'Create admin'}
+            {invite.isPending ? 'Sending…' : 'Send invite'}
           </GoldBtn>
         </div>
       </div>
@@ -300,12 +295,12 @@ function AdminUsersView({
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
         <PanelHeader icon={Shield} title="Admin Users" />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <KpiRow>
           <KpiCard label="Total admins"  value={isLoading ? '…' : kpis?.totalAdmins ?? 0} />
           <KpiCard label="Active"        value={isLoading ? '…' : kpis?.activeAdmins ?? 0} accent="success" />
           <KpiCard label="2FA enabled"   value={isLoading ? '…' : kpis?.twoFaEnabled ?? 0} accent="gold" />
           <KpiCard label="Sessions"      value={isLoading ? '…' : kpis?.activeSessions ?? 0} accent="warning" />
-        </div>
+        </KpiRow>
       </div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -469,12 +464,12 @@ function RolesView({ data, isLoading }: { data: ReturnType<typeof useSecurity>['
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
         <PanelHeader icon={ShieldCheck} title="Roles" />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <KpiRow>
           <KpiCard label="Roles"          value={isLoading ? '…' : roleCards.length} />
           <KpiCard label="Assigned users" value={isLoading ? '…' : kpis?.totalAdmins ?? 0} accent="success" />
           <KpiCard label="Custom roles"   value="0" accent="gold" />
           <KpiCard label="Locked"         value="0" accent="warning" />
-        </div>
+        </KpiRow>
       </div>
 
       {roleCards.length === 0 && !isLoading ? (
@@ -484,7 +479,7 @@ function RolesView({ data, isLoading }: { data: ReturnType<typeof useSecurity>['
           </p>
         </div>
       ) : (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {roleCards.map((r) => (
           <div key={r.id} className="settings-card admin-panel-glass" style={{ padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -552,12 +547,12 @@ function PermissionsView({ actorRole }: { actorRole?: string | undefined }) {
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
         <PanelHeader icon={KeyRound} title="Permissions" />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <KpiRow>
           <KpiCard label="Modules"    value={permRows.length} />
           <KpiCard label="Role"       value={role} accent="gold" />
           <KpiCard label="Granted"    value={permRows.filter((r) => r.view).length} accent="success" />
           <KpiCard label="Restricted" value={permRows.filter((r) => !r.view).length} accent="warning" />
-        </div>
+        </KpiRow>
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -611,40 +606,68 @@ function PermissionsView({ actorRole }: { actorRole?: string | undefined }) {
   )
 }
 
-function AuditLogsView({ data, isLoading, refetch }: { data: ReturnType<typeof useSecurity>['data']; isLoading: boolean; refetch: () => void }) {
+function AuditLogsView({
+  data,
+  isLoading,
+  refetch,
+}: {
+  data: ReturnType<typeof useSecurity>['data']
+  isLoading: boolean
+  refetch: () => Promise<unknown>
+}) {
   const kpis = data?.kpis
   const [query, setQuery] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
   const logs = (data?.auditLogs ?? []).filter((r) => r.action.toLowerCase().includes(query.toLowerCase()))
 
+  const handleRefresh = async () => {
+    if (refreshing) return
+    setRefreshing(true)
+    try {
+      await refetch()
+      toastOk('Audit logs refreshed')
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not refresh audit logs')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   return (
-    <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
+    <div className="settings-section-enter flex flex-col gap-5">
+      <div className="settings-card admin-panel-glass p-6">
         <PanelHeader icon={ScrollText} title="Audit Logs" />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-          <KpiCard label="Events"          value={isLoading ? '…' : logs.length} />
+        <KpiRow>
+          <KpiCard label="Events" value={isLoading ? '…' : logs.length} />
           <KpiCard label="Failed logins 24h" value={isLoading ? '…' : kpis?.failedLogins24h ?? 0} accent="warning" />
-          <KpiCard label="Threat level"    value={kpis?.threatLevel ?? '—'} accent={kpis?.threatLevel === 'low' ? 'success' : 'warning'} />
-          <KpiCard label="Sessions"        value={isLoading ? '…' : kpis?.activeSessions ?? 0} accent="gold" />
-        </div>
+          <KpiCard label="Threat level" value={kpis?.threatLevel ?? '—'} accent={kpis?.threatLevel === 'low' ? 'success' : 'warning'} />
+          <KpiCard label="Sessions" value={isLoading ? '…' : kpis?.activeSessions ?? 0} accent="gold" />
+        </KpiRow>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+      <div className="flex flex-wrap items-center gap-3">
         <GlassSearch value={query} onChange={setQuery} placeholder="Search audit logs…" />
-        <GoldBtn onClick={refetch}>
-          <RefreshCw style={{ width: 13, height: 13 }} />
-          Refresh
-        </GoldBtn>
+        <AdminButton
+          size="sm"
+          onClick={() => void handleRefresh()}
+          disabled={refreshing}
+          aria-busy={refreshing || undefined}
+          aria-label="Refresh audit logs"
+        >
+          <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} aria-hidden />
+          {refreshing ? 'Refreshing…' : 'Refresh'}
+        </AdminButton>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="flex flex-col gap-2">
         {logs.map((row) => (
-          <div key={row.id} className="settings-card admin-panel-glass-subtle admin-module-row" style={{ padding: '12px 16px' }}>
-            <div className="admin-module-icon-ring" style={{ width: 32, height: 32, borderRadius: 9 }}>
-              <ScrollText style={{ width: 13, height: 13 }} />
+          <div key={row.id} className="settings-card admin-panel-glass-subtle admin-module-row px-4 py-3">
+            <div className="admin-module-icon-ring h-8 w-8 rounded-[9px]">
+              <ScrollText className="h-3.5 w-3.5" />
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>{row.action}</p>
-              <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--admin-text-muted)', margin: 0 }}>
+            <div className="min-w-0 flex-1">
+              <p className="m-0 text-[13px] font-extrabold text-[var(--admin-text-primary)]">{row.action}</p>
+              <p className="m-0 text-[11px] font-semibold text-[var(--admin-text-muted)]">
                 {row.actor} · {row.target} · {row.time}
               </p>
             </div>
@@ -652,7 +675,7 @@ function AuditLogsView({ data, isLoading, refetch }: { data: ReturnType<typeof u
           </div>
         ))}
         {logs.length === 0 && !isLoading && (
-          <div className="settings-card admin-panel-glass-subtle" style={{ padding: 24, textAlign: 'center', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>
+          <div className="settings-card admin-panel-glass-subtle px-6 py-8 text-center text-[13px] font-semibold text-[var(--admin-text-muted)]">
             No audit events yet. Actions in admin will appear here.
           </div>
         )}
@@ -802,123 +825,254 @@ function DatabaseConnectionCard() {
 function SecurityCenterView({
   data,
   isLoading,
+  isFetching,
   actorRole,
+  onRefreshOverview,
 }: {
   data: ReturnType<typeof useSecurity>['data']
   isLoading: boolean
+  isFetching: boolean
   actorRole?: string | undefined
+  onRefreshOverview: () => Promise<unknown>
 }) {
   const sessionsQuery = useSecuritySessions()
   const revokeSession = useRevokeSecuritySession()
+  const [overviewRefreshing, setOverviewRefreshing] = useState(false)
+  const [sessionsRefreshing, setSessionsRefreshing] = useState(false)
   const kpis = data?.kpis
-  const threatLabel = kpis?.threatLevel === 'low' ? 'Low' : kpis?.threatLevel === 'medium' ? 'Medium' : 'High'
+  const threatLabel = kpis?.threatLevel === 'low' ? 'Low' : kpis?.threatLevel === 'medium' ? 'Medium' : kpis?.threatLevel ? 'High' : '—'
   const twoFaCoverage = kpis?.totalAdmins
     ? `${Math.round(((kpis.twoFaEnabled ?? 0) / kpis.totalAdmins) * 100)}%`
     : '0%'
+  const posture = data?.posture ?? []
+  const threats = data?.threats ?? []
+
+  const handleOverviewRefresh = async () => {
+    if (overviewRefreshing || isFetching) return
+    setOverviewRefreshing(true)
+    try {
+      await onRefreshOverview()
+      if (isSuperAdmin(actorRole)) {
+        await sessionsQuery.refetch({ throwOnError: false })
+      }
+      toastOk('Security overview refreshed')
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not refresh security overview')
+    } finally {
+      setOverviewRefreshing(false)
+    }
+  }
+
+  const handleSessionsRefresh = async () => {
+    if (sessionsRefreshing || sessionsQuery.isFetching) return
+    setSessionsRefreshing(true)
+    try {
+      const result = await sessionsQuery.refetch({ throwOnError: false })
+      if (result.error) {
+        toastFail(result.error instanceof Error ? result.error.message : 'Could not refresh sessions')
+        return
+      }
+      toastOk('Device sessions refreshed')
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not refresh sessions')
+    } finally {
+      setSessionsRefreshing(false)
+    }
+  }
+
+  const overviewBusy = overviewRefreshing || (isFetching && !isLoading)
+  const sessionsBusy = sessionsRefreshing || sessionsQuery.isFetching
 
   return (
-    <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
-        <PanelHeader icon={Shield} title="Security Center" />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-          <KpiCard label="Threat score"  value={threatLabel} accent={kpis?.threatLevel === 'low' ? 'success' : 'warning'} />
-          <KpiCard label="2FA coverage"  value={twoFaCoverage} accent="warning" />
-          <KpiCard label="Sessions"      value={isLoading ? '…' : kpis?.activeSessions ?? 0} />
-          <KpiCard label="Blocked 24h"   value={isLoading ? '…' : kpis?.failedLogins24h ?? 0} accent="gold" />
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <div className="admin-module-icon-ring" style={{ width: 36, height: 36 }}>
-              <Shield style={{ width: 16, height: 16 }} />
+    <div className="settings-section-enter flex flex-col gap-5">
+      {/* KPI strip — page title already comes from AdminPageShell */}
+      <section className="admin-catalog-hero admin-panel-hero !mb-0">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="admin-catalog-hero__title-row">
+            <div className="admin-catalog-icon-ring admin-catalog-icon-ring--lg">
+              <Shield strokeWidth={2} />
             </div>
-            <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>Security posture</p>
+            <div>
+              <p className="m-0 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--admin-text-muted)]">
+                Live posture
+              </p>
+              <h2 className="admin-catalog-hero__title !text-lg">Security Center</h2>
+              <p className="m-0 text-sm font-semibold text-[var(--admin-text-secondary)]">
+                Threat monitoring · 2FA · sessions · lockouts
+              </p>
+            </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {(data?.posture ?? []).map((item) => (
-              <div key={item.label} className="settings-card admin-panel-glass-subtle" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--admin-text-secondary)' }}>{item.label}</span>
-                <span style={{ fontSize: 13, fontWeight: 900, color: item.ok ? '#15803D' : '#B45309' }}>{item.value}</span>
-              </div>
-            ))}
+          <AdminButton
+            size="sm"
+            variant="secondary"
+            onClick={() => void handleOverviewRefresh()}
+            disabled={overviewBusy}
+            aria-busy={overviewBusy || undefined}
+            aria-label="Refresh security overview"
+          >
+            <RefreshCw className={cn('h-3.5 w-3.5', overviewBusy && 'animate-spin')} aria-hidden />
+            {overviewBusy ? 'Refreshing…' : 'Refresh'}
+          </AdminButton>
+        </div>
+        <div className="admin-kpi-grid admin-kpi-grid--catalog">
+          <div className={cn('admin-kpi-card', kpis?.threatLevel === 'low' ? 'admin-kpi-card--success' : 'admin-kpi-card--warning')}>
+            <p className="admin-kpi-card__label">Threat score</p>
+            <div className="admin-kpi-card__row"><p className="admin-kpi-card__value">{isLoading ? '…' : threatLabel}</p></div>
+          </div>
+          <div className={cn('admin-kpi-card', twoFaCoverage === '0%' ? 'admin-kpi-card--warning' : 'admin-kpi-card--success')}>
+            <p className="admin-kpi-card__label">2FA coverage</p>
+            <div className="admin-kpi-card__row"><p className="admin-kpi-card__value">{isLoading ? '…' : twoFaCoverage}</p></div>
+          </div>
+          <div className="admin-kpi-card">
+            <p className="admin-kpi-card__label">Sessions</p>
+            <div className="admin-kpi-card__row"><p className="admin-kpi-card__value">{isLoading ? '…' : kpis?.activeSessions ?? 0}</p></div>
+          </div>
+          <div className="admin-kpi-card admin-kpi-card--gold">
+            <p className="admin-kpi-card__label">Blocked 24h</p>
+            <div className="admin-kpi-card__row"><p className="admin-kpi-card__value">{isLoading ? '…' : kpis?.failedLogins24h ?? 0}</p></div>
           </div>
         </div>
+      </section>
 
-        <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <div className="admin-module-icon-ring" style={{ width: 36, height: 36 }}>
-              <KeyRound style={{ width: 16, height: 16 }} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="settings-card admin-panel-glass flex min-h-[220px] flex-col p-5 sm:p-6">
+          <div className="mb-4 flex items-center gap-2.5">
+            <div className="admin-module-icon-ring h-9 w-9">
+              <Shield className="h-4 w-4" />
             </div>
-            <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>Recent threats</p>
+            <p className="m-0 text-sm font-extrabold text-[var(--admin-text-primary)]">Security posture</p>
           </div>
-          {(data?.threats.length ?? 0) > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {data!.threats.map((row) => (
-                <div key={row.id} className="settings-card admin-panel-glass-subtle" style={{ padding: '10px 14px' }}>
-                  <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--admin-text-primary)', margin: '0 0 2px' }}>{row.action}</p>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--admin-text-muted)', margin: 0 }}>{row.time}</p>
+          {isLoading && posture.length === 0 ? (
+            <p className="m-0 text-[13px] font-semibold text-[var(--admin-text-muted)]">Loading posture…</p>
+          ) : posture.length === 0 ? (
+            <p className="m-0 text-[13px] font-semibold text-[var(--admin-text-muted)]">No posture checks returned from API.</p>
+          ) : (
+            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+              {posture.map((item) => (
+                <li
+                  key={item.label}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-muted,transparent)] px-3.5 py-2.5"
+                >
+                  <span className="text-xs font-semibold text-[var(--admin-text-secondary)]">{item.label}</span>
+                  <span
+                    className={cn(
+                      'shrink-0 text-[13px] font-black tabular-nums',
+                      item.ok ? 'text-[#15803D]' : 'text-[#B45309]',
+                    )}
+                  >
+                    {item.value}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="settings-card admin-panel-glass flex min-h-[220px] flex-col p-5 sm:p-6">
+          <div className="mb-4 flex items-center gap-2.5">
+            <div className="admin-module-icon-ring h-9 w-9">
+              <KeyRound className="h-4 w-4" />
+            </div>
+            <p className="m-0 text-sm font-extrabold text-[var(--admin-text-primary)]">Recent threats</p>
+          </div>
+          {threats.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {threats.map((row) => (
+                <div
+                  key={row.id}
+                  className="rounded-xl border border-[var(--admin-border)] px-3.5 py-2.5"
+                >
+                  <p className="mb-0.5 mt-0 text-[13px] font-extrabold text-[var(--admin-text-primary)]">{row.action}</p>
+                  <p className="m-0 text-[11px] font-semibold text-[var(--admin-text-muted)]">{row.time}</p>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="settings-card admin-panel-glass-subtle" style={{ padding: '16px', textAlign: 'center' }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#15803D', margin: 0 }}>No threats detected in the last 24 hours.</p>
+            <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[rgba(22,163,74,0.35)] bg-[rgba(22,163,74,0.06)] px-4 py-8 text-center">
+              <ShieldCheck className="mb-2 h-6 w-6 text-[#15803D]" aria-hidden />
+              <p className="m-0 text-[13px] font-bold text-[#15803D]">No threats detected in the last 24 hours</p>
+              <p className="mt-1 mb-0 text-[11px] font-semibold text-[var(--admin-text-muted)]">
+                Failed logins and blocked attempts will appear here.
+              </p>
             </div>
           )}
-        </div>
+        </section>
       </div>
 
-      {isSuperAdmin(actorRole) && (
-        <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>Active device sessions</p>
-            <GoldBtn onClick={() => void sessionsQuery.refetch()}>Refresh</GoldBtn>
+      {isSuperAdmin(actorRole) ? (
+        <section className="settings-card admin-panel-glass p-5 sm:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="m-0 text-sm font-extrabold text-[var(--admin-text-primary)]">Active device sessions</p>
+              <p className="mt-0.5 mb-0 text-[11px] font-semibold text-[var(--admin-text-muted)]">
+                Revoke ends that device&apos;s admin session immediately.
+              </p>
+            </div>
+            <AdminButton
+              size="sm"
+              onClick={() => void handleSessionsRefresh()}
+              disabled={sessionsBusy}
+              aria-busy={sessionsBusy || undefined}
+              aria-label="Refresh device sessions"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', sessionsBusy && 'animate-spin')} aria-hidden />
+              {sessionsBusy ? 'Refreshing…' : 'Refresh'}
+            </AdminButton>
           </div>
           {sessionsQuery.isError ? (
-            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--admin-text-muted)', margin: 0 }}>
-              Could not load sessions — Super Admin access required.
+            <p className="m-0 text-xs font-semibold text-[var(--admin-text-muted)]">
+              Could not load sessions — Super Admin access required, or API offline.
             </p>
           ) : (sessionsQuery.data?.length ?? 0) === 0 ? (
-            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--admin-text-muted)', margin: 0 }}>
-              No tracked device sessions yet. Admin panel uses signed tokens (12h).
-            </p>
+            <div className="rounded-xl border border-dashed border-[var(--admin-border)] px-4 py-6 text-center">
+              <p className="m-0 text-[13px] font-semibold text-[var(--admin-text-muted)]">
+                No tracked device sessions yet.
+              </p>
+              <p className="mt-1 mb-0 text-[11px] font-semibold text-[var(--admin-text-muted)]">
+                Admin panel uses signed tokens (12h). Sessions appear after staff sign in.
+              </p>
+            </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="flex flex-col gap-2">
               {sessionsQuery.data!.map((session) => (
-                <div key={session.id} className="settings-card admin-panel-glass-subtle" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--admin-text-primary)', margin: '0 0 2px' }}>
+                <div
+                  key={session.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--admin-border)] px-3.5 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <p className="mb-0.5 mt-0 text-[13px] font-extrabold text-[var(--admin-text-primary)]">
                       {session.user.firstName} {session.user.lastName}
                     </p>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--admin-text-muted)', margin: 0 }}>
+                    <p className="m-0 text-[11px] font-semibold text-[var(--admin-text-muted)]">
                       {session.user.email} · {session.ipAddress ?? 'unknown IP'}
                     </p>
                   </div>
-                  <GoldBtn
+                  <AdminButton
+                    size="sm"
+                    variant="danger"
                     disabled={revokeSession.isPending}
+                    aria-label={`Revoke session for ${session.user.email}`}
                     onClick={() =>
                       void confirmSessionRevoked(session.id, () => revokeSession.mutateAsync(session.id))
                     }
                   >
                     Revoke
-                  </GoldBtn>
+                  </AdminButton>
                 </div>
               ))}
             </div>
           )}
-        </div>
-      )}
+        </section>
+      ) : null}
 
-      {isSuperAdmin(actorRole) && <DatabaseConnectionCard />}
+      {isSuperAdmin(actorRole) ? <DatabaseConnectionCard /> : null}
     </div>
   )
 }
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 export function SecurityModulePanel({ moduleHref }: ModuleContextProps) {
-  const { data, isError, isLoading, refetch } = useSecurity()
+  const { data, isError, isLoading, isFetching, refetch } = useSecurity()
   const permissionsQuery = useRolePermissions()
   const { data: sessionUser } = useAdminSession()
   const actorRole = sessionUser?.role?.toUpperCase()
@@ -937,7 +1091,12 @@ export function SecurityModulePanel({ moduleHref }: ModuleContextProps) {
 
   let body: React.ReactNode
   if (isError) {
-    body = <ApiOfflineBanner message="Security API offline — run pnpm dev:api on port 4000." />
+    body = (
+      <ApiOfflineBanner
+        message="Security API offline — run pnpm dev:api on port 4000."
+        onRetry={() => void refetch()}
+      />
+    )
   } else if (moduleHref === '/dashboard/admin-users') {
     body = <AdminUsersView data={data} isLoading={isLoading} actorRole={actorRole} />
   } else if (moduleHref === '/dashboard/roles') {
@@ -945,13 +1104,21 @@ export function SecurityModulePanel({ moduleHref }: ModuleContextProps) {
   } else if (moduleHref === '/dashboard/permissions') {
     body = <PermissionsView actorRole={actorRole} />
   } else if (moduleHref === '/dashboard/audit-logs') {
-    body = <AuditLogsView data={data} isLoading={isLoading} refetch={() => void refetch()} />
+    body = <AuditLogsView data={data} isLoading={isLoading} refetch={() => refetch()} />
   } else {
-    body = <SecurityCenterView data={data} isLoading={isLoading} actorRole={actorRole} />
+    body = (
+      <SecurityCenterView
+        data={data}
+        isLoading={isLoading}
+        isFetching={isFetching}
+        actorRole={actorRole}
+        onRefreshOverview={() => refetch()}
+      />
+    )
   }
 
   return (
-    <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div className="settings-section-enter flex flex-col gap-4">
       <SecuritySubNav activeHref={moduleHref} statusByHref={statusByHref} />
       {body}
     </div>

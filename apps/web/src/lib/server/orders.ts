@@ -166,14 +166,15 @@ export function renderInvoiceHtml(order: StoredOrder): string {
   <style>
     :root {
       --ink: #111111;
-      --muted: #666666;
-      --line: rgba(17,17,17,0.08);
-      --glass: rgba(255, 255, 255, 0.72);
-      --glass-strong: rgba(255, 255, 255, 0.88);
-      --glass-border: rgba(255, 255, 255, 0.72);
-      --glass-blur: blur(28px) saturate(1.85);
-      --glass-inset: inset 0 1.5px 0 rgba(255,255,255,0.95);
-      --glass-shadow: 0 20px 56px rgba(17,17,17,0.09), 0 4px 14px rgba(17,17,17,0.04), var(--glass-inset);
+      --soft: #3a3733;
+      --muted: #7a756e;
+      --accent: #9a8b6e;
+      --rule: rgba(17,17,17,0.12);
+      --rule-soft: rgba(17,17,17,0.06);
+      --paper: #fffcf7;
+      --wash: #f4f0e9;
+      --wash-2: #f9f6f0;
+      --ivory: #fffcf7;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -181,19 +182,17 @@ export function renderInvoiceHtml(order: StoredOrder): string {
     html, body {
       min-height: 100%;
       color: var(--ink);
-      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 11px;
       line-height: 1.5;
-      background: #e6e8ed;
-      background-image:
-        radial-gradient(ellipse 90% 60% at 15% 0%, rgba(255,255,255,0.95), transparent 55%),
-        radial-gradient(ellipse 70% 50% at 85% 100%, rgba(210,214,222,0.35), transparent 50%),
-        linear-gradient(160deg, #eef0f5 0%, #e3e6ec 50%, #eceef3 100%);
+      background:
+        radial-gradient(ellipse 88% 55% at 50% -8%, #ebe6dc 0%, transparent 58%),
+        linear-gradient(180deg, #ddd6ca 0%, #d2cbbd 100%);
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
-    @page { size: A4 portrait; margin: 14mm; }
+    @page { size: A4 portrait; margin: 12mm; }
 
     .toolbar {
       position: sticky;
@@ -202,28 +201,24 @@ export function renderInvoiceHtml(order: StoredOrder): string {
       display: flex;
       justify-content: center;
       padding: 10px;
-      background: rgba(255,255,255,0.65);
-      backdrop-filter: blur(20px) saturate(1.8);
-      -webkit-backdrop-filter: blur(20px) saturate(1.8);
-      border-bottom: 1px solid rgba(255,255,255,0.6);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+      background: rgba(255,252,247,0.94);
+      border-bottom: 1px solid var(--rule-soft);
     }
 
     .toolbar button {
-      border: 1px solid rgba(17,17,17,0.12);
-      border-radius: 999px;
-      background: rgba(17,17,17,0.92);
-      color: #fff;
+      border: 1px solid var(--ink);
+      border-radius: 0;
+      background: var(--ink);
+      color: var(--ivory);
       cursor: pointer;
-      font: 600 10px/1 Inter, system-ui, sans-serif;
-      letter-spacing: 0.1em;
-      padding: 9px 18px;
+      font: 700 9px/1 system-ui, sans-serif;
+      letter-spacing: 0.18em;
+      padding: 10px 20px;
       text-transform: uppercase;
-      box-shadow: 0 4px 14px rgba(17,17,17,0.18), inset 0 1px 0 rgba(255,255,255,0.12);
     }
 
     .memo-wrap {
-      max-width: 600px;
+      max-width: 580px;
       margin: 24px auto 36px;
       padding: 0 14px;
       position: relative;
@@ -231,21 +226,20 @@ export function renderInvoiceHtml(order: StoredOrder): string {
 
     .memo {
       position: relative;
-      background: var(--glass);
-      backdrop-filter: var(--glass-blur);
-      -webkit-backdrop-filter: var(--glass-blur);
-      border: 1px solid var(--glass-border);
-      border-radius: 22px;
-      box-shadow: var(--glass-shadow);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.5) 0%, transparent 38%),
+        var(--paper);
+      border: 1px solid rgba(17,17,17,0.13);
+      border-radius: 0;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.75) inset, 0 28px 64px rgba(28,22,14,0.11);
       overflow: hidden;
     }
 
     .memo::before {
       content: "";
       position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      background: linear-gradient(145deg, rgba(255,255,255,0.42) 0%, transparent 42%, rgba(255,255,255,0.08) 100%);
+      inset: 8px;
+      border: 1px solid rgba(17,17,17,0.055);
       pointer-events: none;
     }
 
@@ -258,13 +252,13 @@ export function renderInvoiceHtml(order: StoredOrder): string {
       text-align: center;
       margin-bottom: 16px;
       padding-bottom: 14px;
-      border-bottom: 1px solid rgba(255,255,255,0.55);
+      border-bottom: 1px solid var(--rule);
     }
 
     .invoice-brand img {
       width: auto;
-      max-width: 140px;
-      max-height: 52px;
+      max-width: 160px;
+      max-height: 44px;
       object-fit: contain;
       display: block;
       margin: 0 auto 10px;
@@ -272,7 +266,7 @@ export function renderInvoiceHtml(order: StoredOrder): string {
 
     .invoice-brand__name {
       font-family: Georgia, "Times New Roman", serif;
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 400;
       letter-spacing: 0.28em;
       text-transform: uppercase;
@@ -281,66 +275,72 @@ export function renderInvoiceHtml(order: StoredOrder): string {
     .invoice-brand__tagline {
       margin-top: 4px;
       font-size: 8px;
-      letter-spacing: 0.24em;
+      letter-spacing: 0.28em;
       text-transform: uppercase;
       color: var(--muted);
+      font-weight: 700;
     }
 
     .invoice-brand__office {
-      margin-top: 5px;
-      font-size: 10px;
-      color: var(--muted);
+      margin-top: 6px;
+      font-size: 9px;
+      color: var(--soft);
     }
 
     .memo-title {
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: space-between;
       gap: 14px;
-      margin: 16px 0 18px;
+      margin: 4px 0 16px;
+      padding: 12px 0;
+      border-top: 1.5px solid var(--ink);
+      border-bottom: 1px solid var(--ink);
     }
 
     .memo-title::before,
-    .memo-title::after {
-      content: "";
-      flex: 1;
-      max-width: 80px;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(17,17,17,0.15), transparent);
-    }
+    .memo-title::after { display: none; }
 
     .memo-title span {
       font-family: Georgia, "Times New Roman", serif;
-      font-size: 10px;
-      letter-spacing: 0.38em;
+      font-size: 18px;
+      letter-spacing: 0.24em;
       text-transform: uppercase;
-      color: var(--muted);
+      color: var(--ink);
       white-space: nowrap;
+      font-weight: 500;
     }
 
     .memo-cards {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      gap: 0;
       margin-bottom: 18px;
+      border: 1px solid var(--rule);
+      background: linear-gradient(145deg, #fff 0%, var(--wash-2) 100%);
+      overflow: hidden;
     }
 
     .memo-card {
-      padding: 12px 14px;
-      background: rgba(255, 255, 255, 0.48);
-      backdrop-filter: blur(18px) saturate(1.7);
-      -webkit-backdrop-filter: blur(18px) saturate(1.7);
-      border: 1px solid rgba(255, 255, 255, 0.75);
-      border-radius: 14px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.92), 0 6px 22px rgba(17,17,17,0.04);
+      padding: 13px 15px;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
     }
 
-    .memo-card--right { text-align: right; }
+    .memo-card--right {
+      text-align: left;
+      background: rgba(244,240,233,0.55);
+      border-left: 1px solid var(--rule-soft);
+    }
 
     .memo-card .label {
-      font-size: 8px;
+      font-size: 7px;
       font-weight: 700;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
       color: var(--muted);
       margin-bottom: 5px;
@@ -364,6 +364,7 @@ export function renderInvoiceHtml(order: StoredOrder): string {
       font-family: Georgia, "Times New Roman", serif;
       font-size: 18px;
       letter-spacing: 0.05em;
+      font-weight: 600;
     }
 
     .memo-pay {
@@ -383,25 +384,25 @@ export function renderInvoiceHtml(order: StoredOrder): string {
 
     table.memo-items thead th {
       padding: 9px 6px;
-      border-top: 1px solid rgba(17,17,17,0.14);
-      border-bottom: 1px solid rgba(17,17,17,0.14);
-      font-size: 8px;
+      border-top: none;
+      border-bottom: 1.5px solid var(--ink);
+      font-size: 7px;
       font-weight: 700;
-      letter-spacing: 0.13em;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
       color: var(--muted);
       text-align: left;
-      background: rgba(255,255,255,0.35);
+      background: transparent;
     }
 
     table.memo-items tbody td {
       padding: 10px 6px;
-      border-bottom: 1px solid rgba(255,255,255,0.5);
+      border-bottom: 1px solid var(--rule-soft);
       vertical-align: middle;
     }
 
     table.memo-items tbody tr:last-child td {
-      border-bottom: 1px solid rgba(17,17,17,0.14);
+      border-bottom: 1.5px solid var(--ink);
     }
 
     .cell-img { width: 56px; }
@@ -413,11 +414,11 @@ export function renderInvoiceHtml(order: StoredOrder): string {
     .product-thumb {
       width: 50px;
       height: 62px;
-      border: 1px solid rgba(255,255,255,0.85);
-      border-radius: 10px;
+      border: 1px solid var(--rule);
+      border-radius: 0;
       overflow: hidden;
-      background: rgba(255,255,255,0.5);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 4px 12px rgba(17,17,17,0.06);
+      background: var(--wash);
+      box-shadow: none;
     }
 
     .product-thumb img {
@@ -456,17 +457,17 @@ export function renderInvoiceHtml(order: StoredOrder): string {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 26px;
-      height: 26px;
-      padding: 0 7px;
-      border: 1px solid rgba(255,255,255,0.8);
-      border-radius: 999px;
-      font-size: 10px;
+      min-width: 22px;
+      height: auto;
+      padding: 0;
+      border: none;
+      border-radius: 0;
+      font-size: 11px;
       font-weight: 700;
-      background: rgba(255,255,255,0.62);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.95);
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
     }
 
     .memo-bottom {
@@ -486,21 +487,21 @@ export function renderInvoiceHtml(order: StoredOrder): string {
     .memo-notes strong {
       display: block;
       margin-bottom: 5px;
-      font-size: 8px;
+      font-size: 7px;
       font-weight: 700;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
-      color: var(--ink);
+      color: var(--muted);
     }
 
     .memo-totals {
-      padding: 13px 15px;
-      background: rgba(255, 255, 255, 0.52);
-      backdrop-filter: blur(20px) saturate(1.75);
-      -webkit-backdrop-filter: blur(20px) saturate(1.75);
-      border: 1px solid rgba(255, 255, 255, 0.78);
-      border-radius: 14px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.94), 0 8px 24px rgba(17,17,17,0.05);
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
     }
 
     .memo-line {
@@ -522,35 +523,36 @@ export function renderInvoiceHtml(order: StoredOrder): string {
       justify-content: space-between;
       align-items: baseline;
       margin-top: 10px;
-      padding: 10px 12px;
-      margin-left: -12px;
-      margin-right: -12px;
-      margin-bottom: -13px;
-      border-top: 1px solid rgba(255,255,255,0.5);
-      background: rgba(17,17,17,0.92);
-      border-radius: 0 0 10px 10px;
-      color: #fff;
+      padding: 12px 14px;
+      margin-left: 0;
+      margin-right: 0;
+      margin-bottom: 0;
+      border-top: none;
+      background: #111111;
+      border-radius: 0;
+      color: var(--ivory);
+      box-shadow: inset 3px 0 0 0 var(--accent);
     }
 
     .memo-grand span:first-child {
-      font-size: 9px;
+      font-size: 7px;
       font-weight: 700;
-      letter-spacing: 0.13em;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.7);
+      color: rgba(255,252,247,0.48);
     }
 
     .memo-grand strong {
       font-family: Georgia, "Times New Roman", serif;
-      font-size: 18px;
-      font-weight: 600;
-      color: #fff;
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--ivory);
     }
 
     .memo-footer {
       margin-top: 18px;
       padding-top: 14px;
-      border-top: 1px dashed rgba(17,17,17,0.12);
+      border-top: 1px solid var(--rule);
       text-align: center;
       font-size: 9.5px;
       color: var(--muted);
@@ -582,8 +584,12 @@ export function renderInvoiceHtml(order: StoredOrder): string {
       .memo { box-shadow: none; border-radius: 0; border: 1px solid #ddd; }
       .memo-grand {
         background: #111 !important;
+        box-shadow: inset 3px 0 0 0 #9a8b6e !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+      }
+      .memo-card--right {
+        background: #f9f6f0 !important;
       }
       tr { break-inside: avoid; page-break-inside: avoid; }
     }
@@ -607,7 +613,13 @@ export function renderInvoiceHtml(order: StoredOrder): string {
       <div class="memo-inner">
         ${brandHeader}
 
-        <div class="memo-title"><span>Cash Memo</span></div>
+        <div class="memo-title">
+          <span>Cash Memo</span>
+          <div class="memo-title__meta">
+            <div class="label" style="margin:0 0 3px;text-align:right;">Invoice</div>
+            <div class="value memo-no" style="text-align:right;">${escapeInvoiceHtml(order.invoiceNumber)}</div>
+          </div>
+        </div>
 
         <div class="memo-cards">
           <div class="memo-card">

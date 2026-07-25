@@ -12,6 +12,7 @@ import { SeoModulePanel } from '@/components/seo'
 import { AiCenterModulePanel } from '@/components/ai'
 import { AutomationModulePanel } from '@/components/automation'
 import { OperationsHubPanel } from '@/components/courier'
+import { PackingStationPanel } from '@/components/modules/PackingStationPanel'
 import { CommerceModulePanel } from '@/components/modules/CommerceModulePanel'
 import { PosPanel } from '@/components/pos/PosPanel'
 import { CommerceFinanceModulePanel } from '@/components/modules/CommerceFinanceModulePanel'
@@ -178,6 +179,7 @@ const SPECIFIC_MODULES: Record<string, ModuleComponent> = {
   '/dashboard/operations': wrapGeneric(OperationsHubPanel),
   '/dashboard/courier-hub': wrapGeneric(OperationsHubPanel),
   '/dashboard/warehouse': wrapGeneric(OperationsHubPanel),
+  '/dashboard/packing-station': wrapStatic(PackingStationPanel),
   '/dashboard/supplier-management': wrapGeneric(OperationsHubPanel),
   '/dashboard/analytics': wrapStatic(AnalyticsModulePanel),
   '/dashboard/campaigns': wrapGeneric(MarketingModulePanel),

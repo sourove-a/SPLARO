@@ -13,7 +13,6 @@ export interface InviteAdminInput {
   firstName: string
   lastName?: string
   role: string
-  password: string
 }
 
 export interface InviteAdminResponse {
@@ -22,6 +21,8 @@ export interface InviteAdminResponse {
   name: string
   role: string
   status: string
+  emailSent?: boolean
+  message?: string
 }
 
 export interface RolePermissionsResponse {

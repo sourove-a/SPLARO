@@ -639,6 +639,26 @@ model AdminLoginToken {
   @@index([expiresAt])
 }
 
+// Super Admin invite → email verify + set-own-password (no temp password).
+model AdminInvite {
+  id          String    @id @default(cuid())
+  tokenHash   String    @unique
+  email       String
+  role        UserRole
+  storeId     String
+  invitedById String?
+  firstName   String
+  lastName    String    @default("")
+  userId      String?
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+  @@index([storeId])
+}
+
 model DeviceSession {
   id           String   @id @default(cuid())
   userId       String
@@ -1111,6 +1131,7 @@ model OrderStatusHistory {
 
 model Payment {
   id              String        @id @default(cuid())
+  paymentNumber   String?       @unique
   orderId         String
   method          PaymentMethod
   status          PaymentStatus @default(PENDING)
@@ -1129,6 +1150,7 @@ model Payment {
   updatedAt       DateTime      @updatedAt
 
   @@index([orderId])
+  @@index([paymentNumber])
 }
 
 model StockReservation {

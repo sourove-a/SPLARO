@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { Bell, Download, FileSpreadsheet, Instagram, MessageCircle, Search, Share2 } from 'lucide-react'
-import { toastFail, toastOk, toastInfo } from '@/lib/admin/feedback'
+import { toastFail, toastOk } from '@/lib/admin/feedback'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { ModulePanelShell, STATUS_CLASS } from '@/components/modules/ModulePanelShell'
@@ -135,8 +136,10 @@ export function ExportCenterPanelLive() {
 }
 
 export function NotificationCenterPanelLive() {
-  const { data, isError, isLoading, refetch } = useNotificationsOverview()
+  const { data, isError, isLoading, isFetching, refetch, error } = useNotificationsOverview()
   const [query, setQuery] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
+  const router = useRouter()
   const logs = useMemo(() => data?.logs ?? [], [data])
   const summary = data?.summary
 
@@ -151,65 +154,109 @@ export function NotificationCenterPanelLive() {
     )
   }, [query, logs])
 
-  if (isError) return <ApiOfflineBanner message="Notifications API offline." />
+  const handleRefresh = async () => {
+    if (refreshing || isFetching) return
+    setRefreshing(true)
+    try {
+      const result = await refetch({ throwOnError: false })
+      if (result.error) {
+        const msg =
+          result.error instanceof Error ? result.error.message : 'Could not refresh notification log'
+        toastFail(msg)
+        return
+      }
+      toastOk('Notification log refreshed')
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not refresh notification log')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  if (isError && !data) {
+    return (
+      <ApiOfflineBanner
+        message="Notifications API offline."
+        onRetry={() => void handleRefresh()}
+      />
+    )
+  }
+
+  const busy = refreshing || (isFetching && !isLoading)
 
   return (
-    <ModulePanelShell
-      kpis={[
-        ['Total', isLoading ? '…' : summary?.total ?? 0, 'default'],
-        ['Delivered', isLoading ? '…' : `${summary?.deliveredRate ?? 0}%`, 'success'],
-        ['Failed', summary?.failed ?? 0, 'warning'],
-        ['Pending', summary?.pending ?? 0, 'gold'],
-      ]}
-      pipeline={[
-        ['Email', logs.filter((l) => l.channel === 'EMAIL').length],
-        ['SMS', logs.filter((l) => l.channel === 'SMS').length],
-        ['WhatsApp', logs.filter((l) => l.channel === 'WHATSAPP').length],
-        ['Telegram', logs.filter((l) => l.channel === 'TELEGRAM').length],
-        ['API', 'Live'],
-      ]}
-      query={query}
-      onQuery={setQuery}
-      searchPlaceholder="Search channel, recipient..."
-      createLabel="View channels"
-      onCreate={() => toastInfo('Configure channels in Integrations.')}
-      onRefresh={() => void refetch()}
-      exportDisabled
-      tableIcon={Bell}
-      tableTitle={`Delivery log · ${filtered.length}`}
-      footer="Live from notification_delivery_log"
-    >
-      {filtered.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-[#6B6B6B]">No notifications logged yet.</p>
-      ) : (
-        <table className="admin-module-table">
-          <thead>
-            <tr>
-              <th>Channel</th>
-              <th>Recipient</th>
-              <th>Subject</th>
-              <th>Status</th>
-              <th>Sent</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((l) => (
-              <tr key={l.id}>
-                <td className="text-xs font-bold">{l.channel}</td>
-                <td className="font-mono text-xs">{l.recipient}</td>
-                <td className="max-w-[180px] truncate text-xs">{l.subject ?? '—'}</td>
-                <td>
-                  <span className={STATUS_CLASS[l.status === 'DELIVERED' || l.status === 'SENT' ? 'delivered' : l.status === 'FAILED' ? 'cancelled' : 'pending']}>
-                    {l.status.toLowerCase()}
-                  </span>
-                </td>
-                <td className="muted text-xs">{formatRelativeTime(l.createdAt)}</td>
+    <>
+      {isError && data ? (
+        <ApiOfflineBanner
+          message={
+            error instanceof Error
+              ? `Last refresh failed: ${error.message}`
+              : 'Notifications API error — showing last loaded data.'
+          }
+          onRetry={() => void handleRefresh()}
+        />
+      ) : null}
+      <ModulePanelShell
+        kpis={[
+          ['Total', isLoading ? '…' : summary?.total ?? 0, 'default'],
+          ['Delivered', isLoading ? '…' : `${summary?.deliveredRate ?? 0}%`, 'success'],
+          ['Failed', summary?.failed ?? 0, 'warning'],
+          ['Pending', summary?.pending ?? 0, 'gold'],
+        ]}
+        pipeline={[
+          ['Email', logs.filter((l) => l.channel === 'EMAIL').length],
+          ['SMS', logs.filter((l) => l.channel === 'SMS').length],
+          ['WhatsApp', logs.filter((l) => l.channel === 'WHATSAPP').length],
+          ['Telegram', logs.filter((l) => l.channel === 'TELEGRAM').length],
+          ['API', isError ? 'Error' : 'Live'],
+        ]}
+        query={query}
+        onQuery={setQuery}
+        searchPlaceholder="Search channel, recipient..."
+        createLabel="View channels"
+        onCreate={() => router.push('/dashboard/settings?section=notifications')}
+        onRefresh={() => void handleRefresh()}
+        refreshing={busy}
+        refreshLabel="Refresh notification delivery log"
+        exportSlug="notification-delivery-log"
+        tableIcon={Bell}
+        tableTitle={`Delivery log · ${filtered.length}`}
+        footer="Live from notification_delivery_log"
+      >
+        {isLoading && !data ? (
+          <p className="px-4 py-6 text-sm text-[var(--admin-text-muted)]">Loading delivery log…</p>
+        ) : filtered.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-[var(--admin-text-muted)]">No notifications logged yet.</p>
+        ) : (
+          <table className="admin-module-table admin-catalog-data-table">
+            <thead>
+              <tr>
+                <th className="admin-catalog-th">Channel</th>
+                <th className="admin-catalog-th">Recipient</th>
+                <th className="admin-catalog-th">Subject</th>
+                <th className="admin-catalog-th">Status</th>
+                <th className="admin-catalog-th">Sent</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </ModulePanelShell>
+            </thead>
+            <tbody>
+              {filtered.map((l) => (
+                <tr key={l.id} className="admin-catalog-row">
+                  <td className="admin-catalog-td text-xs font-bold">{l.channel}</td>
+                  <td className="admin-catalog-td font-mono text-xs">{l.recipient}</td>
+                  <td className="admin-catalog-td max-w-[180px] truncate text-xs">{l.subject ?? '—'}</td>
+                  <td className="admin-catalog-td">
+                    <span className={STATUS_CLASS[l.status === 'DELIVERED' || l.status === 'SENT' ? 'delivered' : l.status === 'FAILED' ? 'cancelled' : 'pending']}>
+                      {l.status.toLowerCase()}
+                    </span>
+                  </td>
+                  <td className="admin-catalog-td muted text-xs">{formatRelativeTime(l.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </ModulePanelShell>
+    </>
   )
 }
 

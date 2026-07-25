@@ -42,7 +42,7 @@ export function FinanceSubNav({
         const status = statusByHref?.[href] ?? 'ok'
         return (
           <AdminNavLink key={href} href={href} className={cn('ops-subnav__link', active && 'ops-subnav__link--active')}>
-            <Icon className="ops-subnav__icon" strokeWidth={2} />
+            <Icon className="ops-subnav__icon" strokeWidth={1.5} />
             <span>{label}</span>
             {status === 'loading' ? (
               <Loader2 className="ops-subnav__status ops-subnav__status--loading" />

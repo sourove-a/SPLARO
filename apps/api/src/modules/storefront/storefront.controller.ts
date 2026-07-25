@@ -634,14 +634,42 @@ export class StorefrontController {
     }
   }
 
+  @Post('auth/email-verification/confirm')
+  @Throttle({ default: { limit: 12, ttl: 60_000 } })
+  async confirmEmailVerification(
+    @Query('storeId') storeId: string,
+    @Body() body: { token?: string },
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const result = await this.storefrontAuth.confirmEmailByToken(body.token ?? '')
+    void this.telegramHub.notifyCustomerEmailVerification(sid, {
+      name: result.email,
+      email: result.email,
+      status: 'VERIFIED',
+    })
+    return result
+  }
+
   @Post('auth/email-verification/verify')
   @Throttle({ default: { limit: 8, ttl: 60_000 } })
   async verifyEmail(
     @Query('storeId') storeId: string,
-    @Body() body: { code?: string },
+    @Body() body: { code?: string; token?: string },
     @Headers('authorization') authorization?: string,
     @Headers('x-splaro-session') sessionHeader?: string,
   ) {
+    // Prefer magic-link token (no session). Legacy code path returns a clear migration message.
+    if (body.token?.trim()) {
+      const sid = await resolveStoreId(this.prisma, storeId)
+      const result = await this.storefrontAuth.confirmEmailByToken(body.token)
+      void this.telegramHub.notifyCustomerEmailVerification(sid, {
+        name: result.email,
+        email: result.email,
+        status: 'VERIFIED',
+      })
+      return result
+    }
+
     const sid = await resolveStoreId(this.prisma, storeId)
     const sessionToken = sessionFromHeaders(authorization, sessionHeader)
     if (!sessionToken) throw new UnauthorizedException('Not signed in')

@@ -687,8 +687,12 @@
 
 .pp-info__details {
   margin-top: 1.35rem;
-  padding-top: 1.35rem;
+  padding: 1.15rem;
   border-top: 1px solid rgba(16, 17, 20, 0.07);
+  border-radius: 1.25rem;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.76), rgba(249, 247, 244, 0.62));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 /* Full-width details below buy panel — Illiyen-style */
@@ -712,35 +716,67 @@
 }
 
 .pp-info__desc-block {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.8rem;
+}
+
+.pp-info__desc-eyebrow {
+  display: inline-flex;
+  margin-bottom: 0.6rem;
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: rgba(16, 17, 20, 0.42);
 }
 
 .pp-info__read-more {
-  margin-top: 0.55rem;
-  padding: 0;
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding: 0 0.15rem;
   border: none;
   background: transparent;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: #101114;
-  text-decoration: underline;
-  text-underline-offset: 3px;
   cursor: pointer;
+  touch-action: manipulation;
+  transition: color 180ms ease;
 }
 
 .pp-info__read-more:hover {
   color: rgba(16, 17, 20, 0.65);
 }
 
+.pp-info__read-more:focus-visible {
+  outline: 2px solid rgba(16, 17, 20, 0.35);
+  outline-offset: 3px;
+  border-radius: 999px;
+}
+
+.pp-info__read-more-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pp-info__read-more-icon--open {
+  transform: rotate(180deg);
+}
+
 .pp-info__desc {
   margin-top: 0;
   margin-bottom: 0;
   font-family: var(--font-inter), Inter, system-ui, sans-serif;
-  font-size: 0.875rem;
-  font-weight: 500;
-  line-height: 1.7;
+  font-size: 0.9375rem;
+  font-weight: 450;
+  line-height: 1.72;
   letter-spacing: 0.005em;
-  color: rgba(16, 17, 20, 0.62);
+  color: rgba(16, 17, 20, 0.68);
 }
 
 .pp-info__options {
@@ -2121,17 +2157,20 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 
 /* Accordions — Details → Shipping → Care */
 .pp-info__accordions {
-  margin-top: 0.55rem;
+  margin-top: 0.35rem;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.5rem;
 }
 
 .pp-accordion {
-  border: 1px solid rgba(16, 17, 20, 0.06);
-  border-radius: 0.85rem;
-  background: rgba(255, 255, 255, 0.42);
+  border: 1px solid rgba(16, 17, 20, 0.075);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.66);
   overflow: hidden;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 4px 14px rgba(16, 17, 20, 0.025);
   transition:
     background 280ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 280ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -2139,9 +2178,9 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 }
 
 .pp-accordion--open {
-  background: rgba(255, 255, 255, 0.78);
-  border-color: rgba(16, 17, 20, 0.09);
-  box-shadow: 0 10px 28px rgba(16, 17, 20, 0.05);
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(16, 17, 20, 0.12);
+  box-shadow: 0 14px 34px rgba(16, 17, 20, 0.065);
 }
 
 .pp-accordion__trigger {
@@ -2150,9 +2189,10 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.9rem 0.85rem;
+  min-height: 4rem;
+  padding: 0.75rem 0.85rem;
   margin: 0;
-  border-radius: 0.85rem;
+  border-radius: 1rem;
   font-family: var(--font-inter), Inter, system-ui, sans-serif;
   font-size: 0.72rem;
   font-weight: 800;
@@ -2163,6 +2203,7 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   background: transparent;
   border: none;
   cursor: pointer;
+  touch-action: manipulation;
   transition:
     color 280ms cubic-bezier(0.22, 1, 0.36, 1),
     background 280ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -2171,15 +2212,38 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 .pp-accordion__title {
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.7rem;
   min-width: 0;
 }
 
 .pp-accordion__title-icon {
-  width: 1rem;
-  height: 1rem;
+  width: 1.05rem;
+  height: 1.05rem;
   flex-shrink: 0;
   color: rgba(16, 17, 20, 0.55);
+}
+
+.pp-accordion__title-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.pp-accordion__title-label {
+  line-height: 1.1;
+}
+
+.pp-accordion__summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  text-transform: none;
+  white-space: nowrap;
+  color: rgba(16, 17, 20, 0.46);
 }
 
 .pp-accordion--open .pp-accordion__title-icon {
@@ -2191,13 +2255,18 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   background: rgba(16, 17, 20, 0.025);
 }
 
+.pp-accordion__trigger:focus-visible {
+  outline: 2px solid rgba(16, 17, 20, 0.35);
+  outline-offset: -3px;
+}
+
 .pp-accordion__icon {
   display: flex;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 1.65rem;
-  height: 1.65rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(16, 17, 20, 0.08);
@@ -4053,9 +4122,9 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   }
 
   .pp-view .pp-info__details {
-    margin-top: 0.85rem;
-    padding: 0.8rem 0.8rem 0.2rem;
-    border-radius: 10px;
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 18px;
   }
 
   .pp-view .pp-color-thumb__img {

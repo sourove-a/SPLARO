@@ -16,7 +16,11 @@ export interface ModulePanelShellProps {
   searchPlaceholder: string
   createLabel: string
   onCreate: () => void
-  onRefresh: () => void
+  onRefresh: () => void | Promise<void>
+  /** When true, Refresh shows loading + spins icon + blocks duplicate clicks. */
+  refreshing?: boolean
+  /** Accessible name for the Refresh control (defaults to “Refresh data”). */
+  refreshLabel?: string
   /** Optional fallback when table CSV export is unavailable — never use for fake success. */
   onExport?: () => void
   /** Disable create — no backend write path (shows honest tooltip, no fake toast). */
@@ -32,6 +36,8 @@ export interface ModulePanelShellProps {
   tableTitle: string
   footer: string
   exportSlug?: string
+  /** Optional page title — when set, renders premium hero above KPIs */
+  title?: string
   children: React.ReactNode
 }
 
@@ -44,6 +50,8 @@ export function ModulePanelShell({
   createLabel,
   onCreate,
   onRefresh,
+  refreshing = false,
+  refreshLabel = 'Refresh data',
   onExport,
   createDisabled = false,
   exportDisabled = false,
@@ -56,6 +64,7 @@ export function ModulePanelShell({
   tableTitle,
   footer,
   exportSlug,
+  title,
   children,
 }: ModulePanelShellProps) {
   const tableWrapRef = useRef<HTMLDivElement>(null)
@@ -74,15 +83,47 @@ export function ModulePanelShell({
   }
 
   const handleRefresh = () => {
-    onRefresh()
+    if (refreshing) return
+    void onRefresh()
   }
+
   return (
-    <div className="min-w-0 space-y-5">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="admin-panel-page min-w-0 space-y-4">
+      {title ? (
+        <div className="admin-catalog-hero admin-panel-hero !mb-0 !pb-4">
+          <div className="admin-catalog-hero__top !mb-0">
+            <div className="admin-catalog-hero__title-row">
+              <div className="admin-catalog-icon-ring admin-catalog-icon-ring--lg">
+                <TableIcon strokeWidth={2} />
+              </div>
+              <h1 className="admin-catalog-hero__title">{title}</h1>
+            </div>
+            <button
+              type="button"
+              className={cn(
+                'admin-catalog-action admin-catalog-action--primary admin-catalog-action--lg',
+                createDisabled && 'cursor-not-allowed opacity-50',
+              )}
+              disabled={createDisabled}
+              title={createDisabled ? disabledActionTitle : undefined}
+              onClick={() => {
+                if (!createDisabled) onCreate()
+              }}
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              {createLabel}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="admin-kpi-grid admin-kpi-grid--catalog">
         {kpis.map(([label, value, tone], index) => (
-          <div key={`${label}-${index}`} className="admin-kpi">
-            <p className="admin-kpi__label">{label}</p>
-            <p className={`admin-kpi__value${tone !== 'default' ? ` admin-kpi__value--${tone}` : ''}`}>{value}</p>
+          <div key={`${label}-${index}`} className={cn('admin-kpi-card', tone !== 'default' && `admin-kpi-card--${tone}`)}>
+            <p className="admin-kpi-card__label">{label}</p>
+            <div className="admin-kpi-card__row">
+              <p className="admin-kpi-card__value">{value}</p>
+            </div>
           </div>
         ))}
       </div>
@@ -96,68 +137,83 @@ export function ModulePanelShell({
         ))}
       </div>
 
-      <div className="admin-module-toolbar">
-        <div className="admin-search max-w-md min-w-[12rem] flex-1">
-          <Search className="h-4 w-4" />
-          <input
-            value={query}
-            onChange={(e) => onQuery(e.target.value)}
-            placeholder={searchPlaceholder}
-            className="flex-1 bg-transparent text-sm font-semibold text-[var(--admin-text)] outline-none placeholder:text-[var(--admin-text-muted)]"
-          />
+      <div className="admin-catalog-toolbar !mb-0">
+        <div className="admin-catalog-toolbar__row">
+          <div className="admin-catalog-toolbar__search">
+            <Search className="admin-catalog-toolbar__search-icon" aria-hidden />
+            <input
+              value={query}
+              onChange={(e) => onQuery(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="admin-catalog-input"
+            />
+          </div>
+          {extraFilters}
+          <div className="admin-catalog-toolbar__actions">
+            <AdminButton
+              variant="secondary"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              aria-busy={refreshing || undefined}
+              aria-label={refreshLabel}
+              title={refreshLabel}
+            >
+              <RefreshCw className={cn('h-4 w-4 shrink-0', refreshing && 'animate-spin')} aria-hidden />
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </AdminButton>
+            <AdminButton
+              variant="secondary"
+              onClick={handleExport}
+              disabled={exportDisabled}
+              title={exportDisabled ? disabledActionTitle : undefined}
+            >
+              <Download className="h-4 w-4" aria-hidden />
+              Export
+            </AdminButton>
+            {!title ? (
+              <AdminButton
+                variant="primary"
+                onClick={onCreate}
+                disabled={createDisabled}
+                title={createDisabled ? disabledActionTitle : undefined}
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+                {createLabel}
+              </AdminButton>
+            ) : null}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <AdminButton onClick={handleRefresh}>
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </AdminButton>
-          <AdminButton
-            onClick={handleExport}
-            disabled={exportDisabled}
-            title={exportDisabled ? disabledActionTitle : undefined}
-          >
-            <Download className="h-4 w-4" />
-            Export
-          </AdminButton>
-          <AdminButton
-            variant="gold"
-            onClick={onCreate}
-            disabled={createDisabled}
-            title={createDisabled ? disabledActionTitle : undefined}
-          >
-            <Plus className="h-4 w-4" />
-            {createLabel}
-          </AdminButton>
-        </div>
+        {tabs && onTab ? (
+          <div className="admin-catalog-toolbar__tabs" role="tablist">
+            {tabs.map(({ key, label, count }) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === key}
+                onClick={() => onTab(key)}
+                className={cn('admin-catalog-tab', activeTab === key && 'admin-catalog-tab--active')}
+              >
+                {label}
+                <span className="admin-catalog-tab__count">{count}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
-      {tabs && onTab ? (
-        <div className="admin-module-tabs">
-          {tabs.map(({ key, label, count }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onTab(key)}
-              className={cn('admin-module-tab', activeTab === key && 'admin-module-tab--active')}
-            >
-              {label}
-              <span className="admin-module-tab__count">{count}</span>
-            </button>
-          ))}
+      <div className="admin-catalog-table-shell">
+        <div className="admin-catalog-table-shell__head">
+          <div className="admin-catalog-icon-ring">
+            <TableIcon aria-hidden />
+          </div>
+          <p className="admin-catalog-table-shell__title">{tableTitle}</p>
         </div>
-      ) : null}
-
-      {extraFilters}
-
-      <div className="admin-module-table-wrap">
-        <div className="admin-module-table-head">
-          <TableIcon className="h-4 w-4 text-[var(--admin-text-muted)]" />
-          <p className="admin-kpi__label !mb-0">{tableTitle}</p>
+        <div className="admin-catalog-table-shell__scroll overflow-x-auto" ref={tableWrapRef}>
+          {children}
         </div>
-        <div className="overflow-x-auto" ref={tableWrapRef}>{children}</div>
-        <div className="admin-module-table-foot">
+        <div className="admin-catalog-table-shell__footer">
           <span>{footer}</span>
-          <span className="tabular-nums">Page 1 of 1</span>
         </div>
       </div>
     </div>
@@ -176,6 +232,7 @@ export const STATUS_CLASS: Record<string, string> = {
   cancelled: 'admin-status admin-status--pending',
   draft: 'admin-status admin-status--processing',
   sent: 'admin-status admin-status--shipped',
+  delivered: 'admin-status admin-status--delivered',
   paid: 'admin-status admin-status--delivered',
   overdue: 'admin-status admin-status--pending',
   success: 'admin-status admin-status--delivered',

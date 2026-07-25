@@ -14,35 +14,41 @@ import { markAdminLinkNavigation } from '@/lib/navigation/client-nav'
 import { BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
 import { cn } from '@/lib/utils/cn'
 
+type QuickTone = 'sky' | 'teal' | 'slate' | 'amber' | 'green' | 'gold'
+
 type QuickAction = {
   label: string
   href?: string
   icon: typeof ShoppingBag
+  tone: QuickTone
   disabled?: boolean
   disabledTitle?: string
 }
 
 const ACTIONS: QuickAction[] = [
-  { label: 'Create New Order', href: '/dashboard/orders/new', icon: ShoppingBag },
-  { label: 'Add New Product', href: '/dashboard/products/new', icon: Package },
+  { label: 'Create New Order', href: '/dashboard/orders/new', icon: ShoppingBag, tone: 'sky' },
+  { label: 'Add New Product', href: '/dashboard/products/new', icon: Package, tone: 'teal' },
   {
     label: 'Upload Product CSV',
     icon: Upload,
+    tone: 'slate',
     disabled: true,
     disabledTitle: `${BACKEND_NOT_CONNECTED_TITLE} Product CSV import API is not wired yet — use Export on Products.`,
   },
-  { label: 'Partner Transaction', href: '/dashboard/finance/partner-accounts', icon: Wallet },
-  { label: 'Daily Closing', href: '/dashboard/finance/daily-closing', icon: FileSpreadsheet },
-  { label: 'AI Product Generator', href: '/dashboard/ai-product-generator', icon: Bot },
+  { label: 'Partner Transaction', href: '/dashboard/finance/partner-accounts', icon: Wallet, tone: 'amber' },
+  { label: 'Daily Closing', href: '/dashboard/finance/daily-closing', icon: FileSpreadsheet, tone: 'green' },
+  { label: 'AI Product Generator', href: '/dashboard/ai-product-generator', icon: Bot, tone: 'gold' },
 ]
 
-export function QuickActions() {
+export function QuickActions({ embedded = false }: { embedded?: boolean } = {}) {
   return (
-    <div className="admin-module-card">
-      <div className="mb-5">
-        <h3 className="admin-module-card__title">Quick Actions</h3>
-        <p className="admin-module-card__subtitle">Luxury commerce shortcuts — live routes only</p>
-      </div>
+    <div className={embedded ? '' : 'admin-module-card'}>
+      {embedded ? null : (
+        <div className="mb-5">
+          <h3 className="admin-module-card__title">Quick Actions</h3>
+          <p className="admin-module-card__subtitle">Luxury commerce shortcuts — live routes only</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6">
         {ACTIONS.map((action) => {
@@ -58,8 +64,8 @@ export function QuickActions() {
                 )}
                 aria-disabled
               >
-                <div className="admin-quick-tile__icon">
-                  <Icon className="h-4 w-4" strokeWidth={1.5} />
+                <div className={cn('admin-quick-tile__icon', `admin-quick-tile__icon--${action.tone}`)}>
+                  <Icon className="h-4 w-4" strokeWidth={1.75} />
                 </div>
                 <span className="text-[11px] font-semibold leading-tight text-[var(--admin-text-muted)]">
                   {action.label}
@@ -77,8 +83,8 @@ export function QuickActions() {
                 onClick={() => markAdminLinkNavigation(action.href!)}
                 className="admin-quick-tile active:scale-[0.98]"
               >
-                <div className="admin-quick-tile__icon">
-                  <Icon className="h-4 w-4" strokeWidth={1.5} />
+                <div className={cn('admin-quick-tile__icon', `admin-quick-tile__icon--${action.tone}`)}>
+                  <Icon className="h-4 w-4" strokeWidth={1.75} />
                 </div>
                 <span className="text-[11px] font-semibold leading-tight text-[var(--admin-text)]">
                   {action.label}

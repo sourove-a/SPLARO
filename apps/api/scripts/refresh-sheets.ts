@@ -1,11 +1,15 @@
 import 'reflect-metadata'
-import { config } from 'dotenv'
+import { loadEnvFile } from 'node:process'
 import { resolve } from 'path'
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from '../src/app.module'
 import { GoogleSheetsSyncService } from '../src/modules/google-workspace/google-sheets-sync.service'
 
-config({ path: resolve(__dirname, '../../../.env') })
+try {
+  loadEnvFile(resolve(__dirname, '../../../.env'))
+} catch {
+  // Environment may already be injected by the process (CI / production).
+}
 
 async function main() {
   const storeId = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'

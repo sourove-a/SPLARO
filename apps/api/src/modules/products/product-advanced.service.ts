@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { resolveCustomerFacingSiteUrl } from '@splaro/config'
 import { Prisma } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
 import * as QRCode from 'qrcode'
@@ -63,14 +64,15 @@ export class ProductAdvancedService {
 
   // ── QR CODE ───────────────────────────────────────────────
 
-  async generateProductQR(productId: string, siteUrl: string): Promise<string> {
+  async generateProductQR(productId: string, siteUrl?: string): Promise<string> {
     const product = await this.prisma.product.findUnique({
       where: { id: productId },
       select: { slug: true },
     })
     if (!product) throw new Error(`Product ${productId} not found`)
 
-    const url = `${siteUrl}/products/${product.slug}?ref=qr`
+    const origin = resolveCustomerFacingSiteUrl(siteUrl)
+    const url = `${origin}/products/${product.slug}?ref=qr`
     const qrDataUrl = await QRCode.toDataURL(url, {
       errorCorrectionLevel: 'M',
       width: 256,
@@ -81,14 +83,15 @@ export class ProductAdvancedService {
     return qrDataUrl
   }
 
-  async generateVariantQR(variantId: string, siteUrl: string): Promise<string> {
+  async generateVariantQR(variantId: string, siteUrl?: string): Promise<string> {
     const variant = await this.prisma.productVariant.findUnique({
       where: { id: variantId },
       include: { product: { select: { slug: true } } },
     })
     if (!variant) throw new Error(`Variant ${variantId} not found`)
 
-    const url = `${siteUrl}/products/${variant.product.slug}?variant=${variantId}&ref=qr`
+    const origin = resolveCustomerFacingSiteUrl(siteUrl)
+    const url = `${origin}/products/${variant.product.slug}?variant=${variantId}&ref=qr`
     return QRCode.toDataURL(url, { width: 200, margin: 1 })
   }
 

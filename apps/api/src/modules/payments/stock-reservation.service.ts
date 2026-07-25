@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import { Cron, CronExpression } from '@nestjs/schedule'
 import type { Prisma } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
+import { assertOrderStatusTransition } from '../../common/order-status.util'
 
 export interface ReservableLine {
   variantId: string
@@ -147,6 +148,8 @@ export class StockReservationService {
       await this.prisma.$transaction(async (tx) => {
         const released = await this.releaseForOrder(tx, row.orderId, 'EXPIRED')
         if (!released) return
+        // updateMany already gates on PENDING — assert documents the allowed transition
+        assertOrderStatusTransition('PENDING', 'CANCELLED')
         const cancelled = await tx.order.updateMany({
           where: {
             id: row.orderId,

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Optional } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { generateOrderCode } from '../../common/order-code.util'
+import { generatePaymentCode } from '../../common/payment-code.util'
 import { OrderEventsService } from '../orders/order-events.service'
 import { ProfitLossService } from '../finance/profit-loss.service'
 import type { PaymentMethod, Prisma } from '@prisma/client'
@@ -219,6 +220,7 @@ export class PosService {
       const invoiceNumber = await generateOrderCode(this.prisma, sid)
       try {
         order = await this.prisma.$transaction(async (tx) => {
+      const paymentNumber = await generatePaymentCode(tx, sid)
       const created = await tx.order.create({
         data: {
           storeId: sid,
@@ -277,6 +279,7 @@ export class PosService {
           },
           payments: {
             create: {
+              paymentNumber,
               method: paymentMethod,
               status: 'PAID',
               amount: total,

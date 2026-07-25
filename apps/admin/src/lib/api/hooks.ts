@@ -1027,8 +1027,27 @@ export function useInvoiceStats(days = 30) {
 export function useUpdateOrderPayment() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, paymentStatus }: { id: string; paymentStatus: OrderPaymentStatus }) =>
-      updateOrderPaymentStatus(id, paymentStatus),
+    mutationFn: ({
+      id,
+      paymentStatus,
+      reference,
+      amount,
+      method,
+      note,
+    }: {
+      id: string
+      paymentStatus: OrderPaymentStatus
+      reference?: string
+      amount?: number
+      method?: string
+      note?: string
+    }) =>
+      updateOrderPaymentStatus(id, paymentStatus, {
+        ...(reference !== undefined ? { reference } : {}),
+        ...(amount !== undefined ? { amount } : {}),
+        ...(method !== undefined ? { method } : {}),
+        ...(note !== undefined ? { note } : {}),
+      }),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ['invoices'] })
       void qc.invalidateQueries({ queryKey: ['transactions'] })

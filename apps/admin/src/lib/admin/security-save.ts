@@ -1,4 +1,4 @@
-import { toastApiSaved, toastFail, toastOk } from './feedback'
+import { toastApiSaved, toastFail, toastOk, toastWarn } from './feedback'
 import type { PermissionRow } from '@/lib/api/security'
 import {
   verifyInviteResponse,
@@ -19,7 +19,27 @@ export async function confirmAdminInvited(
     if (!verifyInviteResponse(saved, expected)) return false
     const id = saved && typeof saved === 'object' && 'id' in saved ? String((saved as { id: string }).id) : ''
     if (!id || !(await verifyStaffPersisted(id, { role: expected.role, isActive: true }))) return false
-    toastApiSaved(`Admin ${expected.email} invited`)
+
+    const emailSent =
+      saved && typeof saved === 'object' && 'emailSent' in saved
+        ? Boolean((saved as { emailSent?: boolean }).emailSent)
+        : false
+    const message =
+      saved && typeof saved === 'object' && 'message' in saved
+        ? String((saved as { message?: string }).message ?? '')
+        : ''
+
+    if (emailSent) {
+      toastOk(
+        message ||
+          `Invite sent to ${expected.email} — they must verify email and set a password`,
+      )
+    } else {
+      toastWarn(
+        message ||
+          `Invite created for ${expected.email}, but email was not delivered — check SMTP / Gmail`,
+      )
+    }
     return true
   } catch (err) {
     toastFail(err instanceof Error ? err.message : 'Could not invite admin.')

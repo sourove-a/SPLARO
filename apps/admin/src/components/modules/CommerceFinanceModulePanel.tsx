@@ -4,7 +4,7 @@ import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import { toastFail, toastApiSaved } from '@/lib/admin/feedback'
 import { copyWithToast } from '@/lib/admin/clipboard'
 import { verifyReturnStatus } from '@/lib/admin/mutation-verify'
-import { confirmOrderPaymentSaved } from '@/lib/admin/payment-save'
+import { confirmOrderPaymentSaved, collectPaymentEvidence } from '@/lib/admin/payment-save'
 import {
   RotateCcw, FileText, CreditCard, ChevronDown, Printer, CheckCircle2,
   AlertTriangle, Repeat, Calendar, Download, Search, Filter, RefreshCw,
@@ -14,6 +14,7 @@ import {
 
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { AdminButton } from '@/components/ui/AdminButton'
+import { AdminStatusBadge, type AdminBadgeTone } from '@/components/ui/AdminStatusBadge'
 import { useReturns, useInvoices, useInvoiceHealth, useInvoiceStats, useTransactions, useTransactionHealth, useTransaction, useCommerceSubscriptions, useUpdateReturnStatus, useUpdateOrderPayment } from '@/lib/api/hooks'
 import { downloadInvoice, downloadInvoicePdf } from '@/lib/admin/admin-actions'
 import { formatRelativeTime } from '@/lib/api/orders'
@@ -21,30 +22,47 @@ import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
 import { InvoiceDetailPanel } from '@/components/modules/InvoiceDetailPanel'
 import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
-import { formatBDT, STATUS_CLASS } from '@/components/modules/ModulePanelShell'
+import { formatBDT } from '@/components/modules/ModulePanelShell'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
-
-/* ── Design tokens ────────────────────────────────────────── */
-
-const GOLD = '#16181d'
+import { cn } from '@/lib/utils/cn'
+import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 
 type KpiTone = 'gold' | 'warn' | 'success' | 'danger' | 'neutral'
 
+const KPI_ACCENT: Record<KpiTone, string | undefined> = {
+  gold: 'gold',
+  warn: 'warning',
+  success: 'success',
+  danger: 'danger',
+  neutral: undefined,
+}
+
+function statusTone(status: string): AdminBadgeTone {
+  const v = status.toLowerCase()
+  if (['paid', 'refunded', 'active', 'success', 'sent', 'completed'].includes(v)) return 'success'
+  if (['pending', 'approved', 'received', 'processing', 'draft', 'open'].includes(v)) return 'warning'
+  if (['failed', 'rejected', 'cancelled', 'overdue', 'void'].includes(v)) return 'danger'
+  return 'muted'
+}
+
 function StatusBadge({ status }: { status: string }) {
-  const cls = STATUS_CLASS[status] ?? STATUS_CLASS.draft
-  return <span className={cls}>{status}</span>
+  return <AdminStatusBadge label={status} tone={statusTone(status)} />
 }
 
 function KpiStrip({ items }: { items: { label: string; value: string | number; icon: React.ElementType; tone?: KpiTone }[] }) {
   return (
-    <div className="admin-commerce-kpi-grid">
+    <div className="admin-kpi-grid admin-kpi-grid--catalog">
       {items.map(({ label, value, icon: Icon, tone = 'neutral' }) => (
-        <div key={label} className={`admin-commerce-kpi admin-commerce-kpi--${tone}`}>
-          <div className="admin-commerce-kpi__icon">
-            <Icon size={15} strokeWidth={2.2} />
+        <div key={label} className={cn('admin-kpi-card', KPI_ACCENT[tone] && `admin-kpi-card--${KPI_ACCENT[tone]}`)}>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="admin-catalog-icon-ring !h-7 !w-7">
+              <Icon size={14} strokeWidth={2.2} />
+            </span>
+            <p className="admin-kpi-card__label !m-0">{label}</p>
           </div>
-          <p className="admin-commerce-kpi__value">{value}</p>
-          <p className="admin-commerce-kpi__label">{label}</p>
+          <div className="admin-kpi-card__row">
+            <p className="admin-kpi-card__value">{value}</p>
+          </div>
         </div>
       ))}
     </div>
@@ -59,14 +77,16 @@ function CommerceToolbar({
   onRefresh?: () => void
 }) {
   return (
-    <div className="admin-commerce-toolbar">
-      <p className="admin-commerce-toolbar__meta">{summary}</p>
-      {onRefresh ? (
-        <AdminButton size="sm" onClick={onRefresh}>
-          <RefreshCw size={14} />
-          Refresh
-        </AdminButton>
-      ) : null}
+    <div className="admin-catalog-toolbar !mb-3">
+      <div className="admin-catalog-toolbar__row !justify-between">
+        <p className="m-0 text-sm font-semibold text-[var(--admin-text-secondary)]">{summary}</p>
+        {onRefresh ? (
+          <AdminButton size="sm" variant="secondary" onClick={onRefresh}>
+            <RefreshCw size={14} />
+            Refresh
+          </AdminButton>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -78,26 +98,33 @@ function FilterBar({
   chips?: string[]; activeChip?: string; onChip?: (k: string) => void
 }) {
   return (
-    <div className="admin-commerce-filter">
-      <div className="admin-commerce-search">
-        <Search size={14} color={GOLD} />
-        <input value={query} onChange={(e) => onQuery(e.target.value)} placeholder={placeholder} />
-      </div>
-      {chips && onChip ? (
-        <div className="admin-commerce-chips">
-          <Filter size={12} color="var(--admin-text-muted)" />
-          {chips.map((chip) => (
-            <button
-              key={chip}
-              type="button"
-              onClick={() => onChip(chip)}
-              className={`admin-commerce-chip${activeChip === chip ? ' admin-commerce-chip--active' : ''}`}
-            >
-              {chip === 'all' ? 'All' : chip}
-            </button>
-          ))}
+    <div className="admin-catalog-toolbar !mb-3">
+      <div className="admin-catalog-toolbar__row">
+        <div className="admin-catalog-toolbar__search">
+          <Search className="admin-catalog-toolbar__search-icon" aria-hidden />
+          <input
+            value={query}
+            onChange={(e) => onQuery(e.target.value)}
+            placeholder={placeholder}
+            className="admin-catalog-input"
+          />
         </div>
-      ) : null}
+        {chips && onChip ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Filter size={12} className="text-[var(--admin-text-muted)]" />
+            {chips.map((chip) => (
+              <button
+                key={chip}
+                type="button"
+                onClick={() => onChip(chip)}
+                className={cn('admin-filter-pill', activeChip === chip && 'admin-filter-pill--active')}
+              >
+                {chip === 'all' ? 'All' : chip}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -109,27 +136,25 @@ function GlassTable({
   emptyIcon?: React.ElementType; emptyTitle?: string; emptySub?: string
 }) {
   return (
-    <div className="admin-commerce-table-wrap settings-card">
+    <div className="admin-catalog-table-shell">
       {loading ? (
-        <div className="admin-commerce-empty">
-          <svg width="20" height="20" viewBox="0 0 20 20" style={{ animation: 'spin 1s linear infinite' }}>
-            <circle cx="10" cy="10" r="8" fill="none" stroke={GOLD} strokeWidth="2" strokeDasharray="20 12" />
-          </svg>
-          <p className="admin-commerce-empty__sub">Loading…</p>
+        <div className="admin-catalog-empty">
+          <RefreshCw className="h-5 w-5 animate-spin text-[var(--admin-accent)]" aria-hidden />
+          <p className="admin-empty-state__text">Loading…</p>
         </div>
       ) : !children ? (
-        <div className="admin-commerce-empty">
+        <div className="admin-catalog-empty">
           {EmptyIcon ? (
-            <div className="admin-commerce-empty__icon">
+            <div className="admin-catalog-icon-ring admin-catalog-icon-ring--lg mb-2">
               <EmptyIcon size={22} strokeWidth={1.8} />
             </div>
           ) : null}
-          <p className="admin-commerce-empty__title">{emptyTitle ?? 'No data yet'}</p>
-          <p className="admin-commerce-empty__sub">{emptySub ?? empty ?? 'Records will appear here when available.'}</p>
+          <p className="admin-empty-state__title">{emptyTitle ?? 'No data yet'}</p>
+          <p className="admin-empty-state__text">{emptySub ?? empty ?? 'Records will appear here when available.'}</p>
         </div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table className="admin-commerce-table">{children}</table>
+        <div className="overflow-x-auto">
+          <table className="admin-catalog-data-table">{children}</table>
         </div>
       )}
     </div>
@@ -137,11 +162,7 @@ function GlassTable({
 }
 
 function OfflineBanner() {
-  return (
-    <div className="admin-commerce-offline">
-      API offline — run <code style={{ fontSize: 12 }}>pnpm dev:stack</code> (API on :4000)
-    </div>
-  )
+  return <ApiOfflineBanner />
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -227,7 +248,7 @@ function ReturnsRmaPanel() {
   if (isError) return <OfflineBanner />
 
   return (
-    <div className="admin-commerce-panel settings-section-enter">
+    <div className="admin-panel-page settings-section-enter space-y-4">
       <CommerceToolbar
         summary={<><strong>{rows.length}</strong> requests · <strong>{openCount}</strong> open</>}
         onRefresh={() => void refetch()}
@@ -388,7 +409,7 @@ function SubscriptionsPanel() {
   if (isError) return <OfflineBanner />
 
   return (
-    <div className="admin-commerce-panel settings-section-enter">
+    <div className="admin-panel-page settings-section-enter space-y-4">
       <CommerceToolbar
         summary={<><strong>{mapped.length}</strong> customers · subscription commerce</>}
         onRefresh={() => void refetch()}
@@ -431,7 +452,7 @@ function SubscriptionsPanel() {
                   <td style={{ fontWeight: 700 }}>{row.customer}</td>
                   <td>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700 }}>
-                      <Repeat size={11} color={GOLD} />
+                      <Repeat size={11} className="text-[var(--admin-accent)]" />
                       {row.plan}
                     </span>
                   </td>
@@ -483,9 +504,17 @@ function InvoicesPanel() {
 
   const markRowPaid = async (row: (typeof rows)[number]) => {
     if (row.status === 'paid') return
+    const evidence = collectPaymentEvidence(Number(row.amount))
+    if (!evidence) return
     const ok = await confirmOrderPaymentSaved(
       row.orderId,
-      () => updatePayment.mutateAsync({ id: row.orderId, paymentStatus: 'PAID' }),
+      () =>
+        updatePayment.mutateAsync({
+          id: row.orderId,
+          paymentStatus: 'PAID',
+          reference: evidence.reference,
+          amount: evidence.amount,
+        }),
       `Invoice ${row.id}`,
     )
     if (ok) void refetch()
@@ -506,7 +535,7 @@ function InvoicesPanel() {
   if (isError) return <OfflineBanner />
 
   return (
-    <div className="admin-commerce-panel settings-section-enter">
+    <div className="admin-panel-page settings-section-enter space-y-4">
       <ModuleLiveStrip
         items={[
           {
@@ -699,8 +728,14 @@ function TransactionExpandDetail({
             <p style={{ fontSize: 12, fontWeight: 700 }}>{detail.method.replace(/_/g, ' ')}</p>
           </div>
           <div>
-            <p className="admin-kpi__label">Reference</p>
-            <p style={{ fontFamily: 'monospace', fontSize: 11 }}>{detail.ref}</p>
+            <p className="admin-kpi__label">Payment #</p>
+            <p style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, fontWeight: 700 }}>
+              {detail.paymentNumber ?? '—'}
+            </p>
+          </div>
+          <div>
+            <p className="admin-kpi__label">Gateway Txn ID</p>
+            <p style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, fontWeight: 650 }}>{detail.ref}</p>
           </div>
           {detail.paidAt && (
             <div>
@@ -742,15 +777,30 @@ function TransactionsPanel() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const rows = (data?.transactions ?? []).map((r) => ({
-    id: r.id, orderId: r.orderId, orderNumber: r.orderNumber,
-    gateway: r.gateway, type: r.type as TxnType, amount: r.amount,
-    status: r.status as TxnStatus, ref: r.ref, time: formatRelativeTime(r.time),
+    id: r.id,
+    paymentNumber: r.paymentNumber,
+    orderId: r.orderId,
+    orderNumber: r.orderNumber,
+    gateway: r.gateway,
+    type: r.type as TxnType,
+    amount: r.amount,
+    status: r.status as TxnStatus,
+    ref: r.ref,
+    time: formatRelativeTime(r.time),
   }))
 
   const markCodPaid = async (row: (typeof rows)[number]) => {
+    const evidence = collectPaymentEvidence(Number(row.amount))
+    if (!evidence) return
     const ok = await confirmOrderPaymentSaved(
       row.orderId,
-      () => updatePayment.mutateAsync({ id: row.orderId, paymentStatus: 'PAID' }),
+      () =>
+        updatePayment.mutateAsync({
+          id: row.orderId,
+          paymentStatus: 'PAID',
+          reference: evidence.reference,
+          amount: evidence.amount,
+        }),
       `Payment ${row.orderNumber}`,
     )
     if (ok) {
@@ -776,7 +826,7 @@ function TransactionsPanel() {
   if (isError) return <OfflineBanner />
 
   return (
-    <div className="admin-commerce-panel settings-section-enter">
+    <div className="admin-panel-page settings-section-enter space-y-4">
       <ModuleLiveStrip
         items={[
           {
@@ -792,7 +842,7 @@ function TransactionsPanel() {
             hint: `${health?.paymentCount ?? 0} total in DB`,
           },
           {
-            label: 'Latest reference',
+            label: 'Latest payment',
             value: health?.latestTxnId ?? '—',
             ok: Boolean(health?.latestTxnId),
           },
@@ -820,7 +870,7 @@ function TransactionsPanel() {
 
       <div className="admin-commerce-filter">
         <div className="admin-commerce-search">
-          <Search size={14} color={GOLD} />
+          <Search size={14} className="text-[var(--admin-accent)]" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -877,13 +927,17 @@ function TransactionsPanel() {
           <>
             <thead>
               <tr>
-                {['Txn ID', 'Order', 'Gateway', 'Type', 'Amount', 'Reference', 'Status', 'Time', ''].map((h) => (
+                {['Payment #', 'Order', 'Gateway', 'Type', 'Amount', 'Gateway Txn', 'Status', 'Time', ''].map((h) => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((row) => (
+              {filtered.map((row) => {
+                const paymentLabel = row.paymentNumber?.trim() || '—'
+                const txnIdLabel = row.ref && row.ref !== '—' ? row.ref : '—'
+                const canCopyTxn = txnIdLabel !== '—'
+                return (
                 <Fragment key={row.id}>
                   <tr>
                     <td>
@@ -891,10 +945,13 @@ function TransactionsPanel() {
                         type="button"
                         onClick={() => setExpandedId(expandedId === row.id ? null : row.id)}
                         className="admin-commerce-link"
+                        title={paymentLabel !== '—' ? paymentLabel : 'Serial pending'}
                         style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                       >
-                        {row.id.slice(0, 10)}…
-                        <ChevronDown size={12} style={{ transition: 'transform 200ms', transform: expandedId === row.id ? 'rotate(180deg)' : 'none' }} />
+                        <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, fontWeight: 700 }}>
+                          {paymentLabel}
+                        </span>
+                        <ChevronDown size={12} style={{ flexShrink: 0, transition: 'transform 200ms', transform: expandedId === row.id ? 'rotate(180deg)' : 'none' }} />
                       </button>
                     </td>
                     <td>
@@ -915,12 +972,17 @@ function TransactionsPanel() {
                     <td className={row.type === 'refund' ? 'admin-commerce-amount--refund' : undefined} style={{ fontWeight: 800 }}>
                       {row.type === 'refund' ? '−' : ''}{formatBDT(row.amount)}
                     </td>
-                    <td style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--admin-text-muted)' }}>{row.ref}</td>
+                    <td
+                      style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 10, color: 'var(--admin-text-muted)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      title={txnIdLabel}
+                    >
+                      {txnIdLabel}
+                    </td>
                     <td><StatusBadge status={row.status} /></td>
                     <td style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{row.time}</td>
                     <td>
                       <RowActionsMenu
-                        recordName={row.id}
+                        recordName={paymentLabel !== '—' ? paymentLabel : row.orderNumber}
                         moduleHref="/dashboard/transactions"
                         recordId={row.id}
                         actions={[
@@ -933,9 +995,23 @@ function TransactionsPanel() {
                             onClick: () => navigate(`/dashboard/orders/${row.orderId}`),
                           },
                           {
-                            label: 'Copy reference',
+                            label: 'Copy Payment #',
                             onClick: () => {
-                              void copyWithToast(row.ref, 'Reference copied.')
+                              if (paymentLabel === '—') {
+                                toastFail('Payment serial not assigned yet.')
+                                return
+                              }
+                              void copyWithToast(paymentLabel, 'Payment # copied.')
+                            },
+                          },
+                          {
+                            label: 'Copy Gateway Txn',
+                            onClick: () => {
+                              if (!canCopyTxn) {
+                                toastFail('No gateway transaction ID to copy yet.')
+                                return
+                              }
+                              void copyWithToast(txnIdLabel, 'Gateway Txn copied.')
                             },
                           },
                           ...(row.status === 'pending' && row.gateway === 'COD'
@@ -964,7 +1040,7 @@ function TransactionsPanel() {
                     </tr>
                   )}
                 </Fragment>
-              ))}
+              )})}
             </tbody>
           </>
         )}

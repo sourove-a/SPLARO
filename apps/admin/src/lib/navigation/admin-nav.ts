@@ -206,6 +206,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     group: 'Operations',
     items: [
       item('Operations Hub', 'operations', 'LayoutGrid', 'Shipping, courier, warehouse & suppliers — live overview'),
+      item('Packing Station', 'packing-station', 'ScanLine', 'Scan barcode to pack or dispatch orders'),
       item('Shipping', 'shipping', 'Truck', 'Shipping zones, rates, and carriers'),
       item('Courier Hub', 'courier-hub', 'PackageCheck', 'Courier bookings and tracking'),
       item('Warehouse', 'warehouse', 'Warehouse', 'Warehouse locations and pick lists'),

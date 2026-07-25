@@ -208,9 +208,15 @@ export function LiveCategoriesPanel() {
 
   const handleSeed = async () => {
     try {
+      const before = flat.length
       const res = await seedDefaults.mutateAsync()
+      const refreshed = await refetch()
+      const after = refreshed.data?.categories?.length ?? 0
+      if (res.departments + res.subcategories > 0 && after <= before) {
+        toastFail('Seed reported success but categories did not persist — refresh and retry.')
+        return
+      }
       toastOk(`Seeded ${res.departments} departments, ${res.subcategories} subcategories.`)
-      void refetch()
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Seed failed')
     }

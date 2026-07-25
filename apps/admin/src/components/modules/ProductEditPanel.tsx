@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Loader2, Save, Package,
   Layers, AlertTriangle,
-  CheckCircle2, Circle, Pencil, Link2,
+  CheckCircle2, Pencil, Link2,
   BarChart3, ShieldAlert, Copy, ExternalLink,
 } from 'lucide-react'
 import { buildCategoryPicker } from '@/lib/admin/category-picker'
@@ -16,6 +16,7 @@ import {
   splitBilingualDescription,
 } from '@/lib/admin/product-description-draft'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
+import { AdminStatusBadge } from '@/components/ui/AdminStatusBadge'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
 import {
   confirmProductArchived,
@@ -96,15 +97,10 @@ function FormSection({
 
 function StatusBadge({ published }: { published: boolean }) {
   return (
-    <span className={cn(
-      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.08em]',
-      published
-        ? 'border border-emerald-500/30 bg-emerald-500/15 text-emerald-400'
-        : 'border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-glass-soft)] text-[var(--admin-text-muted)]',
-    )}>
-      {published ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
-      {published ? 'Live' : 'Draft'}
-    </span>
+    <AdminStatusBadge
+      label={published ? 'Live' : 'Draft'}
+      tone={published ? 'success' : 'muted'}
+    />
   )
 }
 

@@ -13,6 +13,7 @@ export interface ApiInvoiceRow {
 
 export interface ApiTransactionRow {
   id: string
+  paymentNumber: string | null
   orderId: string
   orderNumber: string
   gateway: string

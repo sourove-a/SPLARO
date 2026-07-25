@@ -4,6 +4,7 @@ import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { PrismaService } from '../../common/prisma.service'
 import { deleteOrderWithRelations } from '../../common/order-cleanup'
 import { restoreOrderStock } from '../../common/order-stock.util'
+import { generatePaymentCode } from '../../common/payment-code.util'
 import { StorefrontOrdersService } from '../storefront/storefront-orders.service'
 import { ProfitLossService } from '../finance/profit-loss.service'
 import { GoogleSheetsFinanceService } from '../finance/finance-support.service'
@@ -12,6 +13,7 @@ import { InvoiceService } from '../invoices/invoice.service'
 import { OrderEventsService } from './order-events.service'
 import { OrderStatusService } from './order-status.service'
 import { AdminTelegramHubService } from '../notifications/admin-telegram-hub.service'
+import { FinanceAuditService } from '../../common/finance-audit.service'
 import { resolveStoreId } from '../../common/store.util'
 import { resolveAdminPagination } from '../../common/admin-pagination.util'
 import {
@@ -73,6 +75,7 @@ export class OrdersController {
     private readonly orderStatus: OrderStatusService,
     private readonly orderEvents: OrderEventsService,
     private readonly telegramHub: AdminTelegramHubService,
+    private readonly financeAudit: FinanceAuditService,
   ) {}
 
   /** Resolve an order by id/invoiceNumber, scoped to the caller's store — prevents cross-store IDOR. */
@@ -290,20 +293,144 @@ export class OrdersController {
         OR: [{ id }, { invoiceNumber: id }],
         ...(req.adminUser?.storeId ? { storeId: req.adminUser.storeId } : {}),
       },
-      select: { id: true },
+      select: {
+        id: true,
+        storeId: true,
+        status: true,
+        paymentStatus: true,
+        paymentMethod: true,
+        total: true,
+        invoiceNumber: true,
+      },
     })
     if (!order) throw new NotFoundException('Order not found')
 
-    return this.prisma.order.update({
-      where: { id: order.id },
-      data: { paymentStatus: body.paymentStatus },
-      select: {
-        id: true,
-        invoiceNumber: true,
-        paymentStatus: true,
-        total: true,
-      },
+    const markingPaid = body.paymentStatus === 'PAID'
+    const reference = body.reference?.trim() ?? ''
+    const amount =
+      typeof body.amount === 'number' && Number.isFinite(body.amount) ? body.amount : undefined
+
+    if (markingPaid) {
+      if (reference.length < 3) {
+        throw new BadRequestException(
+          'Marking PAID requires a payment reference (trx id / bKash number)',
+        )
+      }
+      if (amount === undefined || amount < 0) {
+        throw new BadRequestException('Marking PAID requires the amount received')
+      }
+    }
+
+    const method = body.method ?? order.paymentMethod
+    const adminNote =
+      body.note?.trim() ||
+      (markingPaid
+        ? `Manual payment marked PAID. Ref: ${reference}. Amount: ${amount}`
+        : `Payment status set to ${body.paymentStatus}`)
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (markingPaid) {
+        const existingPayment = await tx.payment.findFirst({
+          where: { orderId: order.id },
+          select: { id: true, transactionId: true },
+        })
+        if (existingPayment) {
+          await tx.payment.update({
+            where: { id: existingPayment.id },
+            data: {
+              method,
+              status: 'PAID',
+              amount,
+              transactionId: reference,
+              paidAt: new Date(),
+              gatewayResponse: {
+                source: 'admin_manual',
+                adminUserId: req.adminUser?.userId ?? null,
+                note: adminNote,
+              },
+            },
+          })
+        } else {
+          const paymentNumber = await generatePaymentCode(tx, order.storeId)
+          await tx.payment.create({
+            data: {
+              paymentNumber,
+              orderId: order.id,
+              method,
+              status: 'PAID',
+              amount: amount!,
+              transactionId: reference,
+              paidAt: new Date(),
+              gatewayResponse: {
+                source: 'admin_manual',
+                adminUserId: req.adminUser?.userId ?? null,
+                note: adminNote,
+              },
+            },
+          })
+        }
+      } else if (body.paymentStatus === 'REFUNDED' || body.paymentStatus === 'FAILED') {
+        const existingPayment = await tx.payment.findFirst({
+          where: { orderId: order.id },
+          select: { id: true },
+        })
+        if (existingPayment) {
+          await tx.payment.update({
+            where: { id: existingPayment.id },
+            data: {
+              status: body.paymentStatus,
+              ...(body.paymentStatus === 'REFUNDED' ? { refundedAt: new Date() } : {}),
+              ...(body.note ? { failureReason: body.note } : {}),
+            },
+          })
+        }
+      }
+
+      const row = await tx.order.update({
+        where: { id: order.id },
+        data: { paymentStatus: body.paymentStatus },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          paymentStatus: true,
+          total: true,
+        },
+      })
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          status: order.status,
+          note: adminNote,
+        },
+      })
+
+      return row
     })
+
+    void this.financeAudit
+      .log({
+        storeId: order.storeId,
+        action: 'UPDATE',
+        resource: 'payment',
+        resourceId: order.id,
+        before: { paymentStatus: order.paymentStatus },
+        after: {
+          paymentStatus: body.paymentStatus,
+          reference: markingPaid ? reference : undefined,
+          amount: markingPaid ? amount : undefined,
+          method: markingPaid ? method : undefined,
+        },
+        note: adminNote,
+        userId: req.adminUser?.userId,
+      })
+      .catch((err) =>
+        this.logger.warn(
+          `Finance audit for payment update failed: ${err instanceof Error ? err.message : 'unknown'}`,
+        ),
+      )
+
+    return updated
   }
 
   @Post('bulk/status')

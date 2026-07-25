@@ -24,15 +24,14 @@ import {
   Printer,
   X,
   ShoppingBag,
-  Clock,
-  Banknote,
+  Tag,
 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminSkeletonGroup } from '@/components/ui/AdminUiPrimitives'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { isNetworkOrServerError } from '@/lib/api/offline-defaults'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
-import { downloadInvoice, exportTableFromContainer } from '@/lib/admin/admin-actions'
+import { downloadInvoice, exportTableFromContainer, printBulkOrderLabels } from '@/lib/admin/admin-actions'
 import { useOrders, useUpdateOrderStatus, useBookCourier, useBookCourierBulk, useBulkUpdateOrderStatus, useDeleteOrder, usePermission, useSetOrderCodRisk } from '@/lib/api/hooks'
 import { useInfrastructureConfig } from '@/lib/api/integration-hooks'
 import { mapPaymentMethod, fetchOrder, type ApiOrder } from '@/lib/api/orders'
@@ -350,39 +349,23 @@ export function OrdersPanel() {
   const handleBulkProcessing = async () => {
     const targets = filtered.filter((o) => selected.has(o.id) && o.linkId)
     if (!targets.length) return
-    const results = await Promise.allSettled(
-      targets.map((order) =>
-        updateStatus.mutateAsync({
-          id: order.linkId!,
-          status: 'PROCESSING',
-          note: 'Bulk update from admin',
-        }),
-      ),
-    )
-    let ok = 0
-    let fail = 0
-    for (const result of results) {
-      if (result.status === 'fulfilled') {
-        const status =
-          result.value && typeof result.value === 'object' && 'status' in result.value
-            ? String((result.value as { status: unknown }).status)
-            : ''
-        if (status === 'PROCESSING') ok += 1
-        else fail += 1
-      } else {
-        fail += 1
-      }
-    }
-    toastBulkOpResult(
-      { updated: ok, failed: fail },
-      {
+    try {
+      const res = await bulkStatus.mutateAsync({
+        orderIds: targets.map((o) => o.linkId!),
+        status: 'PROCESSING',
+        note: 'Bulk update from admin',
+      })
+      if (!(await verifyBulkStatusPersisted(targets, 'PROCESSING', res))) return
+      toastBulkOpResult(res, {
         ok: (n) => `${n} orders marked processing.`,
         partial: (succeeded, failed) => `Processing: ${succeeded} updated, ${failed} failed.`,
         fail: 'Could not mark orders as processing.',
-      },
-    )
-    if (ok > 0) setSelected(new Set())
-    void refetch()
+      })
+      if (res.updated > 0) setSelected(new Set())
+      void refetch()
+    } catch {
+      toastFail('Could not mark orders as processing.')
+    }
   }
 
   const handleBulkCancel = async () => {
@@ -493,6 +476,16 @@ export function OrdersPanel() {
     }
   }
 
+  const handlePrintShippingLabels = async () => {
+    const targets = filtered.filter((o) => selected.has(o.id) && (o.linkId || o.id))
+    if (!targets.length) {
+      toastFail('Select orders to print shipping labels.')
+      return
+    }
+    const ids = targets.map((o) => o.id || o.linkId!).filter(Boolean)
+    await printBulkOrderLabels(ids)
+  }
+
   const filtered = useMemo(() => {
     let rows = sourceOrders.filter((o) => paymentFilter === 'all' || o.payment === paymentFilter)
     if (sortBy === 'total') rows = [...rows].sort((a, b) => b.total - a.total)
@@ -522,54 +515,72 @@ export function OrdersPanel() {
   }
 
   return (
-    <div className="admin-ops-page">
+    <div className="admin-ops-page admin-panel-page">
       {apiOffline ? (
         <ApiOfflineBanner onRetry={() => void refetch()} />
       ) : null}
-      <header className="admin-ops-header">
-        <div>
-          <h2 className="admin-ops-header__title">Orders</h2>
-          <p className="admin-ops-header__sub">
-            {apiOrders?.total ?? sourceOrders.length} total · {kpis.pending} awaiting action
-          </p>
+      <header className="admin-catalog-hero admin-panel-hero">
+        <div className="admin-catalog-hero__top">
+          <div className="admin-catalog-hero__title-row">
+            <div className="admin-catalog-icon-ring admin-catalog-icon-ring--lg">
+              <ShoppingBag strokeWidth={2} />
+            </div>
+            <div>
+              <h1 className="admin-catalog-hero__title">Orders</h1>
+              <p className="admin-ops-header__sub !mt-1">
+                {apiOffline
+                  ? 'API offline — list unavailable until connection returns'
+                  : `${apiOrders?.total ?? sourceOrders.length} total · ${kpis.pending} awaiting action`}
+              </p>
+            </div>
+          </div>
+          <div className="admin-catalog-hero__actions">
+            <AdminButton variant="secondary" onClick={() => { void refreshWithToast(() => refetch(), 'Orders refreshed.') }}>
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </AdminButton>
+            <AdminButton
+              variant="secondary"
+              disabled={apiOffline}
+              onClick={() => {
+                if (!exportTableFromContainer(tableRef.current, 'orders')) {
+                  toastFail('No order data to export.')
+                }
+              }}
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </AdminButton>
+            <AdminButton variant="primary" onClick={() => navigate('/dashboard/orders/new')}>
+              <Plus className="h-4 w-4" />
+              New order
+            </AdminButton>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <AdminButton onClick={() => { void refreshWithToast(() => refetch(), 'Orders refreshed.') }}>
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </AdminButton>
-          <AdminButton
-            onClick={() => {
-              if (!exportTableFromContainer(tableRef.current, 'orders')) {
-                toastFail('No order data to export.')
-              }
-            }}
-          >
-            <Download className="h-4 w-4" />
-            Export
-          </AdminButton>
-          <AdminButton variant="dark" onClick={() => navigate('/dashboard/orders/new')}>
-            <Plus className="h-4 w-4" />
-            New order
-          </AdminButton>
+        <div className="admin-kpi-grid admin-kpi-grid--catalog">
+          {[
+            { label: 'Total', value: apiOffline ? '—' : kpis.today },
+            { label: 'Pending', value: apiOffline ? '—' : kpis.pending, accent: 'warning' },
+            { label: 'Shipped', value: apiOffline ? '—' : kpis.shipped, accent: 'success' },
+            { label: 'Revenue', value: apiOffline ? '—' : formatBDT(kpis.revenue), accent: 'gold' },
+          ].map(({ label, value, accent }) => (
+            <div key={label} className={cn('admin-kpi-card', accent && `admin-kpi-card--${accent}`)}>
+              <p className="admin-kpi-card__label">{label}</p>
+              <div className="admin-kpi-card__row">
+                <p className="admin-kpi-card__value">{value}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </header>
 
-      <div className="admin-kpi-grid">
-        {[
-          { label: 'Total', value: kpis.today, icon: ShoppingBag },
-          { label: 'Pending', value: kpis.pending, icon: Clock },
-          { label: 'Shipped', value: kpis.shipped, icon: Truck },
-          { label: 'Revenue', value: formatBDT(kpis.revenue), icon: Banknote },
-        ].map(({ label, value, icon: Icon }) => (
-          <div key={label} className="admin-kpi">
-            <span className="admin-kpi__icon"><Icon className="h-4 w-4" strokeWidth={1.75} /></span>
-            <p className="admin-kpi__label">{label}</p>
-            <p className="admin-kpi__value">{value}</p>
-          </div>
-        ))}
-      </div>
-
+      {apiOffline ? (
+        <div className="admin-empty-state admin-catalog-empty">
+          <p className="admin-empty-state__title">Orders unavailable</p>
+          <p className="admin-empty-state__text">Connect the API to load live orders. Nothing below is live data.</p>
+        </div>
+      ) : (
+      <>
       <div className="admin-pipeline-bar">
         {PIPELINE_STAGES.map(({ label, key, count }) => (
           <button
@@ -781,13 +792,13 @@ export function OrdersPanel() {
             bookingCourier={bookCourier.isPending}
             {...(canEditOrders
               ? {
-                  onAdvance: async (nextStatus: string) => {
+                  onAdvance: async (nextStatus: string, note?: string) => {
                     const id = previewOrder.linkId ?? previewOrder.id
                     try {
                       const saved = await updateStatus.mutateAsync({
                         id,
                         status: nextStatus,
-                        note: 'Updated from order preview',
+                        note: note || 'Updated from order preview',
                       })
                       if (!verifyOrderStatus(saved, nextStatus)) return
                       toastApiSaved(`Order ${previewOrder.id}`)
@@ -833,6 +844,10 @@ export function OrdersPanel() {
             <Printer className="h-4 w-4" />
             Print
           </button>
+          <button type="button" className="admin-bulk-bar__btn" onClick={() => void handlePrintShippingLabels()}>
+            <Tag className="h-4 w-4" />
+            Print All Labels
+          </button>
           {canEditOrders ? (
             <>
               <button type="button" className="admin-bulk-bar__btn" onClick={handleBulkProcessing}>
@@ -863,6 +878,8 @@ export function OrdersPanel() {
           ) : null}
         </div>
       ) : null}
+      </>
+      )}
     </div>
   )
 }

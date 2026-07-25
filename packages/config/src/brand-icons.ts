@@ -10,7 +10,8 @@ export const SPLARO_TAB_ICONS = {
   icon192: '/images/logo/splaro-brand-mark-tab-192.png',
   icon512: '/images/logo/splaro-brand-mark-tab-512.png',
   apple180: '/images/logo/splaro-brand-mark-tab-180.png',
-  profile: '/images/logo/splaro-admin-icon.png',
+  /** Square mark for avatars / profile pills — never the tall wordmark. */
+  profile: '/images/logo/splaro-brand-mark-tab-192.png',
 } as const
 
 export const splaroMetadataIcons = {

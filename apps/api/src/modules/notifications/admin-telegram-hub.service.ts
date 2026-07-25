@@ -104,9 +104,9 @@ ${requested ? '📨' : '🛡'} <b>Email Verification ${requested ? 'Requested' :
 
 Customer: ${escapeTelegramHtml(input.name)}
 Email: <code>${escapeTelegramHtml(input.email)}</code>
-Status: <b>${requested ? 'Code sent' : 'Verified'}</b>
+Status: <b>${requested ? 'Link sent' : 'Verified'}</b>
 
-<i>${requested ? 'Verification code stays private and is never sent to Telegram.' : 'Verified email is now locked on customer account.'}</i>
+<i>${requested ? 'Verification link stays private and is never sent to Telegram.' : 'Verified email is now locked on customer account.'}</i>
 `.trim()
 
     await this.safeSend(storeId, msg)

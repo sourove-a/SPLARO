@@ -16,11 +16,13 @@ import {
   verifyOrderPaymentPersisted,
 } from '@/lib/admin/mutation-verify'
 import { confirmCourierBookingSaved } from '@/lib/admin/courier-save'
+import { collectPaymentEvidence } from '@/lib/admin/payment-save'
 import {
   ArrowLeft, MapPin, Phone, CreditCard, Truck, Bot,
   MessageSquare, RefreshCw, XCircle, Trash2, AlertTriangle, RotateCcw,
 } from 'lucide-react'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
+import { AdminStatusBadge, type AdminBadgeTone } from '@/components/ui/AdminStatusBadge'
 import { OrdersPanel } from '@/components/modules/OrdersPanel'
 import { OrderFulfillmentStepper } from '@/components/orders/OrderFulfillmentStepper'
 import { OrderCreatePanel } from '@/components/modules/OrderCreatePanel'
@@ -43,37 +45,28 @@ import { formatBDT } from '@/lib/utils/currency'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 import { useAdminUiStore } from '@/store/uiStore'
 
-// ─── Design tokens ──────────────────────────────────────────────────────────
-const GOLD = '#16181d'
-const GOLD_LIGHT = 'rgba(16, 17, 20, 0.10)'
-const GOLD_BORDER = 'rgba(16, 17, 20, 0.32)'
-
-
-const TH: React.CSSProperties = { padding: '10px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }
-const TD: React.CSSProperties = { padding: '11px 16px', fontSize: 13, color: 'var(--admin-text-secondary)', borderBottom: '1px solid rgba(255,255,255,0.4)' }
-
-const STATUS_MAP: Record<string, { bg: string; text: string; border: string }> = {
-  confirmed:   { bg: 'rgba(59,130,246,0.10)',  text: '#1D4ED8', border: 'rgba(59,130,246,0.30)' },
-  processing:  { bg: 'rgba(59,130,246,0.10)',  text: '#1D4ED8', border: 'rgba(59,130,246,0.30)' },
-  packed:      { bg: 'rgba(139,92,246,0.10)',  text: '#6D28D9', border: 'rgba(139,92,246,0.30)' },
-  shipped:     { bg: 'rgba(22,163,74,0.10)',   text: '#15803D', border: 'rgba(22,163,74,0.30)' },
-  delivered:   { bg: 'rgba(22,163,74,0.10)',   text: '#15803D', border: 'rgba(22,163,74,0.30)' },
-  pending:     { bg: 'rgba(245,158,11,0.10)',  text: '#B45309', border: 'rgba(245,158,11,0.30)' },
-  cancelled:   { bg: 'rgba(239,68,68,0.10)',   text: '#B91C1C', border: 'rgba(239,68,68,0.30)' },
+const ORDER_STATUS_TONE: Record<string, AdminBadgeTone> = {
+  confirmed: 'info',
+  processing: 'info',
+  packed: 'info',
+  shipped: 'success',
+  delivered: 'success',
+  pending: 'warning',
+  cancelled: 'danger',
 }
 
 function StatusPill({ value }: { value: string }) {
-  const fallback = { bg: 'rgba(156,163,175,0.10)', text: '#4B5563', border: 'rgba(156,163,175,0.30)' }
-  const s = STATUS_MAP[value.toLowerCase()] ?? fallback
-  return <span style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.text, borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' }}>{value}</span>
+  return <AdminStatusBadge label={value} tone={ORDER_STATUS_TONE[value.toLowerCase()] ?? 'muted'} />
 }
 
 function SideCard({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
   return (
-    <section className="settings-card admin-panel-glass" style={{ padding: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <Icon style={{ width: 16, height: 16, color: GOLD }} />
-        <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>{title}</p>
+    <section className="admin-catalog-hero admin-panel-hero !mb-0 !p-5">
+      <div className="admin-catalog-hero__title-row !mb-3">
+        <span className="admin-catalog-icon-ring !h-7 !w-7">
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+        <p className="m-0 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[var(--admin-text-muted)]">{title}</p>
       </div>
       {children}
     </section>
@@ -215,7 +208,17 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
   const handlePaymentStatusChange = async (paymentStatus: OrderPaymentStatus) => {
     if (paymentStatus === order.paymentStatus) return
     try {
-      const saved = await updatePayment.mutateAsync({ id: order.id, paymentStatus })
+      let evidence: { reference?: string; amount?: number } | undefined
+      if (paymentStatus === 'PAID') {
+        const collected = collectPaymentEvidence(Number(order.total))
+        if (!collected) return
+        evidence = collected
+      }
+      const saved = await updatePayment.mutateAsync({
+        id: order.id,
+        paymentStatus,
+        ...evidence,
+      })
       if (!verifyPaymentStatus(saved, paymentStatus)) return
       if (!(await verifyOrderPaymentPersisted(order.id, paymentStatus))) return
       toastApiSaved(`Order ${order.invoiceNumber} payment`)
@@ -258,28 +261,26 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
   }
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div className="admin-panel-page mx-auto max-w-[960px] space-y-4">
       <AdminLinkButton href={moduleHref} variant="ghost">
-        <ArrowLeft style={{ width: 16, height: 16 }} />
+        <ArrowLeft className="h-4 w-4" />
         Back to orders
       </AdminLinkButton>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16, alignItems: 'start' }}>
-        <div className="settings-card admin-panel-glass" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_280px]">
+        <div className="admin-catalog-hero admin-panel-hero !mb-0 flex flex-col gap-5 !p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Order</p>
-              <h2 style={{ fontFamily: 'monospace', fontSize: 18, fontWeight: 900, color: 'var(--admin-text-primary)', margin: '0 0 8px' }}>{order.invoiceNumber}</h2>
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+              <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[var(--admin-text-muted)]">Order</p>
+              <h2 className="mb-2 font-mono text-lg font-black text-[var(--admin-text-primary)]">{order.invoiceNumber}</h2>
+              <div className="flex flex-wrap items-center gap-2">
                 <StatusPill value={status} />
                 {order.isCodRisk ? (
-                  <span style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', color: '#B45309', borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 800 }}>
-                    COD risk
-                  </span>
+                  <AdminStatusBadge label="COD risk" tone="warning" />
                 ) : null}
               </div>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <div className="flex flex-wrap gap-2">
               {canEditOrders && order.status === 'PENDING' ? (
                 <AdminButton
                   variant="gold"
@@ -335,54 +336,65 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
             onAdvance={(nextStatus, note) => void handleAdvanceStatus(nextStatus, note)}
           />
 
-          <div className="settings-card admin-panel-glass-subtle" style={{ overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="admin-catalog-table-shell overflow-hidden">
+            <table className="admin-catalog-data-table">
               <thead>
                 <tr>
-                  {['Product', 'Qty', 'Price', 'Subtotal'].map((h) => <th key={h} style={TH}>{h}</th>)}
+                  {['Product', 'Qty', 'Price', 'Subtotal'].map((h) => (
+                    <th key={h} className="admin-catalog-th">{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {items.map((item) => (
-                  <tr key={item.name}>
-                    <td style={{ ...TD, fontWeight: 700, color: 'var(--admin-text-primary)' }}>{item.name}</td>
-                    <td style={TD}>{item.qty}</td>
-                    <td style={TD}>{formatBDT(item.price)}</td>
-                    <td style={{ ...TD, fontWeight: 900, color: 'var(--admin-text-primary)' }}>{formatBDT(item.price * item.qty)}</td>
+                  <tr key={item.name} className="admin-catalog-row">
+                    <td className="admin-catalog-td admin-catalog-td--strong">{item.name}</td>
+                    <td className="admin-catalog-td">{item.qty}</td>
+                    <td className="admin-catalog-td">{formatBDT(item.price)}</td>
+                    <td className="admin-catalog-td admin-catalog-td--strong">{formatBDT(item.price * item.qty)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="flex flex-col gap-1.5 border-t border-[rgba(15,23,42,0.06)] pt-4">
             {[['Subtotal', formatBDT(subtotal)], ['Shipping', formatBDT(shipping)]].map(([l, v]) => (
-              <div key={l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>
+              <div key={l} className="flex justify-between text-[13px] font-semibold text-[var(--admin-text-muted)]">
                 <span>{l}</span><span>{v}</span>
               </div>
             ))}
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 900, color: 'var(--admin-text-primary)' }}>
-              <span>Total</span><span style={{ color: GOLD }}>{formatBDT(total)}</span>
+            <div className="flex justify-between text-[15px] font-black text-[var(--admin-text-primary)]">
+              <span>Total</span><span className="text-[var(--admin-accent)]">{formatBDT(total)}</span>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <InvoiceActionsBar orderId={order.id} invoiceNumber={order.invoiceNumber} customerPhone={order.shippingPhone} />
+        <div className="flex flex-col gap-3">
+          <InvoiceActionsBar
+            orderId={order.id}
+            invoiceNumber={order.invoiceNumber}
+            customerPhone={order.shippingPhone}
+            hasCourier={Boolean(order.courier?.consignmentId || order.courier?.trackingCode)}
+          />
 
           <SideCard title="Customer" icon={Phone}>
             <p style={{ fontSize: 14, fontWeight: 900, color: 'var(--admin-text-primary)', margin: 0 }}>{order.shippingName}</p>
             <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--admin-text-muted)', margin: '6px 0 0' }}>
               <Phone style={{ width: 12, height: 12 }} />{order.shippingPhone}
             </p>
-            <button type="button" style={{ marginTop: 10, width: '100%', background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, color: '#8B6914', borderRadius: 10, padding: '7px 0', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} onClick={() => { const p = order.shippingPhone.replace(/\D/g, ''); window.open(`https://wa.me/88${p.startsWith('0') ? p.slice(1) : p}`, '_blank') }}>
-              <MessageSquare style={{ width: 14, height: 14 }} /> WhatsApp customer
+            <button
+              type="button"
+              className="mt-2.5 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[rgba(113,46,255,0.28)] bg-[rgba(113,46,255,0.10)] py-1.5 text-xs font-extrabold text-[#5b1fd9]"
+              onClick={() => { const p = order.shippingPhone.replace(/\D/g, ''); window.open(`https://wa.me/88${p.startsWith('0') ? p.slice(1) : p}`, '_blank') }}
+            >
+              <MessageSquare className="h-3.5 w-3.5" /> WhatsApp customer
             </button>
           </SideCard>
 
           <SideCard title="Shipping" icon={MapPin}>
             <p style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--admin-text-primary)', margin: 0 }}>
-              <MapPin style={{ width: 14, height: 14, color: GOLD, flexShrink: 0, marginTop: 1 }} />
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--admin-accent)]" />
               {[order.shippingAddress, order.shippingCity, order.shippingDistrict].filter(Boolean).join(', ')}
             </p>
             <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--admin-text-muted)', margin: '8px 0 0' }}>
@@ -413,7 +425,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
 
           <SideCard title="Payment" icon={CreditCard}>
             <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--admin-text-primary)', margin: 0 }}>
-              <CreditCard style={{ width: 16, height: 16, color: GOLD }} />{payment}
+              <CreditCard className="h-4 w-4 text-[var(--admin-accent)]" />{payment}
             </p>
             {canEditOrders ? (
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>

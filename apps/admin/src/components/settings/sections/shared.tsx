@@ -165,24 +165,36 @@ export function Toggle({
   disabled?: boolean
 }) {
   return (
-    <label className={cn('settings-toggle', checked && 'settings-toggle--on', disabled && 'opacity-60 pointer-events-none')}>
-      <div>
+    <div
+      className={cn('settings-toggle', checked && 'settings-toggle--on', disabled && 'opacity-60 pointer-events-none')}
+      role="group"
+      aria-label={label}
+    >
+      <div className="min-w-0">
         <p className="settings-toggle__label">{label}</p>
         {desc ? <p className="settings-toggle__desc">{desc}</p> : null}
       </div>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={(e) => {
-          e.preventDefault()
-          onChange()
-        }}
-        className={cn('settings-toggle__switch', checked && 'settings-toggle__switch--on')}
-        aria-pressed={checked}
-      >
-        <span className={cn('settings-toggle__knob', checked && 'settings-toggle__knob--on')} />
-      </button>
-    </label>
+      <div className="flex shrink-0 items-center gap-2">
+        <span
+          className={cn(
+            'text-[10px] font-black uppercase tracking-[0.08em]',
+            checked ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--admin-text-muted)]',
+          )}
+        >
+          {checked ? 'On' : 'Off'}
+        </span>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onChange}
+          className={cn('settings-toggle__switch', checked && 'settings-toggle__switch--on')}
+          aria-pressed={checked}
+          aria-label={`${label}: ${checked ? 'on' : 'off'}`}
+        >
+          <span className={cn('settings-toggle__knob', checked && 'settings-toggle__knob--on')} />
+        </button>
+      </div>
+    </div>
   )
 }
 

@@ -13,11 +13,11 @@ export function MessagesDropdown() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="admin-header-chip"
+        className="admin-header-chip admin-header-chip--msg"
         aria-label="Messages"
         aria-expanded={open}
       >
-        <MessageSquare className="h-4 w-4" strokeWidth={2} />
+        <MessageSquare className="h-4 w-4" strokeWidth={1.5} />
       </button>
 
       <AnimatePresence>

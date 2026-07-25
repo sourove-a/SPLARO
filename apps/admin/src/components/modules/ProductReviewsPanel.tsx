@@ -17,6 +17,7 @@ import { revalidateWebCache } from '@/lib/api/revalidate'
 import { downloadCsv } from '@/lib/admin/admin-actions'
 import { toastOk, toastFail, toastApiSaved } from '@/lib/admin/feedback'
 import { verifyPersisted, verifyStringEquals } from '@/lib/admin/mutation-verify'
+import { usePermission } from '@/lib/api/hooks'
 import { cn } from '@/lib/utils/cn'
 
 const STATUS_TABS: { key: ReviewStatus | 'ALL'; label: string }[] = [
@@ -47,6 +48,8 @@ export function ProductReviewsPanel() {
   const [loading, setLoading] = useState(true)
   const [replyId, setReplyId] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
+  const canEditProducts = usePermission('products', 'edit')
+  const canDeleteProducts = usePermission('products', 'delete')
 
   const [loadError, setLoadError] = useState(false)
 
@@ -107,6 +110,10 @@ export function ProductReviewsPanel() {
   }
 
   const setStatusAction = async (id: string, next: 'APPROVED' | 'REJECTED' | 'PENDING') => {
+    if (!canEditProducts) {
+      toastFail('You do not have permission to moderate reviews.')
+      return
+    }
     try {
       const updated = await updateReviewStatus(id, next)
       if (!verifyPersisted(updated.status === next, 'Review status did not persist on server')) return
@@ -123,6 +130,10 @@ export function ProductReviewsPanel() {
   }
 
   const remove = async (id: string) => {
+    if (!canDeleteProducts) {
+      toastFail('You do not have permission to delete reviews.')
+      return
+    }
     try {
       const result = await deleteReview(id)
       if (!verifyPersisted(result.deleted === true, 'Review delete did not persist on server')) return
@@ -140,6 +151,10 @@ export function ProductReviewsPanel() {
   }
 
   const saveReply = async (id: string) => {
+    if (!canEditProducts) {
+      toastFail('You do not have permission to reply to reviews.')
+      return
+    }
     const nextReply = replyText.trim() || null
     try {
       const updated = await updateReviewReply(id, nextReply)
@@ -280,22 +295,26 @@ export function ProductReviewsPanel() {
                       {new Date(row.createdAt).toLocaleDateString('en-GB')}
                     </td>
                     <td className="space-x-2 whitespace-nowrap">
-                      {row.status !== 'APPROVED' && (
+                      {canEditProducts && row.status !== 'APPROVED' && (
                         <AdminButton variant="ghost" onClick={() => void setStatusAction(row.id, 'APPROVED')}>
                           Approve
                         </AdminButton>
                       )}
-                      {row.status !== 'REJECTED' && (
+                      {canEditProducts && row.status !== 'REJECTED' && (
                         <AdminButton variant="ghost" onClick={() => void setStatusAction(row.id, 'REJECTED')}>
                           Reject
                         </AdminButton>
                       )}
-                      <AdminButton variant="ghost" onClick={() => openReply(row)}>
-                        Reply
-                      </AdminButton>
-                      <AdminButton variant="ghost" onClick={() => void remove(row.id)}>
-                        Delete
-                      </AdminButton>
+                      {canEditProducts && (
+                        <AdminButton variant="ghost" onClick={() => openReply(row)}>
+                          Reply
+                        </AdminButton>
+                      )}
+                      {canDeleteProducts && (
+                        <AdminButton variant="ghost" onClick={() => void remove(row.id)}>
+                          Delete
+                        </AdminButton>
+                      )}
                     </td>
                   </tr>
                   {replyId === row.id && (

@@ -8,6 +8,7 @@ const NAV_MODULE_RULES: RouteRule[] = [
   {
     test: (p) =>
       p.includes('/orders') ||
+      p.includes('/packing-station') ||
       p.includes('/returns-rma') ||
       p.includes('/invoices') ||
       p.includes('/transactions') ||

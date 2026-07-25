@@ -154,44 +154,45 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
           />
         </div>
 
-        <div style={{ marginBottom: '1.25rem', padding: '1rem', borderRadius: 18, border: '1px solid rgba(17,17,17,.1)', background: 'linear-gradient(135deg,rgba(255,255,255,.92),rgba(248,245,239,.78))' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: draft.smtpAccounts.length ? 12 : 0 }}>
+        <div className="smtp-pool">
+          <div className="smtp-pool__head" style={{ marginBottom: draft.smtpAccounts.length ? 12 : 0 }}>
             <div>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 900, color: 'var(--admin-text-strong)' }}>SMTP delivery pool</p>
-              <p style={{ margin: '3px 0 0', fontSize: 11, color: 'var(--admin-text-muted)' }}>{draft.smtpAccounts.length} saved account{draft.smtpAccounts.length === 1 ? '' : 's'} · priority failover enabled</p>
+              <p className="smtp-pool__title">SMTP delivery pool</p>
+              <p className="smtp-pool__meta">{draft.smtpAccounts.length} saved account{draft.smtpAccounts.length === 1 ? '' : 's'} · priority failover enabled</p>
             </div>
-            <button type="button" className="admin-button admin-button--dark" onClick={addSmtpAccount} disabled={saving || !apiOnline} style={{ borderRadius: 999, padding: '10px 16px' }}>
-              <Plus size={14} /> Add SMTP account
+            <button type="button" className="admin-btn admin-btn--dark smtp-pool__add" onClick={addSmtpAccount} disabled={saving || !apiOnline}>
+              <Plus size={14} strokeWidth={1.75} /> Add SMTP account
             </button>
           </div>
           {draft.smtpAccounts.length === 0 ? (
-            <div style={{ marginTop: 12, padding: '18px', borderRadius: 14, border: '1px dashed rgba(17,17,17,.16)', textAlign: 'center', color: 'var(--admin-text-muted)', fontSize: 12 }}>
-              No saved pool accounts. Fill form below, enter app password, then click Add SMTP account.
+            <div className="smtp-pool__empty">
+              No saved pool accounts. Fill the form below, enter the app password, then click <strong>Add SMTP account</strong>. When one mailbox fails, the next in priority is used automatically.
             </div>
           ) : (
-            <div style={{ display: 'grid', gap: 10 }}>
+            <div className="smtp-pool__list">
               {draft.smtpAccounts.map((account, index) => {
                 const persistedHealth = account.lastTestStatus
                   ? { ok: account.lastTestStatus === 'success', message: account.lastTestMessage || '' }
                   : undefined
                 const health = accountHealth[account.id] ?? persistedHealth
+                const healthState = health ? (health.ok ? 'ok' : 'fail') : 'untested'
                 return (
-                  <div key={account.id} style={{ padding: '14px 15px', borderRadius: 15, border: `1px solid ${health ? (health.ok ? 'rgba(22,163,74,.35)' : 'rgba(220,38,38,.42)') : 'rgba(17,17,17,.1)'}`, borderLeft: `4px solid ${health ? (health.ok ? '#16a34a' : '#dc2626') : '#d3a95f'}`, background: health && !health.ok ? 'rgba(254,242,242,.8)' : 'rgba(255,255,255,.8)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                      <div style={{ width: 38, height: 38, borderRadius: 12, background: '#111', color: '#fff', display: 'grid', placeItems: 'center' }}><Server size={17} /></div>
-                      <div style={{ flex: 1, minWidth: 180 }}>
-                        <p style={{ margin: 0, fontSize: 13, fontWeight: 900 }}>{account.label || account.fromEmail}</p>
-                        <p style={{ margin: '3px 0 0', fontSize: 11, color: 'var(--admin-text-muted)' }}>#{index + 1} · {account.host}:{account.port} · {account.user}</p>
+                  <div key={account.id} className="smtp-account" data-health={healthState} data-disabled={!account.enabled}>
+                    <div className="smtp-account__row">
+                      <div className="smtp-account__badge"><Server size={16} strokeWidth={1.75} /></div>
+                      <div className="smtp-account__info">
+                        <p className="smtp-account__name">{account.label || account.fromEmail}</p>
+                        <p className="smtp-account__sub">#{index + 1} · {account.host}:{account.port} · {account.user}</p>
                       </div>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 800, color: health ? (health.ok ? '#15803d' : '#b91c1c') : '#9a6b18' }}>
-                        {health ? (health.ok ? <CheckCircle2 size={14} /> : <XCircle size={14} />) : <Power size={14} />}
+                      <span className="smtp-account__status" data-health={healthState}>
+                        {health ? (health.ok ? <CheckCircle2 size={14} strokeWidth={1.75} /> : <XCircle size={14} strokeWidth={1.75} />) : <Power size={14} strokeWidth={1.75} />}
                         {health ? (health.ok ? 'Connected' : 'Failed') : 'Not tested'}
                       </span>
                       <button type="button" className="settings-text-link" disabled={testing !== null} onClick={() => void testSmtpAccount(account.id)}>Test</button>
                       <button type="button" className="settings-text-link" onClick={() => updateSmtpAccounts(draft.smtpAccounts.map((item) => item.id === account.id ? { ...item, enabled: !item.enabled } : item), 'SMTP account status')}>{account.enabled ? 'Disable' : 'Enable'}</button>
-                      <button type="button" aria-label={`Delete ${account.label}`} onClick={() => updateSmtpAccounts(draft.smtpAccounts.filter((item) => item.id !== account.id).map((item, i) => ({ ...item, priority: i + 1 })), 'SMTP account removed')} style={{ border: 0, background: 'rgba(220,38,38,.08)', color: '#b91c1c', width: 32, height: 32, borderRadius: 10, display: 'grid', placeItems: 'center', cursor: 'pointer' }}><Trash2 size={14} /></button>
+                      <button type="button" aria-label={`Delete ${account.label}`} className="smtp-account__delete" onClick={() => updateSmtpAccounts(draft.smtpAccounts.filter((item) => item.id !== account.id).map((item, i) => ({ ...item, priority: i + 1 })), 'SMTP account removed')}><Trash2 size={14} strokeWidth={1.75} /></button>
                     </div>
-                    {health && !health.ok ? <p style={{ margin: '9px 0 0 50px', fontSize: 11, color: '#b91c1c', fontWeight: 700 }}>{health.message}</p> : null}
+                    {health && !health.ok ? <p className="smtp-account__error">{health.message}</p> : null}
                   </div>
                 )
               })}

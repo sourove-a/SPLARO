@@ -98,7 +98,7 @@ export function SeoHealthPanel() {
 
       <div className="grid grid-cols-3 gap-3">
         <div className="admin-glass admin-kpi">
-          <p className="admin-kpi__label">Avg SEO Score</p>
+          <p className="admin-kpi__label admin-type-label">Avg SEO Score</p>
           <p
             className={cn(
               'admin-kpi__value mt-1 text-3xl',
@@ -113,13 +113,13 @@ export function SeoHealthPanel() {
           </p>
         </div>
         <div className="admin-glass admin-kpi">
-          <p className="admin-kpi__label">Critical errors</p>
+          <p className="admin-kpi__label admin-type-label">Critical errors</p>
           <p className="admin-kpi__value admin-kpi__value--danger mt-1 text-3xl">
             {isLoading ? '…' : (summary?.criticalErrors ?? 0)}
           </p>
         </div>
         <div className="admin-glass admin-kpi">
-          <p className="admin-kpi__label">Warnings</p>
+          <p className="admin-kpi__label admin-type-label">Warnings</p>
           <p className="admin-kpi__value admin-kpi__value--warning mt-1 text-3xl">
             {isLoading ? '…' : (summary?.warnings ?? 0)}
           </p>

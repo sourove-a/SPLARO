@@ -1,6 +1,8 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
+import { createPortal } from 'react-dom'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   X,
@@ -14,23 +16,26 @@ import {
   GripVertical,
   Truck,
   Hash,
+  Tag,
 } from 'lucide-react'
 import { OrderFulfillmentStepper } from '@/components/orders/OrderFulfillmentStepper'
 import { AdminButton } from '@/components/ui/AdminButton'
-import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { CourierBadge } from '@/components/ui/CourierBadge'
 import { OrderProductThumb } from '@/components/orders/OrderProductThumb'
 import {
   downloadInvoice,
   downloadInvoicePdf,
   printInvoice,
+  printOrderLabel,
+  printOrderSticker,
 } from '@/lib/admin/admin-actions'
-import { toastFail } from '@/lib/admin/feedback'
+import { toastFail, toastWarn, toastInfo } from '@/lib/admin/feedback'
+import { cancelCourierBookingLocal, trackCourierParcel } from '@/lib/api/fulfillment'
 import { copyWithToast } from '@/lib/admin/clipboard'
 import { cn } from '@/lib/utils/cn'
 
 type PreviewTab = 'items' | 'delivery' | 'docs'
-type InvoiceAction = 'view' | 'pdf' | 'print' | null
+type InvoiceAction = 'view' | 'pdf' | 'print' | 'label' | 'sticker' | 'track' | 'cancel-booking' | null
 
 interface OrderLineItem {
   name: string
@@ -65,7 +70,7 @@ interface OrderPreviewData {
 interface OrderPreviewCardProps {
   order: OrderPreviewData
   onClose: () => void
-  onAdvance?: (nextStatus: string) => void
+  onAdvance?: (nextStatus: string, note?: string) => void
   advancing?: boolean
   onCancel?: () => void
   onBookCourier?: () => void
@@ -109,10 +114,40 @@ export function OrderPreviewCard({
   onBookCourier,
   bookingCourier,
 }: OrderPreviewCardProps) {
+  const router = useRouter()
+  const [mounted, setMounted] = useState(false)
   const [tab, setTab] = useState<PreviewTab>('items')
   const [invoiceAction, setInvoiceAction] = useState<InvoiceAction>(null)
+  const actionBusyRef = useRef(false)
   const apiId = orderApiId(order)
   const invoiceRef = orderInvoiceRef(order)
+
+  useEffect(() => {
+    setMounted(true)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prevOverflow
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
+
+  const openFullOrder = (event: MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    onClose()
+    router.push(`/dashboard/orders/${apiId}`)
+  }
+
+  const handleClose = (event: MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    onClose()
+  }
   const parsedLines = order.items.split(',').map((s) => s.trim()).filter(Boolean)
   const displayItems: OrderLineItem[] =
     order.lineItems?.length
@@ -129,18 +164,47 @@ export function OrderPreviewCard({
 
   const runInvoiceAction = useCallback(
     async (action: Exclude<InvoiceAction, null>) => {
+      // Never blanket-disable sibling buttons — only skip if this dialog is already busy.
+      if (actionBusyRef.current) return
+      actionBusyRef.current = true
       setInvoiceAction(action)
       try {
         if (action === 'view') await downloadInvoice(invoiceRef)
         else if (action === 'pdf') await downloadInvoicePdf(invoiceRef, order.id)
-        else await printInvoice(invoiceRef)
+        else if (action === 'print') await printInvoice(invoiceRef)
+        else if (action === 'label') await printOrderLabel(invoiceRef)
+        else if (action === 'sticker') await printOrderSticker(invoiceRef)
+        else if (action === 'track') {
+          const track = await trackCourierParcel(apiId)
+          if (!track.status && !track.trackingCode) {
+            toastFail('No courier tracking yet — book courier first.')
+          } else {
+            const bits = [
+              track.provider,
+              track.status,
+              track.trackingCode ? `Track ${track.trackingCode}` : null,
+            ].filter(Boolean)
+            toastInfo(bits.join(' · ') || 'Tracking fetched')
+            if (track.trackingUrl) {
+              window.open(track.trackingUrl, '_blank', 'noopener,noreferrer')
+            }
+          }
+        } else if (action === 'cancel-booking') {
+          const res = await cancelCourierBookingLocal(apiId)
+          toastWarn(res.message, `cancel-booking-${apiId}`)
+        }
       } catch {
-        toastFail('Invoice request failed — check API connection.')
+        toastFail(
+          action === 'track' || action === 'cancel-booking'
+            ? 'Courier action failed — check API connection.'
+            : 'Invoice / label request failed — check API connection.',
+        )
       } finally {
+        actionBusyRef.current = false
         setInvoiceAction(null)
       }
     },
-    [invoiceRef, order.id],
+    [invoiceRef, order.id, apiId],
   )
 
   const copyInvoiceNumber = () => {
@@ -151,25 +215,28 @@ export function OrderPreviewCard({
   const hasCourier = order.courier && order.courier !== '—'
   const statusLabel = formatStatusLabel(order.apiStatus ?? order.status)
 
-  return (
-    <>
-      <motion.button
+  if (!mounted) return null
+
+  return createPortal(
+    <motion.div
+      className="admin-order-preview-root"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+    >
+      <button
         type="button"
         className="admin-order-preview__backdrop"
         aria-label="Close preview"
-        onClick={onClose}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
+        onClick={handleClose}
       />
-      <motion.div
+      <div
         className="admin-order-preview"
         role="dialog"
+        aria-modal="true"
         aria-labelledby="order-preview-title"
-        initial={{ opacity: 0, scale: 0.96, x: '-50%', y: '-48%' }}
-        animate={{ opacity: 1, scale: 1, x: '-50%', y: '-50%' }}
-        exit={{ opacity: 0, scale: 0.98, x: '-50%', y: '-48%' }}
-        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+        onClick={(event) => event.stopPropagation()}
       >
         <div className="admin-order-preview__header">
           <div className="admin-order-preview__header-main">
@@ -187,13 +254,22 @@ export function OrderPreviewCard({
             </span>
           </div>
           <div className="admin-order-preview__header-actions">
-            <AdminNavLink
-              href={`/dashboard/orders/${apiId}`}
-              className="admin-order-preview__icon-btn !p-0"
+            <button
+              type="button"
+              className="admin-order-preview__icon-btn"
+              onClick={openFullOrder}
+              aria-label="Open full order"
+              title="Open full order"
             >
               <ExternalLink className="h-4 w-4" />
-            </AdminNavLink>
-            <button type="button" className="admin-order-preview__icon-btn" onClick={onClose} aria-label="Close">
+            </button>
+            <button
+              type="button"
+              className="admin-order-preview__icon-btn"
+              onClick={handleClose}
+              aria-label="Close"
+              title="Close"
+            >
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -303,30 +379,27 @@ export function OrderPreviewCard({
             <div className="admin-order-preview__docs">
               <p className="admin-order-preview__docs-lead">Premium SPLARO invoice for {order.id}.</p>
               <AdminButton
-                variant="ghost"
+                variant="secondary"
                 className="admin-order-preview__action admin-order-preview__action--row"
                 loading={invoiceAction === 'view'}
-                disabled={Boolean(invoiceAction)}
                 onClick={() => void runInvoiceAction('view')}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
                 View invoice
               </AdminButton>
               <AdminButton
-                variant="ghost"
+                variant="secondary"
                 className="admin-order-preview__action admin-order-preview__action--row"
                 loading={invoiceAction === 'pdf'}
-                disabled={Boolean(invoiceAction)}
                 onClick={() => void runInvoiceAction('pdf')}
               >
                 <Download className="h-3.5 w-3.5" />
                 Download PDF
               </AdminButton>
               <AdminButton
-                variant="ghost"
+                variant="secondary"
                 className="admin-order-preview__action admin-order-preview__action--row"
                 loading={invoiceAction === 'print'}
-                disabled={Boolean(invoiceAction)}
                 onClick={() => void runInvoiceAction('print')}
               >
                 <Printer className="h-3.5 w-3.5" />
@@ -341,65 +414,117 @@ export function OrderPreviewCard({
             compact
             status={order.apiStatus ?? order.status.toUpperCase()}
             loading={Boolean(advancing)}
-            onAdvance={(nextStatus) => onAdvance?.(nextStatus)}
+            onAdvance={(nextStatus, note) => onAdvance?.(nextStatus, note)}
           />
         </div>
 
         <div className="admin-order-preview__footer">
-          <AdminButton
-            variant="ghost"
-            className="admin-order-preview__action"
-            loading={invoiceAction === 'pdf'}
-            disabled={Boolean(invoiceAction)}
-            onClick={() => void runInvoiceAction('pdf')}
-          >
-            <Download className="h-3.5 w-3.5" />
-            PDF
-          </AdminButton>
-          <AdminButton
-            variant="ghost"
-            className="admin-order-preview__action"
-            loading={invoiceAction === 'print'}
-            disabled={Boolean(invoiceAction)}
-            onClick={() => void runInvoiceAction('print')}
-          >
-            <Printer className="h-3.5 w-3.5" />
-            Print
-          </AdminButton>
-          <AdminButton
-            variant="ghost"
-            className="admin-order-preview__action"
-            disabled={Boolean(invoiceAction)}
-            onClick={copyInvoiceNumber}
-          >
-            <Copy className="h-3.5 w-3.5" />
-            Copy #
-          </AdminButton>
+          <p className="admin-order-preview__footer-label">Documents & actions</p>
+          <div className="admin-order-preview__tools">
+            <AdminButton
+              variant="secondary"
+              size="sm"
+              className="admin-order-preview__tool"
+              loading={invoiceAction === 'pdf'}
+              onClick={() => void runInvoiceAction('pdf')}
+            >
+              <Download className="h-3.5 w-3.5" />
+              PDF
+            </AdminButton>
+            <AdminButton
+              variant="secondary"
+              size="sm"
+              className="admin-order-preview__tool"
+              loading={invoiceAction === 'print'}
+              onClick={() => void runInvoiceAction('print')}
+            >
+              <Printer className="h-3.5 w-3.5" />
+              Print
+            </AdminButton>
+            <AdminButton
+              variant="secondary"
+              size="sm"
+              className="admin-order-preview__tool"
+              loading={invoiceAction === 'label'}
+              onClick={() => void runInvoiceAction('label')}
+            >
+              <Printer className="h-3.5 w-3.5" />
+              Label
+            </AdminButton>
+            <AdminButton
+              variant="secondary"
+              size="sm"
+              className="admin-order-preview__tool"
+              loading={invoiceAction === 'sticker'}
+              onClick={() => void runInvoiceAction('sticker')}
+            >
+              <Tag className="h-3.5 w-3.5" />
+              Sticker
+            </AdminButton>
+          </div>
+
+          <div className="admin-order-preview__footer-row">
+            <AdminButton
+              variant="ghost"
+              size="sm"
+              className="admin-order-preview__tool admin-order-preview__tool--ghost"
+              onClick={copyInvoiceNumber}
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Copy #
+            </AdminButton>
+            {hasCourier ? (
+              <AdminButton
+                variant="ghost"
+                size="sm"
+                className="admin-order-preview__tool admin-order-preview__tool--ghost"
+                loading={invoiceAction === 'track'}
+                onClick={() => void runInvoiceAction('track')}
+              >
+                <Truck className="h-3.5 w-3.5" />
+                Track
+              </AdminButton>
+            ) : null}
+          </div>
+
           {!hasCourier && onBookCourier ? (
             <AdminButton
-              variant="dark"
-              className="admin-order-preview__action admin-order-preview__action--courier"
+              variant="gold"
+              className="admin-order-preview__action--courier"
               loading={Boolean(bookingCourier)}
-              disabled={Boolean(invoiceAction) || Boolean(bookingCourier)}
               onClick={onBookCourier}
             >
               <Truck className="h-3.5 w-3.5" />
               Book courier
             </AdminButton>
           ) : null}
+
+          {hasCourier ? (
+            <AdminButton
+              variant="danger"
+              size="sm"
+              className="admin-order-preview__action--danger-full"
+              loading={invoiceAction === 'cancel-booking'}
+              onClick={() => void runInvoiceAction('cancel-booking')}
+            >
+              Cancel booking
+            </AdminButton>
+          ) : null}
+
           {order.status !== 'cancelled' && order.status !== 'delivered' && onCancel ? (
             <AdminButton
               variant="ghost"
-              className="admin-order-preview__action admin-order-preview__action--danger"
-              disabled={Boolean(invoiceAction)}
+              size="sm"
+              className="admin-order-preview__tool admin-order-preview__tool--cancel"
               onClick={onCancel}
             >
-              Cancel
+              Cancel order
             </AdminButton>
           ) : null}
         </div>
-      </motion.div>
-    </>
+      </div>
+    </motion.div>,
+    document.body,
   )
 }
 

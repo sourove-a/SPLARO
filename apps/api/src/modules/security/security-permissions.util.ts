@@ -64,7 +64,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionRow[]> = {
     defaultRow('Settings', { view: true }),
   ],
   STAFF: [
-    defaultRow('Orders', { view: true }),
+    defaultRow('Orders', { view: true, edit: true }),
     defaultRow('Products', { view: true, edit: true }),
     defaultRow('Finance', { view: false }),
     defaultRow('Admin Users', { view: false }),

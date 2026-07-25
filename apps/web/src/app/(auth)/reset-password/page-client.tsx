@@ -78,7 +78,7 @@ export default function ResetPasswordPageClient() {
         <motion.div layout className="auth-card__heading" aria-live="polite">
           <motion.div {...fadeSlide} transition={motionTransition}>
             <h1 className="auth-card__title">Reset your password</h1>
-            <p className="auth-card__subtitle">Choose a new password for your SPLARO account.</p>
+            <p className="auth-card__subtitle">Choose a new password from your email link. No verification code needed.</p>
           </motion.div>
         </motion.div>
 

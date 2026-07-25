@@ -180,23 +180,35 @@ export function FootwearPagePanel() {
     setDirty(true)
   }
 
-  async function save() {
-    if (!config) return
+  async function persistConfig(next: FootwearConfig, label: string) {
+    setConfig(next)
     setSaving(true)
     try {
-      const saved = await saveFootwearConfig(config as unknown as Record<string, unknown>)
-      if (!deepEqual(saved, config)) {
+      const saved = await saveFootwearConfig(next as unknown as Record<string, unknown>)
+      if (!deepEqual(saved, next)) {
         toastFail('Save failed verification — server response mismatch.')
+        setDirty(true)
         return
       }
       await revalidateWebCache(['storefront-settings'])
-      toastApiSaved('Footwear page')
+      toastApiSaved(label)
       setDirty(false)
     } catch {
       toastFail('Footwear save failed')
+      setDirty(true)
     } finally {
       setSaving(false)
     }
+  }
+
+  function toggleVisibility(fn: (c: FootwearConfig) => FootwearConfig, label: string) {
+    if (!config || saving) return
+    void persistConfig(fn(config), label)
+  }
+
+  async function save() {
+    if (!config) return
+    await persistConfig(config, 'Footwear page')
   }
 
   function reset() {
@@ -226,7 +238,7 @@ export function FootwearPagePanel() {
   return (
     <div className="footwear-panel">
       <p className="footwear-panel__notice">
-        Saves to database via Nest API — changes appear on the storefront after cache revalidation.
+        Visibility toggles save immediately. Text/title edits still need Save Changes.
       </p>
 
       <div className="footwear-panel__toolbar">
@@ -263,7 +275,12 @@ export function FootwearPagePanel() {
           title="Hero Banner"
           badge="Full-width image"
           visible={config.heroBanner.visible}
-          onToggle={(v) => update((c) => ({ ...c, heroBanner: { ...c.heroBanner, visible: v } }))}
+          onToggle={(v) =>
+            toggleVisibility(
+              (c) => ({ ...c, heroBanner: { ...c.heroBanner, visible: v } }),
+              v ? 'Footwear hero shown' : 'Footwear hero hidden',
+            )
+          }
         >
           <div className="footwear-section__fields footwear-section__fields--hero">
             <Field label="Title">
@@ -294,7 +311,12 @@ export function FootwearPagePanel() {
           title="Shop By Category"
           badge={`${config.shopByCategory.categories.filter((c) => c.visible).length} categories`}
           visible={config.shopByCategory.visible}
-          onToggle={(v) => update((c) => ({ ...c, shopByCategory: { ...c.shopByCategory, visible: v } }))}
+          onToggle={(v) =>
+            toggleVisibility(
+              (c) => ({ ...c, shopByCategory: { ...c.shopByCategory, visible: v } }),
+              v ? 'Footwear categories shown' : 'Footwear categories hidden',
+            )
+          }
         >
           <div className="footwear-section__fields">
             <Field label="Section Title" className="footwear-field--wide">
@@ -320,16 +342,20 @@ export function FootwearPagePanel() {
                     <span className="footwear-list-item__meta">{cat.href}</span>
                     <button
                       type="button"
+                      disabled={saving}
                       onClick={() =>
-                        update((c) => ({
-                          ...c,
-                          shopByCategory: {
-                            ...c.shopByCategory,
-                            categories: c.shopByCategory.categories.map((cc, j) =>
-                              j === i ? { ...cc, visible: !cc.visible } : cc,
-                            ),
-                          },
-                        }))
+                        toggleVisibility(
+                          (c) => ({
+                            ...c,
+                            shopByCategory: {
+                              ...c.shopByCategory,
+                              categories: c.shopByCategory.categories.map((cc, j) =>
+                                j === i ? { ...cc, visible: !cc.visible } : cc,
+                              ),
+                            },
+                          }),
+                          cat.visible ? `${cat.label} hidden` : `${cat.label} shown`,
+                        )
                       }
                       className={cn(
                         'footwear-visibility-btn',
@@ -354,10 +380,13 @@ export function FootwearPagePanel() {
               badge={`${row.products.length} products`}
               visible={row.visible}
               onToggle={(v) =>
-                update((c) => ({
-                  ...c,
-                  productRows: c.productRows.map((r, j) => (j === ri ? { ...r, visible: v } : r)),
-                }))
+                toggleVisibility(
+                  (c) => ({
+                    ...c,
+                    productRows: c.productRows.map((r, j) => (j === ri ? { ...r, visible: v } : r)),
+                  }),
+                  v ? `${row.title} shown` : `${row.title} hidden`,
+                )
               }
             >
               <div className="footwear-section__fields">

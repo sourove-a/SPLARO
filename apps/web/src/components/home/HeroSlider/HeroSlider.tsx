@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import Link from 'next/link'
 import type { HeroBanner } from '@/lib/api/banners'
@@ -198,10 +198,10 @@ const HERO_MEDIA_STYLE = {
 }
 
 function useAllowHeroVideo(): boolean {
-  // Default false — phones must not flash a <video> before the touch gate resolves.
+  // Default false — phones must not flash a <video> before the gate resolves.
   const [allow, setAllow] = useState(false)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const sync = () => {
       const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } })
         .connection
@@ -211,11 +211,13 @@ function useAllowHeroVideo(): boolean {
       const lite = document.documentElement.getAttribute('data-perf') === 'lite'
       // Any Windows UA: images only — never decode Pexels next to slider RAF (incl. touch / narrow).
       const isWin = /Windows/i.test(navigator.userAgent || '')
-      // Phones/tablets/landscape: poster only — 1080p hero video tanks TTI.
+      // GlobalDeviceUx sets data-perf=lite for all touch UIs — that must NOT kill hero video.
+      // Mobile/tablet still play via SD chain (heroVideoSources); only save-data / 2G / Windows stay off.
       const isTouchUi =
         window.matchMedia('(max-width: 1023px)').matches ||
         window.matchMedia('(pointer: coarse)').matches
-      setAllow(!saveData && !slowLink && !lite && !isWin && !isTouchUi)
+      const liteBlocksVideo = lite && !isTouchUi
+      setAllow(!saveData && !slowLink && !liteBlocksVideo && !isWin)
     }
 
     sync()
@@ -279,13 +281,11 @@ const warmedHeroVideos = new Set<string>()
 
 function warmHeroVideo(url: string) {
   if (typeof window === 'undefined' || !url) return
-  if (isMobileViewport()) return
   if (warmedHeroVideos.has(url)) return
   warmedHeroVideos.add(url)
-  // metadata only — warms the connection + headers without downloading the whole
-  // 1080p file up front (full preload made refresh feel heavy on slow networks).
+  // Warm the active/next clip early (incl. mobile SD) so play() isn't cold-start.
   const video = document.createElement('video')
-  video.preload = 'metadata'
+  video.preload = 'auto'
   video.muted = true
   video.playsInline = true
   video.src = url
@@ -370,6 +370,8 @@ function HeroBackground({
   const [videoFailed, setVideoFailed] = useState(false)
   const [videoReady, setVideoReady] = useState(false)
   const [sourceIndex, setSourceIndex] = useState(0)
+  /** Mount <video> as soon as the slide is active — no idle defer (owner: zero lag). */
+  const [videoUnlocked, setVideoUnlocked] = useState(false)
   const isMobile = useMobileViewport()
   const mounted = useMounted()
   const mobileActive = mounted && isMobile
@@ -380,11 +382,22 @@ function HeroBackground({
   const videoSrc = sourceChain[sourceIndex]
   const poster =
     slide.image.trim() && !isBrandLogoPoster(slide.image) ? slide.image : undefined
+
+  useLayoutEffect(() => {
+    if (!allowVideo || !isActive) {
+      setVideoUnlocked(false)
+      return
+    }
+    // Instant unlock before paint — poster still covers until video ready.
+    setVideoUnlocked(true)
+  }, [allowVideo, isActive, slide.id])
+
   const mountVideo = Boolean(
     mounted &&
       videoSrc &&
       !videoFailed &&
       allowVideo &&
+      videoUnlocked &&
       // Only the active slide mounts <video> — never decode current+next HD clips together.
       isActive,
   )
@@ -466,7 +479,9 @@ function HeroBackground({
           muted
           loop
           playsInline
-          preload={isActive || priority ? 'auto' : mobileActive ? 'none' : 'metadata'}
+          autoPlay
+          /* Active slide only — auto preload so first frames arrive without idle lag. */
+          preload="auto"
           disablePictureInPicture
           controls={false}
           {...(poster ? { poster } : {})}
@@ -613,24 +628,27 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
     // Eager: slide 0 + next only. Windows/lite skip idle-warm of the rest (see warmHeroSlideMedia).
     const eager = new Set([0, slides.length > 1 ? 1 : 0])
     warmHeroSlideMedia(slides, eager)
-    if (isMobileViewport() || /Windows/i.test(navigator.userAgent || '')) return
+    if (/Windows/i.test(navigator.userAgent || '')) return
     const first = slides[0]
     if (!first) return
-    const firstVideo = first.video ?? ''
+    const firstSources = heroVideoSources(first, isMobileViewport())
+    const firstVideo = firstSources[0] ?? first.video ?? ''
     if (firstVideo && allowVideo) warmHeroVideo(firstVideo)
   }, [slidesSignature, slides, allowVideo])
 
   useEffect(() => {
     if (!slides.length) return
     const nextIndex = (index + 1) % slides.length
-    // Windows / mobile: keep only current + next decoded — no full-deck warm.
-    if (isMobileViewport() || /Windows/i.test(navigator.userAgent || '')) {
+    // Windows: images only for warm. Mobile/desktop: warm next video for instant advance.
+    if (/Windows/i.test(navigator.userAgent || '')) {
       warmHeroSlideMedia(slides, new Set([index, nextIndex]))
       return
     }
+    warmHeroSlideMedia(slides, new Set([index, nextIndex]))
     const nextSlide = slides[nextIndex]
     if (!nextSlide) return
-    const nextVideo = nextSlide.video ?? ''
+    const nextSources = heroVideoSources(nextSlide, isMobileViewport())
+    const nextVideo = nextSources[0] ?? nextSlide.video ?? ''
     if (nextVideo && allowVideo) warmHeroVideo(nextVideo)
   }, [index, slides, allowVideo])
 

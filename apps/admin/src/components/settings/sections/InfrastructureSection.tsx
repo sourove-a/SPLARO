@@ -158,7 +158,9 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
       } else if (result.data?.configured) {
         toastApiSaved(labels[provider] ?? provider)
       } else {
-        toastInfo('Saved non-secret fields. Paste API Key + Secret Key to finish Steadfast setup.')
+        toastInfo(
+          `Saved non-secret fields. Paste API Key + Secret Key to finish ${labels[provider] ?? provider} setup.`,
+        )
       }
     } catch (e) {
       toastFail(e instanceof Error ? e.message : 'Save failed', `infra-${provider}`)

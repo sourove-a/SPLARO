@@ -14,10 +14,14 @@ function NavLinkRow({
   link,
   onUpdate,
   onRemove,
+  onToggleHidden,
+  saving,
 }: {
   link: NavLink
   onUpdate: (l: NavLink) => void
   onRemove: () => void
+  onToggleHidden: (l: NavLink) => void
+  saving: boolean
 }) {
   const isHidden = link.hidden === true
   return (
@@ -37,8 +41,9 @@ function NavLinkRow({
       />
       <button
         type="button"
+        disabled={saving}
         title={isHidden ? 'Hidden from storefront — click to show' : 'Visible on storefront — click to hide'}
-        onClick={() => onUpdate({ ...link, hidden: !isHidden })}
+        onClick={() => onToggleHidden({ ...link, hidden: !isHidden })}
         className={`settings-menu-visibility-btn${isHidden ? ' settings-menu-visibility-btn--hidden' : ' settings-menu-visibility-btn--visible'}`}
       >
         {isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -61,6 +66,16 @@ export function NavigationSection({ draft, setDraft, save, saving, apiOnline }: 
 
   const setFooter = (groups: FooterGroup[]) =>
     setDraft((p) => ({ ...p, navigation: { ...p.navigation, footerGroups: groups } }))
+
+  const toggleHeaderHidden = (index: number, nextLink: NavLink) => {
+    const headerNavNext = headerNav.map((link, i) => (i === index ? nextLink : link))
+    const navigation = { ...draft.navigation, headerNav: headerNavNext }
+    setDraft((p) => ({ ...p, navigation }))
+    save(
+      { navigation },
+      nextLink.hidden ? `${nextLink.label || 'Link'} hidden` : `${nextLink.label || 'Link'} shown`,
+    )
+  }
 
   const addHeaderLink = () => setHeader([...headerNav, { label: '', href: '' }])
 
@@ -123,11 +138,13 @@ export function NavigationSection({ draft, setDraft, save, saving, apiOnline }: 
             <NavLinkRow
               key={i}
               link={link}
+              saving={saving}
               onUpdate={(l) => {
                 const next = [...headerNav]
                 next[i] = l
                 setHeader(next)
               }}
+              onToggleHidden={(l) => toggleHeaderHidden(i, l)}
               onRemove={() => setHeader(headerNav.filter((_, idx) => idx !== i))}
             />
           ))}

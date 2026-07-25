@@ -34,7 +34,7 @@ import {
 } from './telegram-order-message'
 import type { TelegramDeliveryDiagnostics, TelegramHealthSnapshot } from './telegram.types'
 import { formatBDT } from '../../common/utils/currency'
-import { resolveCustomerFacingSiteUrl, resolvePublicAdminUrl } from '@splaro/config'
+import { resolveCustomerFacingAdminUrl, resolveCustomerFacingSiteUrl } from '@splaro/config'
 import type { TelegramRole } from '@prisma/client'
 import {
   BOT_COMMANDS,
@@ -408,7 +408,7 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     if (!config?.notifyOrders) return
 
     const msg = formatNewOrderTelegramMessage(order)
-    const adminBase = resolvePublicAdminUrl(
+    const adminBase = resolveCustomerFacingAdminUrl(
       this.config.get<string>('ADMIN_URL') ?? this.config.get<string>('NEXT_PUBLIC_ADMIN_URL'),
     )
     const adminOrderUrl = `${adminBase.replace(/\/+$/, '').replace(/\/login$/i, '')}/dashboard/orders/${encodeURIComponent(order.invoiceNumber)}`
@@ -1459,7 +1459,7 @@ ${items}
   }
 
   private adminLoginUrl(): string {
-    const adminBase = resolvePublicAdminUrl(
+    const adminBase = resolveCustomerFacingAdminUrl(
       this.config.get<string>('ADMIN_URL') ?? this.config.get<string>('NEXT_PUBLIC_ADMIN_URL'),
     )
     return adminBase.replace(/\/+$/, '').endsWith('/login')

@@ -1,50 +1,37 @@
 /**
- * SPLARO Admin — white liquid glass polish (CSS only)
- * Goal: 2026 frosted glass depth. No API / backend / JS behavior changes.
- * Brand-safe: monochrome white glass — no purple/blue neon SaaS skins.
- *
- * Note: light-mode token + shell overrides also live in globals.css
- * “premium pass” so they win over earlier cream rules.
+ * SPLARO Admin — shell surface polish (CSS only)
+ * Luxury 2027 flat white cards. No colorful gradients / neon.
  */
 
-html:not(.dark) .admin-sidebar .admin-glass-panel__surface {
-  background:
-    linear-gradient(165deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.82) 55%, rgba(252, 252, 253, 0.76) 100%);
-  backdrop-filter: blur(40px) saturate(1.18);
-  -webkit-backdrop-filter: blur(40px) saturate(1.18);
-}
-
-html:not(.dark) .admin-sidebar .admin-glass-panel__sheen {
-  background:
-    linear-gradient(125deg, rgba(255, 255, 255, 0.85) 0%, transparent 36%),
-    radial-gradient(circle at 85% 6%, rgba(16, 17, 20, 0.12), transparent 32%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.32) 0%, transparent 40%);
-}
-
+html:not(.dark) .admin-sidebar .admin-glass-panel__surface,
 html:not(.dark) .admin-header .admin-glass-panel__surface {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.78));
-  backdrop-filter: blur(32px) saturate(1.16);
-  -webkit-backdrop-filter: blur(32px) saturate(1.16);
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html:not(.dark) .admin-sidebar .admin-glass-panel__sheen,
+html:not(.dark) .admin-header .admin-glass-panel__sheen {
+  display: none;
 }
 
 html:not(.dark) .admin-module-card::before,
 html:not(.dark) .admin-kpi::before {
-  background:
-    linear-gradient(155deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.86) 100%);
-  backdrop-filter: blur(30px) saturate(1.14);
-  -webkit-backdrop-filter: blur(30px) saturate(1.14);
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 html:not(.dark) .admin-sidebar .admin-nav-item:hover:not(.admin-nav-item--active) {
-  background: rgba(255, 255, 255, 0.72);
-  border-color: rgba(255, 255, 255, 0.85);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  color: #050508;
+  background: rgba(15, 23, 42, 0.035);
+  border-color: transparent;
+  box-shadow: none;
+  color: #0f172a;
 }
 
 html:not(.dark) .admin-intel,
 html:not(.dark) .intelligence-panel {
-  border-color: rgba(255, 255, 255, 0.8);
+  border-color: rgba(15, 23, 42, 0.06);
 }
 
 @media (prefers-reduced-motion: reduce) {

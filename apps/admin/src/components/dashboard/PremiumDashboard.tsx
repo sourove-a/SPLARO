@@ -2,13 +2,18 @@
 
 import { useState } from 'react'
 import {
-  DollarSign,
-  ShoppingBag,
-  Users,
-  TrendingUp,
-  WifiOff,
-  Percent,
+  Activity,
   BarChart3,
+  DollarSign,
+  LayoutDashboard,
+  Percent,
+  Radio,
+  ShoppingBag,
+  Sparkles,
+  TrendingUp,
+  Users,
+  WifiOff,
+  Zap,
 } from 'lucide-react'
 import { StatCard } from '@/components/ui/StatCard'
 import { SalesChart } from '@/components/analytics/SalesChart'
@@ -24,18 +29,35 @@ import { ClientDateTime } from '@/components/ui/ClientDateTime'
 import { formatBDT } from '@/lib/utils/currency'
 import { useAdminSession, useDashboardStats, useExecutiveDashboard } from '@/lib/api/hooks'
 import { useAdminUiStore } from '@/store/uiStore'
+import { cn } from '@/lib/utils/cn'
 
 const DATE_RANGES = ['Today', '7 Days', '30 Days', 'Quarter'] as const
 type DateRange = (typeof DATE_RANGES)[number]
 
-function DashboardSectionHeader({ id, title, meta }: { id: string; title: string; meta: string }) {
+function DashboardSectionHeader({
+  id,
+  title,
+  meta,
+  icon: Icon,
+}: {
+  id: string
+  title: string
+  meta: string
+  icon: typeof Activity
+}) {
   return (
     <div className="premium-dash__section-head">
       <div className="premium-dash__section-title-wrap">
-        <span className="premium-dash__section-mark" aria-hidden />
-        <h2 id={id} className="premium-dash__section-title">{title}</h2>
+        <span className="premium-dash__section-icon" aria-hidden>
+          <Icon strokeWidth={1.75} />
+        </span>
+        <div className="min-w-0">
+          <h2 id={id} className="premium-dash__section-title">
+            {title}
+          </h2>
+          <p className="premium-dash__section-meta premium-dash__section-meta--under">{meta}</p>
+        </div>
       </div>
-      <p className="premium-dash__section-meta">{meta}</p>
     </div>
   )
 }
@@ -59,12 +81,26 @@ export function PremiumDashboard() {
     n !== undefined ? new Intl.NumberFormat('en-US').format(n) : isError ? '—' : isLoading ? '…' : '—'
 
   return (
-    <div className="admin-dashboard-canvas premium-dash min-h-full w-full space-y-5 pb-20">
-      <header className="premium-dash__hero">
+    <div className="admin-dashboard-canvas premium-dash admin-panel-page min-h-full w-full pb-20">
+      <header className="premium-dash__hero admin-catalog-hero admin-panel-hero !mb-4">
+        <div className="premium-dash__hero-glow" aria-hidden />
         <div className="premium-dash__hero-inner">
           <div className="premium-dash__hero-copy">
-            <p className="admin-page-eyebrow">Commerce OS</p>
-            <h1 className="admin-page-title mt-1">
+            <div className="premium-dash__hero-eyebrow-row">
+              <p className="admin-page-eyebrow">Commerce OS</p>
+              {isError ? (
+                <span className="premium-dash__offline">
+                  <WifiOff className="h-3 w-3" strokeWidth={1.5} />
+                  API offline
+                </span>
+              ) : (
+                <span className="premium-dash__live">
+                  <span className="premium-dash__live-dot" aria-hidden />
+                  Live
+                </span>
+              )}
+            </div>
+            <h1 className="admin-page-title mt-2">
               Welcome back, <span className="admin-page-title__accent">{userName}</span>
             </h1>
             <p className="premium-dash__sub">
@@ -73,20 +109,16 @@ export function PremiumDashboard() {
           </div>
 
           <div className="premium-dash__hero-actions">
-            {isError ? (
-              <span className="premium-dash__offline">
-                <WifiOff className="h-3 w-3" />
-                API offline
-              </span>
-            ) : null}
-
-            <div className="admin-segment" role="group" aria-label="Date range">
+            <div className="admin-segment premium-dash__segment" role="group" aria-label="Date range">
               {DATE_RANGES.map((range) => (
                 <button
                   key={range}
                   type="button"
                   onClick={() => setDateRange(range)}
-                  className={`admin-segment__btn ${dateRange === range ? 'admin-segment__btn--active' : ''}`}
+                  className={cn(
+                    'admin-segment__btn',
+                    dateRange === range && 'admin-segment__btn--active',
+                  )}
                 >
                   {range}
                 </button>
@@ -97,57 +129,149 @@ export function PremiumDashboard() {
       </header>
 
       <section className="premium-dash__zone" aria-labelledby="dash-live-pulse">
-        <DashboardSectionHeader id="dash-live-pulse" title="Live pulse" meta="Store signals · now" />
-        <div>
+        <DashboardSectionHeader
+          id="dash-live-pulse"
+          title="Live pulse"
+          meta="Store signals · now"
+          icon={Radio}
+        />
+        <div className="premium-dash__zone-body">
           <StoreHealthCards onAsk={(q) => openAgentChat(q)} />
         </div>
       </section>
 
       <section className="premium-dash__zone" aria-labelledby="dash-performance">
-        <DashboardSectionHeader id="dash-performance" title="Performance ledger" meta={`${dateRange} · verified commerce data`} />
-        <div className="premium-dash__kpi-grid" aria-label="Key metrics">
-          <StatCard title="Total Revenue" value={fmt(revenue)} change={stats?.revenue.change} icon={DollarSign} color="gold" loading={isLoading} sparkline />
-          <StatCard title="Total Orders" value={fmtNum(orders)} change={stats?.orders.change} icon={ShoppingBag} loading={isLoading} sparkline />
-          <StatCard title="Total Customers" value={fmtNum(customers)} change={stats?.customers.change} icon={Users} loading={isLoading} sparkline />
-          <StatCard title="Net Profit" value={fmt(netProfit)} change={stats?.revenue.change} icon={TrendingUp} color="green" loading={isLoading} sparkline />
-          <StatCard title="Avg Order Value" value={fmt(aov)} change={stats?.avgOrderValue.change} icon={BarChart3} loading={isLoading} sparkline />
-          <StatCard title="Conversion" value="—" emptyHint="Visitor analytics not connected yet" icon={Percent} color="gold" loading={isLoading} />
+        <DashboardSectionHeader
+          id="dash-performance"
+          title="Performance ledger"
+          meta={`${dateRange} · verified commerce data`}
+          icon={LayoutDashboard}
+        />
+        <div className="premium-dash__zone-body">
+          <div className="premium-dash__kpi-grid" aria-label="Key metrics">
+            <div className="premium-dash__kpi premium-dash__kpi--amber">
+              <StatCard
+                title="Total Revenue"
+                value={fmt(revenue)}
+                change={stats?.revenue.change}
+                icon={DollarSign}
+                color="amber"
+                loading={isLoading}
+              />
+            </div>
+            <div className="premium-dash__kpi premium-dash__kpi--sky">
+              <StatCard
+                title="Total Orders"
+                value={fmtNum(orders)}
+                change={stats?.orders.change}
+                icon={ShoppingBag}
+                color="sky"
+                loading={isLoading}
+              />
+            </div>
+            <div className="premium-dash__kpi premium-dash__kpi--teal">
+              <StatCard
+                title="Total Customers"
+                value={fmtNum(customers)}
+                change={stats?.customers.change}
+                icon={Users}
+                color="teal"
+                loading={isLoading}
+              />
+            </div>
+            <div className="premium-dash__kpi premium-dash__kpi--green">
+              <StatCard
+                title="Net Profit"
+                value={fmt(netProfit)}
+                change={stats?.revenue.change}
+                icon={TrendingUp}
+                color="green"
+                loading={isLoading}
+              />
+            </div>
+            <div className="premium-dash__kpi premium-dash__kpi--slate">
+              <StatCard
+                title="Avg Order Value"
+                value={fmt(aov)}
+                change={stats?.avgOrderValue.change}
+                icon={BarChart3}
+                color="slate"
+                loading={isLoading}
+              />
+            </div>
+            <div className="premium-dash__kpi premium-dash__kpi--gold">
+              <StatCard
+                title="Conversion"
+                value="—"
+                emptyHint="Visitor analytics not connected yet"
+                icon={Percent}
+                color="gold"
+                loading={isLoading}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="premium-dash__zone" aria-labelledby="dash-shortcuts">
+        <DashboardSectionHeader
+          id="dash-shortcuts"
+          title="Quick actions"
+          meta="One-tap luxury commerce shortcuts"
+          icon={Zap}
+        />
+        <div className="premium-dash__zone-body">
+          <QuickActions embedded />
         </div>
       </section>
 
       <section className="premium-dash__zone" aria-labelledby="dash-revenue-intelligence">
-        <DashboardSectionHeader id="dash-revenue-intelligence" title="Revenue intelligence" meta="Trend and payment mix" />
-        <div className="premium-dash__charts grid gap-5 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <SalesChart period={dateRange} title="Sales Overview" />
+        <DashboardSectionHeader
+          id="dash-revenue-intelligence"
+          title="Revenue intelligence"
+          meta="Trend and payment mix"
+          icon={Sparkles}
+        />
+        <div className="premium-dash__zone-body">
+          <div className="premium-dash__charts grid gap-5 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <SalesChart period={dateRange} title="Sales Overview" />
+            </div>
+            <ChannelDonutChart period={dateRange} />
           </div>
-          <ChannelDonutChart period={dateRange} />
         </div>
       </section>
 
       <section className="premium-dash__zone" aria-labelledby="dash-operations-desk">
-        <DashboardSectionHeader id="dash-operations-desk" title="Operations desk" meta="Activity, alerts and recent orders" />
-        <div className="premium-dash__operations">
-          <div className="grid gap-5 lg:grid-cols-2">
-            <RecentActivities period={dateRange} />
-            <AlertsPanel
-              {...(stats?.alerts.codRiskOrders !== undefined ? { codRisk: stats.alerts.codRiskOrders } : {})}
-              {...(stats?.alerts.failedPayments !== undefined ? { failedPayments: stats.alerts.failedPayments } : {})}
-            />
-          </div>
+        <DashboardSectionHeader
+          id="dash-operations-desk"
+          title="Operations desk"
+          meta="Activity, alerts and recent orders"
+          icon={Activity}
+        />
+        <div className="premium-dash__zone-body">
+          <div className="premium-dash__operations">
+            <div className="grid gap-5 lg:grid-cols-2">
+              <RecentActivities period={dateRange} />
+              <AlertsPanel
+                {...(stats?.alerts.codRiskOrders !== undefined
+                  ? { codRisk: stats.alerts.codRiskOrders }
+                  : {})}
+                {...(stats?.alerts.failedPayments !== undefined
+                  ? { failedPayments: stats.alerts.failedPayments }
+                  : {})}
+              />
+            </div>
 
-          <RecentOrdersTable />
+            <RecentOrdersTable />
 
-          <div className="grid gap-5 lg:grid-cols-2">
-            <TopCategories period={dateRange} />
-            <TopProducts period={dateRange} />
+            <div className="grid gap-5 lg:grid-cols-2">
+              <TopCategories period={dateRange} />
+              <TopProducts period={dateRange} />
+            </div>
           </div>
         </div>
       </section>
-
-      <div className="lg:hidden">
-        <QuickActions />
-      </div>
     </div>
   )
 }

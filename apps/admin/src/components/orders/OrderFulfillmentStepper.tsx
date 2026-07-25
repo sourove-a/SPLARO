@@ -12,12 +12,12 @@ import { AdminButton } from '@/components/ui/AdminButton'
 import { cn } from '@/lib/utils/cn'
 
 const FLOW_STEPS = [
-  { status: 'PENDING', label: 'Pending', icon: Clock3 },
-  { status: 'CONFIRMED', label: 'Confirmed', icon: CheckCircle2 },
-  { status: 'PROCESSING', label: 'Processing', icon: Package },
-  { status: 'PACKED', label: 'Packed', icon: PackageCheck },
-  { status: 'SHIPPED', label: 'Shipped', icon: Truck },
-  { status: 'DELIVERED', label: 'Delivered', icon: CircleCheck },
+  { status: 'PENDING', label: 'Pending', short: 'Pend', icon: Clock3 },
+  { status: 'CONFIRMED', label: 'Confirmed', short: 'Conf', icon: CheckCircle2 },
+  { status: 'PROCESSING', label: 'Processing', short: 'Proc', icon: Package },
+  { status: 'PACKED', label: 'Packed', short: 'Pack', icon: PackageCheck },
+  { status: 'SHIPPED', label: 'Shipped', short: 'Ship', icon: Truck },
+  { status: 'DELIVERED', label: 'Delivered', short: 'Done', icon: CircleCheck },
 ] as const
 
 const NEXT_ACTIONS: Record<string, { label: string; next: string }> = {
@@ -89,7 +89,7 @@ export function OrderFulfillmentStepper({
               <span className="order-flow__dot" aria-hidden>
                 <Icon className="order-flow__icon" strokeWidth={1.75} />
               </span>
-              <span className="order-flow__label">{step.label}</span>
+              <span className="order-flow__label">{compact ? step.short : step.label}</span>
               {idx < FLOW_STEPS.length - 1 ? <span className="order-flow__line" aria-hidden /> : null}
             </li>
           )

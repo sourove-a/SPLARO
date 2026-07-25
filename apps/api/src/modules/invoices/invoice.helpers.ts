@@ -1,5 +1,10 @@
 import type { CourierShipment, Order, OrderItem, ProductVariant } from '@prisma/client'
-import { SPLARO_INVOICE_BRAND, resolveCustomerFacingSiteUrl, resolveInvoiceLogoUrl } from '@splaro/config'
+import {
+  SPLARO_INVOICE_BRAND,
+  resolveCustomerFacingAssetUrl,
+  resolveCustomerFacingSiteUrl,
+  resolveInvoiceLogoUrl,
+} from '@splaro/config'
 
 export type InvoiceOrder = Order & {
   items: (OrderItem & { variant?: ProductVariant | null })[]
@@ -80,7 +85,8 @@ export function escapeHtml(str: string | null | undefined): string {
 }
 
 export function formatBdt(amount: number): string {
-  return `৳${amount.toLocaleString('en-BD', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+  const n = Number.isFinite(amount) ? amount : 0
+  return `৳ ${n.toLocaleString('en-BD', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 }
 
 export function formatInvoiceDate(value: Date | string): string {
@@ -111,14 +117,6 @@ function parseVariantFields(
     size: parts[0] || '—',
     color: parts[1] || '—',
   }
-}
-
-function absoluteAssetUrl(siteUrl: string, value?: string | null): string {
-  const trimmed = value?.trim()
-  if (!trimmed) return ''
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed
-  const base = siteUrl.replace(/\/$/, '')
-  return trimmed.startsWith('/') ? `${base}${trimmed}` : `${base}/${trimmed}`
 }
 
 function normalizeAddressToken(value: string): string {
@@ -198,7 +196,7 @@ export function buildInvoiceViewModel(input: {
       unitPrice,
       discount: 0,
       lineTotal,
-      imageUrl: absoluteAssetUrl(siteUrl, item.image),
+      imageUrl: resolveCustomerFacingAssetUrl(item.image),
     }
   })
 

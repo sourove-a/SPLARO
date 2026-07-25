@@ -3,6 +3,7 @@
 import { Plus, Zap, Clock, WifiOff } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { AdminButton } from '@/components/ui/AdminButton'
+import { AdminEmptyState, AdminTableSkeleton } from '@/components/ui/AdminUiPrimitives'
 import { OperationsSubNav } from '@/components/operations/OperationsSubNav'
 import { cn } from '@/lib/utils/cn'
 import { useAutomationRules } from '@/lib/api/hooks'
@@ -41,7 +42,7 @@ export function AutomationRulesPanel() {
     return (
       <div className="space-y-4">
         <OperationsSubNav activeHref="/dashboard/automation-rules" statusByHref={statusByHref} />
-        <p className="text-sm text-[var(--admin-text-muted)]">Loading automation rules…</p>
+        <AdminTableSkeleton rows={5} />
       </div>
     )
   }
@@ -82,9 +83,17 @@ export function AutomationRulesPanel() {
       </div>
 
       {rules.length === 0 ? (
-        <div className="admin-module-card text-sm text-[var(--admin-text-muted)]">
-          No automation rules yet. Create one to auto-flag COD risk, upgrade loyalty tiers, and more.
-        </div>
+        <AdminEmptyState
+          icon={Zap}
+          title="No automation rules yet"
+          description="Create one to auto-flag COD risk, upgrade loyalty tiers, and more."
+          action={
+            <AdminButton variant="gold" onClick={() => toastInfo('Rule builder opens from Automation → Create rule.')}>
+              <Plus className="h-4 w-4" />
+              New rule
+            </AdminButton>
+          }
+        />
       ) : (
         <div className="space-y-3">
           {rules.map((rule) => (

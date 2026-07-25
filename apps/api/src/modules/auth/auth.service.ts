@@ -1,18 +1,42 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common'
+import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { createHash, randomBytes } from 'crypto'
+import { resolvePublicAdminUrl } from '@splaro/config'
 import { verifyAdminSessionToken, type AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { AdminSessionResolver } from '../../common/auth/admin-session.resolver'
-import { verifyPasswordWithTimingPad } from '../../common/password.util'
+import { hashPassword, verifyPasswordWithTimingPad } from '../../common/password.util'
 import { PrismaService } from '../../common/prisma.service'
 import { RedisService } from '../../common/redis.service'
 import { resolveStoreId } from '../../common/store.util'
 import { resolveStaffPermissionTokens } from '../security/staff-permissions.resolver'
+import { EmailService } from '../email/email.service'
+import {
+  generateAdminPasswordResetEmailHTML,
+  generateAdminPasswordResetEmailText,
+} from '../email/admin-password-reset-email.template'
 import { AdminLoginTokenService } from './admin-login-token.service'
 
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000
 const LOCKOUT_TTL_SEC = Math.ceil(LOCKOUT_WINDOW_MS / 1000)
 const MAX_FAILED_ATTEMPTS = 5
 const IP_FAIL_KEY_PREFIX = 'splaro:admin:login:fail:ip:'
+const RESET_TTL_MS = 60 * 60 * 1000
+const INVITE_TTL_MS = 48 * 60 * 60 * 1000
+
+const CEO_EMAIL = (process.env['ADMIN_EMAIL'] ?? process.env['CEO_EMAIL'] ?? 'splaro.bd@gmail.com')
+  .trim()
+  .toLowerCase()
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex')
+}
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@')
+  if (!local || !domain) return '***'
+  const visible = local.slice(0, Math.min(2, local.length))
+  return `${visible}***@${domain}`
+}
 
 @Injectable()
 export class AuthService {
@@ -24,7 +48,15 @@ export class AuthService {
     private readonly loginTokens: AdminLoginTokenService,
     private readonly redis: RedisService,
     private readonly sessionResolver: AdminSessionResolver,
+    private readonly email: EmailService,
   ) {}
+
+  /** Super Admin / CEO: Telegram OTP only. Everyone else: password only. */
+  isTelegramOnlyAdmin(role: string, email: string): boolean {
+    const normalizedRole = role.toUpperCase()
+    const normalizedEmail = email.trim().toLowerCase()
+    return normalizedRole === 'SUPER_ADMIN' || normalizedEmail === CEO_EMAIL
+  }
 
   verifyToken(token: string): AdminSessionPayload | null {
     return verifyAdminSessionToken(token)
@@ -110,6 +142,20 @@ export class AuthService {
     }
   }
 
+  async resolveLoginMethod(
+    email: string,
+    storeIdRaw?: string,
+  ): Promise<{ method: 'telegram' | 'password'; email: string }> {
+    const admin = await this.resolveAdminStaff(email, storeIdRaw)
+    if (!admin) {
+      throw new UnauthorizedException('No admin account found for this email')
+    }
+    return {
+      method: this.isTelegramOnlyAdmin(admin.role, admin.email) ? 'telegram' : 'password',
+      email: admin.email,
+    }
+  }
+
   async loginWithPassword(
     email: string,
     password: string,
@@ -138,6 +184,7 @@ export class AuthService {
         lastName: true,
         passwordHash: true,
         isActive: true,
+        emailVerified: true,
         role: true,
         staffRoles: {
           select: { role: true, storeId: true, store: { select: { slug: true } } },
@@ -149,8 +196,29 @@ export class AuthService {
       await this.assertNotLockedOut(user.id)
     }
 
+    const storeId = storeIdRaw
+      ? await resolveStoreId(this.prisma, storeIdRaw)
+      : user?.staffRoles[0]?.storeId
+
+    const staff = storeId
+      ? user?.staffRoles.find((s) => s.storeId === storeId)
+      : user?.staffRoles[0]
+
+    if (user && staff && this.isTelegramOnlyAdmin(staff.role, user.email ?? normalized)) {
+      await this.recordLoginAttempt({
+        userId: user.id,
+        ipAddress,
+        userAgent,
+        success: false,
+        failReason: 'super_admin_password_blocked',
+      })
+      await this.recordIpFailedAttempt(ipAddress)
+      throw new ForbiddenException('Super Admin must sign in with Telegram login token')
+    }
+
     const hashMatches = verifyPasswordWithTimingPad(password, user?.passwordHash)
-    const passwordOk = Boolean(user?.isActive) && hashMatches
+    const passwordOk =
+      Boolean(user?.isActive) && Boolean(user?.emailVerified) && Boolean(user?.passwordHash) && hashMatches
 
     if (!user || !passwordOk) {
       if (user) {
@@ -159,20 +227,22 @@ export class AuthService {
           ipAddress,
           userAgent,
           success: false,
-          failReason: !user.isActive ? 'inactive' : 'invalid_password',
+          failReason: !user.isActive
+            ? 'inactive'
+            : !user.emailVerified
+              ? 'email_unverified'
+              : !user.passwordHash
+                ? 'password_not_set'
+                : 'invalid_password',
         })
       }
       await this.recordIpFailedAttempt(ipAddress)
-      throw new UnauthorizedException('Invalid email or password')
+      throw new UnauthorizedException(
+        !user?.emailVerified && user?.passwordHash == null
+          ? 'Accept your invite email and set a password first'
+          : 'Invalid email or password',
+      )
     }
-
-    const storeId = storeIdRaw
-      ? await resolveStoreId(this.prisma, storeIdRaw)
-      : user.staffRoles[0]?.storeId
-
-    const staff = storeId
-      ? user.staffRoles.find((s) => s.storeId === storeId)
-      : user.staffRoles[0]
 
     if (!staff) {
       await this.recordLoginAttempt({
@@ -242,6 +312,17 @@ export class AuthService {
 
     await this.assertIpNotLockedOut(ipAddress)
 
+    const admin = await this.resolveAdminStaff(normalized, storeIdRaw)
+    if (!admin) {
+      await this.recordIpFailedAttempt(ipAddress)
+      throw new UnauthorizedException('No admin account found for this email')
+    }
+
+    if (!this.isTelegramOnlyAdmin(admin.role, admin.email)) {
+      await this.recordIpFailedAttempt(ipAddress)
+      throw new ForbiddenException('Use email and password to sign in')
+    }
+
     const record = await this.loginTokens.consume(normalized, token)
     if (!record) {
       await this.recordIpFailedAttempt(ipAddress)
@@ -288,6 +369,9 @@ export class AuthService {
     if (!admin) {
       throw new UnauthorizedException('No admin account found for this email')
     }
+    if (!this.isTelegramOnlyAdmin(admin.role, admin.email)) {
+      throw new ForbiddenException('Use email and password to sign in — Telegram login is for Super Admin only')
+    }
 
     const code = await this.loginTokens.issue({
       email: admin.email,
@@ -315,6 +399,188 @@ export class AuthService {
     })
 
     return { code, email: admin.email }
+  }
+
+  async requestPasswordReset(email: string, storeIdRaw?: string): Promise<{ ok: true }> {
+    const normalized = email.trim().toLowerCase()
+    let admin: Awaited<ReturnType<AuthService['resolveAdminStaff']>> = null
+    try {
+      admin = await this.resolveAdminStaff(normalized, storeIdRaw)
+    } catch {
+      admin = null
+    }
+    if (!admin || this.isTelegramOnlyAdmin(admin.role, admin.email)) {
+      return { ok: true }
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: { id: admin.userId, isActive: true },
+      select: { id: true, email: true, firstName: true, emailVerified: true, passwordHash: true },
+    })
+    if (!user?.email || !user.emailVerified || !user.passwordHash) {
+      return { ok: true }
+    }
+
+    const rawToken = randomBytes(32).toString('hex')
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetToken: sha256(rawToken),
+        resetTokenExp: new Date(Date.now() + RESET_TTL_MS),
+      },
+    })
+
+    const adminUrl = resolvePublicAdminUrl()
+    const resetUrl = `${adminUrl}/reset-password?token=${encodeURIComponent(rawToken)}`
+    const store = await this.prisma.store.findUnique({
+      where: { id: admin.storeId },
+      select: { name: true },
+    })
+
+    await this.email.sendForStore({
+      storeId: admin.storeId,
+      to: user.email,
+      subject: `${store?.name ?? 'SPLARO'} admin — reset your password`,
+      html: generateAdminPasswordResetEmailHTML({
+        firstName: user.firstName,
+        resetUrl,
+        storeName: store?.name ?? 'SPLARO',
+        adminUrl,
+      }),
+      text: generateAdminPasswordResetEmailText({
+        firstName: user.firstName,
+        resetUrl,
+      }),
+      transactional: true,
+    })
+
+    return { ok: true }
+  }
+
+  async resetPasswordWithToken(token: string, password: string): Promise<{ ok: true }> {
+    const trimmed = token.trim()
+    if (trimmed.length < 16) throw new BadRequestException('Invalid or expired reset link')
+    if (password.trim().length < 8) throw new BadRequestException('Password must be at least 8 characters')
+
+    const tokenHash = sha256(trimmed)
+    const user = await this.prisma.user.findFirst({
+      where: {
+        resetToken: tokenHash,
+        resetTokenExp: { gt: new Date() },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        staffRoles: { select: { role: true }, take: 1 },
+      },
+    })
+    if (!user) throw new BadRequestException('Invalid or expired reset link')
+
+    const role = user.staffRoles[0]?.role ?? user.role
+    if (this.isTelegramOnlyAdmin(role, user.email ?? '')) {
+      throw new ForbiddenException('Super Admin cannot reset password — use Telegram login')
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: hashPassword(password.trim()),
+        resetToken: null,
+        resetTokenExp: null,
+        emailVerified: true,
+      },
+    })
+
+    return { ok: true }
+  }
+
+  async getInvitePreview(token: string): Promise<{
+    emailMasked: string
+    role: string
+    firstName: string
+    expiresAt: string
+  }> {
+    const invite = await this.findValidInvite(token)
+    return {
+      emailMasked: maskEmail(invite.email),
+      role: invite.role,
+      firstName: invite.firstName,
+      expiresAt: invite.expiresAt.toISOString(),
+    }
+  }
+
+  async acceptInvite(
+    token: string,
+    password: string,
+    firstName?: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ): Promise<{
+    userId: string
+    email: string
+    name: string
+    role: string
+    storeId: string
+    permissions: string[]
+  }> {
+    if (password.trim().length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters')
+    }
+
+    const invite = await this.findValidInvite(token)
+    if (this.isTelegramOnlyAdmin(invite.role, invite.email)) {
+      throw new ForbiddenException('Super Admin accounts cannot use password invite')
+    }
+
+    const user = invite.userId
+      ? await this.prisma.user.findUnique({ where: { id: invite.userId } })
+      : await this.prisma.user.findFirst({ where: { email: invite.email } })
+
+    if (!user) throw new BadRequestException('Invite user missing — ask Super Admin to re-invite')
+
+    const resolvedFirst = firstName?.trim() || invite.firstName || user.firstName
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          firstName: resolvedFirst,
+          passwordHash: hashPassword(password.trim()),
+          emailVerified: true,
+          isActive: true,
+          role: invite.role,
+          resetToken: null,
+          resetTokenExp: null,
+          verifyToken: null,
+        },
+      })
+      await tx.adminInvite.update({
+        where: { id: invite.id },
+        data: { acceptedAt: new Date(), userId: user.id },
+      })
+    })
+
+    return this.loginWithPassword(invite.email, password.trim(), invite.storeId, meta)
+  }
+
+  private async findValidInvite(token: string) {
+    const trimmed = token.trim()
+    if (trimmed.length < 16) throw new BadRequestException('Invalid or expired invite link')
+    const tokenHash = sha256(trimmed)
+    const invite = await this.prisma.adminInvite.findUnique({ where: { tokenHash } })
+    if (!invite || invite.acceptedAt || invite.expiresAt.getTime() <= Date.now()) {
+      throw new BadRequestException('Invalid or expired invite link')
+    }
+    return invite
+  }
+
+  createInviteTokenPair(): { rawToken: string; tokenHash: string; expiresAt: Date } {
+    const rawToken = randomBytes(32).toString('hex')
+    return {
+      rawToken,
+      tokenHash: sha256(rawToken),
+      expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+    }
   }
 
   private async resolvePrimaryAdminForStore(storeId: string) {

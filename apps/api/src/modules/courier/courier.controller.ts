@@ -169,8 +169,38 @@ export class CourierController {
 
   /** Live tracking status from courier API */
   @Get(':orderId/track')
-  track(@Param('orderId') orderId: string) {
-    return this.courier.getTrackingStatus(orderId)
+  async track(@Param('orderId') orderId: string) {
+    const status = await this.courier.getTrackingStatus(orderId)
+    const shipment = await this.prisma.courierShipment.findFirst({
+      where: { OR: [{ orderId }, { order: { invoiceNumber: orderId } }] },
+      select: {
+        provider: true,
+        status: true,
+        consignmentId: true,
+        trackingCode: true,
+        trackingUrl: true,
+      },
+    })
+    return {
+      status: status ?? shipment?.status ?? null,
+      provider: shipment?.provider ?? null,
+      consignmentId: shipment?.consignmentId ?? null,
+      trackingCode: shipment?.trackingCode ?? null,
+      trackingUrl: shipment?.trackingUrl ?? null,
+    }
+  }
+
+  /**
+   * Local-only cancel — Steadfast has no cancel API.
+   * Never reports courier-side cancellation as success.
+   */
+  @Post(':orderId/cancel-booking')
+  cancelBooking(
+    @Param('orderId') orderId: string,
+    @Body() body: { note?: string },
+    @Query('storeId') _storeId?: string,
+  ) {
+    return this.courier.cancelBookingLocal(orderId, { note: body?.note })
   }
 
   /** Manually update shipment status (admin override) */

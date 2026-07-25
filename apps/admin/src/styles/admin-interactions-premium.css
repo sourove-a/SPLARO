@@ -1,0 +1,552 @@
+/**
+ * SPLARO Admin — GLOBAL premium interactions
+ * Cascades to EVERY module: buttons, tabs, subnav, chips, cards, forms.
+ * Click must feel physical · hover must glow · never flat/classic.
+ */
+
+:root {
+  --admin-press-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --admin-press-duration: 90ms;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   UNIVERSAL PRESS LANGUAGE
+   Any clickable control in the admin shell
+   ═══════════════════════════════════════════════════════════════ */
+:is(
+  .admin-btn,
+  .specular-button,
+  .admin-header-chip,
+  .admin-profile-pill,
+  .admin-segment__btn,
+  .admin-tab-pill,
+  .ops-subnav__link,
+  .admin-quick-tile,
+  .admin-nav-item,
+  .settings-nav-item,
+  button.admin-module-card,
+  a.admin-btn
+) {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BUTTONS — all variants, all pages
+   ═══════════════════════════════════════════════════════════════ */
+.admin-btn,
+a.admin-btn,
+.specular-button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    transform var(--admin-press-duration) var(--admin-press-ease),
+    box-shadow var(--admin-press-duration) ease,
+    background var(--admin-press-duration) ease,
+    border-color var(--admin-press-duration) ease,
+    color var(--admin-press-duration) ease,
+    filter var(--admin-press-duration) ease !important;
+}
+
+/* Sheen sweep on hover */
+.admin-btn::after,
+a.admin-btn::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.35) 48%,
+    transparent 65%
+  );
+  transform: translateX(-140%);
+  opacity: 0;
+}
+
+.admin-btn:hover:not(:disabled):not(.admin-btn--loading)::after,
+a.admin-btn:hover:not([aria-disabled='true'])::after {
+  opacity: 1;
+  animation: admin-btn-sheen 0.65s var(--admin-press-ease) forwards;
+}
+
+@keyframes admin-btn-sheen {
+  to {
+    transform: translateX(140%);
+  }
+}
+
+.admin-btn > *,
+a.admin-btn > *,
+.specular-button .specular-button__label {
+  position: relative;
+  z-index: 2;
+}
+
+/* Hover lift — snappy, no filter (filter causes paint lag) */
+.admin-btn:hover:not(:disabled):not(.admin-btn--loading),
+a.admin-btn:hover:not([aria-disabled='true']),
+.specular-button:hover:not(:disabled) {
+  transform: translateY(-1px) !important;
+}
+
+/* PRESS — physical click feel */
+.admin-btn:active:not(:disabled):not(.admin-btn--loading),
+a.admin-btn:active:not([aria-disabled='true']),
+.specular-button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985) !important;
+  transition-duration: 50ms !important;
+}
+
+/* Primary / gold — Design Monks violet depth (dark variant stays ink) */
+html:not(.dark) :is(
+  .admin-btn:not(.admin-btn--secondary):not(.admin-btn--ghost):not(.admin-btn--danger):not(.admin-btn--warning):not(.admin-btn--success):not(.admin-btn--dark),
+  .admin-btn--primary,
+  .admin-btn--gold,
+  a.admin-btn:not(.admin-btn--secondary):not(.admin-btn--ghost):not(.admin-btn--danger):not(.admin-btn--dark)
+) {
+  background: linear-gradient(180deg, #8450ff 0%, #712eff 55%, #5b1fd9 100%) !important;
+  border: 1px solid #5b1fd9 !important;
+  color: #fafafa !important;
+  box-shadow:
+    0 1px 2px rgba(91, 31, 217, 0.25),
+    0 10px 28px rgba(113, 46, 255, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+html:not(.dark) .admin-btn--dark {
+  background: linear-gradient(180deg, #1a1a1f 0%, #111111 100%) !important;
+  border: 1px solid #0a0a0a !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.2),
+    0 8px 22px rgba(15, 23, 42, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+}
+
+html:not(.dark) :is(
+  .admin-btn:not(.admin-btn--secondary):not(.admin-btn--ghost):not(.admin-btn--danger):not(.admin-btn--warning):not(.admin-btn--success):not(.admin-btn--dark),
+  .admin-btn--primary,
+  .admin-btn--gold,
+  a.admin-btn:not(.admin-btn--secondary):not(.admin-btn--ghost):not(.admin-btn--danger):not(.admin-btn--dark)
+):hover:not(:disabled):not([aria-disabled='true']) {
+  background: linear-gradient(180deg, #9566ff 0%, #7d40ff 50%, #712eff 100%) !important;
+  box-shadow:
+    0 2px 4px rgba(91, 31, 217, 0.28),
+    0 16px 36px rgba(113, 46, 255, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+html:not(.dark) :is(
+  .admin-btn:not(.admin-btn--secondary):not(.admin-btn--ghost):not(.admin-btn--danger):not(.admin-btn--warning):not(.admin-btn--success):not(.admin-btn--dark),
+  .admin-btn--primary,
+  .admin-btn--gold
+):active:not(:disabled) {
+  box-shadow:
+    0 1px 2px rgba(91, 31, 217, 0.35),
+    inset 0 2px 8px rgba(45, 10, 120, 0.45) !important;
+}
+
+/* Secondary / ghost */
+html:not(.dark) .admin-btn--secondary,
+html:not(.dark) .admin-btn--ghost,
+html:not(.dark) a.admin-btn--secondary,
+html:not(.dark) a.admin-btn--ghost {
+  background: linear-gradient(180deg, #ffffff, #f4f6f9) !important;
+  border: 1px solid rgba(15, 23, 42, 0.12) !important;
+  color: #0f172a !important;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 12px rgba(15, 23, 42, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+}
+
+html:not(.dark) .admin-btn--secondary:hover:not(:disabled),
+html:not(.dark) .admin-btn--ghost:hover:not(:disabled) {
+  border-color: rgba(15, 23, 42, 0.2) !important;
+  background: #ffffff !important;
+  box-shadow:
+    0 2px 4px rgba(15, 23, 42, 0.06),
+    0 12px 28px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+}
+
+html:not(.dark) .admin-btn--danger {
+  background: linear-gradient(180deg, #ef4444, #dc2626) !important;
+  border-color: #b91c1c !important;
+  color: #fff !important;
+  box-shadow: 0 8px 20px rgba(220, 38, 38, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+html:not(.dark) .admin-btn--success {
+  background: linear-gradient(180deg, #22c55e, #16a34a) !important;
+  border-color: #15803d !important;
+  color: #fff !important;
+  box-shadow: 0 8px 20px rgba(22, 163, 74, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+html:not(.dark) .admin-btn--warning {
+  background: linear-gradient(180deg, #fbbf24, #f59e0b) !important;
+  border-color: #d97706 !important;
+  color: #111 !important;
+  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Dark mode buttons — Design Monks violet CTAs */
+.dark .admin-btn:not(.admin-btn--secondary):not(.admin-btn--ghost):not(.admin-btn--danger):not(.admin-btn--warning):not(.admin-btn--success):not(.admin-btn--dark),
+.dark .admin-btn--primary,
+.dark .admin-btn--gold,
+.dark a.admin-btn:not(.admin-btn--secondary):not(.admin-btn--ghost):not(.admin-btn--danger):not(.admin-btn--dark) {
+  background: linear-gradient(180deg, #9566ff 0%, #8b5cff 55%, #712eff 100%) !important;
+  border-color: #a078ff !important;
+  color: #fafafa !important;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 12px 32px rgba(139, 92, 255, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+}
+
+.dark .admin-btn--dark {
+  background: linear-gradient(180deg, #ffffff, #ececf0) !important;
+  border-color: #ffffff !important;
+  color: #111111 !important;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 10px 26px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.dark .admin-btn:not(.admin-btn--secondary):not(.admin-btn--ghost):not(.admin-btn--danger):not(.admin-btn--dark):hover:not(:disabled),
+.dark .admin-btn--primary:hover:not(:disabled),
+.dark .admin-btn--gold:hover:not(:disabled) {
+  background: linear-gradient(180deg, #a078ff 0%, #9566ff 50%, #8b5cff 100%) !important;
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    0 18px 40px rgba(139, 92, 255, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+}
+
+.dark .admin-btn--dark:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ffffff, #f5f5f8) !important;
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    0 16px 36px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.dark .admin-btn--secondary,
+.dark .admin-btn--ghost {
+  background: linear-gradient(180deg, #222228, #17171b) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.dark .admin-btn--secondary:hover:not(:disabled),
+.dark .admin-btn--ghost:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  background: linear-gradient(180deg, #2a2a32, #1c1c22) !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark .admin-btn--danger {
+  background: linear-gradient(180deg, #ef4444, #b91c1c) !important;
+  border-color: #f87171 !important;
+  color: #fff !important;
+}
+
+.dark .admin-btn--success {
+  background: linear-gradient(180deg, #22c55e, #15803d) !important;
+  border-color: #4ade80 !important;
+  color: #fff !important;
+}
+
+/* Specular press amplify */
+.specular-button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.96) !important;
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.25),
+    0 2px 6px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SUBNAV / TABS — every module (Security, Ops, Content, Finance…)
+   ═══════════════════════════════════════════════════════════════ */
+.ops-subnav,
+.admin-tabs,
+[role='tablist'] {
+  transition: box-shadow 200ms ease, border-color 200ms ease;
+}
+
+.ops-subnav__link,
+.admin-tab-pill,
+[role='tab'] {
+  transition:
+    transform var(--admin-press-duration) var(--admin-press-ease),
+    background var(--admin-press-duration) ease,
+    color var(--admin-press-duration) ease,
+    border-color var(--admin-press-duration) ease,
+    box-shadow var(--admin-press-duration) ease !important;
+}
+
+.ops-subnav__link:hover:not(.ops-subnav__link--active),
+.admin-tab-pill:hover:not(.admin-tab-pill--active),
+[role='tab']:hover:not([aria-selected='true']) {
+  transform: translateY(-1px);
+}
+
+.ops-subnav__link:active,
+.admin-tab-pill:active,
+[role='tab']:active {
+  transform: translateY(1px) scale(0.97) !important;
+  transition-duration: 70ms !important;
+}
+
+html:not(.dark) .ops-subnav {
+  border-radius: 16px !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(246, 248, 252, 0.9)) !important;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px rgba(15, 23, 42, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+  padding: 0.4rem !important;
+  gap: 0.25rem;
+}
+
+html:not(.dark) .ops-subnav__link--active,
+html:not(.dark) .admin-tab-pill--active {
+  background: linear-gradient(180deg, #1a1a1f, #111111) !important;
+  border-color: #111111 !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 4px 16px rgba(17, 17, 20, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+html:not(.dark) .ops-subnav__link--active .ops-subnav__icon,
+html:not(.dark) .admin-tab-pill--active svg {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.dark .ops-subnav {
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: linear-gradient(160deg, rgba(28, 28, 34, 0.95), rgba(16, 16, 20, 0.9)) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  border-radius: 16px !important;
+  padding: 0.4rem !important;
+}
+
+.dark .ops-subnav__link--active,
+.dark .admin-tab-pill--active {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 10px 24px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SEGMENT / FILTER PILLS
+   ═══════════════════════════════════════════════════════════════ */
+.admin-segment__btn {
+  transition:
+    transform var(--admin-press-duration) var(--admin-press-ease),
+    background var(--admin-press-duration) ease,
+    color var(--admin-press-duration) ease,
+    box-shadow var(--admin-press-duration) ease !important;
+}
+
+.admin-segment__btn:hover:not(.admin-segment__btn--active) {
+  transform: translateY(-1px);
+}
+
+.admin-segment__btn:active {
+  transform: translateY(1px) scale(0.96) !important;
+  transition-duration: 70ms !important;
+}
+
+.admin-segment__btn--active:active {
+  transform: translateY(1px) scale(0.97) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CARDS / ROWS / TILES — whole panel feel
+   ═══════════════════════════════════════════════════════════════ */
+.admin-module-card,
+.admin-kpi,
+.admin-glass-mini,
+.admin-quick-tile,
+.settings-card,
+.ai-command-card {
+  transition:
+    transform 200ms var(--admin-press-ease),
+    box-shadow 200ms ease,
+    border-color 200ms ease !important;
+}
+
+.admin-quick-tile:active,
+button.admin-glass-mini:active,
+a.admin-quick-tile:active {
+  transform: translateY(1px) scale(0.98) !important;
+  transition-duration: 70ms !important;
+}
+
+.admin-module-table tbody tr,
+.admin-table tbody tr {
+  transition: background 140ms ease, transform 140ms ease !important;
+}
+
+.admin-module-table tbody tr:active,
+.admin-table tbody tr:active {
+  background: rgba(14, 165, 233, 0.06) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INPUTS / SELECTS / SWITCHES
+   ═══════════════════════════════════════════════════════════════ */
+html:not(.dark) :is(
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select,
+  .admin-input,
+  .admin-premium-select
+) {
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease,
+    transform 180ms var(--admin-press-ease) !important;
+}
+
+html:not(.dark) :is(
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select,
+  .admin-input,
+  .admin-premium-select
+):focus {
+  border-color: rgba(14, 165, 233, 0.5) !important;
+  box-shadow:
+    0 0 0 3px rgba(14, 165, 233, 0.14),
+    0 4px 14px rgba(14, 165, 233, 0.08) !important;
+  outline: none !important;
+}
+
+.dark :is(
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select,
+  .admin-input,
+  .admin-premium-select
+):focus {
+  border-color: rgba(56, 189, 248, 0.45) !important;
+  box-shadow:
+    0 0 0 3px rgba(56, 189, 248, 0.14),
+    0 4px 14px rgba(0, 0, 0, 0.3) !important;
+  outline: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SETTINGS / MODULE SIDEBARS
+   ═══════════════════════════════════════════════════════════════ */
+.settings-nav-item,
+.admin-settings-nav a {
+  transition:
+    transform var(--admin-press-duration) var(--admin-press-ease),
+    background var(--admin-press-duration) ease,
+    color var(--admin-press-duration) ease,
+    box-shadow var(--admin-press-duration) ease !important;
+}
+
+.settings-nav-item:hover,
+.admin-settings-nav a:hover {
+  transform: translateX(2px);
+}
+
+.settings-nav-item:active,
+.admin-settings-nav a:active {
+  transform: translateX(1px) scale(0.98) !important;
+  transition-duration: 70ms !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HEADER CHIPS / PROFILE — press
+   ═══════════════════════════════════════════════════════════════ */
+.admin-header-chip:active,
+.admin-profile-pill:active {
+  transform: translateY(1px) scale(0.96) !important;
+  transition-duration: 70ms !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PAGE ENTER — optional soft fade (no translateY — avoids jump)
+   Dashboard canvas stays instant; only explicit .admin-page-enter fades.
+   ═══════════════════════════════════════════════════════════════ */
+.admin-page-enter {
+  animation: admin-page-enter 140ms var(--admin-press-ease) both;
+}
+
+@keyframes admin-page-enter {
+  from {
+    opacity: 0.92;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Kill legacy blanket canvas animation that remounted on every route */
+.admin-module-page,
+.admin-module-canvas,
+.admin-dashboard-canvas,
+.settings-page {
+  animation: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   A11Y
+   ═══════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .admin-btn::after,
+  a.admin-btn::after,
+  .admin-page-enter,
+  .admin-module-page,
+  .admin-module-canvas,
+  .admin-dashboard-canvas,
+  .settings-page {
+    animation: none !important;
+  }
+
+  :is(
+    .admin-btn,
+    a.admin-btn,
+    .specular-button,
+    .ops-subnav__link,
+    .admin-tab-pill,
+    .admin-segment__btn,
+    .admin-quick-tile,
+    .admin-header-chip,
+    .admin-profile-pill,
+    .settings-nav-item
+  ):hover,
+  :is(
+    .admin-btn,
+    a.admin-btn,
+    .specular-button,
+    .ops-subnav__link,
+    .admin-tab-pill,
+    .admin-segment__btn,
+    .admin-quick-tile,
+    .admin-header-chip,
+    .admin-profile-pill
+  ):active {
+    transform: none !important;
+  }
+}

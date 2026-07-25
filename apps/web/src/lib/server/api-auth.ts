@@ -204,6 +204,26 @@ export async function apiSendEmailVerification(
   return (await res.json()) as { success: true; message: string; expiresIn: number }
 }
 
+export async function apiConfirmEmailVerification(
+  token: string,
+): Promise<{ success: true; email: string } | { error: string; status: number }> {
+  const res = await fetchWithTimeout(
+    apiUrl(`/storefront/auth/email-verification/confirm?storeId=${encodeURIComponent(STORE_ID)}`),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+      cache: 'no-store',
+    },
+  )
+  if (!res) return { error: 'Email verification timed out — try again.', status: 503 }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string }
+    return { error: body.message ?? 'Invalid or expired verification link', status: res.status }
+  }
+  return (await res.json()) as { success: true; email: string }
+}
+
 export async function apiVerifyEmail(
   sessionToken: string,
   code: string,

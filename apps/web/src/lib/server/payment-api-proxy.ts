@@ -1,9 +1,15 @@
-import { getServerApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl, resolveCustomerFacingApiBase } from '@splaro/config'
 import { fetchWithTimeout } from '@/lib/server/build-safe-fetch'
 import { DEFAULT_SUPPORT_EMAIL } from '@/lib/storefront/defaults'
 
-function paymentsBase(): string {
+/** Server→Nest loopback OK for the API call itself. */
+function paymentsApiBase(): string {
   return `${getServerApiBaseUrl()}/payments`
+}
+
+/** Gateway-facing URLs must be publicly reachable — never 127.0.0.1. */
+function paymentsCallbackBase(): string {
+  return `${resolveCustomerFacingApiBase()}/payments`
 }
 
 async function readApiError(res: Response): Promise<string> {
@@ -19,13 +25,13 @@ export async function createBkashViaApi(input: {
   invoiceNumber: string
   amount: number
 }): Promise<{ paymentID: string; bkashURL: string }> {
-  const res = await fetchWithTimeout(`${paymentsBase()}/bkash/create`, {
+  const res = await fetchWithTimeout(`${paymentsApiBase()}/bkash/create`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       invoiceNumber: input.invoiceNumber,
       amount: input.amount,
-      callbackUrl: `${paymentsBase()}/bkash/callback`,
+      callbackUrl: `${paymentsCallbackBase()}/bkash/callback`,
     }),
     cache: 'no-store',
   })
@@ -38,8 +44,8 @@ export async function initNagadViaApi(input: {
   invoiceNumber: string
   amount: number
 }): Promise<{ url: string; paymentRefId: string }> {
-  const callbackUrl = `${paymentsBase()}/nagad/verify?invoiceNumber=${encodeURIComponent(input.invoiceNumber)}`
-  const res = await fetchWithTimeout(`${paymentsBase()}/nagad/init`, {
+  const callbackUrl = `${paymentsCallbackBase()}/nagad/verify?invoiceNumber=${encodeURIComponent(input.invoiceNumber)}`
+  const res = await fetchWithTimeout(`${paymentsApiBase()}/nagad/init`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -65,8 +71,9 @@ export async function initSslCommerzViaApi(input: {
     city: string
   }
 }): Promise<{ gatewayUrl: string; sessionKey: string }> {
-  const base = paymentsBase()
-  const res = await fetchWithTimeout(`${base}/ssl/init`, {
+  const apiBase = paymentsApiBase()
+  const callbackBase = paymentsCallbackBase()
+  const res = await fetchWithTimeout(`${apiBase}/ssl/init`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -77,9 +84,9 @@ export async function initSslCommerzViaApi(input: {
       customerPhone: input.customer.phone,
       customerAddress: input.customer.address,
       customerCity: input.customer.city,
-      successUrl: `${base}/ssl/success`,
-      failUrl: `${base}/ssl/fail`,
-      cancelUrl: `${base}/ssl/cancel`,
+      successUrl: `${callbackBase}/ssl/success`,
+      failUrl: `${callbackBase}/ssl/fail`,
+      cancelUrl: `${callbackBase}/ssl/cancel`,
     }),
     cache: 'no-store',
   })

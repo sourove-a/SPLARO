@@ -43,6 +43,14 @@ function toPulse(online: boolean | undefined, degraded?: boolean): ConnectionPul
 
 function mapService(row?: { online?: boolean; latencyMs?: number | null; message?: string }): ServiceConnection {
   if (!row) return { pulse: 'offline', latencyMs: null }
+  // Explicit unknown (online omitted) → degraded, never invent hard offline
+  if (row.online === undefined) {
+    return {
+      pulse: 'degraded',
+      latencyMs: typeof row.latencyMs === 'number' ? row.latencyMs : null,
+      message: row.message ?? 'Status unknown',
+    }
+  }
   return {
     pulse: toPulse(row.online, row.message?.includes('degraded')),
     latencyMs: typeof row.latencyMs === 'number' ? row.latencyMs : null,
@@ -142,8 +150,9 @@ async function runPing(): Promise<void> {
                   : 'Start pnpm dev:api',
             },
             storefront: {
-              online: false,
-              message: isProd ? 'Storefront probe unavailable' : 'Start pnpm dev:web',
+              message: isProd
+                ? 'Storefront status unknown (ping fallback)'
+                : 'Storefront not probed on health fallback',
             },
             database: { online: databaseOnline },
           },
@@ -226,14 +235,17 @@ function getSnapshot(): Snapshot {
   return snapshot
 }
 
+/** Must stay referentially stable — a fresh object each call makes React loop. */
+const SERVER_SNAPSHOT: Snapshot = {
+  api: CHECKING,
+  storefront: CHECKING,
+  database: CHECKING,
+  lastChecked: null,
+  checking: true,
+}
+
 function getServerSnapshot(): Snapshot {
-  return {
-    api: CHECKING,
-    storefront: CHECKING,
-    database: CHECKING,
-    lastChecked: null,
-    checking: true,
-  }
+  return SERVER_SNAPSHOT
 }
 
 /**

@@ -5,6 +5,8 @@ import { RedisService } from '../../common/redis.service'
 import { resolveStoreId } from '../../common/store.util'
 import { assessOrderFraud } from '../../common/fraud.util'
 import { generateOrderCode } from '../../common/order-code.util'
+import { generatePaymentCode } from '../../common/payment-code.util'
+import { toStoredMediaUrl } from '@splaro/config'
 import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
 import { isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
 import { assertCouponForOrder } from '../coupons/coupon-validate.util'
@@ -390,6 +392,7 @@ export class StorefrontOrdersService {
       }
       try {
         order = await this.prisma.$transaction(async (tx) => {
+          const paymentNumber = await generatePaymentCode(tx, sid)
           if (coupon) {
             await tx.$queryRaw`SELECT "id" FROM "Coupon" WHERE "id" = ${coupon.couponId} FOR UPDATE`
             const row = await tx.coupon.findUnique({
@@ -461,7 +464,7 @@ export class StorefrontOrdersService {
                       productName: item.name,
                       variantName: [item.size, item.color].filter(Boolean).join(' / ') || null,
                       sku: variant.sku ?? null,
-                      image: item.image ?? variant.image ?? null,
+                      image: toStoredMediaUrl(variant.image) || toStoredMediaUrl(item.image) || null,
                       price: unitPrice,
                       quantity: item.quantity,
                       subtotal: unitPrice * item.quantity,
@@ -473,6 +476,7 @@ export class StorefrontOrdersService {
               },
               payments: {
                 create: {
+                  paymentNumber,
                   method: paymentMethod,
                   status: paymentStatus,
                   amount: serverTotal,

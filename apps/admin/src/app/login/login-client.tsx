@@ -2,6 +2,7 @@
 
 import type { ClipboardEvent, FormEvent, KeyboardEvent, ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
@@ -19,7 +20,7 @@ import { setAdminApiToken } from '@/lib/auth/api-token'
 
 const motionEase = [0.16, 1, 0.3, 1] as const
 
-type Step = 'email' | 'token'
+type Step = 'email' | 'token' | 'password'
 
 function normalizeTokenInput(value: string): string {
   return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 8)
@@ -37,6 +38,7 @@ export default function AdminLoginPage() {
   const requestedNext = searchParams.get('next')
   const next = requestedNext?.startsWith('/dashboard') ? requestedNext : '/dashboard'
   const tokenInputRef = useRef<HTMLInputElement>(null)
+  const passwordInputRef = useRef<HTMLInputElement>(null)
   const prefersReducedMotion = useReducedMotion()
   const [motionReady, setMotionReady] = useState(false)
   const showMotion = motionReady && !prefersReducedMotion
@@ -44,6 +46,7 @@ export default function AdminLoginPage() {
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
   const [token, setToken] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -63,7 +66,24 @@ export default function AdminLoginPage() {
       const timer = window.setTimeout(() => tokenInputRef.current?.focus(), 120)
       return () => window.clearTimeout(timer)
     }
+    if (step === 'password') {
+      const timer = window.setTimeout(() => passwordInputRef.current?.focus(), 120)
+      return () => window.clearTimeout(timer)
+    }
   }, [step])
+
+  const resolveLoginMethod = async (targetEmail: string) => {
+    const res = await fetch('/api/auth/login-method', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: targetEmail }),
+    })
+    const data = (await res.json()) as { error?: string; method?: 'telegram' | 'password' }
+    if (!res.ok || (data.method !== 'telegram' && data.method !== 'password')) {
+      throw new Error(data.error ?? 'No admin account found for this email')
+    }
+    return data.method
+  }
 
   const requestLoginToken = async (targetEmail: string) => {
     const res = await fetch('/api/auth/request-login', {
@@ -83,9 +103,15 @@ export default function AdminLoginPage() {
     setLoading(true)
     setError(null)
     try {
-      await requestLoginToken(email)
-      setStep('token')
-      setToken('')
+      const method = await resolveLoginMethod(email)
+      if (method === 'telegram') {
+        await requestLoginToken(email)
+        setStep('token')
+        setToken('')
+      } else {
+        setStep('password')
+        setPassword('')
+      }
       setLoading(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to connect. Please try again.')
@@ -138,6 +164,34 @@ export default function AdminLoginPage() {
     await submitToken(token)
   }
 
+  const handlePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = (await res.json()) as { error?: string; apiToken?: string }
+      if (!res.ok) {
+        setError(data.error ?? 'Invalid email or password')
+        setLoading(false)
+        return
+      }
+      if (data.apiToken) setAdminApiToken(data.apiToken)
+      router.replace(next)
+    } catch {
+      setError('Unable to connect. Please try again.')
+      setLoading(false)
+    }
+  }
+
   const handleTokenPaste = (event: ClipboardEvent<HTMLInputElement>) => {
     const pasted = event.clipboardData.getData('text')
     const normalized = normalizeTokenInput(pasted)
@@ -155,21 +209,33 @@ export default function AdminLoginPage() {
     }
   }
 
+  const backToEmail = () => {
+    setStep('email')
+    setError(null)
+    setToken('')
+    setPassword('')
+  }
+
   const stepCopy =
     step === 'email'
       ? {
           title: 'Admin sign in',
           subtitle: 'Orders · Products · Finance · Courier · AI',
         }
-      : {
-          title: 'Enter login token',
-          subtitle: 'Use your secure one-time token',
-        }
+      : step === 'token'
+        ? {
+            title: 'Enter login token',
+            subtitle: 'Telegram one-time token for Super Admin',
+          }
+        : {
+            title: 'Enter password',
+            subtitle: 'Staff accounts use email + password',
+          }
 
   const emailFields = (
     <>
       <label className="admin-auth-field">
-        <span className="admin-auth-label">Admin Gmail</span>
+        <span className="admin-auth-label">Admin email</span>
         <div className="admin-auth-field__wrap">
           <span className="admin-auth-field__icon-chip" aria-hidden>
             <Mail className="h-4 w-4" strokeWidth={2} />
@@ -177,7 +243,7 @@ export default function AdminLoginPage() {
           <input
             required
             type="email"
-            autoComplete="off"
+            autoComplete="username"
             placeholder="you@company.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -199,7 +265,7 @@ export default function AdminLoginPage() {
         ) : (
           <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
         )}
-        {loading ? 'Checking…' : 'Login with Gmail'}
+        {loading ? 'Checking…' : 'Continue'}
       </button>
     </>
   )
@@ -263,22 +329,78 @@ export default function AdminLoginPage() {
         {loading ? 'Signing in…' : 'Enter Commerce OS'}
       </button>
 
-      <button
-        type="button"
-        onClick={() => {
-          setStep('email')
-          setError(null)
-          setToken('')
-        }}
-        className="admin-auth-back"
-      >
+      <button type="button" onClick={backToEmail} className="admin-auth-back">
         <ArrowLeft className="h-3.5 w-3.5" />
         Change email
       </button>
     </>
   )
 
-  const renderStepForm = (children: ReactNode, formKey: Step, onSubmit: (e: FormEvent<HTMLFormElement>) => void) => {
+  const passwordFields = (
+    <>
+      <div className="admin-auth-email-chip">
+        <Mail className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{email}</span>
+      </div>
+
+      <label className="admin-auth-field">
+        <span className="admin-auth-label">Password</span>
+        <div className="admin-auth-field__wrap">
+          <span className="admin-auth-field__icon-chip" aria-hidden>
+            <Lock className="h-4 w-4" strokeWidth={2} />
+          </span>
+          <input
+            ref={passwordInputRef}
+            required
+            type="password"
+            autoComplete="current-password"
+            placeholder="Your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="admin-auth-input"
+            minLength={8}
+          />
+        </div>
+      </label>
+
+      <div className="flex justify-end">
+        <Link
+          href={`/forgot-password?email=${encodeURIComponent(email)}`}
+          className="admin-auth-back"
+          style={{ marginTop: 0 }}
+        >
+          Forgot password?
+        </Link>
+      </div>
+
+      {error ? (
+        <div className="admin-auth-error" role="alert">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      ) : null}
+
+      <button type="submit" disabled={loading || password.length < 8} className="admin-auth-submit">
+        {loading ? (
+          <Loader2 className="admin-auth-submit__spinner h-4 w-4" strokeWidth={2.5} />
+        ) : (
+          <Lock className="h-4 w-4" strokeWidth={2.5} />
+        )}
+        {loading ? 'Signing in…' : 'Sign in'}
+      </button>
+
+      <button type="button" onClick={backToEmail} className="admin-auth-back">
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Change email
+      </button>
+    </>
+  )
+
+  const renderStepForm = (
+    children: ReactNode,
+    formKey: Step,
+    onSubmit: (e: FormEvent<HTMLFormElement>) => void,
+  ) => {
     if (showMotion) {
       return (
         <motion.form
@@ -299,6 +421,13 @@ export default function AdminLoginPage() {
       </form>
     )
   }
+
+  const activeForm =
+    step === 'email'
+      ? renderStepForm(emailFields, 'email', handleEmailSubmit)
+      : step === 'token'
+        ? renderStepForm(tokenFields, 'token', handleTokenSubmit)
+        : renderStepForm(passwordFields, 'password', handlePasswordSubmit)
 
   return (
     <AdminLoginShell>
@@ -321,19 +450,15 @@ export default function AdminLoginPage() {
 
       {showMotion ? (
         <AnimatePresence mode="wait" initial={false}>
-          {step === 'email'
-            ? renderStepForm(emailFields, 'email', handleEmailSubmit)
-            : renderStepForm(tokenFields, 'token', handleTokenSubmit)}
+          {activeForm}
         </AnimatePresence>
-      ) : step === 'email' ? (
-        renderStepForm(emailFields, 'email', handleEmailSubmit)
       ) : (
-        renderStepForm(tokenFields, 'token', handleTokenSubmit)
+        activeForm
       )}
 
       <div className="admin-auth-footer">
         <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />
-        Secure token login · Audit logged
+        Super Admin · Telegram · Staff · password
       </div>
     </AdminLoginShell>
   )

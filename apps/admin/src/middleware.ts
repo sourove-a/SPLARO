@@ -64,3 +64,5 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/dashboard', '/dashboard/:path*', '/login'],
 }
+
+// Auth pages /forgot-password, /reset-password, /invite/accept stay public (no matcher).

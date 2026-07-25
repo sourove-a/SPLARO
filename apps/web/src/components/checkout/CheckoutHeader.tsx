@@ -35,7 +35,11 @@ export function CheckoutHeader({ isSignedIn }: CheckoutHeaderProps) {
         <h1 className="checkout-title">Checkout</h1>
       </div>
       {!isSignedIn ? (
-        <Link href={CHECKOUT_LOGIN_PATH} className="checkout-header__signin">
+        <Link
+          href={CHECKOUT_LOGIN_PATH}
+          className="checkout-header__signin checkout-header__signin--alert"
+          aria-label="Sign in recommended for a smoother checkout"
+        >
           <UserRound className="h-3.5 w-3.5" aria-hidden />
           Sign in
         </Link>

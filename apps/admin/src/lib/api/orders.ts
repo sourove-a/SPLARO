@@ -98,7 +98,11 @@ export function addOrderNote(id: string, body: string) {
   })
 }
 
-export function updateOrderPaymentStatus(id: string, paymentStatus: OrderPaymentStatus) {
+export function updateOrderPaymentStatus(
+  id: string,
+  paymentStatus: OrderPaymentStatus,
+  evidence?: { reference?: string; amount?: number; method?: string; note?: string },
+) {
   return apiFetch<{
     id: string
     invoiceNumber: string
@@ -106,7 +110,13 @@ export function updateOrderPaymentStatus(id: string, paymentStatus: OrderPayment
     total: number | string
   }>(`/admin/orders/${id}/payment`, {
     method: 'PATCH',
-    body: JSON.stringify({ paymentStatus }),
+    body: JSON.stringify({
+      paymentStatus,
+      ...(evidence?.reference ? { reference: evidence.reference } : {}),
+      ...(typeof evidence?.amount === 'number' ? { amount: evidence.amount } : {}),
+      ...(evidence?.method ? { method: evidence.method } : {}),
+      ...(evidence?.note ? { note: evidence.note } : {}),
+    }),
   })
 }
 

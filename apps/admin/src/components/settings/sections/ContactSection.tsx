@@ -17,7 +17,7 @@ export function ContactSection({ draft, setDraft, save, saving, apiOnline }: Sec
             <IconInput
               icon={<Mail size={14} />}
               type="email"
-              placeholder="hello@splaro.com"
+              placeholder="hello@splaro.co"
               value={draft.contact.email}
               onChange={(v) => setDraft((p) => ({ ...p, contact: { ...p.contact, email: v }, store: { ...p.store, email: v } }))}
             />

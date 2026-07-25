@@ -1,7 +1,9 @@
 'use client'
 
+import { Eye, EyeOff } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import type { AdminSettingsData } from '@/lib/api/settings'
+import { cn } from '@/lib/utils/cn'
 
 const SECTIONS: { key: keyof AdminSettingsData['homepage']; label: string; hint: string }[] = [
   { key: 'hero', label: 'Hero slider', hint: 'Top homepage banner' },
@@ -22,62 +24,58 @@ interface HomepageVisibilityPanelProps {
 }
 
 export function HomepageVisibilityPanel({ draft, setDraft, onSave, saving }: HomepageVisibilityPanelProps) {
-  const toggle = (key: keyof AdminSettingsData['homepage']) => {
-    setDraft((prev) => {
-      const nextValue = !prev.homepage[key]
-      return {
-        ...prev,
-        homepage: { ...prev.homepage, [key]: nextValue },
-        ...(key === 'ourStory'
-          ? { ourStory: { ...prev.ourStory, enabled: nextValue } }
-          : {}),
-      }
-    })
+  const persistToggle = (key: keyof AdminSettingsData['homepage']) => {
+    const nextValue = !draft.homepage[key]
+    const homepage = { ...draft.homepage, [key]: nextValue }
+    const ourStory =
+      key === 'ourStory' ? { ...draft.ourStory, enabled: nextValue } : draft.ourStory
+    setDraft((prev) => ({
+      ...prev,
+      homepage,
+      ...(key === 'ourStory' ? { ourStory } : {}),
+    }))
+    onSave(
+      {
+        homepage,
+        ...(key === 'ourStory' ? { ourStory } : {}),
+      },
+      nextValue ? `${SECTIONS.find((s) => s.key === key)?.label ?? key} shown` : `${SECTIONS.find((s) => s.key === key)?.label ?? key} hidden`,
+    )
   }
 
   return (
     <section className="admin-module-card admin-module-card--accent">
       <p className="admin-module-card__title">Homepage sections</p>
       <p className="admin-module-card__text mb-4">
-        Hide or show any block on the storefront homepage. Content still saves when hidden.
+        Hide or show any block on the storefront homepage. Each toggle saves immediately.
       </p>
 
       <div className="grid gap-2 sm:grid-cols-2">
-        {SECTIONS.map((section) => (
-          <label
-            key={section.key}
-            className="flex items-start justify-between gap-3 rounded-[14px] border border-black/8 bg-white/75 px-3 py-3"
-          >
-            <span>
-              <span className="block text-sm font-bold text-[#101114]">{section.label}</span>
-              <span className="mt-0.5 block text-xs font-semibold text-[#6B6B6B]">{section.hint}</span>
-            </span>
-            <input
-              type="checkbox"
-              checked={draft.homepage[section.key]}
-              onChange={() => toggle(section.key)}
-              className="mt-1 h-4 w-4 shrink-0 accent-[#5E7CFF]"
-            />
-          </label>
-        ))}
-      </div>
-
-      <AdminButton
-        variant="gold"
-        className="mt-4"
-        loading={saving}
-        onClick={() =>
-          onSave(
-            {
-              homepage: draft.homepage,
-              ourStory: { ...draft.ourStory, enabled: draft.homepage.ourStory },
-            },
-            'Homepage visibility',
+        {SECTIONS.map((section) => {
+          const visible = draft.homepage[section.key]
+          return (
+            <div
+              key={section.key}
+              className="flex items-start justify-between gap-3 rounded-[14px] border border-black/8 bg-white/75 px-3 py-3"
+            >
+              <span>
+                <span className="block text-sm font-bold text-[#101114]">{section.label}</span>
+                <span className="mt-0.5 block text-xs font-semibold text-[#6B6B6B]">{section.hint}</span>
+              </span>
+              <AdminButton
+                size="sm"
+                variant={visible ? 'ghost' : 'gold'}
+                loading={saving}
+                className={cn(!visible && 'min-w-[6.5rem]')}
+                onClick={() => persistToggle(section.key)}
+              >
+                {visible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                {visible ? 'Hide' : 'Show'}
+              </AdminButton>
+            </div>
           )
-        }
-      >
-        Save visibility
-      </AdminButton>
+        })}
+      </div>
     </section>
   )
 }

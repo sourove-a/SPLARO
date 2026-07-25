@@ -1,6 +1,6 @@
 export interface EmailVerificationInput {
   firstName: string
-  code: string
+  verifyUrl: string
   storeName?: string
   siteUrl?: string
   expiresInMinutes?: number
@@ -20,7 +20,21 @@ export function generateEmailVerificationHTML(input: EmailVerificationInput): st
     site = 'https://splaro.co'
   }
   const name = input.firstName?.trim() || 'there'
-  const minutes = input.expiresInMinutes ?? 10
+  const minutes = input.expiresInMinutes ?? 120
+
+  let verifyUrl = input.verifyUrl
+  try {
+    const vu = new URL(input.verifyUrl)
+    const vh = vu.hostname.replace(/^www\./, '').toLowerCase()
+    if (!vh || vh === 'localhost' || vh === '127.0.0.1' || vh.endsWith('.local') || vh.endsWith('.localhost')) {
+      // Keep localhost in local/dev so the button works on :3000.
+      if (process.env.NODE_ENV === 'production') {
+        verifyUrl = `${site}${vu.pathname}${vu.search}`
+      }
+    }
+  } catch {
+    verifyUrl = `${site}/verify-email`
+  }
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -42,13 +56,21 @@ export function generateEmailVerificationHTML(input: EmailVerificationInput): st
           <div style="padding:38px 34px 34px;">
             <div style="margin-bottom:12px;font-size:10px;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:#9b7a50;">Email verification</div>
             <h1 style="margin:0 0 12px;font-family:Georgia,'Times New Roman',serif;font-size:31px;font-weight:500;line-height:1.2;color:#111111;">Confirm your email</h1>
-            <p style="margin:0 0 26px;font-size:15px;line-height:1.75;color:#66615b;">Hi ${escapeHtml(name)}, use this private code to verify your ${escapeHtml(store)} account. Verification is optional, but helps protect your account and order updates.</p>
-            <div style="padding:24px 16px;border:1px solid rgba(200,169,126,.45);border-radius:20px;background:#faf8f5;text-align:center;">
-              <div style="margin-bottom:10px;font-size:10px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:#8f714d;">Your verification code</div>
-              <div style="font-family:'Courier New',monospace;font-size:38px;font-weight:700;letter-spacing:.22em;color:#111111;">${escapeHtml(input.code)}</div>
-              <div style="margin-top:10px;font-size:12px;color:#8a837b;">Expires in ${minutes} minutes</div>
-            </div>
-            <p style="margin:24px 0 0;font-size:12px;line-height:1.65;color:#918a82;">Never share this code. SPLARO will never ask for it by phone, chat, or social media. If you did not request it, safely ignore this email.</p>
+            <p style="margin:0 0 26px;font-size:15px;line-height:1.75;color:#66615b;">Hi ${escapeHtml(name)}, verification is optional. Tap the button below to confirm your email for ${escapeHtml(store)} — no code to type.</p>
+            <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 28px;">
+              <tr>
+                <td style="border-radius:999px;background:#111111;">
+                  <a href="${escapeHtml(verifyUrl)}" style="display:inline-block;padding:14px 28px;color:#ffffff;text-decoration:none;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;">
+                    Verify email
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0 0 12px;font-size:13px;line-height:1.65;color:#8a837b;">This link expires in ${minutes} minutes. If you did not request it, ignore this email.</p>
+            <p style="margin:0;font-size:12px;line-height:1.6;color:#918a82;word-break:break-all;">
+              Or copy this link:<br />
+              <a href="${escapeHtml(verifyUrl)}" style="color:#8f714d;text-decoration:none;">${escapeHtml(verifyUrl)}</a>
+            </p>
           </div>
         </td></tr>
         <tr><td align="center" style="padding-top:24px;font-size:11px;line-height:1.6;color:#8d857c;">© ${new Date().getFullYear()} ${escapeHtml(store)} · <a href="${escapeHtml(site)}" style="color:#8f714d;text-decoration:none;">${escapeHtml(site.replace(/^https?:\/\//, ''))}</a></td></tr>
@@ -61,8 +83,8 @@ export function generateEmailVerificationHTML(input: EmailVerificationInput): st
 
 export function generateEmailVerificationText(input: EmailVerificationInput): string {
   const name = input.firstName?.trim() || 'there'
-  const minutes = input.expiresInMinutes ?? 10
-  return `Hi ${name},\n\nYour SPLARO email verification code is: ${input.code}\n\nThis code expires in ${minutes} minutes. Never share it with anyone.\n\nIf you did not request this code, ignore this email.`
+  const minutes = input.expiresInMinutes ?? 120
+  return `Hi ${name},\n\nVerify your SPLARO email (optional) by opening this link:\n${input.verifyUrl}\n\nThis link expires in ${minutes} minutes. No code needed.\n\nIf you did not request this, ignore this email.`
 }
 
 function escapeHtml(value: string): string {

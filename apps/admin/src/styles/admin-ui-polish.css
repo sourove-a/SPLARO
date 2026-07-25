@@ -203,7 +203,7 @@ textarea.admin-input--premium:focus {
 .admin-kpi__label {
   font-size: 0.625rem;
   letter-spacing: 0.1em;
-  color: var(--admin-text-muted);
+  color: var(--admin-text);
 }
 
 .dark .admin-kpi__label {
@@ -382,17 +382,15 @@ span.admin-glass-chip.pointer-events-none {
 
 @keyframes admin-page-enter {
   from {
-    opacity: 0;
-    transform: translateY(4px);
+    opacity: 0.92;
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 .admin-page-enter {
-  animation: admin-page-enter var(--admin-motion-slow) var(--admin-ease-out) both;
+  animation: admin-page-enter 140ms var(--admin-ease-out) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -634,12 +632,12 @@ html:not(.dark) .admin-kpi {
 }
 
 html:not(.dark) .admin-kpi__label {
-  color: #3d4250;
+  color: #181b22;
   font-weight: 800;
 }
 
 html:not(.dark) .admin-kpi__value {
-  color: var(--admin-text-strong);
+  color: #040507;
 }
 
 html:not(.dark) .admin-kpi__value--success {
@@ -652,6 +650,30 @@ html:not(.dark) .admin-kpi__value--warning {
 
 html:not(.dark) .admin-kpi__value--danger {
   color: #b91c1c !important;
+}
+
+/* Keep glass sheens under content — never wash out KPI / card text */
+html:not(.dark) .admin-kpi::after,
+html:not(.dark) .admin-module-card::after,
+html:not(.dark) .admin-glass::before {
+  z-index: 0;
+  opacity: 0.55;
+}
+
+html:not(.dark) .admin-kpi__label,
+html:not(.dark) .admin-kpi__value,
+html:not(.dark) .admin-kpi__empty-hint {
+  position: relative;
+  z-index: 1;
+}
+
+html:not(.dark) .admin-module-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+html:not(.dark) .admin-module-card {
+  color: #181b22;
 }
 
 /* Sidebar */
@@ -1128,9 +1150,9 @@ html:not(.dark) .settings-toggle--on {
 }
 
 html:not(.dark) .settings-eyebrow-badge {
-  border-color: rgba(16, 17, 20, 0.35);
-  background: rgba(16, 17, 20, 0.12);
-  color: #6b5230;
+  border-color: rgba(15, 23, 42, 0.08);
+  background: #f8fafc;
+  color: #64748b;
 }
 
 @media (max-width: 980px) {

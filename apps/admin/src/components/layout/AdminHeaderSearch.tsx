@@ -78,7 +78,7 @@ export function AdminHeaderSearch() {
     <div ref={containerRef} className="relative z-[220] flex-1 max-w-lg">
       <Command shouldFilter={false} className="relative">
         <div className={`admin-search ${open ? 'admin-search--open' : ''}`}>
-          <Search className="h-3.5 w-3.5 shrink-0 text-[var(--admin-text-secondary)]" strokeWidth={2} />
+          <Search className="h-3.5 w-3.5 shrink-0 text-[var(--admin-text-secondary)]" strokeWidth={1.5} />
           <Command.Input
             value={query}
             onValueChange={setQuery}

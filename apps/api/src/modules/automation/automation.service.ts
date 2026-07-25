@@ -1,8 +1,10 @@
-import { Injectable, Logger, Optional } from '@nestjs/common'
+import { Inject, Injectable, Logger, Optional, forwardRef } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
+import { isOrderStatus } from '../../common/order-status.util'
 import { NotificationsService } from '../notifications/notifications.service'
 import { SmsService } from '../notifications/sms.service'
 import { WebhooksService } from '../webhooks/webhooks.service'
+import { OrderStatusService } from '../orders/order-status.service'
 import type { AutomationTrigger, AutomationRule, AutomationCondition, AutomationRuleAction, Prisma } from '@prisma/client'
 
 type RuleWithRelations = AutomationRule & {
@@ -20,9 +22,11 @@ export class AutomationService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Optional() private readonly notifications: NotificationsService,
-    @Optional() private readonly sms: SmsService,
-    @Optional() private readonly webhooks: WebhooksService,
+    @Inject(forwardRef(() => OrderStatusService))
+    private readonly orderStatus: OrderStatusService,
+    @Optional() private readonly notifications?: NotificationsService,
+    @Optional() private readonly sms?: SmsService,
+    @Optional() private readonly webhooks?: WebhooksService,
   ) {}
 
   /**
@@ -218,12 +222,20 @@ export class AutomationService {
       case 'UPDATE_ORDER_STATUS': {
         const orderId = String(context['orderId'] ?? '')
         const newStatus = String(params['status'] ?? '')
-        if (orderId && newStatus) {
-          await this.prisma.order.update({
-            where: { id: orderId },
-            data: { status: newStatus as never },
-          })
+        if (!orderId || !newStatus) break
+        if (!isOrderStatus(newStatus)) {
+          this.logger.warn(
+            `Automation UPDATE_ORDER_STATUS rejected — unknown status "${newStatus}" for order ${orderId}`,
+          )
+          throw new Error(`Unknown order status: ${newStatus}`)
         }
+        await this.orderStatus.applyStatusChange(
+          orderId,
+          newStatus,
+          `Automation rule ${ruleId}`,
+          typeof context['storeId'] === 'string' ? context['storeId'] : undefined,
+          { notePrefix: 'Automation: ' },
+        )
         break
       }
 

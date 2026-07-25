@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import type { PaymentMethod, Prisma } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
+import { assertOrderStatusTransition } from '../../common/order-status.util'
+import { generatePaymentCode } from '../../common/payment-code.util'
 import { CommerceEventOutboxService } from '../orders/commerce-event-outbox.service'
 import { OrderEventsService } from '../orders/order-events.service'
 import { CourierService } from '../courier/courier.service'
@@ -110,8 +112,10 @@ export class PaymentConfirmationService {
             },
           })
         } else {
+          const paymentNumber = await generatePaymentCode(tx, order.storeId)
           await tx.payment.create({
             data: {
+              paymentNumber,
               orderId: order.id,
               method: input.method,
               status: 'PAID',
@@ -123,9 +127,23 @@ export class PaymentConfirmationService {
           })
         }
 
+        // Assert before write — keep status if already past CONFIRMED (e.g. PROCESSING)
+        let confirmOrder = false
+        try {
+          assertOrderStatusTransition(order.status, 'CONFIRMED')
+          confirmOrder = true
+        } catch {
+          this.logger.warn(
+            `Payment confirmed for ${input.invoiceNumber} while status is ${order.status} — keeping status, marking PAID only`,
+          )
+        }
+
         const updated = await tx.order.updateMany({
           where: { id: order.id, paymentStatus: { not: 'PAID' } },
-          data: { status: 'CONFIRMED', paymentStatus: 'PAID', confirmedAt: new Date() },
+          data: {
+            paymentStatus: 'PAID',
+            ...(confirmOrder ? { status: 'CONFIRMED' as const, confirmedAt: new Date() } : {}),
+          },
         })
         if (updated.count !== 1) {
           throw new BadRequestException('Payment was already processed')
@@ -133,7 +151,7 @@ export class PaymentConfirmationService {
         await tx.orderStatusHistory.create({
           data: {
             orderId: order.id,
-            status: 'CONFIRMED',
+            status: confirmOrder ? 'CONFIRMED' : order.status,
             note: `${input.method} payment confirmed. TxID: ${input.transactionId}`,
           },
         })
