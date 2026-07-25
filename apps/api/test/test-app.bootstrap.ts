@@ -40,6 +40,43 @@ export function createMockPrisma() {
     siteSettings: {
       findUnique: jest.fn().mockResolvedValue({ storefrontConfig: {} }),
     },
+    // Admin login resolves staff before Telegram-token gate — keep a seeded SUPER_ADMIN.
+    user: {
+      findFirst: jest.fn().mockImplementation(
+        async (args?: { where?: { email?: string; isActive?: boolean; id?: string } }) => {
+          const email = args?.where?.email?.toLowerCase()
+          if (email && email !== 'admin@splaro.co') return null
+          if (args?.where?.id && args.where.id !== 'admin-1') return null
+          return {
+            id: 'admin-1',
+            email: 'admin@splaro.co',
+            firstName: 'Admin',
+            lastName: 'User',
+            passwordHash: null,
+            isActive: true,
+            emailVerified: true,
+            role: 'SUPER_ADMIN',
+            staffRoles: [{ role: 'SUPER_ADMIN', storeId: 'splaro', store: { slug: 'splaro' } }],
+            ownedStores: [{ id: 'splaro' }],
+          }
+        },
+      ),
+      findUnique: jest.fn().mockResolvedValue(null),
+      update: jest.fn().mockResolvedValue({}),
+    },
+    staffRole: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      findUnique: jest.fn().mockResolvedValue({ permissions: ['*'], role: 'SUPER_ADMIN' }),
+      upsert: jest.fn().mockResolvedValue({ role: 'SUPER_ADMIN', storeId: 'splaro' }),
+    },
+    loginHistory: {
+      create: jest.fn().mockResolvedValue({}),
+      count: jest.fn().mockResolvedValue(0),
+    },
+    adminInvite: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      update: jest.fn().mockResolvedValue({}),
+    },
   }
 }
 
