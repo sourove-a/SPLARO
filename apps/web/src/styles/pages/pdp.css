@@ -3086,6 +3086,9 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 
 /* Related — title unchanged; Swiper coverflow rail (2-up mobile / up to 4 desktop) */
 .pp-related {
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
   width: min(calc(100% - clamp(1.25rem, 5vw, 7rem)), 1380px);
   margin: 0 auto;
   padding: clamp(1.75rem, 4vw, 3.5rem) 0 1.25rem;
@@ -4665,12 +4668,12 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   height: 100%;
 }
 
-/* PDP — sticky purchase panel (desktop) */
+/* PDP — purchase panel (desktop): stick with .pp-info only — no nested sticky.
+   Nested sticky + z-index was painting Add/Buy over "You may also like". */
 @media (min-width: 1024px) {
   .pp-view .pp-info__purchase-panel {
-    position: sticky;
-    top: 6.15rem;
-    z-index: 3;
+    position: relative;
+    z-index: 0;
     margin-top: 1.25rem;
     padding-bottom: 1.5rem;
     background: linear-gradient(180deg, rgba(250, 248, 245, 0.92) 0%, rgba(250, 248, 245, 0.98) 42%, rgba(250, 248, 245, 1) 100%);

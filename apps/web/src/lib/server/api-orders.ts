@@ -96,6 +96,8 @@ export interface ApiCreateOrderInput {
   }
   clientIp?: string
   userAgent?: string
+  /** First-party device cookie — server-only; never from browser JSON body. */
+  deviceId?: string
   /** Optional for guest COD; digital and customer-history requests require it. */
   sessionToken?: string
 }
@@ -214,7 +216,9 @@ export async function createOrderViaApi(input: ApiCreateOrderInput): Promise<Sto
   const base = getServerApiBaseUrl()
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (input.clientIp) headers['X-Forwarded-For'] = input.clientIp
+  if (input.clientIp) headers['X-Real-IP'] = input.clientIp
   if (input.userAgent) headers['User-Agent'] = input.userAgent
+  if (input.deviceId) headers['x-splaro-device-id'] = input.deviceId
   if (input.sessionToken) headers['x-splaro-session'] = input.sessionToken
   const idempotencyKey = input.idempotencyKey ?? checkoutIdempotencyKey(input)
   headers['Idempotency-Key'] = idempotencyKey

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react'
 import { unlockLenisPointer } from '@/lib/motion/unlock-lenis-pointer'
 import { applyScrollProfileAttributes, detectScrollProfile } from '@/lib/motion/scroll'
 import { isLowPowerDevice, isWindowsOS } from '@/lib/earth/globe-performance'
+import { takeForceScrollTopOnUnlock } from '@/lib/navigation/overlay-unlock-scroll'
 import { useUiStore } from '@/store/uiStore'
 
 /**
@@ -79,12 +80,15 @@ function shouldAllowOverlayInnerScroll(target: EventTarget | null, deltaY: numbe
  * Body `position:fixed` keeps the visual offset when browsers reset scrollY.
  */
 export function OverlayScrollLockAttr() {
+  // Search lock only via scrollLockCount (mobile SearchModal). Desktop inline
+  // search must NOT body-pin — that made the fixed header jump like a dropdown.
   const locked = useUiStore(
-    (s) => s.isMobileMenuOpen || s.isSearchOpen || s.isCartOpen || s.scrollLockCount > 0,
+    (s) => s.isMobileMenuOpen || s.isCartOpen || s.scrollLockCount > 0,
   )
   const stableScrollY = useRef(0)
   const unlockScrollY = useRef(0)
   const unlockScrollX = useRef(0)
+  const lockPathRef = useRef<string | null>(null)
 
   useEffect(() => {
     let settleTimer = 0
@@ -129,8 +133,16 @@ export function OverlayScrollLockAttr() {
       .__SPLARO_LENIS
 
     if (!locked) {
-      const y = unlockScrollY.current
-      const x = unlockScrollX.current
+      const pathNow =
+        typeof window !== 'undefined'
+          ? `${window.location.pathname}${window.location.search}`
+          : ''
+      const pathChanged =
+        lockPathRef.current != null && lockPathRef.current !== pathNow
+      const forceTop = takeForceScrollTopOnUnlock() || pathChanged
+      const y = forceTop ? 0 : unlockScrollY.current
+      const x = forceTop ? 0 : unlockScrollX.current
+      lockPathRef.current = null
       html.removeAttribute('data-scroll-lock')
       html.removeAttribute('data-scroll-lock-y')
       html.style.removeProperty('--splaro-scroll-lock-y')
@@ -145,9 +157,11 @@ export function OverlayScrollLockAttr() {
         window.scrollTo(x, y)
       }
       stableScrollY.current = y
+      unlockScrollY.current = y
       return
     }
 
+    lockPathRef.current = `${window.location.pathname}${window.location.search}`
     const liveY =
       lenisEngine && typeof lenis?.scroll === 'number' ? lenis.scroll : window.scrollY
     const freezeY = liveY > 0 ? liveY : Math.max(0, stableScrollY.current)

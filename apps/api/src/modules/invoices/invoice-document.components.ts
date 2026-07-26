@@ -156,7 +156,6 @@ export function InvoiceItemsTable({ model }: Pick<InvoiceDocumentProps, 'model'>
         </tr>`
     })
     .join('')
-
   return `
     <section class="invoice-items invoice-panel ${rowClass}" aria-labelledby="invoice-items-title">
       <h2 id="invoice-items-title" class="sr-only">Invoice items</h2>
@@ -258,22 +257,6 @@ export function InvoiceDocument({ model, logoUrl }: InvoiceDocumentProps): strin
       <div class="invoice-document__light" aria-hidden="true"></div>
       <div class="invoice-document__stitch invoice-document__stitch--outer" aria-hidden="true"></div>
       <div class="invoice-document__stitch invoice-document__stitch--inner" aria-hidden="true"></div>
-      <div class="invoice-hangtag" aria-hidden="true">
-        <svg class="invoice-hangtag__cord" viewBox="0 0 40 70" preserveAspectRatio="none">
-          <path d="M20 2 C12 18 28 28 20 48" fill="none" stroke="url(#cordGold)" stroke-width="2.2" stroke-linecap="round"/>
-          <defs>
-            <linearGradient id="cordGold" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#e8d19a"/>
-              <stop offset="55%" stop-color="#c6a46a"/>
-              <stop offset="100%" stop-color="#8d6a38"/>
-            </linearGradient>
-          </defs>
-        </svg>
-        <div class="invoice-hangtag__body">
-          <span class="invoice-hangtag__star"></span>
-          <span class="invoice-hangtag__mark">S</span>
-        </div>
-      </div>
       <svg class="invoice-edge-ribbon invoice-edge-ribbon--top" viewBox="0 0 420 150" preserveAspectRatio="none" aria-hidden="true">
         <path d="M-12 18C70 0 88 110 196 92C292 76 316 22 436 38"/>
         <path d="M-16 32C62 15 92 126 205 106C302 89 329 37 440 53"/>

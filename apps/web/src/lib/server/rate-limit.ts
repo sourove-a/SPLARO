@@ -45,7 +45,12 @@ export async function rateLimit(
 }
 
 export function getClientKey(request: Request, scope: string): string {
-  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-  const ip = forwarded || 'local'
+  const realIp = request.headers.get('x-real-ip')?.trim()
+  const forwarded = request.headers.get('x-forwarded-for')
+  const hops = forwarded
+    ?.split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+  const ip = realIp || (hops?.length ? hops[hops.length - 1] : null) || 'local'
   return `${scope}:${ip}`
 }

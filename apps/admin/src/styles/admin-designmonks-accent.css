@@ -168,8 +168,8 @@ html:not(.dark) .specular-button--theme-light {
 html:not(.dark) .admin-sidebar .admin-nav-item--active::before,
 .dark .admin-sidebar .admin-nav-item--active::before {
   display: block !important;
-  background: linear-gradient(180deg, #a078ff, #712eff 50%, #5b1fd9) !important;
-  box-shadow: 0 0 12px rgba(113, 46, 255, 0.45) !important;
+  background: var(--admin-nav-active-rail) !important;
+  box-shadow: var(--admin-nav-active-rail-glow) !important;
   width: 3.5px !important;
 }
 

@@ -10,12 +10,16 @@ import {
   SCROLL_BOOT,
   SCROLL_ROUTE_TOP,
 } from '@/lib/motion/scroll'
+import { takeForceScrollTopOnUnlock } from '@/lib/navigation/overlay-unlock-scroll'
 
 /** Survives click/focus zeroing window/lenis scroll before lock effects run. */
 let lastLenisScrollY = 0
 
 function rememberLenisScrollY(y: number) {
-  if (Number.isFinite(y) && y > 0) lastLenisScrollY = y
+  if (!Number.isFinite(y)) return
+  // Must accept 0 — otherwise route-top / unlock-force-top never clears the
+  // frozen homepage Y and overlay unlock restores mid-page after navigation.
+  lastLenisScrollY = Math.max(0, y)
 }
 
 function LenisBootSync() {
@@ -105,6 +109,7 @@ function LenisRouteSync() {
       unlockLenisPointer()
       return
     }
+    rememberLenisScrollY(0)
     lenis.scrollTo(0, SCROLL_ROUTE_TOP)
     unlockLenisPointer()
   }, [pathname, lenis])
@@ -115,10 +120,10 @@ function LenisRouteSync() {
 function LenisScrollLock() {
   const lenis = useLenis()
   const isMobileMenuOpen = useUiStore((s) => s.isMobileMenuOpen)
-  const isSearchOpen = useUiStore((s) => s.isSearchOpen)
   const isCartOpen = useUiStore((s) => s.isCartOpen)
   const scrollLockCount = useUiStore((s) => s.scrollLockCount)
-  const locked = isMobileMenuOpen || isSearchOpen || isCartOpen || scrollLockCount > 0
+  // Desktop search stays unlocked (inline field). Mobile search uses scrollLockCount.
+  const locked = isMobileMenuOpen || isCartOpen || scrollLockCount > 0
   const freezeRef = useRef(0)
 
   useLayoutEffect(() => {
@@ -159,11 +164,13 @@ function LenisScrollLock() {
       html.classList.add('lenis-stopped')
       lenis.scrollTo(freezeY, { immediate: true })
     } else {
-      const freezeY =
-        freezeRef.current ||
-        Number(html.getAttribute('data-scroll-lock-y') || 0) ||
-        lastLenisScrollY ||
-        0
+      const forceTop = takeForceScrollTopOnUnlock()
+      const freezeY = forceTop
+        ? 0
+        : freezeRef.current ||
+          Number(html.getAttribute('data-scroll-lock-y') || 0) ||
+          lastLenisScrollY ||
+          0
       html.removeAttribute('data-scroll-lock')
       html.classList.remove('lenis-stopped')
       lenis.start()

@@ -5,6 +5,12 @@ import { resolveStoreId } from '../../common/store.util'
 import { resolveAdminPagination } from '../../common/admin-pagination.util'
 import { LoyaltyService } from '../loyalty/loyalty.service'
 import type { LoyaltyTier, Prisma } from '@prisma/client'
+import {
+  buildFraudFlags,
+  maskDeviceId,
+  summarizeUserAgent,
+  type CustomerFraudSignals,
+} from './customer-fraud-signals'
 
 @Controller('admin/customers')
 export class CustomersController {
@@ -138,6 +144,10 @@ export class CustomersController {
             status: true,
             paymentMethod: true,
             createdAt: true,
+            clientIp: true,
+            deviceId: true,
+            userAgent: true,
+            shippingPhone: true,
           },
         },
         customerNotes: { orderBy: { createdAt: 'desc' } },
@@ -150,14 +160,24 @@ export class CustomersController {
             avatar: true,
             lastLoginAt: true,
             lastLoginDevice: true,
+            lastLoginIp: true,
           },
         },
       },
     })
     if (!customer) throw new NotFoundException('Customer not found')
-    const { user, ...rest } = customer
+    const { user, orders, ...rest } = customer
+
+    const fraudSignals = await this.buildCustomerFraudSignals(sid, orders)
+
+    // Strip raw device/IP from order list — keep admin review in fraudSignals only.
+    const safeOrders = orders.map(
+      ({ clientIp: _ip, deviceId: _did, userAgent: _ua, shippingPhone: _phone, ...order }) => order,
+    )
+
     return {
       ...rest,
+      orders: safeOrders,
       isBlocked: user ? !user.isActive : false,
       authProvider: user?.authProvider ?? 'password',
       googleLinked: Boolean(user?.googleId),
@@ -165,6 +185,103 @@ export class CustomersController {
       ...(user?.avatar ? { avatar: user.avatar } : {}),
       ...(user?.lastLoginAt ? { lastLogin: user.lastLoginAt.toISOString() } : {}),
       ...(user?.lastLoginDevice ? { lastDevice: user.lastLoginDevice } : {}),
+      ...(user?.lastLoginIp ? { lastIp: user.lastLoginIp } : {}),
+      fraudSignals,
+    }
+  }
+
+  private async buildCustomerFraudSignals(
+    storeId: string,
+    orders: Array<{
+      clientIp: string | null
+      deviceId: string | null
+      userAgent: string | null
+      shippingPhone: string
+      createdAt: Date
+    }>,
+  ): Promise<CustomerFraudSignals> {
+    const withSignal = orders.filter((o) => o.clientIp || o.deviceId)
+    const latest = withSignal[0] ?? null
+    const lastIp = latest?.clientIp ?? null
+    const lastDeviceId = latest?.deviceId ?? null
+    const lastUa = latest?.userAgent ?? null
+
+    if (!latest || (!lastIp && !lastDeviceId)) {
+      return {
+        lastIp: null,
+        lastDeviceIdMasked: null,
+        lastDeviceSummary: null,
+        sameIpOrderCount: 0,
+        sameDeviceOrderCount: 0,
+        distinctPhonesOnDevice: 0,
+        distinctPhonesOnIp: 0,
+        firstSeenAt: null,
+        lastSeenAt: null,
+        flags: [],
+        captured: false,
+      }
+    }
+
+    const [sameIpOrderCount, sameDeviceOrderCount, phonesOnDevice, phonesOnIp, firstSeen] =
+      await Promise.all([
+        lastIp
+          ? this.prisma.order.count({ where: { storeId, clientIp: lastIp } })
+          : Promise.resolve(0),
+        lastDeviceId
+          ? this.prisma.order.count({ where: { storeId, deviceId: lastDeviceId } })
+          : Promise.resolve(0),
+        lastDeviceId
+          ? this.prisma.order.findMany({
+              where: { storeId, deviceId: lastDeviceId },
+              select: { shippingPhone: true },
+              distinct: ['shippingPhone'],
+              take: 50,
+            })
+          : Promise.resolve([] as { shippingPhone: string }[]),
+        lastIp
+          ? this.prisma.order.findMany({
+              where: { storeId, clientIp: lastIp },
+              select: { shippingPhone: true },
+              distinct: ['shippingPhone'],
+              take: 50,
+            })
+          : Promise.resolve([] as { shippingPhone: string }[]),
+        lastDeviceId || lastIp
+          ? this.prisma.order.findFirst({
+              where: {
+                storeId,
+                OR: [
+                  ...(lastDeviceId ? [{ deviceId: lastDeviceId }] : []),
+                  ...(lastIp ? [{ clientIp: lastIp }] : []),
+                ],
+              },
+              orderBy: { createdAt: 'asc' },
+              select: { createdAt: true },
+            })
+          : Promise.resolve(null),
+      ])
+
+    const distinctPhonesOnDevice = phonesOnDevice.length
+    const distinctPhonesOnIp = phonesOnIp.length
+    const flags = buildFraudFlags({
+      sameIpOrderCount,
+      sameDeviceOrderCount,
+      distinctPhonesOnDevice,
+      distinctPhonesOnIp,
+    })
+
+    return {
+      lastIp,
+      lastDeviceIdMasked: maskDeviceId(lastDeviceId),
+      lastDeviceSummary: summarizeUserAgent(lastUa),
+      sameIpOrderCount,
+      sameDeviceOrderCount,
+      distinctPhonesOnDevice,
+      distinctPhonesOnIp,
+      firstSeenAt: firstSeen?.createdAt.toISOString() ?? latest.createdAt.toISOString(),
+      lastSeenAt: latest.createdAt.toISOString(),
+      flags,
+      captured: true,
     }
   }
 

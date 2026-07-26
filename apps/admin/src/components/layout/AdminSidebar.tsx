@@ -83,7 +83,7 @@ function SidebarItem({
       <span className="admin-nav-item__icon" aria-hidden="true">
         <NavIcon name={item.icon} />
       </span>
-      {!collapsed ? <span className="min-w-0 flex-1 truncate">{item.label}</span> : null}
+      {!collapsed ? <span className="admin-nav-item__label min-w-0 flex-1 truncate">{item.label}</span> : null}
       {!collapsed && displayCount !== undefined ? (
         <span className="admin-nav-count" aria-label={`${displayCount} pending`}>
           {displayCount}
@@ -113,17 +113,16 @@ function SidebarFlatSection({
   getCount: (href: string) => number | undefined
 }) {
   if (collapsed) {
+    const item = group.items[0]!
+    const count = getCount(item.href)
     return (
       <div className="admin-sidebar__flat-section">
         <SidebarItem
-          item={group.items[0]!}
+          item={item}
           collapsed
           groupLabel={group.group}
           {...(onNavigate ? { onNavigate } : {})}
-          {...(() => {
-            const c = getCount(group.items[0]!.href)
-            return c !== undefined ? { count: c } : {}
-          })()}
+          {...(count !== undefined ? { count } : {})}
         />
       </div>
     )
@@ -131,22 +130,22 @@ function SidebarFlatSection({
 
   return (
     <section
-      className="admin-sidebar__flat-section"
+      className="admin-sidebar__flat-section admin-sidebar__flat-section--expanded"
       aria-label={group.group}
       data-nav-group={group.group.toLowerCase().replace(/[^a-z0-9]+/g, '-')}
     >
       <p className="admin-sidebar__flat-label">{group.group}</p>
       <div className="admin-sidebar__flat-items">
         {group.items.map((item) => {
-          const c = getCount(item.href)
+          const count = getCount(item.href)
           return (
-          <SidebarItem
-            key={`${group.group}-${item.label}-${item.href}`}
-            item={item}
-            collapsed={false}
-            {...(onNavigate ? { onNavigate } : {})}
-            {...(c !== undefined ? { count: c } : {})}
-          />
+            <SidebarItem
+              key={`${group.group}-${item.label}-${item.href}`}
+              item={item}
+              collapsed={false}
+              {...(onNavigate ? { onNavigate } : {})}
+              {...(count !== undefined ? { count } : {})}
+            />
           )
         })}
       </div>

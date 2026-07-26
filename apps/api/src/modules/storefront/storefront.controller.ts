@@ -82,9 +82,35 @@ function sessionFromHeaders(
 }
 
 function clientIp(req: Request): string | undefined {
+  const realIp = req.headers['x-real-ip']
+  if (typeof realIp === 'string' && realIp.trim()) return realIp.trim()
+
   const forwarded = req.headers['x-forwarded-for']
-  if (typeof forwarded === 'string') return forwarded.split(',')[0]?.trim()
+  if (typeof forwarded === 'string') {
+    const hops = forwarded
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)
+    if (hops.length) {
+      // Prefer rightmost hop (edge-appended) over leftmost (client-spoofable).
+      return hops[hops.length - 1]
+    }
+  }
   return req.ip
+}
+
+function deviceIdFromRequest(req: Request): string | undefined {
+  const raw = req.headers['x-splaro-device-id']
+  if (typeof raw !== 'string') return undefined
+  const value = raw.trim()
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  ) {
+    return undefined
+  }
+  return value
 }
 
 /** Loopback /health/routes probes send `x-splaro-internal` — never page Telegram/email. */
@@ -854,7 +880,8 @@ export class StorefrontController {
       ...(customerId ? { customerId } : {}),
       idempotencyKey: requestIdempotencyKey,
       clientIp: clientIp(req),
-      userAgent: req.headers['user-agent'],
+      userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined,
+      deviceId: deviceIdFromRequest(req),
     })
     return { order: serializePublicOrder(order) }
   }

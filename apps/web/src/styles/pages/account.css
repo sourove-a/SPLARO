@@ -155,9 +155,13 @@
   border-bottom: 1px solid rgba(16, 17, 20, 0.06);
 }
 
-.account-sidebar__profile > div:last-child {
+.account-sidebar__identity {
   min-width: 0;
   flex: 1;
+}
+
+.account-sidebar__signout-mobile {
+  display: none;
 }
 
 .account-avatar {
@@ -552,11 +556,40 @@
 }
 
 .account-stat {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
   padding: 1rem 1.05rem;
   border-radius: 28px;
+}
+
+.account-stat .account-glass__body {
+  display: flex;
+  width: 100%;
+}
+
+.account-stat__hit {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.account-stat--action {
+  padding: 0.85rem 0.95rem;
+}
+
+.account-stat--action:hover .account-stat__value {
+  color: #000;
+}
+
+.account-stat--action:focus-within {
+  outline: 2px solid rgba(16, 17, 20, 0.2);
+  outline-offset: 2px;
 }
 
 .account-stat::after {
@@ -875,6 +908,11 @@
   background: rgba(255, 255, 255, 0.48);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
+}
+
+/* Mobile chip rail — shown ≤1023; desktop uses sidebar list */
+.account-chip-rail {
+  display: none;
 }
 
 @media (min-width: 768px) {
@@ -1404,52 +1442,158 @@
 
 @media (max-width: 1023px) {
   .account-sidebar {
-    padding: 1rem 0.85rem 0.9rem;
+    padding: 0.95rem 0.9rem 0.85rem;
   }
 
   .account-sidebar__profile {
-    gap: 0.75rem;
+    gap: 0.7rem;
+    padding: 0.1rem 0.15rem 0;
+    border-bottom: none;
   }
 
   .account-avatar {
-    width: 3rem;
-    height: 3rem;
-    font-size: 0.82rem;
+    width: 2.85rem;
+    height: 2.85rem;
+    font-size: 0.78rem;
   }
 
   .account-sidebar__name {
     font-size: 1rem;
   }
 
-  .account-nav-panel {
-    margin-top: 0.85rem;
-    padding: 0.35rem;
-    border-radius: 14px;
+  .account-sidebar__email {
+    font-size: 0.68rem;
   }
 
-  .account-nav__item {
-    min-height: 3.05rem;
-    padding: 0.88rem 1rem;
-    font-size: 0.92rem;
+  .account-badge,
+  .account-sidebar__meta {
+    display: none;
   }
 
-  .account-nav__signout {
-    min-height: 3.05rem;
-    padding: 0.88rem 1rem;
-    font-size: 0.92rem;
+  .account-sidebar__signout-mobile {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.45rem;
+    height: 2.45rem;
+    border-radius: 999px;
+    border: 1px solid rgba(16, 17, 20, 0.08);
+    background: rgba(255, 255, 255, 0.82);
+    color: rgba(16, 17, 20, 0.55);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1);
+  }
+
+  .account-sidebar__signout-mobile:active {
+    transform: scale(0.96);
+  }
+
+  /* Desktop vertical list stays desktop-only */
+  .account-nav-panel--desktop {
+    display: none;
+  }
+
+  .account-chip-rail {
+    position: sticky;
+    top: calc(var(--site-header-offset, 4.5rem) + 0.25rem);
+    z-index: 30;
+    display: flex;
+    gap: 0.4rem;
+    margin: 0 -0.15rem;
+    padding: 0.35rem 0.15rem 0.45rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    background:
+      linear-gradient(180deg, rgba(248, 246, 242, 0.96) 40%, rgba(248, 246, 242, 0.78) 100%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .account-chip-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .account-chip-rail__item {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2.35rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid rgba(16, 17, 20, 0.08);
+    background: rgba(255, 255, 255, 0.78);
+    color: rgba(16, 17, 20, 0.62);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    scroll-snap-align: start;
+    box-shadow:
+      0 6px 16px rgba(16, 22, 36, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 1);
+    transition:
+      background 160ms ease,
+      color 160ms ease,
+      border-color 160ms ease,
+      transform 160ms ease;
+  }
+
+  .account-chip-rail__item:active {
+    transform: scale(0.97);
+  }
+
+  .account-chip-rail__item--active {
+    border-color: rgba(16, 17, 20, 0.88);
+    background: #111111;
+    color: #ffffff;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
   }
 
   .account-main__head .account-btn {
     width: 100%;
   }
 
+  /* Chip rail already covers section jumps — skip duplicate Quick Access */
+  .account-panel--quick {
+    display: none;
+  }
+
   .account-stat {
-    padding: 0.85rem 0.8rem;
+    padding: 0.75rem 0.7rem;
     border-radius: 20px;
   }
 
   .account-stat__value {
-    font-size: 1.15rem;
+    font-size: 1.12rem;
+  }
+
+  .account-trust {
+    display: flex;
+    gap: 0.55rem;
+    padding: 0.7rem;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .account-trust::-webkit-scrollbar {
+    display: none;
+  }
+
+  .account-trust__item {
+    flex: 0 0 auto;
+    min-width: 9.5rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.72);
+    scroll-snap-align: start;
   }
 }
 
@@ -1470,37 +1614,32 @@
   }
 
   .account-sidebar {
-    padding: 0.9rem 0.75rem 0.8rem;
+    padding: 0.8rem 0.75rem 0.7rem;
   }
 
   .account-sidebar__profile {
-    align-items: flex-start;
-    padding-bottom: 0.9rem;
+    align-items: center;
   }
 
   .account-sidebar__name {
-    font-size: 0.98rem;
+    font-size: 0.95rem;
   }
 
   .account-sidebar__email {
-    font-size: 0.68rem;
+    font-size: 0.66rem;
   }
 
-  .account-nav-panel {
-    margin-top: 0.7rem;
-    padding: 0.3rem;
+  .account-chip-rail {
+    top: calc(var(--site-header-offset, 4.25rem) + 0.15rem);
+    gap: 0.35rem;
+    padding-bottom: 0.4rem;
   }
 
-  .account-nav__item,
-  .account-nav__signout {
-    min-height: 2.95rem;
-    padding: 0.78rem 0.85rem;
-    font-size: 0.88rem;
-    gap: 0.55rem;
-  }
-
-  .account-nav__signout {
-    margin-top: 0.25rem;
+  .account-chip-rail__item {
+    min-height: 2.2rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.74rem;
+    gap: 0.32rem;
   }
 
   .account-back-btn {
@@ -1535,7 +1674,7 @@
 
   .account-stat {
     gap: 0.55rem;
-    padding: 0.75rem 0.65rem;
+    padding: 0.65rem 0.55rem;
     border-radius: 18px;
   }
 
@@ -1639,6 +1778,10 @@
 
   .account-input {
     font-size: 0.86rem;
+  }
+
+  .account-trust__item {
+    min-width: 8.75rem;
   }
 }
 

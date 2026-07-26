@@ -13,6 +13,8 @@ import '../styles/admin-interactions-premium.css'
 import '../styles/admin-designmonks-accent.css'
 /* Catalog / Products — Shadcn-kit composition */
 import '../styles/admin-catalog-premium.css'
+/* Final theme unify — one violet language across shell/settings/tables */
+import '../styles/admin-theme-unify.css'
 
 const inter = Inter({
   subsets: ['latin'],

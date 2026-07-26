@@ -5,6 +5,8 @@ import { createOrderViaApi, fetchCustomerOrdersViaApi } from '@/lib/server/api-o
 import { cacheOrderInFile } from '@/lib/server/orders'
 import { getCheckoutShippingSettings } from '@/lib/storefront/settings'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
+import { getTrustedClientIp } from '@/lib/server/client-ip'
+import { attachDeviceIdCookie, resolveDeviceId } from '@/lib/server/device-id'
 import type { StoredOrderItem } from '@/lib/server/store'
 import {
   DIGITAL_PAYMENT_DISCOUNT_RATE,
@@ -219,8 +221,9 @@ export async function POST(request: Request) {
   const discount = body.discount ?? digitalDiscount + couponDiscount
   const total = Math.max(0, Math.round(subtotal + delivery - discount))
 
-  const clientIp = getClientKey(request, 'ip').split(':').slice(1).join(':')
+  const clientIp = getTrustedClientIp(request)
   const userAgent = request.headers.get('user-agent') ?? undefined
+  const { deviceId, isNew: isNewDeviceId } = await resolveDeviceId()
 
   try {
     const order = await createOrderViaApi({
@@ -239,8 +242,9 @@ export async function POST(request: Request) {
       paymentMethod,
       ...(body.couponCode ? { couponCode: body.couponCode } : {}),
       ...(body.attribution ? { attribution: body.attribution } : {}),
-      ...(clientIp !== 'local' ? { clientIp } : {}),
+      ...(clientIp ? { clientIp } : {}),
       ...(userAgent ? { userAgent } : {}),
+      deviceId,
       idempotencyKey,
       ...(sessionToken ? { sessionToken } : {}),
     })
@@ -252,7 +256,11 @@ export async function POST(request: Request) {
     // Dev file cache only — never block the place-order response.
     void cacheOrderInFile(order)
 
-    return NextResponse.json({ order }, { status: 201 })
+    const response = NextResponse.json({ order }, { status: 201 })
+    if (isNewDeviceId) {
+      attachDeviceIdCookie(response, deviceId)
+    }
+    return response
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to create order'
     const isApiDown =

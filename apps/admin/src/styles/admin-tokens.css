@@ -10,8 +10,8 @@
   --admin-foundation-ink: #11131a;
   --admin-foundation-ink-secondary: #5f6677;
   --admin-foundation-ink-muted: #8a93a6;
-  --admin-foundation-border: rgba(67, 75, 105, 0.12);
-  --admin-foundation-border-strong: rgba(16, 17, 20, 0.28);
+  --admin-foundation-border: rgba(67, 75, 105, 0.14);
+  --admin-foundation-border-strong: rgba(16, 17, 20, 0.3);
 
   /* Design Monks–inspired violet accent (admin product UI). Canvas stays cool white. */
   --admin-foundation-primary: #712eff;
@@ -20,6 +20,16 @@
   --admin-foundation-primary-soft: rgba(113, 46, 255, 0.1);
   --admin-foundation-primary-border: rgba(113, 46, 255, 0.28);
   --admin-foundation-primary-glow: rgba(113, 46, 255, 0.22);
+
+  /* Nav chrome — one rail language (end cascade wars) */
+  --admin-nav-active-rail: linear-gradient(180deg, #a078ff, #712eff 50%, #5b1fd9);
+  --admin-nav-active-rail-glow: 0 0 12px rgba(113, 46, 255, 0.42);
+  --admin-nav-active-bg: linear-gradient(165deg, rgba(113, 46, 255, 0.09), rgba(113, 46, 255, 0.03));
+  --admin-nav-active-border: rgba(113, 46, 255, 0.16);
+  --admin-nav-icon-idle-bg: rgba(15, 23, 42, 0.045);
+  --admin-nav-icon-idle-color: #64748b;
+  --admin-nav-icon-active-bg: linear-gradient(145deg, #8450ff, #5b1fd9);
+  --admin-nav-icon-active-color: #ffffff;
 
   /* Required hierarchy */
   --admin-radius-control: 12px;
@@ -33,19 +43,19 @@
   --admin-control-height: 40px;
   --admin-control-height-lg: 44px;
   --admin-table-row-height: 48px;
-  --admin-elevation-0: 0 1px 1px rgba(15, 23, 42, 0.02);
+  --admin-elevation-0: 0 1px 1px rgba(15, 23, 42, 0.025);
   --admin-elevation-card:
-    0 1px 1px rgba(15, 23, 42, 0.02),
-    0 4px 12px rgba(15, 23, 42, 0.035),
-    0 16px 40px rgba(15, 23, 42, 0.055);
+    0 1px 1px rgba(15, 23, 42, 0.03),
+    0 6px 16px rgba(15, 23, 42, 0.045),
+    0 18px 44px rgba(15, 23, 42, 0.065);
   --admin-elevation-panel:
-    0 1px 2px rgba(15, 23, 42, 0.03),
-    0 8px 20px rgba(15, 23, 42, 0.045),
-    0 24px 56px rgba(15, 23, 42, 0.08);
+    0 1px 2px rgba(15, 23, 42, 0.035),
+    0 10px 24px rgba(15, 23, 42, 0.055),
+    0 28px 60px rgba(15, 23, 42, 0.09);
   --admin-elevation-float:
-    0 2px 4px rgba(15, 23, 42, 0.04),
-    0 12px 28px rgba(15, 23, 42, 0.06),
-    0 32px 64px rgba(15, 23, 42, 0.1);
+    0 2px 4px rgba(15, 23, 42, 0.045),
+    0 14px 32px rgba(15, 23, 42, 0.07),
+    0 36px 72px rgba(15, 23, 42, 0.11);
   --admin-focus-ring: 0 0 0 2px var(--admin-foundation-surface), 0 0 0 4px rgba(113, 46, 255, 0.35);
   --admin-motion-fast: 120ms;
   --admin-motion-base: 170ms;
@@ -91,6 +101,16 @@
   --admin-foundation-primary-border: rgba(139, 92, 255, 0.35);
   --admin-foundation-primary-glow: rgba(139, 92, 255, 0.3);
   --admin-focus-ring: 0 0 0 2px var(--admin-foundation-surface), 0 0 0 4px rgba(139, 92, 255, 0.4);
+
+  --admin-nav-active-rail: linear-gradient(180deg, #c4b5ff, #8b5cff 50%, #712eff);
+  --admin-nav-active-rail-glow: 0 0 14px rgba(139, 92, 255, 0.5);
+  --admin-nav-active-bg: linear-gradient(165deg, rgba(139, 92, 255, 0.22), rgba(139, 92, 255, 0.08));
+  --admin-nav-active-border: rgba(139, 92, 255, 0.3);
+  --admin-nav-icon-idle-bg: rgba(255, 255, 255, 0.05);
+  --admin-nav-icon-idle-color: rgba(255, 255, 255, 0.55);
+  --admin-nav-icon-active-bg: linear-gradient(145deg, #a078ff, #712eff);
+  --admin-nav-icon-active-color: #ffffff;
+
   --admin-elevation-0: 0 1px 1px rgba(0, 0, 0, 0.2);
   --admin-elevation-card:
     0 0 0 1px rgba(255, 255, 255, 0.05),

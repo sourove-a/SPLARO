@@ -14,7 +14,7 @@ import { markAdminLinkNavigation } from '@/lib/navigation/client-nav'
 import { BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
 import { cn } from '@/lib/utils/cn'
 
-type QuickTone = 'sky' | 'teal' | 'slate' | 'amber' | 'green' | 'gold'
+type QuickTone = 'violet' | 'violet-soft' | 'slate' | 'ink'
 
 type QuickAction = {
   label: string
@@ -26,8 +26,8 @@ type QuickAction = {
 }
 
 const ACTIONS: QuickAction[] = [
-  { label: 'Create New Order', href: '/dashboard/orders/new', icon: ShoppingBag, tone: 'sky' },
-  { label: 'Add New Product', href: '/dashboard/products/new', icon: Package, tone: 'teal' },
+  { label: 'Create New Order', href: '/dashboard/orders/new', icon: ShoppingBag, tone: 'violet' },
+  { label: 'Add New Product', href: '/dashboard/products/new', icon: Package, tone: 'violet-soft' },
   {
     label: 'Upload Product CSV',
     icon: Upload,
@@ -35,9 +35,9 @@ const ACTIONS: QuickAction[] = [
     disabled: true,
     disabledTitle: `${BACKEND_NOT_CONNECTED_TITLE} Product CSV import API is not wired yet — use Export on Products.`,
   },
-  { label: 'Partner Transaction', href: '/dashboard/finance/partner-accounts', icon: Wallet, tone: 'amber' },
-  { label: 'Daily Closing', href: '/dashboard/finance/daily-closing', icon: FileSpreadsheet, tone: 'green' },
-  { label: 'AI Product Generator', href: '/dashboard/ai-product-generator', icon: Bot, tone: 'gold' },
+  { label: 'Partner Transaction', href: '/dashboard/finance/partner-accounts', icon: Wallet, tone: 'ink' },
+  { label: 'Daily Closing', href: '/dashboard/finance/daily-closing', icon: FileSpreadsheet, tone: 'slate' },
+  { label: 'AI Product Generator', href: '/dashboard/ai-product-generator', icon: Bot, tone: 'violet' },
 ]
 
 export function QuickActions({ embedded = false }: { embedded?: boolean } = {}) {

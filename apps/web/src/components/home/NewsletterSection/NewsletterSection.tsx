@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Loader2, Mail, Send } from 'lucide-react'
+import { Check, Loader2, Send } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { useClientMounted } from '@/hooks/useClientMounted'
@@ -108,7 +108,6 @@ export function NewsletterSection() {
             ) : (
               <form key="form" className="ed-newsletter__form" onSubmit={onSubmit} noValidate>
                 <div className="ed-newsletter__field" suppressHydrationWarning>
-                  <Mail className="ed-newsletter__icon" strokeWidth={1.7} />
                   {clientReady ? (
                     <input
                       type="email"

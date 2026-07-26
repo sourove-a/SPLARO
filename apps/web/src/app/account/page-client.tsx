@@ -1,6 +1,6 @@
 'use client'
 
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -304,8 +304,17 @@ export default function AccountDashboard() {
   const [verificationError, setVerificationError] = useState('')
   const [verificationMessage, setVerificationMessage] = useState('')
   const [verificationCooldown, setVerificationCooldown] = useState(0)
+  const chipRailRef = useRef<HTMLElement | null>(null)
 
   const welcome = searchParams.get('welcome') === '1'
+
+  // Keep the active mobile chip visible when switching sections.
+  useEffect(() => {
+    const rail = chipRailRef.current
+    if (!rail) return
+    const active = rail.querySelector<HTMLElement>('.account-chip-rail__item--active')
+    active?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+  }, [section])
 
   const redirectToLogin = useCallback(() => {
     const tab = searchParams.get('tab')
@@ -668,7 +677,7 @@ export default function AccountDashboard() {
                 <Camera className="h-3.5 w-3.5" strokeWidth={2.2} />
               </span>
             </div>
-            <div>
+            <div className="account-sidebar__identity">
               <p className="account-sidebar__name">
                 {user.name}
                 {user.emailVerified ? (
@@ -689,9 +698,20 @@ export default function AccountDashboard() {
                 <p className="account-sidebar__meta">Member since {memberSince}</p>
               ) : null}
             </div>
+            <button
+              type="button"
+              className="account-sidebar__signout-mobile"
+              aria-label="Sign out"
+              onClick={() => {
+                signOut()
+                safeClientNavigate(router, '/login')
+              }}
+            >
+              <LogOut className="h-4 w-4" strokeWidth={2.1} />
+            </button>
           </div>
 
-          <div className="account-nav-panel">
+          <div className="account-nav-panel account-nav-panel--desktop">
             <nav className="account-nav" aria-label="Account navigation">
               {navItems.map(({ id, label, icon: Icon }) => (
                 <button
@@ -723,6 +743,28 @@ export default function AccountDashboard() {
             </button>
           </div>
         </AccountGlass>
+
+        <nav
+          ref={chipRailRef}
+          className="account-chip-rail"
+          aria-label="Account sections"
+        >
+          {navItems.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              className={cn(
+                'account-chip-rail__item',
+                section === id && 'account-chip-rail__item--active',
+              )}
+              onClick={() => setSection(id)}
+              aria-current={section === id ? 'page' : undefined}
+            >
+              <Icon className="h-3.5 w-3.5" strokeWidth={2.1} />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
 
         <main className="account-main">
           {connectionError ? (
@@ -856,23 +898,30 @@ export default function AccountDashboard() {
               ) : null}
               <div className="account-stats">
                 {[
-                  { label: 'Active Orders', value: stats.active },
-                  { label: 'Total Orders', value: stats.total },
-                  { label: 'Delivered', value: stats.delivered },
-                  { label: 'Returns', value: stats.returns },
+                  { label: 'Active Orders', value: stats.active, go: 'orders' as const },
+                  { label: 'Total Orders', value: stats.total, go: 'history' as const },
+                  { label: 'Delivered', value: stats.delivered, go: 'history' as const },
+                  { label: 'Returns', value: stats.returns, go: 'history' as const },
                 ].map((item) => (
-                  <AccountGlass key={item.label} className="account-stat">
-                    <div className="account-stat__icon">
-                      <Package className="h-4 w-4" strokeWidth={2} />
-                    </div>
-                    <div>
-                      <p className="account-stat__value">{String(item.value).padStart(2, '0')}</p>
-                      <p className="account-stat__label">{item.label}</p>
-                    </div>
+                  <AccountGlass key={item.label} className="account-stat account-stat--action">
+                    <button
+                      type="button"
+                      className="account-stat__hit"
+                      onClick={() => setSection(item.go)}
+                      aria-label={`View ${item.label}`}
+                    >
+                      <div className="account-stat__icon">
+                        <Package className="h-4 w-4" strokeWidth={2} />
+                      </div>
+                      <div>
+                        <p className="account-stat__value">{String(item.value).padStart(2, '0')}</p>
+                        <p className="account-stat__label">{item.label}</p>
+                      </div>
+                    </button>
                   </AccountGlass>
                 ))}
               </div>
-              <AccountGlass className="account-panel">
+              <AccountGlass className="account-panel account-panel--quick">
                 <h2 className="account-section__title">Quick Access</h2>
                 <div className="account-quick-grid">
                   {navItems.slice(1, 5).map(({ id, label, icon: Icon }) => (

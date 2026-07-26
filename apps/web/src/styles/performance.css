@@ -249,6 +249,16 @@ html[data-os='windows'] .site-header-glass.site-header-glass--over-hero:not(.sit
   opacity: 1;
 }
 
+/* Mid-hero copy-under: allow dark frosted chrome on Windows too (keeps white nav readable). */
+html[data-os='windows'] .site-header-glass.site-header-glass--over-hero.site-header-glass--hero-copy-under:not(.site-header-glass--scrolled) {
+  background: rgba(8, 10, 14, 0.55) !important;
+  background-image: none !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22) !important;
+}
+
 html[data-os='windows'] .site-header-glass.site-header-glass--over-hero:not(.site-header-glass--scrolled)::before,
 html[data-os='windows'] .site-header-glass.site-header-glass--over-hero:not(.site-header-glass--scrolled)::after {
   display: none !important;

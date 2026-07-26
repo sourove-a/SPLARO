@@ -61,6 +61,8 @@ export function CustomerProfileClient({ customerId }: { customerId: string }) {
             ? { lastLogin: formatRelativeTime(data.lastOrderDate) }
             : {}),
         ...(data.lastDevice ? { lastDevice: data.lastDevice } : {}),
+        ...(data.lastIp ? { lastIp: data.lastIp } : {}),
+        ...(data.fraudSignals ? { fraudSignals: data.fraudSignals } : {}),
         orders: data.orders ?? [],
         activityNotes: data.customerNotes ?? [],
         ...(notes ? { adminNotes: notes } : {}),

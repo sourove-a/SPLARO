@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { AnimatePresence, LayoutGroup, motion } from '@/lib/motion/react'
@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils/cn'
 import { MegaMenu } from './MegaMenu'
 import type { MegaMenuConfig } from '@/lib/storefront/settings'
 import { isNavActive } from '@/lib/navigation/is-nav-active'
+import { requestScrollTopOnOverlayUnlock } from '@/lib/navigation/overlay-unlock-scroll'
+import { snapDocumentScrollToTop } from '@/lib/navigation/snap-scroll-top'
 
 const CLOSE_DELAY_MS = 150
 
@@ -24,6 +26,12 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
   const navSignature = navItems.map((item) => `${item.label}:${item.href}`).join('|')
 
   const [openIndex, setOpenIndex] = useState<number | null>(null)
+  // Keep a mega shell mounted so first open is CSS-only (no late-mount jump).
+  // Do NOT depend on `navItems` (new array every render) — that caused infinite setState.
+  const [lastMega, setLastMega] = useState<{ key: string; config: MegaMenuConfig } | null>(() => {
+    const item = (settings.config.headerNav ?? []).find((nav) => !nav.hidden && nav.megaMenu)
+    return item?.megaMenu ? { key: item.label, config: item.megaMenu } : null
+  })
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const navLayerRef = useRef<HTMLDivElement>(null)
 
@@ -36,16 +44,30 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
     setOpenIndex(null)
   }, [navSignature])
 
+  // Route change must close mega immediately — avoids stale panel over new page.
+  useLayoutEffect(() => {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    setOpenIndex(null)
+  }, [pathname])
+
   useEffect(() => {
     return () => {
       if (closeTimer.current) clearTimeout(closeTimer.current)
     }
   }, [])
 
-  const openMenu = useCallback((index: number) => {
-    if (closeTimer.current) clearTimeout(closeTimer.current)
-    setOpenIndex(index)
-  }, [])
+  const openMenu = useCallback(
+    (index: number) => {
+      if (closeTimer.current) clearTimeout(closeTimer.current)
+      const item = navItems[index]
+      if (item?.megaMenu) {
+        // Sync content before paint — lastMega keep-alive must not flash prior dept.
+        setLastMega({ key: item.label, config: item.megaMenu })
+      }
+      setOpenIndex(index)
+    },
+    [navItems],
+  )
 
   const closeMenu = useCallback(() => {
     if (closeTimer.current) clearTimeout(closeTimer.current)
@@ -60,6 +82,12 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
   const cancelClose = useCallback(() => {
     if (closeTimer.current) clearTimeout(closeTimer.current)
   }, [])
+
+  const onMegaNavigate = useCallback(() => {
+    requestScrollTopOnOverlayUnlock()
+    closeMenu()
+    snapDocumentScrollToTop()
+  }, [closeMenu])
 
   useEffect(() => {
     if (openIndex === null) return
@@ -86,13 +114,6 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
 
   const activeMegaMenu: MegaMenuConfig | null =
     openIndex !== null ? (navItems[openIndex]?.megaMenu ?? null) : null
-
-  // Keep a mega shell mounted so first open is CSS-only (no late-mount jump).
-  // Do NOT depend on `navItems` (new array every render) — that caused infinite setState.
-  const [lastMega, setLastMega] = useState<{ key: string; config: MegaMenuConfig } | null>(() => {
-    const item = (settings.config.headerNav ?? []).find((nav) => !nav.hidden && nav.megaMenu)
-    return item?.megaMenu ? { key: item.label, config: item.megaMenu } : null
-  })
 
   useEffect(() => {
     if (openIndex === null || !activeMegaMenu) return
@@ -140,7 +161,9 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
                       <Link
                         href={item.href}
                         scroll={false}
-                        onClick={closeMenu}
+                        onClick={() => {
+                          onMegaNavigate()
+                        }}
                         onFocus={() => {
                           if (hasMega) openMenu(i)
                         }}
@@ -196,7 +219,7 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
             menuKey={lastMega.key}
             config={lastMega.config}
             isOpen={activeMegaMenu !== null && openIndex !== null}
-            onClose={closeMenu}
+            onClose={onMegaNavigate}
           />
         </div>
       ) : null}

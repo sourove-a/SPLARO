@@ -1034,6 +1034,10 @@ model Order {
   trafficSource     String?
   landingPage       String?
   clientIp          String?
+  /// First-party HttpOnly device cookie (server-minted) — admin fraud signal only.
+  deviceId          String?
+  /// Browser UA at order time — admin fraud signal only; never public.
+  userAgent         String?
   requireAdvancePayment Boolean          @default(false)
   mergedFromIds     String[]             @default([])
   splitShipments    SplitShipment[]
@@ -1065,6 +1069,8 @@ model Order {
   @@index([storeId, status])
   @@index([storeId, createdAt])
   @@index([storeId, trafficSource])
+  @@index([storeId, clientIp])
+  @@index([storeId, deviceId])
   @@index([invoiceNumber])
   @@index([shippingPhone])
   @@unique([storeId, idempotencyKey])

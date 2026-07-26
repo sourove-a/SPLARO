@@ -56,6 +56,8 @@ const nextConfig = {
   compress: true,
   reactStrictMode: true,
   output: 'standalone',
+  // Hide Next.js "N" badge — overlaps storefront content in local/dev.
+  devIndicators: false,
   experimental: {
     optimizePackageImports: ['lucide-react', 'motion/react', 'date-fns', '@radix-ui/react-dialog'],
     // CloudLinux NPROC counts threads — parallel build workers get the process killed

@@ -4,8 +4,9 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Search, X } from 'lucide-react'
-import { AnimatePresence, motion } from '@/lib/motion/react'
 import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
+import { requestScrollTopOnOverlayUnlock } from '@/lib/navigation/overlay-unlock-scroll'
+import { snapDocumentScrollToTop } from '@/lib/navigation/snap-scroll-top'
 import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
 import { cn } from '@/lib/utils/cn'
 
@@ -28,7 +29,9 @@ export function SearchModal({ isOpen, onClose, variant = 'mobile' }: SearchModal
   const [suggestLoading, setSuggestLoading] = useState(false)
   /** Avoid the opening click/pointerup landing on the full-screen dismiss layer. */
   const [dismissArmed, setDismissArmed] = useState(false)
-  useOverlayScrollLock(isOpen)
+  const isDesktop = variant === 'desktop'
+  // Desktop inline search must not body-pin — fixed header jumped like a dropdown.
+  useOverlayScrollLock(isOpen && !isDesktop)
 
   useEffect(() => {
     if (!isOpen) {
@@ -46,6 +49,7 @@ export function SearchModal({ isOpen, onClose, variant = 'mobile' }: SearchModal
       setSuggestLoading(false)
       return
     }
+    // Never autoFocus — browser scroll-into-view fights scroll-lock and jerks the header.
     const focusInput = () => inputRef.current?.focus({ preventScroll: true })
     focusInput()
     const raf = requestAnimationFrame(focusInput)
@@ -105,15 +109,23 @@ export function SearchModal({ isOpen, onClose, variant = 'mobile' }: SearchModal
   function goSearch(term: string) {
     const q = term.trim()
     if (!q) return
+    requestScrollTopOnOverlayUnlock()
     safeClientNavigate(router, `/search?q=${encodeURIComponent(q)}`)
     onClose()
+    snapDocumentScrollToTop()
+  }
+
+  function goProduct(slug: string) {
+    requestScrollTopOnOverlayUnlock()
+    onClose()
+    safeClientNavigate(router, `/products/${slug}`)
+    snapDocumentScrollToTop()
   }
 
   if (!isOpen) return null
 
   const trimmed = query.trim()
   const showPanel = trimmed.length >= 2
-  const isDesktop = variant === 'desktop'
 
   return (
     <>
@@ -127,18 +139,13 @@ export function SearchModal({ isOpen, onClose, variant = 'mobile' }: SearchModal
         />
       ) : null}
 
-      <motion.div
+      <div
         className={cn(
           'site-header-search',
           isDesktop ? 'site-header-search--desktop' : 'site-header-search--mobile',
         )}
         role="search"
         data-lenis-prevent
-        initial={false}
-        animate={{ opacity: 1, scaleX: 1, y: 0 }}
-        exit={{ opacity: 1, scaleX: 1 }}
-        transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-        {...(isDesktop ? { style: { transformOrigin: 'right center' as const } } : {})}
       >
         <div className="site-header-search__row">
           <label className="site-header-search__field">
@@ -154,7 +161,6 @@ export function SearchModal({ isOpen, onClose, variant = 'mobile' }: SearchModal
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search SPLARO"
               className="site-header-search__input"
-              autoFocus
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
@@ -194,57 +200,54 @@ export function SearchModal({ isOpen, onClose, variant = 'mobile' }: SearchModal
           </button>
         </div>
 
-        <AnimatePresence initial={false}>
-          {showPanel ? (
-            <motion.div
-              id={listId}
-              key="suggest"
-              className="site-header-search__panel"
-              role="listbox"
-              aria-label="Suggestions"
-              data-lenis-prevent
-              initial={{ opacity: 1, y: 0 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+        {showPanel ? (
+          <div
+            id={listId}
+            className="site-header-search__panel"
+            role="listbox"
+            aria-label="Suggestions"
+            data-lenis-prevent
+          >
+            <button
+              type="button"
+              className="site-header-search__go"
+              onClick={() => goSearch(trimmed)}
             >
-              <button
-                type="button"
-                className="site-header-search__go"
-                onClick={() => goSearch(trimmed)}
-              >
-                <Search strokeWidth={1.5} aria-hidden />
-                <span>
-                  Search for <strong>&ldquo;{trimmed}&rdquo;</strong>
-                </span>
-              </button>
+              <Search strokeWidth={1.5} aria-hidden />
+              <span>
+                Search for <strong>&ldquo;{trimmed}&rdquo;</strong>
+              </span>
+            </button>
 
-              {suggestProducts.length > 0 ? (
-                <ul className="site-header-search__list">
-                  {suggestProducts.map((product) => (
-                    <li key={product.id}>
-                      <Link
-                        href={`/products/${product.slug}`}
-                        className="site-header-search__item"
-                        role="option"
-                        onClick={onClose}
-                      >
-                        {product.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : suggestLoading ? (
-                <p className="site-header-search__hint" aria-live="polite">
-                  Searching…
-                </p>
-              ) : (
-                <p className="site-header-search__hint">No matching products</p>
-              )}
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-      </motion.div>
+            {suggestProducts.length > 0 ? (
+              <ul className="site-header-search__list">
+                {suggestProducts.map((product) => (
+                  <li key={product.id}>
+                    <Link
+                      href={`/products/${product.slug}`}
+                      scroll={false}
+                      className="site-header-search__item"
+                      role="option"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        goProduct(product.slug)
+                      }}
+                    >
+                      {product.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : suggestLoading ? (
+              <p className="site-header-search__hint" aria-live="polite">
+                Searching…
+              </p>
+            ) : (
+              <p className="site-header-search__hint">No matching products</p>
+            )}
+          </div>
+        ) : null}
+      </div>
     </>
   )
 }

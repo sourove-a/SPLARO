@@ -77,6 +77,8 @@ export interface CreateStorefrontOrderInput {
   attribution?: OrderAttributionInput
   clientIp?: string
   userAgent?: string
+  /** First-party device id from BFF cookie / x-splaro-device-id header. */
+  deviceId?: string
 }
 
 /** Must match the storefront checkout's prepaid discount (apps/web lib/utils/currency.ts). */
@@ -455,6 +457,8 @@ export class StorefrontOrdersService {
               trafficSource: attr?.trafficSource ?? null,
               landingPage: attr?.landingPage ?? null,
               clientIp: input.clientIp ?? null,
+              deviceId: input.deviceId ?? null,
+              userAgent: input.userAgent ?? null,
               items: {
                 create: lines.map(
                   ({ item, variant, unitPrice }) =>

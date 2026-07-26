@@ -1,11 +1,12 @@
 /**
  * SPLARO Admin Shell Premium — SOLID cascade layer
- * Sidebar colour language · header chips · search · module heroes · tables
+ * Sidebar chrome · header chips · search · module heroes · tables
  * Loaded AFTER admin-luxury-2027.css so it wins.
+ * Accent language: Design Monks violet (no rainbow section icons).
  */
 
 /* ═══════════════════════════════════════════════════════════════
-   SIDEBAR — coloured icon tiles by section
+   SIDEBAR — unified icon tiles (one accent system)
    ═══════════════════════════════════════════════════════════════ */
 .admin-sidebar .admin-nav-item {
   transition:
@@ -27,9 +28,9 @@
   height: 1.85rem !important;
   border-radius: 10px !important;
   border: 1px solid transparent !important;
-  background: rgba(15, 23, 42, 0.04) !important;
+  background: var(--admin-nav-icon-idle-bg, rgba(15, 23, 42, 0.045)) !important;
   opacity: 1 !important;
-  color: #64748b !important;
+  color: var(--admin-nav-icon-idle-color, #64748b) !important;
   transition:
     background 180ms ease,
     border-color 180ms ease,
@@ -39,147 +40,33 @@
 }
 
 .admin-sidebar .admin-nav-item:hover .admin-nav-item__icon {
-  transform: scale(1.06);
+  transform: scale(1.05);
 }
 
 html:not(.dark) .admin-sidebar .admin-nav-item:hover:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(15, 23, 42, 0.07) !important;
-  color: #0f172a !important;
-}
-
-.admin-sidebar .admin-nav-item--active .admin-nav-item__icon {
-  background: linear-gradient(145deg, #111216, #1c1e26) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
-  color: #ffffff !important;
-  box-shadow:
-    0 4px 12px rgba(17, 18, 22, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
-  opacity: 1 !important;
-}
-
-/* Light mode only — dark fill icon on white active pill */
-html:not(.dark) .admin-sidebar .admin-nav-item--active .admin-nav-item__icon {
-  background: linear-gradient(145deg, #111216, #1c1e26) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
-  color: #ffffff !important;
-}
-
-.admin-sidebar .admin-nav-item--active::before {
-  background: linear-gradient(180deg, #0ea5e9, #111111 50%, #14b8a6) !important;
-  box-shadow: 0 0 10px rgba(14, 165, 233, 0.35) !important;
-  width: 3.5px !important;
-}
-
-/* Per-section soft icon hues (inactive) */
-.admin-sidebar [data-nav-group='overview'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.admin-sidebar [data-nav-group='executive'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(14, 165, 233, 0.1) !important;
-  border-color: rgba(14, 165, 233, 0.14) !important;
-  color: #0369a1 !important;
-}
-
-.admin-sidebar [data-nav-group='commerce'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(245, 158, 11, 0.1) !important;
-  border-color: rgba(245, 158, 11, 0.16) !important;
-  color: #b45309 !important;
-}
-
-.admin-sidebar [data-nav-group='catalog'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(20, 184, 166, 0.1) !important;
-  border-color: rgba(20, 184, 166, 0.16) !important;
-  color: #0f766e !important;
-}
-
-.admin-sidebar [data-nav-group='customers'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(34, 197, 94, 0.1) !important;
-  border-color: rgba(34, 197, 94, 0.16) !important;
-  color: #15803d !important;
-}
-
-.admin-sidebar [data-nav-group='marketing'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.admin-sidebar [data-nav-group='content'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(244, 63, 94, 0.08) !important;
-  border-color: rgba(244, 63, 94, 0.14) !important;
-  color: #be123c !important;
-}
-
-.admin-sidebar [data-nav-group='finance'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(234, 179, 8, 0.12) !important;
-  border-color: rgba(234, 179, 8, 0.18) !important;
-  color: #a16207 !important;
-}
-
-.admin-sidebar [data-nav-group='integrations'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.admin-sidebar [data-nav-group='seo-ai'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.admin-sidebar [data-nav-group='seo-center'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(14, 165, 233, 0.1) !important;
-  border-color: rgba(14, 165, 233, 0.16) !important;
-  color: #0284c7 !important;
-}
-
-.admin-sidebar [data-nav-group='operations'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.admin-sidebar [data-nav-group='platform'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.admin-sidebar [data-nav-group='wms'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(100, 116, 139, 0.1) !important;
-  border-color: rgba(100, 116, 139, 0.16) !important;
-  color: #475569 !important;
-}
-
-.admin-sidebar [data-nav-group='security'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(244, 63, 94, 0.1) !important;
-  border-color: rgba(244, 63, 94, 0.2) !important;
-  color: #e11d48 !important;
-}
-
-.admin-sidebar [data-nav-group='system'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(113, 46, 255, 0.1) !important;
-  border-color: rgba(113, 46, 255, 0.2) !important;
-  color: #712eff !important;
-}
-
-.admin-sidebar [data-nav-group='google-workspace'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(34, 197, 94, 0.1) !important;
-  border-color: rgba(34, 197, 94, 0.18) !important;
-  color: #15803d !important;
-}
-
-.admin-sidebar [data-nav-group='observability'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.admin-sidebar [data-nav-group='developer'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(14, 165, 233, 0.1) !important;
-  border-color: rgba(14, 165, 233, 0.16) !important;
-  color: #0284c7 !important;
-}
-
-/* Former drawer groups — now flat, keep coloured identity */
-.admin-sidebar [data-nav-group='ai-center'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.admin-sidebar [data-nav-group='automation'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(113, 46, 255, 0.1) !important;
-  border-color: rgba(113, 46, 255, 0.18) !important;
+  background: rgba(113, 46, 255, 0.08) !important;
+  border-color: rgba(113, 46, 255, 0.14) !important;
   color: #5b1fd9 !important;
 }
 
-.admin-sidebar [data-nav-group='procurement'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.admin-sidebar [data-nav-group='production'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(245, 158, 11, 0.1) !important;
-  border-color: rgba(245, 158, 11, 0.16) !important;
-  color: #b45309 !important;
+.admin-sidebar .admin-nav-item--active .admin-nav-item__icon,
+html:not(.dark) .admin-sidebar .admin-nav-item--active .admin-nav-item__icon {
+  background: var(--admin-nav-icon-active-bg) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: var(--admin-nav-icon-active-color, #ffffff) !important;
+  box-shadow:
+    0 4px 14px rgba(113, 46, 255, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+  opacity: 1 !important;
 }
 
-.admin-sidebar [data-nav-group='support'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.admin-sidebar [data-nav-group='delivery'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(20, 184, 166, 0.1) !important;
-  border-color: rgba(20, 184, 166, 0.16) !important;
-  color: #0f766e !important;
+.admin-sidebar .admin-nav-item--active::before {
+  background: var(--admin-nav-active-rail) !important;
+  box-shadow: var(--admin-nav-active-rail-glow) !important;
+  width: 3.5px !important;
 }
 
-.admin-sidebar [data-nav-group='company-os'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.admin-sidebar [data-nav-group='media'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(100, 116, 139, 0.1) !important;
-  border-color: rgba(100, 116, 139, 0.16) !important;
-  color: #475569 !important;
-}
-
-/* Drawer section icons */
+/* Drawer section icons — calm slate, no rainbow */
 .admin-sidebar__drawer-icon {
   display: inline-grid !important;
   place-items: center !important;
@@ -187,47 +74,17 @@ html:not(.dark) .admin-sidebar .admin-nav-item--active .admin-nav-item__icon {
   height: 2rem !important;
   border-radius: 11px !important;
   border: 1px solid rgba(15, 23, 42, 0.08) !important;
-  background: linear-gradient(145deg, #ffffff, #f1f5f9) !important;
-  color: #0f172a !important;
+  background: linear-gradient(145deg, #ffffff, #f4f5f8) !important;
+  color: #334155 !important;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05), inset 0 1px 0 #fff !important;
   transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms ease !important;
 }
 
 .admin-sidebar__drawer:hover .admin-sidebar__drawer-icon,
 .admin-sidebar__drawer--open .admin-sidebar__drawer-icon {
-  transform: scale(1.05) rotate(-3deg);
-}
-
-.admin-sidebar [data-nav-group='seo-ai'] .admin-sidebar__drawer-icon {
-  background: linear-gradient(145deg, #f0f9ff, #e0f2fe) !important;
-  border-color: rgba(14, 165, 233, 0.22) !important;
-  color: #0369a1 !important;
-  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.12), inset 0 1px 0 #fff !important;
-}
-
-.admin-sidebar [data-nav-group='operations'] .admin-sidebar__drawer-icon {
-  background: linear-gradient(145deg, #f0fdfa, #ccfbf1) !important;
-  border-color: rgba(20, 184, 166, 0.22) !important;
-  color: #0f766e !important;
-  box-shadow: 0 4px 14px rgba(20, 184, 166, 0.12), inset 0 1px 0 #fff !important;
-}
-
-.admin-sidebar [data-nav-group='platform'] .admin-sidebar__drawer-icon {
-  background: linear-gradient(145deg, #f8fafc, #e2e8f0) !important;
-  border-color: rgba(71, 85, 105, 0.2) !important;
-  color: #334155 !important;
-}
-
-.admin-sidebar [data-nav-group='security'] .admin-sidebar__flat-label {
-  color: #e11d48 !important;
-}
-
-.admin-sidebar [data-nav-group='system'] .admin-sidebar__flat-label {
-  color: #712eff !important;
-}
-
-.admin-sidebar [data-nav-group='google-workspace'] .admin-sidebar__flat-label {
-  color: #15803d !important;
+  transform: scale(1.04);
+  border-color: rgba(113, 46, 255, 0.2) !important;
+  color: #5b1fd9 !important;
 }
 
 .admin-sidebar__flat-label {
@@ -241,86 +98,53 @@ html:not(.dark) .admin-sidebar .admin-nav-item--active .admin-nav-item__icon {
   height: 1.25rem;
   padding: 0 0.4rem;
   border-radius: 999px;
-  background: linear-gradient(180deg, #111216, #1c1e26);
+  background: linear-gradient(180deg, #8450ff, #5b1fd9);
   color: #fff;
   font-size: 0.625rem;
   font-weight: 800;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(17, 18, 22, 0.25);
+  box-shadow: 0 2px 8px rgba(113, 46, 255, 0.35);
 }
 
-/* Dark sidebar — standard glass active (wins cascade) */
+/* Dark sidebar — violet active wash (matches Design Monks layer) */
 .dark .admin-sidebar .admin-nav-item--active,
 .dark .admin-sidebar .admin-nav-item--active:hover {
-  background: linear-gradient(165deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.06)) !important;
-  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  background: var(--admin-nav-active-bg) !important;
+  border: 1px solid var(--admin-nav-active-border) !important;
   color: #ffffff !important;
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.25),
-    0 10px 28px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 12px 32px rgba(113, 46, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
 
 .dark .admin-sidebar .admin-nav-item__icon {
-  background: rgba(255, 255, 255, 0.05) !important;
-  color: rgba(255, 255, 255, 0.55) !important;
+  background: var(--admin-nav-icon-idle-bg) !important;
+  color: var(--admin-nav-icon-idle-color) !important;
 }
 
 .dark .admin-sidebar .admin-nav-item:hover:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(255, 255, 255, 0.09) !important;
-  color: #ffffff !important;
+  background: rgba(139, 92, 255, 0.16) !important;
+  border-color: rgba(139, 92, 255, 0.28) !important;
+  color: #c4b5ff !important;
 }
 
 .dark .admin-sidebar .admin-nav-item--active .admin-nav-item__icon {
-  background: rgba(255, 255, 255, 0.14) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  background: var(--admin-nav-icon-active-bg) !important;
+  border: 1px solid rgba(196, 181, 255, 0.35) !important;
   color: #ffffff !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+  box-shadow:
+    0 4px 16px rgba(113, 46, 255, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
   opacity: 1 !important;
-}
-
-.dark .admin-sidebar [data-nav-group='overview'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.dark .admin-sidebar [data-nav-group='executive'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.dark .admin-sidebar [data-nav-group='seo-ai'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.dark .admin-sidebar [data-nav-group='integrations'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(14, 165, 233, 0.14) !important;
-  border-color: rgba(14, 165, 233, 0.25) !important;
-  color: #38bdf8 !important;
-}
-
-.dark .admin-sidebar [data-nav-group='commerce'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.dark .admin-sidebar [data-nav-group='finance'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(245, 158, 11, 0.14) !important;
-  border-color: rgba(245, 158, 11, 0.25) !important;
-  color: #fbbf24 !important;
-}
-
-.dark .admin-sidebar [data-nav-group='catalog'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.dark .admin-sidebar [data-nav-group='operations'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(20, 184, 166, 0.14) !important;
-  border-color: rgba(20, 184, 166, 0.25) !important;
-  color: #2dd4bf !important;
-}
-
-.dark .admin-sidebar [data-nav-group='customers'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(34, 197, 94, 0.14) !important;
-  border-color: rgba(34, 197, 94, 0.25) !important;
-  color: #4ade80 !important;
-}
-
-.dark .admin-sidebar [data-nav-group='marketing'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon,
-.dark .admin-sidebar [data-nav-group='content'] .admin-nav-item:not(.admin-nav-item--active) .admin-nav-item__icon {
-  background: rgba(244, 63, 94, 0.14) !important;
-  border-color: rgba(244, 63, 94, 0.25) !important;
-  color: #fb7185 !important;
 }
 
 .dark .admin-sidebar__drawer-icon {
   border-color: rgba(255, 255, 255, 0.12) !important;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04)) !important;
-  color: #ffffff !important;
+  color: rgba(255, 255, 255, 0.85) !important;
   box-shadow: none !important;
 }
 
@@ -507,9 +331,9 @@ html:not(.dark) .admin-page-header {
   border-radius: 20px !important;
   border: 1px solid rgba(15, 23, 42, 0.08) !important;
   background:
-    radial-gradient(ellipse 80% 70% at 100% -20%, rgba(14, 165, 233, 0.08), transparent 50%),
-    radial-gradient(ellipse 50% 40% at 0% 100%, rgba(20, 184, 166, 0.06), transparent 45%),
-    linear-gradient(165deg, #ffffff, #f5f7fb) !important;
+    radial-gradient(ellipse 80% 70% at 100% -20%, rgba(113, 46, 255, 0.1), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 0% 100%, rgba(125, 64, 255, 0.05), transparent 45%),
+    linear-gradient(165deg, #ffffff, #fafafa) !important;
   box-shadow:
     0 1px 2px rgba(15, 23, 42, 0.04),
     0 14px 36px rgba(15, 23, 42, 0.06),
@@ -536,8 +360,8 @@ html:not(.dark) .admin-page-title {
 .dark .admin-page-header {
   border-color: rgba(255, 255, 255, 0.1) !important;
   background:
-    radial-gradient(ellipse 80% 70% at 100% -10%, rgba(14, 165, 233, 0.12), transparent 50%),
-    linear-gradient(165deg, rgba(34, 34, 40, 0.96), rgba(16, 16, 20, 0.94)) !important;
+    radial-gradient(ellipse 80% 70% at 100% -10%, rgba(139, 92, 255, 0.16), transparent 50%),
+    linear-gradient(165deg, rgba(30, 26, 42, 0.96), rgba(14, 12, 20, 0.94)) !important;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
@@ -592,7 +416,7 @@ html:not(.dark) .admin-table tbody tr {
 
 html:not(.dark) .admin-module-table tbody tr:hover,
 html:not(.dark) .admin-table tbody tr:hover {
-  background: rgba(14, 165, 233, 0.04) !important;
+  background: rgba(113, 46, 255, 0.035) !important;
 }
 
 /* Progress bars — premium glow */

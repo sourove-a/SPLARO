@@ -347,11 +347,12 @@ export default function ProductPageClient({
 
     let attachedEl: HTMLElement | null = null
     let io: IntersectionObserver | null = null
-    let footerIo: IntersectionObserver | null = null
+    let boundaryIo: IntersectionObserver | null = null
     let unsubScroll: (() => void) | null = null
     let raf = 0
     let alive = true
     let attachTries = 0
+    let relatedAttachTries = 0
 
     const resolveCta = () =>
       ctaRef.current ?? (document.querySelector('.pp-info__ctas') as HTMLElement | null)
@@ -378,6 +379,16 @@ export default function ProductPageClient({
         }
       }
 
+      // Hide before "You may also like" — related is a sibling after ProductPageClient.
+      const related = document.querySelector('.pp-related')
+      if (related) {
+        const relatedTop = related.getBoundingClientRect().top
+        if (relatedTop < window.innerHeight - 24) {
+          setShowFloatingCta((prev) => (prev ? false : prev))
+          return
+        }
+      }
+
       // Require scroll intent before floating — the bar used to be prominent
       // on first paint (inline CTA below the fold on mobile) and crammed the
       // page together with the bottom nav + chat bubble.
@@ -390,11 +401,31 @@ export default function ProductPageClient({
       setShowFloatingCta((prev) => (prev === next ? prev : next))
     }
 
+    const observeBoundaries = () => {
+      if (typeof IntersectionObserver === 'undefined') return
+
+      boundaryIo?.disconnect()
+      boundaryIo = new IntersectionObserver(updateFloatingCta, {
+        threshold: [0, 0.01, 0.1],
+      })
+
+      const footer = document.querySelector('footer.site-footer, footer[data-site-chrome]')
+      if (footer) boundaryIo.observe(footer)
+
+      const related = document.querySelector('.pp-related')
+      if (related) {
+        boundaryIo.observe(related)
+        return true
+      }
+      return false
+    }
+
     const attach = () => {
       const el = resolveCta()
       if (!el || !alive) return false
       if (attachedEl === el && io) {
         updateFloatingCta()
+        observeBoundaries()
         return true
       }
 
@@ -408,15 +439,7 @@ export default function ProductPageClient({
           rootMargin: '-72px 0px -28px 0px',
         })
         io.observe(el)
-
-        const footer = document.querySelector('footer.site-footer, footer[data-site-chrome]')
-        if (footer) {
-          footerIo?.disconnect()
-          footerIo = new IntersectionObserver(updateFloatingCta, {
-            threshold: [0, 0.01, 0.1],
-          })
-          footerIo.observe(footer)
-        }
+        observeBoundaries()
       }
       return true
     }
@@ -431,14 +454,27 @@ export default function ProductPageClient({
     }
     tryAttach()
 
+    // Related products load in Suspense after the PDP client — retry observe briefly.
+    let relatedTimer = 0
+    const tryRelated = () => {
+      if (!alive) return
+      if (observeBoundaries()) return
+      relatedAttachTries += 1
+      if (relatedAttachTries < 40) {
+        relatedTimer = window.setTimeout(tryRelated, 120)
+      }
+    }
+    tryRelated()
+
     unsubScroll = subscribeScroll(updateFloatingCta)
     window.addEventListener('resize', updateFloatingCta, { passive: true })
 
     return () => {
       alive = false
       window.cancelAnimationFrame(raf)
+      window.clearTimeout(relatedTimer)
       io?.disconnect()
-      footerIo?.disconnect()
+      boundaryIo?.disconnect()
       unsubScroll?.()
       window.removeEventListener('resize', updateFloatingCta)
     }

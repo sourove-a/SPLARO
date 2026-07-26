@@ -24,6 +24,20 @@ export interface ApiCustomer {
   avatar?: string | null
 }
 
+export interface CustomerFraudSignals {
+  lastIp: string | null
+  lastDeviceIdMasked: string | null
+  lastDeviceSummary: string | null
+  sameIpOrderCount: number
+  sameDeviceOrderCount: number
+  distinctPhonesOnDevice: number
+  distinctPhonesOnIp: number
+  firstSeenAt: string | null
+  lastSeenAt: string | null
+  flags: string[]
+  captured: boolean
+}
+
 export interface ApiCustomerDetail extends ApiCustomer {
   addresses: Array<{
     id: string
@@ -48,6 +62,8 @@ export interface ApiCustomerDetail extends ApiCustomer {
   avatar?: string | null
   lastLogin?: string
   lastDevice?: string
+  lastIp?: string
+  fraudSignals?: CustomerFraudSignals
 }
 
 export function fetchCustomers(params?: { search?: string; limit?: number }) {

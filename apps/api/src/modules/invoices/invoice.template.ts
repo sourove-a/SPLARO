@@ -78,11 +78,11 @@ const invoiceStyles = `
     --invoice-recess: #ebe1d3;
     --invoice-ink: #1c1510;
     --invoice-espresso: #2a1f18;
-    --invoice-charcoal: #4a4038;
-    --invoice-muted: #7a6e62;
+    --invoice-charcoal: #302820;
+    --invoice-muted: #44382f;
     --invoice-gold: #c6a46a;
     --invoice-gold-soft: #e0c790;
-    --invoice-gold-deep: #9a7844;
+    --invoice-gold-deep: #875f28;
     --invoice-thread: rgba(154, 120, 68, 0.72);
     --invoice-serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
     --invoice-sans: "Manrope", "Segoe UI", Arial, sans-serif;
@@ -113,7 +113,7 @@ const invoiceStyles = `
   .invoice-toolbar {
     position: sticky; top: 10px; z-index: 20;
     display: flex; justify-content: center;
-    width: min(210mm, 100%); margin: 0 auto 12px;
+    width: min(170mm, 100%); margin: 0 auto 12px;
   }
 
   .invoice-toolbar button {
@@ -134,14 +134,14 @@ const invoiceStyles = `
     outline-offset: 3px;
   }
 
-  .invoice-shell { width: min(210mm, 100%); margin: 0 auto; }
+  .invoice-shell { width: min(170mm, 100%); margin: 0 auto; }
 
   .invoice-document {
     position: relative;
     isolation: isolate;
-    width: 210mm;
+    width: 170mm;
     overflow: hidden;
-    padding: 10mm 12mm 9mm;
+    padding: 10mm 15mm 9mm;
     border-radius: 3mm;
     background: #f4ece1;
     box-shadow:
@@ -192,97 +192,12 @@ const invoiceStyles = `
     border: 0.2mm solid rgba(198, 164, 106, 0.28);
   }
 
-  .invoice-hangtag {
-    position: absolute;
-    top: 3.2mm;
-    left: 7.5mm;
-    z-index: 4;
-    width: 23mm;
-    pointer-events: none;
-    filter: drop-shadow(1.5mm 2mm 2.5mm rgba(40,28,18,0.2));
-  }
-
-  .invoice-hangtag__cord {
-    display: block;
-    width: 12mm;
-    height: 14mm;
-    margin: 0 auto -1.2mm;
-  }
-
-  .invoice-hangtag__body {
-    position: relative;
-    display: grid;
-    place-items: center;
-    gap: 0.7mm;
-    width: 19mm;
-    height: 31mm;
-    margin: 0 auto;
-    border-radius: 1.5mm;
-    background-color: #f0e6d8;
-    background-image:
-      linear-gradient(160deg, rgba(255,255,255,0.4), transparent),
-      var(--invoice-leather);
-    background-size: auto, 70px 70px;
-    border: 0.28mm solid rgba(150, 118, 70, 0.5);
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,0.6),
-      inset 0 -1px 2px rgba(90,60,30,0.08);
-  }
-
-  .invoice-hangtag__body::after {
-    content: "";
-    position: absolute;
-    inset: 0.9mm;
-    border: 0.35mm dashed rgba(150,118,70,0.4);
-    border-radius: 0.9mm;
-    pointer-events: none;
-  }
-
-  .invoice-hangtag__body::before {
-    content: "";
-    position: absolute;
-    top: 2mm;
-    left: 50%;
-    width: 2.8mm;
-    height: 2.8mm;
-    border: 0.45mm solid rgba(133, 94, 43, 0.78);
-    border-radius: 50%;
-    background: #d8c5aa;
-    box-shadow: inset 0 0.4mm 0.6mm rgba(55, 37, 20, 0.24);
-    transform: translateX(-50%);
-  }
-
-  .invoice-hangtag__mark {
-    position: relative;
-    z-index: 1;
-    font-family: var(--invoice-serif);
-    margin-top: -1mm;
-    font-size: 9mm;
-    font-weight: 600;
-    line-height: 1;
-    background: linear-gradient(180deg, #f2d9a4 0%, #c6a46a 45%, #8a6534 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    filter: drop-shadow(0 0.5px 0 rgba(255,255,255,0.45));
-  }
-
-  .invoice-hangtag__star {
-    position: relative;
-    z-index: 1;
-    width: 2.4mm;
-    height: 2.4mm;
-    background: linear-gradient(135deg, #f0d9a0, #9a7640);
-    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-    margin-top: 3.8mm;
-  }
-
   .invoice-document__content {
     position: relative;
     z-index: 2;
     display: flex;
     flex-direction: column;
-    gap: 4mm;
+    gap: 3.2mm;
   }
 
   .invoice-edge-ribbon {
@@ -350,17 +265,17 @@ const invoiceStyles = `
     flex-direction: column;
     align-items: center;
     text-align: center;
-    padding-top: 5mm;
-    margin-bottom: 4mm;
+    padding-top: 0;
+    margin-bottom: 0;
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
   .invoice-header__logo {
     display: block;
-    width: 58mm;
+    width: 50mm;
     height: auto;
-    max-height: 32mm;
+    max-height: 27mm;
     object-fit: contain;
     filter: drop-shadow(0 1px 1.5px rgba(90,60,30,0.18));
   }
@@ -369,8 +284,8 @@ const invoiceStyles = `
     display: flex;
     align-items: center;
     gap: 2mm;
-    width: 38mm;
-    margin-top: 2.2mm;
+    width: 32mm;
+    margin-top: 1mm;
   }
 
   .invoice-header__divider::before,
@@ -389,10 +304,10 @@ const invoiceStyles = `
     display: inline-flex;
     align-items: center;
     gap: 1.6mm;
-    margin-top: 2.2mm;
+    margin-top: 1mm;
     color: var(--invoice-gold-deep);
     font-family: var(--invoice-serif);
-    font-size: 5.2mm;
+    font-size: 4.4mm;
     font-weight: 600;
     letter-spacing: 0.32em;
     line-height: 1;
@@ -412,21 +327,21 @@ const invoiceStyles = `
     display: inline-flex;
     align-items: center;
     gap: 0.6mm;
-    margin-top: 2.5mm;
-    padding: 1.25mm 4mm;
+    margin-top: 1.2mm;
+    padding: 0.8mm 3.2mm;
     border: 0.28mm solid rgba(154, 120, 68, 0.55);
     border-radius: 999px;
     background: linear-gradient(180deg, rgba(255,255,255,0.45), rgba(235,225,211,0.5));
     box-shadow: inset 0 1px 2px rgba(80,55,30,0.08), inset 0 1px 0 rgba(255,255,255,0.65);
     color: var(--invoice-gold-deep);
-    font-size: 2.35mm;
+    font-size: 2.1mm;
     font-weight: 600;
     letter-spacing: 0.08em;
   }
 
   .invoice-header__number strong {
     color: var(--invoice-espresso);
-    font-size: 2.7mm;
+    font-size: 2.4mm;
     font-weight: 700;
     letter-spacing: 0.04em;
     font-variant-numeric: tabular-nums;
@@ -453,8 +368,8 @@ const invoiceStyles = `
     display: grid;
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
     gap: 7mm;
-    min-height: 40mm;
-    padding: 1mm 3mm 0;
+    min-height: 34mm;
+    padding: 0 3mm;
     break-inside: avoid;
     page-break-inside: avoid;
   }
@@ -540,7 +455,7 @@ const invoiceStyles = `
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 3mm;
-    min-height: 11.5mm;
+    min-height: 10mm;
     border-bottom: 0.2mm dashed rgba(154, 120, 68, 0.3);
   }
 
@@ -745,9 +660,9 @@ const invoiceStyles = `
 
   .invoice-closing {
     display: grid;
-    grid-template-columns: 80mm minmax(0, 1fr);
+    grid-template-columns: 58mm minmax(0, 1fr);
     align-items: stretch;
-    gap: 5mm;
+    gap: 4mm;
     margin-top: 0;
     padding-top: 1mm;
     break-inside: avoid;
@@ -760,9 +675,9 @@ const invoiceStyles = `
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 3.5mm 5mm;
+    padding: 2mm 3mm;
     max-width: none;
-    min-height: 36mm;
+    min-height: 25mm;
     background-image:
       linear-gradient(90deg, rgba(150,118,70,0.1) 1px, transparent 1px),
       linear-gradient(rgba(150,118,70,0.1) 1px, transparent 1px),
@@ -777,7 +692,7 @@ const invoiceStyles = `
 
   .invoice-thanks__title {
     font-family: "Snell Roundhand", "Apple Chancery", "Segoe Script", var(--invoice-serif);
-    font-size: 6.2mm;
+    font-size: 4.6mm;
     font-style: italic;
     font-weight: 500;
     line-height: 1;
@@ -786,15 +701,15 @@ const invoiceStyles = `
   }
 
   .invoice-thanks p:last-child {
-    margin-top: 1.4mm;
+    margin-top: 1mm;
     color: var(--invoice-muted);
-    font-size: 2.15mm;
+    font-size: 1.85mm;
   }
 
   .invoice-summary {
-    min-height: 36mm;
+    min-height: 25mm;
     overflow: hidden;
-    padding: 2.2mm 0;
+    padding: 1mm 0;
     position: relative;
     z-index: 1;
   }
@@ -805,7 +720,7 @@ const invoiceStyles = `
     display: flex;
     justify-content: space-between;
     gap: 3mm;
-    padding: 1.15mm 3.4mm;
+    padding: 0.75mm 3mm;
     color: var(--invoice-muted);
     font-size: 2.2mm;
   }
@@ -820,7 +735,7 @@ const invoiceStyles = `
     display: flex !important;
     justify-content: center !important;
     align-items: center;
-    padding: 0.9mm 3.4mm !important;
+    padding: 0.65mm 3mm !important;
   }
 
   .invoice-summary__divider span {
@@ -845,12 +760,15 @@ const invoiceStyles = `
 
   .invoice-summary__total {
     align-items: baseline;
-    padding: 1.5mm 3.4mm 1.8mm !important;
-    background: transparent !important;
+    margin: 0.35mm 1.8mm 0;
+    padding: 1.3mm 2mm 1.5mm !important;
+    border: 0.18mm solid rgba(198, 164, 106, 0.55);
+    border-radius: 1.1mm;
+    background: linear-gradient(105deg, #21160f, #342318) !important;
   }
 
   .invoice-summary__total dt {
-    color: var(--invoice-gold-deep);
+    color: #e3c184;
     font-size: 2.2mm;
     font-weight: 700;
     letter-spacing: 0.16em;
@@ -858,21 +776,23 @@ const invoiceStyles = `
   }
 
   .invoice-summary__total dd {
-    font-family: var(--invoice-serif);
-    font-size: 5mm;
-    font-weight: 600;
+    font-family: var(--invoice-sans);
+    font-size: 4.1mm;
+    font-weight: 700;
     line-height: 1;
-    background: linear-gradient(180deg, #f0d9a0 0%, #c6a46a 45%, #8d6a38 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    filter: drop-shadow(0 0.4px 0 rgba(255,255,255,0.35));
+    white-space: nowrap;
+    background: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    color: #ffe4ab;
+    filter: none;
+    text-shadow: 0 1px 0 rgba(0,0,0,0.3);
   }
 
   .invoice-footer {
     position: relative;
     margin-top: 0;
-    padding: 3.8mm 4mm;
+    padding: 2.2mm 3.5mm;
     border: 0.28mm solid rgba(150, 118, 70, 0.42);
     border-radius: 999px;
     background-color: #ebe1d3;
@@ -932,17 +852,19 @@ const invoiceStyles = `
   }
 
   @media (max-width: 840px) {
-    body { padding: 10px 0 20px; }
+    html, body { overflow-x: hidden; }
+    body { padding: 10px 12px 20px; }
     .invoice-shell {
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      padding: 0 10px 12px;
+      width: 170mm;
+      max-width: none;
+      margin: 0;
+      overflow: visible;
+      padding: 0;
     }
-    .invoice-hangtag { opacity: 0.95; }
   }
 
   @media print {
-    @page { size: A4 portrait; margin: 8mm; }
+    @page { size: A4 portrait; margin: 0; }
 
     html, body { background: #f4ece1 !important; }
     body { position: relative; padding: 0; }
@@ -974,16 +896,19 @@ const invoiceStyles = `
 
     .invoice-shell {
       width: auto; margin: 0; overflow: visible; padding: 0;
+      zoom: 1 !important;
     }
 
     .invoice-document {
       width: 100%;
-      min-height: 281mm;
+      min-height: 297mm;
+      padding: 10mm 15mm 9mm;
       border-radius: 0;
       box-shadow: none;
     }
 
     .invoice-document__content { min-height: 0; }
+    .invoice-closing { margin-top: 0; }
     .invoice-footer { margin-top: 0; }
 
     .invoice-items { overflow: visible; }
@@ -1015,7 +940,18 @@ export function generateInvoiceHTML(
   const autoPrint = options.autoPrint ?? model.autoPrint
   const logoUrl = premiumLogoUrl(model.siteUrl)
   const leatherUrl = invoiceLeatherGrainDataUri(model.siteUrl)
-  const styles = invoiceStyles.replace('url("__LEATHER_URL__")', `url("${leatherUrl}")`)
+  const printableItemCount = Math.max(1, model.items.length)
+  const printPageHeightMm =
+    printableItemCount >= 5 ? 297 : 190 + (printableItemCount - 1) * 27
+  const dynamicPrintStyles = `
+    @media print {
+      @page { size: 210mm ${printPageHeightMm}mm; margin: 0; }
+      .invoice-document { min-height: ${printPageHeightMm}mm; }
+    }
+  `
+  const styles =
+    invoiceStyles.replace('url("__LEATHER_URL__")', `url("${leatherUrl}")`) +
+    dynamicPrintStyles
   const document = InvoiceDocument({ model, logoUrl })
 
   return `<!DOCTYPE html>
@@ -1033,6 +969,25 @@ export function generateInvoiceHTML(
       : ''
   }
   <main class="invoice-shell">${document}</main>
+  <script>
+    (() => {
+      const shell = document.querySelector('.invoice-shell');
+      if (!(shell instanceof HTMLElement)) return;
+
+      const fitInvoiceToViewport = () => {
+        shell.style.zoom = '1';
+        if (window.matchMedia('(max-width: 840px)').matches) {
+          const availableWidth = Math.max(1, document.documentElement.clientWidth - 24);
+          const scale = Math.min(1, availableWidth / shell.offsetWidth);
+          shell.style.zoom = scale.toFixed(4);
+        }
+      };
+
+      fitInvoiceToViewport();
+      window.addEventListener('resize', fitInvoiceToViewport, { passive: true });
+      window.addEventListener('orientationchange', fitInvoiceToViewport, { passive: true });
+    })();
+  </script>
   ${
     autoPrint
       ? '<script>window.addEventListener("load", () => setTimeout(() => window.print(), 400));</script>'

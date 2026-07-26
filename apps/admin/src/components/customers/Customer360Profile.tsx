@@ -3,11 +3,12 @@
 import { useState } from 'react'
 import {
   User, Phone, Mail, MapPin, Calendar, ShoppingBag,
-  DollarSign, Star, Clock, Bot, Plus, Ban, ShieldCheck,
+  DollarSign, Star, Clock, Bot, Plus, Ban, ShieldCheck, ShieldAlert, MonitorSmartphone,
 } from 'lucide-react'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { formatBDT } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils/cn'
+import type { CustomerFraudSignals } from '@/lib/api/customers'
 
 interface CustomerProfileData {
   id: string
@@ -20,6 +21,8 @@ interface CustomerProfileData {
   signupDate: string
   lastLogin?: string
   lastDevice?: string
+  lastIp?: string
+  fraudSignals?: CustomerFraudSignals
   totalOrders: number
   totalSpent: number
   avgOrderValue: number
@@ -88,9 +91,9 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
   return (
     <div className="space-y-6">
       <div className="admin-module-card">
-        <div className="flex items-start gap-5">
-          <div className="relative">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gold/20 text-2xl font-serif font-light text-gold">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
+          <div className="relative shrink-0 self-start">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gold/20 text-xl font-serif font-light text-gold sm:h-16 sm:w-16 sm:text-2xl">
               {customer.firstName[0]}{customer.lastName[0]}
             </div>
             <span
@@ -103,9 +106,9 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
             </span>
           </div>
 
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-semibold text-[var(--admin-text)]">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <h2 className="text-lg font-semibold text-[var(--admin-text)] sm:text-xl">
                 {customer.firstName} {customer.lastName}
               </h2>
               {customer.vipScore >= 80 && (
@@ -124,26 +127,26 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
                 </span>
               ) : null}
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-[var(--admin-text-secondary)]">
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[var(--admin-text-secondary)]">
               <span className="flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5" />
+                <Phone className="h-3.5 w-3.5 shrink-0" />
                 {customer.phone}
               </span>
               {customer.email && (
-                <span className="flex items-center gap-1.5">
-                  <Mail className="h-3.5 w-3.5" />
-                  {customer.email}
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <Mail className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{customer.email}</span>
                 </span>
               )}
               <span className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5" />
+                <Calendar className="h-3.5 w-3.5 shrink-0" />
                 Joined {customer.signupDate}
               </span>
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-2">
-            <div className="text-right">
+          <div className="flex shrink-0 items-center justify-between gap-3 sm:flex-col sm:items-end sm:gap-2">
+            <div className="text-left sm:text-right">
               <p className="text-[10px] uppercase tracking-wider text-[var(--admin-text-muted)]">COD Risk</p>
               <p className={cn('text-2xl font-bold', riskColor)}>
                 {customer.codRiskScore}
@@ -185,16 +188,23 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
       </div>
 
       <div className="admin-module-card !p-0 overflow-hidden">
-        <div className="flex border-b border-[var(--admin-glass-border-subtle)]">
+        <div
+          className="flex overflow-x-auto border-b border-[var(--admin-glass-border-subtle)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="tablist"
+          aria-label="Customer profile sections"
+        >
           {TABS.map((tab) => (
             <button
               key={tab}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab}
               onClick={() => setActiveTab(tab)}
               className={cn(
-                'px-4 py-3 text-xs font-medium transition-colors',
+                'shrink-0 whitespace-nowrap px-3.5 py-3 text-xs font-medium transition-colors sm:px-4',
                 activeTab === tab
                   ? 'border-b-2 border-[var(--admin-brand-gold)] text-[var(--admin-brand-gold)]'
-                  : 'text-[var(--admin-text-muted)] hover:text-[var(--admin-text-secondary)]',
+                  : 'border-b-2 border-transparent text-[var(--admin-text-muted)] hover:text-[var(--admin-text-secondary)]',
               )}
             >
               {tab}
@@ -276,12 +286,19 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
               <InfoRow icon={Calendar} label="Signup Date" value={customer.signupDate} />
               <InfoRow icon={Clock} label="Last Login" value={customer.lastLogin ?? 'Unknown'} />
               <InfoRow icon={User} label="Last Device" value={customer.lastDevice ?? 'Unknown'} />
+              <InfoRow
+                icon={MonitorSmartphone}
+                label="Last login IP"
+                value={customer.lastIp ?? 'Not captured'}
+              />
               <InfoRow icon={Calendar} label="Last Order" value={customer.lastOrderDate ?? 'No orders yet'} />
               <InfoRow
                 icon={MapPin}
                 label="Addresses"
                 value={customer.addresses.map((a) => `${a.city}, ${a.district}`).join(' • ') || 'None saved'}
               />
+
+              <FraudSignalsPanel signals={customer.fraudSignals} />
             </div>
           )}
 
@@ -321,22 +338,56 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
           )}
 
           {activeTab === 'Tags' && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {['Regular Buyer', 'VIP', 'COD Risk', 'High LTV', 'Returns Often',
-                  'Prefers Phone Confirm', 'Polite Customer', 'Wholesale'].map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => {
-                      void onAddTag?.(preset)
-                    }}
-                    className={PRESET_CHIP}
-                  >
-                    + {preset}
-                  </button>
-                ))}
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--admin-text-muted)]">
+                  Applied
+                </p>
+                {customer.tags.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {customer.tags.map((tag) => (
+                      <span key={tag} className={SURFACE_CHIP}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-[var(--admin-text-secondary)]">No tags yet.</p>
+                )}
               </div>
+
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--admin-text-muted)]">
+                  Suggested
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {['Regular Buyer', 'VIP', 'COD Risk', 'High LTV', 'Returns Often',
+                    'Prefers Phone Confirm', 'Polite Customer', 'Wholesale'].map((preset) => {
+                    const applied = customer.tags.some(
+                      (tag) => tag.toLowerCase() === preset.toLowerCase(),
+                    )
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        disabled={applied || !onAddTag}
+                        onClick={() => {
+                          void onAddTag?.(preset)
+                        }}
+                        className={cn(
+                          PRESET_CHIP,
+                          'inline-flex items-center gap-1.5',
+                          applied && 'cursor-default opacity-45 hover:border-[var(--admin-glass-border-subtle)] hover:text-[var(--admin-text-secondary)]',
+                        )}
+                      >
+                        {!applied ? <Plus className="h-3 w-3 shrink-0" strokeWidth={2.2} /> : null}
+                        {preset}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
               <div className="flex gap-2">
                 <input
                   value={newTag}
@@ -354,7 +405,7 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
                       if (ok !== false) setNewTag('')
                     })()
                   }}
-                  disabled={!newTag.trim()}
+                  disabled={!newTag.trim() || !onAddTag}
                   className="rounded-lg bg-gold/20 px-4 py-2 text-xs font-medium text-gold transition-opacity hover:opacity-80 disabled:opacity-30"
                 >
                   Add
@@ -399,6 +450,91 @@ function MiniStat({ icon: Icon, label, value }: { icon: React.ElementType; label
       </div>
       <p className="admin-kpi__value text-lg">{value}</p>
       <p className="admin-kpi__label">{label}</p>
+    </div>
+  )
+}
+
+function FraudSignalsPanel({ signals }: { signals?: CustomerFraudSignals | undefined }) {
+  if (!signals) {
+    return (
+      <div className={cn(SURFACE_PANEL, 'mt-2 space-y-2')}>
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--admin-text-muted)]">
+          <ShieldAlert className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Fraud signals
+        </div>
+        <p className="text-sm text-[var(--admin-text-secondary)]">Signals unavailable.</p>
+      </div>
+    )
+  }
+
+  if (!signals.captured) {
+    return (
+      <div className={cn(SURFACE_PANEL, 'mt-2 space-y-2')}>
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--admin-text-muted)]">
+          <ShieldAlert className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Fraud signals
+        </div>
+        <p className="text-sm text-[var(--admin-text-secondary)]">
+          Not captured on older orders — new checkouts will store IP and device ID.
+        </p>
+      </div>
+    )
+  }
+
+  const formatSeen = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
+
+  return (
+    <div className={cn(SURFACE_PANEL, 'mt-2 space-y-3')}>
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--admin-text-muted)]">
+        <ShieldAlert className="h-3.5 w-3.5" strokeWidth={1.5} />
+        Fraud signals
+        <span className="font-normal normal-case tracking-normal text-[var(--admin-text-muted)]">
+          (review only — no auto-block)
+        </span>
+      </div>
+
+      {signals.flags.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {signals.flags.map((flag) => (
+            <span
+              key={flag}
+              className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-800"
+            >
+              {flag}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-emerald-700">No elevated duplicate-device/IP warnings.</p>
+      )}
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <SignalStat label="Order IP" value={signals.lastIp ?? 'Not captured'} />
+        <SignalStat label="Device ID" value={signals.lastDeviceIdMasked ?? 'Not captured'} />
+        <SignalStat label="Device" value={signals.lastDeviceSummary ?? 'Unknown'} />
+        <SignalStat
+          label="Same IP orders"
+          value={`${signals.sameIpOrderCount} · ${signals.distinctPhonesOnIp} phone(s)`}
+        />
+        <SignalStat
+          label="Same device orders"
+          value={`${signals.sameDeviceOrderCount} · ${signals.distinctPhonesOnDevice} phone(s)`}
+        />
+        <SignalStat
+          label="First / last seen"
+          value={`${formatSeen(signals.firstSeenAt)} → ${formatSeen(signals.lastSeenAt)}`}
+        />
+      </div>
+    </div>
+  )
+}
+
+function SignalStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-bg)]/40 px-2.5 py-2">
+      <p className="text-[10px] uppercase tracking-wide text-[var(--admin-text-muted)]">{label}</p>
+      <p className="mt-0.5 break-all font-mono text-xs text-[var(--admin-text)]">{value}</p>
     </div>
   )
 }
