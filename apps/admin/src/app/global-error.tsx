@@ -17,7 +17,7 @@ export default function GlobalError({
           alignItems: 'center',
           justifyContent: 'center',
           padding: '24px',
-          background: '#f5f5f7',
+          background: 'var(--admin-color-white)',
           fontFamily: 'system-ui, sans-serif',
         }}
       >
@@ -28,13 +28,13 @@ export default function GlobalError({
             padding: '24px',
             borderRadius: '16px',
             border: '1px solid rgba(0,0,0,0.08)',
-            background: '#fff',
+            background: 'var(--admin-color-white)',
             textAlign: 'center',
             boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
           }}
         >
-          <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#111' }}>SPLARO Admin Error</h1>
-          <p style={{ margin: '10px 0 0', fontSize: '14px', color: '#6b6b6b', lineHeight: 1.5 }}>
+          <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--admin-color-ink-near)' }}>SPLARO Admin Error</h1>
+          <p style={{ margin: '10px 0 0', fontSize: '14px', color: 'var(--admin-color-neutral-500)', lineHeight: 1.5 }}>
             {error.message || 'Unexpected application error'}
           </p>
           <button
@@ -45,8 +45,8 @@ export default function GlobalError({
               padding: '10px 18px',
               borderRadius: '10px',
               border: 'none',
-              background: '#111',
-              color: '#fff',
+              background: 'var(--admin-color-ink-near)',
+              color: 'var(--admin-color-white)',
               fontWeight: 700,
               fontSize: '13px',
               cursor: 'pointer',

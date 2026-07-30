@@ -89,11 +89,11 @@ function PartnerAvatar({
 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border border-black/8 bg-gradient-to-br from-[#5E7CFF]/25 to-white shadow-sm">
+      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border border-black/8 bg-gradient-to-br from-[var(--admin-color-accent-blue)]/25 to-white shadow-sm">
         {partner.avatarUrl ? (
           <Image src={partner.avatarUrl} alt={partner.name} width={size} height={size} className="h-full w-full object-cover" unoptimized />
         ) : (
-          <span className="text-lg font-black text-[#3f3f46]">{initials}</span>
+          <span className="text-lg font-semibold text-[var(--admin-c-3f3f46)]">{initials}</span>
         )}
       </div>
       {onUpload ? (
@@ -102,7 +102,7 @@ function PartnerAvatar({
             type="button"
             disabled={uploading}
             onClick={() => inputRef.current?.click()}
-            className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-white bg-[#1c1c22] text-white shadow-md transition hover:bg-[#2f2f38] disabled:opacity-60"
+            className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-white bg-[var(--admin-c-1c1c22)] text-white shadow-md transition hover:bg-[var(--admin-c-2f2f38)] disabled:opacity-60"
             aria-label={`Upload photo for ${partner.name}`}
           >
             <Camera className="h-3.5 w-3.5" />
@@ -129,7 +129,7 @@ function KpiTile({
   value,
   sub,
   icon: Icon,
-  tone = 'text-[#5E7CFF]',
+  tone = 'text-[var(--admin-color-accent-blue)]',
 }: {
   label: string
   value: string
@@ -143,7 +143,7 @@ function KpiTile({
         <Icon className={cn('h-4 w-4', tone)} />
         <span className="admin-kpi__label">{label}</span>
       </div>
-      <p className="mt-2 text-xl font-black text-[var(--admin-text)]">{value}</p>
+      <p className="mt-2 text-xl font-semibold text-[var(--admin-text)]">{value}</p>
       {sub ? <p className="mt-1 text-[11px] font-semibold text-[var(--admin-text-secondary)]">{sub}</p> : null}
     </div>
   )
@@ -390,13 +390,13 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
 
       <section className="partner-hero-card">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--admin-accent)]">{partnerLabel}</p>
-          <h2 className="mt-1 text-2xl font-black text-[var(--admin-text)]">Partner Command Center</h2>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent)]">{partnerLabel}</p>
+          <h2 className="mt-1 text-2xl font-semibold text-[var(--admin-text)]">Partner Command Center</h2>
           <p className="mt-2 max-w-2xl text-sm font-semibold text-[var(--admin-text-secondary)]">
             Protteker alada hisab, investment, stock value, profit/loss — sob live database theke. Apni je partner add korben, shei naam ekhane dekhabe.
           </p>
         </div>
-        <AdminButton variant="gold" onClick={loadAll}>
+        <AdminButton variant="accent" onClick={loadAll}>
           <RefreshCw className="h-4 w-4" />
           Refresh live data
         </AdminButton>
@@ -436,15 +436,15 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                 <div className="flex items-center gap-3">
                   <PartnerAvatar partner={partner} size={48} />
                   <div>
-                    <p className="text-lg font-black text-[var(--admin-text)]">{partner.name}</p>
+                    <p className="text-lg font-semibold text-[var(--admin-text)]">{partner.name}</p>
                     <p className="text-[11px] font-semibold text-[var(--admin-text-secondary)]">{Number(partner.sharePercent)}% share · alada hisab</p>
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                  <div><p className="text-[var(--admin-text-secondary)]">Balance</p><p className="font-black text-[#5E7CFF]">{formatBDT(Number(partner.currentBalance))}</p></div>
-                  <div><p className="text-[var(--admin-text-secondary)]">Invested</p><p className="font-black">{formatBDT(Number(partner.totalInvestment))}</p></div>
-                  <div><p className="text-[var(--admin-text-secondary)]">Profit share</p><p className="font-black text-emerald-700">{formatBDT(Number(partner.totalProfitShare))}</p></div>
-                  <div><p className="text-[var(--admin-text-secondary)]">Expense share</p><p className="font-black text-amber-800">{formatBDT(Number(partner.totalExpenseShare))}</p></div>
+                  <div><p className="text-[var(--admin-text-secondary)]">Balance</p><p className="font-semibold text-[var(--admin-color-accent-blue)]">{formatBDT(Number(partner.currentBalance))}</p></div>
+                  <div><p className="text-[var(--admin-text-secondary)]">Invested</p><p className="font-semibold">{formatBDT(Number(partner.totalInvestment))}</p></div>
+                  <div><p className="text-[var(--admin-text-secondary)]">Profit share</p><p className="font-semibold text-emerald-700">{formatBDT(Number(partner.totalProfitShare))}</p></div>
+                  <div><p className="text-[var(--admin-text-secondary)]">Expense share</p><p className="font-semibold text-amber-800">{formatBDT(Number(partner.totalExpenseShare))}</p></div>
                 </div>
               </div>
             ))}
@@ -460,10 +460,10 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                   {hub.recentInvestments.slice(0, 8).map((row) => (
                     <div key={row.id} className="flex items-center justify-between rounded-xl border border-black/5 bg-white/60 px-3 py-2.5">
                       <div>
-                        <p className="text-sm font-black">{row.partner?.name ?? '—'}</p>
+                        <p className="text-sm font-semibold">{row.partner?.name ?? '—'}</p>
                         <p className="text-[11px] text-[var(--admin-text-secondary)]">{row.note ?? 'Investment'} · {new Date(row.date).toLocaleDateString('en-BD')}</p>
                       </div>
-                      <p className="font-black text-emerald-700">{formatBDT(row.amount)}</p>
+                      <p className="font-semibold text-emerald-700">{formatBDT(row.amount)}</p>
                     </div>
                   ))}
                 </div>
@@ -479,7 +479,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                   {hub.expensesByCategory.map((e) => (
                     <div key={e.category} className="flex items-center justify-between text-sm">
                       <span className="font-semibold capitalize">{e.category.replace(/_/g, ' ').toLowerCase()}</span>
-                      <span className="font-black text-[#5E7CFF]">{formatBDT(e.amount)}</span>
+                      <span className="font-semibold text-[var(--admin-color-accent-blue)]">{formatBDT(e.amount)}</span>
                     </div>
                   ))}
                 </div>
@@ -544,11 +544,11 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                     return (
                       <tr key={item.id}>
                         <td className="font-semibold">{item.name}</td>
-                        <td className="font-black">{item.stock}</td>
+                        <td className="font-semibold">{item.stock}</td>
                         <td>{formatBDT(item.costValue)}</td>
                         <td>{formatBDT(item.retailValue)}</td>
                         <td>{item.soldCount}</td>
-                        <td><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-black uppercase', badge.className)}>{badge.label}</span></td>
+                        <td><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase', badge.className)}>{badge.label}</span></td>
                       </tr>
                     )
                   })}
@@ -581,12 +581,12 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                   const badge = demandBadge(item)
                   return (
                     <tr key={item.id}>
-                      <td className="font-black text-[#5E7CFF]">{idx + 1}</td>
+                      <td className="font-semibold text-[var(--admin-color-accent-blue)]">{idx + 1}</td>
                       <td className="font-semibold">{item.name}</td>
-                      <td className="font-black">{item.soldCount}</td>
+                      <td className="font-semibold">{item.soldCount}</td>
                       <td>{item.viewCount}</td>
                       <td>{item.stock}</td>
-                      <td><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-black uppercase', badge.className)}>{badge.label}</span></td>
+                      <td><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase', badge.className)}>{badge.label}</span></td>
                     </tr>
                   )
                 })}
@@ -604,7 +604,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
           <div className="grid gap-4 lg:grid-cols-2">
             <section className="admin-module-card admin-module-card--accent">
               <h3 className="admin-module-card__title">This month — labh / loss</h3>
-              <p className={cn('mt-2 text-3xl font-black', monthly.netProfit >= 0 ? 'text-emerald-700' : 'text-red-600')}>
+              <p className={cn('mt-2 text-3xl font-semibold', monthly.netProfit >= 0 ? 'text-emerald-700' : 'text-red-600')}>
                 {formatBDT(monthly.netProfit)}
               </p>
               <p className="mt-1 text-xs font-semibold text-[var(--admin-text-secondary)]">{hub.profitLoss.monthly.orderCount} delivered orders counted</p>
@@ -620,14 +620,14 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                 ].map(([label, val]) => (
                   <div key={String(label)} className="flex justify-between border-b border-black/5 pb-1">
                     <dt className="font-semibold">{label}</dt>
-                    <dd className={cn('font-black', Number(val) < 0 ? 'text-red-600' : '')}>{formatBDT(Math.abs(Number(val)))}</dd>
+                    <dd className={cn('font-semibold', Number(val) < 0 ? 'text-red-600' : '')}>{formatBDT(Math.abs(Number(val)))}</dd>
                   </div>
                 ))}
               </dl>
             </section>
             <section className="admin-module-card">
               <h3 className="admin-module-card__title">This week</h3>
-              <p className={cn('mt-2 text-3xl font-black', (weekly?.netProfit ?? 0) >= 0 ? 'text-emerald-700' : 'text-red-600')}>
+              <p className={cn('mt-2 text-3xl font-semibold', (weekly?.netProfit ?? 0) >= 0 ? 'text-emerald-700' : 'text-red-600')}>
                 {formatBDT(weekly?.netProfit ?? 0)}
               </p>
               <p className="mt-4 text-sm font-semibold text-[var(--admin-text-secondary)]">
@@ -670,7 +670,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                 <input className="admin-input" placeholder="e.g. Steadfast courier bill" value={expenseForm.note} onChange={(e) => setExpenseForm((f) => ({ ...f, note: e.target.value }))} />
               </label>
             </div>
-            <AdminButton variant="gold" className="mt-4" onClick={handleCreateExpense}>
+            <AdminButton variant="accent" className="mt-4" onClick={handleCreateExpense}>
               <Plus className="h-4 w-4" />
               Add expense
             </AdminButton>
@@ -700,7 +700,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                       <td className="text-xs font-semibold">{row.category.replace(/_/g, ' ')}</td>
                       <td className="text-xs">{row.partner?.name ?? 'All partners'}</td>
                       <td className="max-w-[200px] truncate text-xs">{row.note ?? '—'}</td>
-                      <td className="font-black">{formatBDT(Number(row.amount))}</td>
+                      <td className="font-semibold">{formatBDT(Number(row.amount))}</td>
                       <td>
                         <span className={cn('admin-status', row.status === 'APPROVED' ? 'admin-status--delivered' : 'admin-status--pending')}>
                           {row.status.toLowerCase()}
@@ -708,7 +708,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                       </td>
                       <td>
                         {row.status === 'PENDING' ? (
-                          <AdminButton variant="gold" size="sm" onClick={() => handleApproveExpense(row.id)}>
+                          <AdminButton variant="accent" size="sm" onClick={() => handleApproveExpense(row.id)}>
                             Approve
                           </AdminButton>
                         ) : (
@@ -739,13 +739,13 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                     className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-surface)] px-4 py-3"
                   >
                     <div>
-                      <p className="text-sm font-black text-[var(--admin-text)]">
+                      <p className="text-sm font-semibold text-[var(--admin-text)]">
                         {row.partner?.name ?? 'Partner'} — {formatBDT(Number(row.amount))}
                       </p>
                       <p className="text-xs text-[var(--admin-text-muted)]">{row.note ?? 'No note'}</p>
                     </div>
                     <div className="flex gap-2">
-                      <AdminButton size="sm" variant="gold" onClick={() => void handleApproveTxn(row.id)}>
+                      <AdminButton size="sm" variant="accent" onClick={() => void handleApproveTxn(row.id)}>
                         <CheckCircle2 className="h-3.5 w-3.5" />
                         Approve
                       </AdminButton>
@@ -788,7 +788,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                   <span className="admin-kpi__label">Note — kothay / keno</span>
                   <input className="admin-input" placeholder="e.g. bKash payout, initial stock" value={txnForm.note} onChange={(e) => setTxnForm((f) => ({ ...f, note: e.target.value }))} />
                 </label>
-                <AdminButton variant="gold" onClick={() => handleCreateTxn(tab === 'invest' ? 'INVESTMENT' : 'WITHDRAWAL')}>
+                <AdminButton variant="accent" onClick={() => handleCreateTxn(tab === 'invest' ? 'INVESTMENT' : 'WITHDRAWAL')}>
                   {tab === 'invest' ? 'Save investment' : 'Request withdrawal'}
                 </AdminButton>
               </div>
@@ -821,7 +821,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                     <td className="font-semibold">{row.partner?.name ?? '—'}</td>
                     <td className="text-xs">{row.type.replace(/_/g, ' ')}</td>
                     <td className="max-w-[220px] truncate text-xs">{row.note ?? '—'}</td>
-                    <td className="font-black">{formatBDT(Number(row.amount))}</td>
+                    <td className="font-semibold">{formatBDT(Number(row.amount))}</td>
                     <td>
                       {row.status === 'PENDING' ? (
                         <div className="flex flex-wrap gap-1">
@@ -885,7 +885,7 @@ function PartnerProfileCard({
   return (
     <article className="admin-module-card admin-module-card--accent flex flex-col">
       <div className="mb-3 border-b border-black/5 pb-3">
-        <h2 className="text-2xl font-black tracking-wide text-[var(--admin-text)]">{partner.name}</h2>
+        <h2 className="text-2xl font-semibold tracking-wide text-[var(--admin-text)]">{partner.name}</h2>
         <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--admin-text-secondary)]">
           Alada hisab · {Number(partner.sharePercent)}% share
         </p>
@@ -893,16 +893,16 @@ function PartnerProfileCard({
       <div className="flex items-start gap-3">
         <PartnerAvatar partner={partner} onUpload={onUpload} uploading={uploading} />
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-wider text-[#5E7CFF]">Current balance</p>
-          <p className="mt-1 text-2xl font-black text-[#5E7CFF]">{formatBDT(Number(partner.currentBalance))}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--admin-color-accent-blue)]">Current balance</p>
+          <p className="mt-1 text-2xl font-semibold text-[var(--admin-color-accent-blue)]">{formatBDT(Number(partner.currentBalance))}</p>
         </div>
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
-        <div><dt className="text-[var(--admin-text-secondary)]">Invested</dt><dd className="font-black">{formatBDT(Number(partner.totalInvestment))}</dd></div>
-        <div><dt className="text-[var(--admin-text-secondary)]">Withdrawn</dt><dd className="font-black">{formatBDT(Number(partner.totalWithdrawal))}</dd></div>
-        <div><dt className="text-[var(--admin-text-secondary)]">Profit share</dt><dd className="font-black text-emerald-700">{formatBDT(Number(partner.totalProfitShare))}</dd></div>
-        <div><dt className="text-[var(--admin-text-secondary)]">Expense share</dt><dd className="font-black text-amber-800">{formatBDT(Number(partner.totalExpenseShare))}</dd></div>
+        <div><dt className="text-[var(--admin-text-secondary)]">Invested</dt><dd className="font-semibold">{formatBDT(Number(partner.totalInvestment))}</dd></div>
+        <div><dt className="text-[var(--admin-text-secondary)]">Withdrawn</dt><dd className="font-semibold">{formatBDT(Number(partner.totalWithdrawal))}</dd></div>
+        <div><dt className="text-[var(--admin-text-secondary)]">Profit share</dt><dd className="font-semibold text-emerald-700">{formatBDT(Number(partner.totalProfitShare))}</dd></div>
+        <div><dt className="text-[var(--admin-text-secondary)]">Expense share</dt><dd className="font-semibold text-amber-800">{formatBDT(Number(partner.totalExpenseShare))}</dd></div>
       </dl>
 
       {investments.length > 0 ? (
@@ -912,7 +912,7 @@ function PartnerProfileCard({
             {investments.slice(0, 3).map((inv) => (
               <div key={inv.id} className="flex justify-between text-xs">
                 <span className="truncate text-[var(--admin-text-secondary)]">{inv.note ?? 'Investment'}</span>
-                <span className="font-black text-emerald-700">{formatBDT(inv.amount)}</span>
+                <span className="font-semibold text-emerald-700">{formatBDT(inv.amount)}</span>
               </div>
             ))}
           </div>
@@ -934,7 +934,7 @@ function PartnerProfileCard({
         </label>
       </div>
 
-      <AdminButton variant="gold" className="mt-4 w-full" loading={saving} onClick={() => onSave({ name: name.trim(), email: email.trim(), phone: phone.trim() })}>
+      <AdminButton variant="accent" className="mt-4 w-full" loading={saving} onClick={() => onSave({ name: name.trim(), email: email.trim(), phone: phone.trim() })}>
         Save profile
       </AdminButton>
     </article>

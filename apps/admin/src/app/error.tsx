@@ -35,15 +35,15 @@ export default function RootError({
           padding: '24px',
           borderRadius: '16px',
           border: '1px solid rgba(0,0,0,0.08)',
-          background: '#fff',
+          background: 'var(--admin-color-white)',
           textAlign: 'center',
           boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
         }}
       >
-        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#111' }}>
+        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--admin-color-ink-near)' }}>
           Admin panel error
         </h2>
-        <p style={{ margin: '10px 0 0', fontSize: '14px', color: '#6b6b6b', lineHeight: 1.5 }}>
+        <p style={{ margin: '10px 0 0', fontSize: '14px', color: 'var(--admin-color-neutral-500)', lineHeight: 1.5 }}>
           {stale
             ? 'Dev cache stale — run pnpm dev:reset then hard refresh (Cmd+Shift+R).'
             : error.message || 'An unexpected error occurred.'}
@@ -56,8 +56,8 @@ export default function RootError({
               padding: '10px 16px',
               borderRadius: '10px',
               border: 'none',
-              background: '#111',
-              color: '#fff',
+              background: 'var(--admin-color-ink-near)',
+              color: 'var(--admin-color-white)',
               fontWeight: 700,
               fontSize: '13px',
               cursor: 'pointer',
@@ -71,9 +71,9 @@ export default function RootError({
             style={{
               padding: '10px 16px',
               borderRadius: '10px',
-              border: '1px solid #ddd',
-              background: '#fff',
-              color: '#111',
+              border: '1px solid var(--admin-c-dddddd)',
+              background: 'var(--admin-color-white)',
+              color: 'var(--admin-color-ink-near)',
               fontWeight: 700,
               fontSize: '13px',
               cursor: 'pointer',

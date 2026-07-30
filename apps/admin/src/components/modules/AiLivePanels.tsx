@@ -12,7 +12,7 @@ import { useSeoOverview, useExecutiveDashboard, useCustomers } from '@/lib/api/h
 import { formatBDT as formatCurrency } from '@/lib/utils/currency'
 import type { ApiCustomer } from '@/lib/api/customers'
 
-type JobStatus = 'running' | 'completed' | 'queued' | 'failed'
+type SeoHealthLabel = 'ready' | 'needs work' | 'critical'
 
 function spent(c: ApiCustomer) {
   return Number(c.totalSpent) || 0
@@ -37,7 +37,8 @@ export function AiContentPanelLive() {
         en: p.hasMetaTitle ? 'Ready' : 'Missing title',
         bn: p.hasMetaDescription ? 'Ready' : 'Missing description',
         social: p.score >= 80 ? 'Ready' : 'Needs work',
-        status: (p.score >= 80 ? 'completed' : p.score >= 50 ? 'running' : 'queued') as JobStatus,
+        health: (p.score >= 80 ? 'ready' : p.score >= 50 ? 'needs work' : 'critical') as SeoHealthLabel,
+        score: p.score,
       })),
     [audits],
   )
@@ -65,11 +66,11 @@ export function AiContentPanelLive() {
       onCreate={() => toastInfo('Bulk AI copy generation coming — edit meta in Products for now.')}
       onRefresh={() => void refreshWithToast(refetch, 'Content data refreshed')}
       tableIcon={Sparkles}
-      tableTitle={`AI content queue · ${filtered.length}`}
-      footer="Derived from product SEO audits"
+      tableTitle={`SEO content health · ${filtered.length}`}
+      footer="Live product SEO audits — not an AI job queue"
     >
       {filtered.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-[#6B6B6B]">No published products to optimize yet.</p>
+        <p className="px-4 py-6 text-sm text-[var(--admin-color-neutral-500)]">No published products to optimize yet.</p>
       ) : (
         <table className="admin-module-table">
           <thead>
@@ -78,7 +79,7 @@ export function AiContentPanelLive() {
               <th>Meta title</th>
               <th>Meta description</th>
               <th>Score</th>
-              <th>Status</th>
+              <th>Health</th>
               <th />
             </tr>
           </thead>
@@ -88,9 +89,13 @@ export function AiContentPanelLive() {
                 <td className="font-semibold">{i.product}</td>
                 <td className="text-xs">{i.en}</td>
                 <td className="text-xs">{i.bn}</td>
-                <td className="text-xs">{i.social}</td>
+                <td className="text-xs font-semibold">{i.score}</td>
                 <td>
-                  <span className={STATUS_CLASS[i.status === 'completed' ? 'success' : 'processing']}>{i.status}</span>
+                  <span
+                    className={STATUS_CLASS[i.health === 'ready' ? 'success' : i.health === 'needs work' ? 'processing' : 'warning']}
+                  >
+                    {i.health}
+                  </span>
                 </td>
                 <td>
                   <AdminButton size="sm" onClick={() => window.location.assign('/dashboard/products')}>
@@ -144,7 +149,7 @@ export function AiSeoPanelLive() {
       footer={`${fixes.length} issues from live catalog`}
     >
       {fixes.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-[#6B6B6B]">All products pass SEO threshold (80+).</p>
+        <p className="px-4 py-6 text-sm text-[var(--admin-color-neutral-500)]">All products pass SEO threshold (80+).</p>
       ) : (
         <table className="admin-module-table">
           <thead>
@@ -164,7 +169,7 @@ export function AiSeoPanelLive() {
                 <td className={cn('font-black', f.score < 60 && 'text-red-600', f.score < 80 && f.score >= 60 && 'text-amber-700')}>
                   {f.score}
                 </td>
-                <td className="text-xs font-semibold text-[#5E7CFF]">{f.fix}</td>
+                <td className="text-xs font-semibold text-[var(--admin-color-accent-blue)]">{f.fix}</td>
                 <td>
                   {/* Honest label: this opens the product editor — it does not
                       apply anything automatically. */}
@@ -229,7 +234,7 @@ export function AiAnalyticsPanelLive() {
           {forecasts.map((f) => (
             <tr key={f.metric}>
               <td className="font-semibold">{f.metric}</td>
-              <td className="font-black text-[#5E7CFF]">{f.forecast}</td>
+              <td className="font-black text-[var(--admin-color-accent-blue)]">{f.forecast}</td>
               <td>{f.confidence}</td>
               <td className="font-bold text-emerald-700">{f.trend}</td>
             </tr>
@@ -278,11 +283,11 @@ export function AiCustomerInsightsPanelLive() {
       footer={isLoading ? 'Loading customers…' : customers.length === 0 ? 'No customers yet — run pnpm db:seed or add customers in Commerce.' : 'Computed from live customer records'}
     >
       {isLoading ? (
-        <p className="px-4 py-8 text-sm text-[#6B6B6B]">Loading customer segments…</p>
+        <p className="px-4 py-8 text-sm text-[var(--admin-color-neutral-500)]">Loading customer segments…</p>
       ) : customers.length === 0 ? (
         <div className="px-4 py-10 text-center">
-          <p className="text-sm font-semibold text-[#1A1A1A]">No customer data yet</p>
-          <p className="mt-2 text-xs text-[#6B6B6B]">Start the API with <code className="rounded bg-black/5 px-1">pnpm dev:api</code> and seed the database with <code className="rounded bg-black/5 px-1">pnpm db:seed</code>.</p>
+          <p className="text-sm font-semibold text-[var(--admin-c-1a1a1a)]">No customer data yet</p>
+          <p className="mt-2 text-xs text-[var(--admin-color-neutral-500)]">Start the API with <code className="rounded bg-black/5 px-1">pnpm dev:api</code> and seed the database with <code className="rounded bg-black/5 px-1">pnpm db:seed</code>.</p>
         </div>
       ) : (
       <table className="admin-module-table">
@@ -305,7 +310,7 @@ export function AiCustomerInsightsPanelLive() {
               <td>
                 <span className={cn('text-xs font-bold', s.churnRisk === 'High' ? 'text-red-600' : 'text-emerald-700')}>{s.churnRisk}</span>
               </td>
-              <td className="text-xs font-semibold text-[#5E7CFF]">{s.action}</td>
+              <td className="text-xs font-semibold text-[var(--admin-color-accent-blue)]">{s.action}</td>
               <td>
                 <AdminButton size="sm" disabled title={BACKEND_NOT_CONNECTED_TITLE}>
                   Activate

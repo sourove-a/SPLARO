@@ -3,18 +3,25 @@
 import { useMemo, useState } from 'react'
 import {
   Activity,
+  Bot,
+  CreditCard,
   Facebook,
+  HardDrive,
+  Mail,
+  MessageCircle,
   Plug,
   RefreshCw,
-  ShoppingCart,
+  Send,
+  Server,
+  Smartphone,
+  Table2,
+  Truck,
   Webhook,
-  ChevronRight,
-  Zap,
-  CheckCircle2,
-  XCircle,
 } from 'lucide-react'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
-import { toastOk, toastFail, toastWarn, toastIntegrationTestResult } from '@/lib/admin/feedback'
+import { HandoffPageChrome } from '@/components/ui/HandoffPageChrome'
+import { KpiGrid } from '@/components/ui/AdminHandoffBlocks'
+import { toastOk, toastFail, toastIntegrationTestResult } from '@/lib/admin/feedback'
 import {
   useIntegrationsCatalog,
   useTestTelegramIntegration,
@@ -25,29 +32,51 @@ import {
   useTestMetaIntegration,
 } from '@/lib/api/integration-hooks'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
+import { DcEmptyState, DcErrorState } from '@/components/dc/blocks/DcStates'
+import type { DcModuleState } from '@/components/dc/DcPageHead'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import type { IntegrationCard } from '@/lib/api/integrations'
-import { integrationActionLabel, integrationSetupPath } from '@/lib/integrations/routes'
+import { integrationSetupPath } from '@/lib/integrations/routes'
 import { cn } from '@/lib/utils/cn'
 
 const ICONS: Record<string, typeof Activity> = {
-  telegram: Activity,
-  openai: Plug,
-  google_sheets: Plug,
-  gmail: Plug,
-  google_drive: Plug,
+  telegram: Send,
+  openai: Bot,
+  google_sheets: Table2,
+  gmail: Mail,
+  google_drive: HardDrive,
   meta_pixel: Facebook,
   google_analytics: Activity,
   search_console: Activity,
-  sslcommerz: ShoppingCart,
-  bkash: Plug,
-  nagad: Plug,
-  steadfast: Activity,
-  pathao: Activity,
-  redx: Activity,
-  cloudflare_r2: Plug,
+  sslcommerz: CreditCard,
+  bkash: Smartphone,
+  nagad: Smartphone,
+  steadfast: Truck,
+  pathao: Truck,
+  redx: Truck,
+  cloudflare_r2: Server,
   smtp: Webhook,
-  sms: Webhook,
+  sms: MessageCircle,
+}
+
+const PROVIDER_COPY: Record<string, string> = {
+  telegram: 'Login codes and order alerts',
+  openai: 'AI operations and command tools',
+  google_sheets: 'Daily closing and hisab backup',
+  gmail: 'Transactional email delivery',
+  google_drive: 'Files and backup storage',
+  meta_pixel: 'Conversion event tracking',
+  google_analytics: 'Storefront traffic analytics',
+  search_console: 'Google indexing and search health',
+  sslcommerz: 'Cards and net banking payments',
+  bkash: 'Instant checkout payments',
+  nagad: 'Wallet payments',
+  steadfast: 'Booking, tracking and COD remittance',
+  pathao: 'Courier booking and tracking',
+  redx: 'Courier booking and tracking',
+  cloudflare_r2: 'Media and invoice storage',
+  smtp: 'System and customer email',
+  sms: 'Transactional text messages',
 }
 
 function googleTestMode(provider: string): 'gmail' | 'sheets' | 'auto' | null {
@@ -67,14 +96,29 @@ function canTest(provider: string) {
     provider === 'meta_pixel' ||
     provider === 'pathao' ||
     provider === 'redx' ||
+    provider === 'steadfast' ||
     Boolean(googleTestMode(provider))
   )
 }
 
+/** Keys saved ≠ live API — only last successful test claims Connected. */
 function statusLabel(item: IntegrationCard) {
-  if (item.connected) return 'Connected'
   if (item.status === 'error') return 'Error'
+  if (item.lastTestStatus === 'success') return 'Connected'
+  if (item.connected) return 'Configured'
   return 'Not configured'
+}
+
+function relativeTime(value: string | null) {
+  if (!value) return 'Not tested'
+  const elapsed = Math.max(0, Date.now() - new Date(value).getTime())
+  const seconds = Math.floor(elapsed / 1000)
+  if (seconds < 60) return `${Math.max(1, seconds)}s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
 }
 
 function IntegrationCardBox({
@@ -90,24 +134,34 @@ function IntegrationCardBox({
 }) {
   const Icon = ICONS[item.provider] ?? Plug
   const href = integrationSetupPath(item.provider, item.connected)
-  const testable = canTest(item.provider) && item.connected
+  const testable = canTest(item.provider) && item.connected && item.status !== 'error'
+  const verified = item.lastTestStatus === 'success'
+  const configured = item.connected && !verified && item.status !== 'error'
+  const primaryLabel = item.status === 'error' ? 'Error' : item.connected ? 'Connection' : 'Status'
+  const primaryValue =
+    item.status === 'error'
+      ? item.lastError ?? 'Connection test failed'
+      : item.connectionDetail ?? (item.connected ? 'Credentials configured' : 'Setup required')
+  const actionLabel =
+    item.status === 'error' ? 'Fix credentials' : item.connected ? 'Open settings' : 'Connect'
 
   return (
-    <article
-      className={cn(
-        'integ-card admin-module-card',
-        item.connected && 'integ-card--on',
-        item.status === 'error' && 'integ-card--err',
-      )}
-    >
-      <div className="integ-card__top">
+    <article className={cn('integ-card', item.status === 'error' && 'integ-card--err')}>
+      <div className="integ-card__head">
         <span className="integ-card__icon">
-          <Icon className="h-4 w-4" />
+          <Icon aria-hidden />
+        </span>
+        <span className="integ-card__identity">
+          <h3 className="integ-card__name">{item.name}</h3>
+          <span className="integ-card__description">
+            {PROVIDER_COPY[item.provider] ?? 'Connected service and operations'}
+          </span>
         </span>
         <span
           className={cn(
             'integ-card__pill',
-            item.connected && 'integ-card__pill--on',
+            verified && 'integ-card__pill--on',
+            configured && 'integ-card__pill--configured',
             item.status === 'error' && 'integ-card__pill--err',
           )}
         >
@@ -115,21 +169,21 @@ function IntegrationCardBox({
         </span>
       </div>
 
-      <h3 className="integ-card__name">{item.name}</h3>
-      <p className="integ-card__detail">
-        {item.connectionDetail ?? (item.connected ? 'Ready' : 'Setup required')}
-      </p>
-
-      {item.lastTestedAt ? (
-        <p className="integ-card__meta">
-          Last test:{' '}
-          <span className={item.lastTestStatus === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
-            {item.lastTestStatus === 'success' ? 'passed' : item.lastTestStatus ?? '—'}
-          </span>
-        </p>
-      ) : null}
-
-      {item.lastError ? <p className="integ-card__error">{item.lastError}</p> : null}
+      <div className="integ-card__rows">
+        <div className="integ-card__row">
+          <span>{primaryLabel}</span>
+          <strong className={item.status === 'error' ? 'integ-card__row-value--error' : undefined}>
+            {primaryValue}
+          </strong>
+        </div>
+        <div className="integ-card__row">
+          <span>Last test</span>
+          <strong>
+            {relativeTime(item.lastTestedAt)}
+            {item.lastTestStatus ? ` · ${item.lastTestStatus}` : ''}
+          </strong>
+        </div>
+      </div>
 
       <div className="integ-card__actions">
         {testable ? (
@@ -140,23 +194,36 @@ function IntegrationCardBox({
             disabled={disabled}
             onClick={onTest}
           >
-            Test API
+            Test call
           </AdminButton>
+        ) : (
+          <AdminLinkButton
+            href={href}
+            variant={item.connected && item.status !== 'error' ? 'ghost' : 'primary'}
+            className="integ-card__btn"
+          >
+            {actionLabel}
+          </AdminLinkButton>
+        )}
+        {testable && item.lastTestStatus !== 'success' ? (
+          <AdminLinkButton href={href} variant="ghost" className="integ-card__btn">
+            Settings
+          </AdminLinkButton>
         ) : null}
-        <AdminLinkButton
-          href={href}
-          variant={item.connected ? 'ghost' : 'gold'}
-          className="integ-card__btn"
-        >
-          {integrationActionLabel(item.connected)}
-          <ChevronRight className="h-3.5 w-3.5 opacity-60" />
-        </AdminLinkButton>
       </div>
     </article>
   )
 }
 
-export function AllIntegrationsPanel(_props: ModuleContextProps) {
+type AllIntegrationsPanelProps = Partial<ModuleContextProps> & {
+  embedded?: boolean
+  previewState?: DcModuleState
+}
+
+export function AllIntegrationsPanel({
+  embedded = false,
+  previewState = 'live',
+}: AllIntegrationsPanelProps) {
   const { data, isError, error, isLoading, refetch, isFetching } = useIntegrationsCatalog()
   const testTelegram = useTestTelegramIntegration()
   const testAi = useTestAiIntegration()
@@ -165,17 +232,34 @@ export function AllIntegrationsPanel(_props: ModuleContextProps) {
   const testInfra = useTestInfrastructureIntegration()
   const testMeta = useTestMetaIntegration()
   const [testingId, setTestingId] = useState<string | null>(null)
-  const [batchRunning, setBatchRunning] = useState(false)
-  const [batchResult, setBatchResult] = useState<{ pass: number; fail: number } | null>(null)
 
   const items = useMemo(() => data?.integrations ?? [], [data])
-  const connectedCount = items.filter((i) => i.connected).length
-  const testableConnected = items.filter((i) => i.connected && canTest(i.provider))
+  const configuredCount = items.filter((i) => i.connected).length
+  const connectedCount = items.filter((i) => i.lastTestStatus === 'success').length
 
   const sorted = useMemo(
     () => [...items].sort((a, b) => Number(b.connected) - Number(a.connected) || a.name.localeCompare(b.name)),
     [items],
   )
+  const firstSetupHref = useMemo(() => {
+    const target = sorted.find((i) => !i.connected) ?? sorted.find((i) => i.status === 'error') ?? sorted[0]
+    return target ? integrationSetupPath(target.provider, target.connected) : '/dashboard/settings'
+  }, [sorted])
+  const failingCount = items.filter((i) => i.status === 'error').length
+  const successfulProbeCount = items.filter((i) => i.lastTestStatus === 'success').length
+  const failedProbeCount = items.filter(
+    (i) => i.lastTestStatus && i.lastTestStatus !== 'success',
+  ).length
+  const lastHealthAt = useMemo(() => {
+    const stamped = items
+      .map((i) => i.lastTestedAt)
+      .filter((v): v is string => Boolean(v))
+      .sort()
+      .at(-1)
+    return stamped ?? null
+  }, [items])
+  const lastHealthValue = isLoading ? '…' : relativeTime(lastHealthAt)
+  const lastHealthText = lastHealthAt ? `health checked ${relativeTime(lastHealthAt)}` : 'no health check yet'
 
   const runTest = async (item: IntegrationCard) => {
     setTestingId(item.id)
@@ -193,7 +277,7 @@ export function AllIntegrationsPanel(_props: ModuleContextProps) {
       } else if (item.provider === 'meta_pixel') {
         const r = await testMeta.mutateAsync()
         if (!toastIntegrationTestResult(r, 'Meta Pixel', `test-${item.provider}`)) return false
-      } else if (item.provider === 'pathao' || item.provider === 'redx') {
+      } else if (item.provider === 'pathao' || item.provider === 'redx' || item.provider === 'steadfast') {
         const r = await testInfra.mutateAsync(item.provider)
         if (!toastIntegrationTestResult(r, item.name, `test-${item.provider}`)) return false
       } else {
@@ -212,30 +296,6 @@ export function AllIntegrationsPanel(_props: ModuleContextProps) {
     }
   }
 
-  const runTestAll = async () => {
-    if (testableConnected.length === 0) {
-      toastWarn('No connected integrations with API test — configure & connect first.', 'test-all-empty')
-      return
-    }
-    setBatchRunning(true)
-    setBatchResult(null)
-    let pass = 0
-    let fail = 0
-    for (const item of testableConnected) {
-      const ok = await runTest(item)
-      if (ok) pass += 1
-      else fail += 1
-    }
-    setBatchResult({ pass, fail })
-    setBatchRunning(false)
-    await refetch()
-    if (fail === 0) {
-      toastOk(`All ${pass} integration tests passed.`, 'test-all-ok')
-    } else {
-      toastFail(`${fail} of ${pass + fail} tests failed — see cards for details.`, 'test-all-partial')
-    }
-  }
-
   const loadError =
     isError && error instanceof Error
       ? error.message.includes('401') || error.message.toLowerCase().includes('authentication')
@@ -244,61 +304,110 @@ export function AllIntegrationsPanel(_props: ModuleContextProps) {
       : isError
         ? 'API offline — run pnpm dev:api'
         : null
-
-  return (
-    <div className="integ-page">
-      <div className="integ-page__bar admin-module-card">
-        <div>
-          <p className="integ-page__stat">
-            {isLoading ? '…' : `${connectedCount} / ${items.length}`}
-            <span className="integ-page__stat-label">connected</span>
-          </p>
-          <p className="integ-page__sub">
-            {testableConnected.length} testable · verify each API from its card or run all at once
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <AdminButton variant="gold" loading={batchRunning} disabled={Boolean(testingId)} onClick={() => void runTestAll()}>
-            <Zap className="h-4 w-4" />
-            Test all connected
-          </AdminButton>
-          <AdminButton variant="ghost" loading={isFetching} onClick={() => void refetch()}>
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </AdminButton>
-        </div>
-      </div>
-
-      {batchResult ? (
-        <div className="integ-page__batch admin-module-card">
-          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-          <span className="font-bold text-emerald-600 dark:text-emerald-400">{batchResult.pass} passed</span>
-          {batchResult.fail > 0 ? (
-            <>
-              <XCircle className="ml-3 h-4 w-4 text-red-500" />
-              <span className="font-bold text-red-600 dark:text-red-400">{batchResult.fail} failed</span>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-
-      {loadError ? <ApiOfflineBanner message={loadError} /> : null}
-
-      {isLoading ? (
-        <p className="integ-page__loading">Loading integrations…</p>
-      ) : (
-        <div className="integ-grid">
-          {sorted.map((item) => (
-            <IntegrationCardBox
-              key={item.id}
-              item={item}
-              testing={testingId === item.id}
-              disabled={Boolean(testingId) || batchRunning}
-              onTest={() => void runTest(item)}
-            />
+  const previewOverride =
+    previewState === 'loading' ? (
+      <div className="integ-preview-loading" aria-label="Loading integrations">
+        <div className="integ-preview-loading__kpis">
+          {Array.from({ length: 4 }, (_, index) => (
+            <span key={index} className="dc-skeleton" />
           ))}
         </div>
-      )}
+        <div className="integ-preview-loading__cards">
+          {Array.from({ length: 10 }, (_, index) => (
+            <span key={index} className="dc-skeleton" />
+          ))}
+        </div>
+      </div>
+    ) : previewState === 'empty' ? (
+      <DcEmptyState
+        icon="icon-plug"
+        title="Nothing connected yet"
+        body="SPLARO needs at least one courier and one payment rail before live operations can start."
+        cta="Connect first integration"
+        onCta={() => window.location.assign(firstSetupHref)}
+      />
+    ) : previewState === 'error' ? (
+      <DcErrorState
+        error="GET /admin/integrations → preview error state"
+        hint="Use Retry to request current integration catalog again."
+        onRetry={() => void refetch()}
+      />
+    ) : null
+
+  return (
+    <div className={cn('integ-page', embedded && 'integ-page--dc')}>
+      <HandoffPageChrome
+        group="Integrations"
+        title="All Integrations"
+        {...(embedded ? { className: 'integ-chrome--embedded' } : {})}
+        sync={loadError ? 'health unavailable' : isFetching ? 'health checking…' : lastHealthText}
+        offline={Boolean(loadError)}
+        actions={
+          <>
+            <AdminButton variant="ghost" loading={isFetching} onClick={() => void refetch()}>
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </AdminButton>
+            <AdminLinkButton href={firstSetupHref} variant="primary">
+              Add integration
+            </AdminLinkButton>
+          </>
+        }
+      >
+        {previewOverride ?? (
+          <>
+          <KpiGrid
+          columns={4}
+          items={[
+            {
+              label: 'Connected',
+              value: isLoading ? '…' : connectedCount,
+              sub: `${configuredCount} configured · ${items.length || 0} available`,
+              tone: connectedCount > 0 ? 'success' : 'default',
+            },
+            {
+              label: 'Failing',
+              value: isLoading ? '…' : failingCount,
+              sub:
+                failingCount > 0
+                  ? `${items.find((item) => item.status === 'error')?.name ?? 'Integration'} needs attention`
+                  : 'no failing integration',
+              tone: failingCount > 0 ? 'danger' : 'default',
+            },
+            {
+              label: 'API probes',
+              value: isLoading ? '…' : successfulProbeCount,
+              sub: `${failedProbeCount} failed · real connection tests`,
+              tone: failedProbeCount > 0 ? 'warning' : successfulProbeCount > 0 ? 'success' : 'default',
+            },
+            {
+              label: 'Last health check',
+              value: lastHealthValue,
+              sub: 'catalog refresh every 60 seconds',
+            },
+          ]}
+        />
+
+          {loadError ? <ApiOfflineBanner message={loadError} /> : null}
+
+          {isLoading ? (
+            <p className="integ-page__loading">Loading integrations…</p>
+          ) : (
+            <div className="integ-grid">
+              {sorted.map((item) => (
+                <IntegrationCardBox
+                  key={item.id}
+                  item={item}
+                  testing={testingId === item.id}
+                  disabled={Boolean(testingId)}
+                  onTest={() => void runTest(item)}
+                />
+              ))}
+            </div>
+          )}
+          </>
+        )}
+      </HandoffPageChrome>
     </div>
   )
 }

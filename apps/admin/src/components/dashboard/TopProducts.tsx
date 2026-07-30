@@ -17,11 +17,11 @@ export function TopProducts({ period = '30 Days' }: { period?: string }) {
       </div>
 
       {isLoading ? (
-        <p className="px-5 py-8 text-center text-xs text-[#6B6B6B]">Loading products…</p>
+        <p className="px-5 py-8 text-center text-xs text-[var(--admin-color-neutral-500)]">Loading products…</p>
       ) : isError ? (
         <p className="px-5 py-8 text-center text-xs text-amber-700">API offline — start backend on :4000</p>
       ) : products.length === 0 ? (
-        <p className="px-5 py-8 text-center text-xs text-[#6B6B6B]">
+        <p className="px-5 py-8 text-center text-xs text-[var(--admin-color-neutral-500)]">
           No product sales in this period yet.
         </p>
       ) : (
@@ -32,25 +32,25 @@ export function TopProducts({ period = '30 Days' }: { period?: string }) {
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05, duration: 0.3 }}
-              className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[#111111]/[0.02]"
+              className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--admin-color-ink-near)]/[0.02]"
             >
               <div
                 className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
                   product.rank === 1
-                    ? 'bg-[#5E7CFF]/20 text-[#5E7CFF]'
-                    : 'bg-[#111111]/[0.04] text-[#6B6B6B]'
+                    ? 'bg-[var(--admin-color-accent-blue)]/20 text-[var(--admin-color-accent-blue)]'
+                    : 'bg-[var(--admin-color-ink-near)]/[0.04] text-[var(--admin-color-neutral-500)]'
                 }`}
               >
                 {product.rank}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-semibold text-[#111111]">{product.name}</p>
-                <p className="text-[10px] text-[#6B6B6B]">
+                <p className="truncate text-xs font-semibold text-[var(--admin-color-ink-near)]">{product.name}</p>
+                <p className="text-[10px] text-[var(--admin-color-neutral-500)]">
                   {product.sku} · {product.sold} sold
                 </p>
               </div>
               <div className="shrink-0 text-right">
-                <p className="text-xs font-semibold text-[#111111]">{formatBDT(product.revenue)}</p>
+                <p className="text-xs font-semibold text-[var(--admin-color-ink-near)]">{formatBDT(product.revenue)}</p>
                 {product.trend !== 0 ? (
                   <div
                     className={`mt-0.5 flex items-center justify-end gap-0.5 text-[10px] ${

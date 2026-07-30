@@ -5,6 +5,7 @@ import {
   verifyBannerResponse,
   verifyBrandPersisted,
   verifyBrandResponse,
+  verifyCategoriesReordered,
   verifyCategoryDeleted,
   verifyCategoryPersisted,
   verifyCategoryResponse,
@@ -125,6 +126,39 @@ export async function confirmCollectionToggled(
     return true
   } catch (err) {
     toastFail(err instanceof Error ? err.message : 'Could not update collection.')
+    return false
+  }
+}
+
+export async function confirmCollectionUpdated(
+  id: string,
+  expected: { name?: string; isActive?: boolean },
+  save: () => Promise<unknown>,
+  label: string,
+): Promise<boolean> {
+  try {
+    const saved = await save()
+    if (!verifyCollectionResponse(saved, expected)) return false
+    if (!(await verifyCollectionPersisted(id, expected))) return false
+    toastApiSaved(label)
+    return true
+  } catch (err) {
+    toastFail(err instanceof Error ? err.message : 'Could not update collection.')
+    return false
+  }
+}
+
+export async function confirmCategoriesReordered(
+  order: Array<{ id: string; sortOrder: number }>,
+  save: () => Promise<unknown>,
+): Promise<boolean> {
+  try {
+    await save()
+    if (!(await verifyCategoriesReordered(order))) return false
+    toastApiSaved('Category order')
+    return true
+  } catch (err) {
+    toastFail(err instanceof Error ? err.message : 'Could not save category order.')
     return false
   }
 }

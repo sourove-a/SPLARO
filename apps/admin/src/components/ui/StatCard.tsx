@@ -1,10 +1,22 @@
 'use client'
 
+import Link from 'next/link'
 import { ArrowUp, ArrowDown, Minus } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { AdminStatSkeleton } from '@/components/ui/AdminUiPrimitives'
+import { markAdminLinkNavigation } from '@/lib/navigation/client-nav'
 
-export type StatIconTone = 'default' | 'gold' | 'green' | 'red' | 'sky' | 'teal' | 'amber' | 'rose' | 'slate'
+export type StatIconTone =
+  | 'default'
+  | 'accent'
+  | 'gold' /* @deprecated — alias of accent */
+  | 'green'
+  | 'red'
+  | 'sky'
+  | 'teal'
+  | 'amber'
+  | 'rose'
+  | 'slate'
 
 interface StatCardProps {
   title: string
@@ -19,6 +31,8 @@ interface StatCardProps {
   /** Real series for sparkline — decorative fake paths are never drawn without this. */
   sparklineValues?: number[]
   emptyHint?: string
+  /** When set, the whole card navigates to this admin route (not AI). */
+  href?: string
 }
 
 function MiniSparkline({ values }: { values: number[] }) {
@@ -36,7 +50,7 @@ function MiniSparkline({ values }: { values: number[] }) {
     })
     .join(' ')
   const positive = values[values.length - 1]! >= values[0]!
-  const stroke = positive ? 'var(--admin-success, #15803d)' : 'var(--admin-danger, #dc2626)'
+  const stroke = positive ? 'var(--admin-success, var(--admin-success-ink))' : 'var(--admin-danger, var(--admin-c-dc2626))'
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="h-7 w-full opacity-60" aria-hidden>
       <path d={points} fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -46,7 +60,8 @@ function MiniSparkline({ values }: { values: number[] }) {
 
 const ICON_TONE_CLASS: Record<StatIconTone, string> = {
   default: 'admin-stat-icon--slate',
-  gold: 'admin-stat-icon--gold',
+  accent: 'admin-stat-icon--accent',
+  gold: 'admin-stat-icon--accent',
   green: 'admin-stat-icon--green',
   red: 'admin-stat-icon--rose',
   sky: 'admin-stat-icon--sky',
@@ -68,6 +83,7 @@ export function StatCard({
   sparkline = false,
   sparklineValues,
   emptyHint,
+  href,
 }: StatCardProps) {
   const isEmpty = value === '—' || value === '…'
   const isAlert = alertIf ? alertIf(value) : false
@@ -78,16 +94,8 @@ export function StatCard({
     return <AdminStatSkeleton />
   }
 
-  return (
-    <div
-      className={cn(
-        'admin-kpi',
-        color === 'gold' && 'admin-kpi--gold',
-        color === 'green' && 'admin-kpi--green',
-        color === 'red' && 'border-red-200/60',
-        isAlert && 'admin-kpi--alert',
-      )}
-    >
+  const body = (
+    <>
       <div className="mb-2 flex items-start justify-between gap-2">
         <p className="admin-kpi__label">{title}</p>
         <div
@@ -106,7 +114,7 @@ export function StatCard({
           'admin-kpi__value',
           size === 'sm' && '!text-xl',
           isEmpty && 'admin-kpi__value--empty',
-          color === 'gold' && !isEmpty && 'admin-kpi__value--warning',
+          (color === 'gold' || color === 'accent') && !isEmpty && 'admin-kpi__value--warning',
           color === 'green' && !isEmpty && 'admin-kpi__value--success',
           (color === 'red' || color === 'rose') && !isEmpty && 'admin-kpi__value--danger',
           isAlert && !isEmpty && 'admin-kpi__value--warning',
@@ -123,7 +131,7 @@ export function StatCard({
         <div className="mt-2 flex items-center gap-1.5">
           <span
             className={cn(
-              'inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold',
+              'inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[10px] font-semibold',
               neutral
                 ? 'bg-black/[0.05] text-[var(--admin-text-muted)] dark:bg-white/[0.08] dark:text-white/55'
                 : positive
@@ -140,7 +148,7 @@ export function StatCard({
             )}
             {Math.abs(change)}%
           </span>
-          <span className="text-[10px] font-semibold text-[var(--admin-text-muted)]">vs last period</span>
+          <span className="text-[10px] font-medium text-[var(--admin-text-muted)]">vs last period</span>
         </div>
       ) : null}
 
@@ -149,6 +157,31 @@ export function StatCard({
           <MiniSparkline values={sparklineValues} />
         </div>
       ) : null}
-    </div>
+
+      {href ? (
+        <p className="mt-2 text-[10px] font-semibold text-[var(--admin-foundation-primary,var(--admin-c-712eff))] opacity-80">
+          Open section →
+        </p>
+      ) : null}
+    </>
   )
+
+  const className = cn(
+    'admin-kpi',
+    (color === 'gold' || color === 'accent') && 'admin-kpi--accent',
+    color === 'green' && 'admin-kpi--green',
+    color === 'red' && 'border-red-200/60',
+    isAlert && 'admin-kpi--alert',
+    href && 'admin-kpi--clickable block no-underline',
+  )
+
+  if (href) {
+    return (
+      <Link href={href} scroll={false} prefetch className={className} onClick={() => markAdminLinkNavigation(href)}>
+        {body}
+      </Link>
+    )
+  }
+
+  return <div className={className}>{body}</div>
 }

@@ -8,6 +8,7 @@ import { AdminNavRecovery } from '@/components/layout/AdminNavRecovery'
 import { AdminCssHealthGuard } from '@/components/layout/AdminCssHealthGuard'
 import { AdminChunkReloadGuard } from '@/components/layout/AdminChunkReloadGuard'
 import { AdminPersistHydrator } from '@/components/layout/AdminPersistHydrator'
+import { AdminThemeBridge } from '@/components/layout/AdminThemeBridge'
 import { ApiError } from '@/lib/api/client'
 import { FeatureFlagsProvider } from '@/lib/feature-flags'
 
@@ -42,6 +43,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} storageKey="splaro-admin-theme">
       <QueryClientProvider client={queryClient}>
         <FeatureFlagsProvider>
+        <AdminThemeBridge />
         <AdminPersistHydrator />
         <AdminNavRecovery />
         <AdminCssHealthGuard />
@@ -61,7 +63,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
               fontWeight: 600,
               letterSpacing: '-0.01em',
               borderRadius: '14px',
-              boxShadow: 'var(--admin-toast-shadow)',
               border: '1px solid var(--admin-toast-border)',
               padding: '12px 16px',
               maxWidth: '420px',

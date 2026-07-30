@@ -1,11 +1,12 @@
 'use client'
 
-import { Send, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useStaffTelegramLinkToken } from '@/lib/api/hooks'
+import { useQuery } from '@tanstack/react-query'
+
+import { DcIcon } from '@/components/dc/DcIcon'
+import { FONT } from '@/components/dc/tokens'
 import { fetchMyTelegramStatus } from '@/lib/api/security'
-import { confirmTelegramLinkTokenGenerated } from '@/lib/admin/security-save'
 
 const DISMISS_KEY = 'splaro.admin.telegramBanner.dismissed'
 
@@ -32,11 +33,13 @@ function writeDismissed() {
   }
 }
 
+/**
+ * Design banner: “Link your Telegram — … Link now”.
+ * Always opens dedicated Telegram Bot screen (Admin Linking) — never Settings SMTP.
+ */
 export function TelegramLinkBanner() {
-  /** null = hydrating (avoid flash); start hidden until we know */
+  const router = useRouter()
   const [dismissed, setDismissed] = useState<boolean | null>(null)
-  const linkTelegram = useStaffTelegramLinkToken()
-  const qc = useQueryClient()
   const { data, isLoading, isError } = useQuery({
     queryKey: ['my-telegram-status'],
     queryFn: fetchMyTelegramStatus,
@@ -59,22 +62,12 @@ export function TelegramLinkBanner() {
     }
   }, [data?.telegramLinked])
 
-  // Hide while hydrating / loading; don't re-flash on query error
   if (dismissed === null || dismissed || isLoading || isError || data?.telegramLinked) {
     return null
   }
 
-  const handleLink = async () => {
-    writeDismissed()
-    setDismissed(true)
-    const token = await confirmTelegramLinkTokenGenerated(
-      () => linkTelegram.mutateAsync(undefined),
-      'tg-staff-link',
-    )
-    if (token) {
-      void qc.invalidateQueries({ queryKey: ['my-telegram-status'] })
-      void qc.invalidateQueries({ queryKey: ['platform-security'] })
-    }
+  const handleLinkNow = () => {
+    router.push('/dashboard/telegram-bot#link')
   }
 
   const handleDismiss = () => {
@@ -84,37 +77,69 @@ export function TelegramLinkBanner() {
 
   return (
     <div
-      className="telegram-link-banner mx-4 mb-3 flex items-start justify-between gap-3 px-4 py-3"
+      className="dc-telegram-banner"
       role="status"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '9px 18px',
+        borderBottom: '1px solid var(--info-bd)',
+        background: 'var(--info-soft)',
+      }}
     >
-      <div className="min-w-0">
-        <p className="text-sm font-extrabold text-[var(--admin-text)]">
-          Link your Telegram to receive login codes
-        </p>
-        <p className="mt-1 text-xs font-semibold text-[var(--admin-text-secondary)]">
-          Login OTPs are sent only to your personal Telegram — not a shared group chat.
-        </p>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <button
-          type="button"
-          onClick={() => void handleLink()}
-          disabled={linkTelegram.isPending}
-          className="admin-btn admin-btn--primary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
-        >
-          <Send className="h-3.5 w-3.5" />
-          {linkTelegram.isPending ? 'Generating…' : 'Link Telegram'}
-        </button>
-        <button
-          type="button"
-          onClick={handleDismiss}
-          className="telegram-link-banner__close rounded-lg p-1.5"
-          aria-label="Dismiss — won’t show again"
-          title="Dismiss"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
+      <span style={{ display: 'grid', placeItems: 'center', color: 'var(--info)', flex: 'none' }}>
+        <DcIcon name="icon-send" size={14} />
+      </span>
+      <span
+        style={{
+          flex: 1,
+          font: `500 12.5px/1.4 ${FONT}`,
+          color: 'var(--ink-2)',
+          textWrap: 'pretty',
+        }}
+      >
+        <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>Link your Telegram</strong>
+        {' — '}
+        login codes go to your personal chat, not a shared group.
+      </span>
+      <button
+        type="button"
+        onClick={handleLinkNow}
+        style={{
+          height: 28,
+          padding: '0 12px',
+          borderRadius: 8,
+          border: '1px solid var(--info-bd)',
+          background: 'transparent',
+          color: 'var(--info)',
+          font: `600 12px/1 ${FONT}`,
+          cursor: 'pointer',
+          flex: 'none',
+        }}
+      >
+        Link now
+      </button>
+      <button
+        type="button"
+        onClick={handleDismiss}
+        aria-label="Dismiss — won’t show again"
+        title="Dismiss"
+        style={{
+          display: 'grid',
+          placeItems: 'center',
+          width: 26,
+          height: 26,
+          borderRadius: 7,
+          border: 0,
+          background: 'transparent',
+          color: 'var(--ink-3)',
+          cursor: 'pointer',
+          flex: 'none',
+        }}
+      >
+        <DcIcon name="icon-x" size={14} />
+      </button>
     </div>
   )
 }

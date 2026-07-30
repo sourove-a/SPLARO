@@ -17,7 +17,11 @@ const AgentChatFab = dynamic(
   { ssr: false },
 )
 
-export function AgentShell() {
+/**
+ * @param hideFab - suppress the built-in launcher when the surrounding shell
+ *   already renders one (the DC shell's "Ask SPLARO" button).
+ */
+export function AgentShell({ hideFab = false }: { hideFab?: boolean } = {}) {
   const aiEnabled = useFeatureEnabled('ai')
   const pathname = usePathname()
   const onAiSetupPage = pathname === '/dashboard/ai-agent'
@@ -51,7 +55,9 @@ export function AgentShell() {
 
   return (
     <>
-      {!open && !onAiSetupPage ? <AgentChatFab onClick={() => setOpen(true)} online={online} /> : null}
+      {!hideFab && !open && !onAiSetupPage ? (
+        <AgentChatFab onClick={() => setOpen(true)} online={online} />
+      ) : null}
       <AgentChatPanel
         open={open}
         onClose={handleClose}

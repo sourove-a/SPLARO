@@ -3,22 +3,25 @@ import { flatAdminRoutes } from '@/lib/navigation/admin-nav'
 
 export type ModuleMaturity = 'live' | 'beta' | 'prototype'
 
-/** Routes with dedicated live panels in the module registry. */
-const LIVE_ROUTES = new Set<string>(['/dashboard', ...REGISTERED_MODULE_HREFS])
+/**
+ * Routes with dedicated live panels in the module registry.
+ *
+ * Built lazily: `registry` pulls in every module panel, and several of those
+ * import this file, so reading `REGISTERED_MODULE_HREFS` at module scope hits a
+ * temporal-dead-zone error whenever registry happens to be the cycle's entry
+ * point. Nothing here is needed until a route is actually classified.
+ */
+let liveRoutes: Set<string> | null = null
+function getLiveRoutes(): Set<string> {
+  liveRoutes ??= new Set<string>(['/dashboard', ...REGISTERED_MODULE_HREFS])
+  return liveRoutes
+}
 
 /**
  * Registered routes with partial API — preview actions, coming-soon forms, or read-only shells.
  * Checked before LIVE_ROUTES so maturity is not overstated.
  */
 const BETA_ROUTES = new Set<string>([
-  '/dashboard/wms/overview',
-  '/dashboard/wms/warehouses',
-  '/dashboard/wms/stock-movements',
-  '/dashboard/wms/transfers',
-  '/dashboard/procurement/overview',
-  '/dashboard/procurement/suppliers',
-  '/dashboard/procurement/purchase-orders',
-  '/dashboard/procurement/goods-received',
   '/dashboard/production/overview',
   '/dashboard/production/fabric-inventory',
   '/dashboard/support/helpdesk',
@@ -48,15 +51,21 @@ const PROTOTYPE_SHELL_ROUTES = new Set<string>([
 ])
 
 /** Nav routes without a dedicated panel — GenericModulePanel fallback. */
-const PROTOTYPE_ROUTES = new Set<string>([
-  ...PROTOTYPE_SHELL_ROUTES,
-  ...flatAdminRoutes
-    .map((r) => r.href.replace(/\/+$/, '') || '/dashboard')
-    .filter(
-      (href) =>
-        !LIVE_ROUTES.has(href) && !BETA_ROUTES.has(href) && !PROTOTYPE_SHELL_ROUTES.has(href),
-    ),
-])
+let prototypeRoutes: Set<string> | null = null
+function getPrototypeRoutes(): Set<string> {
+  if (!prototypeRoutes) {
+    const live = getLiveRoutes()
+    prototypeRoutes = new Set<string>([
+      ...PROTOTYPE_SHELL_ROUTES,
+      ...flatAdminRoutes
+        .map((r) => r.href.replace(/\/+$/, '') || '/dashboard')
+        .filter(
+          (href) => !live.has(href) && !BETA_ROUTES.has(href) && !PROTOTYPE_SHELL_ROUTES.has(href),
+        ),
+    ])
+  }
+  return prototypeRoutes
+}
 
 const MATURITY_META: Record<
   ModuleMaturity,
@@ -99,6 +108,9 @@ export function hasBackendRecordApi(moduleHref: string): boolean {
 export const BACKEND_CREATE_API_MODULES = new Set<string>([
   '/dashboard/products',
   '/dashboard/orders',
+  '/dashboard/customers',
+  '/dashboard/collections',
+  '/dashboard/categories',
 ])
 
 export function hasBackendCreateApi(moduleHref: string): boolean {
@@ -109,11 +121,11 @@ export function hasBackendCreateApi(moduleHref: string): boolean {
 export function getModuleMaturity(href: string): ModuleMaturity {
   const normalized = href.replace(/\/+$/, '') || '/dashboard'
   // Shells first — never overstate as beta/live.
-  if (PROTOTYPE_SHELL_ROUTES.has(normalized) || PROTOTYPE_ROUTES.has(normalized)) {
+  if (PROTOTYPE_SHELL_ROUTES.has(normalized) || getPrototypeRoutes().has(normalized)) {
     return 'prototype'
   }
   if (BETA_ROUTES.has(normalized)) return 'beta'
-  if (LIVE_ROUTES.has(normalized)) return 'live'
+  if (getLiveRoutes().has(normalized)) return 'live'
   return 'prototype'
 }
 

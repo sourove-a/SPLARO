@@ -10,9 +10,12 @@ import {
   ArrowLeft,
   ArrowRight,
   ClipboardPaste,
+  Eye,
+  EyeOff,
   Loader2,
   Lock,
   Mail,
+  Send,
   ShieldCheck,
 } from 'lucide-react'
 import { AdminLoginShell } from '@/components/login/AdminLoginShell'
@@ -47,6 +50,7 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState('')
   const [token, setToken] = useState('')
   const [password, setPassword] = useState('')
+  const [passwordVisible, setPasswordVisible] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -78,11 +82,15 @@ export default function AdminLoginPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: targetEmail }),
     })
-    const data = (await res.json()) as { error?: string; method?: 'telegram' | 'password' }
+    const data = (await res.json()) as {
+      error?: string
+      email?: string
+      method?: 'telegram' | 'password'
+    }
     if (!res.ok || (data.method !== 'telegram' && data.method !== 'password')) {
       throw new Error(data.error ?? 'No admin account found for this email')
     }
-    return data.method
+    return { method: data.method, email: data.email?.trim() || targetEmail.trim().toLowerCase() }
   }
 
   const requestLoginToken = async (targetEmail: string) => {
@@ -103,14 +111,16 @@ export default function AdminLoginPage() {
     setLoading(true)
     setError(null)
     try {
-      const method = await resolveLoginMethod(email)
-      if (method === 'telegram') {
-        await requestLoginToken(email)
+      const resolved = await resolveLoginMethod(email)
+      setEmail(resolved.email)
+      if (resolved.method === 'telegram') {
+        await requestLoginToken(resolved.email)
         setStep('token')
         setToken('')
       } else {
         setStep('password')
         setPassword('')
+        setPasswordVisible(false)
       }
       setLoading(false)
     } catch (err) {
@@ -214,28 +224,29 @@ export default function AdminLoginPage() {
     setError(null)
     setToken('')
     setPassword('')
+    setPasswordVisible(false)
   }
 
   const stepCopy =
     step === 'email'
       ? {
-          title: 'Admin sign in',
-          subtitle: 'Orders · Products · Finance · Courier · AI',
+          title: 'Welcome back',
+          subtitle: 'Enter your work email. SPLARO will choose your secure sign-in method.',
         }
       : step === 'token'
         ? {
-            title: 'Enter login token',
-            subtitle: 'Telegram one-time token for Super Admin',
+            title: 'Check Telegram',
+            subtitle: 'Enter the 8-character code sent to your linked personal chat.',
           }
         : {
-            title: 'Enter password',
-            subtitle: 'Staff accounts use email + password',
+            title: 'Enter your password',
+            subtitle: 'Manager and Editor accounts continue with their account password.',
           }
 
   const emailFields = (
     <>
       <label className="admin-auth-field">
-        <span className="admin-auth-label">Admin email</span>
+        <span className="admin-auth-label">Work email</span>
         <div className="admin-auth-field__wrap">
           <span className="admin-auth-field__icon-chip" aria-hidden>
             <Mail className="h-4 w-4" strokeWidth={2} />
@@ -244,13 +255,19 @@ export default function AdminLoginPage() {
             required
             type="email"
             autoComplete="username"
-            placeholder="you@company.com"
+            autoFocus
+            inputMode="email"
+            placeholder="name@splaro.co"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="admin-auth-input"
           />
         </div>
       </label>
+
+      <p className="admin-auth-hint">
+        No method choice needed. Account policy selects Telegram code or password after email check.
+      </p>
 
       {error ? (
         <div className="admin-auth-error" role="alert">
@@ -265,13 +282,23 @@ export default function AdminLoginPage() {
         ) : (
           <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
         )}
-        {loading ? 'Checking…' : 'Continue'}
+        {loading ? 'Checking access…' : 'Continue securely'}
       </button>
     </>
   )
 
   const tokenFields = (
     <>
+      <div className="admin-auth-method-result admin-auth-method-result--telegram">
+        <span className="admin-auth-method-result__icon" aria-hidden>
+          <Send className="h-4 w-4" strokeWidth={2} />
+        </span>
+        <span>
+          <strong>Telegram verification</strong>
+          <small>Owner and Admin access</small>
+        </span>
+      </div>
+
       <div className="admin-auth-email-chip">
         <Mail className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate">{email}</span>
@@ -297,7 +324,7 @@ export default function AdminLoginPage() {
             className="admin-auth-input admin-auth-input--token"
           />
         </div>
-        <p className="admin-auth-hint">Paste 8-character token — auto-login when complete</p>
+        <p className="admin-auth-hint">Paste complete code to sign in automatically.</p>
       </label>
 
       <button
@@ -326,7 +353,7 @@ export default function AdminLoginPage() {
         ) : (
           <Lock className="h-4 w-4" strokeWidth={2.5} />
         )}
-        {loading ? 'Signing in…' : 'Enter Commerce OS'}
+        {loading ? 'Verifying…' : 'Verify and enter'}
       </button>
 
       <button type="button" onClick={backToEmail} className="admin-auth-back">
@@ -338,6 +365,16 @@ export default function AdminLoginPage() {
 
   const passwordFields = (
     <>
+      <div className="admin-auth-method-result admin-auth-method-result--password">
+        <span className="admin-auth-method-result__icon" aria-hidden>
+          <Lock className="h-4 w-4" strokeWidth={2} />
+        </span>
+        <span>
+          <strong>Password verification</strong>
+          <small>Manager and Editor access</small>
+        </span>
+      </div>
+
       <div className="admin-auth-email-chip">
         <Mail className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate">{email}</span>
@@ -352,7 +389,7 @@ export default function AdminLoginPage() {
           <input
             ref={passwordInputRef}
             required
-            type="password"
+            type={passwordVisible ? 'text' : 'password'}
             autoComplete="current-password"
             placeholder="Your password"
             value={password}
@@ -360,6 +397,19 @@ export default function AdminLoginPage() {
             className="admin-auth-input"
             minLength={8}
           />
+          <button
+            type="button"
+            className="admin-auth-password-toggle"
+            onClick={() => setPasswordVisible((visible) => !visible)}
+            aria-label={passwordVisible ? 'Hide password' : 'Show password'}
+            title={passwordVisible ? 'Hide password' : 'Show password'}
+          >
+            {passwordVisible ? (
+              <EyeOff className="h-4 w-4" strokeWidth={2} />
+            ) : (
+              <Eye className="h-4 w-4" strokeWidth={2} />
+            )}
+          </button>
         </div>
       </label>
 
@@ -432,7 +482,15 @@ export default function AdminLoginPage() {
   return (
     <AdminLoginShell>
       <div className="admin-auth-card__brand">
-        <p className="admin-auth-card__eyebrow">Commerce Operating System</p>
+        <div className="admin-auth-progress" aria-label={`Sign-in step ${step === 'email' ? 1 : 2} of 2`}>
+          <span className="admin-auth-progress__label">
+            {step === 'email' ? '01 · Identity' : '02 · Verification'}
+          </span>
+          <span className="admin-auth-progress__track" aria-hidden>
+            <i />
+            <i className={step === 'email' ? undefined : 'is-active'} />
+          </span>
+        </div>
         {showMotion ? (
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={step} {...panelMotion} transition={panelTransition}>
@@ -458,7 +516,11 @@ export default function AdminLoginPage() {
 
       <div className="admin-auth-footer">
         <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />
-        Super Admin · Telegram · Staff · password
+        {step === 'email'
+          ? 'Adaptive sign-in · role policy protected'
+          : step === 'token'
+            ? 'Personal Telegram · one-time code'
+            : 'Encrypted password · protected session'}
       </div>
     </AdminLoginShell>
   )

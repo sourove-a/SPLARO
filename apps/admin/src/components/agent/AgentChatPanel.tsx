@@ -375,7 +375,7 @@ export function AgentChatPanel({
                   onClick={() => void handleModelSwitch(id)}
                   className={cn(
                     'block w-full px-3 py-1.5 text-left text-[11px] font-semibold hover:bg-[var(--admin-surface-hover)] disabled:opacity-40',
-                    model === id && 'text-[#5E7CFF]',
+                    model === id && 'text-[var(--admin-color-accent-blue)]',
                   )}
                 >
                   {MODEL_LABELS[id]}
@@ -414,7 +414,7 @@ export function AgentChatPanel({
           </p>
           <Link
             href="/dashboard/ai-agent"
-            className="mt-2 inline-flex items-center gap-1 font-black text-[#3f3f46] hover:underline"
+            className="mt-2 inline-flex items-center gap-1 font-black text-[var(--admin-c-3f3f46)] hover:underline"
           >
             AI Command Brain
             <ExternalLink className="h-3 w-3" />
@@ -479,7 +479,7 @@ export function AgentChatPanel({
                     'rounded-full px-3 py-1 text-[10px] font-bold',
                     warn
                       ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
-                      : 'bg-[rgba(16, 17, 20, 0.12)] text-[#3f3f46]',
+                      : 'bg-[rgba(16, 17, 20, 0.12)] text-[var(--admin-c-3f3f46)]',
                   )}
                 >
                   {msg.pending ? <Loader2 className="mr-1 inline h-3 w-3 animate-spin" /> : warn ? '⚠ ' : '🔧 '}
@@ -532,7 +532,7 @@ export function AgentChatPanel({
               key={msg.id}
               className={cn(
                 'max-w-[88%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-[13px] leading-relaxed',
-                isUser ? 'ml-auto bg-[#111] text-white dark:bg-[#5E7CFF] dark:text-[#111]' : 'bg-[var(--admin-surface-elevated)] text-[var(--admin-text)]',
+                isUser ? 'ml-auto bg-[var(--admin-color-ink-near)] text-white dark:bg-[var(--admin-color-accent-blue)] dark:text-[var(--admin-color-ink-near)]' : 'bg-[var(--admin-surface-elevated)] text-[var(--admin-text)]',
               )}
             >
               {msg.content || (msg.pending ? <Loader2 className="h-4 w-4 animate-spin opacity-50" /> : null)}
@@ -544,7 +544,7 @@ export function AgentChatPanel({
         })}
         {activeTool ? (
           <div className="flex justify-center">
-            <span className="rounded-full border border-dashed border-[#5E7CFF]/40 px-3 py-1 text-[10px] font-bold text-[#3f3f46]">
+            <span className="rounded-full border border-dashed border-[var(--admin-color-accent-blue)]/40 px-3 py-1 text-[10px] font-bold text-[var(--admin-c-3f3f46)]">
               {activeTool.replace(/_/g, ' ')}…
             </span>
           </div>
@@ -569,7 +569,7 @@ export function AgentChatPanel({
         <button
           type="submit"
           disabled={streaming || !input.trim() || !ready}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#5E7CFF] text-[#111] disabled:opacity-40"
+          className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--admin-color-accent-blue)] text-[var(--admin-color-ink-near)] disabled:opacity-40"
         >
           {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </button>

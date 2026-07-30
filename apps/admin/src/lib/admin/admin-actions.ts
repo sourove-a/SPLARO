@@ -288,12 +288,12 @@ export function printProductLabel(opts: {
   <title>SPLARO label · ${safe(opts.sku)}</title>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; padding: 24px; font-family: Inter, system-ui, sans-serif; color: #101114; }
-    .label { width: 72mm; min-height: 48mm; padding: 14px 16px; border: 1px dashed #bbb; border-radius: 8px; }
-    .brand { font-size: 9px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #888; margin: 0 0 10px; }
+    body { margin: 0; padding: 24px; font-family: Inter, system-ui, sans-serif; color: var(--admin-color-ink-elevated); }
+    .label { width: 72mm; min-height: 48mm; padding: 14px 16px; border: 1px dashed var(--admin-c-bbbbbb); border-radius: 8px; }
+    .brand { font-size: 9px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--admin-c-888888); margin: 0 0 10px; }
     .sku { font-family: ui-monospace, monospace; font-size: 20px; font-weight: 800; margin: 0 0 8px; }
     .name { font-size: 13px; font-weight: 700; line-height: 1.35; margin: 0 0 6px; }
-    .meta { font-size: 11px; color: #666; margin: 0; }
+    .meta { font-size: 11px; color: var(--admin-c-666666); margin: 0; }
     .price { margin-top: 10px; font-size: 15px; font-weight: 800; }
     @media print { body { padding: 0; } .label { border: none; } }
   </style>

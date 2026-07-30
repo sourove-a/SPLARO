@@ -190,6 +190,13 @@ export function OrderPreviewCard({
             }
           }
         } else if (action === 'cancel-booking') {
+          if (
+            !window.confirm(
+              'Cancel courier booking for this order? Local cancel only — Steadfast may still hold the parcel.',
+            )
+          ) {
+            return
+          }
           const res = await cancelCourierBookingLocal(apiId)
           toastWarn(res.message, `cancel-booking-${apiId}`)
         }

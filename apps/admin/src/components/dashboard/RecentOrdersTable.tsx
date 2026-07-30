@@ -34,12 +34,12 @@ export function RecentOrdersTable() {
     >
       <div className="flex items-center justify-between border-b border-[rgba(17,17,17,0.06)] px-5 py-4">
         <div>
-          <h3 className="text-sm font-black text-[#111111]">Recent Orders</h3>
-          <p className="mt-0.5 text-xs font-semibold text-[#6B6B6B]">
+          <h3 className="text-sm font-black text-[var(--admin-color-ink-near)]">Recent Orders</h3>
+          <p className="mt-0.5 text-xs font-semibold text-[var(--admin-color-neutral-500)]">
             {isError ? 'Connect API on port 4000 for live orders' : 'Latest transactions from your store'}
           </p>
         </div>
-        <Link href="/dashboard/orders" className="flex items-center gap-1 text-[11px] font-bold text-[#5E7CFF] hover:underline">
+        <Link href="/dashboard/orders" className="flex items-center gap-1 text-[11px] font-bold text-[var(--admin-color-accent-blue)] hover:underline">
           View all <ExternalLink className="h-3 w-3" />
         </Link>
       </div>
@@ -67,7 +67,7 @@ export function RecentOrdersTable() {
               : rows.length === 0
                 ? (
                     <tr>
-                      <td colSpan={5} className="!py-8 text-center text-xs font-semibold text-[#6B6B6B]">
+                      <td colSpan={5} className="!py-8 text-center text-xs font-semibold text-[var(--admin-color-neutral-500)]">
                         No orders yet.
                       </td>
                     </tr>
@@ -75,7 +75,7 @@ export function RecentOrdersTable() {
                 : rows.map((order) => (
                   <tr key={order.id} className="admin-table-row--hover">
                     <td>
-                      <Link href={`/dashboard/orders/${order.invoiceNumber}`} className="font-mono text-xs font-black text-[#5E7CFF] hover:underline">
+                      <Link href={`/dashboard/orders/${order.invoiceNumber}`} className="font-mono text-xs font-black text-[var(--admin-color-accent-blue)] hover:underline">
                         {order.invoiceNumber}
                       </Link>
                     </td>

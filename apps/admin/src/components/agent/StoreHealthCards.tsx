@@ -1,15 +1,13 @@
 'use client'
 
+import Link from 'next/link'
 import { Package, Search, ShoppingBag, User, WifiOff } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchAgentHealth } from '@/lib/api/agent'
 import { isNetworkOrServerError } from '@/lib/api/offline-defaults'
+import { markAdminLinkNavigation } from '@/lib/navigation/client-nav'
 import { formatBDT } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils/cn'
-
-interface StoreHealthCardsProps {
-  onAsk?: (question: string) => void
-}
 
 type HealthTone = 'sky' | 'amber' | 'teal' | 'rose' | 'green'
 
@@ -20,45 +18,45 @@ function HealthCard({
   icon: Icon,
   tone,
   action,
-  onClick,
+  href,
 }: {
   label: string
   value: string
   sub?: string
   icon: typeof Package
   tone: HealthTone
-  action?: string
-  onClick?: () => void
+  action: string
+  href: string
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <Link
+      href={href}
+      scroll={false}
+      prefetch
+      onClick={() => markAdminLinkNavigation(href)}
       className={cn(
-        'admin-glass-mini premium-dash__health-card group w-full p-4 text-left transition-transform duration-200 hover:-translate-y-0.5',
-        onClick && 'cursor-pointer',
+        'admin-glass-mini premium-dash__health-card group block w-full p-4 text-left no-underline',
       )}
     >
       <div className="flex items-center justify-between">
-        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--admin-text-muted)]">{label}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--admin-text-muted)]">{label}</p>
         <span className={cn('premium-dash__health-icon', `premium-dash__health-icon--${tone}`)} aria-hidden>
           <Icon className="h-4 w-4" strokeWidth={1.75} />
         </span>
       </div>
-      <p className="mt-2 text-xl font-black text-[var(--admin-text)]">{value}</p>
-      {sub ? <p className="mt-1 text-[11px] font-semibold text-[var(--admin-text-secondary)]">{sub}</p> : null}
-      {action ? (
-        <p className="mt-2 text-[10px] font-bold text-[var(--admin-text-muted)] opacity-0 transition-opacity group-hover:opacity-100">
-          {action} →
-        </p>
-      ) : null}
-    </button>
+      <p className="mt-2 text-xl font-semibold tracking-tight text-[var(--admin-text)]">{value}</p>
+      {sub ? <p className="mt-1 text-[11px] font-medium text-[var(--admin-text-secondary)]">{sub}</p> : null}
+      <p className="mt-2 text-[10px] font-semibold text-[var(--admin-foundation-primary,var(--admin-c-712eff))] opacity-80 transition-opacity group-hover:opacity-100">
+        {action} →
+      </p>
+    </Link>
   )
 }
 
 const isProd = process.env.NODE_ENV === 'production'
 
-export function StoreHealthCards({ onAsk }: StoreHealthCardsProps) {
+/** Live store signals — each card opens its real module (never the AI chat). */
+export function StoreHealthCards() {
   const { data: health, isLoading, error, refetch } = useQuery({
     queryKey: ['agent-health'],
     queryFn: () => fetchAgentHealth(),
@@ -100,8 +98,8 @@ export function StoreHealthCards({ onAsk }: StoreHealthCardsProps) {
         {...(health ? { sub: `Revenue ${formatBDT(health.revenueToday)}` } : {})}
         icon={ShoppingBag}
         tone="sky"
-        action="Ask AI"
-        onClick={() => onAsk?.("Show me today's orders and revenue breakdown")}
+        action="Open orders"
+        href="/dashboard/orders"
       />
       <HealthCard
         label="Low stock"
@@ -109,8 +107,8 @@ export function StoreHealthCards({ onAsk }: StoreHealthCardsProps) {
         sub="products below threshold"
         icon={Package}
         tone={lowStockWarn ? 'amber' : 'green'}
-        action="View all"
-        onClick={() => onAsk?.('List all low stock products')}
+        action="Open inventory"
+        href="/dashboard/inventory?stock=low"
       />
       <HealthCard
         label="SEO gaps"
@@ -118,8 +116,8 @@ export function StoreHealthCards({ onAsk }: StoreHealthCardsProps) {
         sub="missing meta fields"
         icon={Search}
         tone={(health?.seoGapCount ?? 0) > 0 ? 'rose' : 'teal'}
-        action="Fix now"
-        onClick={() => onAsk?.('Show me all products missing SEO meta title or description')}
+        action="Open SEO health"
+        href="/dashboard/seo-health"
       />
       <HealthCard
         label="Top buyer"
@@ -127,8 +125,8 @@ export function StoreHealthCards({ onAsk }: StoreHealthCardsProps) {
         {...(health?.topCustomer ? { sub: `${health.topCustomer.orders} orders` } : {})}
         icon={User}
         tone="teal"
-        action="Details"
-        onClick={() => onAsk?.('Who are my top customers by spend?')}
+        action="Open customers"
+        href="/dashboard/customers"
       />
     </div>
   )

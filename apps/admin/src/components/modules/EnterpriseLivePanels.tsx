@@ -8,7 +8,8 @@ import { toastFail, toastOk } from '@/lib/admin/feedback'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { ModulePanelShell, STATUS_CLASS } from '@/components/modules/ModulePanelShell'
-import { ApiOfflineBanner, KpiGrid } from '@/components/modules/PlatformUi'
+import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
+import { KpiGrid } from '@/components/ui/AdminHandoffBlocks'
 import { isNetworkOrServerError } from '@/lib/api/offline-defaults'
 import { useNotificationsOverview, useMarketingOverview, useUpdateSocialChannels } from '@/lib/api/hooks'
 import { fetchOrders } from '@/lib/api/orders'
@@ -91,16 +92,20 @@ export function ExportCenterPanelLive() {
     <div className="space-y-5">
       {apiOffline ? <ApiOfflineBanner onRetry={() => void apiProbe.refetch()} /> : null}
       <KpiGrid items={[
-        ['Datasets', '3', 'default'],
-        ['Format', 'CSV', 'gold'],
-        ['API', apiProbe.isLoading ? '…' : apiOffline ? 'Offline' : 'Live', apiOffline ? 'warning' : 'success'],
-        ['Max rows', '500', 'warning'],
+        { label: 'Datasets', value: '3' },
+        { label: 'Format', value: 'CSV' },
+        {
+          label: 'API',
+          value: apiProbe.isLoading ? '…' : apiOffline ? 'Offline' : 'Live',
+          tone: apiOffline ? ('warning' as const) : ('success' as const),
+        },
+        { label: 'Max rows', value: '500', tone: 'warning' },
       ]} />
       <div className="grid gap-4 md:grid-cols-3">
         {exports.map((ex) => (
           <section key={ex.kind} className="admin-module-card">
             <div className="mb-2 flex items-center gap-2">
-              <FileSpreadsheet className="h-4 w-4 text-[#5E7CFF]" />
+              <FileSpreadsheet className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
               <p className="admin-module-card__title">{ex.label}</p>
             </div>
             <p className="admin-module-card__subtitle mb-4">{ex.desc}</p>
@@ -125,7 +130,7 @@ export function ExportCenterPanelLive() {
           </section>
         ))}
       </div>
-      <p className="text-xs font-semibold text-[#6B6B6B]">
+      <p className="text-xs font-semibold text-[var(--admin-color-neutral-500)]">
         PDF exports use order invoices — open Orders and use Print label / invoice download. Google Sheets sync lives under Finance → Google Sheets.
       </p>
       <AdminNavLink href="/dashboard/finance/google-sheets-finance" className="admin-btn admin-btn--ghost px-4 py-2 text-xs">
@@ -347,10 +352,10 @@ export function SocialCommercePanelLive() {
     <div className="social-hub-panel space-y-5">
       <KpiGrid
         items={[
-          ['Channels', summary?.total ?? channels.length, 'default'],
-          ['Live on storefront', storefrontLive, 'success'],
-          ['Saved in DB', summary?.savedInDatabase ?? 0, 'gold'],
-          ['WhatsApp msgs', marketing?.whatsappLogs.length ?? 0, 'warning'],
+          { label: 'Channels', value: summary?.total ?? channels.length },
+          { label: 'Live on storefront', value: storefrontLive, tone: 'success' },
+          { label: 'Saved in DB', value: summary?.savedInDatabase ?? 0 },
+          { label: 'WhatsApp msgs', value: marketing?.whatsappLogs.length ?? 0, tone: 'warning' },
         ]}
       />
 

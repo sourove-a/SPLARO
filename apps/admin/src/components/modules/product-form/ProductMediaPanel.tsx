@@ -375,8 +375,8 @@ export function ProductMediaPanel({
       <div className="product-form-section__body">
       <label className="mb-3 flex cursor-pointer items-center justify-between gap-3 rounded-[12px] border border-[rgba(16,17,20,0.08)] bg-[rgba(255,255,255,0.55)] px-3 py-2.5">
         <span className="min-w-0">
-          <span className="block text-xs font-bold text-[#3f3f46]">Auto optimize product images</span>
-          <span className="mt-0.5 block text-[11px] font-medium text-[#71717a]">
+          <span className="block text-xs font-bold text-[var(--admin-c-3f3f46)]">Auto optimize product images</span>
+          <span className="mt-0.5 block text-[11px] font-medium text-[var(--admin-c-71717a)]">
             ON = original + WebP/AVIF sizes. OFF = single file like before.
             {upscaleStatus?.available
               ? ' Small photos can opt into AI upscale (preview first).'
@@ -385,7 +385,7 @@ export function ProductMediaPanel({
         </span>
         <input
           type="checkbox"
-          className="h-4 w-4 shrink-0 accent-[var(--admin-accent,#101114)]"
+          className="h-4 w-4 shrink-0 accent-[var(--admin-accent,var(--admin-color-ink-elevated))]"
           checked={pipelineOn}
           disabled={disabled}
           onChange={(e) => setPipelinePref(e.target.checked)}
@@ -453,7 +453,7 @@ export function ProductMediaPanel({
 
       <button
         type="button"
-        className="mb-3 flex w-full items-center justify-center gap-2 rounded-[12px] border border-dashed border-[rgba(16, 17, 20, 0.45)] bg-[rgba(16, 17, 20, 0.06)] px-3 py-2.5 text-xs font-bold text-[#3f3f46] transition hover:bg-[rgba(16, 17, 20, 0.12)] disabled:opacity-50"
+        className="mb-3 flex w-full items-center justify-center gap-2 rounded-[12px] border border-dashed border-[rgba(16, 17, 20, 0.45)] bg-[rgba(16, 17, 20, 0.06)] px-3 py-2.5 text-xs font-bold text-[var(--admin-c-3f3f46)] transition hover:bg-[rgba(16, 17, 20, 0.12)] disabled:opacity-50"
         disabled={disabled || imageUrls.length >= MAX_PRODUCT_IMAGES}
         onClick={() => setLibraryOpen(true)}
       >

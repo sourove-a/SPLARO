@@ -124,7 +124,7 @@ export function CatalogVisibilityPanel({
             </p>
           </div>
           {dirty ? (
-            <span className="rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-amber-900">
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-900">
               Unsaved changes
             </span>
           ) : null}
@@ -132,22 +132,22 @@ export function CatalogVisibilityPanel({
 
         <div className="mt-4 grid gap-2 sm:grid-cols-3">
           <div className="rounded-[14px] border border-black/6 bg-white/70 px-3 py-2.5">
-            <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[var(--admin-text-secondary)]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--admin-text-secondary)]">
               Published
             </p>
-            <p className="mt-1 text-xl font-black text-emerald-800">{publishedCount}</p>
+            <p className="mt-1 text-xl font-semibold text-emerald-800">{publishedCount}</p>
           </div>
           <div className="rounded-[14px] border border-black/6 bg-white/70 px-3 py-2.5">
-            <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[var(--admin-text-secondary)]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--admin-text-secondary)]">
               Hidden
             </p>
-            <p className="mt-1 text-xl font-black text-amber-900">{hiddenCount}</p>
+            <p className="mt-1 text-xl font-semibold text-amber-900">{hiddenCount}</p>
           </div>
           <div className="rounded-[14px] border border-black/6 bg-white/70 px-3 py-2.5">
-            <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[var(--admin-text-secondary)]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--admin-text-secondary)]">
               Live but empty
             </p>
-            <p className="mt-1 text-xl font-black text-rose-700">{emptyPublished.length}</p>
+            <p className="mt-1 text-xl font-semibold text-rose-700">{emptyPublished.length}</p>
           </div>
         </div>
 
@@ -180,7 +180,7 @@ export function CatalogVisibilityPanel({
               Reset
             </AdminButton>
           ) : null}
-          <AdminButton variant="gold" loading={saving} onClick={() => onSave()}>
+          <AdminButton variant="accent" loading={saving} onClick={() => onSave()}>
             Save catalog visibility
           </AdminButton>
         </div>
@@ -203,14 +203,14 @@ export function CatalogVisibilityPanel({
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-base font-black text-[var(--admin-text-primary)]">{channel.label}</p>
+                  <p className="text-base font-semibold text-[var(--admin-text-primary)]">{channel.label}</p>
                   <p className="mt-1 font-mono text-[10px] text-[var(--admin-text-secondary)]">
                     {channel.href}
                   </p>
                 </div>
                 <span
                   className={cn(
-                    'rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em]',
+                    'rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em]',
                     channel.published
                       ? isEmptyLive
                         ? 'bg-amber-100 text-amber-900'
@@ -224,20 +224,20 @@ export function CatalogVisibilityPanel({
 
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <div className="rounded-[12px] border border-black/6 bg-black/[0.02] px-2.5 py-2">
-                  <p className="text-[9px] font-black uppercase tracking-[0.08em] text-[var(--admin-text-secondary)]">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--admin-text-secondary)]">
                     Products
                   </p>
-                  <p className="mt-0.5 text-sm font-black">
+                  <p className="mt-0.5 text-sm font-semibold">
                     {statsLoading ? '…' : (stats?.publishedProducts ?? '—')}
                   </p>
                 </div>
                 <div className="rounded-[12px] border border-black/6 bg-black/[0.02] px-2.5 py-2">
-                  <p className="text-[9px] font-black uppercase tracking-[0.08em] text-[var(--admin-text-secondary)]">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--admin-text-secondary)]">
                     In stock
                   </p>
                   <p
                     className={cn(
-                      'mt-0.5 text-sm font-black',
+                      'mt-0.5 text-sm font-semibold',
                       stats && stats.inStockProducts === 0 ? 'text-rose-700' : 'text-emerald-800',
                     )}
                   >
@@ -245,10 +245,10 @@ export function CatalogVisibilityPanel({
                   </p>
                 </div>
                 <div className="rounded-[12px] border border-black/6 bg-black/[0.02] px-2.5 py-2">
-                  <p className="text-[9px] font-black uppercase tracking-[0.08em] text-[var(--admin-text-secondary)]">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--admin-text-secondary)]">
                     Units
                   </p>
-                  <p className="mt-0.5 text-sm font-black">
+                  <p className="mt-0.5 text-sm font-semibold">
                     {statsLoading ? '…' : (stats?.totalStockUnits ?? '—')}
                   </p>
                 </div>
@@ -323,7 +323,7 @@ export function CatalogVisibilityPanel({
             <AdminButton variant="ghost" size="sm" onClick={resetChanges}>
               Discard
             </AdminButton>
-            <AdminButton variant="gold" loading={saving} onClick={() => onSave()}>
+            <AdminButton variant="accent" loading={saving} onClick={() => onSave()}>
               Save now
             </AdminButton>
           </div>

@@ -663,10 +663,26 @@ html:not(.dark) .packing-station__history {
   opacity: 1 !important;
 }
 
-.packing-station__mode:not(.packing-station__mode--active) {
+html:not(.dark) .packing-station__mode:not(.packing-station__mode--active) {
   border: 1px solid rgba(15, 23, 42, 0.1) !important;
   background: linear-gradient(180deg, #ffffff, #f4f6f9) !important;
+  color: #18181b !important;
   transition: transform 90ms var(--admin-press-ease), box-shadow 90ms ease, border-color 90ms ease !important;
+}
+
+/* Dark: inactive mode must NOT be white (looks like empty box) */
+.dark .packing-station__mode:not(.packing-station__mode--active) {
+  border: 1.5px solid rgba(255, 255, 255, 0.14) !important;
+  background: linear-gradient(180deg, #222228, #17171b) !important;
+  color: rgba(255, 255, 255, 0.88) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  transition: transform 90ms var(--admin-press-ease), box-shadow 90ms ease, border-color 90ms ease !important;
+}
+
+.dark .packing-station__mode:not(.packing-station__mode--active):hover {
+  border-color: rgba(168, 130, 255, 0.45) !important;
+  background: linear-gradient(180deg, #2a2a32, #1c1c22) !important;
+  color: #fafafa !important;
 }
 
 .packing-station__mode:active {

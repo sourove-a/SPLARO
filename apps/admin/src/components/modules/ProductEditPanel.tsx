@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Loader2, Save, Package,
   Layers, AlertTriangle,
@@ -70,7 +69,7 @@ function toDatetimeLocalValue(value: string | Date | null | undefined): string {
 
 function SectionNumber({ n }: { n: number }) {
   return (
-    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[rgba(16, 17, 20, 0.18)] text-[10px] font-black text-[#3f3f46]">
+    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[rgba(16, 17, 20, 0.18)] text-[10px] font-semibold text-[var(--admin-c-3f3f46)]">
       {n}
     </span>
   )
@@ -82,7 +81,7 @@ function FormSection({
   title: string; icon: React.ElementType; children: React.ReactNode; number?: number
 }) {
   return (
-    <div className="admin-module-card product-edit-card space-y-4">
+    <section className="admin-module-card product-edit-card space-y-4">
       <div className="product-edit-card__head">
         <div className="product-edit-card__icon">
           <Icon className="h-3.5 w-3.5 text-[var(--admin-brand-gold)]" strokeWidth={2} />
@@ -91,7 +90,7 @@ function FormSection({
         {number !== undefined && <SectionNumber n={number} />}
       </div>
       {children}
-    </div>
+    </section>
   )
 }
 
@@ -606,7 +605,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(16, 17, 20, 0.1)]">
           <Loader2 className="h-5 w-5 animate-spin text-[var(--admin-brand-gold)]" />
         </div>
-        <p className="text-sm font-bold text-[#6B6B6B]">Loading product…</p>
+        <p className="text-sm font-bold text-[var(--admin-color-neutral-500)]">Loading product…</p>
       </div>
     )
   }
@@ -665,7 +664,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
             <ArrowLeft className="h-4 w-4" /> Products
           </AdminLinkButton>
           <div className="hidden min-w-0 sm:block">
-            <p className="truncate text-sm font-black text-[var(--admin-text)]">{form.name || 'Edit product'}</p>
+            <p className="truncate text-sm font-semibold text-[var(--admin-text)]">{form.name || 'Edit product'}</p>
             {form.slug ? (
               <p className="truncate text-[10px] font-semibold text-[var(--admin-text-muted)]">/products/{form.slug}</p>
             ) : null}
@@ -683,19 +682,12 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
             </>
           ) : null}
           <StatusBadge published={form.isPublished} />
-          <AnimatePresence>
-            {dirty && (
-              <motion.span
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-amber-400"
-              >
-                Unsaved
-              </motion.span>
-            )}
-          </AnimatePresence>
-          <AdminButton variant="gold" loading={saving} disabled={!canEditProducts} onClick={handleSave}>
+          {dirty ? (
+            <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-400">
+              Unsaved
+            </span>
+          ) : null}
+          <AdminButton variant="accent" loading={saving} disabled={!canEditProducts} onClick={handleSave}>
             <Save className="h-3.5 w-3.5" /> Save changes
           </AdminButton>
         </div>
@@ -824,7 +816,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                       <Link2 className="h-3.5 w-3.5 flex-shrink-0 text-[var(--admin-accent)]" strokeWidth={2} />
                       <span className="text-[11px] text-[var(--admin-text-muted)]">splaro.co/products/</span>
                       <input
-                        className="flex-1 bg-transparent text-[11px] font-black text-[var(--admin-text)] outline-none"
+                        className="flex-1 bg-transparent text-[11px] font-semibold text-[var(--admin-text)] outline-none"
                         value={form.slug}
                         onChange={(e) => handleSlugChange(e.target.value)}
                       />
@@ -851,27 +843,32 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
           </FormSection>
 
           {/* 2 — Variants */}
-          <FormSection title={`Variants & Stock${lowStock ? ' — ⚠ Low' : ''}`} icon={Layers} number={3}>
-            <p className="mb-3 text-[11px] font-semibold text-[#6B6B6B]">
-              Total stock: <span className={cn('font-black', lowStock ? 'text-amber-600' : 'text-[#111111]')}>{totalStock} units</span>
+          <FormSection title={`Variants${lowStock ? ' · Low stock' : ''}`} icon={Layers} number={3}>
+            <p className="product-edit-muted mb-3 text-[12px] font-medium">
+              {totalStock} available across {product.variants?.length ?? 0} variant{(product.variants?.length ?? 0) === 1 ? '' : 's'}
             </p>
             <ProductVariantManager productId={productId} variants={product.variants ?? []} productImages={form.imageUrls} />
           </FormSection>
 
           <FormSection title="Version history" icon={Layers}>
-            <p className="mb-2 text-[10px] font-semibold text-[#6B6B6B]">
+            <p className="product-edit-muted mb-2 text-[10px] font-semibold">
               A snapshot is saved automatically before each product save (max 20 versions).
             </p>
             {versions.length === 0 ? (
-              <p className="text-[11px] font-semibold text-[#6B6B6B]">No saved versions yet — save the product once to create the first snapshot.</p>
+              <p className="product-edit-muted text-[11px] font-semibold">
+                No saved versions yet — save the product once to create the first snapshot.
+              </p>
             ) : (
-              <div className="space-y-2">
+              <div className="product-edit-versions space-y-2">
                 {versions.map((v) => (
-                  <div key={v.id} className="flex items-center justify-between rounded-lg border border-[rgba(17,17,17,0.06)] px-3 py-2">
+                  <div key={v.id} className="product-edit-version-row">
                     <div>
-                      <p className="text-[11px] font-black text-[#111111]">v{v.version} · {v.changedBy}</p>
-                      <p className="text-[10px] font-semibold text-[#6B6B6B]">
-                        {new Date(v.createdAt).toLocaleString()}{v.changeNote ? ` · ${v.changeNote}` : ''}
+                      <p className="text-[11px] font-semibold text-[var(--admin-text)]">
+                        v{v.version} · {v.changedBy}
+                      </p>
+                      <p className="product-edit-muted text-[10px] font-semibold">
+                        {new Date(v.createdAt).toLocaleString()}
+                        {v.changeNote ? ` · ${v.changeNote}` : ''}
                       </p>
                     </div>
                     <button
@@ -890,7 +887,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                           if (ok) void refetch()
                         })()
                       }}
-                      className="rounded-lg bg-[rgba(16, 17, 20, 0.12)] px-2.5 py-1 text-[11px] font-black text-[#3f3f46] transition-colors hover:bg-[rgba(16, 17, 20, 0.22)] disabled:opacity-50"
+                      className="product-edit-version-restore"
                     >
                       Restore
                     </button>
@@ -969,14 +966,14 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
               { label: 'Status', value: String((product as unknown as Record<string, unknown>).status ?? (product.isPublished ? 'PUBLISHED' : 'DRAFT')) },
               { label: 'URL slug', value: form.slug || '—' },
             ].map(({ label, value }) => (
-              <div key={label} className="flex items-center justify-between border-b border-[rgba(17,17,17,0.05)] pb-2.5 last:border-0 last:pb-0">
-                <span className="text-[11px] font-black uppercase tracking-[0.1em] text-[var(--admin-text-muted)]">{label}</span>
-                <span className={cn('max-w-[160px] truncate text-right text-sm font-black text-[var(--admin-text)]', label === 'URL slug' && 'font-mono text-[10px]')}>{value}</span>
+              <div key={label} className="product-edit-stat-row">
+                <span className="product-edit-stat-row__label">{label}</span>
+                <span className={cn('product-edit-stat-row__value', label === 'URL slug' && 'font-mono text-[10px]')}>{value}</span>
               </div>
             ))}
             {form.slug ? (
-              <div className="space-y-2 border-t border-[rgba(17,17,17,0.06)] pt-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[var(--admin-text-muted)]">Storefront link</p>
+              <div className="product-edit-storefront-link space-y-2 pt-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--admin-text-muted)]">Storefront link</p>
                 <p className="break-all font-mono text-[10px] font-semibold text-[var(--admin-text-secondary)]">{storefrontUrl}</p>
                 <div className="flex flex-wrap gap-2">
                   <AdminButton variant="ghost" size="sm" onClick={() => void handleCopyStorefrontUrl()}>
@@ -993,14 +990,16 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
             ) : null}
           </div>
 
-          {/* Danger zone */}
+          {/* Danger zone — kept clear of floating Chat / Save dock */}
           {canDeleteProducts && (
             <div className="product-edit-page__danger">
               <div className="mb-3 flex items-center gap-2">
                 <ShieldAlert className="h-3.5 w-3.5 text-red-500" />
-                <p className="text-[11px] font-black uppercase tracking-[0.1em] text-red-600">Danger Zone</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-red-500">Danger Zone</p>
               </div>
-              <p className="mb-3 text-xs font-semibold text-red-400/90">Hides product from storefront. Cannot be undone.</p>
+              <p className="mb-3 text-xs font-semibold text-[var(--admin-text-muted)]">
+                Hides product from storefront. Cannot be undone.
+              </p>
               <AdminButton
                 variant="danger"
                 className="w-full justify-center border border-red-500/25"
@@ -1014,23 +1013,16 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
         </aside>
       </div>
 
-      {/* Sticky save bar */}
-      <AnimatePresence>
-        {dirty && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="product-edit-page__savebar fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl px-5 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl"
-          >
-            <Pencil className="h-3.5 w-3.5 text-[var(--admin-brand-gold)]" />
-            <span className="text-sm font-bold text-[var(--admin-text)]">Unsaved changes</span>
-            <AdminButton variant="gold" loading={saving} disabled={!canEditProducts} onClick={handleSave}>
-              <Save className="h-3.5 w-3.5" /> Save
-            </AdminButton>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Docked save bar — sticky in-page, clears Chat FAB (no fixed overlay / transform hitbox drift) */}
+      {dirty ? (
+        <div className="product-edit-page__savebar product-edit-page__savebar--dock" role="status">
+          <Pencil className="h-3.5 w-3.5 shrink-0 text-[var(--admin-brand-gold)]" aria-hidden />
+          <span className="text-sm font-bold text-[var(--admin-text)]">Unsaved changes</span>
+          <AdminButton variant="accent" loading={saving} disabled={!canEditProducts} onClick={handleSave}>
+            <Save className="h-3.5 w-3.5" /> Save
+          </AdminButton>
+        </div>
+      ) : null}
     </div>
   )
 }

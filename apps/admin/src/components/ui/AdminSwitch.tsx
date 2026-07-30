@@ -38,7 +38,7 @@ interface AdminSwitchRowProps {
   highlight?: boolean
 }
 
-/** Compact row for sidebars — not the full-width settings card. */
+/** Compact row for sidebars — whole row is the hit target (no nested button). */
 export function AdminSwitchRow({
   label,
   desc,
@@ -48,23 +48,29 @@ export function AdminSwitchRow({
   highlight,
 }: AdminSwitchRowProps) {
   return (
-    <div
+    <button
+      type="button"
+      disabled={disabled}
+      aria-pressed={checked}
+      aria-label={label}
+      onClick={onChange}
       className={cn(
         'admin-switch-row',
         highlight && 'admin-switch-row--highlight',
         checked && highlight && 'admin-switch-row--highlight-on',
+        disabled && 'cursor-not-allowed opacity-50',
       )}
     >
-      <div className="min-w-0 flex-1">
-        <p className="admin-switch-row__label">{label}</p>
-        {desc ? <p className="admin-switch-row__desc">{desc}</p> : null}
-      </div>
-      <AdminSwitch
-        checked={checked}
-        onChange={onChange}
-        {...(disabled !== undefined ? { disabled } : {})}
-        aria-label={label}
-      />
-    </div>
+      <span className="min-w-0 flex-1 text-left">
+        <span className="admin-switch-row__label">{label}</span>
+        {desc ? <span className="admin-switch-row__desc block">{desc}</span> : null}
+      </span>
+      <span
+        aria-hidden
+        className={cn('settings-toggle__switch', checked && 'settings-toggle__switch--on')}
+      >
+        <span className={cn('settings-toggle__knob', checked && 'settings-toggle__knob--on')} />
+      </span>
+    </button>
   )
 }

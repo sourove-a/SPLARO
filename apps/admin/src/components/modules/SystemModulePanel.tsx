@@ -10,7 +10,7 @@ import { runAllHealthChecks } from '@/lib/api/health'
 import React, { useCallback, useEffect, useState } from 'react'
 
 function ErrorBanner({ msg }: { msg?: string }) {
-  return <div className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', borderLeft: '3px solid #EF4444', color: '#B91C1C', fontSize: 13, fontWeight: 700 }}>{msg ?? 'API offline — start pnpm dev:api'}</div>
+  return <div className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', borderLeft: '3px solid var(--admin-danger-bright)', color: 'var(--admin-danger-strong)', fontSize: 13, fontWeight: 700 }}>{msg ?? 'API offline — start pnpm dev:api'}</div>
 }
 
 function KpiCard({ label, value }: { label: string; value: string | number }) {
@@ -24,14 +24,14 @@ function KpiCard({ label, value }: { label: string; value: string | number }) {
 
 function StatusPill({ value }: { value: string }) {
   const map: Record<string, { bg: string; text: string; border: string }> = {
-    healthy:  { bg: 'rgba(22,163,74,0.10)',   text: '#15803D', border: 'rgba(22,163,74,0.30)' },
-    degraded: { bg: 'rgba(245,158,11,0.10)',  text: '#B45309', border: 'rgba(245,158,11,0.30)' },
-    offline:  { bg: 'rgba(239,68,68,0.10)',   text: '#B91C1C', border: 'rgba(239,68,68,0.30)' },
-    info:     { bg: 'rgba(59,130,246,0.10)',  text: '#1D4ED8', border: 'rgba(59,130,246,0.30)' },
-    warn:     { bg: 'rgba(245,158,11,0.10)',  text: '#B45309', border: 'rgba(245,158,11,0.30)' },
-    error:    { bg: 'rgba(239,68,68,0.10)',   text: '#B91C1C', border: 'rgba(239,68,68,0.30)' },
+    healthy:  { bg: 'rgba(22,163,74,0.10)',   text: 'var(--admin-success-ink)', border: 'rgba(22,163,74,0.30)' },
+    degraded: { bg: 'rgba(245,158,11,0.10)',  text: 'var(--admin-warning-ink)', border: 'rgba(245,158,11,0.30)' },
+    offline:  { bg: 'rgba(239,68,68,0.10)',   text: 'var(--admin-danger-strong)', border: 'rgba(239,68,68,0.30)' },
+    info:     { bg: 'rgba(59,130,246,0.10)',  text: 'var(--admin-c-1d4ed8)', border: 'rgba(59,130,246,0.30)' },
+    warn:     { bg: 'rgba(245,158,11,0.10)',  text: 'var(--admin-warning-ink)', border: 'rgba(245,158,11,0.30)' },
+    error:    { bg: 'rgba(239,68,68,0.10)',   text: 'var(--admin-danger-strong)', border: 'rgba(239,68,68,0.30)' },
   }
-  const fallback = { bg: 'rgba(156,163,175,0.10)', text: '#4B5563', border: 'rgba(156,163,175,0.30)' }
+  const fallback = { bg: 'rgba(156,163,175,0.10)', text: 'var(--admin-c-4b5563)', border: 'rgba(156,163,175,0.30)' }
   const s = map[value.toLowerCase()] ?? fallback
   return <span style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.text, borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 800 }}>{value}</span>
 }

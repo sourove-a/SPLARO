@@ -12,6 +12,8 @@ import {
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { PlatformConnectionPanel } from '@/components/ui/connection/PlatformConnectionPanel'
+import { HandoffPageChrome } from '@/components/ui/HandoffPageChrome'
+import { KpiGrid } from '@/components/ui/AdminHandoffBlocks'
 import {
   healthSummary,
   runAllHealthChecks,
@@ -99,6 +101,11 @@ export function ApiHealthPanel() {
   }, [autoRefresh, run])
 
   const summary = useMemo(() => healthSummary(checks), [checks])
+  const avgLatency = useMemo(() => {
+    const latencies = checks.map((c) => c.latencyMs).filter((v): v is number => v !== null)
+    if (latencies.length === 0) return null
+    return Math.round(latencies.reduce((sum, n) => sum + n, 0) / latencies.length)
+  }, [checks])
 
   const grouped = useMemo(() => {
     const map = new Map<string, ServiceHealthCheck[]>()
@@ -135,118 +142,96 @@ export function ApiHealthPanel() {
 
   return (
     <div className="space-y-5">
-      <PlatformConnectionPanel />
+      <HandoffPageChrome
+        group="Integrations"
+        title="API Health"
+        sync={mounted && lastRun ? `probe ${Math.max(1, Math.round((Date.now() - lastRun.getTime()) / 1000))}s ago` : 'probe running…'}
+        offline={summary.overall === 'down' && checks.length > 0}
+        actions={
+          <>
+            <AdminButton onClick={() => void run('core')} loading={loading && scope === 'core'}>
+              <RefreshCw className={cn('h-4 w-4', loading && scope === 'core' && 'animate-spin')} />
+              Run probe
+            </AdminButton>
+            <AdminButton variant="ghost" onClick={() => void run('full')} loading={loading && scope === 'full'}>
+              <Zap className={cn('h-4 w-4', loading && scope === 'full' && 'animate-spin')} />
+              Full scan
+            </AdminButton>
+          </>
+        }
+      >
+        <KpiGrid
+          columns={4}
+          items={[
+            { label: 'Overall', value: summary.overall === 'checking' ? 'Checking' : summary.overall, sub: `${summary.healthy}/${summary.total} healthy`, tone: summary.overall === 'healthy' ? 'success' : summary.overall === 'down' ? 'danger' : 'warning' },
+            { label: 'Avg latency', value: avgLatency !== null ? `${avgLatency}ms` : '—', sub: scope === 'full' ? 'full catalog' : 'core checks' },
+            { label: 'Error rate', value: checks.length > 0 ? `${Math.round((summary.down / checks.length) * 100)}%` : '—', sub: `${summary.down} down · ${summary.degraded} degraded`, tone: summary.down > 0 ? 'danger' : summary.degraded > 0 ? 'warning' : 'success' },
+            { label: 'Worker queue', value: checks.filter((c) => c.name.toLowerCase().includes('worker')).length > 0 ? 'Tracked' : '—', sub: 'worker / queue checks if configured' },
+          ]}
+        />
 
-      {/* Summary strip */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          [
-            'Overall',
-            summary.overall,
-            summary.overall === 'healthy'
-              ? 'success'
-              : summary.overall === 'down'
-                ? 'danger'
-                : summary.overall === 'checking'
-                  ? 'warning'
-                  : 'warning',
-          ],
-          ['Healthy', summary.healthy, 'success'],
-          ['Degraded', summary.degraded, 'warning'],
-          ['Down', summary.down, 'danger'],
-        ].map(([label, value, tone]) => (
-          <div
-            key={label as string}
-            className={cn(
-              'admin-kpi rounded-[20px] border',
-              tone === 'success' && 'admin-health-kpi--success',
-              tone === 'warning' && 'admin-health-kpi--warning',
-              tone === 'danger' && 'admin-health-kpi--danger',
-            )}
-          >
-            <p className="admin-kpi__label">{label as string}</p>
-            <p
-              className={cn(
-                'admin-kpi__value capitalize',
-                tone === 'success' && 'admin-kpi__value--success',
-                tone === 'warning' && 'admin-kpi__value--warning',
-                tone === 'danger' && 'admin-kpi__value--warning',
-              )}
-            >
-              {value as string | number}
-            </p>
-          </div>
-        ))}
-      </div>
+        <PlatformConnectionPanel />
 
-      {/* Section overview — one chip per sidebar group */}
-      {sectionOverview.length > 0 ? (
-        <div className="admin-health-sections">
-          <p className="admin-health-sections__title">Section status</p>
-          <div className="admin-health-sections__grid">
-            {sectionOverview.map(({ group, items, status }) => {
-              const ok = items.filter((i) => i.status === 'healthy').length
-              const meta = STATUS_META[status]
-              const Icon = meta.icon
-              return (
-                <div
-                  key={group}
-                  className={cn(
-                    'admin-health-section-chip',
-                    status === 'healthy' && 'admin-health-section-chip--ok',
-                    status === 'degraded' && 'admin-health-section-chip--warn',
-                    status === 'down' && 'admin-health-section-chip--down',
-                    status === 'checking' && 'admin-health-section-chip--checking',
-                  )}
-                >
-                  <Icon className="admin-health-section-chip__icon" />
-                  <div className="min-w-0">
-                    <p className="admin-health-section-chip__label">{group}</p>
-                    <p className="admin-health-section-chip__meta">
-                      {ok}/{items.length} OK
-                    </p>
+        {/* Section overview — one chip per sidebar group */}
+        {sectionOverview.length > 0 ? (
+          <div className="admin-health-sections">
+            <p className="admin-health-sections__title">Section status</p>
+            <div className="admin-health-sections__grid">
+              {sectionOverview.map(({ group, items, status }) => {
+                const ok = items.filter((i) => i.status === 'healthy').length
+                const meta = STATUS_META[status]
+                const Icon = meta.icon
+                return (
+                  <div
+                    key={group}
+                    className={cn(
+                      'admin-health-section-chip',
+                      status === 'healthy' && 'admin-health-section-chip--ok',
+                      status === 'degraded' && 'admin-health-section-chip--warn',
+                      status === 'down' && 'admin-health-section-chip--down',
+                      status === 'checking' && 'admin-health-section-chip--checking',
+                    )}
+                  >
+                    <Icon className="admin-health-section-chip__icon" />
+                    <div className="min-w-0">
+                      <p className="admin-health-section-chip__label">{group}</p>
+                      <p className="admin-health-section-chip__meta">
+                        {ok}/{items.length} OK
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {/* Toolbar */}
-      <div className="admin-health-toolbar">
-        <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-[var(--admin-accent)]" />
-          <div>
-            <p className="admin-health-toolbar__title">Live API monitoring</p>
-            <p className="admin-health-toolbar__sub">
-              {mounted && lastRun ? `Last checked ${lastRun.toLocaleTimeString()}` : 'Running checks…'}
-              {checks.length > 0 ? ` · ${checks.length} endpoints` : ''}
-              {` · ${scope === 'full' ? 'full catalog' : 'core'}`}
-              {autoRefresh ? ' · auto-refresh 90s' : ''}
-            </p>
+        {/* Toolbar */}
+        <div className="admin-health-toolbar">
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-[var(--admin-accent)]" />
+            <div>
+              <p className="admin-health-toolbar__title">Live API monitoring</p>
+              <p className="admin-health-toolbar__sub">
+                {mounted && lastRun ? `Last checked ${lastRun.toLocaleTimeString()}` : 'Running checks…'}
+                {checks.length > 0 ? ` · ${checks.length} endpoints` : ''}
+                {` · ${scope === 'full' ? 'full catalog' : 'core'}`}
+                {autoRefresh ? ' · auto-refresh 90s' : ''}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <label className="admin-health-toolbar__toggle">
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                className="h-3.5 w-3.5 accent-[var(--admin-accent)]"
+              />
+              Auto refresh
+            </label>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <label className="admin-health-toolbar__toggle">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="h-3.5 w-3.5 accent-[var(--admin-accent)]"
-            />
-            Auto refresh
-          </label>
-          <AdminButton onClick={() => void run('core')} loading={loading && scope === 'core'}>
-            <RefreshCw className={cn('h-4 w-4', loading && scope === 'core' && 'animate-spin')} />
-            Core check
-          </AdminButton>
-          <AdminButton variant="ghost" onClick={() => void run('full')} loading={loading && scope === 'full'}>
-            <Zap className={cn('h-4 w-4', loading && scope === 'full' && 'animate-spin')} />
-            Full scan
-          </AdminButton>
-        </div>
-      </div>
 
       {/* PostgreSQL setup banner */}
       {checks.some((c) => c.id === 'infra-postgresql' && c.status === 'down') ? (
@@ -362,12 +347,13 @@ export function ApiHealthPanel() {
         )
       })}
 
-      <p className="text-center text-[11px] font-semibold text-[var(--admin-text-muted)]">
-        Need help?{' '}
-        <AdminNavLink href="/dashboard/all-integrations" className="font-black text-[var(--admin-accent)] hover:underline">
-          View all integrations
-        </AdminNavLink>
-      </p>
+        <p className="text-center text-[11px] font-semibold text-[var(--admin-text-muted)]">
+          Need help?{' '}
+          <AdminNavLink href="/dashboard/all-integrations" className="font-black text-[var(--admin-accent)] hover:underline">
+            View all integrations
+          </AdminNavLink>
+        </p>
+      </HandoffPageChrome>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import {
   Activity,
   BarChart3,
@@ -12,7 +13,6 @@ import {
   Sparkles,
   TrendingUp,
   Users,
-  WifiOff,
   Zap,
 } from 'lucide-react'
 import { StatCard } from '@/components/ui/StatCard'
@@ -26,9 +26,10 @@ import { TopProducts } from '@/components/dashboard/TopProducts'
 import { QuickActions } from '@/components/dashboard/QuickActions'
 import { StoreHealthCards } from '@/components/agent/StoreHealthCards'
 import { ClientDateTime } from '@/components/ui/ClientDateTime'
+import { HandoffPageChrome } from '@/components/ui/HandoffPageChrome'
+import { DecisionCard } from '@/components/ui/AdminHandoffBlocks'
 import { formatBDT } from '@/lib/utils/currency'
 import { useAdminSession, useDashboardStats, useExecutiveDashboard } from '@/lib/api/hooks'
-import { useAdminUiStore } from '@/store/uiStore'
 import { cn } from '@/lib/utils/cn'
 
 const DATE_RANGES = ['Today', '7 Days', '30 Days', 'Quarter'] as const
@@ -64,7 +65,6 @@ function DashboardSectionHeader({
 
 export function PremiumDashboard() {
   const [dateRange, setDateRange] = useState<DateRange>('30 Days')
-  const openAgentChat = useAdminUiStore((s) => s.openAgentChat)
   const { data: stats, isLoading, isError } = useDashboardStats(dateRange)
   const { data: executive } = useExecutiveDashboard()
   const { data: sessionUser } = useAdminSession()
@@ -81,64 +81,95 @@ export function PremiumDashboard() {
     n !== undefined ? new Intl.NumberFormat('en-US').format(n) : isError ? '—' : isLoading ? '…' : '—'
 
   return (
-    <div className="admin-dashboard-canvas premium-dash admin-panel-page min-h-full w-full pb-20">
-      <header className="premium-dash__hero admin-catalog-hero admin-panel-hero !mb-4">
-        <div className="premium-dash__hero-glow" aria-hidden />
-        <div className="premium-dash__hero-inner">
-          <div className="premium-dash__hero-copy">
-            <div className="premium-dash__hero-eyebrow-row">
-              <p className="admin-page-eyebrow">Commerce OS</p>
-              {isError ? (
-                <span className="premium-dash__offline">
-                  <WifiOff className="h-3 w-3" strokeWidth={1.5} />
-                  API offline
-                </span>
-              ) : (
-                <span className="premium-dash__live">
-                  <span className="premium-dash__live-dot" aria-hidden />
-                  Live
-                </span>
-              )}
-            </div>
-            <h1 className="admin-page-title mt-2">
-              Welcome back, <span className="admin-page-title__accent">{userName}</span>
-            </h1>
-            <p className="premium-dash__sub">
-              <ClientDateTime suffix=" — your luxury storefront at a glance" />
+    <div className="admin-dashboard-canvas premium-dash admin-panel-page ho-stack min-h-full w-full pb-20">
+      <HandoffPageChrome
+        group="Overview"
+        title="Dashboard"
+        sync={isError ? 'API offline' : `${dateRange} · storefront overview`}
+        live={!isError}
+        offline={isError}
+        actions={
+          <div className="admin-segment premium-dash__segment" role="group" aria-label="Date range">
+            {DATE_RANGES.map((range) => (
+              <button
+                key={range}
+                type="button"
+                onClick={() => setDateRange(range)}
+                className={cn(
+                  'admin-segment__btn',
+                  dateRange === range && 'admin-segment__btn--active',
+                )}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
+        }
+      >
+        <p className="m-0 text-sm font-semibold text-[var(--admin-text-secondary)]">
+          Welcome back, {userName}. <ClientDateTime suffix=" — what needs you next." />
+        </p>
+      </HandoffPageChrome>
+
+      <div className="ho-grid">
+        <div className="ho-stack">
+          <div className="ho-hero-metric">
+            <p className="ho-hero-metric__label">Revenue · {dateRange.toLowerCase()}</p>
+            <p className="ho-hero-metric__value">{fmt(revenue)}</p>
+            {stats?.revenue.change !== undefined ? (
+              <span className="ho-hero-metric__delta">
+                {stats.revenue.change > 0 ? '+' : ''}
+                {stats.revenue.change}%
+              </span>
+            ) : null}
+            <p className="ho-hero-metric__sub">
+              {isError
+                ? 'API offline — numbers unavailable.'
+                : `${fmtNum(orders)} orders · AOV ${fmt(aov)}`}
             </p>
           </div>
 
-          <div className="premium-dash__hero-actions">
-            <div className="admin-segment premium-dash__segment" role="group" aria-label="Date range">
-              {DATE_RANGES.map((range) => (
-                <button
-                  key={range}
-                  type="button"
-                  onClick={() => setDateRange(range)}
-                  className={cn(
-                    'admin-segment__btn',
-                    dateRange === range && 'admin-segment__btn--active',
-                  )}
-                >
-                  {range}
-                </button>
-              ))}
+          <section className="premium-dash__zone" aria-labelledby="dash-live-pulse">
+            <DashboardSectionHeader
+              id="dash-live-pulse"
+              title="Live pulse"
+              meta="Store signals · now"
+              icon={Radio}
+            />
+            <div className="premium-dash__zone-body">
+              <StoreHealthCards />
             </div>
-          </div>
+          </section>
         </div>
-      </header>
 
-      <section className="premium-dash__zone" aria-labelledby="dash-live-pulse">
-        <DashboardSectionHeader
-          id="dash-live-pulse"
-          title="Live pulse"
-          meta="Store signals · now"
-          icon={Radio}
-        />
-        <div className="premium-dash__zone-body">
-          <StoreHealthCards onAsk={(q) => openAgentChat(q)} />
+        <div className="ho-stack">
+          <DecisionCard
+            tone={isError ? 'bad' : 'info'}
+            title="What to do next"
+            decision={
+              isError
+                ? 'API is offline — start pnpm dev:api before trusting KPIs'
+                : `${fmtNum(orders)} orders in range — open Orders or Packing Station`
+            }
+            why="Never show a bare number without a decision. Revenue above is live only when the API responds."
+            stats={[
+              { label: 'Orders', value: fmtNum(orders) },
+              { label: 'Customers', value: fmtNum(customers) },
+              { label: 'Net profit', value: fmt(netProfit) },
+            ]}
+            actions={
+              <>
+                <Link href="/dashboard/orders" scroll={false} className="admin-btn admin-btn--accent px-3 py-2 text-xs font-semibold">
+                  Open orders
+                </Link>
+                <Link href="/dashboard/packing-station" scroll={false} className="admin-btn admin-btn--ghost px-3 py-2 text-xs font-semibold">
+                  Packing
+                </Link>
+              </>
+            }
+          />
         </div>
-      </section>
+      </div>
 
       <section className="premium-dash__zone" aria-labelledby="dash-performance">
         <DashboardSectionHeader
@@ -157,6 +188,7 @@ export function PremiumDashboard() {
                 icon={DollarSign}
                 color="amber"
                 loading={isLoading}
+                href="/dashboard/finance/finance-reports"
               />
             </div>
             <div className="premium-dash__kpi premium-dash__kpi--sky">
@@ -167,6 +199,7 @@ export function PremiumDashboard() {
                 icon={ShoppingBag}
                 color="sky"
                 loading={isLoading}
+                href="/dashboard/orders"
               />
             </div>
             <div className="premium-dash__kpi premium-dash__kpi--teal">
@@ -177,6 +210,7 @@ export function PremiumDashboard() {
                 icon={Users}
                 color="teal"
                 loading={isLoading}
+                href="/dashboard/customers"
               />
             </div>
             <div className="premium-dash__kpi premium-dash__kpi--green">
@@ -187,6 +221,7 @@ export function PremiumDashboard() {
                 icon={TrendingUp}
                 color="green"
                 loading={isLoading}
+                href="/dashboard/finance/profit-loss"
               />
             </div>
             <div className="premium-dash__kpi premium-dash__kpi--slate">
@@ -197,6 +232,7 @@ export function PremiumDashboard() {
                 icon={BarChart3}
                 color="slate"
                 loading={isLoading}
+                href="/dashboard/orders"
               />
             </div>
             <div className="premium-dash__kpi premium-dash__kpi--gold">
@@ -207,6 +243,7 @@ export function PremiumDashboard() {
                 icon={Percent}
                 color="gold"
                 loading={isLoading}
+                href="/dashboard/analytics"
               />
             </div>
           </div>

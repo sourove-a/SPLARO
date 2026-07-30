@@ -104,6 +104,13 @@ export function InvoiceActionsBar({
   }
 
   const cancelBooking = async () => {
+    if (
+      !window.confirm(
+        'Cancel courier booking for this order? Local cancel only — Steadfast may still hold the parcel.',
+      )
+    ) {
+      return
+    }
     try {
       const res = await cancelCourierBookingLocal(orderId)
       toastWarn(res.message, `cancel-booking-${orderId}`)
@@ -113,8 +120,8 @@ export function InvoiceActionsBar({
   }
 
   return (
-    <div className="rounded-[16px] border border-[#10111422] bg-white/80 p-3 backdrop-blur-xl dark:border-white/10 dark:bg-[#1c1c24]/95">
-      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#9a7848] dark:text-[#d4b896]">
+    <div className="rounded-[16px] border border-[var(--admin-color-ink-elevated)] bg-white/80 p-3 backdrop-blur-xl dark:border-white/10 dark:bg-[var(--admin-c-1c1c24)]/95">
+      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--admin-c-9a7848)] dark:text-[var(--admin-c-d4b896)]">
         Premium invoice · {invoiceNumber}
       </p>
       <div className="flex flex-wrap gap-2">

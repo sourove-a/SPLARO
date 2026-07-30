@@ -33,6 +33,8 @@ export interface CustomerFraudSignals {
   distinctPhonesOnDevice: number
   distinctPhonesOnIp: number
   firstSeenAt: string | null
+  firstSeenAtIp?: string | null
+  firstSeenAtDevice?: string | null
   lastSeenAt: string | null
   flags: string[]
   captured: boolean
@@ -104,4 +106,16 @@ export function blockCustomer(id: string, blocked: boolean) {
 export function deleteCustomer(id: string, options?: { force?: boolean }) {
   const qs = options?.force ? '?force=true' : ''
   return apiFetch<{ success: boolean }>(`/admin/customers/${id}${qs}`, { method: 'DELETE' })
+}
+
+export function createCustomer(input: {
+  firstName: string
+  lastName?: string
+  phone: string
+  email?: string
+}) {
+  return apiFetch<ApiCustomer>('/admin/customers', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
 }

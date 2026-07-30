@@ -180,7 +180,7 @@ export function NotificationDropdown() {
                           }`}
                         >
                           <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[var(--admin-glass-border)] bg-[var(--admin-surface)] shadow-sm">
-                            <Icon className="h-4 w-4 text-[#5E7CFF]" />
+                            <Icon className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="line-clamp-2 text-xs font-bold leading-5 text-[var(--admin-text)]">
@@ -193,7 +193,7 @@ export function NotificationDropdown() {
                             </p>
                           </div>
                           {isUnread ? (
-                            <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#5E7CFF]" />
+                            <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--admin-color-accent-blue)]" />
                           ) : null}
                         </AdminNavLink>
                       </li>

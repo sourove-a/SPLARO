@@ -1,0 +1,402 @@
+/**
+ * SPLARO Admin — Design Monks primitives (buttons, inputs, cards, tables, focus).
+ * No ambient box-shadow — surfaces separate by border only (no light bleed).
+ */
+
+/* ── Bridge globals aliases to foundation ── */
+:root {
+  --admin-bg: var(--admin-foundation-canvas);
+  --admin-surface: var(--admin-foundation-surface);
+  --admin-text: var(--admin-foundation-ink);
+  --admin-text-primary: var(--admin-foundation-ink);
+  --admin-text-secondary: var(--admin-foundation-ink-secondary);
+  --admin-text-muted: var(--admin-foundation-ink-muted);
+  --admin-text-strong: var(--admin-foundation-ink);
+  --admin-accent: var(--admin-foundation-primary);
+  --admin-accent-strong: var(--admin-foundation-primary-hover);
+  --admin-accent-muted: var(--admin-foundation-primary-soft);
+  --admin-accent-soft: var(--admin-foundation-primary-soft);
+  --admin-accent-border: var(--admin-foundation-primary-border);
+  --admin-accent-glow: transparent;
+  --admin-gold: var(--admin-foundation-primary);
+  --admin-gold-muted: var(--admin-foundation-primary-soft);
+  --admin-gold-soft: var(--admin-foundation-primary-soft);
+  --admin-gold-glow: transparent;
+  --admin-radius: var(--admin-radius-panel);
+  --admin-radius-md: var(--admin-radius-panel);
+  --admin-radius-sm: var(--admin-radius-card);
+  --admin-radius-xs: var(--admin-radius-control);
+  --admin-shadow: none;
+  --admin-shadow-soft: none;
+  --admin-shadow-card: none;
+  --admin-shadow-elevated: none;
+  --admin-glass: var(--admin-foundation-surface);
+  --admin-glass-strong: var(--admin-foundation-surface);
+  --admin-glass-soft: var(--admin-foundation-surface);
+  --admin-glass-border: var(--admin-foundation-border);
+  --admin-glass-border-subtle: var(--admin-foundation-border);
+  --admin-glass-shadow: none;
+  --admin-glass-highlight: none;
+  --admin-glass-sheen: var(--admin-foundation-surface);
+  --admin-blur: 0px;
+  --admin-blur-strong: 0px;
+  --admin-transition: var(--admin-motion-base) var(--admin-motion-ease);
+  --admin-press-down-duration: var(--admin-motion-fast);
+  --admin-press-release-duration: var(--admin-motion-base);
+  --admin-press-release-ease: var(--admin-motion-ease);
+  --admin-press-down-ease: var(--admin-motion-ease);
+  --admin-press-translate-y: 0px;
+}
+
+/* ── Buttons — flat, no gradient ── */
+.admin-btn,
+button.admin-btn,
+a.admin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: var(--admin-control-height);
+  padding: 0 0.9rem;
+  border-radius: var(--admin-radius-control);
+  border: 1px solid var(--admin-foundation-border-strong);
+  background: var(--admin-foundation-surface);
+  color: var(--admin-foundation-ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: none;
+  transition:
+    background var(--admin-motion-fast) var(--admin-motion-ease),
+    border-color var(--admin-motion-fast) var(--admin-motion-ease),
+    color var(--admin-motion-fast) var(--admin-motion-ease),
+    transform var(--admin-motion-fast) var(--admin-motion-ease),
+    opacity var(--admin-motion-fast) var(--admin-motion-ease);
+}
+
+.admin-btn:hover:not(:disabled):not(.admin-btn--loading) {
+  background: var(--admin-foundation-canvas-raised);
+  border-color: var(--admin-foundation-border-strong);
+  transform: none;
+  box-shadow: none;
+}
+
+.admin-btn:active:not(:disabled):not(.admin-btn--loading) {
+  transform: scale(var(--admin-press-scale, 0.98));
+}
+
+.admin-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+
+.admin-btn:disabled,
+.admin-btn--loading {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admin-btn--primary,
+.admin-btn--gold,
+.admin-btn--accent,
+.admin-catalog-action--primary {
+  background: var(--admin-foundation-primary);
+  border-color: var(--admin-foundation-primary);
+  color: var(--admin-c-fafafa);
+  font-weight: 600;
+  background-image: none;
+  box-shadow: none;
+}
+
+.admin-btn--primary:hover:not(:disabled),
+.admin-btn--gold:hover:not(:disabled),
+.admin-btn--accent:hover:not(:disabled),
+.admin-catalog-action--primary:hover:not(:disabled) {
+  background: var(--admin-foundation-primary-hover);
+  border-color: var(--admin-foundation-primary-hover);
+  color: var(--admin-c-fafafa);
+  background-image: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.admin-btn--primary:active:not(:disabled),
+.admin-btn--gold:active:not(:disabled),
+.admin-btn--accent:active:not(:disabled) {
+  background: var(--admin-foundation-primary-pressed);
+  transform: scale(var(--admin-press-scale, 0.98));
+}
+
+.admin-btn--secondary {
+  background: var(--admin-foundation-surface);
+  border-color: var(--admin-foundation-border-strong);
+  color: var(--admin-foundation-ink);
+}
+
+.admin-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--admin-foundation-ink-secondary);
+  box-shadow: none;
+}
+
+.admin-btn--ghost:hover:not(:disabled) {
+  background: var(--admin-foundation-canvas);
+  color: var(--admin-foundation-ink);
+}
+
+.admin-btn--danger {
+  background: var(--admin-c-dc2626);
+  border-color: var(--admin-c-dc2626);
+  color: var(--admin-color-white);
+}
+
+.admin-btn--danger:hover:not(:disabled) {
+  background: var(--admin-danger-strong);
+  border-color: var(--admin-danger-strong);
+  color: var(--admin-color-white);
+}
+
+.admin-btn--success {
+  background: var(--admin-success-strong);
+  border-color: var(--admin-success-strong);
+  color: var(--admin-color-white);
+}
+
+.admin-btn--warning {
+  background: var(--admin-c-d97706);
+  border-color: var(--admin-c-d97706);
+  color: var(--admin-color-white);
+}
+
+.admin-btn--dark {
+  background: var(--admin-color-zinc-900);
+  border-color: var(--admin-color-zinc-900);
+  color: var(--admin-c-fafafa);
+}
+
+.admin-btn--sm {
+  min-height: var(--admin-control-height-sm);
+  padding: 0 0.7rem;
+  font-size: 0.75rem;
+  border-radius: var(--admin-radius-compact);
+}
+
+.admin-btn--lg {
+  min-height: var(--admin-control-height-lg);
+  padding: 0 1.1rem;
+  font-size: 0.875rem;
+}
+
+.admin-btn--icon {
+  width: var(--admin-control-height);
+  min-width: var(--admin-control-height);
+  padding: 0;
+}
+
+/* ── Inputs ── */
+.admin-input,
+.admin-input--premium,
+.admin-catalog-input,
+input.admin-input,
+textarea.admin-input,
+select.admin-input {
+  min-height: var(--admin-control-height);
+  border-radius: var(--admin-radius-control);
+  border: 1px solid var(--admin-foundation-border-strong);
+  background: var(--admin-foundation-surface);
+  color: var(--admin-foundation-ink);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0 0.75rem;
+  box-shadow: none;
+  transition:
+    border-color var(--admin-motion-fast) var(--admin-motion-ease),
+    box-shadow var(--admin-motion-fast) var(--admin-motion-ease);
+}
+
+.admin-input:focus,
+.admin-input--premium:focus,
+.admin-catalog-input:focus,
+.admin-input:focus-visible,
+.admin-input--premium:focus-visible {
+  outline: none;
+  border-color: var(--admin-foundation-primary);
+  box-shadow: var(--admin-focus-ring);
+}
+
+.admin-input::placeholder,
+.admin-catalog-input::placeholder {
+  color: var(--admin-foundation-ink-muted);
+  font-weight: 500;
+}
+
+/* ── Cards / KPI — border only, no shadow bleed ── */
+.admin-kpi,
+.admin-kpi-card,
+.admin-module-card,
+.admin-stat-card,
+.admin-glass-mini,
+.admin-panel-glass,
+.admin-catalog-table-shell,
+.admin-catalog-hero,
+.admin-panel-hero,
+.admin-module-section,
+.admin-module-hero {
+  border-radius: var(--admin-radius-card);
+  border: 1px solid var(--admin-foundation-border);
+  background: var(--admin-foundation-surface);
+  box-shadow: none;
+  background-image: none;
+  isolation: isolate;
+  filter: none;
+}
+
+.admin-kpi:hover,
+.admin-kpi-card:hover,
+.admin-glass-mini:hover {
+  box-shadow: none;
+  transform: none;
+  filter: none;
+}
+
+.admin-kpi__label,
+.admin-kpi-card__label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--admin-foundation-ink-muted);
+}
+
+.admin-kpi__value,
+.admin-kpi-card__value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--admin-foundation-ink);
+}
+
+.admin-kpi--gold,
+.admin-kpi--accent {
+  border-color: var(--admin-foundation-primary-border);
+  background: var(--admin-foundation-surface);
+}
+
+.admin-stat-icon--gold,
+.admin-stat-icon--accent {
+  background: var(--admin-foundation-primary-soft);
+  color: var(--admin-foundation-primary);
+}
+
+/* ── Shared data table ── */
+.admin-data-table-wrap {
+  width: 100%;
+  overflow: auto;
+  border-radius: var(--admin-radius-card);
+  border: 1px solid var(--admin-foundation-border);
+  background: var(--admin-foundation-surface);
+}
+
+.admin-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.admin-data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 2.5rem;
+  padding: 0 0.85rem;
+  text-align: left;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--admin-foundation-ink-muted);
+  background: var(--admin-foundation-canvas-raised);
+  border-bottom: 1px solid var(--admin-foundation-border);
+}
+
+.admin-data-table tbody td {
+  height: var(--admin-table-row-height);
+  padding: 0 0.85rem;
+  border-bottom: 1px solid var(--admin-foundation-border);
+  color: var(--admin-foundation-ink);
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+.admin-data-table tbody tr:hover td {
+  background: var(--admin-foundation-primary-soft);
+}
+
+.admin-data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-data-table__empty,
+.admin-data-table__error {
+  padding: 2.5rem 1.25rem;
+  text-align: center;
+  color: var(--admin-foundation-ink-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.admin-data-table__error {
+  color: var(--admin-danger-strong);
+}
+
+/* ── Badges / chips ── */
+.admin-badge,
+.admin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.35rem;
+  padding: 0 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--admin-foundation-border);
+  background: var(--admin-foundation-canvas-raised);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--admin-foundation-ink-secondary);
+}
+
+.admin-badge--accent,
+.admin-chip--accent {
+  border-color: var(--admin-foundation-primary-border);
+  background: var(--admin-foundation-primary-soft);
+  color: var(--admin-foundation-primary);
+}
+
+/* ── Tabs ── */
+.admin-catalog-tab {
+  font-weight: 600;
+  color: var(--admin-foundation-ink-muted);
+  border-radius: var(--admin-radius-compact);
+  background: transparent;
+  border: none;
+}
+
+.admin-catalog-tab--active {
+  color: var(--admin-foundation-primary);
+  background: var(--admin-foundation-primary-soft);
+  font-weight: 600;
+}
+
+/* ── Kill gradient CTAs leftover from retired layers ── */
+.admin-btn--primary,
+.admin-btn--gold,
+.admin-catalog-action--primary,
+.admin-sidebar .admin-nav-item--active,
+html:not(.dark) .admin-sidebar .admin-nav-item--active {
+  background-image: none;
+}

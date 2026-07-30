@@ -29,7 +29,7 @@ const STATUS_TABS: { key: ReviewStatus | 'ALL'; label: string }[] = [
 
 function Stars({ rating }: { rating: number }) {
   return (
-    <span className="inline-flex items-center gap-0.5 text-[#16181d]">
+    <span className="inline-flex items-center gap-0.5 text-[var(--admin-c-16181d)]">
       {Array.from({ length: 5 }).map((_, i) => (
         <Star
           key={i}
@@ -192,7 +192,7 @@ export function ProductReviewsPanel() {
             className={cn(
               'rounded-full border px-3 py-1.5 text-xs font-black transition',
               status === tab.key
-                ? 'border-[#16181d] bg-[#16181d]/15 text-[#16181d]'
+                ? 'border-[var(--admin-c-16181d)] bg-[var(--admin-c-16181d)]/15 text-[var(--admin-c-16181d)]'
                 : 'border-white/10 text-[var(--admin-text-secondary)] hover:border-white/20',
             )}
           >
@@ -274,7 +274,7 @@ export function ProductReviewsPanel() {
                       {row.title && <p className="text-xs font-black">{row.title}</p>}
                       <p className="line-clamp-3 text-xs text-[var(--admin-text-secondary)]">{row.body}</p>
                       {row.adminReply && (
-                        <p className="mt-1 line-clamp-2 text-[10px] font-semibold text-[#16181d]">
+                        <p className="mt-1 line-clamp-2 text-[10px] font-semibold text-[var(--admin-c-16181d)]">
                           Reply: {row.adminReply}
                         </p>
                       )}

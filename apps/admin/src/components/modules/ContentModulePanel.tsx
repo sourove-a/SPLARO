@@ -1,63 +1,79 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { toastOk, toastFail, toastInfo } from '@/lib/admin/feedback'
+import { useCallback, useMemo, useState } from 'react'
+import { toastFail, toastInfo } from '@/lib/admin/feedback'
 import {
   confirmBannerDeleted,
   confirmBannerSaved,
 } from '@/lib/admin/catalog-save'
-import { ExternalLink, Image as ImageIcon, Pencil, RefreshCw, SlidersHorizontal, Upload } from 'lucide-react'
+import { ExternalLink, Film, Image as ImageIcon, Pencil, SlidersHorizontal, Upload } from 'lucide-react'
 import { HERO_DEFAULT_SLIDES, SPLARO_DOMAINS } from '@splaro/config'
 import { AdminButton } from '@/components/ui/AdminButton'
+import { AdminDataTable } from '@/components/ui/AdminDataTable'
+import { PremiumPanelShell } from '@/components/ui/PremiumPanelShell'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { useBanners, useContentOverview, useFootwearConfig, useLegalPages, useSettings, useCreateBanner, useDeleteBanner, useUpdateBanner, useSitePages } from '@/lib/api/hooks'
-import { resolveMediaUrl } from '@/lib/media-url'
 import { ContentSubNav } from '@/components/content/ContentSubNav'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
+import { BetaBanner } from '@/components/ui/AdminHandoffBlocks'
 import {
   BlogPanelLive, LookbooksPanelLive, ReelsPanelLive, CmsPanelLive,
   LandingPagesPanelLive, ThemeBuilderPanelLive,
 } from '@/components/modules/ContentLivePanels'
 import { LegalPagesPanel } from '@/components/modules/LegalPagesPanel'
 import { FootwearPagePanel } from '@/components/content/FootwearPagePanel'
-import { HeroSlideEditorModal, type HeroSlideFormValues } from '@/components/content/HeroSlideEditorModal'
-import { MenuControlPanel, OurStoryControlPanel } from '@/components/modules/SettingsPanel'
+import {
+  HeroSlideEditorModal,
+  heroSlidePreview,
+  isHeroMediaVideoUrl,
+  type HeroSlideFormValues,
+} from '@/components/content/HeroSlideEditorModal'
+import { HomePageControlPanel, MenuControlPanel } from '@/components/modules/SettingsPanel'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
 
-// ─── Design tokens ───────────────────────────────────────────────────────────
-const GOLD = '#16181d'
-const GOLD_LIGHT = 'rgba(16, 17, 20, 0.10)'
-const GOLD_BORDER = 'rgba(16, 17, 20, 0.32)'
-
-
-const TH: React.CSSProperties = { padding: '10px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--admin-table-row-border)', whiteSpace: 'nowrap' }
-const TD: React.CSSProperties = { padding: '11px 16px', fontSize: 13, color: 'var(--admin-text-secondary)', borderBottom: '1px solid var(--admin-table-row-border)' }
+function HeroSlideThumb({ src, title }: { src: string; title: string }) {
+  const preview = heroSlidePreview(src)
+  const video = isHeroMediaVideoUrl(src)
+  return (
+    <div
+      className="relative overflow-hidden rounded-lg border border-[var(--admin-table-row-border)] bg-[var(--admin-surface-input)]"
+      style={{ width: 72, height: 44 }}
+      title={title}
+    >
+      {preview.kind === 'video' && preview.src ? (
+        <video src={preview.src} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+      ) : preview.src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={preview.src} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center">
+          <ImageIcon className="h-4 w-4 text-[var(--admin-text-muted)]" />
+        </div>
+      )}
+      {video ? (
+        <span className="absolute bottom-0.5 right-0.5 rounded bg-black/70 p-0.5 text-white">
+          <Film className="h-2.5 w-2.5" aria-hidden />
+        </span>
+      ) : null}
+    </div>
+  )
+}
 
 type PubStatus = 'published' | 'draft' | 'scheduled' | 'archived'
 
 function StatusPill({ value }: { value: string }) {
   const map: Record<string, { bg: string; text: string; border: string }> = {
-    published: { bg: 'rgba(22,163,74,0.10)',   text: '#15803D', border: 'rgba(22,163,74,0.30)' },
-    draft:     { bg: 'rgba(245,158,11,0.10)',  text: '#B45309', border: 'rgba(245,158,11,0.30)' },
-    scheduled: { bg: 'rgba(59,130,246,0.10)',  text: '#1D4ED8', border: 'rgba(59,130,246,0.30)' },
-    archived:  { bg: 'rgba(156,163,175,0.10)', text: '#4B5563', border: 'rgba(156,163,175,0.30)' },
+    published: { bg: 'rgba(22,163,74,0.10)',   text: 'var(--admin-success-ink)', border: 'rgba(22,163,74,0.30)' },
+    draft:     { bg: 'rgba(245,158,11,0.10)',  text: 'var(--admin-warning-ink)', border: 'rgba(245,158,11,0.30)' },
+    scheduled: { bg: 'rgba(59,130,246,0.10)',  text: 'var(--admin-c-1d4ed8)', border: 'rgba(59,130,246,0.30)' },
+    archived:  { bg: 'rgba(156,163,175,0.10)', text: 'var(--admin-c-4b5563)', border: 'rgba(156,163,175,0.30)' },
   }
-  const fallback = { bg: 'rgba(156,163,175,0.10)', text: '#4B5563', border: 'rgba(156,163,175,0.30)' }
+  const fallback = { bg: 'rgba(156,163,175,0.10)', text: 'var(--admin-c-4b5563)', border: 'rgba(156,163,175,0.30)' }
   const s = map[value.toLowerCase()] ?? fallback
-  return <span style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.text, borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 800 }}>{value}</span>
-}
-
-function KpiCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="settings-card admin-panel-glass-subtle" style={{ padding: '16px 18px' }}>
-      <p style={{ fontSize: 18, fontWeight: 900, color: 'var(--admin-text-primary)', margin: 0 }}>{value}</p>
-      <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4, marginBottom: 0 }}>{label}</p>
-    </div>
-  )
+  return <span style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.text, borderRadius: 6, padding: '2px 10px', fontSize: 11, fontWeight: 600 }}>{value}</span>
 }
 
 const EMPTY_SLIDE_FORM: HeroSlideFormValues = {
@@ -80,8 +96,6 @@ function HeroSliderPanel() {
   const deleteBanner = useDeleteBanner()
   const updateBanner = useUpdateBanner()
 
-  const autoImportRef = useRef(false)
-
   const importLiveSlides = useCallback(async () => {
     for (let i = 0; i < HERO_DEFAULT_SLIDES.length; i++) {
       const slide = HERO_DEFAULT_SLIDES[i]!
@@ -97,28 +111,6 @@ function HeroSliderPanel() {
     }
     await refetch()
   }, [createBanner, refetch])
-
-  useEffect(() => {
-    if (isLoading || isError || banners.length > 0 || autoImportRef.current) return
-    const storageKey = 'splaro-hero-slides-seeded'
-    if (typeof window !== 'undefined' && sessionStorage.getItem(storageKey) === '1') return
-
-    autoImportRef.current = true
-    if (typeof window !== 'undefined') sessionStorage.setItem(storageKey, 'pending')
-
-    setImporting(true)
-    void importLiveSlides()
-      .then(() => {
-        if (typeof window !== 'undefined') sessionStorage.setItem(storageKey, '1')
-        toastOk('Live homepage slides loaded — এখন edit করতে পারবেন')
-      })
-      .catch((e) => {
-        autoImportRef.current = false
-        if (typeof window !== 'undefined') sessionStorage.removeItem(storageKey)
-        toastFail(e instanceof Error ? e.message : 'Could not load live slides')
-      })
-      .finally(() => setImporting(false))
-  }, [isLoading, isError, banners.length, importLiveSlides])
 
   const slides = useMemo(
     () => banners.map((b, index) => ({
@@ -252,143 +244,195 @@ function HeroSliderPanel() {
     return <div className="settings-card admin-panel-glass-subtle admin-error-banner">Banners API offline — start pnpm dev:api on port 4000.</div>
   }
 
+  const liveCount = usingFallback ? HERO_DEFAULT_SLIDES.length : slides.filter((s) => s.status === 'published').length
+  const hiddenCount = slides.filter((s) => s.status === 'draft').length
+
   return (
-    <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <ModuleLiveStrip
+    <>
+      <PremiumPanelShell
+        title="Hero slider"
+        icon={SlidersHorizontal}
+        liveStrip={
+          <ModuleLiveStrip
+            onRefresh={() => void refetch()}
+            refreshing={isLoading}
+            items={[
+              {
+                label: 'Hero slider',
+                value: isLoading
+                  ? '…'
+                  : usingFallback
+                    ? `${HERO_DEFAULT_SLIDES.length} default (live)`
+                    : `${slides.filter((s) => s.isActive).length} live slide(s)`,
+                ok: !isError && !usingFallback,
+                hint: usingFallback ? 'Import to edit in admin' : `${slides.length} in DB · GET /admin/banners`,
+              },
+              {
+                label: 'Storefront feed',
+                value: isError ? 'Unavailable' : 'Synced',
+                ok: !isError,
+                hint: 'GET /storefront/banners?position=hero',
+              },
+            ]}
+          />
+        }
+        kpis={[
+          { label: 'Slides', value: isLoading ? '…' : usingFallback ? HERO_DEFAULT_SLIDES.length : slides.length },
+          { label: 'Live', value: liveCount, accent: 'success' },
+          { label: 'Hidden', value: hiddenCount, ...(hiddenCount > 0 ? { accent: 'warning' as const } : {}) },
+          { label: 'Source', value: isLoading ? '…' : usingFallback ? 'Defaults' : 'Live API', accent: 'accent' },
+        ]}
+        query={query}
+        onQuery={setQuery}
+        searchPlaceholder="Search slide title…"
         onRefresh={() => void refetch()}
         refreshing={isLoading}
-        items={[
-          {
-            label: 'Hero slider',
-            value: isLoading ? '…' : usingFallback ? `${HERO_DEFAULT_SLIDES.length} default (live)` : `${slides.filter((s) => s.isActive).length} live slide(s)`,
-            ok: !isError && !usingFallback,
-            hint: usingFallback ? 'Import to edit in admin' : `${slides.length} in DB · GET /admin/banners`,
-          },
-          {
-            label: 'Storefront feed',
-            value: isError ? 'Unavailable' : 'Synced',
-            ok: !isError,
-            hint: 'GET /storefront/banners?position=hero',
-          },
-        ]}
-      />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-        <KpiCard label="Slides" value={isLoading ? '…' : usingFallback ? HERO_DEFAULT_SLIDES.length : slides.length} />
-        <KpiCard label="Live" value={usingFallback ? HERO_DEFAULT_SLIDES.length : slides.filter((s) => s.status === 'published').length} />
-        <KpiCard label="Hidden" value={slides.filter((s) => s.status === 'draft').length} />
-        <KpiCard label="Source" value={isLoading ? '…' : usingFallback ? 'Built-in defaults' : 'Live API'} />
-      </div>
+        onCreate={handleAddSlide}
+        createLabel="Add slide"
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/dashboard/media-library" className="admin-module-toolbar-btn no-underline">
+              <ExternalLink style={{ width: 12, height: 12 }} /> Media
+            </Link>
+            <Link
+              href={`${SPLARO_DOMAINS.site}/`}
+              target="_blank"
+              rel="noreferrer"
+              className="admin-module-toolbar-btn no-underline"
+            >
+              <ExternalLink style={{ width: 12, height: 12 }} /> Live site
+            </Link>
+          </div>
+        }
+        tableTitle={usingFallback ? 'Live defaults (read-only)' : `Hero slides · ${filtered.length}`}
+        tableIcon={SlidersHorizontal}
+        footer={`${liveCount} live on homepage`}
+        alert={
+          usingFallback ? (
+            <div className="settings-card admin-panel-glass-subtle mb-4 border border-amber-500/35 bg-amber-500/10 p-4">
+              <p className="m-0 mb-2 text-[13px] font-extrabold text-[var(--admin-text-primary)]">
+                Homepage currently uses built-in default slides — not database rows
+              </p>
+              <p className="mb-3 mt-0 text-[12px] font-semibold leading-relaxed text-[var(--admin-text-muted)]">
+                Import {HERO_DEFAULT_SLIDES.length} slides into the database to edit title, media, and links from admin.
+              </p>
+              <AdminButton
+                variant="accent"
+                size="sm"
+                disabled={importing}
+                loading={importing}
+                onClick={() => void handleImportDefaults()}
+              >
+                <Upload style={{ width: 14, height: 14 }} />
+                {importing ? 'Importing…' : 'Import live slides to edit'}
+              </AdminButton>
+            </div>
+          ) : null
+        }
+      >
+        {usingFallback ? (
+          <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+            {HERO_DEFAULT_SLIDES.map((slide) => (
+              <article key={slide.key} className="overflow-hidden rounded-[14px] border border-[var(--admin-glass-border)] bg-[var(--admin-surface-input)]">
+                <div className="relative aspect-video bg-black/5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={slide.image} alt="" className="h-full w-full object-cover" />
+                  <span className="absolute left-2 top-2 rounded-md bg-black/55 px-2 py-1 text-[10px] font-semibold text-white">
+                    LIVE DEFAULT
+                  </span>
+                </div>
+                <div className="space-y-1 px-3.5 py-2.5">
+                  <p className="m-0 text-[12px] font-semibold text-[var(--admin-text-primary)]">{slide.title}</p>
+                  <p className="m-0 text-[10px] font-semibold text-[var(--admin-text-muted)]">{slide.subtitle}</p>
+                  <p className="m-0 font-mono text-[10px] text-[var(--admin-text-secondary)]">{slide.linkUrl}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : null}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <div className="settings-card admin-panel-glass-subtle admin-glass-search-wrap" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', flex: 1, maxWidth: 360 }}>
-          <SlidersHorizontal style={{ width: 14, height: 14, color: 'var(--admin-text-muted)', flexShrink: 0 }} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search slide title…" className="admin-glass-search-input" />
-        </div>
-        <button type="button" onClick={() => void refetch()} className="admin-module-toolbar-btn">
-          <RefreshCw style={{ width: 12, height: 12 }} /> Refresh
-        </button>
-        <Link href="/dashboard/media-library" className="admin-module-toolbar-btn no-underline">
-          <ExternalLink style={{ width: 12, height: 12 }} /> Media library
-        </Link>
-        <Link href={`${SPLARO_DOMAINS.site}/`} target="_blank" rel="noreferrer" className="admin-module-toolbar-btn no-underline">
-          <ExternalLink style={{ width: 12, height: 12 }} /> View live homepage
-        </Link>
-        <AdminButton variant="gold" size="sm" onClick={handleAddSlide}>
-          Add slide
-        </AdminButton>
-      </div>
-
-      {usingFallback ? (
-        <div className="settings-card admin-panel-glass-subtle" style={{ padding: 16, border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.08)' }}>
-          <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 800, color: 'var(--admin-text-primary)' }}>
-            Homepage-এ যা দেখছেন সেটা database slide না — built-in default slides
-          </p>
-          <p style={{ margin: '0 0 12px', fontSize: 12, fontWeight: 600, color: 'var(--admin-text-muted)', lineHeight: 1.5 }}>
-            Import করলে নিচের {HERO_DEFAULT_SLIDES.length}টা slide database-এ যাবে। তারপর title, image, link সব edit করতে পারবেন।
-          </p>
-          <AdminButton variant="gold" size="sm" disabled={importing} loading={importing} onClick={() => void handleImportDefaults()}>
-            <Upload style={{ width: 14, height: 14 }} />
-            {importing ? 'Importing…' : 'Import live slides to edit'}
-          </AdminButton>
-        </div>
-      ) : null}
-
-      {usingFallback ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-          {HERO_DEFAULT_SLIDES.map((slide) => (
-            <article key={slide.key} className="settings-card admin-panel-glass" style={{ padding: 0, overflow: 'hidden', opacity: 0.92 }}>
-              <div style={{ position: 'relative', aspectRatio: '16/9', background: 'var(--admin-surface-input)' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={slide.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                <span style={{ position: 'absolute', left: 8, top: 8, borderRadius: 8, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 10, fontWeight: 800, padding: '4px 8px' }}>LIVE DEFAULT</span>
+        {slides.length > 0 ? (
+          <AdminDataTable
+            loading={isLoading}
+            rows={filtered}
+            rowKey={(s) => s.id}
+            empty={
+              <div className="px-8 py-6 text-center">
+                <ImageIcon className="mx-auto mb-3 h-8 w-8 text-[var(--admin-text-muted)]" />
+                <p className="m-0 text-[13px] font-semibold text-[var(--admin-text-muted)]">
+                  No matching slides. Clear search or add a new slide.
+                </p>
               </div>
-              <div style={{ padding: '10px 14px' }}>
-                <p style={{ fontSize: 12, fontWeight: 900, margin: 0 }}>{slide.title}</p>
-                <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--admin-text-muted)', margin: '4px 0 0' }}>{slide.subtitle}</p>
-                <p style={{ fontSize: 10, fontFamily: 'monospace', color: GOLD, margin: '4px 0 0' }}>{slide.linkUrl}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : null}
-
-      {slides.length > 0 ? (
-      <div className="settings-card admin-panel-glass" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="admin-module-table-header" style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <SlidersHorizontal style={{ width: 13, height: 13, color: GOLD }} />
+            }
+            columns={[
+              {
+                key: 'order',
+                header: 'Order',
+                cell: (s) => <span className="font-semibold text-[var(--admin-text-primary)]">{s.order}</span>,
+              },
+              {
+                key: 'preview',
+                header: 'Preview',
+                cell: (s) => <HeroSlideThumb src={s.image} title={s.title} />,
+              },
+              {
+                key: 'title',
+                header: 'Title',
+                cell: (s) => <span className="font-semibold text-[var(--admin-text-primary)]">{s.title}</span>,
+              },
+              {
+                key: 'cta',
+                header: 'CTA',
+                cell: (s) => <span className="text-xs font-semibold">{s.cta}</span>,
+              },
+              {
+                key: 'link',
+                header: 'Link',
+                cell: (s) => <span className="font-mono text-[10px]">{s.link}</span>,
+              },
+              {
+                key: 'schedule',
+                header: 'Schedule',
+                cell: (s) => <span className="text-xs">{s.schedule}</span>,
+              },
+              {
+                key: 'status',
+                header: 'Status',
+                cell: (s) => <StatusPill value={s.status} />,
+              },
+              {
+                key: 'actions',
+                header: '',
+                cell: (s) => (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      title="Edit slide"
+                      onClick={() => handleEditSlide(s)}
+                      className="rounded-lg border border-[var(--admin-glass-border)] bg-transparent p-1.5 transition hover:bg-black/[0.04]"
+                    >
+                      <Pencil className="h-3 w-3 text-[var(--admin-text-primary)]" />
+                    </button>
+                    <RowActionsMenu
+                      recordName={s.title}
+                      moduleHref="/dashboard/hero-slider"
+                      recordId={s.id}
+                      actions={slideActions(s)}
+                    />
+                  </div>
+                ),
+              },
+            ]}
+          />
+        ) : !usingFallback && !isLoading ? (
+          <div className="px-8 py-10 text-center">
+            <ImageIcon className="mx-auto mb-3 h-8 w-8 text-[var(--admin-text-muted)]" />
+            <p className="m-0 text-[13px] font-semibold text-[var(--admin-text-muted)]">
+              No hero banners yet. Click &quot;Add slide&quot; or upload in Media Library.
+            </p>
           </div>
-          <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--admin-text-primary)', flex: 1, margin: 0 }}>Hero slides · {filtered.length}</p>
-          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--admin-text-muted)', margin: 0 }}>{slides.filter((s) => s.status === 'published').length} live on homepage</p>
-        </div>
-        {isLoading ? (
-          <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>Loading banners…</p>
-        ) : filtered.length === 0 && !usingFallback ? (
-          <div style={{ padding: '40px 32px', textAlign: 'center' }}>
-            <ImageIcon style={{ width: 32, height: 32, color: 'rgba(16, 17, 20, 0.4)', margin: '0 auto 12px' }} />
-            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-text-muted)', margin: 0 }}>No hero banners yet. Click &quot;Add slide&quot; or upload in Media Library.</p>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>{['Order', 'Preview', 'Title', 'CTA', 'Link', 'Schedule', 'Status', ''].map((h) => <th key={h} style={TH}>{h}</th>)}</tr>
-              </thead>
-              <tbody>
-                {filtered.map((s) => (
-                  <tr key={s.id}>
-                    <td style={{ ...TD, fontWeight: 900 }}>{s.order}</td>
-                    <td style={TD}>
-                      <Image
-                        src={resolveMediaUrl(s.image)}
-                        alt=""
-                        width={64}
-                        height={40}
-                        unoptimized
-                        style={{ borderRadius: 8, border: '1px solid var(--admin-table-row-border)', objectFit: 'cover' }}
-                      />
-                    </td>
-                    <td style={{ ...TD, fontWeight: 700, color: 'var(--admin-text-primary)' }}>{s.title}</td>
-                    <td style={{ ...TD, fontSize: 12, fontWeight: 800, color: GOLD }}>{s.cta}</td>
-                    <td style={{ ...TD, fontFamily: 'monospace', fontSize: 10 }}>{s.link}</td>
-                    <td style={{ ...TD, fontSize: 12 }}>{s.schedule}</td>
-                    <td style={TD}><StatusPill value={s.status} /></td>
-                    <td style={TD}>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button type="button" title="Edit slide" onClick={() => handleEditSlide(s)} style={{ border: '1px solid var(--admin-glass-border)', background: 'transparent', borderRadius: 8, padding: 6, cursor: 'pointer' }}>
-                          <Pencil style={{ width: 12, height: 12, color: GOLD }} />
-                        </button>
-                        <RowActionsMenu recordName={s.title} moduleHref="/dashboard/hero-slider" recordId={s.id} actions={slideActions(s)} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-      ) : null}
+        ) : null}
+      </PremiumPanelShell>
 
       <HeroSlideEditorModal
         open={editor !== null}
@@ -398,12 +442,12 @@ function HeroSliderPanel() {
         onClose={() => setEditor(null)}
         onSave={handleSaveSlide}
       />
-    </div>
+    </>
   )
 }
 
 const PANELS: Record<string, () => React.ReactNode> = {
-  '/dashboard/home-page': OurStoryControlPanel,
+  '/dashboard/home-page': HomePageControlPanel,
   '/dashboard/footwear-page': FootwearPagePanel,
   '/dashboard/theme-builder': ThemeBuilderPanelLive,
   '/dashboard/menu-control': MenuControlPanel,
@@ -421,6 +465,16 @@ function routeStatus(loading: boolean, error: boolean): 'ok' | 'down' | 'loading
   if (error) return 'down'
   return 'ok'
 }
+
+const CONTENT_BETA_ROUTES = new Set([
+  '/dashboard/footwear-page',
+  '/dashboard/theme-builder',
+  '/dashboard/lookbooks',
+  '/dashboard/reels',
+  '/dashboard/blog',
+  '/dashboard/cms',
+  '/dashboard/landing-pages',
+])
 
 export function ContentModulePanel(props: ModuleContextProps) {
   const { moduleHref } = props
@@ -458,6 +512,11 @@ export function ContentModulePanel(props: ModuleContextProps) {
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <ContentSubNav activeHref={moduleHref} statusByHref={statusByHref} />
+      {CONTENT_BETA_ROUTES.has(moduleHref) ? (
+        <BetaBanner route={moduleHref}>
+          · home / hero / legal / menu cover storefront — this route stays out of primary nav
+        </BetaBanner>
+      ) : null}
       {anyDown && moduleHref !== '/dashboard/footwear-page' && content.isError ? (
         <ApiOfflineBanner message="Content API offline — run pnpm dev:api on port 4000." />
       ) : null}

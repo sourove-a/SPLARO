@@ -45,7 +45,7 @@ import { formatRelativeTime } from '@/lib/api/orders'
 import { formatBDT } from '@/lib/utils/currency'
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
-const GOLD = '#16181d'
+const GOLD = 'var(--admin-c-16181d)'
 const GOLD_LIGHT = 'rgba(16, 17, 20, 0.10)'
 const GOLD_BORDER = 'rgba(16, 17, 20, 0.32)'
 
@@ -55,23 +55,23 @@ const TD: React.CSSProperties = { padding: '11px 16px', fontSize: 13, color: 'va
 
 // ─── Shared components ─────────────────────────────────────────────────────────
 const STATUS_MAP: Record<string, { bg: string; text: string; border: string }> = {
-  active:     { bg: 'rgba(22,163,74,0.10)',   text: '#15803D', border: 'rgba(22,163,74,0.30)' },
-  success:    { bg: 'rgba(22,163,74,0.10)',   text: '#15803D', border: 'rgba(22,163,74,0.30)' },
-  processing: { bg: 'rgba(59,130,246,0.10)',  text: '#1D4ED8', border: 'rgba(59,130,246,0.30)' },
-  draft:      { bg: 'rgba(245,158,11,0.10)',  text: '#B45309', border: 'rgba(245,158,11,0.30)' },
-  pending:    { bg: 'rgba(245,158,11,0.10)',  text: '#B45309', border: 'rgba(245,158,11,0.30)' },
-  inactive:   { bg: 'rgba(156,163,175,0.10)', text: '#4B5563', border: 'rgba(156,163,175,0.30)' },
-  cancelled:  { bg: 'rgba(239,68,68,0.10)',   text: '#B91C1C', border: 'rgba(239,68,68,0.30)' },
+  active:     { bg: 'rgba(22,163,74,0.10)',   text: 'var(--admin-success-ink)', border: 'rgba(22,163,74,0.30)' },
+  success:    { bg: 'rgba(22,163,74,0.10)',   text: 'var(--admin-success-ink)', border: 'rgba(22,163,74,0.30)' },
+  processing: { bg: 'rgba(59,130,246,0.10)',  text: 'var(--admin-c-1d4ed8)', border: 'rgba(59,130,246,0.30)' },
+  draft:      { bg: 'rgba(245,158,11,0.10)',  text: 'var(--admin-warning-ink)', border: 'rgba(245,158,11,0.30)' },
+  pending:    { bg: 'rgba(245,158,11,0.10)',  text: 'var(--admin-warning-ink)', border: 'rgba(245,158,11,0.30)' },
+  inactive:   { bg: 'rgba(156,163,175,0.10)', text: 'var(--admin-c-4b5563)', border: 'rgba(156,163,175,0.30)' },
+  cancelled:  { bg: 'rgba(239,68,68,0.10)',   text: 'var(--admin-danger-strong)', border: 'rgba(239,68,68,0.30)' },
 }
 
 function StatusPill({ value }: { value: string }) {
-  const fallback = { bg: 'rgba(156,163,175,0.10)', text: '#4B5563', border: 'rgba(156,163,175,0.30)' }
+  const fallback = { bg: 'rgba(156,163,175,0.10)', text: 'var(--admin-c-4b5563)', border: 'rgba(156,163,175,0.30)' }
   const s = STATUS_MAP[value.toLowerCase()] ?? fallback
   return <span style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.text, borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' }}>{value}</span>
 }
 
 function KpiCard({ label, value, accent }: { label: string; value: string; accent?: string }) {
-  const accentColor = accent === 'gold' ? GOLD : accent === 'success' ? '#16A34A' : accent === 'warning' ? '#D97706' : '#6366F1'
+  const accentColor = accent === 'gold' ? GOLD : accent === 'success' ? 'var(--admin-success-strong)' : accent === 'warning' ? 'var(--admin-c-d97706)' : 'var(--admin-c-6366f1)'
   const accentBg = accent === 'gold' ? GOLD_LIGHT : accent === 'success' ? 'rgba(22,163,74,0.08)' : accent === 'warning' ? 'rgba(217,119,6,0.08)' : 'rgba(99,102,241,0.08)'
   return (
     <div className="settings-card admin-panel-glass-subtle" style={{ padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
@@ -111,7 +111,7 @@ function EmptyState({ icon: Icon, title, hint, action }: { icon: React.ElementTy
 }
 
 function ErrorBanner({ msg }: { msg?: string }) {
-  return <div className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', borderLeft: '3px solid #EF4444', color: '#B91C1C', fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{msg ?? 'API offline — start pnpm dev:api'}</div>
+  return <div className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', borderLeft: '3px solid var(--admin-danger-bright)', color: 'var(--admin-danger-strong)', fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{msg ?? 'API offline — start pnpm dev:api'}</div>
 }
 
 function GlassTable({ title, icon: Icon, footer, children }: { title: string; icon?: React.ElementType; footer?: React.ReactNode; children: React.ReactNode }) {
@@ -187,7 +187,7 @@ function LiveChatPanel() {
             label: 'Telegram bot',
             value: tgError ? 'Unknown' : tgLive ? 'Connected' : 'Not connected',
             ok: tgLive && !tgError,
-            hint: '/dashboard/settings?section=notifications#telegram',
+            hint: '/dashboard/telegram-bot',
           },
           {
             label: 'Web chat',
@@ -236,7 +236,7 @@ function LiveChatPanel() {
                   : 'Add WhatsApp in Storefront Settings or connect Telegram for customer messaging.'}
             </p>
             <div className="mt-2 flex flex-wrap justify-center gap-2">
-            <AdminLinkButton href="/dashboard/settings?section=notifications#telegram" variant="ghost" size="sm">
+            <AdminLinkButton href="/dashboard/telegram-bot" variant="ghost" size="sm">
               Telegram bot
             </AdminLinkButton>
             <AdminLinkButton href="/dashboard/all-integrations" variant="ghost" size="sm">
@@ -296,7 +296,7 @@ function HelpdeskPanel() {
   }), [tickets])
 
   const openCount = data?.open ?? (columns.New.length + columns.Assigned.length + columns.Waiting.length)
-  const tgLive = Boolean(telegram?.isEnabled && telegram?.tokenConfigured)
+  const tgLive = Boolean(telegram?.isEnabled && telegram?.tokenConfigured && telegram?.chatId)
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

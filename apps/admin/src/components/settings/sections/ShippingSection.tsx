@@ -59,7 +59,7 @@ export function ShippingSection({ draft, setDraft, save, saving, apiOnline }: Se
               background: 'rgba(245, 158, 11, 0.1)',
               fontSize: '0.75rem',
               fontWeight: 700,
-              color: '#92400e',
+              color: 'var(--admin-c-92400e)',
             }}
           >
             Both zones are off — checkout cannot offer delivery. Turn at least one zone on.

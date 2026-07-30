@@ -76,6 +76,12 @@ export function GoogleSheetsPanel() {
 
   return (
     <div className="space-y-5">
+      <div className="admin-beta-banner" role="note">
+        <span className="admin-beta-banner__chip">ONE-WAY</span>
+        <span>
+          SPLARO writes → Google Sheets reads. Editing a cell in Sheets is overwritten on the next sync (≈15 min cron).
+        </span>
+      </div>
       {!apiOnline ? (
         <div className="admin-settings-status admin-settings-status--offline">
           <p className="text-xs font-semibold text-amber-900">

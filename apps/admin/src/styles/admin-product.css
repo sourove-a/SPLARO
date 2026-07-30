@@ -1,0 +1,40 @@
+/**
+ * SPLARO Admin — Product form DM parity (token radii, no blur/ambient shadow).
+ */
+
+.product-create-hero,
+.product-page .product-create-form.admin-module-card,
+html:not(.dark) .product-create-hero,
+.dark .product-create-hero {
+  border-radius: var(--admin-radius-panel, 14px) !important;
+  border: 1px solid var(--admin-foundation-border, rgba(10, 10, 10, 0.1)) !important;
+  background: var(--admin-foundation-surface, var(--admin-color-white)) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+  isolation: isolate;
+}
+
+.product-page .product-media-add,
+.product-page .product-color-add,
+.product-page .product-media-thumb--active,
+.product-page .product-color-row--active {
+  box-shadow: none !important;
+  filter: none !important;
+  border-radius: var(--admin-radius-control, 10px) !important;
+}
+
+.product-page .product-form-tabs__tab--active,
+.product-page .product-size-chip--active {
+  background: var(--admin-foundation-primary-soft, rgba(113, 46, 255, 0.1)) !important;
+  border-color: var(--admin-foundation-primary-border, rgba(113, 46, 255, 0.28)) !important;
+  color: var(--admin-foundation-primary, var(--admin-c-712eff)) !important;
+  box-shadow: none !important;
+}
+
+.product-create-hero__title {
+  font-weight: 600 !important;
+  letter-spacing: -0.03em;
+}

@@ -12,7 +12,7 @@
     "start": "next start --port 3001",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "check": "tsc --noEmit && next lint"
+    "check": "node ../../scripts/check-admin-css-retired.mjs && node ../../scripts/check-admin-auth-contrast.mjs && node ../../scripts/admin-hex-to-tokens.mjs --check && tsc --noEmit && next lint"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

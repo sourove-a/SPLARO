@@ -33,9 +33,9 @@ export function ProductAIAssist({
   if (!suggestions.length && !onFillAll) return null
 
   return (
-    <div className="mt-3 rounded-xl border border-[rgba(16, 17, 20, 0.25)] bg-[rgba(16, 17, 20, 0.06)] p-3">
+    <div className="product-ai-assist mt-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#3f3f46]">
+        <p className="product-ai-assist__title">
           <Sparkles className="h-3 w-3" /> AI suggestions
         </p>
         {onFillAll ? (
@@ -43,7 +43,7 @@ export function ProductAIAssist({
             type="button"
             onClick={onFillAll}
             disabled={fillLoading || !name.trim()}
-            className="rounded-full bg-[#111] px-3 py-1 text-[9px] font-black uppercase tracking-wider text-white disabled:opacity-40 dark:bg-[#5E7CFF] dark:text-[#111]"
+            className="product-ai-assist__fill"
           >
             {fillLoading ? 'Filling…' : 'Fill all with AI'}
           </button>
@@ -52,13 +52,13 @@ export function ProductAIAssist({
       {suggestions.length ? (
         <ul className="space-y-1">
           {suggestions.map((s) => (
-            <li key={s} className="text-[11px] font-semibold text-[var(--admin-text-secondary)]">
+            <li key={s} className="product-ai-assist__item">
               ✦ {s}
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-[11px] text-[var(--admin-text-muted)]">Looking good — optional Fill all for SEO fields.</p>
+        <p className="product-ai-assist__empty">Looking good — optional Fill all for SEO fields.</p>
       )}
     </div>
   )

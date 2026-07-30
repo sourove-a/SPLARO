@@ -40,10 +40,10 @@ export function ProductImageUpscaleModal({
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal>
-      <div className="relative w-full max-w-lg rounded-[16px] border border-[rgba(16,17,20,0.1)] bg-[#f7f6f3] p-4 shadow-xl">
+      <div className="relative w-full max-w-lg rounded-[16px] border border-[rgba(16,17,20,0.1)] bg-[var(--admin-color-white)] p-4 shadow-xl">
         <button
           type="button"
-          className="absolute right-3 top-3 rounded-full p-1 text-[#71717a] hover:bg-black/5"
+          className="absolute right-3 top-3 rounded-full p-1 text-[var(--admin-c-71717a)] hover:bg-black/5"
           onClick={onClose}
           disabled={busy}
           aria-label="Close"
@@ -52,10 +52,10 @@ export function ProductImageUpscaleModal({
         </button>
 
         <div className="mb-3 flex items-center gap-2 pr-8">
-          <Sparkles className="h-4 w-4 text-[var(--admin-accent,#101114)]" />
-          <h3 className="text-sm font-black text-[#18181b]">Small product photo</h3>
+          <Sparkles className="h-4 w-4 text-[var(--admin-accent,var(--admin-color-ink-elevated))]" />
+          <h3 className="text-sm font-black text-[var(--admin-color-zinc-900)]">Small product photo</h3>
         </div>
-        <p className="mb-3 text-[12px] leading-relaxed text-[#52525b]">
+        <p className="mb-3 text-[12px] leading-relaxed text-[var(--admin-c-52525b)]">
           This image is {state.width}×{state.height}px (under 1200px). Hard minimum is 800px;
           1200px+ is recommended for gallery quality. AI upscale is opt-in — preview first, then
           approve. Original file is always kept.
@@ -72,7 +72,7 @@ export function ProductImageUpscaleModal({
             <div className="relative aspect-square">
               <Image src={state.objectUrl} alt="Original" fill unoptimized className="object-contain" />
             </div>
-            <p className="px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide text-[#71717a]">
+            <p className="px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide text-[var(--admin-c-71717a)]">
               Original · {state.width}px
             </p>
           </div>
@@ -83,10 +83,10 @@ export function ProductImageUpscaleModal({
               ) : hasPreview && state.previewUrl ? (
                 <Image src={state.previewUrl} alt="AI upscaled preview" fill unoptimized className="object-contain" />
               ) : (
-                <p className="px-3 text-center text-[11px] text-[#a1a1aa]">AI preview not generated yet</p>
+                <p className="px-3 text-center text-[11px] text-[var(--admin-c-a1a1aa)]">AI preview not generated yet</p>
               )}
             </div>
-            <p className="px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide text-[#71717a]">
+            <p className="px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide text-[var(--admin-c-71717a)]">
               {hasPreview && state.previewWidth
                 ? `AI · ${state.previewWidth}px`
                 : 'AI preview'}

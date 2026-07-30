@@ -56,7 +56,7 @@ export function AdminApiStatus() {
       <span
         className={cn(
           'admin-conn-pill__dot',
-          degraded ? 'bg-amber-500' : allGreen ? 'bg-[var(--admin-accent,#712eff)]' : 'bg-emerald-500',
+          degraded ? 'bg-amber-500' : allGreen ? 'bg-[var(--admin-accent,var(--admin-c-712eff))]' : 'bg-emerald-500',
         )}
       />
       {degraded ? 'Degraded' : allGreen ? `API ${latency !== null ? `${latency}ms` : 'OK'}` : `API ${latency !== null ? `${latency}ms` : 'OK'}`}

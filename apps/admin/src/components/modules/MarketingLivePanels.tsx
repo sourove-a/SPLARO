@@ -67,7 +67,7 @@ export function WhatsAppPanelLive() {
         footer="Live from notification_delivery_log"
         extraFilters={
           <div className="flex flex-wrap items-center gap-2">
-            <Filter className="h-3.5 w-3.5 text-[#6B6B6B]" />
+            <Filter className="h-3.5 w-3.5 text-[var(--admin-color-neutral-500)]" />
             {(['inbox', 'templates', 'broadcasts'] as const).map((v) => (
               <button
                 key={v}
@@ -76,8 +76,8 @@ export function WhatsAppPanelLive() {
                 className={cn(
                   'rounded-full border px-3 py-1 text-[11px] font-bold capitalize transition',
                   view === v
-                    ? 'border-[#5E7CFF]/50 bg-[#5E7CFF]/12 text-[#111111]'
-                    : 'border-black/8 bg-white/70 text-[#6B6B6B]',
+                    ? 'border-[var(--admin-color-accent-blue)]/50 bg-[var(--admin-color-accent-blue)]/12 text-[var(--admin-color-ink-near)]'
+                    : 'border-black/8 bg-white/70 text-[var(--admin-color-neutral-500)]',
                 )}
               >
                 {v}
@@ -91,7 +91,7 @@ export function WhatsAppPanelLive() {
       >
         {view === 'inbox' ? (
           filtered.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-[#6B6B6B]">No WhatsApp deliveries logged yet.</p>
+            <p className="px-4 py-6 text-sm text-[var(--admin-color-neutral-500)]">No WhatsApp deliveries logged yet.</p>
           ) : (
             <table className="admin-module-table">
               <thead>
@@ -109,7 +109,7 @@ export function WhatsAppPanelLive() {
                   <tr key={w.id}>
                     <td className="font-mono text-xs">{w.recipient}</td>
                     <td className="text-xs">{w.subject ?? '—'}</td>
-                    <td className="max-w-[200px] truncate text-xs text-[#6B6B6B]">{w.body ?? '—'}</td>
+                    <td className="max-w-[200px] truncate text-xs text-[var(--admin-color-neutral-500)]">{w.body ?? '—'}</td>
                     <td>
                       <span
                         className={STATUS_CLASS[w.status === 'DELIVERED' || w.status === 'SENT' ? 'delivered' : w.status === 'FAILED' ? 'cancelled' : 'pending']}
@@ -130,7 +130,7 @@ export function WhatsAppPanelLive() {
           )
         ) : view === 'broadcasts' ? (
           campaigns.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-[#6B6B6B]">No WhatsApp campaigns yet.</p>
+            <p className="px-4 py-6 text-sm text-[var(--admin-color-neutral-500)]">No WhatsApp campaigns yet.</p>
           ) : (
             <table className="admin-module-table">
               <thead>
@@ -158,7 +158,7 @@ export function WhatsAppPanelLive() {
             </table>
           )
         ) : (
-          <p className="px-4 py-6 text-sm text-[#6B6B6B]">
+          <p className="px-4 py-6 text-sm text-[var(--admin-color-neutral-500)]">
             WhatsApp templates are managed in Meta Business Manager — connect via Integrations.
           </p>
         )}
@@ -239,7 +239,7 @@ export function AffiliatePanelLive() {
       footer="Live from affiliate_account table"
     >
       {filtered.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-[#6B6B6B]">No affiliate partners yet — click Add partner.</p>
+        <p className="px-4 py-6 text-sm text-[var(--admin-color-neutral-500)]">No affiliate partners yet — click Add partner.</p>
       ) : (
         <table className="admin-module-table">
           <thead>
@@ -263,13 +263,13 @@ export function AffiliatePanelLive() {
                     onClick={() => {
                       void copyWithToast(a.code, 'Code copied')
                     }}
-                    className="font-mono text-xs font-black hover:text-[#5E7CFF]"
+                    className="font-mono text-xs font-black hover:text-[var(--admin-color-accent-blue)]"
                   >
                     {a.code}
                   </button>
                 </td>
                 <td>{Number(a.commissionRate)}%</td>
-                <td className="font-black text-[#5E7CFF]">{formatBDT(Number(a.totalEarned))}</td>
+                <td className="font-black text-[var(--admin-color-accent-blue)]">{formatBDT(Number(a.totalEarned))}</td>
                 <td>{formatBDT(Number(a.pendingPayout))}</td>
                 <td>
                   <span
@@ -383,13 +383,13 @@ export function InfluencersPanelLive() {
       footer="Mapped from affiliate partners"
       extraFilters={
         <div className="flex items-center gap-2">
-          <Instagram className="h-3.5 w-3.5 text-[#6B6B6B]" />
-          <span className="text-[11px] font-bold text-[#6B6B6B]">Affiliate partners — social profiles not linked yet</span>
+          <Instagram className="h-3.5 w-3.5 text-[var(--admin-color-neutral-500)]" />
+          <span className="text-[11px] font-bold text-[var(--admin-color-neutral-500)]">Affiliate partners — social profiles not linked yet</span>
         </div>
       }
     >
       {filtered.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-[#6B6B6B]">No influencer collabs yet — add affiliate partners first.</p>
+        <p className="px-4 py-6 text-sm text-[var(--admin-color-neutral-500)]">No influencer collabs yet — add affiliate partners first.</p>
       ) : (
         <table className="admin-module-table">
           <thead>
@@ -408,7 +408,7 @@ export function InfluencersPanelLive() {
               <tr key={i.id}>
                 <td>
                   <p className="font-semibold">{i.name}</p>
-                  <p className="text-[10px] font-bold text-[#5E7CFF]">{i.handle}</p>
+                  <p className="text-[10px] font-bold text-[var(--admin-color-accent-blue)]">{i.handle}</p>
                 </td>
                 <td className="text-xs">{i.platform}</td>
                 <td className="text-xs">{i.campaign}</td>

@@ -19,7 +19,7 @@ interface AlertItem {
 const SEVERITY_STYLES = {
   warning: 'border-amber-200/60 bg-amber-50/80 text-amber-700 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-300',
   danger: 'border-red-200/60 bg-red-50/80 text-red-600 dark:border-red-500/30 dark:bg-red-950/40 dark:text-red-300',
-  info: 'border-[rgba(17,17,17,0.08)] bg-[#111111]/[0.02] text-[#6B6B6B] dark:border-white/10 dark:bg-white/5 dark:text-white/60',
+  info: 'border-[rgba(17,17,17,0.08)] bg-[var(--admin-color-ink-near)]/[0.02] text-[var(--admin-color-neutral-500)] dark:border-white/10 dark:bg-white/5 dark:text-white/60',
 }
 
 export function AlertsPanel({ codRisk, failedPayments }: { codRisk?: number; failedPayments?: number }) {

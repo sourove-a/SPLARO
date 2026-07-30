@@ -47,15 +47,22 @@ export const EMPTY_SETTINGS: AdminSettingsData = {
   telegram: null,
 }
 
-export function SettingsShell() {
+export function SettingsShell({ chrome = true }: { chrome?: boolean } = {}) {
   const { data: apiData, isLoading, isError, refetch } = useSettings()
   const updateSettings = useUpdateSettings()
   const canEditSettings = usePermission('settings', 'edit')
   const [section, setSection] = useState<SettingsSection>('general')
   const [animKey, setAnimKey] = useState(0)
-  const changeSection = useCallback((s: SettingsSection) => {
+  const changeSection = useCallback((s: SettingsSection, opts?: { hash?: string }) => {
     setSection(s)
     setAnimKey((k) => k + 1)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.set('section', s)
+      const hash = opts?.hash ?? (s === 'notifications' && url.hash === '#telegram' ? '#telegram' : '')
+      // Never drop an intentional deep-link hash (Telegram used to land on SMTP).
+      window.history.replaceState({}, '', `${url.pathname}?${url.searchParams.toString()}${hash}`)
+    }
   }, [])
   const [draft, setDraft] = useState<AdminSettingsData>(EMPTY_SETTINGS)
   const settingsLoaded = !isError && !!apiData
@@ -64,6 +71,13 @@ export function SettingsShell() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const fromUrl = params.get('section')
+    const hash = window.location.hash
+    // Old Telegram deep-links pointed at Settings → Notifications#telegram but
+    // landed on SMTP. Send them to the dedicated bot screen.
+    if (hash === '#telegram' || fromUrl === 'telegram') {
+      window.location.replace('/dashboard/telegram-bot')
+      return
+    }
     if (isSettingsSection(fromUrl)) changeSection(fromUrl)
   }, [changeSection])
 
@@ -144,7 +158,7 @@ export function SettingsShell() {
   if (isError && !apiData) {
     return (
       <div className="settings-loading-panel admin-panel-glass-subtle" style={{ borderColor: 'rgba(239,68,68,0.35)' }}>
-        <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#ef4444' }}>Cannot load settings</p>
+        <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--admin-danger-bright)' }}>Cannot load settings</p>
         <p style={{ fontSize: '0.8125rem', color: 'var(--admin-text-muted)', maxWidth: 420, textAlign: 'center' }}>
           {apiOfflineMessage('settings')}
         </p>
@@ -193,7 +207,29 @@ export function SettingsShell() {
   const sharedProps = { draft, setDraft, save, saving, apiOnline: settingsLoaded && canEditSettings }
 
   return (
-    <div className="settings-layout">
+    <div className="settings-layout settings-layout--advanced settings-shell" data-settings-shell>
+      {chrome ? (
+      <header className="settings-command-hero admin-catalog-hero admin-panel-hero !mb-0">
+        <div className="admin-catalog-hero__top !mb-0">
+          <div className="admin-catalog-hero__title-row">
+            <div className="admin-catalog-icon-ring admin-catalog-icon-ring--lg">
+              <span className="text-sm font-semibold">S</span>
+            </div>
+            <div>
+              <p className="admin-page-eyebrow !mb-1">Commerce control</p>
+              <h1 className="admin-catalog-hero__title !text-[1.35rem]">Settings Command Center</h1>
+              <p className="mt-1 text-[12px] font-semibold text-[var(--admin-text-muted)]">
+                Store, branding, payments, shipping, notifications — verified PATCH only.
+              </p>
+            </div>
+          </div>
+          <div className="admin-catalog-hero__actions">
+            <span className="admin-section-chip">{section}</span>
+          </div>
+        </div>
+      </header>
+      ) : null}
+
       <aside className="settings-sidebar-panel settings-sidebar-nav">
         <SettingsSidebar active={section} onChange={changeSection} settingsLoaded={settingsLoaded} />
       </aside>
@@ -207,6 +243,13 @@ export function SettingsShell() {
               value: settingsLoaded ? 'Loaded from server' : 'Offline',
               ok: settingsLoaded,
               hint: 'GET /admin/settings',
+            },
+            {
+              label: 'Active section',
+              value: section,
+              ok: true,
+              informational: true,
+              hint: 'Synced to ?section=',
             },
             {
               label: 'SKU policy',
@@ -233,23 +276,25 @@ export function SettingsShell() {
             </p>
           </div>
         ) : null}
-        {section === 'general' && <GeneralSection {...sharedProps} />}
-        {section === 'branding' && <BrandingSection {...sharedProps} />}
-        {section === 'contact' && <ContactSection {...sharedProps} />}
-        {section === 'homepage' && <HomepageSection {...sharedProps} />}
-        {section === 'navigation' && <NavigationSection {...sharedProps} />}
-        {section === 'payments' && <PaymentsSection {...sharedProps} />}
-        {section === 'shipping' && <ShippingSection {...sharedProps} />}
-        {section === 'notifications' && (
-          <NotificationsSection
-            {...sharedProps}
-            subscriberData={subscriberData}
-            onRefreshSubscribers={() => void refetchSubscribers()}
-          />
-        )}
-        {section === 'marketing' && <MarketingSection {...sharedProps} />}
-        {section === 'infrastructure' && <InfrastructureSection apiOnline={settingsLoaded} />}
-        {section === 'domain' && <DomainSection {...sharedProps} />}
+        <div className="settings-advanced-panel admin-module-card !mt-3">
+          {section === 'general' && <GeneralSection {...sharedProps} />}
+          {section === 'branding' && <BrandingSection {...sharedProps} />}
+          {section === 'contact' && <ContactSection {...sharedProps} />}
+          {section === 'homepage' && <HomepageSection {...sharedProps} />}
+          {section === 'navigation' && <NavigationSection {...sharedProps} />}
+          {section === 'payments' && <PaymentsSection {...sharedProps} />}
+          {section === 'shipping' && <ShippingSection {...sharedProps} />}
+          {section === 'notifications' && (
+            <NotificationsSection
+              {...sharedProps}
+              subscriberData={subscriberData}
+              onRefreshSubscribers={() => void refetchSubscribers()}
+            />
+          )}
+          {section === 'marketing' && <MarketingSection {...sharedProps} />}
+          {section === 'infrastructure' && <InfrastructureSection apiOnline={settingsLoaded} />}
+          {section === 'domain' && <DomainSection {...sharedProps} />}
+        </div>
       </div>
     </div>
   )

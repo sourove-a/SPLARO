@@ -83,7 +83,7 @@ export function MediaPickerModal({
               type="button"
               className={cn(
                 'rounded-full px-3 py-1 text-[11px] font-bold capitalize',
-                tab === id ? 'bg-[#101114] text-white' : 'bg-black/5 text-[var(--admin-text-secondary)]',
+                tab === id ? 'bg-[var(--admin-color-ink-elevated)] text-white' : 'bg-black/5 text-[var(--admin-text-secondary)]',
               )}
               onClick={() => setTab(id)}
             >
@@ -137,8 +137,8 @@ export function MediaPickerModal({
                     key={asset.id}
                     type="button"
                     className={cn(
-                      'group relative aspect-square overflow-hidden rounded-[12px] border-2 bg-[#f7f7f7]',
-                      isSelected ? 'border-[#16181d]' : 'border-transparent hover:border-black/10',
+                      'group relative aspect-square overflow-hidden rounded-[12px] border-2 bg-[var(--admin-color-white)]',
+                      isSelected ? 'border-[var(--admin-c-16181d)]' : 'border-transparent hover:border-black/10',
                     )}
                     onClick={() => toggle(asset.url)}
                   >

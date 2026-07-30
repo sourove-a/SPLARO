@@ -46,11 +46,11 @@ export function RecentActivities({
 
       <div className={cn('max-h-[320px] overflow-y-auto', embedded ? 'px-2 py-2' : 'px-3 py-2')}>
         {isLoading ? (
-          <p className="py-8 text-center text-xs text-[#6B6B6B]">Loading activity…</p>
+          <p className="py-8 text-center text-xs text-[var(--admin-color-neutral-500)]">Loading activity…</p>
         ) : isError ? (
           <p className="py-8 text-center text-xs text-amber-700">API offline — start backend on :4000</p>
         ) : activities.length === 0 ? (
-          <p className="py-8 text-center text-xs text-[#6B6B6B]">No store activity yet.</p>
+          <p className="py-8 text-center text-xs text-[var(--admin-color-neutral-500)]">No store activity yet.</p>
         ) : (
           activities.map((activity, index) => {
             const Icon = ICON_MAP[activity.type]
@@ -60,7 +60,7 @@ export function RecentActivities({
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05, duration: 0.3 }}
-                className="flex items-start gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-[#111111]/[0.02]"
+                className="flex items-start gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-[var(--admin-color-ink-near)]/[0.02]"
               >
                 <div
                   className={cn(
@@ -71,8 +71,8 @@ export function RecentActivities({
                   <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs leading-relaxed text-[#111111]">{activity.message}</p>
-                  <p className="mt-0.5 text-[10px] text-[#6B6B6B]">
+                  <p className="text-xs leading-relaxed text-[var(--admin-color-ink-near)]">{activity.message}</p>
+                  <p className="mt-0.5 text-[10px] text-[var(--admin-color-neutral-500)]">
                     <RelativeTime iso={activity.at} />
                   </p>
                 </div>

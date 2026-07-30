@@ -51,14 +51,13 @@ const cardStyle: CSSProperties = {
   width: '100%',
   padding: '20px 22px',
   borderRadius: '14px',
-  background: '#fffbeb',
-  border: '1px solid #fcd34d',
-  color: '#78350f',
+  background: 'var(--admin-c-fffbeb)',
+  border: '1px solid var(--admin-c-fcd34d)',
+  color: 'var(--admin-c-78350f)',
   fontFamily: 'system-ui, sans-serif',
   fontSize: '13px',
   lineHeight: 1.55,
   textAlign: 'center',
-  boxShadow: '0 20px 50px rgba(0,0,0,0.2)',
 }
 
 /**
@@ -133,7 +132,7 @@ export function AdminCssHealthGuard() {
         </strong>
         Stale dev cache — CSS/chunk 404. Terminal-এ চালান:
         <br />
-        <code style={{ display: 'inline-block', marginTop: '10px', padding: '4px 8px', background: '#fef3c7', borderRadius: '6px', fontSize: '12px' }}>
+        <code style={{ display: 'inline-block', marginTop: '10px', padding: '4px 8px', background: 'var(--admin-c-fef3c7)', borderRadius: '6px', fontSize: '12px' }}>
           pnpm css:fix:admin && pnpm dev:admin
         </code>
         <br />
@@ -145,8 +144,8 @@ export function AdminCssHealthGuard() {
             marginTop: '14px',
             padding: '8px 16px',
             borderRadius: '8px',
-            border: '1px solid #d97706',
-            background: '#fff',
+            border: '1px solid var(--admin-c-d97706)',
+            background: 'var(--admin-color-white)',
             fontWeight: 700,
             fontSize: '12px',
             cursor: 'pointer',

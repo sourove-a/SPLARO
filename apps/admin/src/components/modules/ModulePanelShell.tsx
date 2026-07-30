@@ -1,9 +1,9 @@
 'use client'
 
 import { useRef } from 'react'
-import { Search, Plus, RefreshCw, Download } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { AdminButton } from '@/components/ui/AdminButton'
+import { PremiumPanelShell } from '@/components/ui/PremiumPanelShell'
 import { cn } from '@/lib/utils/cn'
 import { exportTableFromContainer } from '@/lib/admin/admin-actions'
 import { BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
@@ -17,15 +17,10 @@ export interface ModulePanelShellProps {
   createLabel: string
   onCreate: () => void
   onRefresh: () => void | Promise<void>
-  /** When true, Refresh shows loading + spins icon + blocks duplicate clicks. */
   refreshing?: boolean
-  /** Accessible name for the Refresh control (defaults to “Refresh data”). */
   refreshLabel?: string
-  /** Optional fallback when table CSV export is unavailable — never use for fake success. */
   onExport?: () => void
-  /** Disable create — no backend write path (shows honest tooltip, no fake toast). */
   createDisabled?: boolean
-  /** Disable export — no backend or table export path. */
   exportDisabled?: boolean
   disabledActionTitle?: string
   tabs?: { key: string; label: string; count: number }[]
@@ -36,11 +31,13 @@ export interface ModulePanelShellProps {
   tableTitle: string
   footer: string
   exportSlug?: string
-  /** Optional page title — when set, renders premium hero above KPIs */
   title?: string
   children: React.ReactNode
 }
 
+/**
+ * Legacy tuple API — single chrome via PremiumPanelShell.
+ */
 export function ModulePanelShell({
   kpis,
   pipeline,
@@ -51,7 +48,6 @@ export function ModulePanelShell({
   onCreate,
   onRefresh,
   refreshing = false,
-  refreshLabel = 'Refresh data',
   onExport,
   createDisabled = false,
   exportDisabled = false,
@@ -88,135 +84,57 @@ export function ModulePanelShell({
   }
 
   return (
-    <div className="admin-panel-page min-w-0 space-y-4">
-      {title ? (
-        <div className="admin-catalog-hero admin-panel-hero !mb-0 !pb-4">
-          <div className="admin-catalog-hero__top !mb-0">
-            <div className="admin-catalog-hero__title-row">
-              <div className="admin-catalog-icon-ring admin-catalog-icon-ring--lg">
-                <TableIcon strokeWidth={2} />
-              </div>
-              <h1 className="admin-catalog-hero__title">{title}</h1>
-            </div>
-            <button
-              type="button"
-              className={cn(
-                'admin-catalog-action admin-catalog-action--primary admin-catalog-action--lg',
-                createDisabled && 'cursor-not-allowed opacity-50',
-              )}
-              disabled={createDisabled}
-              title={createDisabled ? disabledActionTitle : undefined}
-              onClick={() => {
-                if (!createDisabled) onCreate()
-              }}
-            >
-              <Plus className="h-4 w-4" aria-hidden />
-              {createLabel}
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="admin-kpi-grid admin-kpi-grid--catalog">
-        {kpis.map(([label, value, tone], index) => (
-          <div key={`${label}-${index}`} className={cn('admin-kpi-card', tone !== 'default' && `admin-kpi-card--${tone}`)}>
-            <p className="admin-kpi-card__label">{label}</p>
-            <div className="admin-kpi-card__row">
-              <p className="admin-kpi-card__value">{value}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="admin-module-pipeline !grid-cols-5">
-        {pipeline.map(([label, count], index) => (
-          <div key={`${label}-${index}`} className="admin-module-pipeline__stage">
-            <p className="admin-module-pipeline__count">{count}</p>
-            <p className="admin-module-pipeline__label">{label}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="admin-catalog-toolbar !mb-0">
-        <div className="admin-catalog-toolbar__row">
-          <div className="admin-catalog-toolbar__search">
-            <Search className="admin-catalog-toolbar__search-icon" aria-hidden />
-            <input
-              value={query}
-              onChange={(e) => onQuery(e.target.value)}
-              placeholder={searchPlaceholder}
-              className="admin-catalog-input"
-            />
-          </div>
-          {extraFilters}
-          <div className="admin-catalog-toolbar__actions">
-            <AdminButton
-              variant="secondary"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              aria-busy={refreshing || undefined}
-              aria-label={refreshLabel}
-              title={refreshLabel}
-            >
-              <RefreshCw className={cn('h-4 w-4 shrink-0', refreshing && 'animate-spin')} aria-hidden />
-              {refreshing ? 'Refreshing…' : 'Refresh'}
-            </AdminButton>
-            <AdminButton
-              variant="secondary"
-              onClick={handleExport}
-              disabled={exportDisabled}
-              title={exportDisabled ? disabledActionTitle : undefined}
-            >
-              <Download className="h-4 w-4" aria-hidden />
-              Export
-            </AdminButton>
-            {!title ? (
-              <AdminButton
-                variant="primary"
-                onClick={onCreate}
+    <PremiumPanelShell
+      title={title ?? tableTitle}
+      icon={TableIcon}
+      kpis={kpis.map(([label, value, accent]) => ({
+        label,
+        value,
+        ...(accent && accent !== 'default' ? { accent } : {}),
+      }))}
+      pipeline={pipeline.map(([label, count]) => ({ label, count }))}
+      query={query}
+      onQuery={onQuery}
+      searchPlaceholder={searchPlaceholder}
+      createLabel={createLabel}
+      onCreate={onCreate}
+      createDisabled={createDisabled}
+      disabledActionTitle={disabledActionTitle}
+      onRefresh={handleRefresh}
+      refreshing={refreshing}
+      onExport={handleExport}
+      exportDisabled={exportDisabled}
+      tableTitle={tableTitle}
+      tableIcon={TableIcon}
+      footer={footer}
+      {...(tabs ? { tabs } : {})}
+      {...(activeTab !== undefined ? { activeTab } : {})}
+      {...(onTab ? { onTab } : {})}
+      {...(extraFilters !== undefined ? { extraFilters } : {})}
+      {...(title
+        ? {
+            action: (
+              <button
+                type="button"
+                className={cn(
+                  'admin-catalog-action admin-catalog-action--primary admin-catalog-action--lg',
+                  createDisabled && 'cursor-not-allowed opacity-50',
+                )}
                 disabled={createDisabled}
                 title={createDisabled ? disabledActionTitle : undefined}
+                onClick={() => {
+                  if (!createDisabled) onCreate()
+                }}
               >
                 <Plus className="h-4 w-4" aria-hidden />
                 {createLabel}
-              </AdminButton>
-            ) : null}
-          </div>
-        </div>
-        {tabs && onTab ? (
-          <div className="admin-catalog-toolbar__tabs" role="tablist">
-            {tabs.map(({ key, label, count }) => (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === key}
-                onClick={() => onTab(key)}
-                className={cn('admin-catalog-tab', activeTab === key && 'admin-catalog-tab--active')}
-              >
-                {label}
-                <span className="admin-catalog-tab__count">{count}</span>
               </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      <div className="admin-catalog-table-shell">
-        <div className="admin-catalog-table-shell__head">
-          <div className="admin-catalog-icon-ring">
-            <TableIcon aria-hidden />
-          </div>
-          <p className="admin-catalog-table-shell__title">{tableTitle}</p>
-        </div>
-        <div className="admin-catalog-table-shell__scroll overflow-x-auto" ref={tableWrapRef}>
-          {children}
-        </div>
-        <div className="admin-catalog-table-shell__footer">
-          <span>{footer}</span>
-        </div>
-      </div>
-    </div>
+            ),
+          }
+        : {})}
+    >
+      <div ref={tableWrapRef}>{children}</div>
+    </PremiumPanelShell>
   )
 }
 

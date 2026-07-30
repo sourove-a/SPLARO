@@ -133,7 +133,7 @@ function OverviewPanel() {
   const testMut = useMutation({ mutationFn: () => testGoogleConnection('auto') })
 
   if (isLoading) {
-    return <div className="flex justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-[#5E7CFF]" /></div>
+    return <div className="flex justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-[var(--admin-color-accent-blue)]" /></div>
   }
 
   if (isError) {
@@ -176,9 +176,9 @@ function OverviewPanel() {
         {cards.map(({ key, label, icon: Icon, href }) => {
           const svc = data?.services[key]
           return (
-            <Link key={key} href={href} className="ai-command-card block transition hover:border-[#5E7CFF]/40">
+            <Link key={key} href={href} className="ai-command-card block transition hover:border-[var(--admin-color-accent-blue)]/40">
               <div className="flex items-start gap-3">
-                <Icon className="mt-0.5 h-5 w-5 text-[#5E7CFF]" />
+                <Icon className="mt-0.5 h-5 w-5 text-[var(--admin-color-accent-blue)]" />
                 <div className="min-w-0 flex-1">
                   <p className="font-black">{label}</p>
                   <p className="mt-1 text-[11px] text-[var(--admin-text-muted)]">
@@ -527,7 +527,7 @@ function SheetsPanel() {
   const sheetsReady = Boolean(status?.connected || status?.serviceAccountConfigured)
   const defaultSheetUrl = 'https://docs.google.com/spreadsheets/d/1sOehorwCZ6Qoa7rU4T-sKXcXMzNm5x3NbWQ6LCqMEW0/edit'
 
-  if (isLoading) return <Loader2 className="mx-auto my-16 h-7 w-7 animate-spin text-[#5E7CFF]" />
+  if (isLoading) return <Loader2 className="mx-auto my-16 h-7 w-7 animate-spin text-[var(--admin-color-accent-blue)]" />
 
   if (statusError || sheetsError) {
     return (
@@ -550,7 +550,7 @@ function SheetsPanel() {
           {sheets?.autoSyncEnabled ? <span className="ai-command-pill ai-command-pill--ok">🟢 Auto-sync ON</span> : <span className="ai-command-pill">Auto-sync OFF</span>}
         </div>
         {sheets?.spreadsheetUrl ? (
-          <a href={sheets.spreadsheetUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-black text-[#3f3f46] hover:underline">
+          <a href={sheets.spreadsheetUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-black text-[var(--admin-c-3f3f46)] hover:underline">
             Open spreadsheet <ExternalLink className="h-3 w-3" />
           </a>
         ) : null}
@@ -594,7 +594,7 @@ function SheetsPanel() {
             return (
               <div key={tab} className="gw-list-row">
                 <span className="font-bold">{tab}</span>
-                <span className={cn('font-black', cfg?.enabled ? 'text-emerald-600' : 'text-[#9B9B9B]')}>
+                <span className={cn('font-black', cfg?.enabled ? 'text-emerald-600' : 'text-[var(--admin-c-9b9b9b)]')}>
                   {cfg ? 'ready' : 'pending'}
                 </span>
               </div>
@@ -713,7 +713,7 @@ function DrivePanel() {
         <p className="mb-3 text-[11px] font-medium text-[var(--admin-text-muted)]">
           Requires Google Drive API enabled in your Google Cloud project (same project as OAuth client).
         </p>
-        <ul className="space-y-1 text-[11px] font-semibold text-[#6B6B6B]">
+        <ul className="space-y-1 text-[11px] font-semibold text-[var(--admin-color-neutral-500)]">
           {['SPLARO', 'SPLARO/Invoices', 'SPLARO/Reports', 'SPLARO/Product Media', 'SPLARO/Backups', 'SPLARO/Finance', 'SPLARO/Suppliers'].map((f) => (
             <li key={f}>{f}</li>
           ))}
@@ -823,7 +823,7 @@ function SyncLogsPanel() {
         <p className="ai-command-sub">{data?.total ?? 0} total events</p>
       </section>
       <div className="space-y-1">
-        {items.length === 0 ? <p className="text-sm text-[#6B6B6B]">No sync logs yet.</p> : items.map((log) => (
+        {items.length === 0 ? <p className="text-sm text-[var(--admin-color-neutral-500)]">No sync logs yet.</p> : items.map((log) => (
           <div key={log.id} className="gw-list-row">
             <span className="font-bold">{log.jobType}{log.sheetTab ? ` · ${log.sheetTab}` : ''}</span>
             <span className={cn('font-black', log.status === 'success' ? 'text-emerald-600' : 'text-red-500')}>

@@ -58,7 +58,7 @@ export function AdminHeader() {
   return (
     <>
       <header
-        className={`admin-header admin-glass-panel admin-glass-panel--header mx-4 mb-0 flex items-center gap-3 px-4${scrolled ? ' admin-header--scrolled' : ''}`}
+        className={`admin-header admin-glass-panel admin-glass-panel--header mb-0 flex shrink-0 items-center gap-3 px-4${scrolled ? ' admin-header--scrolled' : ''}`}
       >
         <span className="admin-glass-panel__surface" aria-hidden="true" />
         <span className="admin-glass-panel__sheen" aria-hidden="true" />
@@ -68,7 +68,7 @@ export function AdminHeader() {
         </Link>
         <AdminHeaderSearch />
 
-        <div className="flex items-center gap-2">
+        <div className="admin-header__actions flex min-w-0 flex-[0_1_auto] flex-wrap items-center gap-2">
           <AdminApiStatus />
 
           <button
@@ -122,7 +122,7 @@ export function AdminHeader() {
                         ['New Order', '/dashboard/orders/new'],
                         ['Add Product', '/dashboard/products/new'],
                         ['Daily Closing', '/dashboard/finance/daily-closing'],
-                        ['AI Generator', '/dashboard/ai-product-generator'],
+                        ['AI Generator', '/dashboard/ai-agent'],
                       ] as const
                     ).map(([label, href]) => (
                       <Link

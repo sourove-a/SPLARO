@@ -43,7 +43,7 @@ function KpiCard({
           className="flex h-9 w-9 items-center justify-center rounded-xl"
           style={{ background: accent ?? 'rgba(94,124,255,0.15)' }}
         >
-          <Icon className="h-4 w-4 text-[#5E7CFF]" strokeWidth={1.5} />
+          <Icon className="h-4 w-4 text-[var(--admin-color-accent-blue)]" strokeWidth={1.5} />
         </div>
       </div>
       <p className="text-2xl font-black tracking-tight text-[var(--admin-text)]">{value}</p>
@@ -199,8 +199,8 @@ export function FinanceDashboard() {
                   className="flex items-center justify-between rounded-[16px] border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-glass-strong)] px-4 py-3"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#5E7CFF]/15">
-                      <Users className="h-4 w-4 text-[#5E7CFF]" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--admin-color-accent-blue)]/15">
+                      <Users className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
                     </div>
                     <div>
                       <p className="text-sm font-black text-[var(--admin-text)]">{p.name}</p>
@@ -213,7 +213,7 @@ export function FinanceDashboard() {
                       type="button"
                       disabled={!!exporting}
                       onClick={() => void handlePartnerExport(p.id, p.name)}
-                      className="rounded-lg border border-[var(--admin-glass-border-subtle)] p-2 text-[var(--admin-text-secondary)] transition hover:text-[#5E7CFF] disabled:opacity-50"
+                      className="rounded-lg border border-[var(--admin-glass-border-subtle)] p-2 text-[var(--admin-text-secondary)] transition hover:text-[var(--admin-color-accent-blue)] disabled:opacity-50"
                       title={`Export ${p.name} report`}
                     >
                       <Download className="h-3.5 w-3.5" />
@@ -234,7 +234,7 @@ export function FinanceDashboard() {
               {data.expensesByCategory.map((e) => (
                 <div key={e.category} className="flex items-center justify-between text-sm">
                   <span className="font-semibold text-[var(--admin-text)]">{e.category.replace(/_/g, ' ')}</span>
-                  <span className="font-black text-[#5E7CFF]">{formatBDT(e.amount)}</span>
+                  <span className="font-black text-[var(--admin-color-accent-blue)]">{formatBDT(e.amount)}</span>
                 </div>
               ))}
             </div>

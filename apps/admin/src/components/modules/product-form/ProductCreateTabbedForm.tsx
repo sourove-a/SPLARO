@@ -213,7 +213,7 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
 
   const showGenerateHint = Boolean(productId && (onGenerateBarcode || onGenerateQr))
   const generateBtnClass =
-    'rounded-lg bg-[rgba(16, 17, 20, 0.12)] px-3 py-2 text-[11px] font-black text-[#3f3f46] transition-colors hover:bg-[rgba(16, 17, 20, 0.22)] disabled:opacity-50 dark:text-[var(--admin-text-secondary)]'
+    'rounded-lg bg-[rgba(16, 17, 20, 0.12)] px-3 py-2 text-[11px] font-black text-[var(--admin-c-3f3f46)] transition-colors hover:bg-[rgba(16, 17, 20, 0.22)] disabled:opacity-50 dark:text-[var(--admin-text-secondary)]'
 
   const tabs: { id: ProductCreateTab; label: string; hint: string }[] = [
     { id: 'basic', label: 'Basic & Pricing', hint: 'Name, descriptions, price' },

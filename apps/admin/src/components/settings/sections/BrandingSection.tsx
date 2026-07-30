@@ -107,7 +107,7 @@ export function BrandingSection({ draft, setDraft, save, saving, apiOnline }: Se
                   padding: '0.85rem 1rem',
                   borderRadius: '0.75rem',
                   border: '1px solid rgba(16, 17, 20, 0.25)',
-                  background: '#fff',
+                  background: 'var(--admin-color-white)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.75rem',

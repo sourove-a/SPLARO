@@ -2,14 +2,15 @@
 
 import { Plus, Zap, Clock, WifiOff } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminEmptyState, AdminTableSkeleton } from '@/components/ui/AdminUiPrimitives'
 import { OperationsSubNav } from '@/components/operations/OperationsSubNav'
 import { cn } from '@/lib/utils/cn'
 import { useAutomationRules } from '@/lib/api/hooks'
-import { toggleAutomationRule } from '@/lib/api/automation'
+import { createAutomationRule, toggleAutomationRule } from '@/lib/api/automation'
 import { formatRelativeTime } from '@/lib/api/orders'
-import { toastApiSaved, toastFail, toastInfo } from '@/lib/admin/feedback'
+import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
 import { verifyBooleanEquals } from '@/lib/admin/mutation-verify'
 
 const TRIGGER_LABELS: Record<string, string> = {
@@ -19,9 +20,16 @@ const TRIGGER_LABELS: Record<string, string> = {
   CUSTOMER_BIRTHDAY: 'Customer Birthday',
 }
 
+const TRIGGERS = ['ORDER_PLACED', 'ORDER_DELIVERED', 'RETURN_REQUESTED', 'CUSTOMER_BIRTHDAY'] as const
+
 export function AutomationRulesPanel() {
   const qc = useQueryClient()
   const { data: rules = [], isLoading, isError, refetch } = useAutomationRules()
+  const [showCreate, setShowCreate] = useState(false)
+  const [name, setName] = useState('')
+  const [trigger, setTrigger] = useState<(typeof TRIGGERS)[number]>('ORDER_PLACED')
+  const [smsMessage, setSmsMessage] = useState('SPLARO: Your order update from automation.')
+  const [saving, setSaving] = useState(false)
 
   const handleToggle = async (id: string, isActive: boolean) => {
     const next = !isActive
@@ -32,6 +40,37 @@ export function AutomationRulesPanel() {
       void qc.invalidateQueries({ queryKey: ['automation-rules'] })
     } catch {
       toastFail('Could not update rule.')
+    }
+  }
+
+  const handleCreate = async () => {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      toastFail('Rule name is required.')
+      return
+    }
+    setSaving(true)
+    try {
+      await createAutomationRule({
+        name: trimmed,
+        trigger,
+        conditions: [],
+        actions: [
+          {
+            action: 'SEND_SMS',
+            params: { message: smsMessage.trim() || 'SPLARO automation' },
+            sortOrder: 0,
+          },
+        ],
+      })
+      toastApiSaved('Automation rule')
+      setShowCreate(false)
+      setName('')
+      void qc.invalidateQueries({ queryKey: ['automation-rules'] })
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not create rule.')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -76,11 +115,44 @@ export function AutomationRulesPanel() {
         <p className="text-sm font-semibold text-[var(--admin-text-secondary)]">
           {rules.filter((rule) => rule.isActive).length} active · {rules.length} total
         </p>
-        <AdminButton variant="gold" onClick={() => toastInfo('Rule builder opens from Automation → Create rule.')}>
+        <AdminButton variant="gold" onClick={() => setShowCreate((v) => !v)}>
           <Plus className="h-4 w-4" />
           New rule
         </AdminButton>
       </div>
+
+      {showCreate ? (
+        <section className="admin-module-card space-y-3">
+          <p className="admin-module-card__title">Create rule</p>
+          <input
+            className="admin-input w-full"
+            placeholder="Rule name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <select className="admin-input w-full" value={trigger} onChange={(e) => setTrigger(e.target.value as (typeof TRIGGERS)[number])}>
+            {TRIGGERS.map((t) => (
+              <option key={t} value={t}>
+                {TRIGGER_LABELS[t] ?? t}
+              </option>
+            ))}
+          </select>
+          <textarea
+            className="admin-input min-h-[80px] w-full resize-y"
+            placeholder="SMS message when rule fires"
+            value={smsMessage}
+            onChange={(e) => setSmsMessage(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <AdminButton variant="gold" loading={saving} onClick={() => void handleCreate()}>
+              Save rule
+            </AdminButton>
+            <AdminButton variant="ghost" onClick={() => setShowCreate(false)}>
+              Cancel
+            </AdminButton>
+          </div>
+        </section>
+      ) : null}
 
       {rules.length === 0 ? (
         <AdminEmptyState
@@ -88,7 +160,7 @@ export function AutomationRulesPanel() {
           title="No automation rules yet"
           description="Create one to auto-flag COD risk, upgrade loyalty tiers, and more."
           action={
-            <AdminButton variant="gold" onClick={() => toastInfo('Rule builder opens from Automation → Create rule.')}>
+            <AdminButton variant="gold" onClick={() => setShowCreate(true)}>
               <Plus className="h-4 w-4" />
               New rule
             </AdminButton>

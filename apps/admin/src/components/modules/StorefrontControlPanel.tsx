@@ -2,35 +2,45 @@
 
 import { useEffect, useState } from 'react'
 import {
+  ArrowDown,
+  ArrowUp,
   Eye,
   EyeOff,
   BookOpen,
   Home,
   Inbox,
   LayoutGrid,
+  Link2,
   Mail,
   MapPin,
   Megaphone,
   Menu,
+  Plus,
   SlidersHorizontal,
   Sparkles,
   Store,
+  Trash2,
   Truck,
   Wifi,
   WifiOff,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { AdminButton } from '@/components/ui/AdminButton'
-import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
+import { toastApiSaved, toastFail, toastWarn } from '@/lib/admin/feedback'
 import { verifySettingsApplied } from '@/lib/admin/settings-save'
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_OUR_STORY, mergeStoryDeckCards } from '@/lib/storefront/homepage-defaults'
-import { DEFAULT_CATALOG_CHANNELS, DEFAULT_SHOP_FILTERS, mergeShopFilters } from '@splaro/types'
+import {
+  DEFAULT_CATALOG_CHANNELS,
+  DEFAULT_SHOP_FILTERS,
+  isHrefBlockedByCatalogChannels,
+  mergeShopFilters,
+} from '@splaro/types'
 import { SPLARO_DOMAINS } from '@splaro/config'
 import { useNewsletterSubscribers, useSettings, useUpdateSettings } from '@/lib/api/hooks'
 import type { AdminSettingsData, FooterGroup, NavLink } from '@/lib/api/settings'
 import { cn } from '@/lib/utils/cn'
 
-const panelLoading = () => <p className="text-sm font-semibold text-[#6B6B6B]">Loading panel…</p>
+const panelLoading = () => <p className="text-sm font-semibold text-[var(--admin-color-neutral-500)]">Loading panel…</p>
 
 // Heavy tab panels are code-split so the first tab paints instantly.
 const CatalogVisibilityPanel = dynamic(
@@ -82,6 +92,18 @@ const OFFER_TEMPLATES = [
   { id: 'minimal', label: 'Minimal', hint: 'Short text block only' },
 ] as const
 
+const MOBILE_HOMEPAGE_SECTIONS: Array<{
+  key: keyof AdminSettingsData['homepage']
+  title: string
+  sub: string
+}> = [
+  { key: 'hero', title: 'Hero slider', sub: 'homepage lead campaign' },
+  { key: 'marquee', title: 'Marquee strip', sub: 'announcement row' },
+  { key: 'specialOffer', title: 'Special offer band', sub: 'limited-time promotion' },
+  { key: 'instagram', title: 'Instagram strip', sub: 'social product gallery' },
+  { key: 'newsletter', title: 'Newsletter block', sub: 'customer signup section' },
+]
+
 const EMPTY_SETTINGS: AdminSettingsData = {
   store: { name: '', email: '', phone: '', domain: '', currency: 'BDT', timezone: 'Asia/Dhaka', logo: '', favicon: '', description: '', address: '' },
   branding: { logo: '', favicon: '', storeImage: '', storeLabel: 'Store', footerTagline: '', footerCopyright: '' },
@@ -125,6 +147,9 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
   const [draft, setDraft] = useState<AdminSettingsData>(EMPTY_SETTINGS)
   const apiOnline = !isError && !!apiData
   const { data: subscriberData, refetch: refetchSubscribers } = useNewsletterSubscribers(tab === 'newsletter' && apiOnline)
+  const liveHeaderLinks = draft.navigation.headerNav.filter(
+    (item) => !item.hidden && !isHrefBlockedByCatalogChannels(item.href, draft.catalogChannels),
+  ).length
 
   useEffect(() => {
     if (apiData) {
@@ -157,8 +182,12 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
     }
   }, [apiData])
 
+  useEffect(() => {
+    setTab(initialTab)
+  }, [initialTab])
+
   if (isLoading && !apiData) {
-    return <p className="text-sm font-semibold text-[#6B6B6B]">Loading storefront settings…</p>
+    return <p className="text-sm font-semibold text-[var(--admin-color-neutral-500)]">Loading storefront settings…</p>
   }
 
   const save = (section: Partial<AdminSettingsData>, label: string, onSuccess?: () => void) => {
@@ -206,8 +235,99 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
     }))
   }
 
+  const toggleNavVisibility = (index: number) => {
+    const savedNav = apiData?.navigation.headerNav ?? []
+    if (JSON.stringify(draft.navigation.headerNav) !== JSON.stringify(savedNav)) {
+      toastWarn('Save link text changes first — visibility was not changed.')
+      return
+    }
+    const item = draft.navigation.headerNav[index]
+    if (!item) return
+    const nextHidden = !item.hidden
+    const navigation = {
+      ...draft.navigation,
+      headerNav: draft.navigation.headerNav.map((nav, i) =>
+        i === index ? { ...nav, hidden: nextHidden } : nav,
+      ),
+    }
+    save(
+      { navigation },
+      nextHidden ? `${item.label || 'Link'} hidden` : `${item.label || 'Link'} shown`,
+    )
+  }
+
+  const moveNavItem = (index: number, direction: -1 | 1) => {
+    const savedNav = apiData?.navigation.headerNav ?? []
+    if (JSON.stringify(draft.navigation.headerNav) !== JSON.stringify(savedNav)) {
+      toastWarn('Save link text changes first — order was not changed.')
+      return
+    }
+    const swapIndex = index + direction
+    if (swapIndex < 0 || swapIndex >= draft.navigation.headerNav.length) return
+    const headerNav = [...draft.navigation.headerNav]
+    ;[headerNav[index], headerNav[swapIndex]] = [headerNav[swapIndex]!, headerNav[index]!]
+    save({ navigation: { ...draft.navigation, headerNav } }, 'Header menu order')
+  }
+
+  const removeNavItem = (index: number) => {
+    if (draft.navigation.headerNav.length <= 1) {
+      toastWarn('Keep one header link. Hide it if storefront header should show none.')
+      return
+    }
+    setDraft((prev) => ({
+      ...prev,
+      navigation: {
+        ...prev.navigation,
+        headerNav: prev.navigation.headerNav.filter((_, itemIndex) => itemIndex !== index),
+      },
+    }))
+  }
+
+  const saveHeaderNav = () => {
+    const normalized = draft.navigation.headerNav.map((item) => ({
+      ...item,
+      label: item.label.trim(),
+      href: item.href.trim(),
+    }))
+    const invalid = normalized.find(
+      (item) =>
+        !item.label ||
+        !item.href ||
+        !(
+          item.href.startsWith('/') ||
+          item.href.startsWith('https://') ||
+          item.href.startsWith('http://') ||
+          item.href.startsWith('mailto:') ||
+          item.href.startsWith('tel:')
+        ),
+    )
+    if (invalid) {
+      toastWarn('Every link needs label + valid destination. Nothing was saved.')
+      return
+    }
+    const duplicate = normalized.find(
+      (item, index) =>
+        normalized.findIndex(
+          (candidate) =>
+            candidate.label.toLowerCase() === item.label.toLowerCase() &&
+            candidate.href === item.href,
+        ) !== index,
+    )
+    if (duplicate) {
+      toastWarn(`Duplicate menu link “${duplicate.label}”. Nothing was saved.`)
+      return
+    }
+    save({ navigation: { ...draft.navigation, headerNav: normalized } }, 'Header menu links')
+  }
+
+  const toggleHomepageSection = (key: keyof AdminSettingsData['homepage']) => {
+    const homepage = { ...draft.homepage, [key]: !draft.homepage[key] }
+    const label = MOBILE_HOMEPAGE_SECTIONS.find((section) => section.key === key)?.title ?? 'Homepage section'
+    save({ homepage }, `${label} ${homepage[key] ? 'shown' : 'hidden'}`)
+  }
+
   return (
-    <div className="space-y-5">
+    <div className="storefront-control-panel space-y-5" data-initial-tab={initialTab}>
       <div
         className={cn(
           'admin-settings-status',
@@ -223,7 +343,7 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
         <span className="flex items-center gap-2">
           <span className={cn('admin-conn-strip__pulse', !apiOnline && 'admin-conn-strip__pulse--warn')}>
             <span className="admin-conn-strip__pulse-dot" />
-            {apiOnline ? 'Connected' : 'Offline'}
+            {apiOnline ? 'Settings loaded' : 'Offline'}
           </span>
           <a
             href={SPLARO_DOMAINS.site}
@@ -328,44 +448,156 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
 
       {tab === 'navigation' ? (
         <>
-          <section className="admin-module-card">
-            <h3 className="admin-module-card__title mb-2">Header menu links</h3>
-            <p className="admin-module-card__text mb-4">Top-level navigation labels and URLs.</p>
-            <div className="space-y-3">
+          <MobileVisibilityList
+            rows={draft.navigation.headerNav.map((item, index) => {
+              const catalogBlocked = isHrefBlockedByCatalogChannels(item.href, draft.catalogChannels)
+              return {
+                id: `nav-${index}`,
+                title: item.label || 'Untitled link',
+                sub: catalogBlocked ? `${item.href || '—'} · blocked by Catalog` : item.href || '—',
+                visible: !item.hidden && !catalogBlocked,
+                ...(catalogBlocked ? { disabled: true, stateLabel: 'CATALOG BLOCKED' } : {}),
+                onToggle: () => toggleNavVisibility(index),
+              }
+            })}
+            loading={updateSettings.isPending}
+            empty="No header menu links yet."
+          />
+
+          <div className="menu-control-full-panel">
+          <section className="menu-link-editor">
+            <div className="menu-link-editor__head">
+              <span className="menu-link-editor__eyebrow">STOREFRONT HEADER</span>
+              <div>
+                <h3>Header links</h3>
+                <p>Labels and URLs save together. Visibility and order publish immediately after server read-back.</p>
+              </div>
+              <span className="menu-link-editor__summary">
+                {liveHeaderLinks} live · {draft.navigation.headerNav.length - liveHeaderLinks} not live
+              </span>
+            </div>
+            <div className="menu-link-editor__columns" aria-hidden>
+              <span>Order</span>
+              <span>Label</span>
+              <span>Destination</span>
+              <span>State</span>
+              <span>Actions</span>
+            </div>
+            <div className="menu-link-editor__rows">
               {draft.navigation.headerNav.map((item, index) => (
-                <div key={`nav-${index}`} className="grid gap-2 rounded-[14px] border border-black/6 bg-white/70 p-3 md:grid-cols-[1fr_1fr_auto_auto]">
-                  <input className="admin-input" placeholder="Label" value={item.label} onChange={(e) => updateNavItem(index, { label: e.target.value })} />
-                  <input className="admin-input" placeholder="/shop" value={item.href} onChange={(e) => updateNavItem(index, { href: e.target.value })} />
-                  <AdminButton
-                    variant="ghost"
-                    loading={updateSettings.isPending}
-                    onClick={() => {
-                      const nextHidden = !item.hidden
-                      const headerNav = draft.navigation.headerNav.map((nav, i) =>
-                        i === index ? { ...nav, hidden: nextHidden } : nav,
-                      )
-                      const navigation = { ...draft.navigation, headerNav }
-                      setDraft((p) => ({ ...p, navigation }))
-                      save(
-                        { navigation },
-                        nextHidden ? `${item.label || 'Link'} hidden` : `${item.label || 'Link'} shown`,
-                      )
-                    }}
+                <div
+                  key={`nav-${index}`}
+                  className={
+                    item.hidden || isHrefBlockedByCatalogChannels(item.href, draft.catalogChannels)
+                      ? 'menu-link-row is-hidden'
+                      : 'menu-link-row'
+                  }
+                >
+                  <span className="menu-link-row__order">
+                    <span>{String(index + 1).padStart(2, '0')}</span>
+                    <button
+                      type="button"
+                      aria-label={`Move ${item.label || `link ${index + 1}`} up`}
+                      disabled={updateSettings.isPending || index === 0}
+                      onClick={() => moveNavItem(index, -1)}
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Move ${item.label || `link ${index + 1}`} down`}
+                      disabled={updateSettings.isPending || index === draft.navigation.headerNav.length - 1}
+                      onClick={() => moveNavItem(index, 1)}
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                  <label>
+                    <span>Label</span>
+                    <input
+                      className="admin-input"
+                      placeholder="Menu label"
+                      value={item.label}
+                      aria-invalid={!item.label.trim()}
+                      onChange={(event) => updateNavItem(index, { label: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    <span>Destination</span>
+                    <input
+                      className="admin-input"
+                      placeholder="/shop"
+                      value={item.href}
+                      aria-invalid={!item.href.trim()}
+                      onChange={(event) => updateNavItem(index, { href: event.target.value })}
+                    />
+                  </label>
+                  <span
+                    className={
+                      item.hidden || isHrefBlockedByCatalogChannels(item.href, draft.catalogChannels)
+                        ? 'menu-state menu-state--hidden'
+                        : 'menu-state menu-state--live'
+                    }
                   >
-                    {item.hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                    {item.hidden ? 'Show' : 'Hide'}
-                  </AdminButton>
-                  <AdminButton variant="ghost" onClick={() => setDraft((p) => ({ ...p, navigation: { ...p.navigation, headerNav: p.navigation.headerNav.filter((_, i) => i !== index) } }))}>
-                    Remove
-                  </AdminButton>
+                    {item.hidden
+                      ? 'HIDDEN'
+                      : isHrefBlockedByCatalogChannels(item.href, draft.catalogChannels)
+                        ? 'CATALOG BLOCKED'
+                        : 'LIVE'}
+                  </span>
+                  <span className="menu-link-row__actions">
+                    <AdminButton
+                      variant="ghost"
+                      size="sm"
+                      loading={updateSettings.isPending}
+                      onClick={() => toggleNavVisibility(index)}
+                    >
+                      {item.hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                      {item.hidden ? 'Show' : 'Hide'}
+                    </AdminButton>
+                    <AdminButton
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Remove ${item.label || `link ${index + 1}`}`}
+                      onClick={() => removeNavItem(index)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </AdminButton>
+                  </span>
                 </div>
               ))}
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <AdminButton onClick={() => setDraft((p) => ({ ...p, navigation: { ...p.navigation, headerNav: [...p.navigation.headerNav, { label: 'New link', href: '/' }] } }))}>
-                Add menu item
+            <div className="menu-link-editor__savebar">
+              <AdminButton
+                disabled={draft.navigation.headerNav.length >= 20}
+                onClick={() =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    navigation: {
+                      ...prev.navigation,
+                      headerNav: [...prev.navigation.headerNav, { label: '', href: '/' }],
+                    },
+                  }))
+                }
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add header link
               </AdminButton>
-              <AdminButton variant="gold" loading={updateSettings.isPending} onClick={() => save({ navigation: draft.navigation }, 'Header menu')}>
+              <span>
+                {JSON.stringify(draft.navigation.headerNav) ===
+                JSON.stringify(apiData?.navigation.headerNav ?? [])
+                  ? 'All header link changes saved'
+                  : 'Unsaved label, URL, add, or remove changes'}
+              </span>
+              <AdminButton
+                variant="gold"
+                loading={updateSettings.isPending}
+                disabled={
+                  JSON.stringify(draft.navigation.headerNav) ===
+                  JSON.stringify(apiData?.navigation.headerNav ?? [])
+                }
+                onClick={saveHeaderNav}
+              >
                 Save links
               </AdminButton>
             </div>
@@ -373,13 +605,17 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
 
           <MenuBuilderPanel
             menuOverrides={draft.menuOverrides ?? { autoSync: true, departments: [] }}
+            persistedOverrides={apiData?.menuOverrides ?? { autoSync: true, departments: [] }}
+            catalogChannels={draft.catalogChannels}
+            headerNav={draft.navigation.headerNav}
             onChange={(menuOverrides) => setDraft((p) => ({ ...p, menuOverrides }))}
-            onSave={(overrides) => {
+            onSave={(overrides, label) => {
               const next = overrides ?? draft.menuOverrides ?? { autoSync: true, departments: [] }
-              save({ menuOverrides: next }, 'Menu builder')
+              save({ menuOverrides: next }, label ?? 'Menu builder')
             }}
             saving={updateSettings.isPending}
           />
+          </div>
         </>
       ) : null}
 
@@ -407,38 +643,113 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
       ) : null}
 
       {tab === 'footer' ? (
-        <section className="admin-module-card">
-          <h3 className="admin-module-card__title mb-4">Footer link groups</h3>
-          <div className="space-y-5">
+        <section className="admin-module-card storefront-footer-editor">
+          <div className="storefront-footer-editor__heading">
+            <span className="storefront-footer-editor__heading-icon">
+              <Link2 className="h-4 w-4" />
+            </span>
+            <span className="storefront-footer-editor__heading-copy">
+              <h3 className="admin-module-card__title">Footer link groups</h3>
+              <span>Organise storefront footer labels and destinations.</span>
+            </span>
+            <span className="storefront-footer-editor__summary">
+              {draft.navigation.footerGroups.length} groups ·{' '}
+              {draft.navigation.footerGroups.reduce((total, group) => total + group.links.length, 0)} links
+            </span>
+          </div>
+
+          <div className="storefront-footer-editor__grid">
             {draft.navigation.footerGroups.map((group, groupIndex) => (
-              <div key={group.id} className="rounded-[16px] border border-black/6 bg-white/70 p-4">
-                <input className="admin-input mb-3 font-bold" value={group.title} onChange={(e) => updateFooterGroup(groupIndex, { title: e.target.value })} />
-                <div className="space-y-2">
+              <article key={group.id} className="storefront-footer-editor__group">
+                <div className="storefront-footer-editor__group-head">
+                  <span className="storefront-footer-editor__group-index">
+                    {String(groupIndex + 1).padStart(2, '0')}
+                  </span>
+                  <label className="storefront-footer-editor__group-title">
+                    <span>Group name</span>
+                    <input
+                      className="admin-input"
+                      value={group.title}
+                      onChange={(e) => updateFooterGroup(groupIndex, { title: e.target.value })}
+                    />
+                  </label>
+                  <span className="storefront-footer-editor__count">
+                    {group.links.length} {group.links.length === 1 ? 'link' : 'links'}
+                  </span>
+                </div>
+
+                <div className="storefront-footer-editor__links">
                   {group.links.map((link, linkIndex) => (
-                    <div key={`${group.id}-${linkIndex}`} className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
-                      <input className="admin-input" value={link.label} onChange={(e) => {
-                        const links = group.links.map((l, i) => (i === linkIndex ? { ...l, label: e.target.value } : l))
-                        updateFooterGroup(groupIndex, { links })
-                      }} />
-                      <input className="admin-input" value={link.href} onChange={(e) => {
-                        const links = group.links.map((l, i) => (i === linkIndex ? { ...l, href: e.target.value } : l))
-                        updateFooterGroup(groupIndex, { links })
-                      }} />
-                      <AdminButton variant="ghost" onClick={() => updateFooterGroup(groupIndex, { links: group.links.filter((_, i) => i !== linkIndex) })}>
-                        Remove
-                      </AdminButton>
+                    <div key={`${group.id}-${linkIndex}`} className="storefront-footer-editor__link-row">
+                      <label>
+                        <span>Label</span>
+                        <input
+                          className="admin-input"
+                          value={link.label}
+                          onChange={(e) => {
+                            const links = group.links.map((item, i) =>
+                              i === linkIndex ? { ...item, label: e.target.value } : item,
+                            )
+                            updateFooterGroup(groupIndex, { links })
+                          }}
+                        />
+                      </label>
+                      <label>
+                        <span>Destination</span>
+                        <input
+                          className="admin-input storefront-footer-editor__href"
+                          value={link.href}
+                          onChange={(e) => {
+                            const links = group.links.map((item, i) =>
+                              i === linkIndex ? { ...item, href: e.target.value } : item,
+                            )
+                            updateFooterGroup(groupIndex, { links })
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="storefront-footer-editor__remove"
+                        title={`Remove ${link.label || 'link'}`}
+                        aria-label={`Remove ${link.label || 'link'}`}
+                        onClick={() =>
+                          updateFooterGroup(groupIndex, {
+                            links: group.links.filter((_, i) => i !== linkIndex),
+                          })
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   ))}
                 </div>
-                <AdminButton className="mt-2" onClick={() => updateFooterGroup(groupIndex, { links: [...group.links, { label: 'New link', href: '/' }] })}>
+
+                <button
+                  type="button"
+                  className="storefront-footer-editor__add"
+                  onClick={() =>
+                    updateFooterGroup(groupIndex, {
+                      links: [...group.links, { label: 'New link', href: '/' }],
+                    })
+                  }
+                >
+                  <Plus className="h-4 w-4" />
                   Add link
-                </AdminButton>
-              </div>
+                </button>
+              </article>
             ))}
           </div>
-          <AdminButton variant="gold" className="mt-4" loading={updateSettings.isPending} onClick={() => save({ navigation: draft.navigation }, 'Footer links')}>
-            Save footer
-          </AdminButton>
+
+          <div className="storefront-footer-editor__savebar">
+            <span>Changes stay draft until saved.</span>
+            <AdminButton
+              variant="gold"
+              loading={updateSettings.isPending}
+              onClick={() => save({ navigation: draft.navigation }, 'Footer links')}
+            >
+              Save footer
+            </AdminButton>
+          </div>
         </section>
       ) : null}
 
@@ -446,7 +757,7 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
         <section className="admin-module-card">
           <label className="admin-check-row mb-4">
             <span className="text-sm font-semibold">Show marquee strip on homepage</span>
-            <input type="checkbox" checked={draft.marquee.enabled} onChange={() => setDraft((p) => ({ ...p, marquee: { ...p.marquee, enabled: !p.marquee.enabled } }))} className="h-4 w-4 accent-[#5E7CFF]" />
+            <input type="checkbox" checked={draft.marquee.enabled} onChange={() => setDraft((p) => ({ ...p, marquee: { ...p.marquee, enabled: !p.marquee.enabled } }))} className="h-4 w-4 accent-[var(--admin-color-accent-blue)]" />
           </label>
           <p className="admin-module-card__text mb-3">One line per scrolling message. Leave empty when disabled.</p>
           <textarea
@@ -464,8 +775,8 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
       {tab === 'offers' ? (
         <section className="admin-module-card admin-module-card--accent">
           <label className="admin-check-row mb-4">
-            <span className="text-sm font-semibold text-[#1c1c22]">Show homepage offer section</span>
-            <input type="checkbox" checked={draft.specialOffer.enabled} onChange={() => setDraft((p) => ({ ...p, specialOffer: { ...p.specialOffer, enabled: !p.specialOffer.enabled } }))} className="h-4 w-4 accent-[#5E7CFF]" />
+            <span className="text-sm font-semibold text-[var(--admin-c-1c1c22)]">Show homepage offer section</span>
+            <input type="checkbox" checked={draft.specialOffer.enabled} onChange={() => setDraft((p) => ({ ...p, specialOffer: { ...p.specialOffer, enabled: !p.specialOffer.enabled } }))} className="h-4 w-4 accent-[var(--admin-color-accent-blue)]" />
           </label>
           <p className="admin-module-card__subtitle mb-4">Pick a template, fill content, then save. Nothing shows until enabled.</p>
           <div className="mb-4 grid gap-2 sm:grid-cols-3">
@@ -521,12 +832,27 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
       ) : null}
 
       {tab === 'homepage' ? (
-        <HomepageVisibilityPanel
-          draft={draft}
-          setDraft={setDraft}
-          onSave={save}
-          saving={updateSettings.isPending}
-        />
+        <>
+          <MobileVisibilityList
+            rows={MOBILE_HOMEPAGE_SECTIONS.map((section) => ({
+              id: section.key,
+              title: section.title,
+              sub: section.sub,
+              visible: Boolean(draft.homepage[section.key]),
+              onToggle: () => toggleHomepageSection(section.key),
+            }))}
+            loading={updateSettings.isPending}
+            empty="No homepage sections configured."
+          />
+          <div className="dc-desktop-route-panel">
+            <HomepageVisibilityPanel
+              draft={draft}
+              setDraft={setDraft}
+              onSave={save}
+              saving={updateSettings.isPending}
+            />
+          </div>
+        </>
       ) : null}
 
       {tab === 'story' ? (
@@ -552,7 +878,7 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
                   type="checkbox"
                   checked={draft.newsletter.enabled}
                   onChange={() => setDraft((p) => ({ ...p, newsletter: { ...p.newsletter, enabled: !p.newsletter.enabled } }))}
-                  className="h-4 w-4 accent-[#5E7CFF]"
+                  className="h-4 w-4 accent-[var(--admin-color-accent-blue)]"
                 />
               </label>
             </div>
@@ -634,7 +960,7 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
             </AdminButton>
           </div>
           {!subscriberData?.subscribers?.length ? (
-            <p className="text-sm font-semibold text-[#6B6B6B]">No subscribers yet — first signup will appear here.</p>
+            <p className="text-sm font-semibold text-[var(--admin-color-neutral-500)]">No subscribers yet — first signup will appear here.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="admin-module-table">
@@ -685,7 +1011,7 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
             {(['cod', 'bkash', 'nagad', 'sslcommerz'] as const).map((key) => (
               <label key={key} className="admin-check-row">
                 <span className="text-sm font-semibold capitalize">{key === 'sslcommerz' ? 'SSLCommerz / Card' : key}</span>
-                <input type="checkbox" checked={draft.payments[key] ?? false} onChange={() => setDraft((p) => ({ ...p, payments: { ...p.payments, [key]: !p.payments[key] } }))} className="h-4 w-4 accent-[#5E7CFF]" />
+                <input type="checkbox" checked={draft.payments[key] ?? false} onChange={() => setDraft((p) => ({ ...p, payments: { ...p.payments, [key]: !p.payments[key] } }))} className="h-4 w-4 accent-[var(--admin-color-accent-blue)]" />
               </label>
             ))}
           </div>
@@ -702,12 +1028,12 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
             Order confirmations, password reset and admin alerts use these settings. Leave password blank to keep the current one.
           </p>
           <label className="admin-check-row mb-4">
-            <span className="text-sm font-semibold text-[#1c1c22]">Enable outbound email</span>
+            <span className="text-sm font-semibold text-[var(--admin-c-1c1c22)]">Enable outbound email</span>
             <input
               type="checkbox"
               checked={draft.emailEnabled}
               onChange={() => setDraft((p) => ({ ...p, emailEnabled: !p.emailEnabled, smtp: { ...p.smtp, enabled: !p.emailEnabled } }))}
-              className="h-4 w-4 accent-[#5E7CFF]"
+              className="h-4 w-4 accent-[var(--admin-color-accent-blue)]"
             />
           </label>
           <div className="grid gap-4 md:grid-cols-2">
@@ -720,8 +1046,8 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
               <input className="admin-input" type="number" value={draft.smtp.port} onChange={(e) => setDraft((p) => ({ ...p, smtp: { ...p.smtp, port: Number(e.target.value) || 587 } }))} />
             </label>
             <label className="admin-check-row md:col-span-2">
-              <span className="text-sm font-semibold text-[#1c1c22]">Use SSL/TLS (port 465)</span>
-              <input type="checkbox" checked={draft.smtp.secure} onChange={() => setDraft((p) => ({ ...p, smtp: { ...p.smtp, secure: !p.smtp.secure } }))} className="h-4 w-4 accent-[#5E7CFF]" />
+              <span className="text-sm font-semibold text-[var(--admin-c-1c1c22)]">Use SSL/TLS (port 465)</span>
+              <input type="checkbox" checked={draft.smtp.secure} onChange={() => setDraft((p) => ({ ...p, smtp: { ...p.smtp, secure: !p.smtp.secure } }))} className="h-4 w-4 accent-[var(--admin-color-accent-blue)]" />
             </label>
             <label className="admin-field">
               <span className="admin-kpi__label">Username</span>
@@ -772,7 +1098,77 @@ export function MenuControlPanel() {
 }
 
 export function HomePageControlPanel() {
-  return <StorefrontControlPanel initialTab="offers" />
+  return <StorefrontControlPanel initialTab="homepage" />
+}
+
+function MobileVisibilityList({
+  rows,
+  loading,
+  empty,
+}: {
+  rows: Array<{
+    id: string
+    title: string
+    sub: string
+    visible: boolean
+    disabled?: boolean
+    stateLabel?: string
+    onToggle: () => void
+  }>
+  loading: boolean
+  empty: string
+}) {
+  return (
+    <div className="dc-mobile-route-panel" aria-label="Mobile storefront controls">
+      {rows.length === 0 ? (
+        <div
+          style={{
+            padding: '42px 18px',
+            border: '1px solid var(--line)',
+            borderRadius: 12,
+            background: 'var(--surface)',
+            color: 'var(--ink-3)',
+            textAlign: 'center',
+          }}
+        >
+          {empty}
+        </div>
+      ) : (
+        <div className="dc-mobile-list">
+          {rows.map((row) => (
+            <button
+              key={row.id}
+              type="button"
+              className="dc-mobile-list-card"
+              disabled={loading || row.disabled}
+              onClick={row.onToggle}
+              aria-label={`${row.visible ? 'Hide' : 'Show'} ${row.title}`}
+            >
+              <span
+                className="dc-mobile-list-card__icon"
+                style={{
+                  background: row.visible ? 'var(--ok-soft)' : 'var(--surface-2)',
+                  color: row.visible ? 'var(--ok)' : 'var(--ink-3)',
+                }}
+              >
+                {row.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              </span>
+              <span className="dc-mobile-list-card__copy">
+                <span className="dc-mobile-list-card__title">{row.title}</span>
+                <span className="dc-mobile-list-card__sub">{row.sub}</span>
+              </span>
+              <span
+                className="dc-mobile-list-card__value"
+                style={{ color: row.visible ? 'var(--ok)' : 'var(--ink-3)' }}
+              >
+                {loading ? 'SAVING…' : row.stateLabel ?? (row.visible ? 'VISIBLE' : 'HIDDEN')}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /** Homepage Our Story / platinum story-deck CMS */

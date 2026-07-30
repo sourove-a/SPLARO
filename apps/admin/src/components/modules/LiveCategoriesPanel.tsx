@@ -69,7 +69,7 @@ function TreeRow({
             ) : null}
             {node.name}
             {DEPARTMENT_SLUGS.includes(node.slug as (typeof DEPARTMENT_SLUGS)[number]) && depth === 0 ? (
-              <span className="ml-1 rounded bg-[rgba(16, 17, 20, 0.15)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#3f3f46]">
+              <span className="ml-1 rounded bg-[rgba(16, 17, 20, 0.15)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--admin-c-3f3f46)]">
                 dept
               </span>
             ) : null}

@@ -159,8 +159,8 @@ export function SalesChart({
           <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#16181d" stopOpacity={0.28} />
-                <stop offset="100%" stopColor="#16181d" stopOpacity={0.02} />
+                <stop offset="0%" stopColor="var(--admin-c-16181d)" stopOpacity={0.28} />
+                <stop offset="100%" stopColor="var(--admin-c-16181d)" stopOpacity={0.02} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--admin-glass-border-subtle)" vertical={false} />

@@ -17,11 +17,11 @@ export function TopCategories({ period = '30 Days' }: { period?: string }) {
       </div>
 
       {isLoading ? (
-        <p className="px-5 py-8 text-center text-xs text-[#6B6B6B]">Loading categories…</p>
+        <p className="px-5 py-8 text-center text-xs text-[var(--admin-color-neutral-500)]">Loading categories…</p>
       ) : isError ? (
         <p className="px-5 py-8 text-center text-xs text-amber-700">API offline — start backend on :4000</p>
       ) : categories.length === 0 ? (
-        <p className="px-5 py-8 text-center text-xs text-[#6B6B6B]">
+        <p className="px-5 py-8 text-center text-xs text-[var(--admin-color-neutral-500)]">
           No category sales in this period yet.
         </p>
       ) : (
@@ -32,23 +32,23 @@ export function TopCategories({ period = '30 Days' }: { period?: string }) {
               initial={{ opacity: 0, x: -6 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.05, duration: 0.3 }}
-              className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[#111111]/[0.02]"
+              className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--admin-color-ink-near)]/[0.02]"
             >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[rgba(17,17,17,0.06)] bg-[#111111]/[0.03]">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[rgba(17,17,17,0.06)] bg-[var(--admin-color-ink-near)]/[0.03]">
                 {category.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={category.image} alt={category.name} className="h-full w-full object-cover" />
                 ) : (
-                  <FolderOpen className="h-4 w-4 text-[#6B6B6B]" strokeWidth={1.5} />
+                  <FolderOpen className="h-4 w-4 text-[var(--admin-color-neutral-500)]" strokeWidth={1.5} />
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-semibold text-[#111111]">{category.name}</p>
-                <p className="text-[10px] text-[#6B6B6B]">
+                <p className="truncate text-xs font-semibold text-[var(--admin-color-ink-near)]">{category.name}</p>
+                <p className="text-[10px] text-[var(--admin-color-neutral-500)]">
                   {category.orders} orders · {category.share}% share
                 </p>
               </div>
-              <p className="shrink-0 text-xs font-semibold text-[#111111]">
+              <p className="shrink-0 text-xs font-semibold text-[var(--admin-color-ink-near)]">
                 {formatBDT(category.revenue)}
               </p>
             </motion.div>

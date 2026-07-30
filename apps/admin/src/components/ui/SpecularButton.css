@@ -1,9 +1,9 @@
 .specular-button {
   --sb-radius: 18px;
-  --sb-tint: #ffffff;
+  --sb-tint: var(--admin-color-white);
   --sb-tint-opacity: 0;
   --sb-blur: 0px;
-  --sb-text-color: #f5f5f5;
+  --sb-text-color: var(--admin-color-white);
 
   position: relative;
   display: inline-flex;

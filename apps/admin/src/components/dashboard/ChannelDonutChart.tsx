@@ -4,7 +4,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { formatBDT } from '@/lib/utils/currency'
 import { useDashboardInsights } from '@/lib/api/hooks'
 
-const COLORS = ['#111216', '#C8A97E', '#62646B', '#A7A8AD', '#E3D4BD']
+const COLORS = ['var(--admin-c-111216)', 'var(--admin-c-c8a97e)', 'var(--admin-c-62646b)', 'var(--admin-c-a7a8ad)', 'var(--admin-c-e3d4bd)']
 
 type MixRow = { name: string; value: number; revenue: number }
 
@@ -19,8 +19,8 @@ function ChannelTooltip({
   const item = payload[0]!.payload
   return (
     <div className="rounded-lg border border-[rgba(17,17,17,0.08)] bg-[rgba(255,255,255,0.95)] px-3 py-2 shadow-lg backdrop-blur-xl">
-      <p className="text-xs font-semibold text-[#111111]">{item.name}</p>
-      <p className="text-xs text-[#6B6B6B]">{item.value}% · {formatBDT(item.revenue)}</p>
+      <p className="text-xs font-semibold text-[var(--admin-color-ink-near)]">{item.name}</p>
+      <p className="text-xs text-[var(--admin-color-neutral-500)]">{item.value}% · {formatBDT(item.revenue)}</p>
     </div>
   )
 }
@@ -38,11 +38,11 @@ export function ChannelDonutChart({ period = '30 Days' }: { period?: string }) {
       </div>
 
       {isLoading ? (
-        <p className="flex flex-1 items-center justify-center text-xs text-[#6B6B6B]">Loading…</p>
+        <p className="flex flex-1 items-center justify-center text-xs text-[var(--admin-color-neutral-500)]">Loading…</p>
       ) : isError ? (
         <p className="flex flex-1 items-center justify-center text-xs text-amber-700">API offline</p>
       ) : mix.length === 0 ? (
-        <p className="flex flex-1 items-center justify-center text-xs text-[#6B6B6B]">
+        <p className="flex flex-1 items-center justify-center text-xs text-[var(--admin-color-neutral-500)]">
           No paid orders in this period yet.
         </p>
       ) : (
@@ -69,8 +69,8 @@ export function ChannelDonutChart({ period = '30 Days' }: { period?: string }) {
               </PieChart>
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <p className="text-[10px] uppercase tracking-wider text-[#6B6B6B]">Total</p>
-              <p className="text-sm font-semibold text-[#111111]">{formatBDT(total)}</p>
+              <p className="text-[10px] uppercase tracking-wider text-[var(--admin-color-neutral-500)]">Total</p>
+              <p className="text-sm font-semibold text-[var(--admin-color-ink-near)]">{formatBDT(total)}</p>
             </div>
           </div>
 
@@ -82,9 +82,9 @@ export function ChannelDonutChart({ period = '30 Days' }: { period?: string }) {
                     className="h-2 w-2 rounded-full"
                     style={{ backgroundColor: COLORS[i % COLORS.length] }}
                   />
-                  <span className="text-[#6B6B6B]">{channel.name}</span>
+                  <span className="text-[var(--admin-color-neutral-500)]">{channel.name}</span>
                 </div>
-                <span className="font-medium text-[#111111]">{channel.value}%</span>
+                <span className="font-medium text-[var(--admin-color-ink-near)]">{channel.value}%</span>
               </div>
             ))}
           </div>

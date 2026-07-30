@@ -15,6 +15,7 @@ import {
   Cloud,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { FONT, MONO } from '@/components/dc/tokens'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 
 export type SettingsSection =
@@ -109,31 +110,103 @@ function ConnectionStatus({ settingsLoaded }: { settingsLoaded: boolean }) {
   )
 }
 
+/** Section groups, in the order the design lays them out. */
+const SET_GROUPS: Array<[string, SettingsSection[]]> = [
+  ['Store', ['general', 'branding', 'contact']],
+  ['Storefront', ['homepage', 'navigation', 'payments', 'shipping']],
+  ['Platform', ['notifications', 'marketing', 'infrastructure', 'domain']],
+]
+
 export function SettingsSidebar({ active, onChange, settingsLoaded }: Props) {
   return (
-    <nav className="settings-sidebar-menu">
+    <nav style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <ConnectionStatus settingsLoaded={settingsLoaded} />
 
-      {SECTIONS.map((s) => {
-        const isActive = active === s.id
-        return (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => onChange(s.id)}
-            className={cn('settings-nav-item', isActive && 'settings-nav-item--active')}
+      {SET_GROUPS.map(([groupLabel, ids]) => (
+        <div key={groupLabel} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '4px 8px 6px',
+              font: `700 10px/1 ${FONT}`,
+              letterSpacing: '.14em',
+              textTransform: 'uppercase',
+              color: 'var(--ink-3)',
+            }}
           >
-            <span className="settings-nav-item__icon">
-              <s.icon style={{ height: 16, width: 16 }} strokeWidth={1.5} />
-            </span>
-            <div className="settings-nav-item__text">
-              <p className="settings-nav-item__label">{s.label}</p>
-              <p className="settings-nav-item__desc">{s.desc}</p>
-            </div>
-            {isActive ? <span className="settings-nav-item__active-dot" aria-hidden /> : null}
-          </button>
-        )
-      })}
+            <span>{groupLabel}</span>
+            <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+            <span style={{ font: `600 10px/1 ${MONO}`, opacity: 0.65 }}>{ids.length}</span>
+          </div>
+
+          {ids.map((id) => {
+            const s = SECTIONS.find((x) => x.id === id)
+            if (!s) return null
+            const isActive = active === id
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onChange(id)}
+                className={isActive ? undefined : 'dc-hover-surface'}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  width: '100%',
+                  padding: '8px 9px',
+                  borderRadius: 9,
+                  border: `1px solid ${isActive ? 'var(--violet-bd)' : 'transparent'}`,
+                  background: isActive ? 'var(--violet-soft)' : 'transparent',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'grid',
+                    placeItems: 'center',
+                    width: 26,
+                    height: 26,
+                    flex: 'none',
+                    borderRadius: 7,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface-2)',
+                    color: isActive ? 'var(--violet)' : 'var(--ink-3)',
+                  }}
+                >
+                  <s.icon style={{ height: 14, width: 14 }} strokeWidth={1.75} />
+                </span>
+                <span
+                  style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}
+                >
+                  <span
+                    style={{
+                      font: `600 12.5px/1.2 ${FONT}`,
+                      color: isActive ? 'var(--violet)' : 'var(--ink)',
+                    }}
+                  >
+                    {s.label}
+                  </span>
+                  <span
+                    style={{
+                      font: `400 11px/1.3 ${FONT}`,
+                      color: 'var(--ink-3)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {s.desc}
+                  </span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      ))}
     </nav>
   )
 }

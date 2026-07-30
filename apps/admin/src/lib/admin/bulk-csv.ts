@@ -1,0 +1,207 @@
+import { csvRowsToObjects, parseCsvText } from '@/lib/admin/csv-parse'
+import { fetchProducts, type ApiProduct } from '@/lib/api/products'
+
+export type BulkImportMode = 'stock' | 'price' | 'publish'
+
+export interface BulkPreviewRow {
+  line: number
+  key: string
+  value: string
+  status: 'ok' | 'reject'
+  reason?: string
+  payload?: Record<string, unknown>
+}
+
+export interface BulkDryRunResult {
+  rows: BulkPreviewRow[]
+  /** Rows the CSV contained, before validation. */
+  parsed: number
+}
+
+const HEADERS: Record<BulkImportMode, string[]> = {
+  stock: ['sku', 'stock'],
+  price: ['sku', 'price', 'compare_at_price'],
+  publish: ['sku', 'published'],
+}
+
+const SAMPLE: Record<BulkImportMode, string[]> = {
+  stock: ['SPL-EXAMPLE', '12'],
+  price: ['SPL-EXAMPLE', '1990', '2490'],
+  publish: ['SPL-EXAMPLE', 'true'],
+}
+
+/** Header row + one filled example, so the file is never ambiguous. */
+export function templateFor(mode: BulkImportMode): string[][] {
+  return [HEADERS[mode], SAMPLE[mode]]
+}
+
+export function templateName(mode: BulkImportMode): string {
+  return `splaro-bulk-${mode}-template.csv`
+}
+
+function truthy(v: string): boolean {
+  const n = v.trim().toLowerCase()
+  return n === '1' || n === 'true' || n === 'yes' || n === 'published' || n === 'publish'
+}
+
+function buildSkuMaps(products: ApiProduct[]) {
+  const skuToVariant = new Map<string, { variantId: string; productId: string }>()
+  const skuToProduct = new Map<string, string>()
+  for (const p of products) {
+    for (const v of p.variants ?? []) {
+      const sku = v.sku?.trim()
+      if (!sku || !v.id) continue
+      skuToVariant.set(sku.toLowerCase(), { variantId: v.id, productId: p.id })
+      skuToProduct.set(sku.toLowerCase(), p.id)
+    }
+    if (p.sku?.trim()) skuToProduct.set(p.sku.trim().toLowerCase(), p.id)
+  }
+  return { skuToVariant, skuToProduct }
+}
+
+/**
+ * Validates a bulk CSV against the live catalogue without writing anything.
+ *
+ * Every rejection carries the reason the row would fail, because a bulk write
+ * that silently drops half a file is worse than one that refuses to start.
+ */
+export async function dryRunBulkCsv(
+  mode: BulkImportMode,
+  text: string,
+): Promise<BulkDryRunResult> {
+  const objects = csvRowsToObjects(parseCsvText(text))
+  if (objects.length === 0) {
+    return { rows: [], parsed: 0 }
+  }
+
+  const { products } = await fetchProducts({ limit: 500 })
+  const { skuToVariant, skuToProduct } = buildSkuMaps(products)
+  const rows: BulkPreviewRow[] = []
+
+  objects.forEach((row, index) => {
+    // +2: line 1 is the header, and spreadsheets are 1-indexed.
+    const line = index + 2
+    const sku = (row.sku ?? row.variant_sku ?? '').trim()
+    const variantId = (row.variant_id ?? row.variantid ?? '').trim()
+    const productId = (row.product_id ?? row.productid ?? '').trim()
+
+    if (mode === 'stock') {
+      const stockRaw = row.stock ?? row.qty ?? row.quantity ?? ''
+      const stock = Number(stockRaw)
+      if (!variantId && !sku) {
+        rows.push({
+          line,
+          key: '—',
+          value: stockRaw,
+          status: 'reject',
+          reason: 'sku or variant_id required',
+        })
+        return
+      }
+      if (!Number.isFinite(stock) || stock < 0) {
+        rows.push({
+          line,
+          key: sku || variantId,
+          value: stockRaw,
+          status: 'reject',
+          reason: 'invalid stock',
+        })
+        return
+      }
+      const resolved = variantId || skuToVariant.get(sku.toLowerCase())?.variantId
+      if (!resolved) {
+        rows.push({
+          line,
+          key: sku || variantId,
+          value: String(stock),
+          status: 'reject',
+          reason: 'SKU not found',
+        })
+        return
+      }
+      rows.push({
+        line,
+        key: sku || variantId,
+        value: String(stock),
+        status: 'ok',
+        payload: { variantId: resolved, stock },
+      })
+      return
+    }
+
+    if (mode === 'price') {
+      const priceRaw = row.price ?? row.base_price ?? ''
+      const price = Number(priceRaw)
+      const compareRaw = row.compare_at_price ?? row.compare_price ?? ''
+      const compareAtPrice = compareRaw ? Number(compareRaw) : undefined
+      if (!variantId && !sku && !productId) {
+        rows.push({
+          line,
+          key: '—',
+          value: priceRaw,
+          status: 'reject',
+          reason: 'sku, variant_id or product_id required',
+        })
+        return
+      }
+      if (!Number.isFinite(price) || price < 0) {
+        rows.push({
+          line,
+          key: sku || variantId || productId,
+          value: priceRaw,
+          status: 'reject',
+          reason: 'invalid price',
+        })
+        return
+      }
+      if (compareAtPrice !== undefined && (!Number.isFinite(compareAtPrice) || compareAtPrice < 0)) {
+        rows.push({
+          line,
+          key: sku || variantId,
+          value: priceRaw,
+          status: 'reject',
+          reason: 'invalid compare price',
+        })
+        return
+      }
+      rows.push({
+        line,
+        key: sku || variantId || productId,
+        value: String(price),
+        status: 'ok',
+        payload: {
+          ...(variantId ? { variantId } : {}),
+          ...(sku ? { sku } : {}),
+          ...(productId ? { productId } : {}),
+          price,
+          ...(compareAtPrice !== undefined ? { compareAtPrice } : {}),
+        },
+      })
+      return
+    }
+
+    const pubRaw = row.published ?? row.is_published ?? row.publish ?? 'true'
+    const isPublished = truthy(pubRaw)
+    let pid = productId
+    if (!pid && sku) pid = skuToProduct.get(sku.toLowerCase()) ?? ''
+    if (!pid) {
+      rows.push({
+        line,
+        key: sku || productId,
+        value: pubRaw,
+        status: 'reject',
+        reason: 'product not found',
+      })
+      return
+    }
+    rows.push({
+      line,
+      key: sku || pid,
+      value: isPublished ? 'publish' : 'unpublish',
+      status: 'ok',
+      payload: { productId: pid, isPublished },
+    })
+  })
+
+  return { rows, parsed: objects.length }
+}

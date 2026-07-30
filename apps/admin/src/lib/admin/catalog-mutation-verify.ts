@@ -105,6 +105,29 @@ export async function verifyCollectionPersisted(
   }
 }
 
+/** Fresh GET — each id must carry the sortOrder we just wrote. */
+export async function verifyCategoriesReordered(
+  order: Array<{ id: string; sortOrder: number }>,
+): Promise<boolean> {
+  try {
+    const res = await fetchCategories()
+    const byId = new Map(res.categories.map((c) => [c.id, c]))
+    for (const item of order) {
+      const row = byId.get(item.id)
+      if (!row) {
+        return verifyPersisted(false, 'Category reorder did not persist on server')
+      }
+      if (!verifyNumberEquals(row.sortOrder ?? 0, item.sortOrder, 'Category order')) {
+        return false
+      }
+    }
+    return true
+  } catch {
+    toastFail('Could not verify category order on server')
+    return false
+  }
+}
+
 export function verifyBrandResponse(
   saved: unknown,
   expected: { name?: string; isActive?: boolean },

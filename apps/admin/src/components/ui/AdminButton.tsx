@@ -11,7 +11,8 @@ type AdminButtonVariant =
   | 'default'
   | 'primary'
   | 'secondary'
-  | 'gold'
+  | 'accent'
+  | 'gold' /* @deprecated — alias of accent */
   | 'ghost'
   | 'dark'
   | 'danger'
@@ -48,7 +49,8 @@ const variantClass: Record<AdminButtonVariant, string> = {
   default: 'admin-btn',
   primary: 'admin-btn admin-btn--primary',
   secondary: 'admin-btn admin-btn--secondary',
-  gold: 'admin-btn admin-btn--gold',
+  accent: 'admin-btn admin-btn--accent',
+  gold: 'admin-btn admin-btn--accent',
   ghost: 'admin-btn admin-btn--ghost',
   dark: 'admin-btn admin-btn--dark',
   danger: 'admin-btn admin-btn--danger',

@@ -2,6 +2,7 @@ import { createElement, type ComponentType } from 'react'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { GenericModulePanel } from '@/components/modules/GenericModulePanel'
 import { SettingsShell } from '@/components/settings/SettingsShell'
+import { TelegramBotConfigPanel } from '@/components/modules/TelegramBotConfigPanel'
 import { EmailSmsPanel } from '@/components/modules/EmailSmsPanel'
 import { ContentModulePanel } from '@/components/content'
 import { CouponsLivePanel, MarketingModulePanel } from '@/components/marketing'
@@ -22,6 +23,8 @@ import { AnalyticsModulePanel } from '@/components/modules/AnalyticsModulePanel'
 import { SystemModulePanel } from '@/components/modules/SystemModulePanel'
 import { SaaSModulePanel } from '@/components/modules/SaaSModulePanel'
 import { WmsModulePanel } from '@/components/modules/WmsModulePanel'
+import { BulkCsvPanel } from '@/components/modules/BulkCsvPanel'
+import { SmsCenterPanel } from '@/components/modules/SmsCenterPanel'
 import { AutomationRulesPanel } from '@/components/modules/AutomationRulesPanel'
 import {
   AllIntegrationsPanel,
@@ -121,6 +124,7 @@ const SPECIFIC_MODULES: Record<string, ModuleComponent> = {
   '/dashboard/ai-product-generator': wrapGeneric(AiCenterModulePanel),
   '/dashboard/automation-rules': wrapStatic(AutomationRulesPanel),
   '/dashboard/all-integrations': wrapGeneric(AllIntegrationsPanel),
+  '/dashboard/telegram-bot': wrapStatic(TelegramBotConfigPanel),
   '/dashboard/api-health': wrapStatic(ApiHealthPanel),
   '/dashboard/webhooks': wrapStatic(WebhooksPanel),
   '/dashboard/meta-business': wrapStatic(MetaBusinessPanel),
@@ -140,6 +144,8 @@ const SPECIFIC_MODULES: Record<string, ModuleComponent> = {
   '/dashboard/google-workspace/oauth-settings': wrapGeneric(GoogleWorkspaceModulePanel),
   '/dashboard/settings': wrapStatic(SettingsShell),
   '/dashboard/email-sms': wrapGeneric(EmailSmsPanel),
+  '/dashboard/bulk': wrapGeneric(BulkCsvPanel),
+  '/dashboard/sms': wrapGeneric(SmsCenterPanel),
   '/dashboard/security-center': wrapGeneric(SecurityModulePanel),
   '/dashboard/admin-users': wrapGeneric(SecurityModulePanel),
   '/dashboard/roles': wrapGeneric(SecurityModulePanel),

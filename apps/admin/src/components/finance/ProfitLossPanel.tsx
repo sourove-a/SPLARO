@@ -96,7 +96,7 @@ export function ProfitLossPanel() {
             className={cn(
               'rounded-full px-4 py-2 text-xs font-black uppercase tracking-wider transition',
               period === p.id
-                ? 'bg-[#5E7CFF] text-white'
+                ? 'bg-[var(--admin-color-accent-blue)] text-white'
                 : 'border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-glass-strong)] text-[var(--admin-text-secondary)]',
             )}
           >

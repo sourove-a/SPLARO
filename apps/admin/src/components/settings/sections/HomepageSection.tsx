@@ -90,7 +90,7 @@ export function HomepageSection({ draft, setDraft, save, saving, apiOnline }: Se
             ))}
             <button
               type="button"
-              className="text-sm text-[#5E7CFF] hover:text-[#5E7CFF]/80 transition-colors"
+              className="text-sm text-[var(--admin-color-accent-blue)] hover:text-[var(--admin-color-accent-blue)]/80 transition-colors"
               onClick={() => setDraft((p) => ({ ...p, marquee: { ...p.marquee, items: [...(p.marquee.items ?? []), ''] } }))}
             >
               + Add item

@@ -6,21 +6,21 @@ import type { NewsletterConfig } from '@/lib/api/settings'
 export function NewsletterAdminPreview({ config }: { config: NewsletterConfig }) {
   if (!config.enabled) {
     return (
-      <div className="flex min-h-[22rem] items-center justify-center rounded-[24px] border border-dashed border-black/12 bg-[#f4f4f6] px-6 text-center">
-        <p className="text-sm font-semibold text-[#6B6B6B]">Newsletter section is hidden on the storefront.</p>
+      <div className="flex min-h-[22rem] items-center justify-center rounded-[24px] border border-dashed border-black/12 bg-[var(--admin-color-white)] px-6 text-center">
+        <p className="text-sm font-semibold text-[var(--admin-color-neutral-500)]">Newsletter section is hidden on the storefront.</p>
       </div>
     )
   }
 
   return (
-    <div className="overflow-hidden rounded-[24px] border border-black/10 bg-[#0b0c0e] shadow-[0_28px_80px_rgba(0,0,0,0.22)]">
+    <div className="overflow-hidden rounded-[24px] border border-black/10 bg-[var(--admin-color-black)] shadow-[0_28px_80px_rgba(0,0,0,0.22)]">
       <div className="border-b border-white/8 px-4 py-2.5">
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#9a7848]">Live preview</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--admin-c-9a7848)]">Live preview</p>
       </div>
       <div className="relative px-5 py-8 text-center sm:px-8 sm:py-10">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.08),transparent_55%)]" />
         <div className="relative mx-auto max-w-md">
-          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a7848]">
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--admin-c-9a7848)]">
             {config.eyebrow || 'Stay connected'}
           </p>
           <h3 className="mt-3 font-serif text-[clamp(1.65rem,4vw,2.35rem)] font-medium leading-none text-white">
@@ -52,7 +52,7 @@ export function NewsletterAdminPreview({ config }: { config: NewsletterConfig })
                   {config.placeholder || 'Your email address'}
                 </div>
               </div>
-              <div className="inline-flex h-10 items-center justify-center gap-1.5 rounded-[12px] bg-white px-4 text-[11px] font-black text-[#101114]">
+              <div className="inline-flex h-10 items-center justify-center gap-1.5 rounded-[12px] bg-white px-4 text-[11px] font-black text-[var(--admin-color-ink-elevated)]">
                 {config.buttonLabel || 'Subscribe'}
                 <Send className="h-3 w-3" />
               </div>

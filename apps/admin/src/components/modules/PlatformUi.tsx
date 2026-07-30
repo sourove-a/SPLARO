@@ -5,7 +5,6 @@ import { ModuleLiveStrip, type ModuleLiveItem } from '@/components/ui/connection
 import { PlatformConnectionPanel } from '@/components/ui/connection/PlatformConnectionPanel'
 import { AdminErrorState } from '@/components/ui/AdminUiPrimitives'
 import { apiOfflineMessage, apiOfflineHintShort } from '@/lib/admin/offline-copy'
-import { cn } from '@/lib/utils/cn'
 
 export { ModuleLiveStrip, PlatformConnectionPanel }
 export type { ModuleLiveItem }
@@ -32,19 +31,6 @@ export function ApiOfflineBanner({ message, onRetry }: { message?: string; onRet
       >
         Open API Health →
       </AdminNavLink>
-    </div>
-  )
-}
-
-export function KpiGrid({ items }: { items: [string, string | number, string][] }) {
-  return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {items.map(([label, value, tone]) => (
-        <div key={label} className="admin-kpi">
-          <p className="admin-kpi__label">{label}</p>
-          <p className={cn('admin-kpi__value', tone !== 'default' && `admin-kpi__value--${tone}`)}>{value}</p>
-        </div>
-      ))}
     </div>
   )
 }

@@ -1,65 +1,401 @@
-/* SPLARO Admin foundation tokens.
-   Legacy "gold" aliases stay intact because feature modules consume them at runtime. */
+/* SPLARO Admin foundation tokens — Design Monks violet + clean stack (2026).
+   Legacy "gold" aliases stay intact because feature modules consume them at runtime.
+   Elevation = none: borders separate surfaces so light/shadow never bleeds across sections. */
 
 :root {
-  /* Canonical palette */
-  --admin-foundation-canvas: #f7f8fc;
-  --admin-foundation-canvas-raised: #fbfbfe;
+  /* Handoff canvas (design_handoff_splaro_admin) */
+  --admin-foundation-canvas: #f7f7fa;
+  --admin-foundation-canvas-raised: #ffffff;
   --admin-foundation-surface: #ffffff;
-  --admin-foundation-surface-translucent: rgba(255, 255, 255, 0.84);
-  --admin-foundation-ink: #11131a;
-  --admin-foundation-ink-secondary: #5f6677;
-  --admin-foundation-ink-muted: #8a93a6;
-  --admin-foundation-border: rgba(67, 75, 105, 0.14);
-  --admin-foundation-border-strong: rgba(16, 17, 20, 0.3);
+  --admin-foundation-surface-2: #f4f4f8;
+  --admin-foundation-surface-3: #e9e9ef;
+  --admin-foundation-surface-translucent: rgba(255, 255, 255, 0.96);
+  --admin-foundation-ink: #0b0b12;
+  --admin-foundation-ink-secondary: #4f4f5c;
+  --admin-foundation-ink-muted: #6b6b74;
+  --admin-foundation-border: rgba(16, 16, 38, 0.085);
+  --admin-foundation-border-strong: rgba(16, 16, 38, 0.155);
+  --admin-foundation-card-sheen: linear-gradient(180deg, rgba(16, 16, 38, 0.016), rgba(16, 16, 38, 0) 44%);
 
-  /* Design Monks–inspired violet accent (admin product UI). Canvas stays cool white. */
+  /* Design Monks violet — primary brand accent (active nav + primary buttons only) */
   --admin-foundation-primary: #712eff;
   --admin-foundation-primary-hover: #5b1fd9;
   --admin-foundation-primary-pressed: #4a18b5;
-  --admin-foundation-primary-soft: rgba(113, 46, 255, 0.1);
+  --admin-foundation-primary-soft: rgba(113, 46, 255, 0.09);
   --admin-foundation-primary-border: rgba(113, 46, 255, 0.28);
-  --admin-foundation-primary-glow: rgba(113, 46, 255, 0.22);
+  --admin-foundation-primary-glow: transparent; /* no glow bleed */
+  --admin-foundation-primary-solid: #712eff;
+  --admin-foundation-on-primary: #ffffff;
 
-  /* Nav chrome — one rail language (end cascade wars) */
-  --admin-nav-active-rail: linear-gradient(180deg, #a078ff, #712eff 50%, #5b1fd9);
-  --admin-nav-active-rail-glow: 0 0 12px rgba(113, 46, 255, 0.42);
-  --admin-nav-active-bg: linear-gradient(165deg, rgba(113, 46, 255, 0.09), rgba(113, 46, 255, 0.03));
-  --admin-nav-active-border: rgba(113, 46, 255, 0.16);
-  --admin-nav-icon-idle-bg: rgba(15, 23, 42, 0.045);
-  --admin-nav-icon-idle-color: #64748b;
-  --admin-nav-icon-active-bg: linear-gradient(145deg, #8450ff, #5b1fd9);
-  --admin-nav-icon-active-color: #ffffff;
+  /* Status (handoff) */
+  --admin-foundation-ok: #15803d;
+  --admin-foundation-ok-soft: rgba(22, 163, 74, 0.1);
+  --admin-foundation-warn: #b45309;
+  --admin-foundation-warn-soft: rgba(217, 119, 6, 0.1);
+  --admin-foundation-bad: #b91c1c;
+  --admin-foundation-bad-soft: rgba(220, 38, 38, 0.08);
+  --admin-foundation-info: #0369a1;
+  --admin-foundation-info-soft: rgba(2, 132, 199, 0.09);
 
-  /* Required hierarchy */
-  --admin-radius-control: 12px;
-  --admin-radius-card: 18px;
-  --admin-radius-panel: 22px;
-  --admin-radius-compact: 9px;
+  /* Nav — violet-soft active (handoff), not solid fill */
+  --admin-nav-active-rail: #712eff;
+  --admin-nav-active-rail-glow: none;
+  --admin-nav-active-bg: rgba(113, 46, 255, 0.09);
+  --admin-nav-active-border: transparent;
+  --admin-nav-active-ink: #712eff;
+  --admin-nav-icon-idle-bg: rgba(16, 16, 38, 0.04);
+  --admin-nav-icon-idle-color: #6b6b74;
+  --admin-nav-icon-active-bg: transparent;
+  --admin-nav-icon-active-color: #712eff;
+  --admin-sidebar-width: 248px;
+  --admin-sidebar-collapsed-width: 62px;
+  --admin-header-height: 56px;
+  --admin-intel-width: 272px;
+
+  /* Clean radii (handoff: 6 / 8 / 9 / 10–12) */
+  --admin-radius-control: 9px;
+  --admin-radius-card: 12px;
+  --admin-radius-panel: 12px;
+  --admin-radius-compact: 8px;
+  --admin-radius-tiny: 6px;
   --admin-radius-round: 999px;
 
-  /* Density and elevation — 3-layer: contact + ambient + key-light */
-  --admin-control-height-sm: 34px;
+  /* Density — single control height truth */
+  --admin-control-height-sm: 32px;
   --admin-control-height: 40px;
   --admin-control-height-lg: 44px;
   --admin-table-row-height: 48px;
-  --admin-elevation-0: 0 1px 1px rgba(15, 23, 42, 0.025);
-  --admin-elevation-card:
-    0 1px 1px rgba(15, 23, 42, 0.03),
-    0 6px 16px rgba(15, 23, 42, 0.045),
-    0 18px 44px rgba(15, 23, 42, 0.065);
-  --admin-elevation-panel:
-    0 1px 2px rgba(15, 23, 42, 0.035),
-    0 10px 24px rgba(15, 23, 42, 0.055),
-    0 28px 60px rgba(15, 23, 42, 0.09);
-  --admin-elevation-float:
-    0 2px 4px rgba(15, 23, 42, 0.045),
-    0 14px 32px rgba(15, 23, 42, 0.07),
-    0 36px 72px rgba(15, 23, 42, 0.11);
+  /* NO ambient shadows — neighbors must not pick up another surface's light */
+  --admin-elevation-0: none;
+  --admin-elevation-card: none;
+  --admin-elevation-panel: none;
+  --admin-elevation-float: none;
   --admin-focus-ring: 0 0 0 2px var(--admin-foundation-surface), 0 0 0 4px rgba(113, 46, 255, 0.35);
-  --admin-motion-fast: 120ms;
-  --admin-motion-base: 170ms;
+  --admin-motion-fast: 100ms;
+  --admin-motion-base: 150ms;
   --admin-motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --admin-press-scale: 0.98;
+
+  /* ─── Auto palette: sole hex source (generated) ─── */
+  /* Do not put #hex outside this file. Use var(--admin-c-*) or semantic aliases. */
+  --admin-c-04100a: #04100a;
+  --admin-c-08080b: #08080b;
+  --admin-c-0b0b0e: #0b0b0e;
+  --admin-c-0b0b12: #0b0b12;
+  --admin-c-101015: #101015;
+  --admin-c-17171d: #17171d;
+  --admin-c-20202a: #20202a;
+  --admin-c-4f4f5c: #4f4f5c;
+  --admin-c-6b6b74: #6b6b74;
+  --admin-c-8d8d98: #8d8d98;
+  --admin-c-9d76ff: #9d76ff;
+  --admin-c-a5a5b2: #a5a5b2;
+  --admin-c-e9e9ef: #e9e9ef;
+  --admin-c-f4f4f8: #f4f4f8;
+  --admin-c-f5f5f8: #f5f5f8;
+  --admin-c-f7f7fa: #f7f7fa;
+  --admin-c-000000: #000000;
+  --admin-c-0077b5: #0077b5;
+  --admin-c-0088cc: #0088cc;
+  --admin-c-0099dd: #0099dd;
+  --admin-c-00aae8: #00aae8;
+  --admin-c-0284c7: #0284c7;
+  --admin-c-0369a1: #0369a1;
+  --admin-c-04070d: #04070d;
+  --admin-c-047857: #047857;
+  --admin-c-050507: #050507;
+  --admin-c-050608: #050608;
+  --admin-c-050a14: #050a14;
+  --admin-c-059669: #059669;
+  --admin-c-065f46: #065f46;
+  --admin-c-09090b: #09090b;
+  --admin-c-0a0a0a: #0a0a0a;
+  --admin-c-0a0a0d: #0a0a0d;
+  --admin-c-0a0a0f: #0a0a0f;
+  --admin-c-0a0a10: #0a0a10;
+  --admin-c-0a0b0e: #0a0b0e;
+  --admin-c-0b0c0e: #0b0c0e;
+  --admin-c-0b0c10: #0b0c10;
+  --admin-c-0c4a6e: #0c4a6e;
+  --admin-c-0d9488: #0d9488;
+  --admin-c-0e0e12: #0e0e12;
+  --admin-c-0e0e13: #0e0e13;
+  --admin-c-0ea5e9: #0ea5e9;
+  --admin-c-0f172a: #0f172a;
+  --admin-c-0f766e: #0f766e;
+  --admin-c-100e0c: #100e0c;
+  --admin-c-101018: #101018;
+  --admin-c-101114: #101114;
+  --admin-c-10111422: #10111422;
+  --admin-c-101115: #101115;
+  --admin-c-101116: #101116;
+  --admin-c-10b981: #10b981;
+  --admin-c-111111: #111111;
+  --admin-c-11111122: #11111122;
+  --admin-c-111114: #111114;
+  --admin-c-111118: #111118;
+  --admin-c-111216: #111216;
+  --admin-c-111318: #111318;
+  --admin-c-11131a: #11131a;
+  --admin-c-121214: #121214;
+  --admin-c-121319: #121319;
+  --admin-c-137333: #137333;
+  --admin-c-141414: #141414;
+  --admin-c-141417: #141417;
+  --admin-c-141418: #141418;
+  --admin-c-14171d: #14171d;
+  --admin-c-14532d: #14532d;
+  --admin-c-14b8a6: #14b8a6;
+  --admin-c-15161c: #15161c;
+  --admin-c-15803d: #15803d;
+  --admin-c-16171d: #16171d;
+  --admin-c-16181d: #16181d;
+  --admin-c-166534: #166534;
+  --admin-c-16a34a: #16a34a;
+  --admin-c-17171b: #17171b;
+  --admin-c-17181f: #17181f;
+  --admin-c-18181b: #18181b;
+  --admin-c-1a0dab: #1a0dab;
+  --admin-c-1a1a1a: #1a1a1a;
+  --admin-c-1a1a1f: #1a1a1f;
+  --admin-c-1a1a22: #1a1a22;
+  --admin-c-1a1c22: #1a1c22;
+  --admin-c-1a6a9a: #1a6a9a;
+  --admin-c-1c1814: #1c1814;
+  --admin-c-1c1c22: #1c1c22;
+  --admin-c-1c1c24: #1c1c24;
+  --admin-c-1d1f26: #1d1f26;
+  --admin-c-1d2a24: #1d2a24;
+  --admin-c-1d4ed8: #1d4ed8;
+  --admin-c-1d6f42: #1d6f42;
+  --admin-c-1e1e28: #1e1e28;
+  --admin-c-1e3a5f: #1e3a5f;
+  --admin-c-222228: #222228;
+  --admin-c-22252d: #22252d;
+  --admin-c-22c55e: #22c55e;
+  --admin-c-23252d: #23252d;
+  --admin-c-24242b: #24242b;
+  --admin-c-24262f: #24262f;
+  --admin-c-242a35: #242a35;
+  --admin-c-25272e: #25272e;
+  --admin-c-26272c: #26272c;
+  --admin-c-27272a: #27272a;
+  --admin-c-27272f: #27272f;
+  --admin-c-272930: #272930;
+  --admin-c-2a2620: #2a2620;
+  --admin-c-2a2a2a: #2a2a2a;
+  --admin-c-2a2a30: #2a2a30;
+  --admin-c-2a2a32: #2a2a32;
+  --admin-c-2a2c36: #2a2c36;
+  --admin-c-2d2d31: #2d2d31;
+  --admin-c-2dd4bf: #2dd4bf;
+  --admin-c-2f2f38: #2f2f38;
+  --admin-c-333333: #333333;
+  --admin-c-334155: #334155;
+  --admin-c-34d399: #34d399;
+  --admin-c-374151: #374151;
+  --admin-c-38bdf8: #38bdf8;
+  --admin-c-3a3a42: #3a3a42;
+  --admin-c-3a3a44: #3a3a44;
+  --admin-c-3b0764: #3b0764;
+  --admin-c-3c4352: #3c4352;
+  --admin-c-3d3428: #3d3428;
+  --admin-c-3d5a73: #3d5a73;
+  --admin-c-3f3f46: #3f3f46;
+  --admin-c-3f3f4a: #3f3f4a;
+  --admin-c-3f4148: #3f4148;
+  --admin-c-444444: #444444;
+  --admin-c-475569: #475569;
+  --admin-c-4a18b5: #4a18b5;
+  --admin-c-4ade80: #4ade80;
+  --admin-c-4b5563: #4b5563;
+  --admin-c-4b5565: #4b5565;
+  --admin-c-52525b: #52525b;
+  --admin-c-555d6e: #555d6e;
+  --admin-c-5a5a5a: #5a5a5a;
+  --admin-c-5b1fd9: #5b1fd9;
+  --admin-c-5b21b6: #5b21b6;
+  --admin-c-5e7cff: #5e7cff;
+  --admin-c-5eead4: #5eead4;
+  --admin-c-62646b: #62646b;
+  --admin-c-6366f1: #6366f1;
+  --admin-c-64748b: #64748b;
+  --admin-c-666666: #666666;
+  --admin-c-6b3fe0: #6b3fe0;
+  --admin-c-6b6b6b: #6b6b6b;
+  --admin-c-6b7280: #6b7280;
+  --admin-c-6ee7b7: #6ee7b7;
+  --admin-c-6f7788: #6f7788;
+  --admin-c-712eff: #712eff;
+  --admin-c-71717a: #71717a;
+  --admin-c-737373: #737373;
+  --admin-c-78350f: #78350f;
+  --admin-c-7c3aed: #7c3aed;
+  --admin-c-7dd3fc: #7dd3fc;
+  --admin-c-8450ff: #8450ff;
+  --admin-c-854d0e: #854d0e;
+  --admin-c-86d4a8: #86d4a8;
+  --admin-c-86efac: #86efac;
+  --admin-c-888888: #888888;
+  --admin-c-8b5cff: #8b5cff;
+  --admin-c-8b6914: #8b6914;
+  --admin-c-92400e: #92400e;
+  --admin-c-92600a: #92600a;
+  --admin-c-929bad: #929bad;
+  --admin-c-93c5fd: #93c5fd;
+  --admin-c-94a3b8: #94a3b8;
+  --admin-c-9566ff: #9566ff;
+  --admin-c-991b1b: #991b1b;
+  --admin-c-9a3412: #9a3412;
+  --admin-c-9a5a1a: #9a5a1a;
+  --admin-c-9a7848: #9a7848;
+  --admin-c-9b9b9b: #9b9b9b;
+  --admin-c-9ca3af: #9ca3af;
+  --admin-c-9f1239: #9f1239;
+  --admin-c-a078ff: #a078ff;
+  --admin-c-a16207: #a16207;
+  --admin-c-a1a1aa: #a1a1aa;
+  --admin-c-a78bfa: #a78bfa;
+  --admin-c-a7a8ad: #a7a8ad;
+  --admin-c-b45309: #b45309;
+  --admin-c-b91c1c: #b91c1c;
+  --admin-c-bae6fd: #bae6fd;
+  --admin-c-bbbbbb: #bbbbbb;
+  --admin-c-bbdecb: #bbdecb;
+  --admin-c-bbf7d0: #bbf7d0;
+  --admin-c-be123c: #be123c;
+  --admin-c-bfdbfe: #bfdbfe;
+  --admin-c-c0392b: #c0392b;
+  --admin-c-c2410c: #c2410c;
+  --admin-c-c4b5fd: #c4b5fd;
+  --admin-c-c4b5ff: #c4b5ff;
+  --admin-c-c8a97e: #c8a97e;
+  --admin-c-c8c8d0: #c8c8d0;
+  --admin-c-c9a24d: #c9a24d;
+  --admin-c-ca8a04: #ca8a04;
+  --admin-c-cbd0dc: #cbd0dc;
+  --admin-c-cbd5e1: #cbd5e1;
+  --admin-c-cccccc: #cccccc;
+  --admin-c-ccfbf1: #ccfbf1;
+  --admin-c-d1d5db: #d1d5db;
+  --admin-c-d4b896: #d4b896;
+  --admin-c-d4d4d8: #d4d4d8;
+  --admin-c-d5d7dc: #d5d7dc;
+  --admin-c-d8b4fe: #d8b4fe;
+  --admin-c-d97706: #d97706;
+  --admin-c-dc2626: #dc2626;
+  --admin-c-dcfce7: #dcfce7;
+  --admin-c-ddd6fe: #ddd6fe;
+  --admin-c-dddddd: #dddddd;
+  --admin-c-e0f2fe: #e0f2fe;
+  --admin-c-e11d48: #e11d48;
+  --admin-c-e2e8f0: #e2e8f0;
+  --admin-c-e3d4bd: #e3d4bd;
+  --admin-c-e4e4e7: #e4e4e7;
+  --admin-c-e5e7eb: #e5e7eb;
+  --admin-c-e5e8f0: #e5e8f0;
+  --admin-c-e8380d: #e8380d;
+  --admin-c-e8deff: #e8deff;
+  --admin-c-e8e8ec: #e8e8ec;
+  --admin-c-e8e9ec: #e8e9ec;
+  --admin-c-e8eef7: #e8eef7;
+  --admin-c-e9e0ff: #e9e0ff;
+  --admin-c-ebe2ff: #ebe2ff;
+  --admin-c-ebe4ff: #ebe4ff;
+  --admin-c-ebebed: #ebebed;
+  --admin-c-ecfdf3: #ecfdf3;
+  --admin-c-ecfdf5: #ecfdf5;
+  --admin-c-ef4444: #ef4444;
+  --admin-c-eff6ff: #eff6ff;
+  --admin-c-f0e8ff: #f0e8ff;
+  --admin-c-f0f9ff: #f0f9ff;
+  --admin-c-f0faf4: #f0faf4;
+  --admin-c-f0fdf4: #f0fdf4;
+  --admin-c-f0fdfa: #f0fdfa;
+  --admin-c-f1f3f8: #f1f3f8;
+  --admin-c-f1f5f9: #f1f5f9;
+  --admin-c-f3eeff: #f3eeff;
+  --admin-c-f3f3f5: #f3f3f5;
+  --admin-c-f3f4f8: #f3f4f8;
+  --admin-c-f4eeff: #f4eeff;
+  --admin-c-f4f4f5: #f4f4f5;
+  --admin-c-f4f4f6: #f4f4f6;
+  --admin-c-f4f5f8: #f4f5f8;
+  --admin-c-f4f6f9: #f4f6f9;
+  --admin-c-f4f7fb: #f4f7fb;
+  --admin-c-f59e0b: #f59e0b;
+  --admin-c-f5f0ff: #f5f0ff;
+  --admin-c-f5f3ff: #f5f3ff;
+  --admin-c-f5f5f5: #f5f5f5;
+  --admin-c-f5f5f7: #f5f5f7;
+  --admin-c-f6f6f7: #f6f6f7;
+  --admin-c-f6f8fb: #f6f8fb;
+  --admin-c-f7f5ff: #f7f5ff;
+  --admin-c-f7f6f3: #f7f6f3;
+  --admin-c-f7f6f4: #f7f6f4;
+  --admin-c-f7f7f7: #f7f7f7;
+  --admin-c-f87171: #f87171;
+  --admin-c-f8f7f4: #f8f7f4;
+  --admin-c-f8f8f9: #f8f8f9;
+  --admin-c-f8f8fb: #f8f8fb;
+  --admin-c-f8f9fb: #f8f9fb;
+  --admin-c-f8f9fd: #f8f9fd;
+  --admin-c-f8fafc: #f8fafc;
+  --admin-c-f8fbff: #f8fbff;
+  --admin-c-f9f8f6: #f9f8f6;
+  --admin-c-f9fafb: #f9fafb;
+  --admin-c-faf8f5: #faf8f5;
+  --admin-c-faf9f6: #faf9f6;
+  --admin-c-fafafa: #fafafa;
+  --admin-c-fafbfd: #fafbfd;
+  --admin-c-fb7185: #fb7185;
+  --admin-c-fbbf24: #fbbf24;
+  --admin-c-fbc8c8: #fbc8c8;
+  --admin-c-fca5a5: #fca5a5;
+  --admin-c-fcc8bc: #fcc8bc;
+  --admin-c-fcd34d: #fcd34d;
+  --admin-c-fcfcfd: #fcfcfd;
+  --admin-c-fde68a: #fde68a;
+  --admin-c-fecaca: #fecaca;
+  --admin-c-fecdd3: #fecdd3;
+  --admin-c-fee2e2: #fee2e2;
+  --admin-c-fef2f2: #fef2f2;
+  --admin-c-fef3c7: #fef3c7;
+  --admin-c-fef9ec: #fef9ec;
+  --admin-c-ffe4e6: #ffe4e6;
+  --admin-c-ffefd1: #ffefd1;
+  --admin-c-fff1f1: #fff1f1;
+  --admin-c-fff1f2: #fff1f2;
+  --admin-c-fff4f1: #fff4f1;
+  --admin-c-fff7e8: #fff7e8;
+  --admin-c-fff7f7: #fff7f7;
+  --admin-c-fff8ef: #fff8ef;
+  --admin-c-fffbeb: #fffbeb;
+  --admin-c-fffbf6: #fffbf6;
+  --admin-c-fffdf8: #fffdf8;
+  --admin-c-ffffff: #ffffff;
+
+  /* ─── Semantic aliases → palette ─── */
+  --admin-color-ink-elevated: var(--admin-c-101114);
+  --admin-color-ink-near: var(--admin-c-111111);
+  --admin-color-white: var(--admin-c-ffffff);
+  --admin-color-black: var(--admin-c-000000);
+  --admin-color-zinc-100: var(--admin-c-f4f4f5);
+  --admin-color-zinc-900: var(--admin-c-18181b);
+  --admin-color-zinc-950: var(--admin-c-09090b);
+  --admin-color-violet-bright: var(--admin-c-8b5cff);
+  --admin-color-violet-soft: var(--admin-c-a078ff);
+  --admin-success-strong: var(--admin-c-16a34a);
+  --admin-success-ink: var(--admin-c-15803d);
+  --admin-danger-strong: var(--admin-c-b91c1c);
+  --admin-danger-bright: var(--admin-c-ef4444);
+  --admin-warning-ink: var(--admin-c-b45309);
+  --admin-warning-bright: var(--admin-c-f59e0b);
+  --admin-auth-cosmos: var(--admin-c-04070d);
+  --admin-color-accent-blue: var(--admin-c-5e7cff);
+  --admin-color-neutral-500: var(--admin-c-6b6b6b);
+  /* ─── End auto palette ─── */
+
 
   /* Spacing density (4px base) */
   --admin-space-1: 0.25rem;
@@ -85,45 +421,51 @@
 }
 
 .dark {
-  --admin-foundation-canvas: #0b0d14;
-  --admin-foundation-canvas-raised: #11141e;
-  --admin-foundation-surface: #151925;
-  --admin-foundation-surface-translucent: rgba(21, 25, 37, 0.88);
-  --admin-foundation-ink: #f7f8fc;
-  --admin-foundation-ink-secondary: #b6bdcb;
-  --admin-foundation-ink-muted: #858ea2;
-  --admin-foundation-border: rgba(223, 227, 240, 0.12);
-  --admin-foundation-border-strong: rgba(247, 248, 252, 0.32);
+  --admin-foundation-canvas: #08080b;
+  --admin-foundation-canvas-raised: #101015;
+  --admin-foundation-surface: #101015;
+  --admin-foundation-surface-2: #17171d;
+  --admin-foundation-surface-3: #20202a;
+  --admin-foundation-surface-translucent: rgba(11, 11, 14, 0.92);
+  --admin-foundation-ink: #f5f5f8;
+  --admin-foundation-ink-secondary: #a5a5b2;
+  --admin-foundation-ink-muted: #8d8d98;
+  --admin-foundation-border: rgba(255, 255, 255, 0.075);
+  --admin-foundation-border-strong: rgba(255, 255, 255, 0.15);
+  --admin-foundation-card-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(255, 255, 255, 0) 44%);
+  /* Lifted violet for nav/text; button fill stays brand solid */
   --admin-foundation-primary: #8b5cff;
-  --admin-foundation-primary-hover: #a078ff;
+  --admin-foundation-primary-hover: #9d76ff;
   --admin-foundation-primary-pressed: #712eff;
-  --admin-foundation-primary-soft: rgba(139, 92, 255, 0.16);
-  --admin-foundation-primary-border: rgba(139, 92, 255, 0.35);
-  --admin-foundation-primary-glow: rgba(139, 92, 255, 0.3);
+  --admin-foundation-primary-soft: rgba(139, 92, 255, 0.14);
+  --admin-foundation-primary-border: rgba(139, 92, 255, 0.34);
+  --admin-foundation-primary-glow: transparent;
+  --admin-foundation-primary-solid: #712eff;
+  --admin-foundation-on-primary: #ffffff;
+  --admin-foundation-ok: #4ade80;
+  --admin-foundation-ok-soft: rgba(74, 222, 128, 0.11);
+  --admin-foundation-warn: #fbbf24;
+  --admin-foundation-warn-soft: rgba(251, 191, 36, 0.11);
+  --admin-foundation-bad: #f87171;
+  --admin-foundation-bad-soft: rgba(248, 113, 113, 0.11);
+  --admin-foundation-info: #38bdf8;
+  --admin-foundation-info-soft: rgba(56, 189, 248, 0.11);
   --admin-focus-ring: 0 0 0 2px var(--admin-foundation-surface), 0 0 0 4px rgba(139, 92, 255, 0.4);
 
-  --admin-nav-active-rail: linear-gradient(180deg, #c4b5ff, #8b5cff 50%, #712eff);
-  --admin-nav-active-rail-glow: 0 0 14px rgba(139, 92, 255, 0.5);
-  --admin-nav-active-bg: linear-gradient(165deg, rgba(139, 92, 255, 0.22), rgba(139, 92, 255, 0.08));
-  --admin-nav-active-border: rgba(139, 92, 255, 0.3);
+  --admin-nav-active-rail: #8b5cff;
+  --admin-nav-active-rail-glow: none;
+  --admin-nav-active-bg: rgba(139, 92, 255, 0.14);
+  --admin-nav-active-border: transparent;
+  --admin-nav-active-ink: #8b5cff;
   --admin-nav-icon-idle-bg: rgba(255, 255, 255, 0.05);
   --admin-nav-icon-idle-color: rgba(255, 255, 255, 0.55);
-  --admin-nav-icon-active-bg: linear-gradient(145deg, #a078ff, #712eff);
-  --admin-nav-icon-active-color: #ffffff;
+  --admin-nav-icon-active-bg: transparent;
+  --admin-nav-icon-active-color: #8b5cff;
 
-  --admin-elevation-0: 0 1px 1px rgba(0, 0, 0, 0.2);
-  --admin-elevation-card:
-    0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 4px 14px rgba(0, 0, 0, 0.28),
-    0 16px 40px rgba(0, 0, 0, 0.34);
-  --admin-elevation-panel:
-    0 0 0 1px rgba(255, 255, 255, 0.07),
-    0 8px 22px rgba(0, 0, 0, 0.32),
-    0 24px 56px rgba(0, 0, 0, 0.42);
-  --admin-elevation-float:
-    0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 12px 28px rgba(0, 0, 0, 0.36),
-    0 32px 64px rgba(0, 0, 0, 0.48);
+  --admin-elevation-0: none;
+  --admin-elevation-card: none;
+  --admin-elevation-panel: none;
+  --admin-elevation-float: none;
 
   --admin-brand-gold: var(--admin-foundation-primary);
   --admin-brand-gold-rgb: 139 92 255;

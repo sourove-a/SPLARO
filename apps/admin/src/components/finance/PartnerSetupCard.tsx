@@ -18,7 +18,6 @@ interface PartnerSetupCardProps {
 }
 
 export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupCardProps) {
-  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [sharePercent, setSharePercent] = useState('')
@@ -39,10 +38,28 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
 
   const shareValid = Math.abs(shareTotal - 100) < 0.05
 
+  const derivedPartnerName = useMemo(() => {
+    const e = email.trim().toLowerCase()
+    if (e.includes('@')) {
+      const local = e.split('@')[0] ?? ''
+      const cleaned = local.replace(/[^a-z0-9]+/g, ' ').trim()
+      const parts = cleaned.split(/\s+/).filter(Boolean)
+      if (parts.length > 0) {
+        const titled = parts.map((p) => p.slice(0, 1).toUpperCase() + p.slice(1)).join(' ')
+        if (titled.trim().length >= 2) return titled.trim()
+      }
+    }
+
+    const digits = phone.replace(/\D/g, '')
+    if (digits.length >= 4) return `Partner ${digits.slice(-4)}`
+
+    return 'Partner'
+  }, [email, phone])
+
   const handleAddPartner = async () => {
-    const trimmed = name.trim()
-    if (trimmed.length < 2) {
-      toastFail('Partner er naam likhun (কমপক্ষে ২ অক্ষর)')
+    const displayName = derivedPartnerName.trim()
+    if (displayName.length < 2) {
+      toastFail('Partner name derive kora jacche na — email/phone diye চেষ্টা করুন')
       return
     }
     const share = Number(sharePercent)
@@ -54,19 +71,18 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
     setSaving(true)
     try {
       const created = await createPartner({
-        name: trimmed,
+        name: displayName,
         ...(email.trim() ? { email: email.trim() } : {}),
         ...(phone.trim() ? { phone: phone.trim() } : {}),
         sharePercent: share,
         ...(notes.trim() ? { notes: notes.trim() } : {}),
         createdBy: 'admin',
       })
-      if (created.name.trim() !== trimmed) {
+      if (created.name.trim() !== displayName) {
         toastFail('Partner save did not persist on server')
         return
       }
-      toastOk(`${trimmed} partner হিসেবে যোগ হয়েছে`)
-      setName('')
+      toastOk(`${displayName} partner হিসেবে যোগ হয়েছে`)
       setEmail('')
       setPhone('')
       setSharePercent('')
@@ -121,7 +137,7 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
             </p>
             <h3 className="mt-1 text-xl font-black text-[var(--admin-text)]">আপনার partner যোগ করুন</h3>
             <p className="mt-2 max-w-lg text-sm font-medium text-[var(--admin-text-secondary)]">
-              কোনো নাম আগে থেকে নেই — আপনি নাম, share %, contact দিয়ে partner তৈরি করবেন। Finance tracking তখনই শুরু হবে।
+              আগে থেকে partner name দরকার নেই — email/phone (এবং agreement notes) দিয়ে partner তৈরি হবে, এরপর share % বসাবেন। Finance tracking তখনই শুরু হবে।
             </p>
           </div>
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--admin-accent-muted)]">
@@ -130,15 +146,15 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <label className="admin-field md:col-span-2">
-            <span className="admin-kpi__label">Partner name *</span>
-            <input
-              className="admin-input"
-              placeholder="যেমন: আপনার নাম বা business partner"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
+          <div className="admin-field md:col-span-2">
+            <span className="admin-kpi__label">Partner (auto)</span>
+            <div className="admin-input" style={{ padding: '10px 12px' }} aria-label="Derived partner name">
+              {derivedPartnerName}
+            </div>
+            <p className="mt-2 text-xs font-semibold text-[var(--admin-text-muted)]">
+              Derived from email/phone. Agreement/terms নিচে দিন।
+            </p>
+          </div>
           <label className="admin-field">
             <span className="admin-kpi__label">Profit share % *</span>
             <input
@@ -172,10 +188,10 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
             />
           </label>
           <label className="admin-field">
-            <span className="admin-kpi__label">Note (optional)</span>
-            <input
-              className="admin-input"
-              placeholder="Role / responsibility"
+            <span className="admin-kpi__label">Agreement / terms (optional)</span>
+            <textarea
+              className="admin-input min-h-[110px] resize-y"
+              placeholder="Partner agreement text, responsibilities, payout terms, etc."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -216,8 +232,11 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="admin-field">
-          <span className="admin-kpi__label">Name</span>
-          <input className="admin-input" value={name} onChange={(e) => setName(e.target.value)} />
+          <span className="admin-kpi__label">Email</span>
+          <input className="admin-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="partner@email.com" />
+          <p className="mt-2 text-xs font-semibold text-[var(--admin-text-muted)]">
+            Auto partner name: {derivedPartnerName}
+          </p>
         </label>
         <label className="admin-field">
           <span className="admin-kpi__label">Share %</span>
@@ -241,6 +260,16 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
           </AdminButton>
         </label>
       </div>
+
+      <label className="admin-field">
+        <span className="admin-kpi__label">Agreement / terms (optional)</span>
+        <textarea
+          className="admin-input min-h-[95px] resize-y"
+          placeholder="Paste partner agreement text / payout terms / responsibilities..."
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </label>
 
       {partners.length >= 2 ? (
         <div className="rounded-[16px] border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-surface)] p-4">

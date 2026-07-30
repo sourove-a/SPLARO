@@ -8,7 +8,8 @@ import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { useDeveloper, useMarketplace, useObservability } from '@/lib/api/hooks'
 import { formatBDT } from '@/lib/utils/currency'
-import { ApiOfflineBanner, KpiGrid } from '@/components/modules/PlatformUi'
+import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
+import { KpiGrid } from '@/components/ui/AdminHandoffBlocks'
 
 function StatusBadge({ status }: { status: string }) {
   const ok = status === 'active' || status === 'healthy' || status === 'completed'
@@ -39,16 +40,16 @@ export function ObservabilityModulePanel({ moduleHref }: ModuleContextProps) {
         items={
           moduleHref === '/dashboard/observability/disaster-recovery'
             ? [
-                ['Last backup', 'Scheduled', 'success'],
-                ['RPO', '15 min', 'gold'],
-                ['RTO', '30 min', 'default'],
-                ['DR status', 'Ready', 'success'],
+                { label: 'Last backup', value: 'Scheduled', tone: 'success' },
+                { label: 'RPO', value: '15 min' },
+                { label: 'RTO', value: '30 min' },
+                { label: 'DR status', value: 'Ready', tone: 'success' },
               ]
             : [
-                ['Uptime', isLoading ? '…' : kpis?.uptime ?? '—', 'success'],
-                ['API latency', isLoading ? '…' : kpis?.apiP95 ?? '—', 'gold'],
-                ['Errors/hr', isLoading ? '…' : kpis?.errorsPerHour ?? 0, 'warning'],
-                ['Queue lag', isLoading ? '…' : kpis?.queueLag ?? 0, 'default'],
+                { label: 'Uptime', value: isLoading ? '…' : kpis?.uptime ?? '—', tone: 'success' },
+                { label: 'API latency', value: isLoading ? '…' : kpis?.apiP95 ?? '—' },
+                { label: 'Errors/hr', value: isLoading ? '…' : kpis?.errorsPerHour ?? 0, tone: 'warning' },
+                { label: 'Queue lag', value: isLoading ? '…' : kpis?.queueLag ?? 0 },
               ]
         }
       />
@@ -96,7 +97,7 @@ export function ObservabilityModulePanel({ moduleHref }: ModuleContextProps) {
       {moduleHref !== '/dashboard/observability/disaster-recovery' && (data?.cronJobs?.length ?? 0) > 0 ? (
         <section className="admin-module-card">
           <div className="mb-2 flex items-center gap-2">
-            <Activity className="h-4 w-4 text-[#5E7CFF]" />
+            <Activity className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
             <h3 className="admin-module-card__title">Recent cron jobs</h3>
           </div>
           <div className="space-y-2">
@@ -130,10 +131,10 @@ export function MarketplaceModulePanel(_props: ModuleContextProps) {
     <div className="space-y-5">
       <KpiGrid
         items={[
-          ['Vendors', isLoading ? '…' : kpis?.vendors ?? 0, 'default'],
-          ['GMV', isLoading ? '…' : formatBDT(kpis?.gmv ?? 0), 'gold'],
-          ['Active', isLoading ? '…' : kpis?.active ?? 0, 'success'],
-          ['Pending KYC', isLoading ? '…' : kpis?.pendingKyc ?? 0, 'warning'],
+          { label: 'Vendors', value: isLoading ? '…' : kpis?.vendors ?? 0 },
+          { label: 'GMV', value: isLoading ? '…' : formatBDT(kpis?.gmv ?? 0) },
+          { label: 'Active', value: isLoading ? '…' : kpis?.active ?? 0, tone: 'success' },
+          { label: 'Pending KYC', value: isLoading ? '…' : kpis?.pendingKyc ?? 0, tone: 'warning' },
         ]}
       />
 
@@ -155,8 +156,8 @@ export function MarketplaceModulePanel(_props: ModuleContextProps) {
 
       {vendors.length === 0 && !isLoading ? (
         <div className="admin-module-card text-center">
-          <Store className="mx-auto h-8 w-8 text-[#5E7CFF]" />
-          <p className="mt-2 text-sm font-semibold text-[#6B6B6B]">No vendors yet. Marketplace is ready for onboarding.</p>
+          <Store className="mx-auto h-8 w-8 text-[var(--admin-color-accent-blue)]" />
+          <p className="mt-2 text-sm font-semibold text-[var(--admin-color-neutral-500)]">No vendors yet. Marketplace is ready for onboarding.</p>
         </div>
       ) : (
         <div className="admin-module-table-wrap">
@@ -201,27 +202,27 @@ export function DeveloperModulePanel(_props: ModuleContextProps) {
     <div className="space-y-5">
       <KpiGrid
         items={[
-          ['API keys', isLoading ? '…' : kpis?.apiKeys ?? 0, 'default'],
-          ['Webhooks', isLoading ? '…' : kpis?.webhooks ?? 0, 'success'],
-          ['Automation rules', isLoading ? '…' : kpis?.automationRules ?? 0, 'gold'],
-          ['Sandbox', kpis?.sandbox ? 'On' : 'Off', 'success'],
+          { label: 'API keys', value: isLoading ? '…' : kpis?.apiKeys ?? 0 },
+          { label: 'Webhooks', value: isLoading ? '…' : kpis?.webhooks ?? 0, tone: 'success' },
+          { label: 'Automation rules', value: isLoading ? '…' : kpis?.automationRules ?? 0 },
+          { label: 'Sandbox', value: kpis?.sandbox ? 'On' : 'Off', tone: 'success' },
         ]}
       />
 
       <section className="admin-module-card">
         <div className="mb-3 flex items-center gap-2">
-          <Code2 className="h-5 w-5 text-[#5E7CFF]" />
+          <Code2 className="h-5 w-5 text-[var(--admin-color-accent-blue)]" />
           <h3 className="admin-module-card__title">API keys</h3>
         </div>
         {(data?.apiKeys.length ?? 0) === 0 ? (
-          <p className="text-sm font-semibold text-[#6B6B6B]">No API keys yet. Create one for external integrations.</p>
+          <p className="text-sm font-semibold text-[var(--admin-color-neutral-500)]">No API keys yet. Create one for external integrations.</p>
         ) : (
           <div className="space-y-2">
             {data!.apiKeys.map((key) => (
               <div key={key.id} className="flex items-center justify-between rounded-[14px] bg-white/70 px-3 py-2">
                 <div>
                   <p className="text-sm font-black">{key.name}</p>
-                  <p className="font-mono text-[10px] text-[#6B6B6B]">{key.prefix}••••</p>
+                  <p className="font-mono text-[10px] text-[var(--admin-color-neutral-500)]">{key.prefix}••••</p>
                 </div>
                 <StatusBadge status={key.status} />
               </div>
@@ -236,7 +237,7 @@ export function DeveloperModulePanel(_props: ModuleContextProps) {
       <section className="admin-module-card">
         <h3 className="admin-module-card__title">Automation webhooks</h3>
         {(data?.webhooks.length ?? 0) === 0 ? (
-          <p className="text-sm font-semibold text-[#6B6B6B]">No webhook rules. Add CUSTOM_WEBHOOK actions in Automation Rules.</p>
+          <p className="text-sm font-semibold text-[var(--admin-color-neutral-500)]">No webhook rules. Add CUSTOM_WEBHOOK actions in Automation Rules.</p>
         ) : (
           <div className="admin-module-table-wrap mt-3">
             <table className="admin-module-table">
@@ -263,7 +264,7 @@ export function DeveloperModulePanel(_props: ModuleContextProps) {
             </table>
           </div>
         )}
-        <AdminNavLink href="/dashboard/automation-rules" className="mt-3 inline-flex text-xs font-black text-[#5E7CFF] hover:underline">
+        <AdminNavLink href="/dashboard/automation-rules" className="mt-3 inline-flex text-xs font-black text-[var(--admin-color-accent-blue)] hover:underline">
           Manage automation rules →
         </AdminNavLink>
       </section>

@@ -23,7 +23,7 @@ export interface QuickAction {
   label: string
   href?: string
   onClick?: () => void
-  variant?: 'default' | 'gold'
+  variant?: 'default' | 'accent' | 'gold' /* gold deprecated → accent */
   /** When true, chip is non-interactive with backend-missing styling. */
   disabled?: boolean
   disabledReason?: string
@@ -41,6 +41,8 @@ interface AdminPageShellProps {
   emptyDescription?: string
   children?: React.ReactNode
   className?: string
+  /** Modules with their own command hero (e.g. Settings) skip the outer page header. */
+  hideHeader?: boolean
 }
 
 function BreadcrumbLink({ href, children }: { href: string; children: React.ReactNode }) {
@@ -58,14 +60,15 @@ function BreadcrumbLink({ href, children }: { href: string; children: React.Reac
 }
 
 function QuickActionChip({ action }: { action: QuickAction }) {
+  const isAccent = action.variant === 'gold' || action.variant === 'accent'
   const chipClass = cn(
     'admin-glass-chip active:scale-[0.98]',
-    action.variant === 'gold' && 'admin-glass-chip--gold',
+    isAccent && 'admin-glass-chip--accent admin-glass-chip--gold',
     (action.disabled || (!action.href && !action.onClick)) &&
       'pointer-events-none cursor-not-allowed opacity-55',
   )
 
-  const icon = action.variant === 'gold' ? <Sparkles className="h-3 w-3 text-[var(--admin-accent)]" /> : null
+  const icon = isAccent ? <Sparkles className="h-3 w-3 text-[var(--admin-accent)]" /> : null
   const disabledReason =
     action.disabledReason ?? 'Action not connected to backend'
 
@@ -122,9 +125,11 @@ export function AdminPageShell({
   emptyDescription,
   children,
   className,
+  hideHeader = false,
 }: AdminPageShellProps) {
   return (
-    <div className={cn('admin-module-canvas admin-panel-page space-y-6', className)}>
+    <div className={cn('admin-module-canvas admin-panel-page space-y-6', className, hideHeader && 'space-y-0')}>
+      {hideHeader ? null : (
       <div className="admin-page-header admin-catalog-hero admin-panel-hero !mb-0">
         <div className="admin-page-header__inner flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1 space-y-2">
@@ -154,10 +159,13 @@ export function AdminPageShell({
           </div>
 
           {actions ? (
-            <div className="admin-page-header__actions shrink-0">{actions}</div>
+            <div className="admin-page-header__actions flex min-w-0 flex-[0_1_auto] flex-wrap items-center gap-2">
+              {actions}
+            </div>
           ) : null}
         </div>
       </div>
+      )}
 
       {kpis && kpis.length > 0 ? (
         <div className="admin-kpi-grid admin-kpi-grid--catalog">

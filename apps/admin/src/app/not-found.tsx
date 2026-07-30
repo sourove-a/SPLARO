@@ -13,8 +13,8 @@ export default function RootNotFound() {
       }}
     >
       <div style={{ textAlign: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 800, color: '#111' }}>Page not found</h1>
-        <p style={{ margin: '8px 0 0', fontSize: '14px', color: '#6b6b6b' }}>
+        <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 800, color: 'var(--admin-color-ink-near)' }}>Page not found</h1>
+        <p style={{ margin: '8px 0 0', fontSize: '14px', color: 'var(--admin-color-neutral-500)' }}>
           This admin route does not exist.
         </p>
         <Link
@@ -24,8 +24,8 @@ export default function RootNotFound() {
             marginTop: '16px',
             padding: '10px 16px',
             borderRadius: '10px',
-            background: '#111',
-            color: '#fff',
+            background: 'var(--admin-color-ink-near)',
+            color: 'var(--admin-color-white)',
             fontWeight: 700,
             fontSize: '13px',
             textDecoration: 'none',

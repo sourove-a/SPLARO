@@ -1443,12 +1443,13 @@ export function usePermission(moduleSlug: PermissionModule, action: PermissionAc
   return hasPermission(session?.role, session?.permissions, moduleSlug, action)
 }
 
-export function useSecuritySessions() {
+export function useSecuritySessions(enabled = true) {
   return useQuery({
     queryKey: ['security-sessions'],
     queryFn: fetchSecuritySessions,
     staleTime: 15_000,
     retry: 1,
+    enabled,
   })
 }
 

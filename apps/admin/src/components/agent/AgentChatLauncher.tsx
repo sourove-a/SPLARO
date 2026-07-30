@@ -32,18 +32,18 @@ export function AgentChatLauncher({ online = true, className, size = 'fab' }: Ag
         className={cn(
           'admin-chat-launcher__bubble relative flex items-center justify-center rounded-2xl border shadow-lg',
           compact ? 'h-9 w-9' : 'h-12 w-12',
-          'border-white/15 bg-gradient-to-br from-[#2a2620] via-[#141414] to-[#0a0a0a]',
-          'dark:border-[#5E7CFF]/30 dark:from-[#3d3428] dark:via-[#1c1814] dark:to-[#100e0c]',
+          'border-white/15 bg-gradient-to-br from-[var(--admin-c-2a2620)] via-[var(--admin-c-141414)] to-[var(--admin-c-0a0a0a)]',
+          'dark:border-[var(--admin-color-accent-blue)]/30 dark:from-[var(--admin-c-3d3428)] dark:via-[var(--admin-c-1c1814)] dark:to-[var(--admin-c-100e0c)]',
         )}
       >
         <MessageCircle
-          className={cn(compact ? 'h-4 w-4' : 'h-5 w-5', 'text-[#5E7CFF]')}
+          className={cn(compact ? 'h-4 w-4' : 'h-5 w-5', 'text-[var(--admin-color-accent-blue)]')}
           strokeWidth={2}
           fill="rgba(16, 17, 20, 0.12)"
         />
       </span>
       {online ? (
-        <span className="admin-chat-launcher__dot absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--admin-bg,#0e0e13)] bg-emerald-500" />
+        <span className="admin-chat-launcher__dot absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--admin-bg,var(--admin-c-0e0e13))] bg-emerald-500" />
       ) : null}
     </span>
   )

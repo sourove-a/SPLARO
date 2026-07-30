@@ -19,7 +19,8 @@ import { CourierBadge } from '@/components/ui/CourierBadge'
 import { OperationsSubNav } from '@/components/operations/OperationsSubNav'
 import { ShippingSection } from '@/components/settings/sections/ShippingSection'
 import { EMPTY_SETTINGS } from '@/components/settings/SettingsShell'
-import { ApiOfflineBanner, KpiGrid, PlatformConnectionPanel } from '@/components/modules/PlatformUi'
+import { ApiOfflineBanner, PlatformConnectionPanel } from '@/components/modules/PlatformUi'
+import { KpiGrid } from '@/components/ui/AdminHandoffBlocks'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import {
   useAutomationRules,
@@ -241,10 +242,18 @@ function ShippingView({
     >
       <KpiGrid
         items={[
-          ['Dhaka', draft.shipping.dhakaSameDay ? 'Enabled' : 'Off', draft.shipping.dhakaSameDay ? 'success' : 'default'],
-          ['Outside Dhaka', draft.shipping.outsideDhaka ? 'Enabled' : 'Off', draft.shipping.outsideDhaka ? 'success' : 'default'],
-          ['Dhaka charge', formatBDT(Number(draft.shipping.dhakaDeliveryCharge ?? 0)), 'default'],
-          ['Free from', draft.shipping.freeShippingMin ? formatBDT(Number(draft.shipping.freeShippingMin)) : 'Off', 'gold'],
+          {
+            label: 'Dhaka',
+            value: draft.shipping.dhakaSameDay ? 'Enabled' : 'Off',
+            tone: draft.shipping.dhakaSameDay ? ('success' as const) : ('default' as const),
+          },
+          {
+            label: 'Outside Dhaka',
+            value: draft.shipping.outsideDhaka ? 'Enabled' : 'Off',
+            tone: draft.shipping.outsideDhaka ? ('success' as const) : ('default' as const),
+          },
+          { label: 'Dhaka charge', value: formatBDT(Number(draft.shipping.dhakaDeliveryCharge ?? 0)) },
+          { label: 'Free from', value: draft.shipping.freeShippingMin ? formatBDT(Number(draft.shipping.freeShippingMin)) : 'Off' },
         ]}
       />
       <ShippingSection
@@ -323,10 +332,14 @@ function CourierHubView({
 
       <KpiGrid
         items={[
-          ['Awaiting booking', pendingOrders.length, 'warning'],
-          ['In transit', statsLoading ? '…' : inTransit, 'default'],
-          ['Delivered (30d)', statsLoading ? '…' : delivered, 'success'],
-          ['Failed (30d)', statsLoading ? '…' : failed, failed > 0 ? 'warning' : 'default'],
+          { label: 'Awaiting booking', value: pendingOrders.length, tone: 'warning' },
+          { label: 'In transit', value: statsLoading ? '…' : inTransit },
+          { label: 'Delivered (30d)', value: statsLoading ? '…' : delivered, tone: 'success' },
+          {
+            label: 'Failed (30d)',
+            value: statsLoading ? '…' : failed,
+            tone: failed > 0 ? ('warning' as const) : ('default' as const),
+          },
         ]}
       />
 
@@ -473,10 +486,14 @@ function WarehouseView({
     >
       <KpiGrid
         items={[
-          ['Warehouses', wms.isLoading ? '…' : warehouses.length, 'default'],
-          ['Available units', wms.isLoading ? '…' : (summary?.available ?? 0), 'success'],
-          ['Reserved', wms.isLoading ? '…' : (summary?.reserved ?? 0), 'default'],
-          ['Low stock SKUs', catalogLow.length, catalogLow.length ? 'warning' : 'default'],
+          { label: 'Warehouses', value: wms.isLoading ? '…' : warehouses.length },
+          { label: 'Available units', value: wms.isLoading ? '…' : (summary?.available ?? 0), tone: 'success' },
+          { label: 'Reserved', value: wms.isLoading ? '…' : (summary?.reserved ?? 0) },
+          {
+            label: 'Low stock SKUs',
+            value: catalogLow.length,
+            tone: catalogLow.length ? ('warning' as const) : ('default' as const),
+          },
         ]}
       />
 
@@ -591,10 +608,10 @@ function SupplierManagementView({
     >
       <KpiGrid
         items={[
-          ['Suppliers', isLoading ? '…' : suppliers.length, 'default'],
-          ['Open POs', isLoading ? '…' : openPos, 'warning'],
-          ['GRNs', isLoading ? '…' : grns.length, 'success'],
-          ['Total due', isLoading ? '…' : formatBDT(suppliers.reduce((s, x) => s + Number(x.dueAmount), 0)), 'gold'],
+          { label: 'Suppliers', value: isLoading ? '…' : suppliers.length },
+          { label: 'Open POs', value: isLoading ? '…' : openPos, tone: 'warning' },
+          { label: 'GRNs', value: isLoading ? '…' : grns.length, tone: 'success' },
+          { label: 'Total due', value: isLoading ? '…' : formatBDT(suppliers.reduce((s, x) => s + Number(x.dueAmount), 0)) },
         ]}
       />
 

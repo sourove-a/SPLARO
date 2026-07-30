@@ -96,14 +96,16 @@ export function SectionCard({
   subtitle,
   children,
   accent = true,
+  id,
 }: {
   title: string
   subtitle?: string
   children: React.ReactNode
   accent?: boolean
+  id?: string
 }) {
   return (
-    <section className="settings-section-card settings-card">
+    <section id={id} className="settings-section-card settings-card">
       <span className="settings-section-card__shine" aria-hidden />
       {accent ? <span className="settings-section-card__accent" aria-hidden /> : null}
       <div className="settings-section-card__body">
@@ -213,7 +215,7 @@ export function SaveBar({
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '1.25rem' }}>
       {disabled && !saving ? (
-        <p style={{ marginRight: 'auto', fontSize: '0.75rem', fontWeight: 600, color: '#b45309' }}>
+        <p style={{ marginRight: 'auto', fontSize: '0.75rem', fontWeight: 600, color: 'var(--admin-warning-ink)' }}>
           {apiOfflineSaveMessage()}
         </p>
       ) : null}

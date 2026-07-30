@@ -21,7 +21,7 @@ import { formatRelativeTime } from '@/lib/api/orders'
 import { cn } from '@/lib/utils/cn'
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
-const GOLD = '#16181d'
+const GOLD = 'var(--admin-c-16181d)'
 const GOLD_LIGHT = 'rgba(16,17,20,0.06)'
 const GOLD_BORDER = 'rgba(16,17,20,0.22)'
 
@@ -31,17 +31,17 @@ const TD: React.CSSProperties = { padding: '11px 16px', fontSize: 13, color: 'va
 
 // ─── Shared components ─────────────────────────────────────────────────────────
 const STATUS_MAP: Record<string, { bg: string; text: string; border: string }> = {
-  active:     { bg: 'rgba(22,163,74,0.10)',  text: '#15803D', border: 'rgba(22,163,74,0.30)' },
-  inactive:   { bg: 'rgba(156,163,175,0.10)', text: '#4B5563', border: 'rgba(156,163,175,0.30)' },
-  draft:      { bg: 'rgba(245,158,11,0.10)', text: '#B45309', border: 'rgba(245,158,11,0.30)' },
-  success:    { bg: 'rgba(22,163,74,0.10)',  text: '#15803D', border: 'rgba(22,163,74,0.30)' },
-  processing: { bg: 'rgba(59,130,246,0.10)', text: '#1D4ED8', border: 'rgba(59,130,246,0.30)' },
-  pending:    { bg: 'rgba(245,158,11,0.10)', text: '#B45309', border: 'rgba(245,158,11,0.30)' },
+  active:     { bg: 'rgba(22,163,74,0.10)',  text: 'var(--admin-success-ink)', border: 'rgba(22,163,74,0.30)' },
+  inactive:   { bg: 'rgba(156,163,175,0.10)', text: 'var(--admin-c-4b5563)', border: 'rgba(156,163,175,0.30)' },
+  draft:      { bg: 'rgba(245,158,11,0.10)', text: 'var(--admin-warning-ink)', border: 'rgba(245,158,11,0.30)' },
+  success:    { bg: 'rgba(22,163,74,0.10)',  text: 'var(--admin-success-ink)', border: 'rgba(22,163,74,0.30)' },
+  processing: { bg: 'rgba(59,130,246,0.10)', text: 'var(--admin-c-1d4ed8)', border: 'rgba(59,130,246,0.30)' },
+  pending:    { bg: 'rgba(245,158,11,0.10)', text: 'var(--admin-warning-ink)', border: 'rgba(245,158,11,0.30)' },
 }
 
 function StatusPill({ value }: { value: string }) {
   const key = value.toLowerCase().replace(/[\s_]/g, ' ').trim()
-  const fallback = { bg: 'rgba(156,163,175,0.10)', text: '#4B5563', border: 'rgba(156,163,175,0.30)' }
+  const fallback = { bg: 'rgba(156,163,175,0.10)', text: 'var(--admin-c-4b5563)', border: 'rgba(156,163,175,0.30)' }
   const s = STATUS_MAP[key] ?? fallback
   return (
     <span style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.text, borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' }}>
@@ -51,7 +51,7 @@ function StatusPill({ value }: { value: string }) {
 }
 
 function KpiCard({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
-  const accentColor = accent === 'gold' ? GOLD : accent === 'success' ? '#16A34A' : accent === 'warning' ? '#D97706' : '#6366F1'
+  const accentColor = accent === 'gold' ? GOLD : accent === 'success' ? 'var(--admin-success-strong)' : accent === 'warning' ? 'var(--admin-c-d97706)' : 'var(--admin-c-6366f1)'
   const accentBg = accent === 'gold' ? GOLD_LIGHT : accent === 'success' ? 'rgba(22,163,74,0.08)' : accent === 'warning' ? 'rgba(217,119,6,0.08)' : 'rgba(99,102,241,0.08)'
   return (
     <div className="settings-card admin-panel-glass-subtle" style={{ padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
@@ -223,7 +223,7 @@ function WmsOverviewPanel() {
                     </td>
                     <td style={TD}>{w.staff?.length ?? 0}</td>
                     <td style={{ ...TD, fontWeight: 800 }}>{bins}</td>
-                    <td style={{ ...TD, fontWeight: 800, color: capNum > 75 ? '#D97706' : 'var(--admin-text-primary)' }}>{capacity}</td>
+                    <td style={{ ...TD, fontWeight: 800, color: capNum > 75 ? 'var(--admin-c-d97706)' : 'var(--admin-text-primary)' }}>{capacity}</td>
                     <td style={TD}><StatusPill value={w.isActive ? 'active' : 'inactive'} /></td>
                     <td style={TD}><RowActionsMenu recordName={w.name} moduleHref="/dashboard/wms/warehouses" recordId={w.id} /></td>
                   </tr>
@@ -310,7 +310,7 @@ function WarehousesPanel() {
                     <td style={{ ...TD, fontSize: 12 }}>{w.city ?? '—'}</td>
                     <td style={TD}>{w.staff?.length ?? 0}</td>
                     <td style={TD}>{warehouseSkus(w).bins}</td>
-                    <td style={{ ...TD, fontWeight: 800, color: capNum > 75 ? '#D97706' : 'var(--admin-text-primary)' }}>{capacity}</td>
+                    <td style={{ ...TD, fontWeight: 800, color: capNum > 75 ? 'var(--admin-c-d97706)' : 'var(--admin-text-primary)' }}>{capacity}</td>
                     <td style={TD}><StatusPill value={w.isActive ? 'active' : 'inactive'} /></td>
                     <td style={TD}><RowActionsMenu recordName={w.name} moduleHref="/dashboard/wms/warehouses" recordId={w.id} /></td>
                   </tr>
@@ -435,7 +435,7 @@ function StockMovementsPanel() {
                   <td style={{ ...TD, fontFamily: 'monospace', fontSize: 12, color: 'var(--admin-text-muted)' }}>{m.id.slice(0, 8)}</td>
                   <td style={{ ...TD, fontSize: 12, fontWeight: 700, textTransform: 'capitalize' }}>{m.reason.replace(/_/g, ' ').toLowerCase()}</td>
                   <td style={{ ...TD, fontFamily: 'monospace', fontSize: 12 }}>{m.sku ?? '—'}</td>
-                  <td style={{ ...TD, fontWeight: 900, color: m.delta > 0 ? '#15803D' : '#B91C1C' }}>{m.delta > 0 ? `+${m.delta}` : m.delta}</td>
+                  <td style={{ ...TD, fontWeight: 900, color: m.delta > 0 ? 'var(--admin-success-ink)' : 'var(--admin-danger-strong)' }}>{m.delta > 0 ? `+${m.delta}` : m.delta}</td>
                   <td style={{ ...TD, fontSize: 12, color: 'var(--admin-text-muted)' }}>{m.quantityBefore} → {m.quantityAfter}</td>
                   <td style={{ ...TD, fontSize: 12 }}>{m.note ?? '—'}</td>
                   <td style={{ ...TD, fontSize: 12, color: 'var(--admin-text-muted)' }}>{formatRelativeTime(m.createdAt)}</td>

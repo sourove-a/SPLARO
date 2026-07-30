@@ -64,10 +64,15 @@ function ConfigStatus({
   return (
     <p className="mb-3 text-[11px] font-semibold leading-relaxed text-[var(--admin-text-muted)]">
       {configured ? 'Configured' : 'Not configured'}
-      {configured && activeFromAdmin ? (
+      {configured && lastTestStatus === 'success' ? (
         <span className="text-emerald-700 dark:text-emerald-400">
           {' '}
-          · Live from admin (encrypted DB)
+          · Tested OK (encrypted DB)
+        </span>
+      ) : configured && activeFromAdmin ? (
+        <span className="text-emerald-700 dark:text-emerald-400">
+          {' '}
+          · Saved in admin (encrypted DB) — run Test connection
         </span>
       ) : configured && source === 'env' ? (
         <span className="text-amber-700 dark:text-amber-400">

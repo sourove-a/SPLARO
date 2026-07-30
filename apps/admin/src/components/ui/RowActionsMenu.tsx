@@ -133,7 +133,7 @@ export function RowActionsMenu({ recordName, moduleHref, recordId, actions }: Ro
             <div
               ref={menuRef}
               role="menu"
-              className="admin-dropdown-menu fixed z-[320] min-w-[168px] overflow-hidden rounded-[12px] border border-black/8 bg-white py-1 shadow-[0_12px_32px_rgba(17,17,20,0.12)] dark:border-white/10 dark:bg-[#1c1c24] dark:shadow-[0_12px_32px_rgba(0,0,0,0.35)]"
+              className="admin-dropdown-menu fixed z-[320] min-w-[168px] overflow-hidden rounded-[12px] border border-black/8 bg-white py-1 shadow-[0_12px_32px_rgba(17,17,20,0.12)] dark:border-white/10 dark:bg-[var(--admin-c-1c1c24)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.35)]"
               style={{ top: pos.top, right: pos.right }}
             >
               {menuItems.map((item) => (

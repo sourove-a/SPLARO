@@ -82,12 +82,6 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
   const [newNote, setNewNote] = useState('')
   const [newTag, setNewTag] = useState('')
 
-  const riskColor = customer.codRiskScore >= 70
-    ? 'text-red-500'
-    : customer.codRiskScore >= 40
-      ? 'text-amber-500'
-      : 'text-emerald-600'
-
   return (
     <div className="space-y-6">
       <div className="admin-module-card">
@@ -111,6 +105,19 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
               <h2 className="text-lg font-semibold text-[var(--admin-text)] sm:text-xl">
                 {customer.firstName} {customer.lastName}
               </h2>
+              <span
+                className={cn(
+                  'rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+                  TIER_COLORS[customer.loyaltyTier] ?? TIER_COLORS['BRONZE']!,
+                )}
+              >
+                {customer.loyaltyTier}
+              </span>
+              {customer.phone ? (
+                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-600">
+                  Phone verified
+                </span>
+              ) : null}
               {customer.vipScore >= 80 && (
                 <span className="rounded-full border border-gold/30 bg-gold/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gold">
                   VIP
@@ -138,6 +145,12 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
                   <span className="truncate">{customer.email}</span>
                 </span>
               )}
+              {customer.addresses[0] ? (
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+                  {customer.addresses[0].district || customer.addresses[0].city}
+                </span>
+              ) : null}
               <span className="flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5 shrink-0" />
                 Joined {customer.signupDate}
@@ -145,14 +158,12 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center justify-between gap-3 sm:flex-col sm:items-end sm:gap-2">
-            <div className="text-left sm:text-right">
-              <p className="text-[10px] uppercase tracking-wider text-[var(--admin-text-muted)]">COD Risk</p>
-              <p className={cn('text-2xl font-bold', riskColor)}>
-                {customer.codRiskScore}
-              </p>
-              <p className="text-[10px] text-[var(--admin-text-muted)]">/100</p>
-            </div>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:flex-col sm:items-end">
+            {customer.phone ? (
+              <AdminButton size="sm" variant="ghost" onClick={() => window.open(`tel:${customer.phone.replace(/\D/g, '')}`, '_self')}>
+                <Phone className="h-3.5 w-3.5" /> Message
+              </AdminButton>
+            ) : null}
             {onToggleBlock ? (
               <AdminButton
                 size="sm"
@@ -181,10 +192,20 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <MiniStat icon={ShoppingBag} label="Total Orders" value={customer.totalOrders} />
-        <MiniStat icon={DollarSign} label="Total Spent" value={formatBDT(customer.totalSpent)} />
-        <MiniStat icon={DollarSign} label="Avg Order" value={formatBDT(customer.avgOrderValue)} />
-        <MiniStat icon={Star} label="Loyalty Points" value={customer.loyaltyPoints.toLocaleString()} />
+        <MiniStat
+          icon={ShoppingBag}
+          label="Total Orders"
+          value={customer.totalOrders}
+          sub={customer.lastOrderDate ? `last on ${customer.lastOrderDate.slice(0, 10)}` : 'no orders yet'}
+        />
+        <MiniStat icon={DollarSign} label="Lifetime Spend" value={formatBDT(customer.totalSpent)} sub="net of returns" />
+        <MiniStat icon={DollarSign} label="Avg Order Value" value={formatBDT(customer.avgOrderValue)} />
+        <MiniStat
+          icon={Star}
+          label="Loyalty Points"
+          value={customer.loyaltyPoints.toLocaleString()}
+          sub={`${customer.loyaltyTier} tier`}
+        />
       </div>
 
       <div className="admin-module-card !p-0 overflow-hidden">
@@ -442,7 +463,17 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
   )
 }
 
-function MiniStat({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string | number }) {
+function MiniStat({
+  icon: Icon,
+  label,
+  value,
+  sub,
+}: {
+  icon: React.ElementType
+  label: string
+  value: string | number
+  sub?: string
+}) {
   return (
     <div className="admin-kpi rounded-[20px]">
       <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--admin-accent-muted)]">
@@ -450,6 +481,7 @@ function MiniStat({ icon: Icon, label, value }: { icon: React.ElementType; label
       </div>
       <p className="admin-kpi__value text-lg">{value}</p>
       <p className="admin-kpi__label">{label}</p>
+      {sub ? <p className="mt-1 text-[11px] font-medium text-[var(--admin-text-muted)]">{sub}</p> : null}
     </div>
   )
 }

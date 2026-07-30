@@ -1,0 +1,752 @@
+/**
+ * SPLARO adaptive sign-in.
+ * Quiet operations console: dark policy map + focused verification card.
+ * Raw colours stay in admin-tokens; this file only composes semantic tokens.
+ */
+
+.admin-auth-shell--dc {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(31rem, 1.08fr) minmax(31rem, 0.92fr);
+  align-items: stretch;
+  min-height: 100dvh;
+  padding: 0;
+  color: var(--ink);
+  color-scheme: light;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.admin-auth-topbar--dc {
+  background: transparent;
+}
+
+.admin-auth-shell--dc .admin-auth-topbar__link {
+  border-color: var(--line);
+  color: var(--ink-2);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  box-shadow: 0 10px 32px color-mix(in srgb, var(--ink) 7%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.admin-auth-dc__brand {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  isolation: isolate;
+  padding: 3.25rem 3.75rem 2.75rem;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--violet-solid) 18%, var(--admin-auth-cosmos)) 0%,
+      var(--admin-auth-cosmos) 42%,
+      color-mix(in srgb, var(--admin-auth-cosmos) 94%, var(--ink)) 100%
+    );
+  color: var(--admin-color-white);
+  overflow: hidden;
+}
+
+.admin-auth-dc__brand::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.42;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--admin-color-white) 4%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--admin-color-white) 4%, transparent) 1px, transparent 1px);
+  background-size: 54px 54px;
+  mask-image: linear-gradient(to bottom, transparent, var(--ink) 25%, var(--ink) 72%, transparent);
+}
+
+.admin-auth-dc__glow {
+  position: absolute;
+  z-index: -1;
+  inset: -26% -18% auto -22%;
+  height: 68%;
+  pointer-events: none;
+  background: radial-gradient(
+    56% 58% at 48% 40%,
+    color-mix(in srgb, var(--violet-solid) 40%, transparent),
+    transparent 72%
+  );
+  filter: blur(10px);
+}
+
+.admin-auth-dc__orb {
+  position: absolute;
+  z-index: -1;
+  width: 18rem;
+  height: 18rem;
+  border: 1px solid color-mix(in srgb, var(--admin-color-white) 8%, transparent);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.admin-auth-dc__orb::before,
+.admin-auth-dc__orb::after {
+  content: '';
+  position: absolute;
+  border: inherit;
+  border-radius: inherit;
+}
+
+.admin-auth-dc__orb::before {
+  inset: 2.1rem;
+}
+
+.admin-auth-dc__orb::after {
+  inset: 4.2rem;
+}
+
+.admin-auth-dc__orb--one {
+  top: -8rem;
+  right: -5rem;
+}
+
+.admin-auth-dc__orb--two {
+  left: -9rem;
+  bottom: -8rem;
+}
+
+.admin-auth-dc__brand-top {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-auth-dc__brand-top .splaro-admin-logo--login .splaro-admin-logo__img {
+  width: auto;
+  height: 27px;
+  max-width: 164px;
+}
+
+.admin-auth-dc__secure-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+  padding: 0 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--admin-color-white) 13%, transparent);
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--admin-color-white) 66%, transparent);
+  background: color-mix(in srgb, var(--admin-color-white) 5%, transparent);
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.admin-auth-dc__brand-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: min(100%, 31.5rem);
+}
+
+.admin-auth-dc__eyebrow {
+  margin: 0;
+  color: color-mix(in srgb, var(--admin-color-white) 48%, transparent);
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.admin-auth-dc__headline {
+  max-width: 29rem;
+  margin: 0;
+  color: var(--admin-color-white);
+  font-size: clamp(2.15rem, 3.3vw, 3.8rem);
+  font-weight: 620;
+  line-height: 1.02;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+
+.admin-auth-dc__lede {
+  max-width: 28rem;
+  margin: 0;
+  color: color-mix(in srgb, var(--admin-color-white) 57%, transparent);
+  font-size: 0.91rem;
+  font-weight: 420;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.admin-auth-dc__route {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--admin-color-white) 8%, transparent);
+  border-radius: 1rem;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--admin-color-white) 5%, transparent),
+      color-mix(in srgb, var(--admin-auth-cosmos) 32%, transparent)
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--admin-color-white) 6%, transparent),
+    0 1rem 3rem color-mix(in srgb, var(--admin-auth-cosmos) 24%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.admin-auth-dc__route-start,
+.admin-auth-dc__route-options > div {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.admin-auth-dc__route-start span:last-child,
+.admin-auth-dc__route-options > div > span:last-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.24rem;
+}
+
+.admin-auth-dc__route strong {
+  color: color-mix(in srgb, var(--admin-color-white) 88%, transparent);
+  font-size: 0.75rem;
+  font-weight: 620;
+  line-height: 1;
+}
+
+.admin-auth-dc__route small {
+  color: color-mix(in srgb, var(--admin-color-white) 40%, transparent);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  line-height: 1.2;
+}
+
+.admin-auth-dc__route-icon {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border: 1px solid color-mix(in srgb, var(--admin-color-white) 13%, transparent);
+  border-radius: 0.65rem;
+  color: color-mix(in srgb, var(--admin-color-white) 78%, transparent);
+  background: color-mix(in srgb, var(--admin-color-white) 6%, transparent);
+}
+
+.admin-auth-dc__route-icon--telegram {
+  color: var(--info);
+  border-color: var(--info-bd);
+  background: color-mix(in srgb, var(--info) 10%, transparent);
+}
+
+.admin-auth-dc__route-icon--password {
+  color: color-mix(in srgb, var(--admin-color-white) 78%, transparent);
+}
+
+.admin-auth-dc__route-line {
+  display: grid;
+  place-items: center;
+  color: color-mix(in srgb, var(--admin-color-white) 28%, transparent);
+}
+
+.admin-auth-dc__route-options {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.admin-auth-dc__route-options > div {
+  min-height: 3.4rem;
+  padding: 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--admin-color-white) 6%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--admin-auth-cosmos) 34%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--admin-color-white) 4%, transparent);
+}
+
+.admin-auth-dc__meta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.15rem;
+  color: color-mix(in srgb, var(--admin-color-white) 34%, transparent);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 500;
+}
+
+.admin-auth-dc__form-col {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 5rem 2rem 3rem;
+  background:
+    radial-gradient(
+      circle at 92% 10%,
+      color-mix(in srgb, var(--violet-solid) 9%, transparent),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 5% 92%,
+      color-mix(in srgb, var(--info) 6%, transparent),
+      transparent 30%
+    ),
+    var(--bg);
+  overflow: hidden;
+}
+
+.admin-auth-dc__form-col::before {
+  content: '';
+  position: absolute;
+  width: min(36rem, 85vw);
+  aspect-ratio: 1;
+  border: 1px solid color-mix(in srgb, var(--violet-solid) 7%, transparent);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.admin-auth-dc__form-wrap {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 30rem;
+}
+
+.admin-auth-card--dc {
+  position: relative;
+  padding: 2rem;
+  border: 1px solid transparent;
+  border-radius: 1.5rem;
+  color: var(--ink);
+  background:
+    linear-gradient(
+        160deg,
+        color-mix(in srgb, var(--surface) 98%, transparent),
+        color-mix(in srgb, var(--surface) 94%, var(--bg))
+      )
+      padding-box,
+    linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--admin-color-white) 92%, transparent),
+        color-mix(in srgb, var(--violet-solid) 10%, var(--line)) 58%,
+        var(--line)
+      )
+      border-box;
+  box-shadow:
+    0 2.2rem 6rem color-mix(in srgb, var(--ink) 9%, transparent),
+    0 0.45rem 1.4rem color-mix(in srgb, var(--ink) 4%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  isolation: isolate;
+}
+
+body.admin-auth-page:has(.admin-auth-shell--dc) {
+  background: var(--bg);
+}
+
+.admin-auth-shell--dc .admin-auth-card__brand {
+  align-items: flex-start;
+  margin-bottom: 1.55rem;
+  text-align: left;
+}
+
+.admin-auth-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  margin-bottom: 1.15rem;
+}
+
+.admin-auth-progress__label {
+  color: var(--violet);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-auth-progress__track {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem;
+  width: 4.5rem;
+}
+
+.admin-auth-progress__track i {
+  display: block;
+  height: 0.2rem;
+  border-radius: 999px;
+  background: var(--violet-solid);
+}
+
+.admin-auth-progress__track i + i {
+  background: var(--line-2);
+}
+
+.admin-auth-progress__track i.is-active {
+  background: var(--violet-solid);
+}
+
+.admin-auth-shell--dc .admin-auth-card__title {
+  margin-top: 0;
+  color: var(--ink);
+  font-size: clamp(1.85rem, 3vw, 2.45rem);
+  font-weight: 680;
+  line-height: 1.05;
+  letter-spacing: -0.05em;
+}
+
+.admin-auth-shell--dc .admin-auth-card__subtitle {
+  max-width: 24rem;
+  margin-top: 0.65rem;
+  color: var(--ink-2);
+  font-size: 0.82rem;
+  font-weight: 450;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.admin-auth-shell--dc .admin-auth-form {
+  gap: 0.85rem;
+}
+
+.admin-auth-shell--dc .admin-auth-label {
+  margin-bottom: 0.5rem;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+}
+
+.admin-auth-shell--dc .admin-auth-field__icon-chip {
+  left: 0.7rem;
+  width: 2.05rem;
+  height: 2.05rem;
+  border-color: transparent;
+  border-radius: 0.68rem;
+  color: var(--ink-3);
+  background: color-mix(in srgb, var(--violet-solid) 7%, var(--surface));
+  box-shadow: none;
+}
+
+.admin-auth-shell--dc .admin-auth-field__wrap:focus-within .admin-auth-field__icon-chip {
+  border-color: transparent;
+  color: var(--violet);
+  background: var(--violet-soft);
+}
+
+.admin-auth-shell--dc .admin-auth-input {
+  min-height: 3.65rem;
+  padding: 0 3.25rem;
+  border: 1px solid color-mix(in srgb, var(--ink) 13%, transparent);
+  border-radius: 0.9rem;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 78%, var(--bg));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--admin-color-white) 82%, transparent),
+    0 0.4rem 1.2rem color-mix(in srgb, var(--ink) 3%, transparent) !important;
+  font-size: 0.9rem;
+  font-weight: 520;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.admin-auth-shell--dc .admin-auth-input::placeholder {
+  color: var(--ink-3);
+  font-weight: 450;
+}
+
+.admin-auth-shell--dc .admin-auth-input:hover:not(:focus) {
+  border-color: color-mix(in srgb, var(--ink) 20%, transparent);
+  background: var(--surface);
+}
+
+.admin-auth-shell--dc .admin-auth-input:focus {
+  border-color: color-mix(in srgb, var(--violet-solid) 62%, var(--line));
+  background: var(--surface);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--admin-color-white) 90%, transparent),
+    0 0.6rem 1.8rem color-mix(in srgb, var(--violet-solid) 10%, transparent) !important;
+}
+
+.admin-auth-shell--dc .admin-auth-input:focus-visible {
+  outline: none;
+}
+
+.admin-auth-shell--dc .admin-auth-input--token {
+  padding-right: 1rem;
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.admin-auth-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.72rem;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 0.62rem;
+  color: var(--ink-3);
+  background: transparent;
+  cursor: pointer;
+}
+
+.admin-auth-password-toggle:hover {
+  color: var(--violet);
+  background: var(--violet-soft);
+}
+
+.admin-auth-method-result {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: var(--surface-2);
+}
+
+.admin-auth-method-result__icon {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border: 1px solid var(--violet-bd);
+  border-radius: 0.65rem;
+  color: var(--violet);
+  background: var(--violet-soft);
+}
+
+.admin-auth-method-result--telegram .admin-auth-method-result__icon {
+  border-color: var(--info-bd);
+  color: var(--info);
+  background: var(--info-soft);
+}
+
+.admin-auth-method-result > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+
+.admin-auth-method-result strong {
+  color: var(--ink);
+  font-size: 0.74rem;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.admin-auth-method-result small {
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 0.61rem;
+  line-height: 1.2;
+}
+
+.admin-auth-shell--dc .admin-auth-email-chip {
+  align-self: flex-start;
+  max-width: 100%;
+  border-color: var(--line);
+  color: var(--ink-2);
+  background: var(--surface-2);
+  font-family: var(--mono);
+  font-size: 0.66rem;
+}
+
+.admin-auth-shell--dc .admin-auth-hint {
+  margin: 0.1rem 0 0.2rem;
+  color: var(--ink-3);
+  font-size: 0.7rem;
+  font-weight: 450;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.admin-auth-shell--dc .admin-auth-error {
+  border-color: var(--bad-bd);
+  border-radius: 0.85rem;
+  color: var(--bad);
+  background: var(--bad-soft);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.admin-auth-shell--dc .admin-auth-submit {
+  min-height: 3.55rem;
+  margin-top: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--violet-solid) 72%, var(--admin-color-white)) !important;
+  border-radius: 0.9rem;
+  color: var(--on-violet) !important;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--violet-solid) 84%, var(--admin-color-white)),
+      var(--violet-solid) 48%,
+      var(--admin-c-5b1fd9)
+    ) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--admin-color-white) 26%, transparent),
+    0 0.9rem 2.2rem color-mix(in srgb, var(--violet-solid) 22%, transparent) !important;
+  font-size: 0.86rem;
+  font-weight: 650 !important;
+  letter-spacing: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.admin-auth-shell--dc .admin-auth-submit:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--violet-solid) 66%, var(--admin-color-white)) !important;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--violet-solid) 78%, var(--admin-color-white)),
+      var(--violet-solid) 44%,
+      var(--admin-c-5b1fd9)
+    ) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--admin-color-white) 32%, transparent),
+    0 1.05rem 2.5rem color-mix(in srgb, var(--violet-solid) 27%, transparent) !important;
+  transform: translateY(-1px) !important;
+}
+
+.admin-auth-shell--dc .admin-auth-submit:active:not(:disabled) {
+  transform: translateY(0) scale(0.99) !important;
+}
+
+.admin-auth-shell--dc .admin-auth-back {
+  color: var(--ink-3);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.admin-auth-shell--dc .admin-auth-back:hover {
+  color: var(--violet);
+}
+
+.admin-auth-shell--dc .admin-auth-footer {
+  margin-top: 1.3rem;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 0.61rem;
+  font-weight: 550;
+}
+
+@media (max-width: 1080px) {
+  .admin-auth-shell--dc {
+    grid-template-columns: minmax(26rem, 0.9fr) minmax(30rem, 1.1fr);
+  }
+
+  .admin-auth-dc__brand {
+    padding-inline: 2.5rem;
+  }
+
+  .admin-auth-dc__headline {
+    font-size: clamp(2rem, 4vw, 3rem);
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-auth-shell--dc {
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .admin-auth-dc__brand {
+    min-height: auto;
+    padding: 5.25rem 1.5rem 1.6rem;
+    gap: 1.75rem;
+  }
+
+  .admin-auth-dc__headline {
+    max-width: 34rem;
+    font-size: clamp(1.8rem, 7vw, 2.5rem);
+  }
+
+  .admin-auth-dc__lede {
+    max-width: 36rem;
+  }
+
+  .admin-auth-dc__route {
+    max-width: 34rem;
+  }
+
+  .admin-auth-dc__meta {
+    display: none;
+  }
+
+  .admin-auth-dc__form-col {
+    min-height: 31rem;
+    padding: 2rem 1.15rem 3rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-auth-dc__brand {
+    padding-top: 4.8rem;
+  }
+
+  .admin-auth-dc__secure-chip,
+  .admin-auth-dc__route {
+    display: none;
+  }
+
+  .admin-auth-dc__brand-copy {
+    gap: 0.7rem;
+  }
+
+  .admin-auth-dc__headline {
+    font-size: 1.75rem;
+  }
+
+  .admin-auth-dc__lede {
+    font-size: 0.8rem;
+  }
+
+  .admin-auth-card--dc {
+    padding: 1.4rem;
+    border-radius: 1.25rem;
+  }
+
+  .admin-auth-shell--dc .admin-auth-card__title {
+    font-size: 1.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-auth-shell--dc *,
+  .admin-auth-shell--dc *::before,
+  .admin-auth-shell--dc *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

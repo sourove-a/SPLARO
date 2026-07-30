@@ -59,6 +59,7 @@ export interface SecurityData {
     activeAdmins: number
     twoFaEnabled: number
     activeSessions: number
+    logins24h: number
     failedLogins24h: number
     threatLevel: string
   }

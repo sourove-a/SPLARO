@@ -94,13 +94,13 @@ export function ShopFiltersPanel({
                 type="checkbox"
                 checked={filters[key]}
                 onChange={() => patch({ [key]: !filters[key] })}
-                className="h-4 w-4 accent-[#5E7CFF]"
+                className="h-4 w-4 accent-[var(--admin-color-accent-blue)]"
               />
             </label>
           ))}
         </div>
 
-        <h4 className="mb-2 text-sm font-bold text-[#1A1A1A]">Filter labels</h4>
+        <h4 className="mb-2 text-sm font-bold text-[var(--admin-c-1a1a1a)]">Filter labels</h4>
         <div className="mb-5 grid gap-3 md:grid-cols-2">
           {(
             [
@@ -112,7 +112,7 @@ export function ShopFiltersPanel({
             ] as const
           ).map(([key, label]) => (
             <label key={key} className="block">
-              <span className="mb-1 block text-xs font-semibold text-[#6B6B6B]">{label}</span>
+              <span className="mb-1 block text-xs font-semibold text-[var(--admin-color-neutral-500)]">{label}</span>
               <input
                 className="admin-input"
                 value={filters.labels[key]}
@@ -124,7 +124,7 @@ export function ShopFiltersPanel({
           ))}
         </div>
 
-        <h4 className="mb-2 text-sm font-bold text-[#1A1A1A]">Sort options</h4>
+        <h4 className="mb-2 text-sm font-bold text-[var(--admin-c-1a1a1a)]">Sort options</h4>
         <div className="space-y-2">
           {filters.sortOptions.map((option, index) => (
             <div
@@ -175,14 +175,14 @@ export function ShopFiltersPanel({
                       }),
                     })
                   }
-                  className="h-4 w-4 accent-[#5E7CFF]"
+                  className="h-4 w-4 accent-[var(--admin-color-accent-blue)]"
                 />
               </label>
             </div>
           ))}
         </div>
 
-        <h4 className="mb-2 mt-6 text-sm font-bold text-[#1A1A1A]">Desktop price bands</h4>
+        <h4 className="mb-2 mt-6 text-sm font-bold text-[var(--admin-c-1a1a1a)]">Desktop price bands</h4>
         <p className="admin-module-card__text mb-3">
           Min/max in BDT. Leave min empty for “under”, max empty for “above”.
         </p>
@@ -205,7 +205,7 @@ export function ShopFiltersPanel({
           ))}
         </div>
 
-        <h4 className="mb-2 mt-6 text-sm font-bold text-[#1A1A1A]">Mobile quick price chips</h4>
+        <h4 className="mb-2 mt-6 text-sm font-bold text-[var(--admin-c-1a1a1a)]">Mobile quick price chips</h4>
         <div className="space-y-2">
           {filters.mobilePriceChips.map((band, index) => (
             <PriceBandRow
@@ -311,7 +311,7 @@ function PriceBandRow({
           type="checkbox"
           checked={band.enabled}
           onChange={() => onChange({ enabled: !band.enabled })}
-          className="h-4 w-4 accent-[#5E7CFF]"
+          className="h-4 w-4 accent-[var(--admin-color-accent-blue)]"
         />
       </label>
     </div>

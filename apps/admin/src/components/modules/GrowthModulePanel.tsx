@@ -11,18 +11,18 @@ import { formatBDT } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils/cn'
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
-const GOLD = '#16181d'
+const GOLD = 'var(--admin-c-16181d)'
 const GOLD_LIGHT = 'rgba(16, 17, 20, 0.10)'
 const GOLD_BORDER = 'rgba(16, 17, 20, 0.32)'
 
 
 // ─── Tier config ───────────────────────────────────────────────────────────────
 const TIER_COLOR: Record<string, { bg: string; text: string; border: string }> = {
-  BRONZE:   { bg: 'rgba(205,127,50,0.10)',  text: '#9A5A1A', border: 'rgba(205,127,50,0.30)' },
-  SILVER:   { bg: 'rgba(154,154,154,0.10)', text: '#5A5A5A', border: 'rgba(154,154,154,0.30)' },
-  GOLD:     { bg: 'rgba(16, 17, 20, 0.12)', text: '#8B6914', border: 'rgba(16, 17, 20, 0.36)' },
-  PLATINUM: { bg: 'rgba(123,143,161,0.10)', text: '#3D5A73', border: 'rgba(123,143,161,0.30)' },
-  DIAMOND:  { bg: 'rgba(91,164,207,0.10)',  text: '#1A6A9A', border: 'rgba(91,164,207,0.30)' },
+  BRONZE:   { bg: 'rgba(205,127,50,0.10)',  text: 'var(--admin-c-9a5a1a)', border: 'rgba(205,127,50,0.30)' },
+  SILVER:   { bg: 'rgba(154,154,154,0.10)', text: 'var(--admin-c-5a5a5a)', border: 'rgba(154,154,154,0.30)' },
+  GOLD:     { bg: 'rgba(16, 17, 20, 0.12)', text: 'var(--admin-c-8b6914)', border: 'rgba(16, 17, 20, 0.36)' },
+  PLATINUM: { bg: 'rgba(123,143,161,0.10)', text: 'var(--admin-c-3d5a73)', border: 'rgba(123,143,161,0.30)' },
+  DIAMOND:  { bg: 'rgba(91,164,207,0.10)',  text: 'var(--admin-c-1a6a9a)', border: 'rgba(91,164,207,0.30)' },
 }
 
 function spent(c: ApiCustomer) {
@@ -31,7 +31,7 @@ function spent(c: ApiCustomer) {
 
 // ─── Shared components ─────────────────────────────────────────────────────────
 function TierBadge({ tier }: { tier: string }) {
-  const fallback = { bg: 'rgba(205,127,50,0.10)', text: '#9A5A1A', border: 'rgba(205,127,50,0.30)' }
+  const fallback = { bg: 'rgba(205,127,50,0.10)', text: 'var(--admin-c-9a5a1a)', border: 'rgba(205,127,50,0.30)' }
   const t = TIER_COLOR[tier] ?? fallback
   return (
     <span style={{
@@ -50,7 +50,7 @@ function TierBadge({ tier }: { tier: string }) {
 }
 
 function KpiCard({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
-  const accentColor = accent === 'gold' ? GOLD : accent === 'success' ? '#16A34A' : accent === 'warning' ? '#D97706' : '#6366F1'
+  const accentColor = accent === 'gold' ? GOLD : accent === 'success' ? 'var(--admin-success-strong)' : accent === 'warning' ? 'var(--admin-c-d97706)' : 'var(--admin-c-6366f1)'
   const accentBg = accent === 'gold' ? GOLD_LIGHT : accent === 'success' ? 'rgba(22,163,74,0.08)' : accent === 'warning' ? 'rgba(217,119,6,0.08)' : 'rgba(99,102,241,0.08)'
   return (
     <div className="settings-card admin-panel-glass-subtle" style={{ padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
@@ -139,7 +139,7 @@ function CustomerRow({ c }: { c: ApiCustomer }) {
     <div className="settings-card admin-panel-glass-subtle" style={{
       padding: '12px 16px',
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      borderLeft: `3px solid ${isRisk ? '#EF4444' : GOLD}`,
+      borderLeft: `3px solid ${isRisk ? 'var(--admin-danger-bright)' : GOLD}`,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{
@@ -147,7 +147,7 @@ function CustomerRow({ c }: { c: ApiCustomer }) {
           background: isRisk ? 'rgba(239,68,68,0.10)' : GOLD_LIGHT,
           border: `1px solid ${isRisk ? 'rgba(239,68,68,0.25)' : GOLD_BORDER}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 12, fontWeight: 900, color: isRisk ? '#B91C1C' : '#8B6914',
+          fontSize: 12, fontWeight: 900, color: isRisk ? 'var(--admin-danger-strong)' : 'var(--admin-c-8b6914)',
           flexShrink: 0,
         }}>
           {initials}
@@ -299,7 +299,7 @@ function ReferralsView() {
   const isLoading = statsLoading || listLoading
 
   if (isOffline && !isLoading) return (
-    <div className="settings-card admin-panel-glass" style={{ padding: 24, borderLeft: '3px solid #EF4444', color: '#B91C1C', fontSize: 13, fontWeight: 700 }}>
+    <div className="settings-card admin-panel-glass" style={{ padding: 24, borderLeft: '3px solid var(--admin-danger-bright)', color: 'var(--admin-danger-strong)', fontSize: 13, fontWeight: 700 }}>
       Referral API offline — start pnpm dev:api
     </div>
   )
@@ -346,7 +346,7 @@ function ReferralsView() {
                   <tr key={row.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.4)' }}>
                     <td style={{ padding: '12px 24px', fontSize: 13, fontWeight: 700, color: 'var(--admin-text-primary)' }}>{referrerName}</td>
                     <td style={{ padding: '12px 24px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-secondary)' }}>{referred}</td>
-                    <td style={{ padding: '12px 24px', fontSize: 12, fontWeight: 800, color: row.isConverted ? '#15803D' : 'var(--admin-text-muted)' }}>
+                    <td style={{ padding: '12px 24px', fontSize: 12, fontWeight: 800, color: row.isConverted ? 'var(--admin-success-ink)' : 'var(--admin-text-muted)' }}>
                       {row.isConverted ? 'Converted' : 'Pending'}
                     </td>
                     <td style={{ padding: '12px 24px', fontSize: 13, fontWeight: 800, color: GOLD }}>{row.rewardPoints ?? 0}</td>
@@ -480,7 +480,7 @@ export function GrowthModulePanel({ moduleHref }: ModuleContextProps) {
   const customers = data?.customers ?? []
 
   if (isError) return (
-    <div className="settings-card admin-panel-glass" style={{ padding: 24, borderLeft: '3px solid #EF4444', color: '#B91C1C', fontSize: 13, fontWeight: 700 }}>
+    <div className="settings-card admin-panel-glass" style={{ padding: 24, borderLeft: '3px solid var(--admin-danger-bright)', color: 'var(--admin-danger-strong)', fontSize: 13, fontWeight: 700 }}>
       Customer API offline — start pnpm dev:api
     </div>
   )

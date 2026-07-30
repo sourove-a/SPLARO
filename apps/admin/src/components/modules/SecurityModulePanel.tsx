@@ -42,7 +42,7 @@ import { AdminStatusBadge } from '@/components/ui/AdminStatusBadge'
 import { cn } from '@/lib/utils/cn'
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
-const GOLD = 'var(--admin-accent, #712eff)'
+const GOLD = 'var(--admin-accent, var(--admin-c-712eff))'
 const GOLD_LIGHT = 'rgba(113, 46, 255, 0.10)'
 const GOLD_BORDER = 'rgba(113, 46, 255, 0.28)'
 
@@ -178,7 +178,7 @@ function InviteAdminModal({ open, onClose, actorRole }: { open: boolean; onClose
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
       <button type="button" className="absolute inset-0 bg-black/35 backdrop-blur-[2px]" aria-label="Close" onClick={onClose} />
-      <div className="relative z-[1] w-full max-w-md rounded-[18px] border border-white/20 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#1c1c24]">
+      <div className="relative z-[1] w-full max-w-md rounded-[18px] border border-white/20 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[var(--admin-c-1c1c24)]">
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
             <p className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--admin-text-muted)]">Security</p>
@@ -384,14 +384,14 @@ function AdminUsersView({
                       )}
                     </td>
                     <td style={{ padding: '12px 20px' }}><StatusBadge value={row.status} ok={row.status === 'active'} /></td>
-                    <td style={{ padding: '12px 20px', fontSize: 13, fontWeight: 800, color: row.twoFA ? '#15803D' : 'var(--admin-text-muted)' }}>{row.twoFA ? 'Yes' : 'No'}</td>
+                    <td style={{ padding: '12px 20px', fontSize: 13, fontWeight: 800, color: row.twoFA ? 'var(--admin-success-ink)' : 'var(--admin-text-muted)' }}>{row.twoFA ? 'Yes' : 'No'}</td>
                     <td style={{ padding: '12px 20px' }}>
                       {row.telegramLinked ? (
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#15803D' }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--admin-success-ink)' }}>
                           {row.telegramUsername ? `@${row.telegramUsername}` : 'Linked'}
                         </span>
                       ) : (
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#B45309' }}>Not linked</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--admin-warning-ink)' }}>Not linked</span>
                       )}
                     </td>
                     <td style={{ padding: '12px 20px', fontSize: 12, color: 'var(--admin-text-muted)' }}>{row.lastLogin}</td>
@@ -760,7 +760,7 @@ function DatabaseConnectionCard() {
           <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>Database connection</p>
         </div>
         {info && (
-          <span style={{ fontSize: 12, fontWeight: 900, color: info.connected ? '#15803D' : '#B91C1C' }}>
+          <span style={{ fontSize: 12, fontWeight: 900, color: info.connected ? 'var(--admin-success-ink)' : 'var(--admin-danger-strong)' }}>
             {info.connected ? '● Connected' : '● Disconnected'}
           </span>
         )}
@@ -770,13 +770,13 @@ function DatabaseConnectionCard() {
         database. Restart the API after save so all connections use the new credentials.
       </p>
       {info?.requiresRestart ? (
-        <p style={{ fontSize: 12, fontWeight: 700, color: '#B45309', margin: '0 0 12px' }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--admin-warning-ink)', margin: '0 0 12px' }}>
           Saved credentials differ from the running API — restart required to apply.
         </p>
       ) : null}
 
       {loadError ? (
-        <p style={{ fontSize: 12, fontWeight: 600, color: '#B91C1C', margin: 0 }}>{loadError}</p>
+        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--admin-danger-strong)', margin: 0 }}>{loadError}</p>
       ) : (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 12 }}>
@@ -804,7 +804,7 @@ function DatabaseConnectionCard() {
 
           {result && (
             <div className="settings-card admin-panel-glass-subtle" style={{ padding: '10px 14px', marginBottom: 12 }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: result.ok ? '#15803D' : '#B91C1C', margin: 0 }}>{result.message}</p>
+              <p style={{ fontSize: 12, fontWeight: 700, color: result.ok ? 'var(--admin-success-ink)' : 'var(--admin-danger-strong)', margin: 0 }}>{result.message}</p>
             </div>
           )}
 
@@ -885,7 +885,7 @@ function SecurityCenterView({
 
   return (
     <div className="settings-section-enter flex flex-col gap-5">
-      {/* KPI strip — page title already comes from AdminPageShell */}
+      {/* KPI strip — page title already comes from DcPageHead */}
       <section className="admin-catalog-hero admin-panel-hero !mb-0">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="admin-catalog-hero__title-row">
@@ -957,7 +957,7 @@ function SecurityCenterView({
                   <span
                     className={cn(
                       'shrink-0 text-[13px] font-black tabular-nums',
-                      item.ok ? 'text-[#15803D]' : 'text-[#B45309]',
+                      item.ok ? 'text-[var(--admin-success-ink)]' : 'text-[var(--admin-warning-ink)]',
                     )}
                   >
                     {item.value}
@@ -989,8 +989,8 @@ function SecurityCenterView({
             </div>
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[rgba(22,163,74,0.35)] bg-[rgba(22,163,74,0.06)] px-4 py-8 text-center">
-              <ShieldCheck className="mb-2 h-6 w-6 text-[#15803D]" aria-hidden />
-              <p className="m-0 text-[13px] font-bold text-[#15803D]">No threats detected in the last 24 hours</p>
+              <ShieldCheck className="mb-2 h-6 w-6 text-[var(--admin-success-ink)]" aria-hidden />
+              <p className="m-0 text-[13px] font-bold text-[var(--admin-success-ink)]">No threats detected in the last 24 hours</p>
               <p className="mt-1 mb-0 text-[11px] font-semibold text-[var(--admin-text-muted)]">
                 Failed logins and blocked attempts will appear here.
               </p>

@@ -16,7 +16,6 @@ import {
   Zap,
 } from 'lucide-react'
 import { markAdminLinkNavigation } from '@/lib/navigation/client-nav'
-import { BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
 import { RecentActivities } from '@/components/dashboard/RecentActivities'
 import { cn } from '@/lib/utils/cn'
 
@@ -25,17 +24,11 @@ const STORAGE_KEY = 'splaro-admin-intel-collapsed'
 const QUICK_ACTIONS = [
   { label: 'New Order', short: 'Order', href: '/dashboard/orders/new', icon: ShoppingBag },
   { label: 'Add Product', short: 'Product', href: '/dashboard/products/new', icon: Package },
-  {
-    label: 'Upload CSV',
-    short: 'CSV',
-    icon: Upload,
-    disabled: true,
-    disabledTitle: `${BACKEND_NOT_CONNECTED_TITLE} Product CSV import API is not wired yet.`,
-  },
+  { label: 'Upload CSV', short: 'CSV', href: '/dashboard/bulk', icon: Upload },
   { label: 'Partner Tx', short: 'Partner', href: '/dashboard/finance/partner-accounts', icon: Wallet },
   { label: 'Daily Close', short: 'Close', href: '/dashboard/finance/daily-closing', icon: FileSpreadsheet },
-  { label: 'AI Generator', short: 'AI', href: '/dashboard/ai-product-generator', icon: Bot },
-] as const
+  { label: 'AI Generator', short: 'AI', href: '/dashboard/ai-agent', icon: Bot },
+]
 
 export function IntelligencePanel() {
   const [collapsed, setCollapsed] = useState(false)
@@ -65,7 +58,7 @@ export function IntelligencePanel() {
   return (
     <aside
       className={cn(
-        'admin-intel admin-intel-rail relative m-4 ml-2 hidden h-[calc(100vh-2rem)] min-h-0 shrink-0 lg:flex lg:flex-col',
+        'admin-intel admin-intel-rail relative hidden h-screen min-h-0 shrink-0 lg:flex lg:flex-col',
         'transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
         collapsed
           ? 'admin-intel--collapsed w-[var(--admin-intel-collapsed)]'
@@ -97,37 +90,8 @@ export function IntelligencePanel() {
         <div className={cn('admin-intel__actions', collapsed && 'admin-intel__actions--rail')}>
           {QUICK_ACTIONS.map((action, index) => {
             const Icon = action.icon
-            const key = 'href' in action && action.href ? action.href : action.label
-            if ('disabled' in action && action.disabled) {
-              return (
-                <motion.div
-                  key={key}
-                  initial={false}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: collapsed ? 0 : index * 0.03, duration: 0.22 }}
-                >
-                  <div
-                    title={'disabledTitle' in action ? action.disabledTitle : BACKEND_NOT_CONNECTED_TITLE}
-                    className={cn(
-                      'admin-intel__action group cursor-not-allowed opacity-45',
-                      collapsed && 'admin-intel__action--icon',
-                    )}
-                    aria-disabled
-                  >
-                    <span className="admin-intel__action-icon">
-                      <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
-                    </span>
-                    {!collapsed ? (
-                      <span className="truncate text-[10px] font-bold leading-tight text-[var(--admin-text-muted)]">
-                        {action.label}
-                      </span>
-                    ) : null}
-                  </div>
-                </motion.div>
-              )
-            }
-
-            const href = 'href' in action ? action.href! : '/dashboard'
+            const key = action.href ?? action.label
+            const href = action.href ?? '/dashboard'
             return (
               <motion.div
                 key={key}

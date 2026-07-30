@@ -87,7 +87,7 @@ export function CouponsLivePanel() {
         footer={loading ? 'Loading…' : `Showing ${filtered.length} live coupons`}
       >
         {filtered.length === 0 && !loading ? (
-          <p className="p-4 text-sm text-[#6B6B6B]">No coupons yet. Create one above — nothing fake is shown here.</p>
+          <p className="p-4 text-sm text-[var(--admin-color-neutral-500)]">No coupons yet. Create one above — nothing fake is shown here.</p>
         ) : (
           <table className="admin-module-table">
             <thead>
@@ -109,14 +109,14 @@ export function CouponsLivePanel() {
                       onClick={() => {
                         void copyWithToast(c.code, `Copied ${c.code}`)
                       }}
-                      className="flex items-center gap-1 font-mono text-sm font-black hover:text-[#5E7CFF]"
+                      className="flex items-center gap-1 font-mono text-sm font-black hover:text-[var(--admin-color-accent-blue)]"
                     >
                       {c.code}
                       <Copy className="h-3 w-3" />
                     </button>
                   </td>
                   <td className="text-xs">{c.type}</td>
-                  <td className="font-bold text-[#5E7CFF]">{c.type === 'PERCENTAGE' ? `${Number(c.value)}%` : formatBDT(Number(c.value))}</td>
+                  <td className="font-bold text-[var(--admin-color-accent-blue)]">{c.type === 'PERCENTAGE' ? `${Number(c.value)}%` : formatBDT(Number(c.value))}</td>
                   <td>{c.usedCount}{c.usageLimit ? ` / ${c.usageLimit}` : ''}</td>
                   <td>
                     <span className={cn('admin-status', c.isActive ? 'admin-status--delivered' : 'admin-status--pending')}>

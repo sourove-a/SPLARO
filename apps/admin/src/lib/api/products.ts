@@ -31,6 +31,7 @@ export interface ApiProduct {
     colorHex?: string | null
     image?: string | null
     sku?: string | null
+    barcode?: string | null
     price?: number | string
     compareAtPrice?: number | string | null
     isActive?: boolean
@@ -46,6 +47,14 @@ export interface ApiProduct {
   isNewArrival?: boolean
   isBestSeller?: boolean
   weight?: number | string | null
+  lengthCm?: number | string | null
+  widthCm?: number | string | null
+  heightCm?: number | string | null
+  productType?: string | null
+  inventoryPolicy?: 'DENY' | 'CONTINUE' | 'PREORDER'
+  preorderReleaseAt?: string | null
+  additionalDetails?: Array<{ label: string; value: string }> | null
+  origin?: string | null
   badge?: string | null
   rmCode?: string | null
   barcode?: string | null
@@ -111,11 +120,38 @@ export interface CreateProductInput {
   isNewArrival?: boolean
   isBestSeller?: boolean
   weight?: number | null
+  lengthCm?: number | null
+  widthCm?: number | null
+  heightCm?: number | null
+  productType?: string | null
+  inventoryPolicy?: 'DENY' | 'CONTINUE' | 'PREORDER'
+  preorderReleaseAt?: string | null
+  additionalDetails?: Array<{ label: string; value: string }>
+  origin?: string | null
   badge?: string | null
   rmCode?: string | null
   barcode?: string | null
   qrCode?: string | null
   publishAt?: string | null
+  media?: Array<{
+    url: string
+    type: 'image' | 'video'
+    altText?: string
+    isDefault?: boolean
+    position?: number
+  }>
+  variants?: Array<{
+    size?: string
+    colorName?: string
+    colorHex?: string
+    image?: string
+    sku?: string
+    barcode?: string
+    price: number
+    compareAtPrice?: number | null
+    stock: number
+    isActive?: boolean
+  }>
   /** Skip version snapshot for visibility-only toggles. */
   skipVersionSnapshot?: boolean
 }
@@ -241,4 +277,36 @@ export function restoreProductVersion(id: string, versionId: string, restoredBy:
     method: 'POST',
     body: JSON.stringify({ restoredBy }),
   })
+}
+
+export function bulkUpdateStock(updates: { variantId: string; stock: number }[]) {
+  return apiFetch<{ updated: number; failed: number }>('/admin/products/bulk/stock', {
+    method: 'POST',
+    body: JSON.stringify({ updates }),
+  })
+}
+
+export function bulkPublishProducts(ids: string[], isPublished: boolean) {
+  return apiFetch<{ updated: number }>('/admin/products/bulk/publish', {
+    method: 'POST',
+    body: JSON.stringify({ ids, isPublished }),
+  })
+}
+
+export function bulkUpdatePrices(
+  updates: {
+    variantId?: string
+    sku?: string
+    productId?: string
+    price: number
+    compareAtPrice?: number | null
+  }[],
+) {
+  return apiFetch<{ updated: number; failed: number; results: { key: string; ok: boolean; error?: string }[] }>(
+    '/admin/products/bulk/price',
+    {
+      method: 'POST',
+      body: JSON.stringify({ updates }),
+    },
+  )
 }

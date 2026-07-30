@@ -23,6 +23,8 @@ import {
 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AgentChatLauncher } from '@/components/agent/AgentChatLauncher'
+import { HandoffPageChrome } from '@/components/ui/HandoffPageChrome'
+import { KpiGrid } from '@/components/ui/AdminHandoffBlocks'
 import { AGENT_TOOL_CATALOG, AGENT_TOOL_TIERS } from '@/lib/agent/tool-catalog'
 import { AGENT_QUICK_COMMANDS } from '@/lib/agent/quick-commands'
 import {
@@ -91,7 +93,7 @@ function activeModelHasKey(
   return Boolean(keyInputs[model].trim() || isMasked(savedKeys[model]) || savedKeys[model])
 }
 
-export function AiCommandCenterPanel() {
+export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean }) {
   const openAgentChat = useAdminUiStore((s) => s.openAgentChat)
   const { data: tgData } = useTelegramIntegration()
   const { data: aiIntegration } = useAiIntegration()
@@ -293,7 +295,7 @@ export function AiCommandCenterPanel() {
   if (loading) {
     return (
       <div className="flex min-h-[320px] items-center justify-center">
-        <Loader2 className="h-7 w-7 animate-spin text-[#5E7CFF]" />
+        <Loader2 className="h-7 w-7 animate-spin text-[var(--admin-color-accent-blue)]" />
       </div>
     )
   }
@@ -304,22 +306,85 @@ export function AiCommandCenterPanel() {
   const budget = status?.budget
   const budgetPct = Math.round((budget?.pct ?? 0) * 100)
   const budgetWarn = (budget?.pct ?? 0) >= 0.8
+  const activeModelLabel = MODELS.find((m) => m.id === activeModel)?.label ?? activeModel
 
   return (
-    <div className="ai-command ai-command-page mx-auto max-w-6xl space-y-5 pb-28">
+    <div
+      className={cn(
+        'ai-command ai-command-page mx-auto max-w-6xl space-y-5 pb-28',
+        embedded && 'ai-command-page--dc',
+      )}
+    >
+      <HandoffPageChrome
+        group="Intelligence"
+        title="AI Command Brain"
+        sync={apiOffline ? 'backend offline' : `model ${activeModel}`}
+        live={false}
+        {...(embedded ? { className: 'ai-command-chrome--embedded' } : {})}
+        actions={
+          <AdminButton
+            variant="ghost"
+            className="shrink-0"
+            onClick={() => document.getElementById('ai-guardrails')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          >
+            Guardrails
+          </AdminButton>
+        }
+      >
+        <div className="admin-beta-banner" role="note">
+          <span className="admin-beta-banner__chip">BETA</span>
+          <span>
+            Every AI action shows a preview and needs one click to apply. Nothing writes to orders, stock or payouts without confirmation.
+          </span>
+        </div>
+
+        <KpiGrid
+          columns={4}
+          items={[
+            {
+              label: 'Model',
+              value: activeModelLabel,
+              sub: chatReady ? 'ready' : 'needs setup',
+              tone: chatReady ? 'success' : 'warning',
+            },
+            {
+              label: 'API',
+              value: apiOffline ? 'Offline' : 'Live',
+              sub: apiOffline ?? 'agent backend reachable',
+              tone: apiOffline ? 'danger' : 'success',
+            },
+            {
+              label: 'Telegram',
+              value: telegramReady ? 'Online' : 'Setup',
+              sub: telegramReady ? 'bridge active' : tgData?.tokenConfigured ? 'chat ID লাগবে' : 'not linked',
+              tone: telegramReady ? 'success' : 'warning',
+            },
+            {
+              label: 'Budget',
+              value: budget ? `${budgetPct}%` : '—',
+              sub: budget ? `$${budget.spentUsd.toFixed(3)} / $${budget.limitUsd.toFixed(2)}` : 'no budget data',
+              tone: budgetWarn ? 'warning' : 'default',
+            },
+          ]}
+        />
+
       <section className="ai-command-hero">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
             <AgentChatLauncher online={chatReady} size="inline" />
             <div>
-              <p className="ai-command-eyebrow">AI Center</p>
-              <h1 className="ai-command-title">AI Command Brain</h1>
+              {!embedded ? (
+                <>
+                  <p className="ai-command-eyebrow">Intelligence</p>
+                  <h1 className="ai-command-title">AI Command Brain</h1>
+                </>
+              ) : null}
               <p className="ai-command-sub mt-1 max-w-xl">
                 এখানে model + API key সেট করুন। Chat করবেন নিচের ডান পাশের <strong>CHAT</strong> বাটন দিয়ে — সেখানেই live brain (orders, finance, courier, SEO)।
               </p>
             </div>
           </div>
-          <AdminButton variant="gold" className="shrink-0" disabled={!chatReady} onClick={() => openAgentChat()}>
+          <AdminButton variant="accent" className="shrink-0" disabled={!chatReady} onClick={() => openAgentChat()}>
             <MessageSquare className="h-4 w-4" />
             Chat খুলুন
           </AdminButton>
@@ -335,7 +400,7 @@ export function AiCommandCenterPanel() {
             )}
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[11px] font-black uppercase tracking-wide text-[var(--admin-text-muted)]">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--admin-text-muted)]">
                 Today&apos;s AI budget
               </p>
               <p
@@ -349,7 +414,7 @@ export function AiCommandCenterPanel() {
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
               <div
-                className={cn('h-full rounded-full transition-all', budgetWarn ? 'bg-amber-500' : 'bg-[#5E7CFF]')}
+                className={cn('h-full rounded-full transition-all', budgetWarn ? 'bg-amber-500' : 'bg-[var(--admin-color-accent-blue)]')}
                 style={{ width: `${Math.min(100, budgetPct)}%` }}
               />
             </div>
@@ -398,7 +463,7 @@ export function AiCommandCenterPanel() {
 
       <section className="ai-command-card">
         <div className="ai-command-card__head">
-          <Sparkles className="h-4 w-4 text-[#5E7CFF]" />
+          <Sparkles className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
           <h2>Ops quick commands</h2>
         </div>
         <p className="ai-command-hint mt-2">Chat-এ seed করে — Banglish chips for daily ops.</p>
@@ -419,10 +484,10 @@ export function AiCommandCenterPanel() {
         </div>
       </section>
 
-      <section className="ai-command-card">
+      <section id="ai-guardrails" className="ai-command-card">
         <div className="ai-command-card__head">
-          <ShieldCheck className="h-4 w-4 text-[#5E7CFF]" />
-          <h2>Tool catalog</h2>
+          <ShieldCheck className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
+          <h2>Guardrails & tool tiers</h2>
         </div>
         <p className="ai-command-hint mt-2">
           Live tools by tier — DANGEROUS needs Confirm. WRITE price/publish/stock also confirms.
@@ -434,7 +499,7 @@ export function AiCommandCenterPanel() {
               <div key={tier}>
                 <p
                   className={cn(
-                    'mb-2 text-[10px] font-black uppercase tracking-[0.14em]',
+                    'mb-2 text-[10px] font-semibold uppercase tracking-[0.14em]',
                     tier === 'DANGEROUS' && 'text-red-700',
                     tier === 'WRITE' && 'text-amber-800',
                     tier === 'READ' && 'text-[var(--admin-text-muted)]',
@@ -467,7 +532,7 @@ export function AiCommandCenterPanel() {
         <div className="space-y-5">
           <section className="ai-command-card ai-command-card--control">
             <div className="ai-command-card__head">
-              <Bot className="h-4 w-4 text-[#5E7CFF]" />
+              <Bot className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
               <h2>Active model</h2>
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -488,7 +553,7 @@ export function AiCommandCenterPanel() {
                     {configured ? (
                       <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                     ) : (
-                      <XCircle className="h-4 w-4 text-[#ccc]" />
+                      <XCircle className="h-4 w-4 text-[var(--admin-c-cccccc)]" />
                     )}
                   </button>
                 )
@@ -496,7 +561,7 @@ export function AiCommandCenterPanel() {
             </div>
             {activeModel === 'claude' && (
               <div className="mt-4 space-y-3 border-t border-[rgba(17,17,17,0.08)] pt-4">
-                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#6B6B6B]">Claude connection</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--admin-color-neutral-500)]">Claude connection</p>
                 <div className="flex flex-wrap gap-2">
                   {([
                     ['api_key', 'API Key (direct)'],
@@ -509,8 +574,8 @@ export function AiCommandCenterPanel() {
                       className={cn(
                         'rounded-lg border px-3 py-2 text-xs font-bold',
                         claudeAuthMode === mode
-                          ? 'border-[#5E7CFF] bg-[#5E7CFF]/10 text-[#111]'
-                          : 'border-[rgba(17,17,17,0.12)] text-[#6B6B6B]',
+                          ? 'border-[var(--admin-color-accent-blue)] bg-[var(--admin-color-accent-blue)]/10 text-[var(--admin-color-ink-near)]'
+                          : 'border-[rgba(17,17,17,0.12)] text-[var(--admin-color-neutral-500)]',
                       )}
                     >
                       {label}
@@ -563,7 +628,7 @@ export function AiCommandCenterPanel() {
 
           <section className="ai-command-card">
             <div className="ai-command-card__head">
-              <ShieldCheck className="h-4 w-4 text-[#5E7CFF]" />
+              <ShieldCheck className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
               <h2>Chatbot brain (live tools)</h2>
             </div>
             <p className="ai-command-hint mt-2">
@@ -591,7 +656,7 @@ export function AiCommandCenterPanel() {
         <div className="space-y-5">
           <section className="ai-command-card">
             <div className="ai-command-card__head">
-              <KeyRound className="h-4 w-4 text-[#5E7CFF]" />
+              <KeyRound className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
               <h2>API keys</h2>
             </div>
             <div className="mt-3 space-y-3">
@@ -603,7 +668,7 @@ export function AiCommandCenterPanel() {
                     <span className="admin-kpi__label">
                       {m.keyLabel}
                       {hasSaved ? (
-                        <span className="ml-2 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-black uppercase text-emerald-800">
+                        <span className="ml-2 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-emerald-800">
                           Saved
                         </span>
                       ) : null}
@@ -619,12 +684,12 @@ export function AiCommandCenterPanel() {
                       <button
                         type="button"
                         onClick={() => setShowKey((prev) => ({ ...prev, [m.id]: !prev[m.id] }))}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9B9B9B]"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--admin-c-9b9b9b)]"
                       >
                         {showKey[m.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-                    <p className="text-[10px] text-[#9B9B9B]">Env: <code>{m.envHint}</code></p>
+                    <p className="text-[10px] text-[var(--admin-c-9b9b9b)]">Env: <code>{m.envHint}</code></p>
                   </label>
                 )
               })}
@@ -635,7 +700,7 @@ export function AiCommandCenterPanel() {
 
       <section className="ai-command-card">
         <div className="ai-command-card__head">
-          <Sparkles className="h-4 w-4 text-[#5E7CFF]" />
+          <Sparkles className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
           <h2>System instructions</h2>
         </div>
         <textarea
@@ -648,7 +713,7 @@ export function AiCommandCenterPanel() {
 
       <section className="ai-command-card">
         <div className="ai-command-card__head">
-          <Workflow className="h-4 w-4 text-[#5E7CFF]" />
+          <Workflow className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
           <h2>Telegram bridge</h2>
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -660,7 +725,7 @@ export function AiCommandCenterPanel() {
               <Send className="h-4 w-4" />
               Test
             </AdminButton>
-            <Link href="/dashboard/settings?section=notifications#telegram" className="admin-btn px-4 py-2 text-xs font-black">
+            <Link href="/dashboard/telegram-bot" className="admin-btn px-4 py-2 text-xs font-semibold">
               Telegram Bot <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -669,7 +734,7 @@ export function AiCommandCenterPanel() {
 
       <section className="ai-command-card">
         <div className="ai-command-card__head">
-          <Activity className="h-4 w-4 text-[#5E7CFF]" />
+          <Activity className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
           <h2>Agent activity</h2>
         </div>
         <p className="ai-command-hint mt-2">
@@ -704,7 +769,7 @@ export function AiCommandCenterPanel() {
                     <td>
                       <span
                         className={cn(
-                          'rounded-full px-2 py-0.5 text-[9px] font-black uppercase',
+                          'rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase',
                           run.status === 'completed' && 'bg-emerald-100 text-emerald-800',
                           run.status === 'failed' && 'bg-red-100 text-red-800',
                           run.status === 'budget_refused' && 'bg-amber-100 text-amber-800',
@@ -754,18 +819,19 @@ export function AiCommandCenterPanel() {
 
       <div className="ai-command-save-bar">
         <div className="ai-command-save-bar__meta">
-          <p className="text-[11px] font-black text-[var(--admin-text)]">
+          <p className="text-[11px] font-semibold text-[var(--admin-text)]">
             {MODELS.find((m) => m.id === activeModel)?.label ?? 'Model'} · {saveTarget.label}
           </p>
           <p className="text-[10px] font-medium text-[var(--admin-text-muted)]">
             {chatReady ? 'Ready for chat + Telegram' : 'Save API key for active model first'}
           </p>
         </div>
-        <AdminButton variant="gold" loading={saving} onClick={() => void handleSave()}>
+        <AdminButton variant="accent" loading={saving} onClick={() => void handleSave()}>
           <Save className="h-4 w-4" />
           Save AI settings
         </AdminButton>
       </div>
+      </HandoffPageChrome>
     </div>
   )
 }

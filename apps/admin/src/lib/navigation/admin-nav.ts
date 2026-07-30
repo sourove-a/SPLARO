@@ -67,6 +67,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     items: [
       item('Dashboard', '', 'LayoutDashboard', 'Real-time store performance and KPIs'),
       item('Analytics', 'analytics', 'BarChart3', 'Sales, traffic, and conversion analytics'),
+      item('Mobile screens', 'mobile-screens', 'Smartphone', 'Reference frames for the admin on a phone'),
       item('Business Intelligence', 'business-intelligence', 'LineChart', 'Executive analytics and forecasts'),
       item('Revenue Center', 'revenue-center', 'TrendingUp', 'Revenue breakdown, forecasts, and targets'),
     ],
@@ -98,6 +99,7 @@ export const adminNavGroups: AdminNavGroup[] = [
       item('Collections', 'collections', 'Layers', 'Curated product collections'),
       item('Categories', 'categories', 'FolderTree', 'Category hierarchy and navigation'),
       item('Inventory', 'inventory', 'Archive', 'Stock levels, alerts, and adjustments'),
+      item('Bulk & CSV', 'bulk', 'FileSpreadsheet', 'Bulk stock, publish, CSV import/export — honesty for not-built price bulk'),
       item('Brands', 'brands', 'Award', 'Brand profiles and vendor associations'),
       item('Attributes', 'attributes', 'Tags', 'Size, colour, and variant attributes'),
       item('SKU Manager', 'sku-manager', 'Hash', 'SKU codes across catalog'),
@@ -161,7 +163,9 @@ export const adminNavGroups: AdminNavGroup[] = [
     group: 'Integrations',
     items: [
       item('All Integrations', 'all-integrations', 'Plug', 'Connected apps and services'),
-      item('Telegram Bot', 'settings?section=notifications#telegram', 'Send', 'Bot token, chat ID & alerts — Settings → Notifications'),
+      item('SMS Center', 'sms', 'MessageSquare', 'BD SMS providers, Bangla segment costing, templates & logs'),
+      item('Google Sheets', 'automation/google-sheets-sync', 'Sheet', 'One-way SPLARO → Sheets sync (Orders, Hisab, Partners, Stock)'),
+      item('Telegram Bot', 'telegram-bot', 'Send', 'Bot token, chat ID & alerts — verified Telegram integration'),
       item('API Health', 'api-health', 'Activity', 'API uptime and response monitoring'),
       item('Webhooks', 'webhooks', 'Webhook', 'Webhook endpoints and event logs'),
       item('Meta Business', 'meta-business', 'Facebook', 'Meta catalog and ads integration'),
@@ -216,7 +220,7 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     group: 'WMS',
     items: [
-      item('WMS Overview', 'wms/overview', 'Warehouse', 'Multi-warehouse stock control'),
+      item('Warehouse & Stock', 'wms/overview', 'Warehouse', 'Warehouses, transfers, stock movement ledger'),
       item('Warehouses', 'wms/warehouses', 'Building2', 'Warehouse locations & staff'),
       item('Stock Movements', 'wms/stock-movements', 'ArrowLeftRight', 'Full inventory movement audit'),
       item('Stock Transfers', 'wms/transfers', 'Truck', 'Inter-warehouse transfers'),
@@ -336,6 +340,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     group: 'System',
     items: [
       item('Settings', 'settings', 'Settings', 'Global store and platform settings'),
+      item('Export Center', 'executive/export-center', 'Download', 'Orders, customers & products CSV export'),
       item('Sync Logs', 'system/sync-logs', 'RefreshCw', 'Google Sheets sync history'),
       item('Telegram Logs', 'system/telegram-logs', 'MessageSquare', 'Bot command & notification logs'),
       item('Finance Audit Logs', 'system/finance-audit-logs', 'ScrollText', 'Sensitive finance change trail'),
@@ -354,8 +359,7 @@ export const NAV_HIDDEN_HREFS = new Set<string>([
   // Duplicate ops aliases — canonical: WMS / Procurement
   '/dashboard/warehouse',
   '/dashboard/supplier-management',
-  // Overview duplicates — Dashboard is the single entry
-  '/dashboard/analytics',
+  // Overview duplicates — Dashboard is the single entry (Analytics + Mobile stay visible)
   '/dashboard/revenue-center',
   '/dashboard/business-intelligence',
   // Executive — CEO view duplicates Dashboard KPIs
@@ -393,14 +397,13 @@ export const NAV_HIDDEN_HREFS = new Set<string>([
   '/dashboard/observability/center',
   '/dashboard/observability/disaster-recovery',
   '/dashboard/social-commerce/hub',
-  // WMS / Procurement / Production — beta shells, not daily retail
-  '/dashboard/wms/overview',
+  // WMS detail routes stay secondary; Warehouse & Stock overview is in primary design nav
   '/dashboard/wms/warehouses',
   '/dashboard/wms/stock-movements',
   '/dashboard/wms/transfers',
   '/dashboard/procurement/overview',
   '/dashboard/procurement/suppliers',
-  '/dashboard/procurement/purchase-orders',
+  // Purchase Orders stays visible in handoff Operations nav
   '/dashboard/procurement/goods-received',
   '/dashboard/production/overview',
   '/dashboard/production/fabric-inventory',
@@ -418,7 +421,7 @@ export const NAV_HIDDEN_HREFS = new Set<string>([
   '/dashboard/shipping',
   // Automation duplicates — Settings + Google Workspace Sheets
   '/dashboard/automation/telegram-notifications',
-  '/dashboard/automation/google-sheets-sync',
+  // Google Sheets sync is visible under Integrations (handoff)
   '/dashboard/automation/ai-product-agent',
   '/dashboard/automation/ai-seo-agent',
   '/dashboard/automation/ai-sales-insights',
@@ -559,8 +562,8 @@ const routeByHref = new Map(flatAdminRoutes.map((route) => [route.href, route]))
 const legacyHrefAliases: Record<string, string> = {
   '/dashboard/seo/health': '/dashboard/seo-health',
   '/dashboard/automation/rules': '/dashboard/automation-rules',
-  '/dashboard/telegram/config': '/dashboard/settings?section=notifications#telegram',
-  '/dashboard/telegram-bot': '/dashboard/settings?section=notifications#telegram',
+  '/dashboard/telegram/config': '/dashboard/telegram-bot',
+  '/dashboard/settings?section=notifications#telegram': '/dashboard/telegram-bot',
   '/dashboard/banners': '/dashboard/hero-slider',
   '/dashboard/products/create': '/dashboard/products/new',
   '/dashboard/business-intelligence': '/dashboard/revenue-center',

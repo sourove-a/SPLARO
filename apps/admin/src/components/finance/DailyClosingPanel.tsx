@@ -132,7 +132,7 @@ export function DailyClosingPanel() {
                     <td className="px-4 py-3">{row.totalOrders}</td>
                     <td className="px-4 py-3 font-black">{formatBDT(Number(row.totalRevenue))}</td>
                     <td className="px-4 py-3">{formatBDT(Number(row.totalExpenses))}</td>
-                    <td className="px-4 py-3 font-black text-[#5E7CFF]">{formatBDT(Number(row.netProfit))}</td>
+                    <td className="px-4 py-3 font-black text-[var(--admin-color-accent-blue)]">{formatBDT(Number(row.netProfit))}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${

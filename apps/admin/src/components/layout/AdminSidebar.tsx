@@ -44,6 +44,18 @@ const ADVANCED_SECTIONS: Array<{ title: string; groups: string[] }> = [
   },
 ]
 
+/** Handoff pinned block — always at top when not filtering */
+const PINNED_HREFS = [
+  '/dashboard',
+  '/dashboard/orders',
+  '/dashboard/products',
+  '/dashboard/packing-station',
+  '/dashboard/finance/partner-accounts',
+] as const
+
+const SIDEBAR_EXPANDED = 248
+const SIDEBAR_COLLAPSED = 62
+
 function groupByName(name: string, session?: AdminNavSession | null) {
   return getSidebarNavGroups(session).find((group) => group.group === name)
 }
@@ -77,6 +89,7 @@ function SidebarItem({
   return (
     <AdminNavLink
       href={item.href}
+      {...(maturity !== 'live' ? { className: `admin-nav-item--${maturity}` } : {})}
       {...(onNavigate ? { onNavigate } : {})}
       {...(tooltip ? { title: tooltip } : {})}
     >
@@ -106,11 +119,13 @@ function SidebarFlatSection({
   collapsed,
   onNavigate,
   getCount,
+  activeGroup,
 }: {
   group: AdminNavGroup
   collapsed: boolean
   onNavigate?: () => void
   getCount: (href: string) => number | undefined
+  activeGroup?: string | null
 }) {
   if (collapsed) {
     const item = group.items[0]!
@@ -128,13 +143,23 @@ function SidebarFlatSection({
     )
   }
 
+  const isActiveGroup = activeGroup === group.group
+
   return (
     <section
       className="admin-sidebar__flat-section admin-sidebar__flat-section--expanded"
       aria-label={group.group}
       data-nav-group={group.group.toLowerCase().replace(/[^a-z0-9]+/g, '-')}
     >
-      <p className="admin-sidebar__flat-label">{group.group}</p>
+      <p
+        className={cn(
+          'admin-sidebar__flat-label',
+          isActiveGroup && 'admin-sidebar__flat-label--active',
+        )}
+      >
+        {group.group}
+        <span className="ml-auto opacity-70">{group.items.length}</span>
+      </p>
       <div className="admin-sidebar__flat-items">
         {group.items.map((item) => {
           const count = getCount(item.href)
@@ -153,18 +178,90 @@ function SidebarFlatSection({
   )
 }
 
+function collectAllItems(session?: AdminNavSession | null): Array<{ group: string; item: AdminNavItem }> {
+  const rows: Array<{ group: string; item: AdminNavItem }> = []
+  for (const group of getSidebarNavGroups(session)) {
+    for (const item of group.items) {
+      rows.push({ group: group.group, item })
+    }
+  }
+  return rows
+}
+
 function SidebarNav({
   collapsed,
   onNavigate,
   getCount,
   session,
+  filter,
+  onClearFilter,
+  pathname,
 }: {
   collapsed: boolean
   onNavigate?: () => void
   getCount: (href: string) => number | undefined
   session?: AdminNavSession | null
+  filter: string
+  onClearFilter: () => void
+  pathname: string
 }) {
-  useFeatureFlags() // re-render sidebar when feature flags hydrate from API
+  useFeatureFlags()
+  const q = filter.trim().toLowerCase()
+  const allItems = useMemo(() => collectAllItems(session), [session])
+  const activeGroup = useMemo(() => {
+    for (const row of allItems) {
+      if (pathname === row.item.href || pathname.startsWith(`${row.item.href}/`)) {
+        return row.group
+      }
+    }
+    return null
+  }, [allItems, pathname])
+
+  const pinnedItems = useMemo(() => {
+    const byHref = new Map(allItems.map((r) => [r.item.href, r]))
+    return PINNED_HREFS.map((href) => byHref.get(href)).filter(Boolean) as Array<{
+      group: string
+      item: AdminNavItem
+    }>
+  }, [allItems])
+
+  if (q) {
+    const matches = allItems.filter(
+      ({ group, item }) =>
+        item.label.toLowerCase().includes(q) ||
+        group.toLowerCase().includes(q) ||
+        item.href.toLowerCase().includes(q) ||
+        (item.description?.toLowerCase().includes(q) ?? false),
+    )
+    if (matches.length === 0) {
+      return (
+        <div className="admin-sidebar__filter-empty">
+          No matches for “{filter.trim()}”.
+          <button type="button" className="admin-sidebar__filter-reset" onClick={onClearFilter}>
+            Show all {allItems.length}
+          </button>
+        </div>
+      )
+    }
+    return (
+      <div className="admin-sidebar__flat-items px-1">
+        {matches.map(({ group, item }) => {
+          const count = getCount(item.href)
+          return (
+            <SidebarItem
+              key={`filter-${group}-${item.href}`}
+              item={item}
+              collapsed={collapsed}
+              groupLabel={group}
+              {...(onNavigate ? { onNavigate } : {})}
+              {...(count !== undefined ? { count } : {})}
+            />
+          )
+        })}
+      </div>
+    )
+  }
+
   const primaryGroups = PRIMARY_SECTIONS.map((name) => groupByName(name, session)).filter(Boolean) as AdminNavGroup[]
   const advancedGroups = ADVANCED_SECTIONS.flatMap((section) =>
     section.groups.map((name) => groupByName(name, session)).filter(Boolean) as AdminNavGroup[],
@@ -172,12 +269,34 @@ function SidebarNav({
 
   return (
     <>
+      {!collapsed && pinnedItems.length > 0 ? (
+        <div className="admin-sidebar__pinned">
+          <p className="admin-sidebar__pinned-label">Pinned</p>
+          <div className="admin-sidebar__flat-items">
+            {pinnedItems.map(({ group, item }) => {
+              const count = getCount(item.href)
+              return (
+                <SidebarItem
+                  key={`pinned-${item.href}`}
+                  item={item}
+                  collapsed={false}
+                  groupLabel={group}
+                  {...(onNavigate ? { onNavigate } : {})}
+                  {...(count !== undefined ? { count } : {})}
+                />
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
+
       {primaryGroups.map((group) => (
         <SidebarFlatSection
           key={group.group}
           group={group}
           collapsed={collapsed}
           getCount={getCount}
+          activeGroup={activeGroup}
           {...(onNavigate ? { onNavigate } : {})}
         />
       ))}
@@ -190,13 +309,13 @@ function SidebarNav({
         </p>
       ) : null}
 
-      {/* Always expanded — owner request: no collapsible dropdown sections */}
       {advancedGroups.map((group) => (
         <SidebarFlatSection
           key={group.group}
           group={group}
           collapsed={collapsed}
           getCount={getCount}
+          activeGroup={activeGroup}
           {...(onNavigate ? { onNavigate } : {})}
         />
       ))}
@@ -220,14 +339,15 @@ export function AdminSidebar() {
   const navScrollRef = useRef<HTMLDivElement>(null)
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [filter, setFilter] = useState('')
   const reduceMotion = usePrefersReducedMotion()
   const { getCount } = useSidebarNavCounts()
+  const totalNavCount = useMemo(() => collectAllItems(navSession).length, [navSession])
 
   const sidebarTransition = reduceMotion
     ? { duration: 0 }
     : { duration: 0.18, ease: [0.16, 1, 0.3, 1] as const }
 
-  // Prefetch only the hottest post-login routes — blanket prefetch fights dashboard boot.
   useEffect(() => {
     if (!navSession) return
     const hot = ['/dashboard', '/dashboard/orders', '/dashboard/products', '/dashboard/menu-control']
@@ -273,6 +393,32 @@ export function AdminSidebar() {
         ) : null}
       </div>
 
+      {!collapsed ? (
+        <div className="admin-sidebar__filter">
+          <label className="sr-only" htmlFor="admin-nav-filter">
+            Filter menu
+          </label>
+          <input
+            id="admin-nav-filter"
+            type="search"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Filter menu…"
+            className="admin-sidebar__filter-input"
+            autoComplete="off"
+          />
+          {filter.trim() && totalNavCount > 0 ? (
+            <button
+              type="button"
+              className="admin-sidebar__filter-reset mt-1"
+              onClick={() => setFilter('')}
+            >
+              Show all {totalNavCount}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div
         ref={navScrollRef}
         className="admin-sidebar__nav min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2 py-3"
@@ -281,6 +427,9 @@ export function AdminSidebar() {
           collapsed={collapsed}
           getCount={getCount}
           session={navSession}
+          filter={filter}
+          onClearFilter={() => setFilter('')}
+          pathname={pathname}
           onNavigate={() => setMobileOpen(false)}
         />
       </div>
@@ -311,10 +460,10 @@ export function AdminSidebar() {
       </button>
 
       <motion.aside
-        animate={{ width: collapsed ? 88 : 280 }}
+        animate={{ width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED }}
         transition={sidebarTransition}
         className={cn(
-          'admin-sidebar admin-glass-panel relative m-4 mr-0 hidden h-[calc(100vh-2rem)] min-h-0 shrink-0 flex-col overflow-hidden lg:flex',
+          'admin-sidebar admin-glass-panel relative hidden h-screen min-h-0 shrink-0 flex-col overflow-hidden lg:flex',
         )}
       >
         <span className="admin-glass-panel__surface" aria-hidden="true" />
@@ -341,25 +490,25 @@ export function AdminSidebar() {
               {...(reduceMotion
                 ? { initial: false, animate: { x: 0, opacity: 1 } }
                 : {
-                    initial: { x: -280, opacity: 0 },
+                    initial: { x: -SIDEBAR_EXPANDED, opacity: 0 },
                     animate: { x: 0, opacity: 1 },
-                    exit: { x: -280, opacity: 0 },
+                    exit: { x: -SIDEBAR_EXPANDED, opacity: 0 },
                   })}
               transition={sidebarTransition}
-              className="admin-sidebar admin-glass-panel fixed left-0 top-0 z-[100] m-0 flex h-full w-[280px] flex-col rounded-none lg:hidden"
+              className="admin-sidebar admin-glass-panel fixed left-0 top-0 z-[100] m-0 flex h-full w-[248px] flex-col rounded-none lg:hidden"
             >
               <span className="admin-glass-panel__surface" aria-hidden="true" />
               <span className="admin-glass-panel__sheen" aria-hidden="true" />
               <div className="admin-glass-panel__body relative flex min-h-0 flex-1 flex-col">
-              <button
-                type="button"
-                className="absolute right-3 top-3 rounded-full p-2 hover:bg-black/5"
-                onClick={() => setMobileOpen(false)}
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              {sidebarContent}
+                <button
+                  type="button"
+                  className="absolute right-3 top-3 rounded-full p-2 hover:bg-black/5"
+                  onClick={() => setMobileOpen(false)}
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                {sidebarContent}
               </div>
             </motion.aside>
           </>

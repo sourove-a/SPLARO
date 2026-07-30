@@ -18,7 +18,7 @@ function KpiCard({ label, value }: { label: string; value: string | number }) {
 }
 
 function ErrorBanner() {
-  return <div className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', borderLeft: '3px solid #EF4444', color: '#B91C1C', fontSize: 13, fontWeight: 700 }}>SaaS API offline — start pnpm dev:api</div>
+  return <div className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', borderLeft: '3px solid var(--admin-danger-bright)', color: 'var(--admin-danger-strong)', fontSize: 13, fontWeight: 700 }}>SaaS API offline — start pnpm dev:api</div>
 }
 
 export function SaaSModulePanel({ moduleHref }: ModuleContextProps) {
@@ -120,7 +120,7 @@ export function SaaSModulePanel({ moduleHref }: ModuleContextProps) {
                     <td style={TD}>{t.plan}</td>
                     <td style={TD}>{t.users}</td>
                     <td style={TD}>
-                      <span style={{ background: t.status === 'active' ? 'rgba(22,163,74,0.10)' : 'rgba(245,158,11,0.10)', border: `1px solid ${t.status === 'active' ? 'rgba(22,163,74,0.30)' : 'rgba(245,158,11,0.30)'}`, color: t.status === 'active' ? '#15803D' : '#B45309', borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 800 }}>{t.status}</span>
+                      <span style={{ background: t.status === 'active' ? 'rgba(22,163,74,0.10)' : 'rgba(245,158,11,0.10)', border: `1px solid ${t.status === 'active' ? 'rgba(22,163,74,0.30)' : 'rgba(245,158,11,0.30)'}`, color: t.status === 'active' ? 'var(--admin-success-ink)' : 'var(--admin-warning-ink)', borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 800 }}>{t.status}</span>
                     </td>
                   </tr>
                 ))}

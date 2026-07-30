@@ -16,8 +16,8 @@ export default function DashboardError({
 
   return (
     <div className="admin-module-card mx-auto max-w-lg text-center">
-      <h2 className="text-lg font-black text-[#111111]">Something went wrong</h2>
-      <p className="mt-2 text-sm font-semibold text-[#6B6B6B]">
+      <h2 className="text-lg font-black text-[var(--admin-color-ink-near)]">Something went wrong</h2>
+      <p className="mt-2 text-sm font-semibold text-[var(--admin-color-neutral-500)]">
         {error.message?.includes('Failed to fetch')
           ? 'Navigation was interrupted — usually a dev compile hiccup. Reload or try again.'
           : error.message || 'An unexpected error occurred in this module.'}

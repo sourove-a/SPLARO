@@ -559,17 +559,30 @@ export function OrdersPanel() {
         </div>
         <div className="admin-kpi-grid admin-kpi-grid--catalog">
           {[
-            { label: 'Total', value: apiOffline ? '—' : kpis.today },
-            { label: 'Pending', value: apiOffline ? '—' : kpis.pending, accent: 'warning' },
-            { label: 'Shipped', value: apiOffline ? '—' : kpis.shipped, accent: 'success' },
-            { label: 'Revenue', value: apiOffline ? '—' : formatBDT(kpis.revenue), accent: 'gold' },
-          ].map(({ label, value, accent }) => (
-            <div key={label} className={cn('admin-kpi-card', accent && `admin-kpi-card--${accent}`)}>
+            { label: 'Total', value: apiOffline ? '—' : kpis.today, onClick: () => setStatusFilter('all') },
+            { label: 'Pending', value: apiOffline ? '—' : kpis.pending, accent: 'warning', onClick: () => setStatusFilter('pending') },
+            { label: 'Shipped', value: apiOffline ? '—' : kpis.shipped, accent: 'success', onClick: () => setStatusFilter('shipped') },
+            { label: 'Revenue', value: apiOffline ? '—' : formatBDT(kpis.revenue), accent: 'gold', onClick: () => setStatusFilter('all') },
+          ].map(({ label, value, accent, onClick }) => (
+            <button
+              key={label}
+              type="button"
+              disabled={apiOffline}
+              onClick={onClick}
+              className={cn(
+                'admin-kpi-card admin-kpi-card--clickable text-left transition-transform hover:-translate-y-0.5',
+                accent && `admin-kpi-card--${accent}`,
+                apiOffline && 'cursor-not-allowed opacity-60',
+              )}
+            >
               <p className="admin-kpi-card__label">{label}</p>
               <div className="admin-kpi-card__row">
                 <p className="admin-kpi-card__value">{value}</p>
               </div>
-            </div>
+              <p className="mt-1.5 text-[10px] font-bold text-[var(--admin-foundation-primary,var(--admin-c-712eff))]">
+                {label === 'Revenue' ? 'View orders →' : `Filter ${label.toLowerCase()} →`}
+              </p>
+            </button>
           ))}
         </div>
       </header>
@@ -649,7 +662,7 @@ export function OrdersPanel() {
               <AdminSkeletonGroup rows={6} />
             </div>
           ) : (
-            <table className="admin-module-table">
+            <table className="admin-module-table admin-data-table">
               <thead>
                 <tr>
                   <th className="w-10">

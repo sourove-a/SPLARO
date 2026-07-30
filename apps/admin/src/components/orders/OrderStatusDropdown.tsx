@@ -113,7 +113,7 @@ export function OrderStatusDropdown({ status, disabled, loading, onSelect }: Ord
               ref={menuRef}
               role="menu"
               aria-label="Order status"
-              className="order-status-dropdown fixed z-[320] min-w-[168px] overflow-hidden rounded-[12px] border border-black/8 bg-white py-1 shadow-[0_18px_50px_rgba(17,17,20,0.16)] dark:border-white/10 dark:bg-[#1c1c24] dark:shadow-[0_18px_50px_rgba(0,0,0,0.45)]"
+              className="order-status-dropdown fixed z-[320] min-w-[168px] overflow-hidden rounded-[12px] border border-black/8 bg-white py-1 shadow-[0_18px_50px_rgba(17,17,20,0.16)] dark:border-white/10 dark:bg-[var(--admin-c-1c1c24)] dark:shadow-[0_18px_50px_rgba(0,0,0,0.45)]"
               style={{ top: pos.top, left: pos.left }}
             >
               {STATUS_OPTIONS.map((option) => {

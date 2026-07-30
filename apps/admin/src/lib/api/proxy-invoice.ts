@@ -107,10 +107,10 @@ function invoiceErrorHtml(status: number, message: string): string {
   <meta charset="utf-8" />
   <title>Invoice error · SPLARO</title>
   <style>
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: system-ui, sans-serif; background: #faf8f5; color: #111; }
-    .card { max-width: 420px; padding: 28px; border-radius: 16px; background: #fff; border: 1px solid #11111122; }
-    h1 { margin: 0 0 8px; font-size: 18px; } p { margin: 0; font-size: 14px; line-height: 1.5; color: #444; }
-    code { font-size: 12px; color: #888; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: system-ui, sans-serif; background: var(--admin-color-white); color: var(--admin-color-ink-near); }
+    .card { max-width: 420px; padding: 28px; border-radius: 16px; background: var(--admin-color-white); border: 1px solid var(--admin-color-ink-near); }
+    h1 { margin: 0 0 8px; font-size: 18px; } p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--admin-c-444444); }
+    code { font-size: 12px; color: var(--admin-c-888888); }
   </style>
 </head>
 <body>

@@ -28,16 +28,10 @@ type QuickAction = {
 const ACTIONS: QuickAction[] = [
   { label: 'Create New Order', href: '/dashboard/orders/new', icon: ShoppingBag, tone: 'violet' },
   { label: 'Add New Product', href: '/dashboard/products/new', icon: Package, tone: 'violet-soft' },
-  {
-    label: 'Upload Product CSV',
-    icon: Upload,
-    tone: 'slate',
-    disabled: true,
-    disabledTitle: `${BACKEND_NOT_CONNECTED_TITLE} Product CSV import API is not wired yet — use Export on Products.`,
-  },
+  { label: 'Upload Product CSV', href: '/dashboard/bulk', icon: Upload, tone: 'slate' },
   { label: 'Partner Transaction', href: '/dashboard/finance/partner-accounts', icon: Wallet, tone: 'ink' },
   { label: 'Daily Closing', href: '/dashboard/finance/daily-closing', icon: FileSpreadsheet, tone: 'slate' },
-  { label: 'AI Product Generator', href: '/dashboard/ai-product-generator', icon: Bot, tone: 'violet' },
+  { label: 'AI Product Generator', href: '/dashboard/ai-agent', icon: Bot, tone: 'violet' },
 ]
 
 export function QuickActions({ embedded = false }: { embedded?: boolean } = {}) {

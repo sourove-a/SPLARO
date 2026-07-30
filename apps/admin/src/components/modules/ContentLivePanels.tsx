@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { toastApiSaved, toastFail, toastInfo, toastOk } from '@/lib/admin/feedback'
 import { verifyBooleanEquals, verifyPersisted, verifyStringEquals } from '@/lib/admin/mutation-verify'
@@ -399,7 +400,7 @@ export function CmsPanelLive() {
                   <button
                     type="button"
                     onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
-                    className="flex items-center gap-1 font-semibold hover:text-[#5E7CFF]"
+                    className="flex items-center gap-1 font-semibold hover:text-[var(--admin-color-accent-blue)]"
                   >
                     {p.title}
                     <ChevronDown className={cn('h-3 w-3 transition', expandedId === p.id && 'rotate-180')} />
@@ -879,6 +880,7 @@ export function HomePagePanelLive() {
 }
 
 export function ThemeBuilderPanelLive() {
+  const router = useRouter()
   const { data: settings, isError, refetch } = useSettings()
   const branding = settings?.branding
   const store = settings?.store
@@ -904,8 +906,8 @@ export function ThemeBuilderPanelLive() {
       {
         group: 'Theme',
         tokens: [
-          { name: 'Primary gold', value: '#5E7CFF' },
-          { name: 'Background', value: '#F5F5F7' },
+          { name: 'Primary gold', value: 'var(--admin-color-accent-blue)' },
+          { name: 'Background', value: 'var(--admin-color-white)' },
           { name: 'Glass radius', value: '20px' },
         ],
       },
@@ -929,7 +931,7 @@ export function ThemeBuilderPanelLive() {
         onQuery={() => {}}
         searchPlaceholder=""
         createLabel="Edit in settings"
-        onCreate={() => toastInfo('Branding edits save in Storefront Settings.')}
+        onCreate={() => router.push('/dashboard/settings?section=branding')}
         onRefresh={() => void refetch()}
         exportDisabled
         tableIcon={Palette}

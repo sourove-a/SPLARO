@@ -68,7 +68,7 @@ export function KeywordsPanelLive() {
       footer={`${keywords.length} keywords from search_analytics`}
     >
       {filtered.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-[#6B6B6B]">No search keywords yet — they appear when customers search your store.</p>
+        <p className="px-4 py-6 text-sm text-[var(--admin-color-neutral-500)]">No search keywords yet — they appear when customers search your store.</p>
       ) : (
         <table className="admin-module-table">
           <thead>
@@ -154,7 +154,7 @@ export function IndexMonitorPanelLive() {
       }
     >
       {filtered.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-[#6B6B6B]">No published products to monitor yet.</p>
+        <p className="px-4 py-6 text-sm text-[var(--admin-color-neutral-500)]">No published products to monitor yet.</p>
       ) : (
         <table className="admin-module-table">
           <thead>
@@ -233,7 +233,7 @@ export function SchemaManagerPanelLive() {
       footer={`${schemas.reduce((s, x) => s + x.pages, 0)} pages with schema`}
     >
       {schemas.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-[#6B6B6B]">No schema configs yet — product schema inferred from catalog.</p>
+        <p className="px-4 py-6 text-sm text-[var(--admin-color-neutral-500)]">No schema configs yet — product schema inferred from catalog.</p>
       ) : (
         <table className="admin-module-table">
           <thead>
@@ -254,7 +254,7 @@ export function SchemaManagerPanelLive() {
                     <button
                       type="button"
                       onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
-                      className="flex items-center gap-1 font-semibold hover:text-[#5E7CFF]"
+                      className="flex items-center gap-1 font-semibold hover:text-[var(--admin-color-accent-blue)]"
                     >
                       {s.type}
                       <ChevronDown className={cn('h-3 w-3 transition', expandedId === s.id && 'rotate-180')} />
@@ -331,7 +331,7 @@ export function SitemapManagerPanelLive() {
                   href={liveSitemapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#5E7CFF] hover:underline"
+                  className="text-[var(--admin-color-accent-blue)] hover:underline"
                 >
                   {s.name}
                 </a>
@@ -541,8 +541,8 @@ export function RedirectManagerPanelLive() {
     >
       {filtered.length === 0 ? (
         <div className="px-4 py-6">
-          <p className="text-sm text-[#6B6B6B]">No redirect rules yet.</p>
-          <p className="mt-2 text-xs text-[#6B6B6B]">
+          <p className="text-sm text-[var(--admin-color-neutral-500)]">No redirect rules yet.</p>
+          <p className="mt-2 text-xs text-[var(--admin-color-neutral-500)]">
             Add a 301 when you rename a URL or fix a 404. Example: <span className="font-mono">/products</span> → <span className="font-mono">/shop</span>
           </p>
         </div>
@@ -563,7 +563,7 @@ export function RedirectManagerPanelLive() {
             {filtered.map((r) => (
               <tr key={r.id}>
                 <td className="font-mono text-xs">{r.from}</td>
-                <td className="font-mono text-xs text-[#5E7CFF]">{r.to}</td>
+                <td className="font-mono text-xs text-[var(--admin-color-accent-blue)]">{r.to}</td>
                 <td className="font-bold">{r.type}</td>
                 <td>{r.hits}</td>
                 <td className="text-xs font-semibold">{r.source === 'canonical' ? 'SEO canonical' : 'Managed'}</td>

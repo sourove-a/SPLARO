@@ -1,10 +1,10 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ArrowLeft, Plus, Save, ShoppingBag, Trash2 } from 'lucide-react'
+import { Plus, Save, ShoppingBag, Trash2 } from 'lucide-react'
 import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
 import { verifyNumberEquals, verifyPersisted, verifyStringEquals } from '@/lib/admin/mutation-verify'
-import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
+import { AdminButton } from '@/components/ui/AdminButton'
 import { useCreateOrder, useProducts } from '@/lib/api/hooks'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 import type { ApiProduct } from '@/lib/api/products'
@@ -119,14 +119,9 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
-      <AdminLinkButton href={moduleHref} variant="ghost">
-        <ArrowLeft className="h-4 w-4" />
-        Back to orders
-      </AdminLinkButton>
-
       <section className="admin-module-card admin-module-card--accent">
         <div className="mb-4 flex items-center gap-2">
-          <ShoppingBag className="h-5 w-5 text-[#5E7CFF]" />
+          <ShoppingBag className="h-5 w-5 text-[var(--admin-color-accent-blue)]" />
           <h3 className="admin-module-card__title">Manual order</h3>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
@@ -195,7 +190,7 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
             </tbody>
           </table>
         ) : (
-          <p className="mt-3 text-sm text-[#6B6B6B]">No items yet — add products above.</p>
+          <p className="mt-3 text-sm text-[var(--admin-color-neutral-500)]">No items yet — add products above.</p>
         )}
 
         <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -213,7 +208,7 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
           </label>
           <div className="admin-field">
             <span className="admin-kpi__label">Total</span>
-            <p className="text-xl font-black text-[#5E7CFF]">৳{total.toLocaleString('en-BD')}</p>
+            <p className="text-xl font-black text-[var(--admin-color-accent-blue)]">৳{total.toLocaleString('en-BD')}</p>
           </div>
         </div>
 

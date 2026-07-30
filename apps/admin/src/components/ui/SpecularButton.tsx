@@ -75,12 +75,12 @@ void main() {
 
 /** Night — Design Monks soft violet CTA */
 export const SPECULAR_DARK_PRESET = {
-  tint: '#8b5cff',
+  tint: 'var(--admin-color-violet-bright)',
   tintOpacity: 0.96,
   blur: 0,
-  textColor: '#ffffff',
-  lineColor: '#f0e8ff',
-  baseColor: '#6b3fe0',
+  textColor: 'var(--admin-color-white)',
+  lineColor: 'var(--admin-c-f0e8ff)',
+  baseColor: 'var(--admin-c-6b3fe0)',
   intensity: 1.12,
   shineSize: 12,
   shineFade: 36,
@@ -90,12 +90,12 @@ export const SPECULAR_DARK_PRESET = {
 
 /** Day — Design Monks violet CTA with soft specular rim */
 export const SPECULAR_LIGHT_PRESET = {
-  tint: '#712eff',
+  tint: 'var(--admin-c-712eff)',
   tintOpacity: 0.98,
   blur: 0,
-  textColor: '#ffffff',
-  lineColor: '#e8deff',
-  baseColor: '#5b1fd9',
+  textColor: 'var(--admin-color-white)',
+  lineColor: 'var(--admin-c-e8deff)',
+  baseColor: 'var(--admin-c-5b1fd9)',
   intensity: 1.08,
   shineSize: 11,
   shineFade: 38,

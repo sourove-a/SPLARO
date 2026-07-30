@@ -1,6 +1,7 @@
 'use client'
 
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { refreshWithToast, toastOk, toastFail } from '@/lib/admin/feedback'
 import {
   confirmBrandSaved,
@@ -20,6 +21,7 @@ import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { useBrands, useCollections, useCreateBrand, useCreateCollection, useProducts, useDeleteProduct, useUpdateCollection, useUpdateBrand, usePublishedProductCount, useInventoryAlerts, useUpdateProductVariant, usePermission } from '@/lib/api/hooks'
 import { PERMISSION_DENIED_TITLE } from '@/lib/auth/permissions'
 import { productStatus, productStock, type ApiProduct } from '@/lib/api/products'
+import { resolveMediaUrl } from '@/lib/media-url'
 import { formatBDT } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils/cn'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
@@ -57,15 +59,22 @@ function KpiCard({
   accent,
   delta,
   deltaTone,
+  onClick,
 }: {
   label: string
   value: string | number
   accent?: string
   delta?: string
   deltaTone?: 'up' | 'down' | 'neutral'
+  onClick?: () => void
 }) {
-  return (
-    <div className={cn('admin-kpi-card', accent && `admin-kpi-card--${accent}`)}>
+  const className = cn(
+    'admin-kpi-card',
+    accent && `admin-kpi-card--${accent}`,
+    onClick && 'admin-kpi-card--clickable cursor-pointer text-left transition-transform hover:-translate-y-0.5',
+  )
+  const body = (
+    <>
       <p className="admin-kpi-card__label">{label}</p>
       <div className="admin-kpi-card__row">
         <p className="admin-kpi-card__value">{value}</p>
@@ -75,8 +84,19 @@ function KpiCard({
           </span>
         ) : null}
       </div>
-    </div>
+      {onClick ? (
+        <p className="mt-1.5 text-[10px] font-bold text-[var(--admin-foundation-primary,var(--admin-c-712eff))]">Filter →</p>
+      ) : null}
+    </>
   )
+  if (onClick) {
+    return (
+      <button type="button" className={className} onClick={onClick}>
+        {body}
+      </button>
+    )
+  }
+  return <div className={className}>{body}</div>
 }
 
 function PanelHeader({
@@ -94,6 +114,7 @@ function PanelHeader({
     accent?: string
     delta?: string
     deltaTone?: 'up' | 'down' | 'neutral'
+    onClick?: () => void
   }>
   children?: React.ReactNode
   action?: React.ReactNode
@@ -220,7 +241,8 @@ type ProductStatus = 'active' | 'draft' | 'archived'
 function productImageUrl(p: ApiProduct): string | null {
   const imgs = p.images ?? []
   const preferred = imgs.find((i) => i.isDefault) ?? imgs[0]
-  return preferred?.url ?? p.variants?.find((v) => v.image)?.image ?? null
+  const raw = preferred?.url ?? p.variants?.find((v) => v.image)?.image ?? null
+  return raw ? resolveMediaUrl(raw) : null
 }
 
 function mapApiProduct(p: ApiProduct) {
@@ -246,6 +268,7 @@ function ProductsPanel() {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<ProductStatus | 'all'>('all')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [lowStockOnly, setLowStockOnly] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const { data: apiData, isError, isLoading, refetch } = useProducts({ limit: 50 })
   const { data: liveCount, isError: liveCountError, isLoading: liveCountLoading } = usePublishedProductCount()
@@ -265,9 +288,10 @@ function ProductsPanel() {
       const matchQ = !q || p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)
       const matchS = statusFilter === 'all' || p.status === statusFilter
       const matchC = categoryFilter === 'all' || p.category === categoryFilter
-      return matchQ && matchS && matchC
+      const matchLow = !lowStockOnly || (p.stock > 0 && p.stock <= 5)
+      return matchQ && matchS && matchC && matchLow
     })
-  }, [query, statusFilter, categoryFilter, catalog])
+  }, [query, statusFilter, categoryFilter, lowStockOnly, catalog])
 
   const activeCount = catalog.filter((p) => p.status === 'active').length
   const draftCount = catalog.filter((p) => p.status === 'draft').length
@@ -368,12 +392,21 @@ function ProductsPanel() {
             value: liveCountLoading ? '…' : (liveCount ?? 0),
             accent: 'success',
             ...(liveCountLoading ? {} : { delta: `${activeShare}% catalog`, deltaTone: 'up' as const }),
+            onClick: () => {
+              setLowStockOnly(false)
+              setStatusFilter('active')
+            },
           },
           {
             label: 'Total products',
             value: isLoading ? '…' : totalCount,
             delta: `${catalog.length} loaded`,
             deltaTone: 'neutral',
+            onClick: () => {
+              setLowStockOnly(false)
+              setStatusFilter('all')
+              setCategoryFilter('all')
+            },
           },
           {
             label: 'Active',
@@ -381,6 +414,10 @@ function ProductsPanel() {
             accent: 'success',
             delta: `${activeShare}%`,
             deltaTone: 'up',
+            onClick: () => {
+              setLowStockOnly(false)
+              setStatusFilter('active')
+            },
           },
           {
             label: 'Low stock',
@@ -388,9 +425,24 @@ function ProductsPanel() {
             accent: 'warning',
             delta: lowStockCount ? `-${lowShare}%` : '0%',
             deltaTone: lowStockCount ? 'down' : 'neutral',
+            onClick: () => {
+              setStatusFilter('all')
+              setLowStockOnly(true)
+            },
           },
         ]}
       />
+
+      <div className="admin-beta-banner" role="note">
+        <span className="admin-beta-banner__chip">BULK</span>
+        <span>
+          Bulk stock, publish, and price APIs are live — use{' '}
+          <Link href="/dashboard/bulk" className="font-bold underline">
+            Bulk &amp; CSV
+          </Link>{' '}
+          for CSV import with dry-run.
+        </span>
+      </div>
 
       {(lowStockCount > 0 || outCount > 0) && (
         <div className="admin-catalog-alert" role="status">
@@ -452,7 +504,7 @@ function ProductsPanel() {
             <p className="admin-empty-state__text">Try another search, status, or category filter.</p>
           </div>
         ) : (
-          <table className="admin-catalog-data-table">
+          <table className="admin-catalog-data-table admin-data-table">
             <thead>
               <tr>
                 {['Product', 'Price', 'Category', 'Stock', 'SKU', 'Variants', 'Status', ''].map((h) => (
@@ -545,7 +597,7 @@ function ProductsPanel() {
                       <td colSpan={8} className={TD}>
                         <div className="admin-catalog-row-expand__actions">
                           <a href={`/dashboard/products/${p.linkId}/edit`} className="admin-catalog-action admin-catalog-action--primary">Edit product</a>
-                          <a href={`/dashboard/inventory?sku=${encodeURIComponent(p.id)}`} className="admin-catalog-action">View inventory</a>
+                          <a href={`/dashboard/inventory?sku=${encodeURIComponent(p.linkId)}`} className="admin-catalog-action">View inventory</a>
                           <AdminButton size="sm" onClick={() => handlePrintLabel(p)}>
                             <Printer className="h-3.5 w-3.5" aria-hidden /> Print label
                           </AdminButton>
@@ -619,7 +671,7 @@ function CollectionsPanel() {
             <p className="admin-empty-state__text">No collections yet. Click &apos;New collection&apos; to add one.</p>
           </div>
         ) : (
-          <table className="admin-catalog-data-table">
+          <table className="admin-catalog-data-table admin-data-table">
             <thead><tr>{['Collection', 'Products', 'Slug', 'Visibility', 'Updated', ''].map((h) => <th key={h} className={TH}>{h}</th>)}</tr></thead>
             <tbody>
               {filtered.map((c) => (
@@ -706,6 +758,14 @@ function InventoryPanel() {
   const { data: alerts, isError: alertsError } = useInventoryAlerts()
   const { data: liveCount, isError: liveCountError, isLoading: liveCountLoading } = usePublishedProductCount()
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const stock = new URLSearchParams(window.location.search).get('stock')
+    if (stock === 'low' || stock === 'out' || stock === 'healthy' || stock === 'all') {
+      setStockFilter(stock)
+    }
+  }, [])
+
   const rows = useMemo(() => (data?.products ?? []).map((p) => {
     const stock = productStock(p)
     const reserved = p.variants?.reduce((s, v) => s + (v.reservedStock ?? 0), 0) ?? 0
@@ -771,10 +831,10 @@ function InventoryPanel() {
       </div>
 
       <PanelHeader icon={Archive} title="Inventory" kpis={[
-        { label: 'SKUs tracked', value: isLoading ? '…' : rows.length },
-        { label: 'Low stock', value: isLoading ? '…' : low, accent: 'warning' },
-        { label: 'Out of stock', value: isLoading ? '…' : out, accent: 'gold' },
-        { label: 'Units on hand', value: isLoading ? '…' : unitsOnHand, accent: 'success' },
+        { label: 'SKUs tracked', value: isLoading ? '…' : rows.length, onClick: () => setStockFilter('all') },
+        { label: 'Low stock', value: isLoading ? '…' : low, accent: 'warning', onClick: () => setStockFilter('low') },
+        { label: 'Out of stock', value: isLoading ? '…' : out, accent: 'gold', onClick: () => setStockFilter('out') },
+        { label: 'Units on hand', value: isLoading ? '…' : unitsOnHand, accent: 'success', onClick: () => setStockFilter('healthy') },
       ]} />
 
       {(low > 0 || out > 0) && (
@@ -823,7 +883,7 @@ function InventoryPanel() {
       </div>
 
       <GlassTable icon={Archive} title={`Inventory · ${filtered.length} results`} footer={`Live stock from ${rows.length} products · adjustments save to API`}>
-        <table className="admin-catalog-data-table">
+        <table className="admin-catalog-data-table admin-data-table">
           <thead><tr>{['SKU', 'Product', 'On hand', 'Reserved', 'Available', 'Status', ''].map((h) => <th key={h} className={TH}>{h}</th>)}</tr></thead>
           <tbody>
             {filtered.map((i) => (
@@ -950,7 +1010,7 @@ function BrandsPanel() {
       ]} />
       <Toolbar query={query} onQuery={setQuery} placeholder="Search brand or vendor…" createLabel="Add brand" onCreate={handleCreate} onRefresh={() => void refreshWithToast(refetch, 'Brands refreshed')} />
       <GlassTable icon={Award} title={`Brands · ${filtered.length} results`} footer="Live brands from database — no demo rows">
-        <table className="admin-catalog-data-table">
+        <table className="admin-catalog-data-table admin-data-table">
           <thead><tr>{['Slug', 'Brand', 'Products', 'Vendor', 'Country', 'Status', ''].map((h) => <th key={h} className={TH}>{h}</th>)}</tr></thead>
           <tbody>
             {filtered.map((b) => (
@@ -1028,7 +1088,7 @@ function AttributesPanel() {
         onExport={exportAttributes}
       />
       <GlassTable icon={Tags} title={`Attributes · ${filtered.length} results`} footer="Derived from live product data — not demo rows">
-        <table className="admin-catalog-data-table">
+        <table className="admin-catalog-data-table admin-data-table">
           <thead><tr>{['ID', 'Attribute', 'Type', 'Values', 'Used in', 'Status', ''].map((h) => <th key={h} className={TH}>{h}</th>)}</tr></thead>
           <tbody>
             {filtered.map((a) => (

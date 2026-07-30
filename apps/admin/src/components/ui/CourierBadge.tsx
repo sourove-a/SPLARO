@@ -84,43 +84,43 @@ function IconUnknown({ color }: { color: string }) {
 const COURIER_MAP: Record<string, CourierConfig> = {
   STEADFAST: {
     label: 'Steadfast',
-    accent: '#1d6f42',
-    bg: '#f0faf4',
-    border: '#bbdecb',
-    textColor: '#166534',
-    icon: <IconSteadfast color="#1d6f42" />,
+    accent: 'var(--admin-c-1d6f42)',
+    bg: 'var(--admin-color-white)',
+    border: 'var(--admin-c-bbdecb)',
+    textColor: 'var(--admin-c-166534)',
+    icon: <IconSteadfast color="var(--admin-c-1d6f42)" />,
   },
   PATHAO: {
     label: 'Pathao',
-    accent: '#e8380d',
-    bg: '#fff4f1',
-    border: '#fcc8bc',
-    textColor: '#b91c1c',
-    icon: <IconPathao color="#e8380d" />,
+    accent: 'var(--admin-c-e8380d)',
+    bg: 'var(--admin-color-white)',
+    border: 'var(--admin-c-fcc8bc)',
+    textColor: 'var(--admin-danger-strong)',
+    icon: <IconPathao color="var(--admin-c-e8380d)" />,
   },
   REDX: {
     label: 'REDX',
-    accent: '#c0392b',
-    bg: '#fff1f1',
-    border: '#fbc8c8',
-    textColor: '#991b1b',
-    icon: <IconRedx color="#c0392b" />,
+    accent: 'var(--admin-c-c0392b)',
+    bg: 'var(--admin-color-white)',
+    border: 'var(--admin-c-fbc8c8)',
+    textColor: 'var(--admin-c-991b1b)',
+    icon: <IconRedx color="var(--admin-c-c0392b)" />,
   },
   PAPERFLY: {
     label: 'Paperfly',
-    accent: '#7c3aed',
-    bg: '#f5f3ff',
-    border: '#d8b4fe',
-    textColor: '#5b21b6',
-    icon: <IconPaperfly color="#7c3aed" />,
+    accent: 'var(--admin-c-7c3aed)',
+    bg: 'var(--admin-color-white)',
+    border: 'var(--admin-c-d8b4fe)',
+    textColor: 'var(--admin-c-5b21b6)',
+    icon: <IconPaperfly color="var(--admin-c-7c3aed)" />,
   },
   SUNDARBAN: {
     label: 'Sundarban',
-    accent: '#0369a1',
-    bg: '#f0f9ff',
-    border: '#bae6fd',
-    textColor: '#0c4a6e',
-    icon: <IconSundarban color="#0369a1" />,
+    accent: 'var(--admin-c-0369a1)',
+    bg: 'var(--admin-color-white)',
+    border: 'var(--admin-c-bae6fd)',
+    textColor: 'var(--admin-c-0c4a6e)',
+    icon: <IconSundarban color="var(--admin-c-0369a1)" />,
   },
 }
 
@@ -141,7 +141,7 @@ export function CourierBadge({ provider, variant = 'pill', status, className }: 
   if (!cfg) {
     return (
       <span className={cn('courier-badge courier-badge--unknown', className)}>
-        <IconUnknown color="#6b7280" />
+        <IconUnknown color="var(--admin-c-6b7280)" />
         <span>{provider || '—'}</span>
       </span>
     )

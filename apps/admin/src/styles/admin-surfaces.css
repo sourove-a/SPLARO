@@ -1,0 +1,397 @@
+/**
+ * SPLARO Admin — Design Monks surfaces (shell, sidebar, dashboard, catalog).
+ * Brand violet for active/CTA. Box-shadow forbidden on sections (no light bleed).
+ */
+
+@import './admin-catalog-premium.css';
+@import './admin-shell-premium.css';
+@import './admin-premium-dashboard.css';
+
+/* ═══════════════════════════════════════════
+   CANVAS + SHELL
+   ═══════════════════════════════════════════ */
+html:not(.dark) .admin-dashboard-canvas,
+html:not(.dark) .admin-module-page,
+html:not(.dark) .admin-module-canvas,
+html:not(.dark) .admin-panel-page {
+  background: var(--admin-foundation-canvas);
+}
+
+html:not(.dark) .admin-sidebar {
+  border-right: 1px solid var(--admin-foundation-border);
+  background: var(--admin-foundation-surface);
+  box-shadow: none;
+}
+
+html:not(.dark) .admin-header,
+html:not(.dark) [data-admin-header],
+html:not(.dark) .admin-topbar {
+  border-bottom: 1px solid var(--admin-foundation-border);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: none;
+}
+
+/* ═══════════════════════════════════════════
+   SIDEBAR NAV — flat active, demote non-live
+   ═══════════════════════════════════════════ */
+html:not(.dark) .admin-sidebar .admin-nav-item,
+html:not(.dark) .admin-sidebar__flat-section--expanded .admin-nav-item {
+  min-height: 2.35rem;
+  border: 1px solid transparent;
+  border-radius: var(--admin-radius-control);
+  font-weight: 600;
+  color: var(--admin-foundation-ink-secondary);
+  background: transparent;
+  background-image: none;
+}
+
+html:not(.dark) .admin-sidebar .admin-nav-item__label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+html:not(.dark) .admin-sidebar .admin-nav-item:hover:not(.admin-nav-item--active) {
+  border-color: transparent;
+  background: var(--admin-foundation-canvas);
+  color: var(--admin-foundation-ink);
+}
+
+html:not(.dark) .admin-sidebar .admin-nav-item--active,
+html:not(.dark) .admin-sidebar__flat-section--expanded .admin-nav-item--active {
+  border-color: var(--admin-nav-active-border);
+  background: var(--admin-nav-active-bg);
+  background-image: none;
+  color: var(--admin-color-white);
+  font-weight: 600;
+  box-shadow: none;
+  filter: none;
+}
+
+html:not(.dark) .admin-sidebar .admin-nav-item--active::before {
+  display: none; /* solid fill already reads as active — no extra glow rail */
+}
+
+html:not(.dark) .admin-sidebar .admin-nav-item--active .admin-nav-item__label,
+html:not(.dark) .admin-sidebar .admin-nav-item--active .admin-nav-count,
+html:not(.dark) .admin-sidebar .admin-nav-item--active .admin-nav-badge {
+  color: var(--admin-color-white);
+}
+
+html:not(.dark) .admin-sidebar .admin-nav-item--active .admin-nav-item__icon {
+  background: var(--admin-nav-icon-active-bg);
+  background-image: none;
+  color: var(--admin-nav-icon-active-color);
+  box-shadow: none;
+  filter: none;
+}
+
+html:not(.dark) .admin-sidebar .admin-nav-item__icon {
+  background: var(--admin-nav-icon-idle-bg);
+  color: var(--admin-nav-icon-idle-color);
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+/* Non-live demotion */
+.admin-nav-item--beta,
+.admin-nav-item--prototype {
+  opacity: 0.55;
+}
+
+.admin-nav-item--beta .admin-nav-item__label,
+.admin-nav-item--prototype .admin-nav-item__label {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.admin-nav-maturity {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  border: 1px solid var(--admin-foundation-border);
+  color: var(--admin-foundation-ink-muted);
+  background: var(--admin-foundation-canvas);
+}
+
+.admin-nav-maturity--beta {
+  color: var(--admin-c-a16207);
+  border-color: rgba(161, 98, 7, 0.25);
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.admin-nav-maturity--prototype {
+  color: var(--admin-foundation-ink-muted);
+}
+
+html:not(.dark) .admin-sidebar__flat-section--expanded .admin-sidebar__flat-label {
+  color: var(--admin-foundation-ink-muted);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+/* ═══════════════════════════════════════════
+   DASHBOARD — quiet hierarchy
+   ═══════════════════════════════════════════ */
+.premium-dash__section-title {
+  font-weight: 600 !important;
+  letter-spacing: -0.02em;
+  color: var(--admin-foundation-ink);
+}
+
+.premium-dash__section-meta,
+.premium-dash__section-meta--under {
+  font-weight: 500;
+  color: var(--admin-foundation-ink-muted);
+}
+
+.premium-dash__section-icon {
+  background: var(--admin-foundation-canvas);
+  color: var(--admin-foundation-ink-secondary);
+  border: 1px solid var(--admin-foundation-border);
+  box-shadow: none;
+  background-image: none;
+}
+
+.premium-dash .admin-kpi,
+.premium-dash .admin-kpi-card {
+  border-radius: var(--admin-radius-card);
+  box-shadow: none;
+}
+
+/* Kill glow / gradient leftovers on dashboard CTA chips */
+.premium-dash [class*='gradient'],
+.premium-dash__hero,
+.premium-dash__welcome {
+  background-image: none;
+}
+
+.premium-dash__hero-glow {
+  display: none !important;
+}
+
+/* ═══════════════════════════════════════════
+   CATALOG / PANEL SHELL — calm radii
+   ═══════════════════════════════════════════ */
+.admin-catalog-hero,
+.admin-panel-hero,
+.admin-catalog-table-shell,
+.admin-panel-glass {
+  border-radius: var(--admin-radius-panel);
+  border-color: var(--admin-foundation-border);
+  background: var(--admin-foundation-surface);
+  box-shadow: none;
+  background-image: none;
+  filter: none;
+  isolation: isolate;
+}
+
+.admin-catalog-hero__title {
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--admin-foundation-ink);
+}
+
+.admin-catalog-icon-ring,
+.admin-catalog-icon-ring--lg {
+  background: var(--admin-foundation-canvas);
+  color: var(--admin-foundation-ink-secondary);
+  border: 1px solid var(--admin-foundation-border);
+  box-shadow: none;
+  background-image: none;
+}
+
+.admin-catalog-action--primary,
+.admin-catalog-action.admin-catalog-action--primary {
+  background: var(--admin-foundation-primary);
+  background-image: none;
+  border-color: var(--admin-foundation-primary);
+  color: var(--admin-c-fafafa);
+  box-shadow: none;
+  font-weight: 600;
+  border-radius: var(--admin-radius-control);
+}
+
+.admin-catalog-toolbar {
+  border-radius: var(--admin-radius-card);
+  border-color: var(--admin-foundation-border);
+  background: var(--admin-foundation-surface);
+}
+
+.admin-catalog-data-table thead th,
+.admin-module-table thead th {
+  background: var(--admin-foundation-canvas-raised);
+  font-weight: 600;
+  color: var(--admin-foundation-ink-muted);
+  border-bottom-color: var(--admin-foundation-border);
+}
+
+.admin-catalog-data-table tbody tr:hover td,
+.admin-module-table tbody tr:hover td {
+  background: var(--admin-foundation-primary-soft);
+}
+
+/* ═══════════════════════════════════════════
+   SETTINGS — align to admin tokens
+   ═══════════════════════════════════════════ */
+.settings-shell,
+[data-settings-shell] {
+  --settings-accent: var(--admin-foundation-primary);
+  --settings-accent-hover: var(--admin-foundation-primary-hover);
+  --settings-canvas: var(--admin-foundation-canvas);
+  --settings-surface: var(--admin-foundation-surface);
+  --settings-ink: var(--admin-foundation-ink);
+  --settings-muted: var(--admin-foundation-ink-muted);
+  --settings-border: var(--admin-foundation-border);
+  --settings-radius: var(--admin-radius-card);
+}
+
+/* ═══════════════════════════════════════════
+   LOGIN — dark glass on cosmos (light text).
+   Never force --admin-foundation-surface (white) here — kills contrast.
+   ═══════════════════════════════════════════ */
+.admin-auth-shell__glow,
+.admin-auth-glass-panel__shine {
+  display: none !important;
+}
+
+.admin-auth-glass-panel,
+.admin-auth-card,
+.admin-login-card,
+[data-admin-login] {
+  border-radius: var(--admin-radius-panel);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: none;
+  /* Opaque dark panel — readable over earth video, matches light-on-dark type */
+  background: rgba(12, 14, 20, 0.92);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  color: rgba(255, 255, 255, 0.96);
+  isolation: isolate;
+}
+
+.admin-login-title,
+.admin-auth-title,
+.admin-auth-card__title {
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: rgba(255, 255, 255, 0.96);
+}
+
+.admin-auth-card__eyebrow,
+.admin-auth-label {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.admin-auth-card__subtitle,
+.admin-auth-footer,
+.admin-auth-footer a {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Flat Design Monks violet CTA — white on var(--admin-c-712eff) (WCAG AA) */
+.admin-auth-submit {
+  background: var(--admin-c-712eff) !important;
+  background-image: none !important;
+  border-color: var(--admin-c-712eff) !important;
+  color: var(--admin-color-white) !important;
+  box-shadow: none !important;
+  font-weight: 600 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.admin-auth-submit:hover:not(:disabled) {
+  background: var(--admin-c-5b1fd9) !important;
+  background-image: none !important;
+  border-color: var(--admin-c-5b1fd9) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.admin-auth-input {
+  box-shadow: none !important;
+}
+
+/* ═══════════════════════════════════════════
+   TYPE RESTRAINT — kill font-black feel via CSS
+   ═══════════════════════════════════════════ */
+.admin-module-page .font-black,
+.admin-panel-page .font-black,
+.premium-dash .font-black {
+  font-weight: 600;
+}
+
+.admin-conn-strip__title {
+  font-weight: 600;
+}
+
+.admin-glass-chip--accent,
+.admin-glass-chip--gold {
+  border-color: var(--admin-foundation-primary-border);
+  background: var(--admin-foundation-primary-soft);
+  color: var(--admin-foundation-primary);
+}
+
+/* ═══════════════════════════════════════════
+   HARD: no shadow bleed across live surfaces
+   ═══════════════════════════════════════════ */
+html:not(.dark) :is(
+  .admin-kpi,
+  .admin-kpi-card,
+  .admin-module-card,
+  .admin-module-section,
+  .admin-module-hero,
+  .admin-catalog-hero,
+  .admin-panel-hero,
+  .admin-catalog-table-shell,
+  .admin-panel-glass,
+  .admin-glass-mini,
+  .admin-catalog-toolbar,
+  .admin-btn,
+  .admin-catalog-action,
+  .premium-dash__zone,
+  .premium-dash__health-card,
+  .settings-command-hero,
+  .settings-sidebar-panel,
+  .settings-card,
+  .settings-section-card,
+  .product-create-hero,
+  .product-create-form,
+  .product-media-add,
+  .admin-sidebar,
+  .admin-header
+) {
+  box-shadow: none !important;
+  filter: none;
+}
+
+html:not(.dark) :is(
+  .admin-kpi,
+  .admin-kpi-card,
+  .admin-module-card,
+  .admin-catalog-hero,
+  .admin-panel-hero,
+  .admin-catalog-table-shell,
+  .admin-panel-glass,
+  .admin-glass-mini
+)::before,
+html:not(.dark) :is(
+  .admin-kpi,
+  .admin-kpi-card,
+  .admin-module-card,
+  .admin-catalog-hero,
+  .admin-panel-hero,
+  .admin-catalog-table-shell,
+  .admin-panel-glass,
+  .admin-glass-mini
+)::after {
+  box-shadow: none !important;
+  filter: none;
+}

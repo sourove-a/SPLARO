@@ -1,24 +1,23 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import type { Metadata, Viewport } from 'next'
+import { Inter, Noto_Sans_Bengali } from 'next/font/google'
 import { STRIP_EXTENSION_ATTRS_SCRIPT, splaroMetadataIcons } from '@splaro/config'
 import { Providers } from '@/components/layout/Providers'
+import { DcThemeScript } from '@/components/dc/theme'
 import './globals.css'
-/* Wins light-mode cascade after globals premium/liquid passes */
-import '../styles/admin-luxury-2027.css'
-/* Solid shell layer — sidebar colour · header · module heroes */
-import '../styles/admin-shell-premium.css'
-/* Global click/hover feel — every button, tab, card, input */
-import '../styles/admin-interactions-premium.css'
-/* Design Monks–inspired violet accent + premium canvas */
-import '../styles/admin-designmonks-accent.css'
-/* Catalog / Products — Shadcn-kit composition */
-import '../styles/admin-catalog-premium.css'
-/* Final theme unify — one violet language across shell/settings/tables */
-import '../styles/admin-theme-unify.css'
+import '@/styles/dc.css'
+// Loaded after globals so the DC login modifiers win over the legacy
+// `.admin-auth-shell` base rules (same specificity — source order decides).
+import '@/styles/admin-login-dc.css'
 
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
+  display: 'swap',
+})
+
+const notoBengali = Noto_Sans_Bengali({
+  subsets: ['bengali'],
+  variable: '--font-noto-bengali',
   display: 'swap',
 })
 
@@ -29,9 +28,23 @@ export const metadata: Metadata = {
   icons: splaroMetadataIcons,
 }
 
+/** Without this, phones render ~980px desktop layout and all ≤820px mobile CSS never matches. */
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={inter.variable}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${inter.variable} ${notoBengali.variable}`}
+    >
+      <head>
+        <DcThemeScript />
+      </head>
       <body className="antialiased" suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: STRIP_EXTENSION_ATTRS_SCRIPT }} />
         <Providers>{children}</Providers>

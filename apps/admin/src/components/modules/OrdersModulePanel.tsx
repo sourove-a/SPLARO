@@ -118,7 +118,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
   if (isError || !order) {
     return (
       <div style={{ padding: '32px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: '#B91C1C' }}>Order not found or API unavailable.</p>
+        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-danger-strong)' }}>Order not found or API unavailable.</p>
         <AdminLinkButton href={moduleHref} variant="ghost"><ArrowLeft style={{ width: 16, height: 16 }} /> Back to orders</AdminLinkButton>
       </div>
     )
@@ -262,11 +262,6 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
 
   return (
     <div className="admin-panel-page mx-auto max-w-[960px] space-y-4">
-      <AdminLinkButton href={moduleHref} variant="ghost">
-        <ArrowLeft className="h-4 w-4" />
-        Back to orders
-      </AdminLinkButton>
-
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_280px]">
         <div className="admin-catalog-hero admin-panel-hero !mb-0 flex flex-col gap-5 !p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -385,7 +380,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
             </p>
             <button
               type="button"
-              className="mt-2.5 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[rgba(113,46,255,0.28)] bg-[rgba(113,46,255,0.10)] py-1.5 text-xs font-extrabold text-[#5b1fd9]"
+              className="mt-2.5 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[rgba(113,46,255,0.28)] bg-[rgba(113,46,255,0.10)] py-1.5 text-xs font-extrabold text-[var(--admin-c-5b1fd9)]"
               onClick={() => { const p = order.shippingPhone.replace(/\D/g, ''); window.open(`https://wa.me/88${p.startsWith('0') ? p.slice(1) : p}`, '_blank') }}
             >
               <MessageSquare className="h-3.5 w-3.5" /> WhatsApp customer
@@ -487,7 +482,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
                 {order.isCodRisk ? 'Clear COD risk flag' : 'Flag as COD risk'}
               </AdminButton>
               {order.requireAdvancePayment ? (
-                <p style={{ fontSize: 11, fontWeight: 700, color: '#B45309', margin: '8px 0 0' }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--admin-warning-ink)', margin: '8px 0 0' }}>
                   Advance payment required on this order
                 </p>
               ) : null}

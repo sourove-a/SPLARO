@@ -1,6 +1,6 @@
 /** Canonical admin routes for each integration setup screen. */
 export const INTEGRATION_SETUP_PATHS: Record<string, string> = {
-  telegram: '/dashboard/settings?section=notifications#telegram',
+  telegram: '/dashboard/telegram-bot',
   openai: '/dashboard/ai-agent',
   google_sheets: '/dashboard/google-workspace/sheets-sync',
   gmail: '/dashboard/google-workspace/gmail',
@@ -13,7 +13,7 @@ export const INTEGRATION_SETUP_PATHS: Record<string, string> = {
   redx: '/dashboard/settings?section=infrastructure',
   cloudflare_r2: '/dashboard/settings?section=infrastructure',
   smtp: '/dashboard/settings?section=notifications',
-  sms: '/dashboard/email-sms',
+  sms: '/dashboard/sms',
   meta_pixel: '/dashboard/settings?section=marketing',
   google_analytics: '/dashboard/settings?section=marketing',
   search_console: '/dashboard/seo-health',

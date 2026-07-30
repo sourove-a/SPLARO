@@ -9,17 +9,20 @@ export function invoiceApiUrl(orderId: string, suffix: InvoiceSuffix = ''): stri
   return `/api/orders/${encodeURIComponent(orderId)}/invoice${suffix}`
 }
 
-const INVOICE_FETCH_TIMEOUT_MS = 12_000
+const INVOICE_HTML_TIMEOUT_MS = 12_000
+/** Puppeteer PDF can take up to 60s; proxy allows 90s — match that budget. */
+const INVOICE_PDF_TIMEOUT_MS = 90_000
 
 /** Authenticated fetch for invoice HTML/PDF — session cookie (credentials include). */
 export async function fetchAdminInvoice(
   orderId: string,
   suffix: InvoiceSuffix = '',
 ): Promise<Response> {
+  const timeoutMs = suffix === '/pdf' ? INVOICE_PDF_TIMEOUT_MS : INVOICE_HTML_TIMEOUT_MS
   return fetch(invoiceApiUrl(orderId, suffix), {
     credentials: 'include',
     cache: 'no-store',
-    signal: AbortSignal.timeout(INVOICE_FETCH_TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
   })
 }
 

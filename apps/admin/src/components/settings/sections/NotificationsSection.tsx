@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { CheckCircle2, Mail, Plus, Power, Server, Trash2, XCircle } from 'lucide-react'
 import { TelegramBotConfigPanel } from '@/components/modules/TelegramBotConfigPanel'
@@ -190,7 +191,29 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
                       </span>
                       <button type="button" className="settings-text-link" disabled={testing !== null} onClick={() => void testSmtpAccount(account.id)}>Test</button>
                       <button type="button" className="settings-text-link" onClick={() => updateSmtpAccounts(draft.smtpAccounts.map((item) => item.id === account.id ? { ...item, enabled: !item.enabled } : item), 'SMTP account status')}>{account.enabled ? 'Disable' : 'Enable'}</button>
-                      <button type="button" aria-label={`Delete ${account.label}`} className="smtp-account__delete" onClick={() => updateSmtpAccounts(draft.smtpAccounts.filter((item) => item.id !== account.id).map((item, i) => ({ ...item, priority: i + 1 })), 'SMTP account removed')}><Trash2 size={14} strokeWidth={1.75} /></button>
+                      <button
+                        type="button"
+                        aria-label={`Delete ${account.label}`}
+                        className="smtp-account__delete"
+                        onClick={() => {
+                          const label = account.label || account.fromEmail || 'this account'
+                          if (
+                            !window.confirm(
+                              `Remove SMTP account "${label}"? This saves immediately.`,
+                            )
+                          ) {
+                            return
+                          }
+                          updateSmtpAccounts(
+                            draft.smtpAccounts
+                              .filter((item) => item.id !== account.id)
+                              .map((item, i) => ({ ...item, priority: i + 1 })),
+                            'SMTP account removed',
+                          )
+                        }}
+                      >
+                        <Trash2 size={14} strokeWidth={1.75} />
+                      </button>
                     </div>
                     {health && !health.ok ? <p className="smtp-account__error">{health.message}</p> : null}
                   </div>
@@ -343,9 +366,15 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
       </SectionCard>
 
       <SectionCard
+        id="telegram"
         title="Telegram Bot"
-        subtitle="Bot token, chat ID, and alert toggles — one save to encrypted database (.env ignored after first save)."
+        subtitle="Full setup lives on Integrations → Telegram Bot. Embedded panel below uses the same verified API."
       >
+        <p style={{ margin: '0 0 12px', fontSize: '0.8125rem', fontWeight: 600 }}>
+          <Link href="/dashboard/telegram-bot" className="settings-text-link">
+            Open dedicated Telegram Bot screen →
+          </Link>
+        </p>
         <TelegramBotConfigPanel embedded />
       </SectionCard>
 

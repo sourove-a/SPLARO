@@ -25,7 +25,7 @@ type MediaAsset = {
 }
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
-const GOLD = '#16181d'
+const GOLD = 'var(--admin-c-16181d)'
 const GOLD_LIGHT = 'rgba(16, 17, 20, 0.10)'
 const GOLD_BORDER = 'rgba(16, 17, 20, 0.32)'
 

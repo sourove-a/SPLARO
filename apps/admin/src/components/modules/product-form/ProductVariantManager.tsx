@@ -1,14 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Plus, Archive, Loader2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Archive, Loader2, Plus } from 'lucide-react'
 import { useCreateProductVariant, useUpdateProductVariant, useArchiveProductVariant } from '@/lib/api/hooks'
-import { toastFail, toastOk } from '@/lib/admin/feedback'
+import { toastFail, toastApiSaved, toastOk } from '@/lib/admin/feedback'
 import {
   confirmVariantArchived,
   confirmVariantCreated,
   confirmVariantSaved,
 } from '@/lib/admin/catalog-save'
+import {
+  verifyVariantCreated,
+  verifyVariantPersisted,
+  verifyVariantResponse,
+} from '@/lib/admin/catalog-mutation-verify'
 import { cn } from '@/lib/utils/cn'
 import type { ApiProduct } from '@/lib/api/products'
 
@@ -42,6 +47,11 @@ const STOCK_REASONS = [
   'Return restock',
 ] as const
 
+const SIZE_CHIPS = [
+  'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL',
+  '36', '37', '38', '39', '40', '41', '42',
+] as const
+
 function serverStock(v: Variant): number {
   return Number(v.stock ?? v.stockQuantity ?? 0)
 }
@@ -63,8 +73,17 @@ function draftFromVariant(v: Variant): RowDraft {
 }
 
 const EMPTY_DRAFT: RowDraft = {
-  size: '', color: '', colorName: '', colorHex: '#111111', image: '', sku: '', price: '', compareAtPrice: '', stock: '0',
-  stockReason: 'Admin manual update', stockNote: '',
+  size: '',
+  color: '',
+  colorName: 'Default',
+  colorHex: 'var(--admin-color-ink-near)',
+  image: '',
+  sku: '',
+  price: '',
+  compareAtPrice: '',
+  stock: '10',
+  stockReason: 'Admin manual update',
+  stockNote: '',
 }
 
 function pendingVariantId(
@@ -78,6 +97,10 @@ function pendingVariantId(
   return null
 }
 
+function existingSizeKey(size: string, colorHex: string) {
+  return `${size.trim().toLowerCase()}::${colorHex.trim().toLowerCase() || 'default'}`
+}
+
 export function ProductVariantManager({ productId, variants, productImages }: ProductVariantManagerProps) {
   const updateVariant = useUpdateProductVariant()
   const createVariant = useCreateProductVariant()
@@ -88,7 +111,17 @@ export function ProductVariantManager({ productId, variants, productImages }: Pr
     variants.forEach((v) => { if (v.id) map[v.id] = draftFromVariant(v) })
     return map
   })
-  const [addOpen, setAddOpen] = useState(false)
+  const [selectedSizes, setSelectedSizes] = useState<string[]>([])
+  const [customSize, setCustomSize] = useState('')
+  const [bulk, setBulk] = useState({
+    price: '',
+    stock: '10',
+    colorName: 'Default',
+    colorHex: 'var(--admin-color-ink-near)',
+    image: '',
+  })
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [showManual, setShowManual] = useState(false)
   const [addDraft, setAddDraft] = useState<RowDraft>(EMPTY_DRAFT)
 
   const busyId = pendingVariantId(
@@ -115,15 +148,191 @@ export function ProductVariantManager({ productId, variants, productImages }: Pr
     })
   }, [variants, busyId])
 
+  const existingKeys = useMemo(() => {
+    const keys = new Set<string>()
+    variants.forEach((v) => {
+      const size = (v.id && drafts[v.id]?.size) || v.size || ''
+      const hex = (v.id && drafts[v.id]?.colorHex) || v.colorHex || ''
+      if (size.trim()) keys.add(existingSizeKey(size, hex))
+    })
+    return keys
+  }, [variants, drafts])
+
+  const totalAvailable = useMemo(
+    () => variants.reduce((sum, v) => sum + (v.id ? Number(drafts[v.id]?.stock ?? serverStock(v)) : serverStock(v)), 0),
+    [variants, drafts],
+  )
+
   const draftFor = (v: Variant): RowDraft => (v.id && drafts[v.id]) || draftFromVariant(v)
   const setField = (id: string, key: keyof RowDraft, value: string) =>
     setDrafts((prev) => ({
       ...prev,
-      [id]: { ...(prev[id] || draftFromVariant(variants.find((v) => v.id === id)!)), [key]: value },
+      [id]: { ...(prev[id] || draftFromVariant(variants.find((row) => row.id === id)!)), [key]: value },
     }))
 
   const syncDraftFromServer = (variantId: string, row: Variant) => {
     setDrafts((prev) => ({ ...prev, [variantId]: draftFromVariant(row) }))
+  }
+
+  const toggleSizeChip = (size: string) => {
+    setSelectedSizes((prev) =>
+      prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size],
+    )
+  }
+
+  const addCustomSize = () => {
+    const size = customSize.trim().toUpperCase()
+    if (!size) return
+    setSelectedSizes((prev) => (prev.includes(size) ? prev : [...prev, size]))
+    setCustomSize('')
+  }
+
+  const createSizesBulk = async () => {
+    if (!selectedSizes.length) {
+      toastFail('Select at least one size.')
+      return
+    }
+    const price = Number(bulk.price)
+    const stock = Number(bulk.stock || '0')
+    if (!bulk.price.trim() || Number.isNaN(price) || price < 0) {
+      toastFail('Enter a price for the new sizes.')
+      return
+    }
+    if (Number.isNaN(stock) || stock < 0) {
+      toastFail('Enter a valid quantity.')
+      return
+    }
+
+    const colorName = bulk.colorName.trim() || 'Default'
+    const colorHex = bulk.colorHex.trim() || 'var(--admin-color-ink-near)'
+    const toCreate = selectedSizes.filter(
+      (size) => !existingKeys.has(existingSizeKey(size, colorHex)),
+    )
+    if (!toCreate.length) {
+      toastFail('Those sizes already exist for this colour.')
+      return
+    }
+
+    setBulkBusy(true)
+    let created = 0
+    try {
+      for (const size of toCreate) {
+        const payload = {
+          productId,
+          price,
+          stock,
+          size,
+          color: colorName,
+          colorName,
+          colorHex,
+          ...(bulk.image.trim() ? { image: bulk.image.trim() } : {}),
+        }
+        try {
+          const saved = await createVariant.mutateAsync(payload)
+          if (!verifyVariantResponse(saved, { price, stock, size })) continue
+          const id = saved && typeof saved === 'object' && 'id' in saved ? String((saved as { id: string }).id) : ''
+          if (!id || !(await verifyVariantCreated(productId, id, { price, stock, size }))) continue
+          created += 1
+        } catch (err) {
+          toastFail(err instanceof Error ? err.message : `Could not add size ${size}.`)
+        }
+      }
+      if (created > 0) {
+        toastApiSaved(`${created} variant${created === 1 ? '' : 's'} added`)
+        setSelectedSizes([])
+      }
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  const applyStockToAll = async () => {
+    const stock = Number(bulk.stock)
+    if (Number.isNaN(stock) || stock < 0) {
+      toastFail('Enter a valid quantity.')
+      return
+    }
+    if (!variants.length) return
+    if (!window.confirm(`Set available quantity to ${stock} for all variants?`)) return
+
+    setBulkBusy(true)
+    let saved = 0
+    try {
+      for (const v of variants) {
+        if (!v.id || !(v.isActive ?? true)) continue
+        const d = draftFor(v)
+        const price = Number(d.price || v.price || 0)
+        setField(v.id, 'stock', String(stock))
+        try {
+          const result = await updateVariant.mutateAsync({
+            productId,
+            variantId: v.id,
+            stock,
+            stockReason: 'Admin manual update',
+            price,
+            size: d.size.trim(),
+            color: d.color.trim(),
+            colorName: d.colorName.trim(),
+            colorHex: d.colorHex.trim(),
+            sku: d.sku.trim(),
+            image: d.image.trim(),
+          })
+          if (!verifyVariantResponse(result, { price, stock, size: d.size.trim() })) continue
+          if (!(await verifyVariantPersisted(productId, v.id, { price, stock, size: d.size.trim() }))) continue
+          saved += 1
+          syncDraftFromServer(v.id, { ...v, stock, stockQuantity: stock })
+        } catch (err) {
+          toastFail(err instanceof Error ? err.message : 'Quantity update failed.')
+        }
+      }
+      if (saved > 0) toastApiSaved(`Quantity updated on ${saved} variant${saved === 1 ? '' : 's'}`)
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  const applyPriceToAll = async () => {
+    const price = Number(bulk.price)
+    if (!bulk.price.trim() || Number.isNaN(price) || price < 0) {
+      toastFail('Enter a valid price.')
+      return
+    }
+    if (!variants.length) return
+    if (!window.confirm(`Set price to ৳${price} for all variants?`)) return
+
+    setBulkBusy(true)
+    let saved = 0
+    try {
+      for (const v of variants) {
+        if (!v.id || !(v.isActive ?? true)) continue
+        const d = draftFor(v)
+        const stock = Number(d.stock || serverStock(v))
+        setField(v.id, 'price', String(price))
+        try {
+          const result = await updateVariant.mutateAsync({
+            productId,
+            variantId: v.id,
+            price,
+            stock,
+            size: d.size.trim(),
+            color: d.color.trim(),
+            colorName: d.colorName.trim(),
+            colorHex: d.colorHex.trim(),
+            sku: d.sku.trim(),
+            image: d.image.trim(),
+          })
+          if (!verifyVariantResponse(result, { price, stock, size: d.size.trim() })) continue
+          if (!(await verifyVariantPersisted(productId, v.id, { price, stock, size: d.size.trim() }))) continue
+          saved += 1
+          syncDraftFromServer(v.id, { ...v, price })
+        } catch (err) {
+          toastFail(err instanceof Error ? err.message : 'Price update failed.')
+        }
+      }
+      if (saved > 0) toastApiSaved(`Price updated on ${saved} variant${saved === 1 ? '' : 's'}`)
+    } finally {
+      setBulkBusy(false)
+    }
   }
 
   const saveRow = async (v: Variant) => {
@@ -131,14 +340,14 @@ export function ProductVariantManager({ productId, variants, productImages }: Pr
     const d = draftFor(v)
     const price = Number(d.price)
     const stock = Number(d.stock)
-    if (Number.isNaN(price) || price < 0) { toastFail('Enter a valid, non-negative price.'); return }
-    if (Number.isNaN(stock) || stock < 0) { toastFail('Enter a valid, non-negative stock number.'); return }
+    if (Number.isNaN(price) || price < 0) { toastFail('Enter a valid price.'); return }
+    if (Number.isNaN(stock) || stock < 0) { toastFail('Enter a valid quantity.'); return }
     const stockChanged = stock !== serverStock(v)
     const payload = {
       productId,
       variantId: v.id,
       size: d.size.trim(),
-      color: d.color.trim(),
+      color: d.color.trim() || d.colorName.trim(),
       colorName: d.colorName.trim(),
       colorHex: d.colorHex.trim(),
       image: d.image.trim(),
@@ -165,7 +374,6 @@ export function ProductVariantManager({ productId, variants, productImages }: Pr
     }
   }
 
-  /** Same gallery photo for every size of this colour → storefront main image swaps on colour click. */
   const applyImageToColour = async (source: Variant) => {
     if (!source.id) return
     const d = draftFor(source)
@@ -176,7 +384,7 @@ export function ProductVariantManager({ productId, variants, productImages }: Pr
       return
     }
     if (!image) {
-      toastFail('Pick an Image for this row, then apply to colour.')
+      toastFail('Choose an image first.')
       return
     }
 
@@ -216,9 +424,7 @@ export function ProductVariantManager({ productId, variants, productImages }: Pr
       }
     }
 
-    if (saved > 0) {
-      toastOk(`Colour image saved on ${saved} size(s). Storefront main photo will follow this colour.`)
-    }
+    if (saved > 0) toastOk(`Image applied to ${saved} variant${saved === 1 ? '' : 's'}`)
   }
 
   const toggleActive = async (v: Variant) => {
@@ -235,7 +441,7 @@ export function ProductVariantManager({ productId, variants, productImages }: Pr
 
   const archiveRow = async (v: Variant) => {
     if (!v.id) return
-    if (!window.confirm(`Archive this variant (${v.size ?? '—'} / ${v.colorName ?? v.color ?? '—'})? It will be hidden from the storefront. This does not delete stock or order history.`)) return
+    if (!window.confirm(`Archive variant ${v.size ?? '—'} / ${v.colorName ?? v.color ?? '—'}?`)) return
     const ok = await confirmVariantArchived(
       productId,
       v.id,
@@ -247,8 +453,8 @@ export function ProductVariantManager({ productId, variants, productImages }: Pr
   const submitAdd = async () => {
     const price = Number(addDraft.price)
     const stock = Number(addDraft.stock || '0')
-    if (!addDraft.price.trim() || Number.isNaN(price) || price < 0) { toastFail('Enter a valid, non-negative price.'); return }
-    if (Number.isNaN(stock) || stock < 0) { toastFail('Enter a valid, non-negative stock number.'); return }
+    if (!addDraft.price.trim() || Number.isNaN(price) || price < 0) { toastFail('Enter a valid price.'); return }
+    if (Number.isNaN(stock) || stock < 0) { toastFail('Enter a valid quantity.'); return }
     const payload = {
       productId,
       price,
@@ -261,209 +467,341 @@ export function ProductVariantManager({ productId, variants, productImages }: Pr
       ...(addDraft.sku.trim() ? { sku: addDraft.sku.trim() } : {}),
       ...(addDraft.compareAtPrice.trim() ? { compareAtPrice: Number(addDraft.compareAtPrice) } : {}),
     }
-    const expected = {
-      price,
-      stock,
-      ...(addDraft.size.trim() ? { size: addDraft.size.trim() } : {}),
-    }
-    const id = await confirmVariantCreated(productId, expected, () => createVariant.mutateAsync(payload))
+    const id = await confirmVariantCreated(
+      productId,
+      { price, stock, ...(addDraft.size.trim() ? { size: addDraft.size.trim() } : {}) },
+      () => createVariant.mutateAsync(payload),
+    )
     if (id) {
       setAddDraft(EMPTY_DRAFT)
-      setAddOpen(false)
+      setShowManual(false)
     }
   }
 
   const rowBusy = (id?: string) => id != null && busyId === id
 
   return (
-    <div className="space-y-3">
-      <p className="text-[11px] font-semibold leading-relaxed text-[var(--admin-text-muted)]">
-        Each colour needs its own <span className="text-[var(--admin-text)]">Image</span> (from
-        product gallery). Use <span className="text-[var(--admin-text)]">Apply to colour</span> so
-        every size shares that photo — then the storefront main image changes on colour click.
-      </p>
-      <div className="overflow-x-auto rounded-xl border border-[rgba(17,17,17,0.06)]">
-        <table className="w-full min-w-[980px] text-sm">
-          <thead>
-            <tr className="border-b border-[rgba(17,17,17,0.05)] bg-[rgba(17,17,17,0.02)]">
-              {['Status', 'Size', 'Color', 'Hex', 'SKU', 'Price', 'Compare', 'Stock', 'Stock note', 'Image', ''].map((h) => (
-                <th key={h} className="whitespace-nowrap px-2.5 py-2.5 text-left text-[10px] font-black uppercase tracking-[0.1em] text-[#6B6B6B]">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {variants.map((v, i) => {
-              const d = draftFor(v)
-              const active = v.isActive ?? true
-              const busy = rowBusy(v.id)
-              const stockChanged = Number(d.stock) !== serverStock(v)
+    <div className="sf-variants">
+      {/* Shopify-style option builder */}
+      <section className="sf-variants__block">
+        <header className="sf-variants__block-head">
+          <div>
+            <h4 className="sf-variants__block-title">Options</h4>
+            <p className="sf-variants__block-desc">
+              Select sizes once, set price & quantity, then generate variants — like Shopify.
+            </p>
+          </div>
+        </header>
+
+        <div className="sf-variants__option">
+          <div className="sf-variants__option-label">
+            <span className="sf-variants__option-name">Size</span>
+            <span className="sf-variants__option-meta">Option values</span>
+          </div>
+
+          <div className="sf-variants__chips">
+            {SIZE_CHIPS.map((size) => {
+              const taken = existingKeys.has(existingSizeKey(size, bulk.colorHex))
+              const active = selectedSizes.includes(size)
               return (
-                <tr key={v.id ?? i} className={cn('border-b border-[rgba(17,17,17,0.04)] last:border-0 transition-colors', !active && 'opacity-50')}>
-                  <td className="px-2.5 py-2">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void toggleActive(v)}
-                      className={cn(
-                        'rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.06em] disabled:opacity-50',
-                        active ? 'bg-emerald-500/15 text-emerald-600' : 'bg-[rgba(17,17,17,0.08)] text-[#6B6B6B]',
-                      )}
-                    >
-                      {active ? 'Active' : 'Inactive'}
-                    </button>
-                  </td>
-                  <td className="px-2.5 py-2">
-                    <input className="admin-input w-16 text-[11px]" value={d.size} onChange={(e) => v.id && setField(v.id, 'size', e.target.value)} />
-                  </td>
-                  <td className="px-2.5 py-2">
-                    <input className="admin-input w-24 text-[11px]" value={d.colorName} placeholder="Color name" onChange={(e) => v.id && setField(v.id, 'colorName', e.target.value)} />
-                  </td>
-                  <td className="px-2.5 py-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-4 w-4 flex-shrink-0 rounded-full border border-[rgba(17,17,17,0.1)]" style={{ background: d.colorHex || '#ccc' }} />
-                      <input type="color" className="h-6 w-8" value={d.colorHex || '#111111'} onChange={(e) => v.id && setField(v.id, 'colorHex', e.target.value)} />
-                    </div>
-                  </td>
-                  <td className="px-2.5 py-2">
-                    <input className="admin-input w-28 font-mono text-[11px]" placeholder="SKU" value={d.sku} onChange={(e) => v.id && setField(v.id, 'sku', e.target.value)} />
-                  </td>
-                  <td className="px-2.5 py-2">
-                    <input type="number" min={0} className="admin-input w-20 text-[11px]" value={d.price} onChange={(e) => v.id && setField(v.id, 'price', e.target.value)} />
-                  </td>
-                  <td className="px-2.5 py-2">
-                    <input type="number" min={0} className="admin-input w-20 text-[11px]" placeholder="—" value={d.compareAtPrice} onChange={(e) => v.id && setField(v.id, 'compareAtPrice', e.target.value)} />
-                  </td>
-                  <td className="px-2.5 py-2">
-                    <input
-                      type="number" min={0}
-                      className={cn('admin-input w-16 text-center font-black', Number(d.stock) < 5 && '!border-red-200 !bg-red-50 !text-red-700')}
-                      value={d.stock}
-                      onChange={(e) => v.id && setField(v.id, 'stock', e.target.value)}
-                    />
-                  </td>
-                  <td className="px-2.5 py-2">
-                    {stockChanged ? (
-                      <div className="flex min-w-[140px] flex-col gap-1">
-                        <select
-                          className="admin-input text-[10px]"
-                          value={d.stockReason}
-                          onChange={(e) => v.id && setField(v.id, 'stockReason', e.target.value)}
-                        >
-                          {STOCK_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                        <input
-                          className="admin-input text-[10px]"
-                          placeholder="Note (optional)"
-                          value={d.stockNote}
-                          onChange={(e) => v.id && setField(v.id, 'stockNote', e.target.value)}
-                        />
-                      </div>
-                    ) : (
-                      <span className="text-[10px] font-semibold text-[#6B6B6B]">—</span>
-                    )}
-                  </td>
-                  <td className="px-2.5 py-2">
-                    <div className="flex min-w-[148px] flex-col gap-1">
-                      <select
-                        className="admin-input w-full text-[11px]"
-                        value={d.image}
-                        onChange={(e) => v.id && setField(v.id, 'image', e.target.value)}
-                      >
-                        <option value="">No image</option>
-                        {productImages.map((url, idx) => (
-                          <option key={url} value={url}>
-                            Image {idx + 1}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        disabled={busy || !d.image.trim() || !d.colorHex.trim()}
-                        onClick={() => void applyImageToColour(v)}
-                        className="rounded-lg bg-[rgba(17,17,17,0.05)] px-2 py-1 text-[10px] font-black text-[var(--admin-text)] transition-colors hover:bg-[rgba(17,17,17,0.09)] disabled:opacity-40"
-                      >
-                        Apply to colour
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-2.5 py-2">
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => void saveRow(v)}
-                        disabled={busy}
-                        className="rounded-lg bg-[rgba(16, 17, 20, 0.12)] px-2.5 py-1 text-[11px] font-black text-[#3f3f46] transition-colors hover:bg-[rgba(16, 17, 20, 0.22)] disabled:opacity-50"
-                      >
-                        {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void archiveRow(v)}
-                        disabled={busy || !active}
-                        title={active ? 'Archive variant (hide from storefront)' : 'Already inactive'}
-                        className="rounded-lg bg-red-50 px-2 py-1 text-[11px] font-black text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        <Archive className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                <button
+                  key={size}
+                  type="button"
+                  disabled={taken || bulkBusy}
+                  className={cn(
+                    'sf-variants__chip',
+                    active && 'sf-variants__chip--on',
+                    taken && 'sf-variants__chip--taken',
+                  )}
+                  onClick={() => toggleSizeChip(size)}
+                >
+                  {size}
+                </button>
               )
             })}
-            </tbody>
-          </table>
-      </div>
-
-      <p className="rounded-lg bg-[rgba(17,17,17,0.03)] px-3 py-2 text-[11px] font-semibold text-[#6B6B6B]">
-        Hard delete is not available yet — archive hides a variant from the storefront without losing stock or order history.
-      </p>
-
-      {addOpen ? (
-        <div className="rounded-xl border border-dashed border-[rgba(16, 17, 20, 0.4)] p-3">
-          <p className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#3f3f46]">Add variant</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <input className="admin-input text-[11px]" placeholder="Size (e.g. M)" value={addDraft.size} onChange={(e) => setAddDraft((p) => ({ ...p, size: e.target.value }))} />
-            <input className="admin-input text-[11px]" placeholder="Color name" value={addDraft.colorName} onChange={(e) => setAddDraft((p) => ({ ...p, colorName: e.target.value, color: e.target.value }))} />
-            <div className="flex items-center gap-1.5">
-              <span className="h-4 w-4 flex-shrink-0 rounded-full border border-[rgba(17,17,17,0.1)]" style={{ background: addDraft.colorHex || '#ccc' }} />
-              <input type="color" className="h-8 w-full" value={addDraft.colorHex || '#111111'} onChange={(e) => setAddDraft((p) => ({ ...p, colorHex: e.target.value }))} />
-            </div>
-            <select className="admin-input text-[11px]" value={addDraft.image} onChange={(e) => setAddDraft((p) => ({ ...p, image: e.target.value }))}>
-              <option value="">No image</option>
-              {productImages.map((url, idx) => <option key={url} value={url}>Image {idx + 1}</option>)}
-            </select>
-            <input className="admin-input font-mono text-[11px]" placeholder="SKU (optional)" value={addDraft.sku} onChange={(e) => setAddDraft((p) => ({ ...p, sku: e.target.value }))} />
-            <input type="number" min={0} className="admin-input text-[11px]" placeholder="Price *" value={addDraft.price} onChange={(e) => setAddDraft((p) => ({ ...p, price: e.target.value }))} />
-            <input type="number" min={0} className="admin-input text-[11px]" placeholder="Compare price" value={addDraft.compareAtPrice} onChange={(e) => setAddDraft((p) => ({ ...p, compareAtPrice: e.target.value }))} />
-            <input type="number" min={0} className="admin-input text-[11px]" placeholder="Opening stock" value={addDraft.stock} onChange={(e) => setAddDraft((p) => ({ ...p, stock: e.target.value }))} />
           </div>
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void submitAdd()}
-              disabled={createVariant.isPending}
-              className="rounded-lg bg-[var(--admin-brand-gold)] px-3 py-1.5 text-[11px] font-black text-white transition-colors hover:opacity-90 disabled:opacity-50"
-            >
-              {createVariant.isPending ? 'Adding…' : 'Add variant'}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setAddOpen(false); setAddDraft(EMPTY_DRAFT) }}
-              className="rounded-lg px-3 py-1.5 text-[11px] font-black text-[#6B6B6B] transition-colors hover:bg-[rgba(17,17,17,0.04)]"
-            >
-              Cancel
+
+          <div className="sf-variants__custom-row">
+            <input
+              className="sf-variants__input"
+              placeholder="Custom size"
+              value={customSize}
+              onChange={(e) => setCustomSize(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  addCustomSize()
+                }
+              }}
+            />
+            <button type="button" className="sf-variants__btn sf-variants__btn--ghost" onClick={addCustomSize} disabled={!customSize.trim()}>
+              Add
             </button>
           </div>
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAddOpen(true)}
-          className="flex items-center gap-1.5 rounded-lg border border-dashed border-[rgba(16, 17, 20, 0.4)] px-3 py-2 text-[11px] font-black text-[#3f3f46] transition-colors hover:bg-[rgba(16, 17, 20, 0.06)]"
-        >
-          <Plus className="h-3.5 w-3.5" /> Add variant
-        </button>
-      )}
+
+        <div className="sf-variants__defaults">
+          <label className="sf-variants__field">
+            <span>Price</span>
+            <div className="sf-variants__input-affix">
+              <span>৳</span>
+              <input
+                type="number"
+                min={0}
+                className="sf-variants__input"
+                value={bulk.price}
+                placeholder="0.00"
+                onChange={(e) => setBulk((p) => ({ ...p, price: e.target.value }))}
+              />
+            </div>
+          </label>
+          <label className="sf-variants__field">
+            <span>Quantity</span>
+            <input
+              type="number"
+              min={0}
+              className="sf-variants__input"
+              value={bulk.stock}
+              onChange={(e) => setBulk((p) => ({ ...p, stock: e.target.value }))}
+            />
+          </label>
+          <label className="sf-variants__field">
+            <span>Colour</span>
+            <input
+              className="sf-variants__input"
+              value={bulk.colorName}
+              onChange={(e) => setBulk((p) => ({ ...p, colorName: e.target.value }))}
+            />
+          </label>
+          <label className="sf-variants__field">
+            <span>Swatch</span>
+            <div className="sf-variants__swatch-row">
+              <span className="sf-variants__swatch" style={{ background: bulk.colorHex || 'var(--admin-c-cccccc)' }} />
+              <input
+                type="color"
+                className="sf-variants__color"
+                value={bulk.colorHex || 'var(--admin-color-ink-near)'}
+                onChange={(e) => setBulk((p) => ({ ...p, colorHex: e.target.value }))}
+              />
+            </div>
+          </label>
+          <label className="sf-variants__field">
+            <span>Image</span>
+            <select
+              className="sf-variants__input"
+              value={bulk.image}
+              onChange={(e) => setBulk((p) => ({ ...p, image: e.target.value }))}
+            >
+              <option value="">None</option>
+              {productImages.map((url, idx) => (
+                <option key={url} value={url}>Image {idx + 1}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="sf-variants__toolbar">
+          <button
+            type="button"
+            className="sf-variants__btn sf-variants__btn--primary"
+            disabled={bulkBusy || selectedSizes.length === 0}
+            onClick={() => void createSizesBulk()}
+          >
+            {bulkBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            {selectedSizes.length
+              ? `Generate ${selectedSizes.length} variant${selectedSizes.length === 1 ? '' : 's'}`
+              : 'Generate variants'}
+          </button>
+          <div className="sf-variants__toolbar-links">
+            <button type="button" className="sf-variants__link" disabled={bulkBusy || !variants.length} onClick={() => void applyPriceToAll()}>
+              Apply price to all
+            </button>
+            <button type="button" className="sf-variants__link" disabled={bulkBusy || !variants.length} onClick={() => void applyStockToAll()}>
+              Apply quantity to all
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Shopify-style variants table */}
+      <section className="sf-variants__block">
+        <header className="sf-variants__block-head sf-variants__block-head--row">
+          <div>
+            <h4 className="sf-variants__block-title">Variants</h4>
+            <p className="sf-variants__block-desc">
+              {variants.length} variant{variants.length === 1 ? '' : 's'} · {totalAvailable} available
+            </p>
+          </div>
+        </header>
+
+        {variants.length === 0 ? (
+          <div className="sf-variants__empty">
+            <p>No variants yet</p>
+            <span>Select size values above and generate variants.</span>
+          </div>
+        ) : (
+          <div className="sf-variants__table-wrap">
+            <table className="sf-variants__table">
+              <thead>
+                <tr>
+                  <th>Variant</th>
+                  <th>Price</th>
+                  <th>Available</th>
+                  <th>SKU</th>
+                  <th>Image</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {variants.map((v, i) => {
+                  const d = draftFor(v)
+                  const active = v.isActive ?? true
+                  const busy = rowBusy(v.id)
+                  const stockChanged = Number(d.stock) !== serverStock(v)
+                  return (
+                    <tr key={v.id ?? i} className={cn(!active && 'sf-variants__row--off')}>
+                      <td>
+                        <div className="sf-variants__variant-cell">
+                          <button
+                            type="button"
+                            className={cn('sf-variants__status', active ? 'sf-variants__status--on' : 'sf-variants__status--off')}
+                            disabled={busy}
+                            onClick={() => void toggleActive(v)}
+                            title={active ? 'Active — click to deactivate' : 'Inactive — click to activate'}
+                          />
+                          <span className="sf-variants__swatch" style={{ background: d.colorHex || 'var(--admin-c-cccccc)' }} />
+                          <div className="sf-variants__variant-meta">
+                            <strong>{d.size || '—'}</strong>
+                            <span>{d.colorName || 'Default'}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="sf-variants__input-affix sf-variants__input-affix--compact">
+                          <span>৳</span>
+                          <input
+                            type="number"
+                            min={0}
+                            className="sf-variants__input"
+                            value={d.price}
+                            onChange={(e) => v.id && setField(v.id, 'price', e.target.value)}
+                          />
+                        </div>
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          min={0}
+                          className={cn('sf-variants__input sf-variants__input--qty', Number(d.stock) < 5 && 'sf-variants__input--warn')}
+                          value={d.stock}
+                          onChange={(e) => v.id && setField(v.id, 'stock', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="sf-variants__input sf-variants__input--sku"
+                          placeholder="SKU"
+                          value={d.sku}
+                          onChange={(e) => v.id && setField(v.id, 'sku', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <select
+                          className="sf-variants__input"
+                          value={d.image}
+                          onChange={(e) => v.id && setField(v.id, 'image', e.target.value)}
+                        >
+                          <option value="">—</option>
+                          {productImages.map((url, idx) => (
+                            <option key={url} value={url}>Img {idx + 1}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <div className="sf-variants__row-actions">
+                          <button
+                            type="button"
+                            className="sf-variants__btn sf-variants__btn--small sf-variants__btn--primary"
+                            disabled={busy}
+                            onClick={() => void saveRow(v)}
+                          >
+                            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Save'}
+                          </button>
+                          {d.image ? (
+                            <button
+                              type="button"
+                              className="sf-variants__link"
+                              disabled={busy}
+                              onClick={() => void applyImageToColour(v)}
+                            >
+                              Apply image
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="sf-variants__icon-btn"
+                            disabled={busy || !active}
+                            title="Archive"
+                            onClick={() => void archiveRow(v)}
+                          >
+                            <Archive className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        {stockChanged ? (
+                          <div className="sf-variants__stock-note">
+                            <select
+                              className="sf-variants__input"
+                              value={d.stockReason}
+                              onChange={(e) => v.id && setField(v.id, 'stockReason', e.target.value)}
+                            >
+                              {STOCK_REASONS.map((r) => (
+                                <option key={r} value={r}>{r}</option>
+                              ))}
+                            </select>
+                            <input
+                              className="sf-variants__input"
+                              placeholder="Note (optional)"
+                              value={d.stockNote}
+                              onChange={(e) => v.id && setField(v.id, 'stockNote', e.target.value)}
+                            />
+                          </div>
+                        ) : null}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="sf-variants__footer">
+          {showManual ? (
+            <div className="sf-variants__manual">
+              <p className="sf-variants__manual-title">Add one variant</p>
+              <div className="sf-variants__manual-grid">
+                <input className="sf-variants__input" placeholder="Size" value={addDraft.size} onChange={(e) => setAddDraft((p) => ({ ...p, size: e.target.value }))} />
+                <input className="sf-variants__input" placeholder="Colour" value={addDraft.colorName} onChange={(e) => setAddDraft((p) => ({ ...p, colorName: e.target.value, color: e.target.value }))} />
+                <input type="number" min={0} className="sf-variants__input" placeholder="Price" value={addDraft.price} onChange={(e) => setAddDraft((p) => ({ ...p, price: e.target.value }))} />
+                <input type="number" min={0} className="sf-variants__input" placeholder="Qty" value={addDraft.stock} onChange={(e) => setAddDraft((p) => ({ ...p, stock: e.target.value }))} />
+              </div>
+              <div className="sf-variants__manual-actions">
+                <button type="button" className="sf-variants__btn sf-variants__btn--primary" disabled={createVariant.isPending} onClick={() => void submitAdd()}>
+                  {createVariant.isPending ? 'Adding…' : 'Add variant'}
+                </button>
+                <button type="button" className="sf-variants__btn sf-variants__btn--ghost" onClick={() => { setShowManual(false); setAddDraft(EMPTY_DRAFT) }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" className="sf-variants__add-one" onClick={() => setShowManual(true)}>
+              <Plus className="h-4 w-4" />
+              Add another variant
+            </button>
+          )}
+        </div>
+      </section>
     </div>
   )
 }

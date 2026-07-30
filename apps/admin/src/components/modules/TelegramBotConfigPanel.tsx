@@ -336,6 +336,7 @@ export function TelegramBotConfigPanel({ embedded = false }: TelegramBotConfigPa
         </div>
       </CollapsibleSection>
 
+      <div id="link">
       <CollapsibleSection
         title="Admin Linking"
         icon={Link2}
@@ -389,6 +390,7 @@ export function TelegramBotConfigPanel({ embedded = false }: TelegramBotConfigPa
           )}
         </div>
       </CollapsibleSection>
+      </div>
 
       <CollapsibleSection
         title="Bot Connection"

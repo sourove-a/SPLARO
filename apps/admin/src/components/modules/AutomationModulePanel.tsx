@@ -18,7 +18,7 @@ import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
-const GOLD = '#16181d'
+const GOLD = 'var(--admin-c-16181d)'
 const GOLD_LIGHT = 'rgba(16, 17, 20, 0.10)'
 const GOLD_BORDER = 'rgba(16, 17, 20, 0.32)'
 
@@ -28,14 +28,14 @@ const TD: React.CSSProperties = { padding: '11px 16px', fontSize: 13, color: 'va
 
 function StatusPill({ value }: { value: string }) {
   const map: Record<string, { bg: string; text: string; border: string }> = {
-    active:    { bg: 'rgba(22,163,74,0.10)',   text: '#15803D', border: 'rgba(22,163,74,0.30)' },
-    success:   { bg: 'rgba(22,163,74,0.10)',   text: '#15803D', border: 'rgba(22,163,74,0.30)' },
-    completed: { bg: 'rgba(22,163,74,0.10)',   text: '#15803D', border: 'rgba(22,163,74,0.30)' },
-    paused:    { bg: 'rgba(245,158,11,0.10)',  text: '#B45309', border: 'rgba(245,158,11,0.30)' },
-    pending:   { bg: 'rgba(245,158,11,0.10)',  text: '#B45309', border: 'rgba(245,158,11,0.30)' },
-    failed:    { bg: 'rgba(239,68,68,0.10)',   text: '#B91C1C', border: 'rgba(239,68,68,0.30)' },
+    active:    { bg: 'rgba(22,163,74,0.10)',   text: 'var(--admin-success-ink)', border: 'rgba(22,163,74,0.30)' },
+    success:   { bg: 'rgba(22,163,74,0.10)',   text: 'var(--admin-success-ink)', border: 'rgba(22,163,74,0.30)' },
+    completed: { bg: 'rgba(22,163,74,0.10)',   text: 'var(--admin-success-ink)', border: 'rgba(22,163,74,0.30)' },
+    paused:    { bg: 'rgba(245,158,11,0.10)',  text: 'var(--admin-warning-ink)', border: 'rgba(245,158,11,0.30)' },
+    pending:   { bg: 'rgba(245,158,11,0.10)',  text: 'var(--admin-warning-ink)', border: 'rgba(245,158,11,0.30)' },
+    failed:    { bg: 'rgba(239,68,68,0.10)',   text: 'var(--admin-danger-strong)', border: 'rgba(239,68,68,0.30)' },
   }
-  const fallback = { bg: 'rgba(156,163,175,0.10)', text: '#4B5563', border: 'rgba(156,163,175,0.30)' }
+  const fallback = { bg: 'rgba(156,163,175,0.10)', text: 'var(--admin-c-4b5563)', border: 'rgba(156,163,175,0.30)' }
   const s = map[value.toLowerCase()] ?? fallback
   return <span style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.text, borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 800 }}>{value}</span>
 }
@@ -51,8 +51,8 @@ function KpiCard({ label, value }: { label: string; value: string | number }) {
 
 function ErrorBanner({ msg, onRetry }: { msg?: string; onRetry?: () => void }) {
   return (
-    <div className="settings-card admin-panel-glass-subtle" style={{ padding: '14px 16px', borderLeft: '3px solid #EF4444' }}>
-      <p style={{ color: '#B91C1C', fontSize: 13, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div className="settings-card admin-panel-glass-subtle" style={{ padding: '14px 16px', borderLeft: '3px solid var(--admin-danger-bright)' }}>
+      <p style={{ color: 'var(--admin-danger-strong)', fontSize: 13, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
         <WifiOff style={{ width: 16, height: 16, flexShrink: 0 }} />
         {msg ?? 'API offline — run pnpm dev:stack (web :3000, admin :3001, api :4000)'}
       </p>
@@ -65,7 +65,7 @@ function ErrorBanner({ msg, onRetry }: { msg?: string; onRetry?: () => void }) {
         <AdminNavLink href="/dashboard/api-health" className="automation-error-link">
           API Health →
         </AdminNavLink>
-        <AdminNavLink href="/dashboard/settings?section=notifications#telegram" className="automation-error-link">
+        <AdminNavLink href="/dashboard/telegram-bot" className="automation-error-link">
           Telegram Bot setup →
         </AdminNavLink>
       </div>
@@ -117,7 +117,7 @@ export function TelegramNotificationsPanelLive() {
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {(tgIntError || logsError) && !apiFullyDown ? (
-        <div className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', borderLeft: '3px solid #F59E0B', color: '#B45309', fontSize: 13, fontWeight: 700 }}>
+        <div className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', borderLeft: '3px solid var(--admin-warning-bright)', color: 'var(--admin-warning-ink)', fontSize: 13, fontWeight: 700 }}>
           <AlertTriangle style={{ width: 14, height: 14, display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />
           Partial API issue — some data may be stale. Run <code style={{ fontSize: 12 }}>pnpm dev:stack</code> if backend is down.
         </div>
@@ -142,7 +142,7 @@ export function TelegramNotificationsPanelLive() {
             </p>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <AdminNavLink href="/dashboard/settings?section=notifications#telegram">
+            <AdminNavLink href="/dashboard/telegram-bot">
               <AdminButton variant="ghost"><Settings style={{ width: 14, height: 14 }} /> Configure bot</AdminButton>
             </AdminNavLink>
             <AdminButton
@@ -167,13 +167,13 @@ export function TelegramNotificationsPanelLive() {
           ].map(([label, on]) => (
             <div key={String(label)} className="settings-card admin-panel-glass-subtle" style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--admin-text-secondary)' }}>{label}</span>
-              <span style={{ fontSize: 11, fontWeight: 800, color: on ? '#15803D' : 'var(--admin-text-muted)' }}>{on ? 'ON' : 'OFF'}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: on ? 'var(--admin-success-ink)' : 'var(--admin-text-muted)' }}>{on ? 'ON' : 'OFF'}</span>
             </div>
           ))}
         </div>
 
         {!tgConnected && !tgLoading ? (
-          <p style={{ marginTop: 14, marginBottom: 0, fontSize: 12, fontWeight: 700, color: '#B45309' }}>
+          <p style={{ marginTop: 14, marginBottom: 0, fontSize: 12, fontWeight: 700, color: 'var(--admin-warning-ink)' }}>
             Bot not connected — open Configure bot, add token + chat ID, enable notifications.
           </p>
         ) : null}
@@ -185,7 +185,7 @@ export function TelegramNotificationsPanelLive() {
         {logsLoading ? (
           <p style={{ padding: 20, fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>Loading Telegram activity…</p>
         ) : logsError ? (
-          <p style={{ padding: 20, fontSize: 13, fontWeight: 600, color: '#B91C1C' }}>Could not load logs — is API running on :4000?</p>
+          <p style={{ padding: 20, fontSize: 13, fontWeight: 600, color: 'var(--admin-danger-strong)' }}>Could not load logs — is API running on :4000?</p>
         ) : logs.length === 0 ? (
           <p style={{ padding: 20, fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>No Telegram activity yet. Send a test message or place an order after bot setup.</p>
         ) : (
@@ -211,11 +211,11 @@ export function TelegramNotificationsPanelLive() {
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search automation rule…" style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-primary)' }} />
         </div>
         {!rulesError ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(22,163,74,0.08)', border: '1px solid rgba(22,163,74,0.25)', borderRadius: 12, padding: '7px 12px', fontSize: 12, fontWeight: 700, color: '#15803D' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(22,163,74,0.08)', border: '1px solid rgba(22,163,74,0.25)', borderRadius: 12, padding: '7px 12px', fontSize: 12, fontWeight: 700, color: 'var(--admin-success-ink)' }}>
             <CheckCircle2 style={{ width: 14, height: 14 }} /> Automation rules API live
           </div>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 12, padding: '7px 12px', fontSize: 12, fontWeight: 700, color: '#B45309' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 12, padding: '7px 12px', fontSize: 12, fontWeight: 700, color: 'var(--admin-warning-ink)' }}>
             <AlertTriangle style={{ width: 14, height: 14 }} /> Rules API unavailable
           </div>
         )}
@@ -345,8 +345,8 @@ export function GoogleSheetsSyncPanelLive() {
       ) : null}
 
       {!connection?.spreadsheetLinked && !isOffline ? (
-        <div className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', borderLeft: '3px solid #F59E0B' }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#B45309' }}>
+        <div className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', borderLeft: '3px solid var(--admin-warning-bright)' }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--admin-warning-ink)' }}>
             Google spreadsheet এখনো link করা নেই।{' '}
             <AdminNavLink href="/dashboard/google-workspace/sheets-sync" className="automation-error-link">
               Google Workspace → Sheets Sync
@@ -367,7 +367,7 @@ export function GoogleSheetsSyncPanelLive() {
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search sheet…" style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-primary)' }} />
         </div>
         {hasFailed && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 12, padding: '7px 12px', fontSize: 12, fontWeight: 700, color: '#B45309' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 12, padding: '7px 12px', fontSize: 12, fontWeight: 700, color: 'var(--admin-warning-ink)' }}>
             <AlertTriangle style={{ width: 14, height: 14 }} /> Some sheet syncs failed
           </div>
         )}
@@ -393,7 +393,7 @@ export function GoogleSheetsSyncPanelLive() {
                     <td style={{ ...TD, fontWeight: 700, color: 'var(--admin-text-primary)' }}>
                       {s.sheetType}
                       {s.lastError ? (
-                        <p style={{ margin: '4px 0 0', fontSize: 11, fontWeight: 600, color: '#B91C1C' }} title={s.lastError}>
+                        <p style={{ margin: '4px 0 0', fontSize: 11, fontWeight: 600, color: 'var(--admin-danger-strong)' }} title={s.lastError}>
                           {s.lastError.slice(0, 60)}{s.lastError.length > 60 ? '…' : ''}
                         </p>
                       ) : null}

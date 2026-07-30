@@ -1,7 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { toastFail, toastInfo, BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
+import { toastFail, toastInfo, toastOk } from '@/lib/admin/feedback'
+import { createCampaign, sendCampaign } from '@/lib/api/marketing'
 import { Mail, MessageSquare, Send, Users, Filter } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
@@ -87,11 +88,26 @@ export function EmailSmsPanel(_props: ModuleContextProps) {
   }, [query, channelFilter, broadcasts])
 
   const [segment, setSegment] = useState('All customers')
+  const [queueing, setQueueing] = useState(false)
+
+  const segmentAudience = (name: string): 'ALL' | 'LOYAL' | 'INACTIVE' | 'HIGH_SPENDERS' => {
+    if (name.includes('VIP')) return 'LOYAL'
+    if (name.includes('New')) return 'INACTIVE'
+    if (name.includes('Repeat')) return 'HIGH_SPENDERS'
+    return 'ALL'
+  }
 
   if (isError) return <ApiOfflineBanner message="Email/SMS API offline — start pnpm dev:api." />
 
   return (
     <div className="space-y-5">
+      <div className="admin-beta-banner" role="note">
+        <span className="admin-beta-banner__chip">SMS</span>
+        <span>
+          Bangla is Unicode — one SMS segment is <strong>70 characters</strong>, not 160. A long COD reminder can cost 3× English.
+          Master switch lives in Settings; when SMS is off, nothing sends and nothing warns.
+        </span>
+      </div>
       <ModulePanelShell
         kpis={[
           ['Emails sent', isLoading ? '…' : emailLogs.length + emailCampaigns.reduce((s, c) => s + c.totalSent, 0), 'gold'],
@@ -115,13 +131,13 @@ export function EmailSmsPanel(_props: ModuleContextProps) {
           toastInfo('Create email campaigns in Marketing → Campaigns.')
         }}
         onRefresh={() => void refetch()}
-        onExport={() => toastFail('Export not available yet.')}
+        exportDisabled
         tableIcon={Mail}
         tableTitle={`Broadcasts · ${filtered.length} results`}
         footer="Live from campaigns + notification_delivery_log"
         extraFilters={
           <div className="flex flex-wrap items-center gap-2">
-            <Filter className="h-3.5 w-3.5 text-[#6B6B6B]" />
+            <Filter className="h-3.5 w-3.5 text-[var(--admin-color-neutral-500)]" />
             {(['all', 'Email', 'SMS'] as const).map((c) => (
               <button
                 key={c}
@@ -130,8 +146,8 @@ export function EmailSmsPanel(_props: ModuleContextProps) {
                 className={cn(
                   'rounded-full border px-3 py-1 text-[11px] font-bold transition',
                   channelFilter === c
-                    ? 'border-[#5E7CFF]/50 bg-[#5E7CFF]/12 text-[#111111]'
-                    : 'border-black/8 bg-white/70 text-[#6B6B6B]',
+                    ? 'border-[var(--admin-color-accent-blue)]/50 bg-[var(--admin-color-accent-blue)]/12 text-[var(--admin-color-ink-near)]'
+                    : 'border-black/8 bg-white/70 text-[var(--admin-color-neutral-500)]',
                 )}
               >
                 {c === 'all' ? 'All channels' : c}
@@ -140,7 +156,7 @@ export function EmailSmsPanel(_props: ModuleContextProps) {
             <button
               type="button"
               onClick={() => setShowComposer((v) => !v)}
-              className="ml-auto text-xs font-bold text-[#5E7CFF] hover:underline"
+              className="ml-auto text-xs font-bold text-[var(--admin-color-accent-blue)] hover:underline"
             >
               {showComposer ? 'Hide composer' : 'Show composer'}
             </button>
@@ -148,7 +164,7 @@ export function EmailSmsPanel(_props: ModuleContextProps) {
         }
       >
         {filtered.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-[#6B6B6B]">No email or SMS deliveries logged yet.</p>
+          <p className="px-4 py-6 text-sm text-[var(--admin-color-neutral-500)]">No email or SMS deliveries logged yet.</p>
         ) : (
           <table className="admin-module-table">
             <thead>
@@ -169,9 +185,9 @@ export function EmailSmsPanel(_props: ModuleContextProps) {
                   <td>
                     <span className="inline-flex items-center gap-1 text-xs font-semibold">
                       {row.channel === 'Email' ? (
-                        <Mail className="h-3 w-3 text-[#5E7CFF]" />
+                        <Mail className="h-3 w-3 text-[var(--admin-color-accent-blue)]" />
                       ) : (
-                        <MessageSquare className="h-3 w-3 text-[#5E7CFF]" />
+                        <MessageSquare className="h-3 w-3 text-[var(--admin-color-accent-blue)]" />
                       )}
                       {row.channel}
                     </span>
@@ -205,7 +221,7 @@ export function EmailSmsPanel(_props: ModuleContextProps) {
                 onClick={() => setChannel(ch)}
                 className={cn(
                   'rounded-full border px-3 py-1 text-[11px] font-bold capitalize',
-                  channel === ch ? 'border-[#5E7CFF]/50 bg-[#5E7CFF]/12' : 'border-black/8',
+                  channel === ch ? 'border-[var(--admin-color-accent-blue)]/50 bg-[var(--admin-color-accent-blue)]/12' : 'border-black/8',
                 )}
               >
                 {ch}
@@ -241,8 +257,37 @@ export function EmailSmsPanel(_props: ModuleContextProps) {
           <AdminButton
             variant="gold"
             className="mt-3"
-            disabled
-            title={BACKEND_NOT_CONNECTED_TITLE}
+            loading={queueing}
+            disabled={!message.trim() || (channel === 'email' && !subject.trim())}
+            onClick={() => {
+              void (async () => {
+                setQueueing(true)
+                try {
+                  const campaign = await createCampaign({
+                    name: `${channel.toUpperCase()} · ${segment} · ${new Date().toISOString().slice(0, 16)}`,
+                    subject: channel === 'email' ? subject.trim() : segment,
+                    body: message.trim(),
+                    type: channel === 'email' ? 'EMAIL' : 'SMS',
+                    targetAudience: segmentAudience(segment),
+                  })
+                  const result = await sendCampaign(campaign.id)
+                  if (!result.sent || result.sent <= 0) {
+                    toastFail(
+                      channel === 'sms'
+                        ? 'SMS broadcast returned zero sends — check SMS provider and smsEnabled.'
+                        : 'Email broadcast returned zero sends — check SMTP settings.',
+                    )
+                    return
+                  }
+                  toastOk(`Sent to ${result.sent} recipient(s).`)
+                  void refetch()
+                } catch (e) {
+                  toastFail(e instanceof Error ? e.message : 'Broadcast failed.')
+                } finally {
+                  setQueueing(false)
+                }
+              })()
+            }}
           >
             <Send className="h-4 w-4" /> Queue broadcast
           </AdminButton>
@@ -251,13 +296,13 @@ export function EmailSmsPanel(_props: ModuleContextProps) {
 
       <section className="admin-module-card">
         <div className="mb-3 flex items-center gap-2">
-          <Users className="h-4 w-4 text-[#5E7CFF]" />
+          <Users className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
           <p className="admin-module-card__title">Live audience segments</p>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           {segments.map((s) => (
             <div key={s.name} className="rounded-[14px] border border-black/5 bg-white/55 px-3 py-2 text-sm font-semibold">
-              {s.name} · <span className="font-black text-[#5E7CFF]">{s.count}</span>
+              {s.name} · <span className="font-black text-[var(--admin-color-accent-blue)]">{s.count}</span>
             </div>
           ))}
         </div>

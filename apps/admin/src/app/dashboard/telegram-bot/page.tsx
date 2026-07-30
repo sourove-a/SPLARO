@@ -1,6 +1,13 @@
-import { redirect } from 'next/navigation'
+import type { Metadata } from 'next'
 
-/** Legacy route — Telegram config lives in Settings → Notifications. */
-export default function LegacyTelegramBotPage() {
-  redirect('/dashboard/settings?section=notifications#telegram')
+import { DcTelegramBot } from '@/components/dc/screens/DcTelegramBot'
+
+export const metadata: Metadata = {
+  title: 'Telegram Bot — SPLARO Admin',
+  description: 'Bot token, chat ID & alert toggles — verified API only',
+}
+
+/** Canonical Telegram Bot setup — not Settings → SMTP. */
+export default function TelegramBotPage() {
+  return <DcTelegramBot />
 }
