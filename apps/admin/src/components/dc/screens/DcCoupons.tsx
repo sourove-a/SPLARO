@@ -35,18 +35,6 @@ const capsLabel = {
   color: 'var(--ink-3)',
 }
 
-const th = {
-  textAlign: 'left' as const,
-  padding: '9px 15px',
-  font: `600 10.5px/1 ${FONT}`,
-  letterSpacing: '.09em',
-  textTransform: 'uppercase' as const,
-  color: 'var(--ink-3)',
-  borderBottom: '1px solid var(--line)',
-  whiteSpace: 'nowrap' as const,
-}
-
-const td = { padding: '10px 15px', font: `400 12.5px/1.4 ${FONT}`, color: 'var(--ink-2)' } as const
 
 const TYPE_LABEL: Record<ApiCoupon['type'], string> = {
   PERCENTAGE: '% off',
@@ -136,6 +124,9 @@ function DcCouponsBody() {
   const nearlyUsedUp = active.filter(
     (c) => c.usageLimit !== null && c.usageLimit > 0 && Number(c.usedCount || 0) / c.usageLimit >= 0.8,
   )
+  const bestPerformer = rows
+    .filter((c) => Number(c.usedCount || 0) > 0)
+    .sort((a, b) => Number(b.usedCount || 0) - Number(a.usedCount || 0))[0]
 
   const pageStatus = dcPageStatus([coupons], api.pulse)
 
@@ -344,10 +335,14 @@ function DcCouponsBody() {
               color={uncapped.length > 0 ? 'var(--bad)' : 'var(--ok)'}
             />
             <Kpi
-              label="Expiring in 7 days"
-              value={String(expiringSoon.length)}
-              sub={`${expired.length} already expired`}
-              color={expiringSoon.length > 0 ? 'var(--warn)' : undefined}
+              label="Best performer"
+              value={bestPerformer ? bestPerformer.code : '—'}
+              sub={
+                bestPerformer
+                  ? `${bestPerformer.usedCount} use${bestPerformer.usedCount === 1 ? '' : 's'}`
+                  : 'nothing has been redeemed yet'
+              }
+              color={bestPerformer ? 'var(--ok)' : undefined}
             />
           </div>
 
@@ -381,7 +376,7 @@ function DcCouponsBody() {
                 style={{
                   padding: 12,
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(330px, 100%), 1fr))',
                   gap: 10,
                 }}
               >
@@ -438,7 +433,7 @@ function DcCouponsBody() {
             </div>
           ) : null}
 
-          <div style={{ ...card, overflow: 'auto' }}>
+          <div style={{ ...card, overflow: 'hidden' }}>
             <div
               style={{
                 display: 'flex',
@@ -458,142 +453,229 @@ function DcCouponsBody() {
                 {rows.length} code{rows.length === 1 ? '' : 's'}
               </span>
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={th}>Code</th>
-                  <th style={th}>Kind</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Value</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Min order</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Ceiling</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Used</th>
-                  <th style={th}>Expires</th>
-                  <th style={th}>Customer can use it</th>
-                  <th style={th} aria-label="Actions" />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((c) => {
-                  const isExpired = Boolean(c.expiresAt && new Date(c.expiresAt).getTime() <= now)
-                  const usable = c.isActive && !isExpired
-                  const tone = toneStyle(usable ? 'ok' : c.isActive ? 'warn' : 'mute')
-                  return (
-                    <tr key={c.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                      <td style={{ ...td, font: `700 12.5px/1 ${MONO}`, color: 'var(--ink)' }}>
-                        {c.code}
-                      </td>
-                      <td style={td}>{TYPE_LABEL[c.type]}</td>
-                      <td
+            <div
+              style={{
+                padding: 12,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(min(290px, 100%), 1fr))',
+                gap: 10,
+              }}
+            >
+              {rows.map((c) => {
+                const isExpired = Boolean(c.expiresAt && new Date(c.expiresAt).getTime() <= now)
+                const usable = c.isActive && !isExpired
+                const tone = toneStyle(usable ? 'ok' : c.isActive ? 'warn' : 'mute')
+                const usedLabel = c.usageLimit
+                  ? `${c.usedCount} / ${c.usageLimit}`
+                  : `${c.usedCount} / unlimited`
+                const pctUsed =
+                  c.usageLimit && c.usageLimit > 0
+                    ? Math.min(100, (Number(c.usedCount || 0) / c.usageLimit) * 100)
+                    : null
+                return (
+                  <div
+                    key={c.id}
+                    style={{
+                      border: '1px solid var(--line)',
+                      borderLeft: `3px solid ${tone.fg}`,
+                      borderRadius: 11,
+                      background: 'var(--surface-2)',
+                      padding: '12px 13px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 9,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+                      <span
                         style={{
-                          ...td,
-                          textAlign: 'right',
-                          font: `600 13px/1 ${MONO}`,
-                          color: 'var(--ink)',
+                          display: 'grid',
+                          placeItems: 'center',
+                          width: 28,
+                          height: 28,
+                          flex: 'none',
+                          borderRadius: 8,
+                          border: '1px solid var(--line)',
+                          background: 'var(--surface)',
+                          color: isUncapped(c) ? 'var(--bad)' : 'var(--violet-ink)',
                         }}
                       >
-                        {couponValue(c)}
-                      </td>
-                      <td style={{ ...td, textAlign: 'right', font: `500 12.5px/1 ${MONO}` }}>
-                        {c.minOrderAmount ? formatTaka(Number(c.minOrderAmount)) : 'none'}
-                      </td>
-                      <td
+                        <DcIcon
+                          name={c.type === 'FREE_SHIPPING' ? 'icon-truck' : 'icon-tag'}
+                          size={13}
+                        />
+                      </span>
+                      <span
                         style={{
-                          ...td,
-                          textAlign: 'right',
-                          font: `500 12.5px/1 ${MONO}`,
-                          color: isUncapped(c) ? 'var(--bad)' : 'var(--ink-2)',
+                          flex: 1,
+                          minWidth: 0,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 3,
                         }}
                       >
-                        {c.maxDiscountAmount
-                          ? formatTaka(Number(c.maxDiscountAmount))
-                          : c.type === 'PERCENTAGE'
-                            ? 'no ceiling'
-                            : '—'}
-                      </td>
-                      <td style={{ ...td, textAlign: 'right', font: `500 12.5px/1 ${MONO}` }}>
-                        {c.usedCount}
-                        {c.usageLimit ? ` / ${c.usageLimit}` : ''}
-                      </td>
-                      <td style={{ ...td, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
-                        {c.expiresAt
-                          ? new Date(c.expiresAt).toLocaleDateString('en-GB', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: '2-digit',
-                            })
-                          : 'never'}
-                      </td>
-                      {/* Rule 6: icon + worded badge + worded button, never a bare switch. */}
-                      <td style={{ padding: '10px 15px' }}>
+                        <span style={{ font: `700 13.5px/1.3 ${MONO}`, color: 'var(--ink)' }}>
+                          {c.code}
+                        </span>
+                        <span style={{ font: `400 11.5px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
+                          {couponValue(c)} · {TYPE_LABEL[c.type]}
+                          {c.minOrderAmount
+                            ? ` over ${formatTaka(Number(c.minOrderAmount))}`
+                            : ', no minimum'}
+                        </span>
+                      </span>
+                      {/* Rule 6: icon + worded badge, and a worded button below. */}
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          flex: 'none',
+                          padding: '3px 8px',
+                          borderRadius: 6,
+                          border: `1px solid ${tone.bd}`,
+                          background: tone.bg,
+                          color: tone.fg,
+                          font: `600 10px/1.3 ${FONT}`,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <DcIcon
+                          name={
+                            usable ? 'icon-check-circle' : c.isActive ? 'icon-clock' : 'icon-eye-off'
+                          }
+                          size={10}
+                        />
+                        {usable ? 'Live' : c.isActive ? 'On but expired' : 'Switched off'}
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 6,
+                        padding: '9px 10px',
+                        borderRadius: 9,
+                        border: '1px solid var(--line)',
+                        background: 'var(--surface)',
+                      }}
+                    >
+                      {[
+                        ['Used', usedLabel],
+                        [
+                          'Expires',
+                          c.expiresAt
+                            ? new Date(c.expiresAt).toLocaleDateString('en-GB', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                              })
+                            : 'never — switch it off by hand',
+                        ],
+                        [
+                          'Ceiling',
+                          c.maxDiscountAmount
+                            ? formatTaka(Number(c.maxDiscountAmount))
+                            : c.type === 'PERCENTAGE'
+                              ? 'none — one big order can cost you'
+                              : 'not applicable',
+                        ],
+                      ].map(([k, v]) => (
+                        <span
+                          key={k}
+                          style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}
+                        >
+                          <span
+                            style={{
+                              width: 54,
+                              flex: 'none',
+                              font: `600 9.5px/1.4 ${FONT}`,
+                              letterSpacing: '.08em',
+                              textTransform: 'uppercase',
+                              color: 'var(--ink-3)',
+                            }}
+                          >
+                            {k}
+                          </span>
+                          <span
+                            style={{
+                              flex: 1,
+                              minWidth: 0,
+                              font: `500 11.5px/1.45 ${MONO}`,
+                              color:
+                                k === 'Ceiling' && isUncapped(c) ? 'var(--bad)' : 'var(--ink-2)',
+                            }}
+                          >
+                            {v}
+                          </span>
+                        </span>
+                      ))}
+                      {pctUsed !== null ? (
                         <span
                           style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            padding: '3px 8px',
-                            borderRadius: 6,
-                            border: `1px solid ${tone.bd}`,
-                            background: tone.bg,
-                            color: tone.fg,
-                            font: `600 11px/1 ${FONT}`,
-                            whiteSpace: 'nowrap',
+                            height: 4,
+                            borderRadius: 99,
+                            background: 'var(--surface-3)',
+                            overflow: 'hidden',
                           }}
                         >
-                          <DcIcon
-                            name={usable ? 'icon-check-circle' : c.isActive ? 'icon-clock' : 'icon-eye-off'}
-                            size={11}
+                          <span
+                            style={{
+                              display: 'block',
+                              width: `${pctUsed}%`,
+                              height: '100%',
+                              borderRadius: 99,
+                              background: pctUsed >= 80 ? 'var(--warn)' : 'var(--ink-3)',
+                            }}
                           />
-                          {usable ? 'Yes, live' : c.isActive ? 'On but expired' : 'No, switched off'}
                         </span>
-                      </td>
-                      <td style={{ padding: '10px 15px' }}>
-                        <span style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          <button
-                            type="button"
-                            disabled={toggle.isPending}
-                            onClick={() =>
-                              c.isActive ? setConfirmOff(c) : runToggle(c, true)
-                            }
-                            style={{
-                              height: 28,
-                              padding: '0 10px',
-                              borderRadius: 8,
-                              border: '1px solid var(--line-2)',
-                              background: 'transparent',
-                              color: 'var(--ink-2)',
-                              cursor: toggle.isPending ? 'not-allowed' : 'pointer',
-                              font: `600 11.5px/1 ${FONT}`,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {c.isActive ? 'Switch off' : 'Switch on'}
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Delete ${c.code}`}
-                            title={`Delete ${c.code}`}
-                            onClick={() => setConfirmDelete(c)}
-                            style={{
-                              display: 'grid',
-                              placeItems: 'center',
-                              width: 28,
-                              height: 28,
-                              borderRadius: 8,
-                              border: '1px solid var(--bad-bd)',
-                              background: 'var(--bad-soft)',
-                              color: 'var(--bad)',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <DcIcon name="icon-trash-2" size={12} />
-                          </button>
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                      ) : null}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        disabled={toggle.isPending}
+                        onClick={() => (c.isActive ? setConfirmOff(c) : runToggle(c, true))}
+                        style={{
+                          height: 29,
+                          padding: '0 11px',
+                          borderRadius: 8,
+                          border: '1px solid var(--line-2)',
+                          background: 'transparent',
+                          color: 'var(--ink-2)',
+                          cursor: toggle.isPending ? 'not-allowed' : 'pointer',
+                          font: `600 11.5px/1 ${FONT}`,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {c.isActive ? 'Switch off' : 'Switch on'}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Delete ${c.code}`}
+                        title={`Delete ${c.code}`}
+                        onClick={() => setConfirmDelete(c)}
+                        style={{
+                          display: 'grid',
+                          placeItems: 'center',
+                          width: 29,
+                          height: 29,
+                          borderRadius: 8,
+                          border: '1px solid var(--bad-bd)',
+                          background: 'var(--bad-soft)',
+                          color: 'var(--bad)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <DcIcon name="icon-trash-2" size={12} />
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </>
       )}

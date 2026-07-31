@@ -133,7 +133,20 @@
   display: none;
 }
 
-.ai-command-page--dc .admin-beta-banner,
+.ai-command-page--dc .admin-beta-banner {
+  display: none !important;
+}
+
+.ai-command-page--dc .ai-command-confirm-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font: 500 12px/1.45 var(--font-inter, system-ui);
+}
+
 .ai-command-page--dc :is(.ai-command-hero, .ai-command-card) {
   border-color: var(--line) !important;
   border-radius: 14px !important;
@@ -945,6 +958,38 @@
     display: none !important;
   }
 
+  .dc-settings-host .settings-shell {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .dc-settings-host .settings-sidebar-panel {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .dc-order-new .mx-auto,
+  .dc-order-detail .admin-panel-page {
+    max-width: none !important;
+    padding-inline: 0 !important;
+  }
+
+  .dc-order-detail .grid.lg\:grid-cols-\[1fr_280px\] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dc-order-new .admin-module-card,
+  .dc-order-detail .admin-catalog-hero,
+  .dc-order-detail .admin-module-card {
+    border-radius: 12px !important;
+  }
+
+  .dc-product-new .dc-product-create,
+  .dc-product-edit .admin-panel-page {
+    padding-inline: 0 !important;
+  }
+
   .dc-mobile-list {
     display: flex;
     flex-direction: column;
@@ -964,6 +1009,10 @@
     background-image: var(--card-sheen);
     color: var(--ink);
     text-align: left;
+  }
+
+  .dc-mobile-list-card--static {
+    cursor: default;
   }
 
   button.dc-mobile-list-card {

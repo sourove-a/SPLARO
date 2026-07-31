@@ -188,6 +188,17 @@ function DcCustomersBody() {
         />
       ) : (
         <>
+          <MobileCustomersList
+            customers={rows}
+            segment={segment}
+            counts={counts}
+            query={query}
+            onQuery={setQuery}
+            onSegment={setSegment}
+            onOpen={(id) => router.push(`/dashboard/customers/${id}`)}
+          />
+
+          <div className="dc-desktop-route-panel">
           <div
             style={{
               display: 'grid',
@@ -341,7 +352,8 @@ function DcCustomersBody() {
                 </button>
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     <th style={th}>Customer</th>
@@ -519,8 +531,10 @@ function DcCustomersBody() {
                     )
                   })}
                 </tbody>
-              </table>
+                </table>
+              </div>
             )}
+          </div>
           </div>
         </>
       )}
@@ -616,6 +630,105 @@ function DcCustomersBody() {
         </div>
       ) : null}
     </>
+  )
+}
+
+function MobileCustomersList({
+  customers,
+  segment,
+  counts,
+  query,
+  onQuery,
+  onSegment,
+  onOpen,
+}: {
+  customers: ApiCustomer[]
+  segment: Segment
+  counts: Record<string, number>
+  query: string
+  onQuery: (q: string) => void
+  onSegment: (s: Segment) => void
+  onOpen: (id: string) => void
+}) {
+  return (
+    <div className="dc-mobile-route-panel" aria-label="Customers">
+      <label className="dc-mobile-filter">
+        <DcIcon name="icon-search" size={15} />
+        <input
+          value={query}
+          onChange={(e) => onQuery(e.target.value)}
+          placeholder="Phone, name…"
+          aria-label="Search customers"
+        />
+      </label>
+
+      <div className="dc-mobile-chips" role="tablist" aria-label="Customer segments">
+        {SEGMENTS.map((s) => {
+          const on = s === segment
+          return (
+            <button
+              key={s}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              className="dc-mobile-chip"
+              data-on={on ? 'true' : 'false'}
+              onClick={() => onSegment(s)}
+            >
+              {s}
+              <span className="dc-mobile-chip__n">{counts[s] ?? 0}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {customers.length === 0 ? (
+        <div
+          style={{
+            padding: '42px 18px',
+            border: '1px solid var(--line)',
+            borderRadius: 12,
+            background: 'var(--surface)',
+            color: 'var(--ink-3)',
+            textAlign: 'center',
+            font: `500 12.5px/1.5 ${FONT}`,
+          }}
+        >
+          No customers match current filters.
+        </div>
+      ) : (
+        <div className="dc-mobile-list">
+          {customers.map((c) => {
+            const seg = segmentOf(c)
+            const tone = toneStyle(seg === 'At risk' || seg === 'Blocked' ? 'bad' : seg === 'VIP' ? 'info' : 'mute')
+            return (
+              <button
+                key={c.id}
+                type="button"
+                className="dc-mobile-list-card"
+                onClick={() => onOpen(c.id)}
+              >
+                <span
+                  className="dc-mobile-list-card__icon"
+                  style={{ background: tone.bg, color: tone.fg }}
+                >
+                  {initials(c)}
+                </span>
+                <span className="dc-mobile-list-card__copy">
+                  <span className="dc-mobile-list-card__title">{fullName(c)}</span>
+                  <span className="dc-mobile-list-card__sub">
+                    {seg} · {formatBdPhone(c.phone || '')} · {c.totalOrders} orders
+                  </span>
+                </span>
+                <span className="dc-mobile-list-card__value">
+                  {formatTaka(Number(c.totalSpent || 0))}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 

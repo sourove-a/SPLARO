@@ -82,6 +82,7 @@ export function DcPurchaseOrders({ title = 'Purchase Orders' }: { title?: string
 }
 
 function DcPurchaseOrdersBody({ title }: { title: string }) {
+  const router = useRouter()
   const { toast } = useDcScreen()
   const proc = useProcurementOverview()
   const createPo = useCreatePurchaseOrder()
@@ -110,6 +111,29 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
   )
   const openValue = open.reduce((s, o) => s + Number(o.total || 0), 0)
   const owed = suppliers.reduce((s, x) => s + Number(x.dueAmount || 0), 0)
+  const received = orders.filter((o) => o.status.toUpperCase() === 'RECEIVED').length
+
+  /**
+   * The PO payload carries only `supplier.name`, so the phone number for the
+   * "Call supplier" action has to come back off the supplier list by name.
+   */
+  const phoneByName = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const s of suppliers) {
+      if (s.phone) map.set(s.name.trim().toLowerCase(), s.phone)
+    }
+    return map
+  }, [suppliers])
+
+  /** Open POs and lifetime spend per supplier — both derivable, unlike lead time. */
+  const supplierStats = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const o of open) {
+      const key = o.supplier.name.trim().toLowerCase()
+      map.set(key, (map.get(key) ?? 0) + 1)
+    }
+    return map
+  }, [open])
 
   const pageStatus = dcPageStatus([proc], api.pulse)
   const poTotal = poForm.lines.reduce(
@@ -258,9 +282,9 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
               color={owed > 0 ? 'var(--warn)' : 'var(--ink)'}
             />
             <Kpi
-              label="Goods received"
-              value={String(grns.length)}
-              sub="GRNs filed"
+              label="Received"
+              value={String(received)}
+              sub={`${grns.length} GRN${grns.length === 1 ? '' : 's'} filed`}
               color="var(--ok)"
             />
           </div>
@@ -295,12 +319,18 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                 style={{
                   padding: 12,
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(330px, 100%), 1fr))',
                   gap: 10,
                 }}
               >
                 {open.slice(0, 8).map((o) => {
                   const tone = toneStyle(PO_TONE[o.status.toUpperCase()] ?? 'warn')
+                  const lines = o.items?.length ?? 0
+                  const age = Math.max(
+                    0,
+                    Math.floor((Date.now() - new Date(o.createdAt).getTime()) / 86_400_000),
+                  )
+                  const phone = phoneByName.get(o.supplier.name.trim().toLowerCase())
                   return (
                     <div
                       key={o.id}
@@ -375,6 +405,49 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                           })}
                         </span>
                       </div>
+                      {/* Prototype's stats strip — the three facts you decide on. */}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                          gap: 1,
+                          border: '1px solid var(--line)',
+                          borderRadius: 9,
+                          overflow: 'hidden',
+                          background: 'var(--line)',
+                        }}
+                      >
+                        {[
+                          ['Lines', `${lines}`],
+                          ['Value', formatTaka(Number(o.total || 0))],
+                          ['Age', `${age}d`],
+                        ].map(([k, v]) => (
+                          <span
+                            key={k}
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 3,
+                              padding: '7px 9px',
+                              background: 'var(--surface)',
+                            }}
+                          >
+                            <span
+                              style={{
+                                font: `600 9.5px/1 ${FONT}`,
+                                letterSpacing: '.08em',
+                                textTransform: 'uppercase',
+                                color: 'var(--ink-3)',
+                              }}
+                            >
+                              {k}
+                            </span>
+                            <span style={{ font: `600 12px/1.2 ${MONO}`, color: 'var(--ink)' }}>
+                              {v}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
                       <span
                         style={{
                           font: `400 11.5px/1.55 ${FONT}`,
@@ -403,6 +476,26 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                         >
                           File GRN
                         </button>
+                        {phone ? (
+                          <a
+                            href={telHref(phone)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              height: 30,
+                              padding: '0 11px',
+                              borderRadius: 8,
+                              border: '1px solid var(--line-2)',
+                              color: 'var(--ink-2)',
+                              font: `600 11.5px/1 ${FONT}`,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            <DcIcon name="icon-phone" size={12} />
+                            <span>Call {formatBdPhone(phone)}</span>
+                          </a>
+                        ) : null}
                       </div>
                     </div>
                   )
@@ -435,7 +528,8 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                 {orders.length === 0 ? (
                   <Note text="No purchase orders raised yet." />
                 ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
                         <th style={th}>PO</th>
@@ -476,30 +570,36 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                    </table>
+                  </div>
                 )}
               </div>
 
               <div style={{ ...card, overflow: 'auto' }}>
                 <SectionHead
                   title="Suppliers"
-                  meta="lead time drives every reorder suggestion in Inventory"
+                  meta="lead time is not stored yet — Inventory reorder maths uses a flat assumption"
                 />
                 {suppliers.length === 0 ? (
                   <Note text="No suppliers on file." />
                 ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
                         <th style={th}>Supplier</th>
                         <th style={th}>Phone</th>
-                        <th style={{ ...th, textAlign: 'right' }}>Paid</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Open POs</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Spend</th>
                         <th style={{ ...th, textAlign: 'right' }}>Due</th>
                         <th style={th}>State</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {suppliers.map((s) => (
+                      {suppliers.map((s) => {
+                        const openCount = supplierStats.get(s.name.trim().toLowerCase()) ?? 0
+                        const spend = Number(s.paidAmount || 0) + Number(s.dueAmount || 0)
+                        return (
                         <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
                           <td style={{ padding: '10px 15px', font: `500 13px/1 ${FONT}`, color: 'var(--ink)' }}>
                             {s.name}
@@ -522,8 +622,18 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                               </span>
                             )}
                           </td>
+                          <td
+                            style={{
+                              padding: '10px 15px',
+                              textAlign: 'right',
+                              font: `600 13px/1 ${MONO}`,
+                              color: openCount > 0 ? 'var(--ink)' : 'var(--ink-3)',
+                            }}
+                          >
+                            {openCount}
+                          </td>
                           <td style={{ padding: '10px 15px', textAlign: 'right', font: `600 13px/1 ${MONO}`, color: 'var(--ink)' }}>
-                            {formatTaka(Number(s.paidAmount || 0))}
+                            {formatTaka(spend)}
                           </td>
                           <td
                             style={{
@@ -542,9 +652,11 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                             />
                           </td>
                         </tr>
-                      ))}
+                        )
+                      })}
                     </tbody>
-                  </table>
+                    </table>
+                  </div>
                 )}
               </div>
             </div>
@@ -610,15 +722,116 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                         }}
                       >
                         <span style={{ font: `500 12.5px/1.3 ${MONO}`, color: 'var(--ink)' }}>
-                          {g.grnNumber}
+                          {g.grnNumber} · {g.purchaseOrder.poNumber}
                         </span>
                         <span style={{ font: `400 11.5px/1.35 ${FONT}`, color: 'var(--ink-3)' }}>
-                          stock added against a purchase order
+                          {g.purchaseOrder.supplier.name}
+                          {g.notes ? ` · ${g.notes}` : ' · stock added to the ledger'}
                         </span>
+                      </span>
+                      <span
+                        style={{
+                          flex: 'none',
+                          font: `500 11px/1 ${MONO}`,
+                          color: 'var(--ink-3)',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {new Date(g.receivedAt).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                        })}
                       </span>
                     </div>
                   ))
                 )}
+              </div>
+
+              {/* Prototype's "Where this connects" — the same three links, but each
+                  one states the write it actually performs. */}
+              <div style={{ ...card, padding: '6px 16px 10px', marginTop: 16 }}>
+                <div style={{ padding: '11px 0 9px' }}>
+                  <span style={{ font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)' }}>
+                    Where this connects
+                  </span>
+                </div>
+                {[
+                  {
+                    icon: 'icon-archive',
+                    title: 'Inventory',
+                    sub: 'low-stock decisions are what start a purchase order',
+                    href: '/dashboard/inventory',
+                  },
+                  {
+                    icon: 'icon-warehouse',
+                    title: 'Warehouse & Stock',
+                    sub: 'a filed GRN writes PURCHASE rows into the movement ledger',
+                    href: '/dashboard/wms/overview',
+                  },
+                  {
+                    icon: 'icon-chart-no-axes-combined',
+                    title: 'Profit & Loss',
+                    sub: 'received PO value lands in product cost, not when it was raised',
+                    href: '/dashboard/finance/profit-loss',
+                  },
+                ].map((l) => (
+                  <button
+                    key={l.href}
+                    type="button"
+                    onClick={() => router.push(l.href)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 11,
+                      width: '100%',
+                      padding: '10px 0',
+                      border: 'none',
+                      borderTop: '1px solid var(--line)',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: 'grid',
+                        placeItems: 'center',
+                        width: 28,
+                        height: 28,
+                        flex: 'none',
+                        borderRadius: 8,
+                        border: '1px solid var(--line)',
+                        background: 'var(--surface-2)',
+                        color: 'var(--violet-ink)',
+                      }}
+                    >
+                      <DcIcon name={l.icon} size={13} />
+                    </span>
+                    <span
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 3,
+                      }}
+                    >
+                      <span style={{ font: `600 12.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+                        {l.title}
+                      </span>
+                      <span
+                        style={{
+                          font: `400 11.5px/1.4 ${FONT}`,
+                          color: 'var(--ink-3)',
+                          textWrap: 'pretty',
+                        }}
+                      >
+                        {l.sub}
+                      </span>
+                    </span>
+                    <DcIcon name="icon-arrow-right" size={13} color="var(--ink-3)" />
+                  </button>
+                ))}
               </div>
             </div>
           </div>

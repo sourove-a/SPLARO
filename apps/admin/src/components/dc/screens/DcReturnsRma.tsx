@@ -78,6 +78,15 @@ const NEXT_MOVE: Partial<
 
 const OPEN_STATUSES: ApiRmaRow['status'][] = ['pending', 'approved', 'received']
 
+/** One column per stage a return can sit in, in the order it moves through them. */
+const STAGES: Array<{ label: string; status: ApiRmaRow['status']; dot: string; why: string }> = [
+  { label: 'Requested', status: 'pending', dot: 'var(--warn)', why: 'waiting on your yes or no' },
+  { label: 'Approved', status: 'approved', dot: 'var(--info)', why: 'customer is shipping it back' },
+  { label: 'Received', status: 'received', dot: 'var(--violet-solid)', why: 'item in hand, money not returned' },
+  { label: 'Refunded', status: 'refunded', dot: 'var(--ok)', why: 'closed, money out' },
+  { label: 'Rejected', status: 'rejected', dot: 'var(--bad)', why: 'turned down' },
+]
+
 const REASONS = [
   'Wrong size',
   'Damaged on arrival',
@@ -266,6 +275,62 @@ function DcReturnsRmaBody() {
         />
       ) : (
         <>
+          {/* Stage strip — every return in the window, by where it is stuck. */}
+          <div
+            style={{
+              ...card,
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 1,
+              overflow: 'hidden',
+              background: 'var(--line)',
+            }}
+          >
+            {STAGES.map((st) => {
+              const count = rows.filter((r) => r.status === st.status).length
+              return (
+                <div
+                  key={st.status}
+                  style={{
+                    flex: '1 1 150px',
+                    minWidth: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                    padding: '13px 15px',
+                    background: 'var(--surface)',
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        flex: 'none',
+                        borderRadius: 99,
+                        background: st.dot,
+                      }}
+                    />
+                    <span
+                      style={{
+                        font: `600 11px/1 ${FONT}`,
+                        letterSpacing: '.06em',
+                        textTransform: 'uppercase',
+                        color: 'var(--ink-3)',
+                      }}
+                    >
+                      {st.label}
+                    </span>
+                  </span>
+                  <span style={{ font: `700 21px/1 ${FONT}`, color: 'var(--ink)' }}>{count}</span>
+                  <span style={{ font: `400 11px/1.35 ${FONT}`, color: 'var(--ink-3)' }}>
+                    {st.why}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
           <div
             style={{
               display: 'grid',
@@ -314,7 +379,7 @@ function DcReturnsRmaBody() {
                 style={{
                   padding: 12,
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(330px, 100%), 1fr))',
                   gap: 10,
                 }}
               >
@@ -461,7 +526,8 @@ function DcReturnsRmaBody() {
                 {rows.length} record{rows.length === 1 ? '' : 's'}
               </span>
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 980, borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   <th style={th}>RMA</th>
@@ -526,7 +592,8 @@ function DcReturnsRmaBody() {
                   )
                 })}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
         </>
       )}

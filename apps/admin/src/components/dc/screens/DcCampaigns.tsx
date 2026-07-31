@@ -351,7 +351,7 @@ function DcCampaignsBody() {
                 style={{
                   padding: 12,
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(330px, 100%), 1fr))',
                   gap: 10,
                 }}
               >
@@ -436,11 +436,13 @@ function DcCampaignsBody() {
                 {rows.length} record{rows.length === 1 ? '' : 's'}
               </span>
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   <th style={th}>Campaign</th>
                   <th style={th}>Channel</th>
+                  <th style={th}>Audience</th>
                   <th style={{ ...th, textAlign: 'right' }}>Sent</th>
                   <th style={{ ...th, textAlign: 'right' }}>Delivered</th>
                   <th style={{ ...th, textAlign: 'right' }}>Opened</th>
@@ -469,6 +471,9 @@ function DcCampaignsBody() {
                         </span>
                       </td>
                       <td style={td}>{formatCampaignType(c.type)}</td>
+                      <td style={{ ...td, color: c.recipientType ? 'var(--ink-2)' : 'var(--ink-3)' }}>
+                        {c.recipientType ? formatCampaignType(c.recipientType) : 'not recorded'}
+                      </td>
                       <td style={{ ...td, textAlign: 'right', font: `600 12.5px/1 ${MONO}` }}>
                         {sent.toLocaleString('en-IN')}
                       </td>
@@ -608,7 +613,8 @@ function DcCampaignsBody() {
                   )
                 })}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
         </>
       )}

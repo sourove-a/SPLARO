@@ -35,6 +35,30 @@ const capsLabel = {
 
 /** Orders sitting in the shop before anything has been handed to a courier. */
 const PRE_SHIP = ['PENDING', 'CONFIRMED', 'PROCESSING', 'PACKED']
+
+/** The pipeline strip — one stage per place an order can be stuck. */
+const STAGES: Array<{ label: string; dot: string; statuses: string[]; why: string }> = [
+  {
+    label: 'To pack',
+    dot: 'var(--warn)',
+    statuses: ['PENDING', 'CONFIRMED', 'PROCESSING'],
+    why: 'paid, still on the shelf',
+  },
+  { label: 'To dispatch', dot: 'var(--violet-solid)', statuses: ['PACKED'], why: 'boxed, no courier yet' },
+  {
+    label: 'With courier',
+    dot: 'var(--info)',
+    statuses: ['SHIPPED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'],
+    why: 'out of your hands',
+  },
+  {
+    label: 'Exceptions',
+    dot: 'var(--bad)',
+    statuses: ['FAILED', 'RETURNED', 'CANCELLED'],
+    why: 'came back or never went',
+  },
+  { label: 'Delivered', dot: 'var(--ok)', statuses: ['DELIVERED'], why: 'money is real' },
+]
 const OPEN_PO = ['DRAFT', 'PENDING', 'ORDERED', 'PARTIAL']
 const OPEN_RMA = ['pending', 'approved', 'received']
 
@@ -76,6 +100,14 @@ function DcOperationsHubBody() {
 
   const orderRows = useMemo(() => orders.data?.orders ?? [], [orders.data])
   const toPack = orderRows.filter((o) => PRE_SHIP.includes(o.status.toUpperCase())).length
+  const stageCounts = useMemo(
+    () =>
+      STAGES.map((st) => ({
+        ...st,
+        count: orderRows.filter((o) => st.statuses.includes(o.status.toUpperCase())).length,
+      })),
+    [orderRows],
+  )
   const codRisk = orderRows.filter((o) => o.isCodRisk).length
 
   const byStatus = courier.data?.byStatus ?? []
@@ -294,6 +326,68 @@ function DcOperationsHubBody() {
         />
       ) : (
         <>
+          {/* Pipeline strip — where every order in the window currently sits. */}
+          {orders.error ? null : (
+            <div
+              style={{
+                ...card,
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 1,
+                overflow: 'hidden',
+                background: 'var(--line)',
+              }}
+            >
+              {stageCounts.map((st) => (
+                <button
+                  key={st.label}
+                  type="button"
+                  onClick={() => router.push('/dashboard/orders')}
+                  style={{
+                    flex: '1 1 150px',
+                    minWidth: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                    padding: '13px 15px',
+                    border: 'none',
+                    background: 'var(--surface)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        flex: 'none',
+                        borderRadius: 99,
+                        background: st.dot,
+                      }}
+                    />
+                    <span
+                      style={{
+                        font: `600 11px/1 ${FONT}`,
+                        letterSpacing: '.06em',
+                        textTransform: 'uppercase',
+                        color: 'var(--ink-3)',
+                      }}
+                    >
+                      {st.label}
+                    </span>
+                  </span>
+                  <span style={{ font: `700 21px/1 ${FONT}`, color: 'var(--ink)' }}>
+                    {st.count}
+                  </span>
+                  <span style={{ font: `400 11px/1.35 ${FONT}`, color: 'var(--ink-3)' }}>
+                    {st.why}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
           <div
             style={{
               display: 'grid',
@@ -390,7 +484,7 @@ function DcOperationsHubBody() {
                 style={{
                   padding: 12,
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(330px, 100%), 1fr))',
                   gap: 10,
                 }}
               >
@@ -483,7 +577,7 @@ function DcOperationsHubBody() {
                   style={{
                     padding: 12,
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))',
                     gap: 10,
                   }}
                 >

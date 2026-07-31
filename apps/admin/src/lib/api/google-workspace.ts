@@ -116,8 +116,23 @@ export function syncGoogleNow(body?: { jobType?: string; resourceId?: string }) 
   return apiFetch('/admin/google/sheets/sync-now', { method: 'POST', body: JSON.stringify(body ?? {}) })
 }
 
+export interface GoogleSyncLogRow {
+  id: string
+  jobType: string
+  sheetTab: string | null
+  status: string
+  rowNumber: number | null
+  errorMsg: string | null
+  retryCount: number
+  syncedAt: string | null
+  triggeredBy: string | null
+  createdAt: string
+}
+
 export function fetchGoogleSyncLogs(page = 1) {
-  return apiFetch<{ items: unknown[]; total: number; page: number }>(`/admin/google/sync-logs?page=${page}`)
+  return apiFetch<{ items: GoogleSyncLogRow[]; total: number; page: number; totalPages?: number }>(
+    `/admin/google/sync-logs?page=${page}`,
+  )
 }
 
 export function fetchGoogleAuditLogs(page = 1) {

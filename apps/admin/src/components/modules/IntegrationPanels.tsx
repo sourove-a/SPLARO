@@ -339,19 +339,22 @@ export function AllIntegrationsPanel({
       <HandoffPageChrome
         group="Integrations"
         title="All Integrations"
+        hideHeader={embedded}
         {...(embedded ? { className: 'integ-chrome--embedded' } : {})}
         sync={loadError ? 'health unavailable' : isFetching ? 'health checking…' : lastHealthText}
         offline={Boolean(loadError)}
         actions={
-          <>
-            <AdminButton variant="ghost" loading={isFetching} onClick={() => void refetch()}>
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </AdminButton>
-            <AdminLinkButton href={firstSetupHref} variant="primary">
-              Add integration
-            </AdminLinkButton>
-          </>
+          embedded ? undefined : (
+            <>
+              <AdminButton variant="ghost" loading={isFetching} onClick={() => void refetch()}>
+                <RefreshCw className="h-4 w-4" />
+                Refresh
+              </AdminButton>
+              <AdminLinkButton href={firstSetupHref} variant="primary">
+                Add integration
+              </AdminLinkButton>
+            </>
+          )
         }
       >
         {previewOverride ?? (

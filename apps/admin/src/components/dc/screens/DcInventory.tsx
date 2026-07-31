@@ -252,7 +252,7 @@ function DcInventoryBody() {
                 style={{
                   padding: 12,
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(330px, 100%), 1fr))',
                   gap: 10,
                 }}
               >
@@ -317,7 +317,8 @@ function DcInventoryBody() {
                 Nothing is at or below its reorder point.
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     <th style={th}>Product</th>
@@ -463,7 +464,8 @@ function DcInventoryBody() {
                     )
                   })}
                 </tbody>
-              </table>
+                </table>
+              </div>
             )}
           </div>
 

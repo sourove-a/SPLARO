@@ -272,7 +272,8 @@ function DcCategoriesBody() {
                 </span>
               </div>
 
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     <th style={th}>Category</th>
@@ -423,7 +424,8 @@ function DcCategoriesBody() {
                     )
                   })}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </div>
           </div>
 

@@ -341,7 +341,8 @@ function DcOrdersBody() {
                 </button>
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     <th style={th}>Order</th>
@@ -455,7 +456,8 @@ function DcOrdersBody() {
                     )
                   })}
                 </tbody>
-              </table>
+                </table>
+              </div>
             )}
           </div>
           </div>

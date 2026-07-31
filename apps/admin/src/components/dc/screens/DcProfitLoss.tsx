@@ -11,7 +11,7 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, formatTaka } from '@/components/dc/tokens'
-import { fetchProfitLoss, type ProfitLossSummary } from '@/lib/api/finance'
+import { fetchFinanceDashboard, fetchProfitLoss, type ProfitLossSummary } from '@/lib/api/finance'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 
 const card = {
@@ -66,6 +66,15 @@ function DcProfitLossBody() {
     staleTime: 60_000,
     retry: 1,
   })
+
+  /** Share percentages live on the finance dashboard, not on the P&L payload. */
+  const dash = useQuery({
+    queryKey: ['finance-dashboard'],
+    queryFn: fetchFinanceDashboard,
+    staleTime: 45_000,
+    retry: 1,
+  })
+  const partners = useMemo(() => dash.data?.partners ?? [], [dash.data])
 
   const pageStatus = dcPageStatus([pl], api.pulse)
   const t = pl.data?.totals
@@ -252,6 +261,59 @@ function DcProfitLossBody() {
             />
           </div>
 
+          {/* The accountant's view: one line per movement, in ledger order. */}
+          <div style={{ ...card, overflow: 'auto' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 9,
+                flexWrap: 'wrap',
+                padding: '12px 15px',
+                borderBottom: '1px solid var(--line)',
+              }}
+            >
+              <span
+                style={{ flex: 1, minWidth: 140, font: `600 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}
+              >
+                Profit &amp; loss
+              </span>
+              <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                {orderCount} order{orderCount === 1 ? '' : 's'} in this period
+              </span>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 520, borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={plTh}>Line</th>
+                  <th style={{ ...plTh, textAlign: 'right' }}>Amount</th>
+                  <th style={{ ...plTh, textAlign: 'right' }}>% of revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                <LedgerRow label="Gross revenue" amount={gross} share={gross > 0 ? 100 : 0} strong />
+                {rows.map((r) => (
+                  <LedgerRow
+                    key={r.key}
+                    label={r.label}
+                    amount={-r.amount}
+                    share={-r.share}
+                    hint={r.why}
+                  />
+                ))}
+                <LedgerRow
+                  label="Net profit"
+                  amount={net}
+                  share={margin}
+                  strong
+                  tone={net >= 0 ? 'var(--ok)' : 'var(--bad)'}
+                />
+              </tbody>
+              </table>
+            </div>
+          </div>
+
           <div
             style={{
               display: 'flex',
@@ -391,7 +453,138 @@ function DcProfitLossBody() {
               </div>
             </div>
 
-            <div style={{ flex: '1 1 28%', minWidth: 290, maxWidth: '100%' }}>
+            <div
+              style={{
+                flex: '1 1 28%',
+                minWidth: 290,
+                maxWidth: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 16,
+              }}
+            >
+              {/* What each partner's slice of this net figure works out to. */}
+              <div style={{ ...card, padding: '6px 16px 10px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    gap: 9,
+                    flexWrap: 'wrap',
+                    padding: '12px 0 9px',
+                  }}
+                >
+                  <span
+                    style={{ flex: 1, minWidth: 110, font: `600 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}
+                  >
+                    Partner share of net
+                  </span>
+                  <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                    not a payout
+                  </span>
+                </div>
+                {dash.error ? (
+                  <div
+                    style={{
+                      padding: '20px 0',
+                      borderTop: '1px solid var(--line)',
+                      font: `400 11.5px/1.5 ${MONO}`,
+                      color: 'var(--bad)',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    GET /finance-reports/dashboard →{' '}
+                    {dash.error instanceof Error ? dash.error.message : 'request failed'}
+                  </div>
+                ) : partners.length === 0 ? (
+                  <div
+                    style={{
+                      padding: '22px 0',
+                      textAlign: 'center',
+                      borderTop: '1px solid var(--line)',
+                      font: `400 12px/1.55 ${FONT}`,
+                      color: 'var(--ink-3)',
+                    }}
+                  >
+                    No partners on file, so this profit is not being split.
+                  </div>
+                ) : (
+                  <>
+                    {partners.map((p) => {
+                      const pct = Number(p.sharePercent || 0)
+                      return (
+                        <div
+                          key={p.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 11,
+                            padding: '10px 0',
+                            borderTop: '1px solid var(--line)',
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: 'grid',
+                              placeItems: 'center',
+                              width: 28,
+                              height: 28,
+                              flex: 'none',
+                              borderRadius: 8,
+                              border: '1px solid var(--line)',
+                              background: 'var(--surface-2)',
+                              color: 'var(--violet-ink)',
+                            }}
+                          >
+                            <DcIcon name="icon-handshake" size={13} />
+                          </span>
+                          <span
+                            style={{
+                              flex: 1,
+                              minWidth: 0,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 3,
+                            }}
+                          >
+                            <span style={{ font: `600 12.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+                              {p.name}
+                            </span>
+                            <span style={{ font: `400 11px/1.35 ${FONT}`, color: 'var(--ink-3)' }}>
+                              {pct.toFixed(1)}% share
+                            </span>
+                          </span>
+                          <span
+                            style={{
+                              flex: 'none',
+                              font: `600 12.5px/1 ${MONO}`,
+                              color: net >= 0 ? 'var(--ink)' : 'var(--bad)',
+                            }}
+                          >
+                            {formatTaka((net * pct) / 100)}
+                          </span>
+                        </div>
+                      )
+                    })}
+                    <div
+                      style={{
+                        marginTop: 8,
+                        padding: '9px 11px',
+                        borderRadius: 9,
+                        border: '1px solid var(--line)',
+                        background: 'var(--surface-2)',
+                        font: `400 11.5px/1.55 ${FONT}`,
+                        color: 'var(--ink-3)',
+                      }}
+                    >
+                      {net >= 0
+                        ? 'These are shares of this period’s profit, not money moved. Withdrawals are recorded in Partner Hub.'
+                        : 'The period is a loss, so these figures are what each partner absorbs — nothing is payable.'}
+                    </div>
+                  </>
+                )}
+              </div>
+
               <div style={{ ...card, padding: '6px 16px 10px' }}>
                 <div style={{ padding: '12px 0 9px' }}>
                   <span style={{ font: `600 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
@@ -442,6 +635,75 @@ function DcProfitLossBody() {
         </>
       )}
     </>
+  )
+}
+
+const plTh = {
+  textAlign: 'left' as const,
+  padding: '9px 15px',
+  font: `600 10.5px/1 ${FONT}`,
+  letterSpacing: '.09em',
+  textTransform: 'uppercase' as const,
+  color: 'var(--ink-3)',
+  borderBottom: '1px solid var(--line)',
+  whiteSpace: 'nowrap' as const,
+}
+
+function LedgerRow({
+  label,
+  amount,
+  share,
+  hint,
+  strong,
+  tone,
+}: {
+  label: string
+  amount: number
+  share: number
+  hint?: string
+  strong?: boolean
+  tone?: string
+}) {
+  return (
+    <tr style={{ borderBottom: '1px solid var(--line)' }}>
+      <td style={{ padding: '10px 15px' }}>
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span
+            style={{
+              font: `${strong ? 600 : 400} 12.5px/1.35 ${FONT}`,
+              color: strong ? 'var(--ink)' : 'var(--ink-2)',
+            }}
+          >
+            {label}
+          </span>
+          {hint ? (
+            <span style={{ font: `400 11px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>{hint}</span>
+          ) : null}
+        </span>
+      </td>
+      <td
+        style={{
+          padding: '10px 15px',
+          textAlign: 'right',
+          font: `${strong ? 700 : 500} ${strong ? 14 : 13}px/1 ${MONO}`,
+          color: tone ?? (amount < 0 ? 'var(--ink-2)' : 'var(--ink)'),
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {amount < 0 ? `−${formatTaka(Math.abs(amount))}` : formatTaka(amount)}
+      </td>
+      <td
+        style={{
+          padding: '10px 15px',
+          textAlign: 'right',
+          font: `500 12px/1 ${MONO}`,
+          color: 'var(--ink-3)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {share < 0 ? `−${Math.abs(share).toFixed(1)}%` : `${share.toFixed(1)}%`}
+      </td>
+    </tr>
   )
 }
 

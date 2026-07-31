@@ -152,6 +152,17 @@ function DcProductsBody() {
         />
       ) : (
         <>
+          <MobileProductsList
+            products={rows}
+            tab={tab}
+            counts={counts}
+            query={query}
+            onQuery={setQuery}
+            onTab={setTab}
+            onOpen={(id) => router.push(`/dashboard/products/${id}/edit`)}
+          />
+
+          <div className="dc-desktop-route-panel">
           <div
             style={{
               display: 'flex',
@@ -293,7 +304,8 @@ function DcProductsBody() {
               </button>
             </div>
 
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   <th style={th}>Product</th>
@@ -426,11 +438,111 @@ function DcProductsBody() {
                   )
                 })}
               </tbody>
-            </table>
+              </table>
+            </div>
+          </div>
           </div>
         </>
       )}
     </>
+  )
+}
+
+function MobileProductsList({
+  products,
+  tab,
+  counts,
+  query,
+  onQuery,
+  onTab,
+  onOpen,
+}: {
+  products: ApiProduct[]
+  tab: Tab
+  counts: Record<string, number>
+  query: string
+  onQuery: (q: string) => void
+  onTab: (t: Tab) => void
+  onOpen: (id: string) => void
+}) {
+  return (
+    <div className="dc-mobile-route-panel" aria-label="Products">
+      <label className="dc-mobile-filter">
+        <DcIcon name="icon-search" size={15} />
+        <input
+          value={query}
+          onChange={(e) => onQuery(e.target.value)}
+          placeholder="Product or SKU…"
+          aria-label="Search products"
+        />
+      </label>
+
+      <div className="dc-mobile-chips" role="tablist" aria-label="Product status">
+        {TABS.map((t) => {
+          const on = t === tab
+          return (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              className="dc-mobile-chip"
+              data-on={on ? 'true' : 'false'}
+              onClick={() => onTab(t)}
+            >
+              {t}
+              <span className="dc-mobile-chip__n">{counts[t] ?? 0}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {products.length === 0 ? (
+        <div
+          style={{
+            padding: '42px 18px',
+            border: '1px solid var(--line)',
+            borderRadius: 12,
+            background: 'var(--surface)',
+            color: 'var(--ink-3)',
+            textAlign: 'center',
+            font: `500 12.5px/1.5 ${FONT}`,
+          }}
+        >
+          No products match current filters.
+        </div>
+      ) : (
+        <div className="dc-mobile-list">
+          {products.map((p) => {
+            const stock = stockOf(p)
+            const status = tabOf(p)
+            const tone = toneStyle(TAB_TONE[status])
+            return (
+              <button
+                key={p.id}
+                type="button"
+                className="dc-mobile-list-card"
+                onClick={() => onOpen(p.id)}
+              >
+                <span
+                  className="dc-mobile-list-card__icon"
+                  style={{ background: tone.bg, color: tone.fg }}
+                >
+                  <DcIcon name="icon-package" size={15} />
+                </span>
+                <span className="dc-mobile-list-card__copy">
+                  <span className="dc-mobile-list-card__title">{p.name}</span>
+                  <span className="dc-mobile-list-card__sub">
+                    {status} · {p.sku ?? 'no SKU'} · {stock === 0 ? 'out' : `${stock} units`}
+                  </span>
+                </span>
+                <span className="dc-mobile-list-card__value">{formatTaka(Number(p.basePrice))}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 

@@ -11,7 +11,7 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { useCourierShipments, useCourierStats } from '@/lib/api/hooks'
-import { bookCourierShipment, retryCourierShipment } from '@/lib/api/courier'
+import { bookCourierShipment, retryCourierShipment, type CourierShipmentRow } from '@/lib/api/courier'
 import { toastCourierResult } from '@/lib/admin/feedback'
 import { DcModal } from '@/components/dc/DcModal'
 import { dcPageStatus } from '@/components/dc/page-status'
@@ -205,6 +205,14 @@ function DcCourierBody() {
         />
       ) : (
         <>
+          <MobileCourierList
+            rows={rows}
+            onOpenOrder={(invoice) => router.push(`/dashboard/orders/${invoice}`)}
+            onBook={(orderId, invoice) => setConfirmBook({ orderId, invoice })}
+            onRetry={(orderId, invoice) => setConfirmRetry({ orderId, invoice })}
+          />
+
+          <div className="dc-desktop-route-panel">
           <div
             style={{
               display: 'flex',
@@ -271,7 +279,8 @@ function DcCourierBody() {
                     {rows.length} shown
                   </span>
                 </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       <th style={th}>Order</th>
@@ -392,7 +401,8 @@ function DcCourierBody() {
                       )
                     })}
                   </tbody>
-                </table>
+                  </table>
+                </div>
               </div>
             </div>
 
@@ -512,6 +522,7 @@ function DcCourierBody() {
               ) : null}
             </div>
           </div>
+          </div>
         </>
       )}
       <DcModal
@@ -534,6 +545,96 @@ function DcCourierBody() {
         onConfirm={() => confirmRetry && retry.mutate(confirmRetry.orderId)}
       />
     </>
+  )
+}
+
+function MobileCourierList({
+  rows,
+  onOpenOrder,
+  onBook,
+  onRetry,
+}: {
+  rows: CourierShipmentRow[]
+  onOpenOrder: (invoice: string) => void
+  onBook: (orderId: string, invoice: string) => void
+  onRetry: (orderId: string, invoice: string) => void
+}) {
+  return (
+    <div className="dc-mobile-route-panel" aria-label="Courier">
+      {rows.length === 0 ? (
+        <div
+          style={{
+            padding: '42px 18px',
+            border: '1px solid var(--line)',
+            borderRadius: 12,
+            background: 'var(--surface)',
+            color: 'var(--ink-3)',
+            textAlign: 'center',
+            font: `500 12.5px/1.5 ${FONT}`,
+          }}
+        >
+          No shipments in the queue.
+        </div>
+      ) : (
+        <div className="dc-mobile-list">
+          {rows.map((s) => {
+            const status = (s.status || 'PENDING').toUpperCase()
+            const tone = toneStyle(STATE_TONE[status] ?? 'mute')
+            const invoice = s.order?.invoiceNumber ?? s.orderId
+            const canBook = status === 'PENDING' || status === 'QUEUED'
+            const canRetry = status === 'FAILED' || status === 'CANCELLED'
+            return (
+              <div key={s.id} className="dc-mobile-list-card dc-mobile-list-card--static">
+                <button
+                  type="button"
+                  className="dc-mobile-list-card__main"
+                  onClick={() => onOpenOrder(invoice)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    flex: 1,
+                    minWidth: 0,
+                    border: 0,
+                    background: 'transparent',
+                    padding: 0,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span
+                    className="dc-mobile-list-card__icon"
+                    style={{ background: tone.bg, color: tone.fg }}
+                  >
+                    <DcIcon name="icon-truck" size={15} />
+                  </span>
+                  <span className="dc-mobile-list-card__copy">
+                    <span className="dc-mobile-list-card__title">
+                      {invoice} · {s.order?.shippingName ?? 'Recipient'}
+                    </span>
+                    <span className="dc-mobile-list-card__sub">
+                      {label(status)} · {s.provider ?? '—'} · {s.consignmentId ?? 'no CN'}
+                    </span>
+                  </span>
+                </button>
+                {canBook || canRetry ? (
+                  <button
+                    type="button"
+                    className="dc-mobile-chip"
+                    data-on="true"
+                    onClick={() =>
+                      canBook ? onBook(s.orderId, invoice) : onRetry(s.orderId, invoice)
+                    }
+                  >
+                    {canBook ? 'Book' : 'Retry'}
+                  </button>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -563,11 +664,11 @@ function Kpi({
         {text}
       </span>
       <span
-        style={{ font: `700 25px/1 ${FONT}`, letterSpacing: '-.025em', color: color ?? 'var(--ink)' }}
+        style={{ font: `700 26px/1 ${FONT}`, letterSpacing: '-.025em', color: color ?? 'var(--ink)' }}
       >
         {value}
       </span>
-      <span style={{ font: `400 11.5px/1.35 ${FONT}`, color: 'var(--ink-3)' }}>{sub}</span>
+      <span style={{ font: `400 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>{sub}</span>
     </div>
   )
 }

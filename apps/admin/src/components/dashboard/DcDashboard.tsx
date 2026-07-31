@@ -263,7 +263,7 @@ function DcDashboardBody() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(352px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(352px, 100%), 1fr))',
               gap: 16,
               alignItems: 'stretch',
             }}
@@ -346,7 +346,7 @@ function DcDashboardBody() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))',
               gap: 16,
               alignItems: 'start',
             }}
@@ -370,7 +370,7 @@ function DcDashboardBody() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))',
               gap: 16,
               alignItems: 'start',
             }}
@@ -405,7 +405,8 @@ function DcDashboardBody() {
               {allOrders.length === 0 ? (
                 <EmptyNote text="No orders yet. The queue fills the moment a customer checks out." />
               ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       <th style={th}>Order</th>
@@ -447,7 +448,8 @@ function DcDashboardBody() {
                       )
                     })}
                   </tbody>
-                </table>
+                  </table>
+                </div>
               )}
             </div>
 

@@ -31,6 +31,21 @@ import { DcAiCommandBrain } from '@/components/dc/screens/DcAiCommandBrain'
 import { DcSeoHealth } from '@/components/dc/screens/DcSeoHealth'
 import { DcAutomationRules } from '@/components/dc/screens/DcAutomationRules'
 import { DcAllIntegrations } from '@/components/dc/screens/DcAllIntegrations'
+import { DcMediaLibrary } from '@/components/dc/screens/DcMediaLibrary'
+import { DcHomePage } from '@/components/dc/screens/DcHomePage'
+import { DcApiHealth } from '@/components/dc/screens/DcApiHealth'
+import { DcWarehouseStock } from '@/components/dc/screens/DcWarehouseStock'
+import { DcPurchaseOrders } from '@/components/dc/screens/DcPurchaseOrders'
+import { DcReturnsRma } from '@/components/dc/screens/DcReturnsRma'
+import { DcOperationsHub } from '@/components/dc/screens/DcOperationsHub'
+import { DcFinanceOverview } from '@/components/dc/screens/DcFinanceOverview'
+import { DcProfitLoss } from '@/components/dc/screens/DcProfitLoss'
+import { DcCoupons } from '@/components/dc/screens/DcCoupons'
+import { DcCampaigns } from '@/components/dc/screens/DcCampaigns'
+import { DcSmsCenter } from '@/components/dc/screens/DcSmsCenter'
+import { DcGoogleSheets } from '@/components/dc/screens/DcGoogleSheets'
+import { DcBulkCsv } from '@/components/dc/screens/DcBulkCsv'
+import { DcAnalytics } from '@/components/dc/screens/DcAnalytics'
 import { DcLiveModuleScreen } from '@/components/dc/screens/DcLiveModuleScreen'
 import { screenKeyForHref } from '@/components/dc/screens'
 import { resolveNavRoute, getRecordIdFromSubPath } from '@/lib/navigation/admin-nav'
@@ -64,6 +79,25 @@ const DC_BESPOKE: Record<string, () => React.ReactElement> = {
   '/dashboard/seo-health': () => <DcSeoHealth />,
   '/dashboard/automation-rules': () => <DcAutomationRules />,
   '/dashboard/all-integrations': () => <DcAllIntegrations />,
+  '/dashboard/media-library': () => <DcMediaLibrary />,
+  '/dashboard/home-page': () => <DcHomePage />,
+  '/dashboard/api-health': () => <DcApiHealth />,
+  '/dashboard/wms/overview': () => <DcWarehouseStock />,
+  '/dashboard/procurement/overview': () => <DcPurchaseOrders title="Procurement Hub" />,
+  '/dashboard/procurement/purchase-orders': () => <DcPurchaseOrders />,
+  '/dashboard/procurement/suppliers': () => <DcPurchaseOrders title="Suppliers" />,
+  '/dashboard/procurement/goods-received': () => <DcPurchaseOrders title="Goods Received" />,
+  '/dashboard/returns-rma': () => <DcReturnsRma />,
+  '/dashboard/operations': () => <DcOperationsHub />,
+  '/dashboard/finance/finance-reports': () => <DcFinanceOverview />,
+  '/dashboard/finance/profit-loss': () => <DcProfitLoss />,
+  '/dashboard/finance/google-sheets-finance': () => <DcGoogleSheets />,
+  '/dashboard/coupons': () => <DcCoupons />,
+  '/dashboard/campaigns': () => <DcCampaigns />,
+  '/dashboard/sms': () => <DcSmsCenter />,
+  '/dashboard/automation/google-sheets-sync': () => <DcGoogleSheets />,
+  '/dashboard/bulk': () => <DcBulkCsv />,
+  '/dashboard/analytics': () => <DcAnalytics />,
 }
 
 /** Detail/create handled inside the module panel via ModuleWorkspace action/subPath. */

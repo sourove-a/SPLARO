@@ -19,6 +19,7 @@ import {
   syncSheet,
   type SheetsDashboardSheet,
 } from '@/lib/api/finance'
+import { fetchGoogleSyncLogs } from '@/lib/api/google-workspace'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 
 const card = {
@@ -44,6 +45,32 @@ const SHEET_PURPOSE: Record<string, string> = {
   EXPENSES: 'Approved expenses by category and who spent it.',
   PRODUCTS: 'Catalogue with cost and retail price per SKU.',
   CUSTOMERS: 'Customer list with order count and lifetime value.',
+}
+
+const sheetTh = {
+  textAlign: 'left' as const,
+  padding: '9px 15px',
+  font: `600 10.5px/1 ${FONT}`,
+  letterSpacing: '.09em',
+  textTransform: 'uppercase' as const,
+  color: 'var(--ink-3)',
+  borderBottom: '1px solid var(--line)',
+  whiteSpace: 'nowrap' as const,
+}
+
+function SheetNote({ text }: { text: string }) {
+  return (
+    <div
+      style={{
+        padding: '36px 15px',
+        textAlign: 'center',
+        font: `400 12.5px/1.55 ${FONT}`,
+        color: 'var(--ink-3)',
+      }}
+    >
+      {text}
+    </div>
+  )
 }
 
 function purposeOf(sheetType: string): string {
@@ -101,7 +128,18 @@ function DcGoogleSheetsBody() {
     staleTime: 20_000,
     retry: 1,
   })
-  const invalidate = () => void qc.invalidateQueries({ queryKey: ['google-sheets-dashboard'] })
+  /** The job-by-job history behind the per-tab status above. */
+  const logs = useQuery({
+    queryKey: ['google-sync-logs'],
+    queryFn: () => fetchGoogleSyncLogs(1),
+    staleTime: 20_000,
+    retry: 1,
+  })
+
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ['google-sheets-dashboard'] })
+    void qc.invalidateQueries({ queryKey: ['google-sync-logs'] })
+  }
 
   const syncOne = useMutation({ mutationFn: (t: string) => syncSheet(t), onSuccess: invalidate })
   const syncAll = useMutation({ mutationFn: () => syncAllSheets(), onSuccess: invalidate })
@@ -112,7 +150,8 @@ function DcGoogleSheetsBody() {
   const sheets = useMemo(() => dash.data?.sheets ?? [], [dash.data])
   const stats = dash.data?.stats
   const conn = dash.data?.connection
-  const pageStatus = dcPageStatus([dash], api.pulse)
+  const pageStatus = dcPageStatus([dash, logs], api.pulse)
+  const jobs = logs.data?.items ?? []
 
   const failing = sheets.filter((s) => statusTone(s) === 'bad')
   const unconfigured = sheets.filter((s) => !s.configured)
@@ -139,7 +178,10 @@ function DcGoogleSheetsBody() {
               : 'no tabs reported'
         }
         syncing={dash.isFetching}
-        onSync={() => void dash.refetch()}
+        onSync={() => {
+          void dash.refetch()
+          void logs.refetch()
+        }}
         actions={[
           ...(failing.length > 0
             ? [
@@ -363,7 +405,7 @@ function DcGoogleSheetsBody() {
               style={{
                 padding: 12,
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(min(330px, 100%), 1fr))',
                 gap: 10,
               }}
             >
@@ -525,6 +567,261 @@ function DcGoogleSheetsBody() {
                   </div>
                 )
               })}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 16,
+              alignItems: 'flex-start',
+              width: '100%',
+            }}
+          >
+            <div style={{ flex: '1 1 58%', minWidth: 340, maxWidth: '100%' }}>
+              <div style={{ ...card, overflow: 'auto' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    gap: 9,
+                    flexWrap: 'wrap',
+                    padding: '12px 15px',
+                    borderBottom: '1px solid var(--line)',
+                  }}
+                >
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 130,
+                      font: `600 13.5px/1.3 ${FONT}`,
+                      color: 'var(--ink)',
+                    }}
+                  >
+                    Sync jobs
+                  </span>
+                  <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                    {logs.error
+                      ? 'log unavailable'
+                      : `${jobs.length} most recent · GoogleSyncLog`}
+                  </span>
+                </div>
+                {logs.isLoading ? (
+                  <SheetNote text="Loading the job history…" />
+                ) : logs.error ? (
+                  <SheetNote
+                    text={`GET /admin/google/sync-logs → ${logs.error instanceof Error ? logs.error.message : 'request failed'}`}
+                  />
+                ) : jobs.length === 0 ? (
+                  <SheetNote text="No sync job has run yet. The per-tab cards above stay empty until one does." />
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', minWidth: 700, borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={sheetTh}>Job</th>
+                        <th style={sheetTh}>Tab</th>
+                        <th style={{ ...sheetTh, textAlign: 'right' }}>Rows</th>
+                        <th style={sheetTh}>Ran</th>
+                        <th style={sheetTh}>Result</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {jobs.map((j) => {
+                        const s = (j.status ?? '').toUpperCase()
+                        const tone = toneStyle(
+                          s === 'COMPLETED' || s === 'SUCCESS'
+                            ? 'ok'
+                            : s === 'FAILED' || s === 'ERROR'
+                              ? 'bad'
+                              : s === 'PENDING' || s === 'RUNNING'
+                                ? 'warn'
+                                : 'mute',
+                        )
+                        const when = j.syncedAt ?? j.createdAt
+                        return (
+                          <tr key={j.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                            <td
+                              style={{
+                                padding: '10px 15px',
+                                font: `500 12.5px/1.35 ${FONT}`,
+                                color: 'var(--ink)',
+                              }}
+                            >
+                              <span
+                                style={{ display: 'flex', flexDirection: 'column', gap: 3 }}
+                              >
+                                <span>{prettySheet(j.jobType)}</span>
+                                {j.triggeredBy ? (
+                                  <span
+                                    style={{
+                                      font: `400 11px/1.3 ${FONT}`,
+                                      color: 'var(--ink-3)',
+                                    }}
+                                  >
+                                    by {j.triggeredBy}
+                                  </span>
+                                ) : null}
+                              </span>
+                            </td>
+                            <td
+                              style={{
+                                padding: '10px 15px',
+                                font: `500 12px/1 ${MONO}`,
+                                color: 'var(--ink-2)',
+                              }}
+                            >
+                              {j.sheetTab ?? '—'}
+                            </td>
+                            <td
+                              style={{
+                                padding: '10px 15px',
+                                textAlign: 'right',
+                                font: `500 12.5px/1 ${MONO}`,
+                                color: 'var(--ink-2)',
+                              }}
+                            >
+                              {j.rowNumber ?? '—'}
+                            </td>
+                            <td
+                              style={{
+                                padding: '10px 15px',
+                                font: `400 12px/1 ${FONT}`,
+                                color: 'var(--ink-3)',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {new Date(when).toLocaleString('en-GB', {
+                                day: '2-digit',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </td>
+                            <td style={{ padding: '10px 15px' }}>
+                              <span
+                                style={{ display: 'flex', flexDirection: 'column', gap: 5 }}
+                              >
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignSelf: 'flex-start',
+                                    alignItems: 'center',
+                                    gap: 5,
+                                    padding: '3px 8px',
+                                    borderRadius: 6,
+                                    border: `1px solid ${tone.bd}`,
+                                    background: tone.bg,
+                                    color: tone.fg,
+                                    font: `600 11px/1 ${FONT}`,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {j.status}
+                                  {j.retryCount > 0 ? ` · ${j.retryCount} retries` : ''}
+                                </span>
+                                {j.errorMsg ? (
+                                  <span
+                                    style={{
+                                      font: `400 11px/1.45 ${MONO}`,
+                                      color: 'var(--bad)',
+                                      wordBreak: 'break-word',
+                                    }}
+                                  >
+                                    {j.errorMsg}
+                                  </span>
+                                ) : null}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ flex: '1 1 30%', minWidth: 290, maxWidth: '100%' }}>
+              <div style={{ ...card, padding: '6px 16px 10px' }}>
+                <div style={{ padding: '12px 0 9px' }}>
+                  <span style={{ font: `600 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+                    If a sync fails
+                  </span>
+                </div>
+                {[
+                  {
+                    icon: 'icon-refresh-cw',
+                    title: 'Retry only what failed',
+                    sub: 'POST /google-sheets/retry-failed — the button appears in the header when there is something to retry',
+                  },
+                  {
+                    icon: 'icon-file-text',
+                    title: 'Read the provider error',
+                    sub: 'the red line on a job row is what Google returned, unedited',
+                  },
+                  {
+                    icon: 'icon-clock',
+                    title: 'A 429 means too often, not broken',
+                    sub: 'Google caps writes per minute — space the syncs out rather than retrying in a loop',
+                  },
+                  {
+                    icon: 'icon-link-2-off',
+                    title: 'Auth errors need the connection, not a retry',
+                    sub: 'if the account or spreadsheet link dropped, every retry fails the same way',
+                  },
+                ].map((r) => (
+                  <div
+                    key={r.title}
+                    style={{
+                      display: 'flex',
+                      gap: 11,
+                      padding: '10px 0',
+                      borderTop: '1px solid var(--line)',
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: 'grid',
+                        placeItems: 'center',
+                        width: 28,
+                        height: 28,
+                        flex: 'none',
+                        borderRadius: 8,
+                        border: '1px solid var(--line)',
+                        background: 'var(--surface-2)',
+                        color: 'var(--ink-2)',
+                      }}
+                    >
+                      <DcIcon name={r.icon} size={13} />
+                    </span>
+                    <span
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 3,
+                      }}
+                    >
+                      <span style={{ font: `600 12.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+                        {r.title}
+                      </span>
+                      <span
+                        style={{
+                          font: `400 11.5px/1.45 ${FONT}`,
+                          color: 'var(--ink-3)',
+                          textWrap: 'pretty',
+                        }}
+                      >
+                        {r.sub}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </>

@@ -266,7 +266,7 @@ function DcPackingBody() {
         className="dc-desktop-route-panel"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))',
           gap: 16,
           alignItems: 'start',
         }}
@@ -509,7 +509,8 @@ function DcPackingBody() {
                 Nothing scanned yet. The first parcel appears here the moment it goes through.
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     <th style={th}>Time</th>
@@ -563,7 +564,8 @@ function DcPackingBody() {
                     )
                   })}
                 </tbody>
-              </table>
+                </table>
+              </div>
             )}
           </div>
         </div>

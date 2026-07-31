@@ -878,11 +878,84 @@ html:not(.dark) .premium-dash [class*='radial-gradient'] {
   display: none;
 }
 
-/* In-panel “Back to …” when DcPageHead already has onBack (order create/detail). */
-.dc-order-detail .admin-panel-page > a.admin-btn:first-child,
-.dc-order-new .admin-panel-page > a.admin-btn:first-child,
-.dc-live-module .admin-panel-page > a.admin-btn:first-child:has(svg) {
-  display: none;
+/* Order create/detail under DC page head — match Returns/Analytics card language. */
+.dc-order-detail .admin-panel-page,
+.dc-order-new {
+  gap: 14px;
+}
+
+.dc-order-detail .dc-order-hero {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  background-image: var(--card-sheen);
+}
+
+.dc-order-detail .admin-catalog-hero,
+.dc-order-detail .admin-panel-hero,
+.dc-order-new .admin-module-card {
+  border: 1px solid var(--line) !important;
+  border-radius: 14px !important;
+  background-color: var(--surface) !important;
+  background-image: var(--card-sheen) !important;
+  box-shadow: none !important;
+}
+
+.dc-order-detail .admin-catalog-hero::before,
+.dc-order-detail .admin-catalog-hero::after,
+.dc-order-new .admin-module-card::before,
+.dc-order-new .admin-module-card::after {
+  display: none !important;
+}
+
+.dc-order-detail .admin-catalog-table-shell,
+.dc-order-detail .admin-module-card {
+  border-color: var(--line) !important;
+  border-radius: 12px !important;
+  background: var(--surface) !important;
+  box-shadow: none !important;
+}
+
+.dc-order-detail .admin-catalog-th {
+  color: var(--ink-3) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  border-color: var(--line) !important;
+}
+
+.dc-order-detail .admin-catalog-td,
+.dc-order-detail .admin-catalog-td--strong {
+  color: var(--ink-2) !important;
+  border-color: var(--line) !important;
+}
+
+.dc-order-new .admin-input,
+.dc-order-detail .admin-input,
+.dc-order-new select,
+.dc-order-detail select {
+  border-color: var(--line) !important;
+  border-radius: 9px !important;
+  background: var(--surface-2) !important;
+  color: var(--ink) !important;
+}
+
+.dc-product-new .admin-catalog-hero,
+.dc-product-edit .admin-catalog-hero,
+.dc-product-new .admin-module-hero,
+.dc-product-edit .admin-module-hero {
+  display: none !important;
+}
+
+.dc-product-new .admin-module-card,
+.dc-product-edit .admin-module-card,
+.dc-product-new .admin-module-section,
+.dc-product-edit .admin-module-section {
+  border-color: var(--line) !important;
+  border-radius: 14px !important;
+  background-color: var(--surface) !important;
+  background-image: var(--card-sheen) !important;
+  box-shadow: none !important;
 }
 
 /* Order detail keeps invoice + status in the card; drop duplicate “Order” eyebrow only. */

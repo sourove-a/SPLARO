@@ -261,13 +261,17 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
   }
 
   return (
-    <div className="admin-panel-page mx-auto max-w-[960px] space-y-4">
+    <div className="admin-panel-page dc-order-detail-body mx-auto max-w-[960px] space-y-4">
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_280px]">
-        <div className="admin-catalog-hero admin-panel-hero !mb-0 flex flex-col gap-5 !p-6">
+        <div className="dc-order-hero flex flex-col gap-5 p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[var(--admin-text-muted)]">Order</p>
-              <h2 className="mb-2 font-mono text-lg font-black text-[var(--admin-text-primary)]">{order.invoiceNumber}</h2>
+              <h2
+                className="mb-2 font-mono text-lg font-black"
+                style={{ color: 'var(--ink)' }}
+              >
+                {order.invoiceNumber}
+              </h2>
               <div className="flex flex-wrap items-center gap-2">
                 <StatusPill value={status} />
                 {order.isCodRisk ? (

@@ -79,11 +79,36 @@ const GUARDS = [
   'Source and destination warehouse must differ',
 ]
 
+/**
+ * The overview endpoint includes both warehouse relations on every transfer, but
+ * a dropped `include` upstream must not white-screen the whole screen.
+ */
+function whName(w: { name: string } | null | undefined): string {
+  return w?.name ?? 'unknown warehouse'
+}
+
 function binCount(w: WmsWarehouse) {
   return (w.zones ?? []).reduce(
     (r, zone) => r + (zone.racks ?? []).reduce((rr, rack) => rr + (rack.bins?.length ?? 0), 0),
     0,
   )
+}
+
+/** Per-warehouse stock, summed off the bins — the store-level totals split by site. */
+function warehouseStock(w: WmsWarehouse) {
+  let available = 0
+  let reserved = 0
+  let damaged = 0
+  for (const zone of w.zones ?? []) {
+    for (const rack of zone.racks ?? []) {
+      for (const bin of rack.bins ?? []) {
+        available += Number(bin.availableQty || 0)
+        reserved += Number(bin.reservedQty || 0)
+        damaged += Number(bin.damagedQty || 0)
+      }
+    }
+  }
+  return { available, reserved, damaged }
 }
 
 export function DcWarehouseStock() {
@@ -234,7 +259,7 @@ function DcWarehouseStockBody() {
                 style={{
                   padding: 12,
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(330px, 100%), 1fr))',
                   gap: 10,
                 }}
               >
@@ -258,7 +283,7 @@ function DcWarehouseStockBody() {
                       <span
                         style={{ font: `600 13px/1.35 ${FONT}`, color: 'var(--ink)' }}
                       >
-                        {t.fromWarehouse.name} → {t.toWarehouse.name}
+                        {whName(t.fromWarehouse)} → {whName(t.toWarehouse)}
                       </span>
                       <span
                         style={{
@@ -367,7 +392,8 @@ function DcWarehouseStockBody() {
             >
               <div style={{ ...card, overflow: 'auto' }}>
                 <SectionHead title="Warehouses" meta={`${warehouses.length} on file`} />
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', minWidth: 860, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       <th style={th}>Warehouse</th>
@@ -375,12 +401,16 @@ function DcWarehouseStockBody() {
                       <th style={th}>City</th>
                       <th style={{ ...th, textAlign: 'right' }}>Zones</th>
                       <th style={{ ...th, textAlign: 'right' }}>Bins</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Available</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Reserved</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Damaged</th>
                       <th style={th}>State</th>
                     </tr>
                   </thead>
                   <tbody>
                     {warehouses.map((w) => {
                       const tone = toneStyle(w.isActive ? 'ok' : 'mute')
+                      const stock = warehouseStock(w)
                       return (
                         <tr key={w.id} style={{ borderBottom: '1px solid var(--line)' }}>
                           <td style={{ padding: '10px 15px', font: `500 13px/1 ${FONT}`, color: 'var(--ink)' }}>
@@ -398,14 +428,49 @@ function DcWarehouseStockBody() {
                           <td style={{ padding: '10px 15px', textAlign: 'right', font: `600 13px/1 ${MONO}`, color: 'var(--ink)' }}>
                             {binCount(w)}
                           </td>
+                          <td style={{ padding: '10px 15px', textAlign: 'right', font: `600 13px/1 ${MONO}`, color: 'var(--ink)' }}>
+                            {stock.available.toLocaleString('en-IN')}
+                          </td>
+                          <td
+                            style={{
+                              padding: '10px 15px',
+                              textAlign: 'right',
+                              font: `600 13px/1 ${MONO}`,
+                              color: stock.reserved > 0 ? 'var(--violet-ink)' : 'var(--ink-3)',
+                            }}
+                          >
+                            {stock.reserved.toLocaleString('en-IN')}
+                          </td>
+                          <td
+                            style={{
+                              padding: '10px 15px',
+                              textAlign: 'right',
+                              font: `600 13px/1 ${MONO}`,
+                              color: stock.damaged > 0 ? 'var(--bad)' : 'var(--ink-3)',
+                            }}
+                          >
+                            {stock.damaged.toLocaleString('en-IN')}
+                          </td>
                           <td style={{ padding: '10px 15px' }}>
-                            <Chip tone={tone} label={w.isActive ? 'Active' : 'Archived'} />
+                            <Chip
+                              tone={
+                                binCount(w) === 0 && w.isActive ? toneStyle('mute') : tone
+                              }
+                              label={
+                                !w.isActive
+                                  ? 'Archived'
+                                  : binCount(w) === 0
+                                    ? 'Empty — no bins yet'
+                                    : 'Active'
+                              }
+                            />
                           </td>
                         </tr>
                       )
                     })}
                   </tbody>
-                </table>
+                  </table>
+                </div>
               </div>
 
               <div style={{ ...card, overflow: 'auto' }}>
@@ -416,7 +481,8 @@ function DcWarehouseStockBody() {
                 {movements.length === 0 ? (
                   <Note text="No movements recorded yet." />
                 ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', minWidth: 860, borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
                         <th style={th}>When</th>
@@ -466,7 +532,8 @@ function DcWarehouseStockBody() {
                         )
                       })}
                     </tbody>
-                  </table>
+                    </table>
+                  </div>
                 )}
               </div>
             </div>
@@ -646,7 +713,7 @@ function DcWarehouseStockBody() {
         open={confirmShip !== null}
         title={
           confirmShip
-            ? `Ship ${confirmShip.fromWarehouse.name} → ${confirmShip.toWarehouse.name}?`
+            ? `Ship ${whName(confirmShip.fromWarehouse)} → ${whName(confirmShip.toWarehouse)}?`
             : 'Ship transfer'
         }
         subtitle="Stock leaves the source warehouse and is unsellable at both ends until it is received."
@@ -678,7 +745,7 @@ function DcWarehouseStockBody() {
         open={confirmReceive !== null}
         title={
           confirmReceive
-            ? `Receive at ${confirmReceive.toWarehouse.name}?`
+            ? `Receive at ${whName(confirmReceive.toWarehouse)}?`
             : 'Receive transfer'
         }
         subtitle="Stock becomes sellable at the destination and the transfer closes."

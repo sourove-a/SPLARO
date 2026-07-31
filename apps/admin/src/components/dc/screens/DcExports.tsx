@@ -51,7 +51,7 @@ export function DcExports() {
           CSV · max 500 rows · verified API only
         </span>
       </div>
-      <div className="dc-detail-host dc-exports-host">
+      <div className="dc-detail-host dc-live-module dc-exports-host">
         <ExportCenterPanelLive />
       </div>
     </DcScreenProvider>

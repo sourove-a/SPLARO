@@ -29,6 +29,14 @@ function DcAiCommandBrainBody() {
         statusLabel={connection?.label ?? 'BETA'}
         statusTone={connection?.tone ?? 'vio'}
         syncLabel="model controls · confirmation gated"
+        actions={[
+          {
+            label: 'Guardrails',
+            icon: 'icon-shield',
+            onClick: () =>
+              document.getElementById('ai-guardrails')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+          },
+        ]}
       />
       <AiCommandCenterPanel embedded />
     </>

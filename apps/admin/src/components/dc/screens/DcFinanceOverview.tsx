@@ -11,6 +11,7 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { fetchDashboardInsights } from '@/lib/api/dashboard'
 import { fetchFinanceDashboard, fetchProfitLoss, type ProfitLossSummary } from '@/lib/api/finance'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 
@@ -75,8 +76,23 @@ function DcFinanceOverviewBody() {
     staleTime: 60_000,
     retry: 1,
   })
+  /** Payment mix is the only place the API splits money by the rail it arrived on. */
+  const insights = useQuery({
+    queryKey: ['dashboard-insights', '30d'],
+    queryFn: () => fetchDashboardInsights('30d'),
+    staleTime: 60_000,
+    retry: 1,
+  })
 
-  const pageStatus = dcPageStatus([dash, pl], api.pulse)
+  const pageStatus = dcPageStatus([dash, pl, insights], api.pulse)
+  const rails = useMemo(
+    () =>
+      (insights.data?.paymentMix ?? [])
+        .slice()
+        .sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0)),
+    [insights.data],
+  )
+  const railTotal = rails.reduce((s, r) => s + Number(r.revenue || 0), 0)
   const totals = dash.data?.totals
   const partners = useMemo(() => dash.data?.partners ?? [], [dash.data])
   const categories = useMemo(
@@ -186,6 +202,7 @@ function DcFinanceOverviewBody() {
   const refetchAll = () => {
     void dash.refetch()
     void pl.refetch()
+    void insights.refetch()
   }
 
   return (
@@ -196,11 +213,11 @@ function DcFinanceOverviewBody() {
         statusLabel={pageStatus.label}
         statusTone={pageStatus.tone}
         syncLabel={
-          dash.isFetching || pl.isFetching
+          dash.isFetching || pl.isFetching || insights.isFetching
             ? 'syncing…'
             : `${partners.length} partner${partners.length === 1 ? '' : 's'} · ${categories.length} expense categor${categories.length === 1 ? 'y' : 'ies'}`
         }
-        syncing={dash.isFetching || pl.isFetching}
+        syncing={dash.isFetching || pl.isFetching || insights.isFetching}
         onSync={refetchAll}
         actions={[
           {
@@ -319,7 +336,7 @@ function DcFinanceOverviewBody() {
                 style={{
                   padding: 12,
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(330px, 100%), 1fr))',
                   gap: 10,
                 }}
               >
@@ -539,7 +556,8 @@ function DcFinanceOverviewBody() {
                 {partners.length === 0 ? (
                   <Note text="No partners on file. Profit is not being split." />
                 ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
                         <th style={th}>Partner</th>
@@ -607,10 +625,117 @@ function DcFinanceOverviewBody() {
                         </td>
                       </tr>
                     </tbody>
-                  </table>
+                    </table>
+                  </div>
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Settlement by rail — how the money actually arrived. */}
+          <div style={{ ...card, overflow: 'auto' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 9,
+                flexWrap: 'wrap',
+                padding: '12px 15px',
+                borderBottom: '1px solid var(--line)',
+              }}
+            >
+              <span
+                style={{ flex: 1, minWidth: 140, font: `600 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}
+              >
+                Settlement by rail
+              </span>
+              <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                last 30 days · from the payment mix
+              </span>
+            </div>
+            {insights.isLoading ? (
+              <Note text="Loading the payment mix…" />
+            ) : insights.error ? (
+              <Note
+                text={`GET /admin/dashboard/insights → ${insights.error instanceof Error ? insights.error.message : 'request failed'}`}
+              />
+            ) : rails.length === 0 ? (
+              <Note text="No payments in the last 30 days, so there is nothing to split by rail." />
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={th}>Rail</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Orders</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Collected</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Share</th>
+                    <th style={th}>When you hold it</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rails.map((r, i) => {
+                    const rev = Number(r.revenue || 0)
+                    const isCod = /^cod$|cash/i.test(r.name)
+                    return (
+                      <tr key={`${r.name}-${i}`} style={{ borderBottom: '1px solid var(--line)' }}>
+                        <td
+                          style={{
+                            padding: '10px 15px',
+                            font: `500 13px/1.3 ${FONT}`,
+                            color: 'var(--ink)',
+                          }}
+                        >
+                          {r.name}
+                        </td>
+                        <td
+                          style={{
+                            padding: '10px 15px',
+                            textAlign: 'right',
+                            font: `500 12.5px/1 ${MONO}`,
+                            color: 'var(--ink-2)',
+                          }}
+                        >
+                          {Number(r.count || 0).toLocaleString('en-IN')}
+                        </td>
+                        <td
+                          style={{
+                            padding: '10px 15px',
+                            textAlign: 'right',
+                            font: `600 13px/1 ${MONO}`,
+                            color: 'var(--ink)',
+                          }}
+                        >
+                          {formatTaka(rev)}
+                        </td>
+                        <td
+                          style={{
+                            padding: '10px 15px',
+                            textAlign: 'right',
+                            font: `500 12.5px/1 ${MONO}`,
+                            color: 'var(--ink-3)',
+                          }}
+                        >
+                          {railTotal > 0 ? `${((rev / railTotal) * 100).toFixed(1)}%` : '—'}
+                        </td>
+                        <td
+                          style={{
+                            padding: '10px 15px',
+                            font: `400 12px/1.4 ${FONT}`,
+                            color: isCod ? 'var(--warn)' : 'var(--ink-3)',
+                          }}
+                        >
+                          {isCod
+                            ? 'only once the rider hands the cash over'
+                            : 'once the gateway settles into the account'}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </>
       )}

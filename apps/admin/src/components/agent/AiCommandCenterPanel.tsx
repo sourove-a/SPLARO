@@ -320,23 +320,32 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
         title="AI Command Brain"
         sync={apiOffline ? 'backend offline' : `model ${activeModel}`}
         live={false}
+        hideHeader={embedded}
         {...(embedded ? { className: 'ai-command-chrome--embedded' } : {})}
         actions={
-          <AdminButton
-            variant="ghost"
-            className="shrink-0"
-            onClick={() => document.getElementById('ai-guardrails')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-          >
-            Guardrails
-          </AdminButton>
+          embedded ? undefined : (
+            <AdminButton
+              variant="ghost"
+              className="shrink-0"
+              onClick={() => document.getElementById('ai-guardrails')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            >
+              Guardrails
+            </AdminButton>
+          )
         }
       >
-        <div className="admin-beta-banner" role="note">
-          <span className="admin-beta-banner__chip">BETA</span>
-          <span>
-            Every AI action shows a preview and needs one click to apply. Nothing writes to orders, stock or payouts without confirmation.
-          </span>
-        </div>
+        {!embedded ? (
+          <div className="admin-beta-banner" role="note">
+            <span className="admin-beta-banner__chip">BETA</span>
+            <span>
+              Every AI action shows a preview and needs one click to apply. Nothing writes to orders, stock or payouts without confirmation.
+            </span>
+          </div>
+        ) : (
+          <p className="ai-command-confirm-note" role="note">
+            Confirm-gated writes — nothing touches orders, stock, or payouts without one explicit apply click.
+          </p>
+        )}
 
         <KpiGrid
           columns={4}

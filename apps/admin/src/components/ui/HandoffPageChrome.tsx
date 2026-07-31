@@ -12,6 +12,8 @@ interface HandoffPageChromeProps {
   actions?: ReactNode
   className?: string
   children?: ReactNode
+  /** When true (DC embedded), skip title/LIVE bar — DcPageHead owns chrome. */
+  hideHeader?: boolean
 }
 
 /** Handoff module page chrome: Group › Title + LIVE + sync + action row. */
@@ -24,7 +26,17 @@ export function HandoffPageChrome({
   actions,
   className,
   children,
+  hideHeader = false,
 }: HandoffPageChromeProps) {
+  if (hideHeader) {
+    return (
+      <div className={cn('ho-stack ho-stack--embedded', className)}>
+        {actions ? <div className="ho-page-chrome__actions ho-page-chrome__actions--solo">{actions}</div> : null}
+        {children}
+      </div>
+    )
+  }
+
   return (
     <div className={cn('ho-stack', className)}>
       <div className="ho-page-chrome">

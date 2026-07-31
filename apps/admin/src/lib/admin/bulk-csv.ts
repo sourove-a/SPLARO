@@ -6,7 +6,12 @@ export type BulkImportMode = 'stock' | 'price' | 'publish'
 export interface BulkPreviewRow {
   line: number
   key: string
+  /** What the row would set. */
   value: string
+  /** What the catalogue holds right now, so the operator sees the delta. */
+  current?: string
+  /** Product name behind the SKU — a bare SKU is not enough to approve a write. */
+  label?: string
   status: 'ok' | 'reject'
   reason?: string
   payload?: Record<string, unknown>
@@ -44,19 +49,37 @@ function truthy(v: string): boolean {
   return n === '1' || n === 'true' || n === 'yes' || n === 'published' || n === 'publish'
 }
 
+interface VariantRef {
+  variantId: string
+  productId: string
+  /** Present so the preview can show the value the row would overwrite. */
+  stock?: number | undefined
+  price?: number | undefined
+  name: string
+}
+
 function buildSkuMaps(products: ApiProduct[]) {
-  const skuToVariant = new Map<string, { variantId: string; productId: string }>()
+  const skuToVariant = new Map<string, VariantRef>()
   const skuToProduct = new Map<string, string>()
+  const productMeta = new Map<string, { name: string; isPublished?: boolean | undefined }>()
+
   for (const p of products) {
+    productMeta.set(p.id, { name: p.name, isPublished: p.isPublished })
     for (const v of p.variants ?? []) {
       const sku = v.sku?.trim()
       if (!sku || !v.id) continue
-      skuToVariant.set(sku.toLowerCase(), { variantId: v.id, productId: p.id })
+      skuToVariant.set(sku.toLowerCase(), {
+        variantId: v.id,
+        productId: p.id,
+        stock: typeof v.stock === 'number' ? v.stock : undefined,
+        price: v.price === undefined || v.price === null ? undefined : Number(v.price),
+        name: p.name,
+      })
       skuToProduct.set(sku.toLowerCase(), p.id)
     }
     if (p.sku?.trim()) skuToProduct.set(p.sku.trim().toLowerCase(), p.id)
   }
-  return { skuToVariant, skuToProduct }
+  return { skuToVariant, skuToProduct, productMeta }
 }
 
 /**
@@ -75,7 +98,7 @@ export async function dryRunBulkCsv(
   }
 
   const { products } = await fetchProducts({ limit: 500 })
-  const { skuToVariant, skuToProduct } = buildSkuMaps(products)
+  const { skuToVariant, skuToProduct, productMeta } = buildSkuMaps(products)
   const rows: BulkPreviewRow[] = []
 
   objects.forEach((row, index) => {
@@ -108,7 +131,8 @@ export async function dryRunBulkCsv(
         })
         return
       }
-      const resolved = variantId || skuToVariant.get(sku.toLowerCase())?.variantId
+      const ref = skuToVariant.get(sku.toLowerCase())
+      const resolved = variantId || ref?.variantId
       if (!resolved) {
         rows.push({
           line,
@@ -123,6 +147,8 @@ export async function dryRunBulkCsv(
         line,
         key: sku || variantId,
         value: String(stock),
+        ...(ref?.stock === undefined ? {} : { current: String(ref.stock) }),
+        ...(ref?.name ? { label: ref.name } : {}),
         status: 'ok',
         payload: { variantId: resolved, stock },
       })
@@ -164,10 +190,13 @@ export async function dryRunBulkCsv(
         })
         return
       }
+      const priceRef = sku ? skuToVariant.get(sku.toLowerCase()) : undefined
       rows.push({
         line,
         key: sku || variantId || productId,
         value: String(price),
+        ...(priceRef?.price === undefined ? {} : { current: String(priceRef.price) }),
+        ...(priceRef?.name ? { label: priceRef.name } : {}),
         status: 'ok',
         payload: {
           ...(variantId ? { variantId } : {}),
@@ -194,10 +223,15 @@ export async function dryRunBulkCsv(
       })
       return
     }
+    const meta = productMeta.get(pid)
     rows.push({
       line,
       key: sku || pid,
-      value: isPublished ? 'publish' : 'unpublish',
+      value: isPublished ? 'published' : 'hidden',
+      ...(meta?.isPublished === undefined
+        ? {}
+        : { current: meta.isPublished ? 'published' : 'hidden' }),
+      ...(meta?.name ? { label: meta.name } : {}),
       status: 'ok',
       payload: { productId: pid, isPublished },
     })

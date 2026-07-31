@@ -91,6 +91,56 @@ function segmentsOf(text: string): {
   return { chars, unicode, perSegment, segments, cost: segments * TAKA_PER_SEGMENT }
 }
 
+/**
+ * The order `SmsService` tries providers in. No endpoint reports which keys are
+ * set, so this screen states the order and marks only what it can prove — the
+ * provider that answered the last send from here.
+ */
+const PROVIDER_CHAIN: Array<{ id: string; title: string; sub: string }> = [
+  {
+    id: 'bdbulksms',
+    title: 'BDBulkSMS · first choice',
+    sub: 'bulksmsbd.net · needs BDBULKSMS_API_KEY on the API',
+  },
+  {
+    id: 'elitbuzz',
+    title: 'ElitBuzz · fallback',
+    sub: 'msg.elitbuzz-bd.com · needs ELITBUZZ_API_TOKEN',
+  },
+  {
+    id: 'greenweb',
+    title: 'GreenWeb · last resort',
+    sub: 'api.greenweb.com.bd · needs GREENWEB_SMS_USER and PASS',
+  },
+]
+
+const FACTS: Array<{ icon: string; title: string; sub: string; tag: string }> = [
+  {
+    icon: 'icon-phone',
+    title: 'Numbers are normalised to 880…',
+    sub: '01711-204556 and +880 1711-204556 both become 8801711204556 before sending.',
+    tag: 'AUTO',
+  },
+  {
+    icon: 'icon-shield-x',
+    title: 'A bad number is refused, not sent',
+    sub: 'the API rejects anything that is not a valid 01XXXXXXXXX mobile before it reaches a provider.',
+    tag: 'GUARD',
+  },
+  {
+    icon: 'icon-triangle-alert',
+    title: 'A failed send is never retried',
+    sub: 'the log keeps the provider error; sending again is a manual decision.',
+    tag: 'MANUAL',
+  },
+  {
+    icon: 'icon-zap',
+    title: 'Automation sends through the same chain',
+    sub: 'a SEND_SMS automation rule bills exactly like a send from this screen.',
+    tag: 'LINKED',
+  },
+]
+
 const STATUS_TONE = (status: string): DcTone => {
   const s = status.toUpperCase()
   if (s === 'SENT' || s === 'DELIVERED') return 'ok'
@@ -117,6 +167,8 @@ function DcSmsCenterBody() {
   const [draft, setDraft] = useState(TEMPLATES[0]?.body ?? '')
   const [confirmSend, setConfirmSend] = useState(false)
   const [sending, setSending] = useState(false)
+  /** Which link in the provider chain served the last send from this screen. */
+  const [lastProvider, setLastProvider] = useState<string | null>(null)
 
   const logs = useMemo(() => overview.data?.smsLogs ?? [], [overview.data])
   const seg = useMemo(() => segmentsOf(draft), [draft])
@@ -142,11 +194,19 @@ function DcSmsCenterBody() {
     setSending(true)
     setConfirmSend(false)
     sendTestSms(digits, draft)
-      .then(() => {
+      .then((res) => {
+        // The endpoint answers 200 even when the provider refused, so `ok` is
+        // the only thing that says whether anything actually left the building.
+        if (!res.ok) {
+          setLastProvider(null)
+          toast('bad', 'The provider refused it', res.message)
+          return
+        }
+        setLastProvider(res.provider)
         toast(
           'ok',
-          `SMS accepted for ${formatBdPhone(digits)}`,
-          'The provider accepted it. Delivery still depends on the operator.',
+          `Accepted by ${res.provider ?? 'the provider'} for ${formatBdPhone(digits)}`,
+          'Accepted is not delivered — the operator decides that.',
         )
         void overview.refetch()
       })
@@ -175,6 +235,46 @@ function DcSmsCenterBody() {
         syncing={overview.isFetching}
         onSync={() => void overview.refetch()}
       />
+
+      <div
+        style={{
+          ...card,
+          borderLeft: '3px solid var(--warn)',
+          padding: '12px 15px',
+          display: 'flex',
+          gap: 11,
+          alignItems: 'flex-start',
+        }}
+      >
+        <span
+          style={{
+            display: 'grid',
+            placeItems: 'center',
+            width: 26,
+            height: 26,
+            flex: 'none',
+            borderRadius: 8,
+            border: '1px solid var(--warn-bd)',
+            background: 'var(--warn-soft)',
+            color: 'var(--warn)',
+          }}
+        >
+          <DcIcon name="icon-triangle-alert" size={13} />
+        </span>
+        <span
+          style={{
+            flex: 1,
+            minWidth: 0,
+            font: `400 12.5px/1.6 ${FONT}`,
+            color: 'var(--ink-2)',
+            textWrap: 'pretty',
+          }}
+        >
+          Bangla is Unicode: {UCS2_PER_SEGMENT} characters per SMS, not {GSM_PER_SEGMENT}. The same
+          sentence in Bangla can cost three times what it costs in English — the segment count under
+          the composer is the real billing unit, not the character count.
+        </span>
+      </div>
 
       {overview.isLoading ? (
         <DcLoadingState blocks={skeleton} />
@@ -494,6 +594,198 @@ function DcSmsCenterBody() {
             </div>
           </div>
 
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 16,
+              alignItems: 'flex-start',
+              width: '100%',
+            }}
+          >
+            <div style={{ flex: '1 1 46%', minWidth: 300, maxWidth: '100%' }}>
+              <div style={{ ...card, padding: '6px 16px 10px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    gap: 9,
+                    flexWrap: 'wrap',
+                    padding: '12px 0 9px',
+                  }}
+                >
+                  <span
+                    style={{ flex: 1, minWidth: 110, font: `600 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}
+                  >
+                    Provider chain
+                  </span>
+                  <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                    tried in this order
+                  </span>
+                </div>
+                {PROVIDER_CHAIN.map((p, i) => {
+                  const served = lastProvider === p.id
+                  return (
+                    <div
+                      key={p.id}
+                      style={{
+                        display: 'flex',
+                        gap: 11,
+                        padding: '10px 0',
+                        borderTop: '1px solid var(--line)',
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: 'grid',
+                          placeItems: 'center',
+                          width: 28,
+                          height: 28,
+                          flex: 'none',
+                          borderRadius: 8,
+                          border: '1px solid var(--line)',
+                          background: 'var(--surface-2)',
+                          color: served ? 'var(--ok)' : 'var(--ink-3)',
+                          font: `600 11px/1 ${MONO}`,
+                        }}
+                      >
+                        {i + 1}
+                      </span>
+                      <span
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 3,
+                        }}
+                      >
+                        <span style={{ font: `600 12.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+                          {p.title}
+                        </span>
+                        <span
+                          style={{
+                            font: `400 11px/1.45 ${MONO}`,
+                            color: 'var(--ink-3)',
+                            wordBreak: 'break-word',
+                          }}
+                        >
+                          {p.sub}
+                        </span>
+                      </span>
+                      {served ? (
+                        <span
+                          style={{
+                            flex: 'none',
+                            alignSelf: 'flex-start',
+                            padding: '3px 8px',
+                            borderRadius: 6,
+                            border: '1px solid var(--ok-bd)',
+                            background: 'var(--ok-soft)',
+                            color: 'var(--ok)',
+                            font: '700 9px/1.4 Inter, sans-serif',
+                            letterSpacing: '.08em',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          SERVED LAST SEND
+                        </span>
+                      ) : null}
+                    </div>
+                  )
+                })}
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: '9px 11px',
+                    borderRadius: 9,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface-2)',
+                    font: `400 11.5px/1.55 ${FONT}`,
+                    color: 'var(--ink-3)',
+                  }}
+                >
+                  No endpoint reports which of these keys are set on the API, so this screen will
+                  not claim one is active. Send a message — whichever provider answers is marked
+                  above.
+                </div>
+              </div>
+            </div>
+
+            <div style={{ flex: '1 1 46%', minWidth: 300, maxWidth: '100%' }}>
+              <div style={{ ...card, padding: '6px 16px 10px' }}>
+                <div style={{ padding: '12px 0 9px' }}>
+                  <span style={{ font: `600 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+                    Things worth knowing
+                  </span>
+                </div>
+                {FACTS.map((f) => (
+                  <div
+                    key={f.title}
+                    style={{
+                      display: 'flex',
+                      gap: 11,
+                      padding: '10px 0',
+                      borderTop: '1px solid var(--line)',
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: 'grid',
+                        placeItems: 'center',
+                        width: 28,
+                        height: 28,
+                        flex: 'none',
+                        borderRadius: 8,
+                        border: '1px solid var(--line)',
+                        background: 'var(--surface-2)',
+                        color: 'var(--ink-2)',
+                      }}
+                    >
+                      <DcIcon name={f.icon} size={13} />
+                    </span>
+                    <span
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 3,
+                      }}
+                    >
+                      <span style={{ font: `600 12.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+                        {f.title}
+                      </span>
+                      <span
+                        style={{
+                          font: `400 11.5px/1.45 ${FONT}`,
+                          color: 'var(--ink-3)',
+                          textWrap: 'pretty',
+                        }}
+                      >
+                        {f.sub}
+                      </span>
+                    </span>
+                    <span
+                      style={{
+                        flex: 'none',
+                        alignSelf: 'flex-start',
+                        padding: '3px 8px',
+                        borderRadius: 6,
+                        border: '1px solid var(--line-2)',
+                        color: 'var(--ink-3)',
+                        font: '700 9px/1.4 Inter, sans-serif',
+                        letterSpacing: '.08em',
+                      }}
+                    >
+                      {f.tag}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <div style={{ ...card, overflow: 'auto' }}>
             <div
               style={{
@@ -526,7 +818,8 @@ function DcSmsCenterBody() {
                 No SMS has been logged yet. Order and delivery messages appear here once they fire.
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     <th style={th}>Recipient</th>
@@ -605,7 +898,8 @@ function DcSmsCenterBody() {
                     )
                   })}
                 </tbody>
-              </table>
+                </table>
+              </div>
             )}
           </div>
         </>
