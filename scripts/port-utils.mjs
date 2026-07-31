@@ -119,7 +119,7 @@ export function getProcessTable() {
 function getProcessTableWindows() {
   // Path-agnostic — folder may not be named SPLARO-BRAND on every Windows clone.
   const filter =
-    'next dev|ts-node-dev|api-dev\\.mjs|@splaro/|SPLARO|splaro-brand|nest start'
+    'next (dev|start)|next-server|ts-node-dev|api-dev\\.mjs|@splaro/|SPLARO|splaro-brand|nest start'
   const result = spawnSync(
     'powershell.exe',
     [

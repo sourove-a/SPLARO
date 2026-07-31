@@ -29,6 +29,23 @@ function commandFor(pid) {
   return getCommandLineForPid(pid)
 }
 
+function commandLineageFor(pid) {
+  const seen = new Set()
+  const commands = []
+  let currentPid = pid
+
+  while (Number.isFinite(currentPid) && currentPid > 0 && !seen.has(currentPid)) {
+    seen.add(currentPid)
+    const row = byPid.get(currentPid)
+    const command = currentPid === pid ? commandFor(currentPid) : String(row?.command ?? row?.cmd ?? '').trim()
+    if (command) commands.push(command)
+    if (!row?.ppid) break
+    currentPid = row.ppid
+  }
+
+  return commands.join('\n')
+}
+
 function isProductionListener(cmd) {
   // PM2 production apps (standalone Next / Nest API)
   if (/standalone|\.next\/standalone|dist\/main\.js/i.test(cmd)) return true
@@ -45,9 +62,11 @@ function looksLikeNextDev(cmd) {
   return /next[\s"']+dev\b/i.test(cmd) || /next\/dist\/server\/lib\/start-server/i.test(cmd)
 }
 
-const commands = pids.map((pid) => ({ pid, cmd: commandFor(pid) }))
+// Next replaces its child process title with `next-server`, hiding `next dev`.
+// Inspect parent lineage so local dev is stopped while PM2/standalone stays safe.
+const commands = pids.map((pid) => ({ pid, cmd: commandFor(pid), lineage: commandLineageFor(pid) }))
 
-const prod = commands.filter((row) => isProductionListener(row.cmd))
+const prod = commands.filter((row) => isProductionListener(row.lineage))
 if (prod.length) {
   console.log(
     `\nℹ️  Port :${port} is production (PM2) — leaving it alone for build (pids: ${prod.map((r) => r.pid).join(', ')})`,
@@ -55,7 +74,7 @@ if (prod.length) {
   process.exit(0)
 }
 
-const devPids = commands.filter((row) => looksLikeNextDev(row.cmd)).map((row) => row.pid)
+const devPids = commands.filter((row) => looksLikeNextDev(row.lineage)).map((row) => row.pid)
 if (!devPids.length) {
   // Last resort on Windows: empty command lines + known local Next ports.
   // Prefer reclaim over leaving a zombie that corrupts the next `next build`.
