@@ -7,6 +7,8 @@ import { buildInvoiceViewModel } from '../invoices/invoice.helpers'
 import { resolveCustomerFacingSiteUrl, SPLARO_INVOICE_BRAND, buildInvoiceAccessToken } from '@splaro/config'
 import { TelegramService } from '../telegram/telegram.service'
 import { CourierService } from '../courier/courier.service'
+import { NotificationsService } from './notifications.service'
+import { formatBDT } from '../../common/utils/currency'
 
 @Injectable()
 export class OrderNotificationsService {
@@ -17,6 +19,7 @@ export class OrderNotificationsService {
     private readonly email: EmailService,
     @Inject(forwardRef(() => TelegramService))
     private readonly telegram: TelegramService,
+    private readonly notifications: NotificationsService,
     @Optional() private readonly courier: CourierService | null,
   ) {}
 
@@ -34,6 +37,13 @@ export class OrderNotificationsService {
       },
     })
     if (!order) return
+
+    await this.notifications.notifyInApp({
+      storeId,
+      subject: `New order · ${order.invoiceNumber}`,
+      body: `${order.shippingName} · ${formatBDT(Number(order.total))} · ${order.paymentMethod.replace(/_/g, ' ')}`,
+      href: `/dashboard/orders/${encodeURIComponent(order.invoiceNumber)}`,
+    })
 
     const store = await this.prisma.store.findUnique({ where: { id: storeId } })
     const siteUrl = resolveCustomerFacingSiteUrl()

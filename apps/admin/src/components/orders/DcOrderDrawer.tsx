@@ -8,7 +8,8 @@ import { DcModal } from '@/components/dc/DcModal'
 import { useDcScreen } from '@/components/dc/DcScreenContext'
 import { FONT, MONO, formatTaka, statusToneStyle } from '@/components/dc/tokens'
 import { formatBdPhone, operatorOf, telHref } from '@/lib/format/bd-phone'
-import { useOrder, useUpdateOrderStatus } from '@/lib/api/hooks'
+import { verifyDeleteSuccess } from '@/lib/admin/mutation-verify'
+import { useDeleteOrder, useOrder, usePermission, useUpdateOrderStatus } from '@/lib/api/hooks'
 import type { ApiOrder } from '@/lib/api/orders'
 
 /** The fulfilment ladder, in the order the floor works it. */
@@ -67,7 +68,11 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
   const { toast } = useDcScreen()
   const order = useOrder(orderId ?? '')
   const advance = useUpdateOrderStatus()
+  const deleteOrder = useDeleteOrder()
+  const canDeleteOrders = usePermission('orders', 'delete')
   const [confirmAdvance, setConfirmAdvance] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
 
   useEffect(() => {
     if (!orderId) return
@@ -612,6 +617,18 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
             disabled={!d}
             onClick={() => d && window.open(telHref(d.shippingPhone), '_self')}
           />
+          {canDeleteOrders ? (
+            <FooterBtn
+              icon="icon-trash-2"
+              label="Delete"
+              danger
+              disabled={!d || deleteOrder.isPending}
+              onClick={() => {
+                setDeleteConfirmation('')
+                setConfirmDelete(true)
+              }}
+            />
+          ) : null}
           <div style={{ flex: 1 }} />
           <button
             type="button"
@@ -685,6 +702,70 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
           )
         }}
       />
+      <DcModal
+        open={confirmDelete}
+        title={d ? `Delete ${d.invoiceNumber} permanently?` : 'Delete order permanently?'}
+        subtitle="Order, invoice, payment, courier, return, stock reservation, loyalty reward, and related records will be removed. Inventory is restored. This cannot be undone."
+        confirmLabel="Delete permanently"
+        danger
+        busy={deleteOrder.isPending}
+        busyLabel="Deleting…"
+        onClose={() => {
+          if (deleteOrder.isPending) return
+          setConfirmDelete(false)
+          setDeleteConfirmation('')
+        }}
+        onConfirm={() => {
+          if (!d) return
+          if (deleteConfirmation.trim() !== d.invoiceNumber) {
+            toast('bad', 'Confirmation does not match', `Type ${d.invoiceNumber} exactly.`)
+            return
+          }
+          void deleteOrder
+            .mutateAsync(d.id)
+            .then((saved) => {
+              if (!verifyDeleteSuccess(saved)) return
+              toast(
+                'ok',
+                `${d.invoiceNumber} permanently deleted`,
+                'Server confirmed deletion and restored inventory.',
+              )
+              setConfirmDelete(false)
+              setDeleteConfirmation('')
+              onClose()
+            })
+            .catch((err: unknown) => {
+              toast(
+                'bad',
+                'Could not delete order',
+                err instanceof Error ? err.message : `DELETE /admin/orders/${d.id} failed`,
+              )
+            })
+        }}
+      >
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <span style={{ font: `600 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+            Type {d?.invoiceNumber ?? 'order number'} to confirm
+          </span>
+          <input
+            value={deleteConfirmation}
+            onChange={(event) => setDeleteConfirmation(event.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            style={{
+              width: '100%',
+              height: 38,
+              padding: '0 11px',
+              borderRadius: 9,
+              border: '1px solid var(--bad-bd)',
+              background: 'var(--surface-2)',
+              color: 'var(--ink)',
+              outline: 'none',
+              font: `600 12.5px/1 ${MONO}`,
+            }}
+          />
+        </label>
+      </DcModal>
     </>
   )
 }
@@ -808,11 +889,13 @@ function FooterBtn({
   label,
   onClick,
   disabled,
+  danger,
 }: {
   icon: string
   label: string
   onClick: () => void
   disabled?: boolean
+  danger?: boolean
 }) {
   return (
     <button
@@ -827,9 +910,9 @@ function FooterBtn({
         height: 36,
         padding: '0 13px',
         borderRadius: 9,
-        border: '1px solid var(--line)',
-        background: 'var(--surface-2)',
-        color: 'var(--ink-2)',
+        border: `1px solid ${danger ? 'var(--bad-bd)' : 'var(--line)'}`,
+        background: danger ? 'var(--bad-soft)' : 'var(--surface-2)',
+        color: danger ? 'var(--bad)' : 'var(--ink-2)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         font: `600 12.5px/1 ${FONT}`,
         opacity: disabled ? 0.55 : 1,

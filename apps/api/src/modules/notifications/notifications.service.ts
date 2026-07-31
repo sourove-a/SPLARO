@@ -10,6 +10,13 @@ export interface AdminNotification {
   level?: 'info' | 'warn' | 'error'
 }
 
+export interface InAppNotification {
+  storeId: string
+  subject: string
+  body: string
+  href: `/dashboard/${string}`
+}
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name)
@@ -18,6 +25,39 @@ export class NotificationsService {
     private readonly prisma: PrismaService,
     @Optional() private readonly telegram: TelegramService,
   ) {}
+
+  /** Persist a dashboard notification even when Telegram/email is disabled. */
+  async notifyInApp(input: InAppNotification): Promise<boolean> {
+    try {
+      const existing = await this.prisma.notificationDeliveryLog.findFirst({
+        where: {
+          storeId: input.storeId,
+          channel: 'IN_APP',
+          recipient: input.href,
+          subject: input.subject,
+        },
+        select: { id: true },
+      })
+      if (existing) return true
+
+      await this.prisma.notificationDeliveryLog.create({
+        data: {
+          storeId: input.storeId,
+          channel: 'IN_APP',
+          recipient: input.href,
+          subject: input.subject,
+          body: input.body,
+          status: 'DELIVERED',
+        },
+      })
+      return true
+    } catch (error) {
+      this.logger.error(
+        `In-app notification persist failed: ${error instanceof Error ? error.message : 'unknown'}`,
+      )
+      return false
+    }
+  }
 
   async notifyAdmin(input: AdminNotification): Promise<void> {
     const level = input.level ?? 'warn'

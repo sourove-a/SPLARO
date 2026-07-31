@@ -14,6 +14,7 @@ export interface DcModalProps {
   /** Set for destructive confirms so the primary button reads as danger. */
   danger?: boolean | undefined
   busy?: boolean | undefined
+  busyLabel?: string | undefined
   onClose: () => void
   onConfirm: () => void
   children?: ReactNode
@@ -27,6 +28,7 @@ export function DcModal({
   confirmLabel,
   danger,
   busy,
+  busyLabel = 'Saving…',
   onClose,
   onConfirm,
   children,
@@ -175,7 +177,7 @@ export function DcModal({
               opacity: busy ? 0.7 : 1,
             }}
           >
-            {busy ? 'Saving…' : confirmLabel}
+            {busy ? busyLabel : confirmLabel}
           </button>
         </div>
       </div>

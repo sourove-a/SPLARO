@@ -4,6 +4,7 @@ import { TelegramService } from '../telegram/telegram.service'
 import { formatBDT } from '../../common/utils/currency'
 import { escapeTelegramHtml } from '../telegram/telegram.util'
 import type { OrderStatus } from '@prisma/client'
+import { NotificationsService } from './notifications.service'
 
 const STATUS_EMOJI: Record<string, string> = {
   PENDING: '⏳',
@@ -26,6 +27,7 @@ export class AdminTelegramHubService {
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => TelegramService))
     private readonly telegram: TelegramService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async notifyOrderDeleted(
@@ -76,6 +78,14 @@ Total: <b>${formatBDT(Number(order.total))}</b>${note ? `\nNote: ${note}` : ''}
     storeId: string,
     input: { name: string; email: string; phone: string; source?: string },
   ): Promise<void> {
+    const customerHref = `/dashboard/customers?search=${encodeURIComponent(input.email || input.phone)}` as const
+    await this.notifications.notifyInApp({
+      storeId,
+      subject: `New customer · ${input.name}`,
+      body: `${input.email} · ${input.phone} · ${input.source ?? 'Website signup'}`,
+      href: customerHref,
+    })
+
     if (!(await this.flag(storeId, 'notifyCustomers'))) return
 
     const msg = `

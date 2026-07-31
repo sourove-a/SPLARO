@@ -39,8 +39,13 @@ function channelTone(status: string): DcTone {
   return 'info'
 }
 
-function channelIcon(channel: string): string {
+function channelIcon(channel: string, subject: string | null): string {
   const c = channel.toUpperCase()
+  if (c === 'IN_APP') {
+    if (subject?.toLowerCase().includes('new order')) return 'icon-shopping-bag'
+    if (subject?.toLowerCase().includes('new customer')) return 'icon-user-plus'
+    return 'icon-bell'
+  }
   if (c === 'SMS') return 'icon-smartphone'
   if (c === 'TELEGRAM') return 'icon-send'
   if (c === 'WHATSAPP') return 'icon-message-square'
@@ -72,10 +77,16 @@ export function DcNotificationsPopover({
       (data?.logs ?? []).slice(0, 20).map((log) => ({
         id: log.id,
         title: log.subject?.trim() || log.body?.trim() || `${log.channel} → ${log.recipient}`,
-        sub: `${log.channel} · ${log.status.toLowerCase()}`,
+        sub: log.channel.toUpperCase() === 'IN_APP'
+          ? 'Admin alert · live'
+          : `${log.channel} · ${log.status.toLowerCase()}`,
         time: formatRelativeTime(log.createdAt),
-        icon: channelIcon(log.channel),
+        icon: channelIcon(log.channel, log.subject),
         tone: channelTone(log.status),
+        href:
+          log.channel.toUpperCase() === 'IN_APP' && log.recipient.startsWith('/dashboard/')
+            ? log.recipient
+            : '/dashboard/executive/notification-center',
       })),
     [data?.logs],
   )
@@ -219,7 +230,7 @@ export function DcNotificationsPopover({
                 color: 'var(--ink-3)',
               }}
             >
-              No notifications yet. Email, SMS, WhatsApp, and Telegram deliveries appear here when sent.
+              No notifications yet. New orders, customer signups, and message deliveries appear here.
             </div>
           ) : (
             items.map((nt) => {
@@ -232,7 +243,7 @@ export function DcNotificationsPopover({
                   onClick={() => {
                     markRead(nt.id)
                     onClose()
-                    router.push('/dashboard/executive/notification-center')
+                    router.push(nt.href)
                   }}
                   className="dc-hover-line"
                   style={{
