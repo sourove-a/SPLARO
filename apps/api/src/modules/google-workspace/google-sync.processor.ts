@@ -32,24 +32,42 @@ export class GoogleSyncProcessor extends WorkerHost {
 
     try {
       let result: unknown
+
+      // A job carrying no resourceId is a whole-tab push — "Push this tab now"
+      // in the admin, or Sync everything — not a request to sync one record.
+      // Every branch below used to throw `<thing>Id required` in that case,
+      // which meant the manual push button failed on every tab it was offered
+      // on. Rebuilding the sheet is what the operator asked for, so do that.
+      if (!resourceId) {
+        result = await this.sheets.fullBackup(storeId, triggeredBy)
+        if (dbJobId) {
+          await this.prisma.googleSyncJob.update({
+            where: { id: dbJobId },
+            data: { status: 'completed', completedAt: new Date(), errorMsg: null },
+          })
+        }
+        return result
+      }
+
       switch (jobType) {
         case GOOGLE_SYNC_JOB_TYPES.ORDER:
-          if (!resourceId) throw new Error('orderId required')
           result = await this.sheets.syncOrder(storeId, resourceId, triggeredBy)
           break
         case GOOGLE_SYNC_JOB_TYPES.CUSTOMER:
-          if (!resourceId) throw new Error('customerId required')
           result = await this.sheets.syncCustomer(storeId, resourceId, triggeredBy)
           break
         case GOOGLE_SYNC_JOB_TYPES.PRODUCT:
         case GOOGLE_SYNC_JOB_TYPES.INVENTORY:
-          if (!resourceId) throw new Error('productId required')
           result = await this.sheets.syncProduct(storeId, resourceId, triggeredBy)
           break
         case GOOGLE_SYNC_JOB_TYPES.SUBSCRIBER:
-          if (!resourceId) throw new Error('subscriberId required')
           result = await this.sheets.syncSubscriber(storeId, resourceId, triggeredBy)
           break
+        // Finance and the summary tabs are aggregates — there is no single
+        // record to sync, so they only ever arrive here as a whole-tab push.
+        // Neither had a case at all, so both failed as "Unknown job type".
+        case GOOGLE_SYNC_JOB_TYPES.FINANCE:
+        case GOOGLE_SYNC_JOB_TYPES.DAILY_SUMMARY:
         case GOOGLE_SYNC_JOB_TYPES.FULL_BACKUP:
           result = await this.sheets.fullBackup(storeId, triggeredBy)
           break

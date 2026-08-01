@@ -283,6 +283,167 @@ export class GoogleSheetsSyncService {
       }),
     ])
 
+    // Finance and operations tabs. Each is capped like the sheets above so one
+    // long-lived store cannot blow the Sheets payload limit.
+    const [
+      partners,
+      expenses,
+      profitRows,
+      shipments,
+      payments,
+      closings,
+      telegramLogs,
+      aiJobs,
+    ] = await Promise.all([
+      this.prisma.partner.findMany({ where: { storeId }, orderBy: { name: 'asc' }, take: 500 }),
+      this.prisma.expense.findMany({
+        where: { storeId },
+        include: { partner: { select: { name: true } } },
+        orderBy: { expenseDate: 'desc' },
+        take: 2000,
+      }),
+      this.prisma.profitCalculation.findMany({
+        where: { storeId },
+        orderBy: { createdAt: 'desc' },
+        take: 2000,
+      }),
+      this.prisma.courierShipment.findMany({
+        where: { order: { storeId } },
+        include: { order: { select: { invoiceNumber: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 2000,
+      }),
+      this.prisma.payment.findMany({
+        where: { order: { storeId } },
+        include: { order: { select: { invoiceNumber: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 2000,
+      }),
+      this.prisma.dailyClosing.findMany({
+        where: { storeId },
+        orderBy: { closingDate: 'desc' },
+        take: 730,
+      }),
+      this.prisma.telegramLog.findMany({
+        where: { config: { storeId } },
+        orderBy: { createdAt: 'desc' },
+        take: 1000,
+      }),
+      this.prisma.aIJob.findMany({
+        where: { storeId },
+        orderBy: { createdAt: 'desc' },
+        take: 1000,
+      }),
+    ])
+
+    const dash = (value: string | null | undefined) => (value?.trim() ? value.trim() : '—')
+
+    const partnerRows = partners.map((p) => [
+      p.name,
+      `${Number(p.sharePercent)}%`,
+      formatMoneyBDT(p.totalInvestment),
+      formatMoneyBDT(p.totalWithdrawal),
+      formatMoneyBDT(p.totalSalesContribution),
+      formatMoneyBDT(p.totalExpenseShare),
+      formatMoneyBDT(p.totalProfitShare),
+      formatMoneyBDT(p.currentBalance),
+      p.phone ? formatPhoneBD(p.phone) : '—',
+      dash(p.email),
+      p.id,
+    ])
+
+    const expenseRows = expenses.map((e) => [
+      formatDateBD(e.expenseDate),
+      e.category,
+      formatMoneyBDT(e.amount),
+      e.status,
+      dash(e.partner?.name),
+      dash(e.note),
+      dash(e.createdBy),
+      dash(e.approvedBy),
+      e.approvedAt ? formatDateTimeBD(e.approvedAt) : '—',
+      e.id,
+    ])
+
+    const profitLossRows = profitRows.map((p) => [
+      p.periodStart ? formatDateBD(p.periodStart) : '—',
+      p.periodEnd ? formatDateBD(p.periodEnd) : '—',
+      formatMoneyBDT(p.grossRevenue),
+      formatMoneyBDT(p.productCost),
+      formatMoneyBDT(p.courierCost),
+      formatMoneyBDT(p.packagingCost),
+      formatMoneyBDT(p.paymentGatewayFee),
+      formatMoneyBDT(p.discount),
+      formatMoneyBDT(p.returnLoss),
+      formatMoneyBDT(p.netProfit),
+      dash(p.orderId),
+      formatDateTimeBD(p.createdAt),
+    ])
+
+    const courierRows = shipments.map((s) => [
+      dash(s.order?.invoiceNumber),
+      s.provider,
+      s.status,
+      dash(s.consignmentId),
+      dash(s.trackingCode),
+      formatMoneyBDT(s.deliveryCharge),
+      s.codAmount == null ? '—' : formatMoneyBDT(s.codAmount),
+      s.bookedAt ? formatDateTimeBD(s.bookedAt) : '—',
+      s.pickedUpAt ? formatDateTimeBD(s.pickedUpAt) : '—',
+      s.deliveredAt ? formatDateTimeBD(s.deliveredAt) : '—',
+      dash(s.trackingUrl),
+    ])
+
+    const paymentRows = payments.map((p) => [
+      dash(p.paymentNumber),
+      dash(p.order?.invoiceNumber),
+      p.method,
+      p.status,
+      formatMoneyBDT(p.amount),
+      p.currency,
+      dash(p.transactionId),
+      p.paidAt ? formatDateTimeBD(p.paidAt) : '—',
+      p.refundedAt ? formatDateTimeBD(p.refundedAt) : '—',
+      p.refundAmount == null ? '—' : formatMoneyBDT(p.refundAmount),
+      dash(p.failureReason),
+    ])
+
+    const dailySummaryRows = closings.map((c) => [
+      formatDateBD(c.closingDate),
+      c.totalOrders,
+      formatMoneyBDT(c.totalRevenue),
+      formatMoneyBDT(c.totalExpenses),
+      formatMoneyBDT(c.netProfit),
+      c.status,
+      dash(c.closedBy),
+      dash(c.approvedBy),
+      dash(c.notes),
+    ])
+
+    const telegramLogRows = telegramLogs.map((l) => [
+      formatDateTimeBD(l.createdAt),
+      l.type,
+      dash(l.command),
+      l.success ? 'Yes' : 'No',
+      dash(l.userId),
+      // Sheets caps a cell at 50k characters; a long broadcast would reject the
+      // whole batch, so trim well before that.
+      l.message.length > 500 ? `${l.message.slice(0, 500)}…` : l.message,
+    ])
+
+    const aiJobRows = aiJobs.map((j) => [
+      formatDateTimeBD(j.createdAt),
+      j.type,
+      j.status,
+      dash(j.model),
+      j.tokensUsed ?? '—',
+      j.costUsd == null ? '—' : Number(j.costUsd).toFixed(4),
+      j.startedAt ? formatDateTimeBD(j.startedAt) : '—',
+      j.completedAt ? formatDateTimeBD(j.completedAt) : '—',
+      dash(j.errorMsg),
+      j.id,
+    ])
+
     const orderRows = orders.map((order) => {
       const productLines = order.items
         .map((item) => `${item.productName}${item.variantName ? ` (${item.variantName})` : ''} ×${item.quantity}`)
@@ -572,6 +733,54 @@ export class GoogleSheetsSyncService {
             range: `'Products & Stock'!A1`,
             values: [titleRow('Products & Stock'), [...SHEET_HEADERS['Products & Stock']], ...productRows],
           },
+          {
+            range: `'Partner Accounts'!A1`,
+            values: [
+              titleRow('Partner Accounts'),
+              [...SHEET_HEADERS['Partner Accounts']],
+              ...partnerRows,
+            ],
+          },
+          {
+            range: `'Expenses'!A1`,
+            values: [titleRow('Expenses'), [...SHEET_HEADERS.Expenses], ...expenseRows],
+          },
+          {
+            range: `'Profit & Loss'!A1`,
+            values: [
+              titleRow('Profit & Loss'),
+              [...SHEET_HEADERS['Profit & Loss']],
+              ...profitLossRows,
+            ],
+          },
+          {
+            range: `'Courier'!A1`,
+            values: [titleRow('Courier'), [...SHEET_HEADERS.Courier], ...courierRows],
+          },
+          {
+            range: `'Payments'!A1`,
+            values: [titleRow('Payments'), [...SHEET_HEADERS.Payments], ...paymentRows],
+          },
+          {
+            range: `'Daily Summary'!A1`,
+            values: [
+              titleRow('Daily Summary'),
+              [...SHEET_HEADERS['Daily Summary']],
+              ...dailySummaryRows,
+            ],
+          },
+          {
+            range: `'Telegram Logs'!A1`,
+            values: [
+              titleRow('Telegram Logs'),
+              [...SHEET_HEADERS['Telegram Logs']],
+              ...telegramLogRows,
+            ],
+          },
+          {
+            range: `'AI Jobs'!A1`,
+            values: [titleRow('AI Jobs'), [...SHEET_HEADERS['AI Jobs']], ...aiJobRows],
+          },
         ],
       },
     })
@@ -599,6 +808,14 @@ export class GoogleSheetsSyncService {
       totalStock,
       dashboardLayout,
       dashboardRowCount: dashboardValues.length,
+      partnerRows: partnerRows.length,
+      expenseRows: expenseRows.length,
+      profitLossRows: profitLossRows.length,
+      courierRows: courierRows.length,
+      paymentRows: paymentRows.length,
+      dailySummaryRows: dailySummaryRows.length,
+      telegramLogRows: telegramLogRows.length,
+      aiJobRows: aiJobRows.length,
     }
   }
 
@@ -613,15 +830,32 @@ export class GoogleSheetsSyncService {
       productRows: number
       dashboardLayout: DashboardLayout
       dashboardRowCount: number
+      partnerRows: number
+      expenseRows: number
+      profitLossRows: number
+      courierRows: number
+      paymentRows: number
+      dailySummaryRows: number
+      telegramLogRows: number
+      aiJobRows: number
     },
   ) {
     const sheets = await this.client.sheets(storeId)
+    // +2 everywhere for the title row and the header row above the data.
     const rowCounts: Record<BusinessSheetTab, number> = {
       Dashboard: counts.dashboardRowCount,
       Orders: counts.orders + 2,
       Customers: counts.customers + 2,
       Subscribers: counts.subscribers + 2,
       'Products & Stock': counts.productRows + 2,
+      'Partner Accounts': counts.partnerRows + 2,
+      Expenses: counts.expenseRows + 2,
+      'Profit & Loss': counts.profitLossRows + 2,
+      Courier: counts.courierRows + 2,
+      Payments: counts.paymentRows + 2,
+      'Daily Summary': counts.dailySummaryRows + 2,
+      'Telegram Logs': counts.telegramLogRows + 2,
+      'AI Jobs': counts.aiJobRows + 2,
     }
 
     const requests: object[] = []

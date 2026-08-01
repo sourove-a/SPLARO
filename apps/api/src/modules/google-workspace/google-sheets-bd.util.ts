@@ -39,12 +39,29 @@ export {
   formatPhoneForGoogleSheet,
 } from '../../common/bd-phone.util'
 
+/**
+ * Every tab the business spreadsheet owns. `ensureBusinessTabs` creates any
+ * that are missing and `populateBusinessSpreadsheet` fills them, so adding a
+ * name here is what brings a tab into existence.
+ *
+ * The eight finance and operations tabs below were mapped in the admin and
+ * counted in "n of 12 tabs set up" long before anything wrote them — the
+ * screen reported them as "Not set up" because they genuinely were.
+ */
 export const BUSINESS_SHEET_TABS = [
   'Dashboard',
   'Orders',
   'Customers',
   'Subscribers',
   'Products & Stock',
+  'Partner Accounts',
+  'Expenses',
+  'Profit & Loss',
+  'Courier',
+  'Payments',
+  'Daily Summary',
+  'Telegram Logs',
+  'AI Jobs',
 ] as const
 
 export type BusinessSheetTab = (typeof BUSINESS_SHEET_TABS)[number]
@@ -104,5 +121,101 @@ export const SHEET_HEADERS: Record<BusinessSheetTab, string[]> = {
     'Variant ID',
     'Image Link',
     'Product Link',
+  ],
+  'Partner Accounts': [
+    'Partner',
+    'Share %',
+    'Investment (BDT)',
+    'Withdrawn (BDT)',
+    'Sales Contribution (BDT)',
+    'Expense Share (BDT)',
+    'Profit Share (BDT)',
+    'Current Balance (BDT)',
+    'Phone',
+    'Email',
+    'Partner ID',
+  ],
+  Expenses: [
+    'Date (BD)',
+    'Category',
+    'Amount (BDT)',
+    'Status',
+    'Partner',
+    'Note',
+    'Recorded By',
+    'Approved By',
+    'Approved (BD)',
+    'Expense ID',
+  ],
+  'Profit & Loss': [
+    'Period Start (BD)',
+    'Period End (BD)',
+    'Gross Revenue (BDT)',
+    'Product Cost (BDT)',
+    'Courier Cost (BDT)',
+    'Packaging (BDT)',
+    'Gateway Fee (BDT)',
+    'Discount (BDT)',
+    'Return Loss (BDT)',
+    'Net Profit (BDT)',
+    'Order ID',
+    'Calculated (BD)',
+  ],
+  Courier: [
+    'Invoice #',
+    'Provider',
+    'Status',
+    'Consignment',
+    'Tracking Code',
+    'Delivery Charge (BDT)',
+    'COD Amount (BDT)',
+    'Booked (BD)',
+    'Picked Up (BD)',
+    'Delivered (BD)',
+    'Tracking Link',
+  ],
+  Payments: [
+    'Payment #',
+    'Invoice #',
+    'Method',
+    'Status',
+    'Amount (BDT)',
+    'Currency',
+    'Transaction ID',
+    'Paid (BD)',
+    'Refunded (BD)',
+    'Refund Amount (BDT)',
+    'Failure Reason',
+  ],
+  'Daily Summary': [
+    'Closing Date (BD)',
+    'Orders',
+    'Revenue (BDT)',
+    'Expenses (BDT)',
+    'Net Profit (BDT)',
+    'Status',
+    'Closed By',
+    'Approved By',
+    'Notes',
+  ],
+  'Telegram Logs': [
+    'Sent (BD)',
+    'Type',
+    'Command',
+    'Success',
+    'Telegram User',
+    'Message',
+  ],
+  'AI Jobs': [
+    'Created (BD)',
+    'Type',
+    'Status',
+    'Model',
+    'Tokens',
+    'Cost (USD)',
+    'Started (BD)',
+    'Completed (BD)',
+    'Error',
+    'Job ID',
   ],
 }

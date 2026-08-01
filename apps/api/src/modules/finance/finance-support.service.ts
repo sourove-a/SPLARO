@@ -114,7 +114,27 @@ const SHEET_TYPE_TO_TAB: Partial<Record<GoogleSheetType, string>> = {
   AI_JOBS: 'AI Jobs',
 }
 
-const CORE_WORKSPACE_TABS = new Set(['Orders', 'Customers', 'Products & Stock', 'Subscribers', 'Dashboard'])
+/**
+ * Tabs the business spreadsheet writes on every refresh, so they count as set
+ * up the moment a workspace spreadsheet exists — no per-tab config row needed.
+ * Must stay in step with BUSINESS_SHEET_TABS: a tab listed there but missing
+ * here reports "Not set up" in the admin even though it is being filled.
+ */
+const CORE_WORKSPACE_TABS = new Set([
+  'Dashboard',
+  'Orders',
+  'Customers',
+  'Subscribers',
+  'Products & Stock',
+  'Partner Accounts',
+  'Expenses',
+  'Profit & Loss',
+  'Courier',
+  'Payments',
+  'Daily Summary',
+  'Telegram Logs',
+  'AI Jobs',
+])
 
 @Injectable()
 export class GoogleSheetsFinanceService {
@@ -186,7 +206,11 @@ export class GoogleSheetsFinanceService {
 
       const last = logs.find((l) => l.sheetType === sheetType)
       const wsLastSync = wsConfig?.lastSyncAt ?? workspaceConn?.lastSyncAt ?? null
-      const wsLastError = wsConfig?.lastError ?? workspaceConn?.lastError ?? null
+      // Only this tab's own error. `workspaceConn.lastError` is written by
+      // whichever job failed last, connection-wide — falling back to it stamped
+      // one failure onto every tab that had no log row of its own, so a single
+      // bad job made the whole screen read as broken.
+      const wsLastError = wsConfig?.lastError ?? null
 
       let lastStatus = last?.status ?? null
       if (!lastStatus && configured) {
