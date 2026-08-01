@@ -10,13 +10,24 @@ Quick-start context for any AI tool. Read this before touching any file.
 
 ## Project Overview
 
-SPLARO is a luxury women's fashion eCommerce + SaaS platform for Bangladesh.  
+SPLARO is a quiet-luxury lifestyle eCommerce store for Bangladesh — Men, Women,
+Kids, Footwear and Accessories, as the live storefront nav shows. It is a
+**single store**, not a multi-tenant SaaS: the SaaS/vendor feature flags ship
+**off** and multi-tenancy is out of launch scope (see the module table below).
+
+> An earlier version of this line described a women's-only fashion + SaaS
+> platform, which contradicted both the live catalogue and this file's own
+> SaaS row. Scope decisions — nav, catalogue, SEO copy — follow the storefront.
+
 Monorepo: Turborepo + PNPM workspaces.
 
-**Live URLs (production target):**
+**Live URLs (production):**
 - Web storefront: `splaro.co`
 - Admin dashboard: `admin.splaro.co`
-- API: `api.splaro.co`
+- API: `splaro.co/api/v1` — the same-origin proxy is the canonical base and the
+  default in `packages/config/src/domains.ts`. `api.splaro.co` also resolves and
+  is kept as an optional alias; prefer the same-origin path so CORS and the BFF
+  proxy stay on one host. Both answered `200` on 2026-08-02.
 
 ### Current launch baseline — 2026-08-01
 

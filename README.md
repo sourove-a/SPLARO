@@ -48,7 +48,7 @@
 
 > Launch stabilization status and verified evidence: [`docs/LAUNCH-STABILIZATION-2026-08-01.md`](docs/LAUNCH-STABILIZATION-2026-08-01.md). Local gates passing does not by itself mean production-ready.
 
-SPLARO is a world-class luxury women's fashion brand built for the Bangladesh market with international reach. This platform is engineered to the same standard as a $100,000+ custom agency build — combining the editorial luxury of Dior, the usability precision of Apple, and the conversion focus of leading fashion brands.
+SPLARO is a quiet-luxury lifestyle brand for the Bangladesh market with international reach — Men, Women, Kids, Footwear and Accessories, matching the live storefront nav. This platform is engineered to the same standard as a $100,000+ custom agency build — combining the editorial luxury of Dior, the usability precision of Apple, and the conversion focus of leading fashion brands.
 
 **Brand Positioning:** Luxury fashion house, not a typical eCommerce store.
 
@@ -1368,7 +1368,10 @@ DATABASE_URL=postgresql://splaro:PASSWORD@localhost:5432/splaro_db
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=your-256-bit-secret
 NEXT_PUBLIC_SITE_URL=https://splaro.co
-NEXT_PUBLIC_API_URL=https://api.splaro.co
+# Same-origin proxy — matches the production default in packages/config/src/domains.ts.
+# api.splaro.co also resolves and works, but keeping the API on one host avoids
+# separate CORS and proxy configuration.
+NEXT_PUBLIC_API_URL=https://splaro.co/api/v1
 
 # Payments
 BKASH_APP_KEY=

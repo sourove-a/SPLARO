@@ -137,7 +137,16 @@ Unless the owner **explicitly** asks to change the footer in that message, agent
 - `apps/web/src/styles/earth-backdrop.css`
 - Footer CSS in `globals.css` (`.site-footer*`, `.footer-lux*`)
 
-No swaps (e.g. `LazyFooterEarthGlobe` ↔ `EarthBackdrop`), no overlay/blur/reload tweaks, no drive-by “fixes”. Current: `EarthBackdrop` video in `Footer.tsx`.
+No swaps (e.g. `LazyFooterEarthGlobe` ↔ `EarthBackdrop`), no overlay/blur/reload tweaks, no drive-by “fixes”.
+
+**Current state (verified 2026-08-02):** the footer renders **no** backdrop video.
+`EarthBackdrop.tsx` and `earth-backdrop.css` still exist but are **not imported
+anywhere** — `Footer.tsx` has no Earth, globe, or `<video>` element. The files are
+kept because the owner locked this area, not because they are mounted.
+
+An earlier version of this note asserted the backdrop was mounted in `Footer.tsx`.
+It was not, and reviewers kept re-reporting the mismatch. Check the imports before
+trusting any claim about what the footer renders.
 
 ### Performance / CDN (owner — 2026-07-15)
 
@@ -168,7 +177,17 @@ After web image changes: rebuild/deploy web so `public/images/hero` ships.
 
 Login/signup Google button works and must stay. Do not edit without explicit owner request:
 - `apps/web/src/components/auth/AuthGoogleGlassFooter.tsx`, `AuthGoogleProvider.tsx`, `auth-google-bridge.tsx`, `AuthExperience.tsx`
-- `apps/web/src/app/api/auth/config/route.ts` — `googleSignInEnabled` must depend **only** on `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID`; the web process can't see root `.env` server vars, so requiring them hides the button after config loads (flash-then-vanish bug).
+- `apps/web/src/app/api/auth/config/route.ts` — two separate fields, do not collapse them:
+  - `googleSignInEnabled` depends **only** on `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID`. The web
+    process cannot see root `.env` server vars, so gating on those hides the button after
+    config loads (flash-then-vanish bug).
+  - `googleClientId` — the id actually handed to GIS — **does** fall back to the server-side
+    `GOOGLE_OAUTH_CLIENT_ID`, so a VPS that sets only the server var still gets a working
+    button without a rebuild. `AuthGoogleGlassFooter` hides the button only when
+    `!googleSignInEnabled && !googleClientId`, i.e. when *neither* is set.
+
+    This fallback is deliberate. Reading the `googleSignInEnabled` rule alone and “tidying”
+    the fallback away breaks Google login on any host configured through server env only.
 - Env: `apps/web/.env.local` holds `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID`; Nest API verifies credentials with `GOOGLE_OAUTH_CLIENT_ID` from root `.env`.
 
 **Google button UI (owner verified — 2026-07-19):** Use visible, responsive, official `GoogleLogin type="standard"` inside `.auth-google-glass__native`. Customer click must land on Google GIS iframe itself. Never restore off-screen GIS + programmatic `iframe.click()`—cross-origin iframe clicks are not trusted user gestures and silently do nothing in Chromium. Never overlay a transparent GIS button or add a second Google mark; both create deceptive/double-G UI.
@@ -249,9 +268,31 @@ After prompt edits: restart API (`pnpm dev:api` or `pnpm dev:reset`). Tools must
 
 ---
 
+## Deploy paths — one is live, one is not
+
+Verified 2026-08-02. Two workflows exist and reviewers keep flagging this as a
+risk of “the wrong deploy running”. It is not one:
+
+| Workflow | Trigger | What it does |
+| --- | --- | --- |
+| `.github/workflows/deploy-vps.yml` | `workflow_run` after **CI green on main** | **The only auto-deploy.** SSH → VPS → `/opt/splaro/deploy.sh` |
+| `.github/workflows/deploy-hostinger.yml` | `workflow_dispatch` only | Legacy URL smoke. Never fires on push, never SSHes, writes to no host |
+
+Root-level `deploy-run.yml`, `gh-actions.yml`, `gh-deploy.yml`, `hpanel-advanced.yml`,
+`ssh-access.yml` and `docker-compose*.yml` are **not** in `.github/workflows`, so
+GitHub never reads them. They are reference snippets — clutter, not a second
+deploy path. Delete them only with the owner's say-so.
+
+---
+
 ## Security reminders
 
 - Never commit `.env`, secrets, or real API keys.
+- **Current state (verified 2026-08-02):** no env file with real values is tracked.
+  Only `.env.example` and `infrastructure/hostinger/.env.splaro.co.production.example`
+  are in git; `.env` and `apps/web/.env.local` are ignored and appear nowhere in
+  history. A scan of tracked files for private keys, `sk-…` and `AIza…` returns
+  nothing. Re-run before trusting an older note that says otherwise.
 - `infrastructure/hostinger/.env.splaro.co.production` must remain ignored/untracked; only redacted
   `.example` may be committed. CI tracked-env blocker + Gitleaks gate must remain enabled.
 - Encryption rotation uses new `ENCRYPTION_KEY` plus temporary `ENCRYPTION_KEY_PREVIOUS`; re-save
