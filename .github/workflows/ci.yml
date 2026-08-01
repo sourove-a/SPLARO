@@ -60,18 +60,20 @@ jobs:
       # full history scan once that purge has landed.
       - name: Secret scan
         run: |
-          report="$(mktemp)"
+          report_dir="$(mktemp -d)"
+          chmod 777 "$report_dir"
+          report="$report_dir/gitleaks.json"
           set +e
-          docker run --rm -v "$PWD:/repo" -v "$report:/tmp/gitleaks.json" \
+          docker run --rm -v "$PWD:/repo" -v "$report_dir:/report" \
             zricethezav/gitleaks:v8.21.2 detect \
             --source /repo --no-git --redact --no-banner \
-            --report-format json --report-path /tmp/gitleaks.json
+            --report-format json --report-path /report/gitleaks.json
           status=$?
           set -e
           if [ "$status" -ne 0 ]; then
             jq '[.[] | {rule: .RuleID, file: .File, line: .StartLine}]' "$report"
           fi
-          rm -f "$report"
+          rm -rf "$report_dir"
           exit "$status"
 
       - name: Block committed env files
