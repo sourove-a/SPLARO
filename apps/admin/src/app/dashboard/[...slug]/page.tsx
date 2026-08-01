@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
-import { ModuleCreateView } from '@/components/ui/ModuleCreateView'
-import { ModuleDetailView } from '@/components/ui/ModuleDetailView'
+import { notFound, redirect } from 'next/navigation'
+import { DcSoftLockPanel } from '@/components/dc/DcSoftLockPanel'
 import { DcOrders } from '@/components/orders/DcOrders'
 import { DcProducts } from '@/components/products/DcProducts'
 import { DcCustomers } from '@/components/customers/DcCustomers'
@@ -49,7 +48,6 @@ import { DcAnalytics } from '@/components/dc/screens/DcAnalytics'
 import { DcLiveModuleScreen } from '@/components/dc/screens/DcLiveModuleScreen'
 import { screenKeyForHref } from '@/components/dc/screens'
 import { resolveNavRoute, getRecordIdFromSubPath } from '@/lib/navigation/admin-nav'
-import { hasBackendCreateApi } from '@/lib/modules/module-maturity'
 
 /**
  * Screens the design specifies as bespoke layouts rather than block lists.
@@ -100,13 +98,22 @@ const DC_BESPOKE: Record<string, () => React.ReactElement> = {
   '/dashboard/analytics': () => <DcAnalytics />,
 }
 
-/** Detail/create handled inside the module panel via ModuleWorkspace action/subPath. */
-const DETAIL_HANDLED_BY_MODULE = new Set([
-  '/dashboard/finance/partner-accounts',
-  '/dashboard/finance/investments',
-  '/dashboard/finance/withdrawals',
-  '/dashboard/invoices',
-])
+/** Legacy deep URLs → primary DC screens. */
+const ALIAS_REDIRECTS: Record<string, string> = {
+  '/dashboard/email-sms': '/dashboard/sms',
+  '/dashboard/system-health': '/dashboard/api-health',
+  '/dashboard/google-workspace/sheets-sync': '/dashboard/automation/google-sheets-sync',
+  '/dashboard/roles': '/dashboard/admin-users',
+  '/dashboard/permissions': '/dashboard/admin-users',
+  '/dashboard/audit-logs': '/dashboard/security-center',
+  '/dashboard/system/telegram-logs': '/dashboard/telegram-bot',
+  '/dashboard/warehouse': '/dashboard/wms/overview',
+  '/dashboard/wms/warehouses': '/dashboard/wms/overview',
+  '/dashboard/wms/transfers': '/dashboard/wms/overview',
+  '/dashboard/wms/stock-movements': '/dashboard/inventory',
+  '/dashboard/supplier-management': '/dashboard/procurement/suppliers',
+  '/dashboard/finance/google-sheets-finance': '/dashboard/automation/google-sheets-sync',
+}
 
 interface DashboardModulePageProps {
   params: Promise<{ slug: string[] }>
@@ -135,27 +142,18 @@ export default async function DashboardModulePage({ params }: DashboardModulePag
   }
 
   const { navItem, moduleHref, action, pageTitle } = resolved
-  const subPath = resolved.subPath.length > 0 ? resolved.subPath : undefined
+
+  const alias = ALIAS_REDIRECTS[moduleHref]
+  if (alias && !action) {
+    redirect(alias)
+  }
 
   if (action === 'create') {
-    const hasCreateApi = hasBackendCreateApi(moduleHref)
-    if (hasCreateApi && moduleHref === '/dashboard/products') {
+    if (moduleHref === '/dashboard/products') {
       return <DcProductNew moduleHref={moduleHref} />
     }
-    if (hasCreateApi && moduleHref === '/dashboard/orders') {
+    if (moduleHref === '/dashboard/orders') {
       return <DcOrderNew moduleHref={moduleHref} />
-    }
-    if (hasCreateApi) {
-      return (
-        <DcModuleHost
-          navItem={navItem}
-          moduleHref={moduleHref}
-          action="create"
-          title={pageTitle}
-          screen="create"
-          {...(subPath ? { subPath } : {})}
-        />
-      )
     }
     return (
       <DcModuleHost
@@ -165,7 +163,11 @@ export default async function DashboardModulePage({ params }: DashboardModulePag
         title={pageTitle}
         screen="create"
       >
-        <ModuleCreateView moduleLabel={navItem.label} moduleHref={moduleHref} pageTitle={pageTitle} />
+        <DcSoftLockPanel
+          title={pageTitle}
+          href={moduleHref}
+          hint={`Create is handled inside the ${navItem.label} sidebar screen. Legacy create panels are retired.`}
+        />
       </DcModuleHost>
     )
   }
@@ -186,19 +188,6 @@ export default async function DashboardModulePage({ params }: DashboardModulePag
       return <DcOrderDetail recordId={recordId} moduleHref={moduleHref} />
     }
 
-    if (DETAIL_HANDLED_BY_MODULE.has(moduleHref)) {
-      return (
-        <DcModuleHost
-          navItem={navItem}
-          moduleHref={moduleHref}
-          action={action}
-          title={pageTitle}
-          screen="detail"
-          {...(subPath ? { subPath } : {})}
-        />
-      )
-    }
-
     const recordId = getRecordIdFromSubPath(resolved.subPath, action) ?? 'record'
     const mode = action === 'edit' ? 'edit' : 'detail'
     return (
@@ -209,7 +198,11 @@ export default async function DashboardModulePage({ params }: DashboardModulePag
         title={pageTitle}
         screen={mode}
       >
-        <ModuleDetailView navItem={navItem} moduleHref={moduleHref} recordId={recordId} mode={mode} />
+        <DcSoftLockPanel
+          title={pageTitle}
+          href={moduleHref}
+          hint={`Record ${recordId} — open the matching sidebar screen. Legacy ${mode} panels are retired.`}
+        />
       </DcModuleHost>
     )
   }
@@ -226,18 +219,11 @@ export default async function DashboardModulePage({ params }: DashboardModulePag
         moduleHref={moduleHref}
         navItem={navItem}
         fallbackTitle={pageTitle}
-        {...(subPath ? { subPath } : {})}
       />
     )
   }
 
   return (
-    <DcModuleHost
-      navItem={navItem}
-      moduleHref={moduleHref}
-      title={pageTitle}
-      screen="module"
-      {...(subPath ? { subPath } : {})}
-    />
+    <DcModuleHost navItem={navItem} moduleHref={moduleHref} title={pageTitle} screen="module" />
   )
 }

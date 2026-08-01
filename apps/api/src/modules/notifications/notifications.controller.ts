@@ -9,6 +9,10 @@ import {
   generateSmtpTestEmailText,
 } from '../email/smtp-test-email.template'
 import { resolveCustomerFacingSiteUrl } from '@splaro/config'
+import { SmsService } from './sms.service'
+import { findLowStockVariants } from './low-stock.util'
+import { LOW_STOCK_ALERT_LIMIT } from './stock-alerts.cron'
+import { isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
 
 @Controller('admin/notifications')
 export class NotificationsController {
@@ -16,6 +20,7 @@ export class NotificationsController {
     @Inject(NotificationsService) private readonly notify: NotificationsService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(EmailService) private readonly email: EmailService,
+    @Inject(SmsService) private readonly sms: SmsService,
   ) {}
 
   /** Admin notification log (Telegram messages sent to store) */
@@ -60,6 +65,28 @@ export class NotificationsController {
       level: 'info',
     })
     return { ok: true }
+  }
+
+  /** Send a test SMS to a Bangladesh mobile number */
+  @Post('test/sms')
+  async testSms(@Body() body: { storeId: string; phone: string; message?: string }) {
+    const phone = normalizeBdPhone(body.phone)
+    if (!isValidBdMobile(phone)) {
+      throw new BadRequestException('Enter a valid Bangladesh mobile number (01XXXXXXXXX)')
+    }
+    const sid = await resolveStoreId(this.prisma, body.storeId)
+    const result = await this.sms.send(
+      phone,
+      body.message?.trim() || 'SPLARO admin SMS test ✓',
+      sid,
+    )
+    return {
+      ok: result.sent,
+      provider: result.provider ?? null,
+      message: result.sent
+        ? `SMS accepted by ${result.provider ?? 'provider'} for ${phone}.`
+        : result.error ?? 'SMS was not sent.',
+    }
   }
 
   /** Send a test email */
@@ -138,43 +165,21 @@ export class NotificationsController {
     }
   }
 
-  /** Low-stock alert summary — useful to trigger from cron */
+  /** Low-stock alert summary — every SKU at or under its own reorder point. */
   @Get('low-stock')
   async lowStockAlerts(@Query('storeId') storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
-    const variants = await this.prisma.productVariant.findMany({
-      where: {
-        product: { storeId: sid, status: { not: 'ARCHIVED' } },
-        stock: { lte: 5, gt: 0 },
-      },
-      include: {
-        product: { select: { name: true } },
-      },
-      orderBy: { stock: 'asc' },
-    })
-    return variants.map((v) => ({
-      variantId: v.id,
-      sku: v.sku,
-      productName: (v as typeof v & { product?: { name: string } }).product?.name ?? '',
-      stock: v.stock,
-    }))
+    return findLowStockVariants(this.prisma, sid)
   }
 
   /** Trigger low-stock notifications for all low-stock items */
   @Post('trigger/low-stock')
   async triggerLowStockAlerts(@Body('storeId') storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
-    const variants = await this.prisma.productVariant.findMany({
-      where: {
-        product: { storeId: sid, status: { not: 'ARCHIVED' } },
-        stock: { lte: 5, gt: 0 },
-      },
-      include: { product: { select: { name: true } } },
-    })
+    const variants = await findLowStockVariants(this.prisma, sid, LOW_STOCK_ALERT_LIMIT)
 
     for (const v of variants) {
-      const name = (v as typeof v & { product?: { name: string } }).product?.name ?? 'Unknown'
-      await this.notify.notifyLowStock(sid, name, v.sku ?? v.id, v.stock)
+      await this.notify.notifyLowStock(sid, v.productName, v.sku, v.stock)
     }
 
     return { triggered: variants.length }

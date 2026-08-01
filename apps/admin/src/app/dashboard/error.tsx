@@ -15,15 +15,24 @@ export default function DashboardError({
   }, [error])
 
   return (
-    <div className="admin-module-card mx-auto max-w-lg text-center">
-      <h2 className="text-lg font-black text-[var(--admin-color-ink-near)]">Something went wrong</h2>
-      <p className="mt-2 text-sm font-semibold text-[var(--admin-color-neutral-500)]">
+    <div
+      className="mx-auto max-w-lg text-center"
+      style={{
+        border: '1px solid var(--line)',
+        borderRadius: 14,
+        background: 'var(--surface)',
+        backgroundImage: 'var(--card-sheen)',
+        padding: 24,
+      }}
+    >
+      <h2 className="text-lg font-black text-[var(--ink)]">Something went wrong</h2>
+      <p className="mt-2 text-sm font-semibold text-[var(--ink-3)]">
         {error.message?.includes('Failed to fetch')
           ? 'Navigation was interrupted — usually a dev compile hiccup. Reload or try again.'
           : error.message || 'An unexpected error occurred in this module.'}
       </p>
       <div className="mt-5 flex justify-center gap-2">
-        <AdminButton variant="gold" onClick={reset}>
+        <AdminButton variant="accent" onClick={reset}>
           Try again
         </AdminButton>
         <AdminButton onClick={() => window.location.assign('/dashboard')}>Back to dashboard</AdminButton>

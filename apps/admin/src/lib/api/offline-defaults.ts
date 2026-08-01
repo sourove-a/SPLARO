@@ -14,6 +14,11 @@ export const EMPTY_SEO_OVERVIEW: SeoOverview = {
   sitemaps: [],
   redirects: [],
   productAudits: [],
+  searchConsole: {
+    connected: false,
+    status: 'not_connected',
+    message: 'Search Console status unavailable while API is offline.',
+  },
   summary: { avgScore: 0, criticalErrors: 0, warnings: 0, products: 0 },
 }
 

@@ -111,6 +111,20 @@ The 8GB VPS build is flaky under load. Skipping any step here has caused a live 
 | api | `apps/api/` | NestJS REST API, prefix `/api/v1` |
 | worker | `apps/worker/` | Background jobs (sheets, closing) |
 
+## Launch stabilization baseline (2026-08-01)
+
+Full evidence and remaining gates: `docs/LAUNCH-STABILIZATION-2026-08-01.md`.
+
+- Never claim “100% perfect.” Say local gates passed only when measured gates pass.
+- Real Windows, Firefox/WebKit, live credentials, secret rotation, CI/deploy, and live smoke remain
+  separate gates.
+- Production env file must stay untracked. CI must block tracked production env files and scan
+  secrets.
+- Rolling encryption rotation: new `ENCRYPTION_KEY` + old `ENCRYPTION_KEY_PREVIOUS`; re-save
+  integrations, then remove previous key. Never rotate blindly without encrypted-data audit.
+- Storefront presence goes web BFF → API. Preserve upstream status and `Retry-After`; never turn
+  API `429` into false `502`. Heartbeat throttle must support many users behind BFF/proxy.
+
 ## Before coding
 
 1. Read existing files in the module — match conventions
@@ -136,6 +150,10 @@ The 8GB VPS build is flaky under load. Skipping any step here has caused a live 
 - Nav map: `apps/admin/src/lib/navigation/admin-nav.ts`
 - **Hidden menus:** `NAV_HIDDEN_HREFS` in `admin-nav.ts` — routes exist but sidebar hides non-daily items (WMS, CEO dashboard, duplicate finance tabs, etc.). Do not delete modules; add to hide set if needed.
 - Module registry: `apps/admin/src/lib/modules/registry.ts`
+- Primary nav and command palette must contain each href once. Google Sheets lives under
+  Integrations; Export Center has one canonical nav entry. WMS/Procurement beta routes remain
+  URL-reachable but hidden from launch navigation. Dedicated live screens (`mobile-screens`,
+  `bulk`, `sms`, `telegram-bot`, `api-health`) must stay in `REGISTERED_MODULE_HREFS`.
 
 Key routes: `/dashboard/orders`, `/dashboard/products`, `/dashboard/partner-hub`, `/dashboard/ai-agent`, `/dashboard/telegram-bot`, `/dashboard/all-integrations`
 
@@ -163,6 +181,15 @@ Use `apps/admin/src/lib/admin/feedback.ts` (wraps `react-hot-toast`):
 
 Never show green “saved” when API didn't really persist (settings, courier, finance, integrations).
 
+Admin UI honesty regression rules (2026-08-01):
+- Missing analytics must render `—` / unavailable, never invented `0` or `100%` success.
+- Settings editors must compare returned server fields before green success; response status alone is not persistence proof.
+- Hero create/update/reorder/delete must perform a fresh banners read and verify resulting state before green success.
+- Storefront preview links use configured storefront origin, never admin-relative `/` or hardcoded production URLs.
+- Cache revalidation is a request, not proof content is already live; toast wording must say server confirmed + refresh requested.
+- WMS/Procurement direct beta routes must label themselves `BETA`, even when backing API responds.
+- Campaign sends reporting zero recipients are amber, never green; coupon state/delete must verify response payload.
+
 ## Web storefront (`apps/web/`)
 
 Luxury customer site — Next.js 15, Framer Motion, Zustand, BDT.
@@ -189,7 +216,7 @@ Verified on `/products/[slug]` (`product-page-client.tsx` + `ProductPurchaseStic
 | Desktop sticky panel | `.pp-info__purchase-panel` may be CSS-sticky in-column; floating `.pp-desktop-sticky-bar` only when inline CTAs leave the viewport **and** footer is not in view. |
 | Size Guide modal | PDP open as **modal** (`SizeGuideModal`) — never navigate away. Category-aware chart (women / men / kids / footwear). Must call `acquireScrollLock` / `releaseScrollLock` so Lenis stops + mobile dock hides. |
 | PDP chrome | No trust strip (“Easy returns / COD / Usually 2–4 days”). No wishlist/favorite heart on PDP when Add to bag exists. |
-| Size pills | Liquid white glass + **black text always** (selected = ring, never black fill). No hover `translateY` (miss-click). |
+| Size pills | ILYN parity: unselected liquid white glass + black text; selected `#121212` fill + white text + no shadow. No hover `translateY`/press scale (miss-click). |
 
 ### Scroll + click (owner final — 2026-07-21 — do not regress)
 
@@ -316,6 +343,11 @@ Working setup (do not break):
 
 **Real Google control (owner verified — 2026-07-19):** `AuthGoogleGlassFooter` renders visible, responsive, official `GoogleLogin type="standard"` inside `.auth-google-glass__native`. Customer click must land directly on Google GIS iframe. Never restore off-screen GIS + programmatic `iframe.click()`—cross-origin iframe clicks are not trusted user gestures and silently do nothing in Chromium. Never overlay transparent GIS or add a second Google mark; both create deceptive/double-G UI.
 
+**Local-origin guard (2026-08-01):** GIS stays unmounted on `localhost`/`127.0.0.1` unless
+`NEXT_PUBLIC_GOOGLE_OAUTH_LOCAL_ENABLED=true`. Set true only after both local URLs are registered
+as Authorized JavaScript origins in Google Cloud. Never suppress GIS errors after initialization;
+prevent invalid initialization. Production non-loopback flow stays unchanged.
+
 ### Optional customer email verification
 
 Password signup stays instant and optional: account creates with `User.emailVerified = false`; verification never blocks signup, login, checkout, COD, or account access. Google sign-in keeps Google token verified status.
@@ -388,6 +420,9 @@ Code: `apps/api/src/modules/courier/`, `orders/order-status.service.ts`, `common
 - Admin UI: floating chat FAB (`AgentShell`) + `/dashboard/ai-agent` (setup only — model, keys, Telegram)
 - Tools: `get_partner_finance`, `get_order_detail`, `update_order_status`, `book_order_courier`, `fix_missing_seo_meta`, etc.
 - Tools must be called for live data — never invent order counts
+- Daily SEO brief runs 06:15 Asia/Dhaka, recommends ranking targets from live metadata + 30-day
+  onsite search demand, and never auto-edits production. Google position/difficulty stay null until
+  Search Console OAuth is connected; UI must say disconnected.
 - After prompt edits: `pnpm dev:api` or `pnpm dev:reset`
 
 ## User intent (Banglish)
@@ -419,6 +454,9 @@ Code: `apps/api/src/modules/courier/`, `orders/order-status.service.ts`, `common
 - Hard refresh: `Ctrl+Shift+R`
 - **Never `npm install` at repo root** — use `pnpm install`. Guard: `scripts/only-pnpm.mjs` (`preinstall`). Swiper lives in `apps/web` (`pnpm --dir apps/web add swiper` if needed).
 - **Scroll (owner final 2026-07-21):** Mac / Linux fine desktop → Lenis (`lerp ~0.085`, rail-safe `virtualScroll`, no blanket `data-h-scroll` prevent). **Windows / mobile / lite / reduced-motion** → native. Never Lenis on Windows. Overlay: body `position:fixed` pin + `LenisScrollLock` restore via `lastLenisScrollY`.
+- **Hero video (2026-08-01):** hardware Windows may play lightweight-first source; RDP/software
+  rendering/reduced-motion/video failure uses poster. Native scroll requirement does not mean
+  blanket-disable video or glass styling on supported Windows.
 
 
 ## Department mega menus (Men / Women) — locked (2026-07-17)

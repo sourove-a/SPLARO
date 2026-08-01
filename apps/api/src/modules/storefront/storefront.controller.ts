@@ -69,6 +69,7 @@ import { FootwearConfigService } from '../content/footwear-config.service'
 import { PurgeDemoCatalogService } from '../catalog/purge-demo-catalog.service'
 import { SeedDemoCatalogService } from '../catalog/seed-demo-catalog.service'
 import { PaymentIntegrationService } from '../integrations/payment-integration.service'
+import { PresenceService } from '../../common/presence.service'
 
 function bearerToken(authorization?: string): string | undefined {
   return authorization?.replace(/^Bearer\s+/i, '').trim() || undefined
@@ -143,6 +144,7 @@ export class StorefrontController {
     private readonly seedDemoCatalog: SeedDemoCatalogService,
     private readonly navBuilder: NavBuilderService,
     private readonly paymentIntegration: PaymentIntegrationService,
+    private readonly presence: PresenceService,
   ) {}
 
   @Get('nav')
@@ -954,9 +956,20 @@ export class StorefrontController {
     @Query('key') key?: string,
     @Query('phone') phone?: string,
     @Query('autoPrint') autoPrint?: string,
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+    @Headers('x-splaro-phone-access') phoneAccess?: string,
   ) {
     if (!key && !phone) {
       throw new BadRequestException('key or phone is required')
+    }
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    const sessionPhone = sessionToken
+      ? await this.storefrontAuth.sessionPhone(sessionToken)
+      : null
+    if (phone) {
+      await this.storefrontOtp.assertPhoneAccess(sid, phone, phoneAccess, sessionPhone)
     }
     const order = await this.storefrontOrders.findForStorefrontAccess(storeId, id, {
       ...(key ? { key } : {}),
@@ -1280,7 +1293,7 @@ export class StorefrontController {
     })
 
     const nextQty = clampCartLineQuantity((existing?.quantity ?? 0) + qty)
-    assertCartLineStock(product.name, nextQty, variant.stock)
+    assertCartLineStock(product.name, nextQty, variant.stock, variant.allowOversell)
 
     if (existing) {
       await this.prisma.cartItem.update({
@@ -1645,6 +1658,24 @@ export class StorefrontController {
       await this.cache.invalidateCatalog(sid)
     }
     return { ok: true, ...result }
+  }
+
+  /** Storefront visitor heartbeat — powers admin header "online now" count. */
+  @Post('presence/heartbeat')
+  // Browser requests arrive through the web BFF. Allow normal concurrent traffic while
+  // retaining an IP-based ceiling against presence-set inflation.
+  @Throttle({ default: { limit: 300, ttl: 60_000 } })
+  async presenceHeartbeat(
+    @Query('storeId') storeId: string,
+    @Body() body: { visitorId?: string },
+  ) {
+    const visitorId = body.visitorId?.trim()
+    if (!visitorId || visitorId.length > 128) {
+      throw new BadRequestException('visitorId is required')
+    }
+    const sid = await resolveStoreId(this.prisma, storeId)
+    await this.presence.heartbeat(sid, visitorId, 'storefront')
+    return { ok: true }
   }
 
   /** Internal-only storefront events (web server → API). */

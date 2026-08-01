@@ -37,6 +37,7 @@ export interface DcShellProps {
   activeHref: string
   user: DcSidebarUser
   onSignOut?: () => void
+  onOpenProfile?: () => void
   header: Omit<DcHeaderProps, 'railOpen' | 'onToggleRail'>
   rail?: DcRailProps
   /** Rendered between the header and the page body — e.g. the Telegram banner. */
@@ -52,6 +53,7 @@ export function DcShell({
   activeHref,
   user,
   onSignOut,
+  onOpenProfile,
   header,
   rail,
   banner,
@@ -145,6 +147,7 @@ export function DcShell({
         onToggleCollapsed={toggleCollapsed}
         user={user}
         onSignOut={onSignOut}
+        onOpenProfile={onOpenProfile}
       />
       {compactViewport && mobileNavOpen ? (
         <button

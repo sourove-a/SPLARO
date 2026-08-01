@@ -30,8 +30,8 @@ export interface ContentOverview {
 }
 
 export interface SeoOverview {
-  keywords: { id: string; keyword: string; volume: number; position: number; change: string; difficulty: number; status: string }[]
-  indexPages: { url: string; google: string; bing: string; lastCrawl: string; status: string }[]
+  keywords: { id: string; keyword: string; volume: number; position: number | null; change: string; difficulty: number | null; signalSource: 'storefront_search'; status: string }[]
+  indexPages: { url: string; google: string; bing: string; lastCrawl: string | null; status: string }[]
   schemas: { id: string; type: string; pages: number; valid: number; errors: number; lastCheck: string }[]
   sitemaps: { id: string; name: string; urls: number; lastGen: string; submitted: string; status: string }[]
   redirects: {
@@ -46,6 +46,7 @@ export interface SeoOverview {
     isActive?: boolean
   }[]
   productAudits: { id: string; name: string; slug: string; score: number; hasMetaTitle: boolean; hasMetaDescription: boolean; lastAuditAt: string | null }[]
+  searchConsole: { connected: boolean; status: 'connected' | 'not_connected'; message: string }
   summary: { avgScore: number; criticalErrors: number; warnings: number; products: number }
 }
 
@@ -153,6 +154,9 @@ export function createSupportTicket(data: { subject: string; message?: string; c
   return apiFetch('/admin/hub/support/tickets', { method: 'POST', body: JSON.stringify(data) })
 }
 
+/** Operator severity, set by the API when the alert is raised. */
+export type NotificationLevel = 'info' | 'warn' | 'critical'
+
 export interface NotificationsOverview {
   logs: {
     id: string
@@ -161,9 +165,18 @@ export interface NotificationsOverview {
     subject: string | null
     body: string | null
     status: string
+    /** Older rows predate the column — treat a missing value as 'info'. */
+    level?: NotificationLevel | null
     createdAt: string
   }[]
-  summary: { total: number; sent: number; failed: number; pending: number; deliveredRate: number }
+  summary: {
+    total: number
+    sent: number
+    failed: number
+    pending: number
+    critical?: number
+    deliveredRate: number
+  }
 }
 
 export interface CommerceSubscriptionRow {

@@ -1,12 +1,19 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { Loader2, AlertTriangle } from 'lucide-react'
+import { DcIcon } from '@/components/dc/DcIcon'
 import {
-  ArrowLeft, Loader2, Save, Package,
-  Layers, AlertTriangle,
-  CheckCircle2, Pencil, Link2,
-  BarChart3, ShieldAlert, Copy, ExternalLink,
-} from 'lucide-react'
+  DcChip,
+  DcField,
+  DcInput,
+  DcPill,
+  DcSectionCard,
+  DcStorefrontPreview,
+  DcTextarea,
+} from '@/components/dc/product/DcProductFormPrimitives'
+import { DcProductMediaSlots } from '@/components/dc/product/DcProductMediaSlots'
+import { FONT, MONO, formatTaka } from '@/components/dc/tokens'
 import { buildCategoryPicker } from '@/lib/admin/category-picker'
 import {
   buildDescriptionDraft,
@@ -15,7 +22,6 @@ import {
   splitBilingualDescription,
 } from '@/lib/admin/product-description-draft'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
-import { AdminStatusBadge } from '@/components/ui/AdminStatusBadge'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
 import {
   confirmProductArchived,
@@ -25,8 +31,6 @@ import {
 import { copyProductStorefrontUrl, productStorefrontUrl } from '@/lib/admin/product-storefront-url'
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
 import { useCategoryTree, useCollections, useProduct, useUpdateProduct, useDeleteProduct, useProductVersions, useRestoreProductVersion, useAdminSession, usePermission } from '@/lib/api/hooks'
-import { ProductCreateTabbedForm, type ProductCreateTab } from '@/components/modules/product-form/ProductCreateTabbedForm'
-import { ProductMediaPanel } from '@/components/modules/product-form/ProductMediaPanel'
 import { ProductVariantManager } from '@/components/modules/product-form/ProductVariantManager'
 import { parseProductMedia } from '@/lib/admin/product-media-utils'
 import { AdminSwitchRow } from '@/components/ui/AdminSwitch'
@@ -41,14 +45,13 @@ import {
 } from '@/lib/admin/product-form-utils'
 import { generateAIProduct } from '@/lib/api/finance'
 import { fetchProductQR, fetchProductBarcode } from '@/lib/api/products'
-import { ProductAIAssist } from '@/components/agent/ProductAIAssist'
-import { ModuleReadinessBar } from '@/components/ui/connection/ModuleReadinessBar'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
-import { cn } from '@/lib/utils/cn'
 
 interface ProductEditPanelProps {
   productId: string
   moduleHref: string
+  /** Kept for callers — edit always uses DC layout under DcPageHead. */
+  embedded?: boolean
 }
 
 function slugify(str: string) {
@@ -67,43 +70,7 @@ function toDatetimeLocalValue(value: string | Date | null | undefined): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-function SectionNumber({ n }: { n: number }) {
-  return (
-    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[rgba(16, 17, 20, 0.18)] text-[10px] font-semibold text-[var(--admin-c-3f3f46)]">
-      {n}
-    </span>
-  )
-}
-
-function FormSection({
-  title, icon: Icon, children, number,
-}: {
-  title: string; icon: React.ElementType; children: React.ReactNode; number?: number
-}) {
-  return (
-    <section className="admin-module-card product-edit-card space-y-4">
-      <div className="product-edit-card__head">
-        <div className="product-edit-card__icon">
-          <Icon className="h-3.5 w-3.5 text-[var(--admin-brand-gold)]" strokeWidth={2} />
-        </div>
-        <h3 className="product-edit-card__title">{title}</h3>
-        {number !== undefined && <SectionNumber n={number} />}
-      </div>
-      {children}
-    </section>
-  )
-}
-
-function StatusBadge({ published }: { published: boolean }) {
-  return (
-    <AdminStatusBadge
-      label={published ? 'Live' : 'Draft'}
-      tone={published ? 'success' : 'muted'}
-    />
-  )
-}
-
-export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProps) {
+export function ProductEditPanel({ productId, moduleHref, embedded = false }: ProductEditPanelProps) {
   const { navigate } = useAdminNavigate()
   const { data: product, isLoading, isError, refetch } = useProduct(productId)
   const { data: categoryTreeData } = useCategoryTree()
@@ -128,7 +95,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
   const [slugEdited, setSlugEdited] = useState(false)
   const [departmentId, setDepartmentId] = useState('')
   const [subDepartmentId, setSubDepartmentId] = useState('')
-  const [activeTab, setActiveTab] = useState<ProductCreateTab>('basic')
+  const [mediaAlt, setMediaAlt] = useState('')
   const [qrGenerating, setQrGenerating] = useState(false)
   const [qrPreviewUrl, setQrPreviewUrl] = useState('')
   const [barcodeGenerating, setBarcodeGenerating] = useState(false)
@@ -601,24 +568,20 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(16, 17, 20, 0.1)]">
-          <Loader2 className="h-5 w-5 animate-spin text-[var(--admin-brand-gold)]" />
-        </div>
-        <p className="text-sm font-bold text-[var(--admin-color-neutral-500)]">Loading product…</p>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '64px 0' }}>
+        <Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--violet)' }} />
+        <p style={{ font: `600 13px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>Loading product…</p>
       </div>
     )
   }
 
   if (isError || !product) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50">
-          <AlertTriangle className="h-5 w-5 text-red-500" />
-        </div>
-        <p className="text-sm font-bold text-red-700">Product not found or failed to load.</p>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '64px 0' }}>
+        <AlertTriangle className="h-5 w-5" style={{ color: 'var(--bad)' }} />
+        <p style={{ font: `600 13px/1.4 ${FONT}`, color: 'var(--ink)' }}>Product not found or failed to load.</p>
         <AdminLinkButton href={moduleHref} variant="ghost">
-          <ArrowLeft className="h-4 w-4" /> Back to products
+          Back to products
         </AdminLinkButton>
       </div>
     )
@@ -627,6 +590,24 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
   const totalStock = product.variants?.reduce((s, v) => s + (v.stock ?? v.stockQuantity ?? 0), 0) ?? 0
   const lowStock = totalStock > 0 && totalStock < 10
   const storefrontUrl = form.slug.trim() ? productStorefrontUrl(form.slug) : ''
+  const pathLabel =
+    [
+      categories.find((c) => c.id === departmentId)?.name,
+      categories.find((c) => c.id === form.categoryId)?.name,
+    ]
+      .filter(Boolean)
+      .join(' · ') || 'Pick a category'
+  const priceNum = Number(form.basePrice) || 0
+  const compareNum = Number(form.compareAtPrice) || 0
+  void embedded
+  void appendBanglaPhrase
+  void handleGenerateQr
+  void handleGenerateBarcode
+  void qrPreviewUrl
+  void barcodePreviewUrl
+  void qrGenerating
+  void barcodeGenerating
+  void collections
 
   const handleCopyStorefrontUrl = async () => {
     if (!form.slug.trim()) {
@@ -655,218 +636,362 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
   }
 
   return (
-    <div className="product-edit-page admin-module-page product-page w-full">
-
-      {/* Top bar */}
-      <div className="product-edit-page__topbar">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <AdminLinkButton href={moduleHref} variant="ghost">
-            <ArrowLeft className="h-4 w-4" /> Products
-          </AdminLinkButton>
-          <div className="hidden min-w-0 sm:block">
-            <p className="truncate text-sm font-semibold text-[var(--admin-text)]">{form.name || 'Edit product'}</p>
-            {form.slug ? (
-              <p className="truncate text-[10px] font-semibold text-[var(--admin-text-muted)]">/products/{form.slug}</p>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2">
-          {form.slug ? (
-            <>
-              <AdminButton variant="ghost" size="sm" onClick={() => void handleCopyStorefrontUrl()}>
-                <Copy className="h-3.5 w-3.5" /> Copy link
-              </AdminButton>
-              <AdminButton variant="ghost" size="sm" onClick={handleOpenStorefront} disabled={!form.isPublished}>
-                <ExternalLink className="h-3.5 w-3.5" /> View live
-              </AdminButton>
-            </>
-          ) : null}
-          <StatusBadge published={form.isPublished} />
-          {dirty ? (
-            <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-400">
-              Unsaved
-            </span>
-          ) : null}
-          <AdminButton variant="accent" loading={saving} disabled={!canEditProducts} onClick={handleSave}>
-            <Save className="h-3.5 w-3.5" /> Save changes
-          </AdminButton>
-        </div>
-      </div>
-
+    <div className="dc-product-create product-edit-page--dc" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {!canEditProducts ? (
-        <div className="mb-4 rounded-[16px] border border-amber-200/60 bg-amber-50/80 px-4 py-3 text-xs font-semibold text-amber-900">
+        <div
+          style={{
+            padding: '12px 14px',
+            borderRadius: 12,
+            border: '1px solid var(--warn-bd, var(--line))',
+            background: 'var(--warn-soft, var(--surface-2))',
+            font: `600 12px/1.4 ${FONT}`,
+            color: 'var(--ink-2)',
+          }}
+        >
           View-only — your role can browse this product but cannot save changes.
         </div>
       ) : null}
 
-      <ModuleReadinessBar
-        items={[
-          {
-            key: 'publish',
-            label: form.isPublished ? 'Published on storefront' : 'Draft — not on storefront',
-            ok: form.isPublished,
-          },
-          {
-            key: 'variants',
-            label: `${product.variants?.length ?? 0} variant${(product.variants?.length ?? 0) === 1 ? '' : 's'}`,
-            ok: (product.variants?.length ?? 0) > 0,
-          },
-          {
-            key: 'stock',
-            label: `${totalStock} units in stock`,
-            ok: totalStock > 0,
-            highlight: !lowStock && totalStock > 0,
-          },
-          {
-            key: 'dirty',
-            label: dirty ? 'Unsaved changes' : 'Saved',
-            ok: !dirty,
-            highlight: !dirty,
-          },
-        ]}
-      />
-
-      <div className="product-edit-page__summary" aria-label="Product edit summary">
-        <div>
-          <span>Storefront URL</span>
-          <strong>{form.slug ? `/products/${form.slug}` : 'Add slug before publishing'}</strong>
-        </div>
-        <div>
-          <span>Variants</span>
-          <strong>{product.variants?.length ?? 0}</strong>
-        </div>
-        <div>
-          <span>Stock</span>
-          <strong className={lowStock ? 'product-edit-page__summary-warn' : ''}>{totalStock} units</strong>
-        </div>
-        <div>
-          <span>Status</span>
-          <strong>{form.isPublished ? 'Live' : 'Draft'}</strong>
-        </div>
-      </div>
-
-      {/* Two-column layout — full width, sidebar sticky */}
-      <div className="product-edit-page__grid">
-
-        {/* LEFT */}
-        <div className="product-edit-page__main min-w-0 space-y-5">
-
-          {/* 1 — Product Info */}
-          <FormSection title="Product Info" icon={Package} number={1}>
-            <div className="product-form-shell">
-              <ProductCreateTabbedForm
-                tab={activeTab}
-                onTabChange={setActiveTab}
-                form={form}
-                set={(key, value) => {
-                  if (key === 'name') {
-                    handleNameChange(String(value))
-                    return
-                  }
-                  set(key as keyof typeof form, value as (typeof form)[typeof key])
+      <div className="dc-product-create__layout">
+        <div className="dc-product-create__main">
+          <DcSectionCard
+            id="pe-basics"
+            num="01"
+            title="Basics"
+            hint="Title, handle, copy and pricing — same layout as Add product."
+            badge={
+              <button
+                type="button"
+                onClick={() => void handleGenerateDescription()}
+                disabled={aiLoading || !canEditProducts}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  height: 28,
+                  padding: '0 10px',
+                  borderRadius: 7,
+                  border: '1px solid var(--violet-bd)',
+                  background: 'var(--violet-soft)',
+                  color: 'var(--violet)',
+                  cursor: aiLoading ? 'wait' : 'pointer',
+                  font: `600 11.5px/1 ${FONT}`,
+                  opacity: aiLoading ? 0.7 : 1,
                 }}
-                onNameChange={handleNameChange}
-                departmentId={departmentId}
-                catsLoading={false}
-                departments={categoryPicker.departments}
-                subcategories={subcategories}
-                subDepartmentId={subDepartmentId}
-                subDepartments={subDepartments}
-                selectedCategoryName={categories.find((c) => c.id === form.categoryId)?.name}
-                sizeList={[]}
-                allSizeChips={[]}
-                variantCount={product.variants?.length ?? 0}
-                collections={collections}
-                colorsOpen={false}
-                onColorsOpenToggle={() => undefined}
-                colorRows={[]}
-                activeColorId=""
-                imageUrls={form.imageUrls}
-                onDepartmentChange={handleDepartmentChange}
-                onSubcategoryChange={handleSubcategoryChange}
-                onSubTypeChange={handleSubTypeChange}
-                onNameBlur={() => undefined}
-                onApplyDescriptionDraft={applyDescriptionDraft}
-                onApplyBanglaPolish={applyBanglaPolish}
-                onAIGenerate={handleGenerateDescription}
-                aiLoading={aiLoading}
-                onAddColorRow={() => undefined}
-                onActiveColor={() => undefined}
-                onUpdateColorRow={() => undefined}
-                onRemoveColorRow={() => undefined}
-                onAppendBanglaPhrase={appendBanglaPhrase}
-                descriptionPlaceholderEn="Premium English description…"
-                descriptionPlaceholderBn="বাংলায় সুন্দর বিবরণ…"
-                showVariantControls={false}
-                onInstantPublish={(next) => void saveVisibility({ isPublished: next })}
-                productId={productId}
-                onGenerateBarcode={() => void handleGenerateBarcode()}
-                barcodeGenerating={barcodeGenerating}
-                {...(barcodePreviewUrl || form.barcode.startsWith('data:image')
-                  ? { barcodePreviewUrl: barcodePreviewUrl || form.barcode }
-                  : {})}
-                onGenerateQr={() => void handleGenerateQr()}
-                qrGenerating={qrGenerating}
-                {...(qrPreviewUrl || form.qrCode.startsWith('data:image')
-                  ? { qrPreviewUrl: qrPreviewUrl || form.qrCode }
-                  : {})}
-                headerSlot={
-                  form.slug ? (
-                    <div className="product-form-slug-row">
-                      <Link2 className="h-3.5 w-3.5 flex-shrink-0 text-[var(--admin-accent)]" strokeWidth={2} />
-                      <span className="text-[11px] text-[var(--admin-text-muted)]">splaro.co/products/</span>
-                      <input
-                        className="flex-1 bg-transparent text-[11px] font-semibold text-[var(--admin-text)] outline-none"
-                        value={form.slug}
-                        onChange={(e) => handleSlugChange(e.target.value)}
-                      />
-                      {!slugEdited ? (
-                        <span className="product-form-slug-row__auto">Auto</span>
-                      ) : null}
-                    </div>
-                  ) : null
-                }
-              />
-              <div className="mt-4">
-                <ProductAIAssist
-                  name={form.name}
-                  description={fullDescription}
-                  metaTitle={form.metaTitle}
-                  metaDescription={form.metaDescription}
-                  fabricContent={form.fabricContent}
-                  occasion={form.occasion}
-                  onFillAll={handleFillAllWithAI}
-                  fillLoading={fillAllLoading}
+              >
+                <DcIcon name="icon-sparkles" size={12} />
+                <span>{aiLoading ? 'Generating…' : 'AI assist'}</span>
+              </button>
+            }
+          >
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+                gap: 12,
+              }}
+            >
+              <DcField label="Product name · English">
+                <DcInput value={form.name} onChange={(e) => handleNameChange(e.target.value)} />
+              </DcField>
+              <DcField label="Title · বাংলা">
+                <DcInput value={form.nameBn} onChange={(e) => set('nameBn', e.target.value)} />
+              </DcField>
+            </div>
+            <DcField label="Handle" hint="Changing after publish breaks existing storefront links.">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  border: '1px solid var(--line)',
+                  borderRadius: 9,
+                  background: 'var(--surface-2)',
+                  overflow: 'hidden',
+                }}
+              >
+                <span
+                  style={{
+                    padding: '0 10px',
+                    font: `500 11.5px/38px ${MONO}`,
+                    color: 'var(--ink-3)',
+                    borderRight: '1px solid var(--line)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  /products/
+                </span>
+                <DcInput
+                  mono
+                  value={form.slug}
+                  onChange={(e) => handleSlugChange(e.target.value)}
+                  style={{ border: 0, borderRadius: 0, background: 'transparent' }}
                 />
+                {!slugEdited ? <span style={{ paddingRight: 8 }}><DcPill>Auto</DcPill></span> : null}
+              </div>
+            </DcField>
+            <DcField label="Description · English">
+              <DcTextarea
+                rows={4}
+                value={form.descriptionEn}
+                onChange={(e) => set('descriptionEn', e.target.value)}
+                placeholder="Premium English description…"
+              />
+            </DcField>
+            <DcField label="Description · বাংলা">
+              <DcTextarea
+                rows={3}
+                value={form.descriptionBn}
+                onChange={(e) => set('descriptionBn', e.target.value)}
+                placeholder="বাংলায় সুন্দর বিবরণ…"
+              />
+              <button
+                type="button"
+                onClick={applyBanglaPolish}
+                style={{
+                  alignSelf: 'flex-start',
+                  height: 28,
+                  padding: '0 10px',
+                  borderRadius: 8,
+                  border: '1px solid var(--line-2)',
+                  background: 'var(--surface)',
+                  color: 'var(--ink-2)',
+                  cursor: 'pointer',
+                  font: `600 11px/1 ${FONT}`,
+                  marginTop: 4,
+                }}
+              >
+                Polish Bangla
+              </button>
+            </DcField>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+              <DcField label="Base price">
+                <DcInput mono value={form.basePrice} onChange={(e) => set('basePrice', e.target.value)} placeholder="0" />
+              </DcField>
+              <DcField label="Compare at">
+                <DcInput
+                  mono
+                  value={form.compareAtPrice}
+                  onChange={(e) => set('compareAtPrice', e.target.value)}
+                  placeholder="—"
+                />
+              </DcField>
+              <DcField label="Parent SKU">
+                <DcInput mono value={form.sku} onChange={(e) => set('sku', e.target.value)} />
+              </DcField>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => void handleFillAllWithAI()}
+                disabled={fillAllLoading || !canEditProducts}
+                style={{
+                  height: 32,
+                  padding: '0 12px',
+                  borderRadius: 8,
+                  border: '1px solid var(--line-2)',
+                  background: 'var(--surface-2)',
+                  color: 'var(--ink)',
+                  cursor: 'pointer',
+                  font: `600 12px/1 ${FONT}`,
+                }}
+              >
+                {fillAllLoading ? 'Filling…' : 'AI fill all fields'}
+              </button>
+              <button
+                type="button"
+                onClick={() => applyDescriptionDraft()}
+                style={{
+                  height: 32,
+                  padding: '0 12px',
+                  borderRadius: 8,
+                  border: '1px solid var(--line-2)',
+                  background: 'var(--surface)',
+                  color: 'var(--ink-2)',
+                  cursor: 'pointer',
+                  font: `600 12px/1 ${FONT}`,
+                }}
+              >
+                Draft copy
+              </button>
+            </div>
+          </DcSectionCard>
+
+          <DcSectionCard
+            id="pe-menu"
+            num="00"
+            title="Menu & category"
+            hint="Pick the storefront menu — categories follow from it."
+            badge={<DcPill>{pathLabel}</DcPill>}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <span
+                style={{
+                  font: `600 10.5px/1 ${FONT}`,
+                  letterSpacing: '.09em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ink-3)',
+                }}
+              >
+                Step 1 · Menu
+              </span>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                  gap: 10,
+                }}
+              >
+                {categoryPicker.departments.map((d) => {
+                  const on = departmentId === d.id
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => handleDepartmentChange(d.id)}
+                      className={`dc-menu-tile${on ? ' dc-menu-tile--on' : ''}`}
+                    >
+                      <span className="dc-menu-tile__icon">
+                        {on ? <DcIcon name="icon-check" size={15} /> : <DcIcon name="icon-layers" size={15} />}
+                      </span>
+                      <span className="dc-menu-tile__label">{d.name}</span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
-          </FormSection>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 9,
+                paddingTop: 14,
+                borderTop: '1px solid var(--line)',
+              }}
+            >
+              <span
+                style={{
+                  font: `600 10.5px/1 ${FONT}`,
+                  letterSpacing: '.09em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ink-3)',
+                }}
+              >
+                Step 2 · Category
+              </span>
+              {!departmentId ? (
+                <span style={{ font: `400 12.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
+                  Choose a menu above to see categories here.
+                </span>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {(subDepartments.length > 0 ? subDepartments : subcategories).map((c) => (
+                    <DcChip
+                      key={c.id}
+                      on={form.categoryId === c.id || subDepartmentId === c.id}
+                      onClick={() =>
+                        subDepartments.length > 0
+                          ? handleSubTypeChange(c.id)
+                          : handleSubcategoryChange(c.id)
+                      }
+                    >
+                      {c.name}
+                    </DcChip>
+                  ))}
+                </div>
+              )}
+            </div>
+          </DcSectionCard>
 
-          {/* 2 — Variants */}
-          <FormSection title={`Variants${lowStock ? ' · Low stock' : ''}`} icon={Layers} number={3}>
-            <p className="product-edit-muted mb-3 text-[12px] font-medium">
-              {totalStock} available across {product.variants?.length ?? 0} variant{(product.variants?.length ?? 0) === 1 ? '' : 's'}
-            </p>
-            <ProductVariantManager productId={productId} variants={product.variants ?? []} productImages={form.imageUrls} />
-          </FormSection>
+          <DcSectionCard
+            id="pe-media"
+            num="02"
+            title="Media"
+            hint="First image is the storefront thumbnail."
+            badge={<DcPill>{`${form.imageUrls.filter(Boolean).length} of 6 filled`}</DcPill>}
+          >
+            <DcProductMediaSlots
+              imageUrls={form.imageUrls}
+              videoUrl={form.videoUrl}
+              altText={mediaAlt}
+              onImageUrlsChange={(urls) => {
+                setForm((prev) => ({ ...prev, imageUrls: urls }))
+                setDirty(true)
+              }}
+              onVideoUrlChange={(url) => {
+                setForm((prev) => ({ ...prev, videoUrl: url }))
+                setDirty(true)
+              }}
+              onAltChange={setMediaAlt}
+              disabled={!canEditProducts}
+            />
+          </DcSectionCard>
 
-          <FormSection title="Version history" icon={Layers}>
-            <p className="product-edit-muted mb-2 text-[10px] font-semibold">
-              A snapshot is saved automatically before each product save (max 20 versions).
-            </p>
+          <DcSectionCard
+            id="pe-variants"
+            num="03"
+            title="Variants"
+            hint={`${totalStock} available across ${product.variants?.length ?? 0} variant${(product.variants?.length ?? 0) === 1 ? '' : 's'}`}
+            badge={lowStock ? <DcPill>Low stock</DcPill> : <DcPill>{product.variants?.length ?? 0}</DcPill>}
+          >
+            <ProductVariantManager
+              productId={productId}
+              variants={product.variants ?? []}
+              productImages={form.imageUrls}
+            />
+          </DcSectionCard>
+
+          <DcSectionCard id="pe-seo" num="04" title="SEO & details" hint="Meta, tags and fabric notes.">
+            <DcField label="Meta title">
+              <DcInput value={form.metaTitle} onChange={(e) => set('metaTitle', e.target.value)} />
+            </DcField>
+            <DcField label="Meta description">
+              <DcTextarea
+                rows={3}
+                value={form.metaDescription}
+                onChange={(e) => set('metaDescription', e.target.value)}
+              />
+            </DcField>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+              <DcField label="Tags">
+                <DcInput value={form.tags} onChange={(e) => set('tags', e.target.value)} placeholder="comma, separated" />
+              </DcField>
+              <DcField label="Fabric">
+                <DcInput value={form.fabricContent} onChange={(e) => set('fabricContent', e.target.value)} />
+              </DcField>
+              <DcField label="Occasion">
+                <DcInput value={form.occasion} onChange={(e) => set('occasion', e.target.value)} />
+              </DcField>
+              <DcField label="Cost price">
+                <DcInput mono value={form.costPrice} onChange={(e) => set('costPrice', e.target.value)} />
+              </DcField>
+            </div>
+          </DcSectionCard>
+
+          <DcSectionCard id="pe-versions" num="05" title="Version history" hint="Snapshot before each save · max 20.">
             {versions.length === 0 ? (
-              <p className="product-edit-muted text-[11px] font-semibold">
-                No saved versions yet — save the product once to create the first snapshot.
+              <p style={{ font: `500 12px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
+                No saved versions yet — save once to create the first snapshot.
               </p>
             ) : (
-              <div className="product-edit-versions space-y-2">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {versions.map((v) => (
-                  <div key={v.id} className="product-edit-version-row">
-                    <div>
-                      <p className="text-[11px] font-semibold text-[var(--admin-text)]">
+                  <div
+                    key={v.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '10px 12px',
+                      borderRadius: 10,
+                      border: '1px solid var(--line)',
+                      background: 'var(--surface-2)',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ font: `600 12px/1.3 ${FONT}`, color: 'var(--ink)' }}>
                         v{v.version} · {v.changedBy}
                       </p>
-                      <p className="product-edit-muted text-[10px] font-semibold">
+                      <p style={{ font: `500 11px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>
                         {new Date(v.createdAt).toLocaleString()}
                         {v.changeNote ? ` · ${v.changeNote}` : ''}
                       </p>
@@ -875,7 +1000,13 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                       type="button"
                       disabled={restoreVersion.isPending}
                       onClick={() => {
-                        if (!window.confirm(`Restore product to v${v.version}? Reverts catalog fields, pricing, SEO, codes, and visibility from that snapshot (variants/images unchanged).`)) return
+                        if (
+                          !window.confirm(
+                            `Restore product to v${v.version}? Reverts catalog fields, pricing, SEO, codes, and visibility from that snapshot (variants/images unchanged).`,
+                          )
+                        ) {
+                          return
+                        }
                         void (async () => {
                           const ok = await confirmProductRestored(productId, () =>
                             restoreVersion.mutateAsync({
@@ -887,7 +1018,16 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                           if (ok) void refetch()
                         })()
                       }}
-                      className="product-edit-version-restore"
+                      style={{
+                        height: 30,
+                        padding: '0 12px',
+                        borderRadius: 8,
+                        border: '1px solid var(--line-2)',
+                        background: 'var(--surface)',
+                        color: 'var(--ink)',
+                        cursor: 'pointer',
+                        font: `600 11.5px/1 ${FONT}`,
+                      }}
                     >
                       Restore
                     </button>
@@ -895,134 +1035,201 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                 ))}
               </div>
             )}
-          </FormSection>
+          </DcSectionCard>
 
+          <div
+            style={{
+              position: 'sticky',
+              bottom: 12,
+              zIndex: 7,
+              display: 'flex',
+              gap: 10,
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              padding: '12px 14px',
+              border: '1px solid var(--line-2)',
+              borderRadius: 14,
+              background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
+              backdropFilter: 'blur(16px)',
+            }}
+          >
+            <span style={{ flex: 1, font: `600 12.5px/1.3 ${FONT}`, color: dirty ? 'var(--warn)' : 'var(--ink-3)' }}>
+              {dirty ? 'Unsaved changes' : 'All changes saved'}
+            </span>
+            <button
+              type="button"
+              data-dc-publish-primary="1"
+              disabled={!canEditProducts || saving}
+              onClick={() => void handleSave()}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                height: 38,
+                padding: '0 16px',
+                borderRadius: 10,
+                border: 0,
+                background: 'var(--violet-solid)',
+                color: 'var(--on-violet)',
+                cursor: !canEditProducts || saving ? 'not-allowed' : 'pointer',
+                opacity: !canEditProducts || saving ? 0.55 : 1,
+                font: `600 12.5px/1 ${FONT}`,
+              }}
+            >
+              <DcIcon name="icon-check" size={14} />
+              <span>{saving ? 'Saving…' : form.isPublished ? 'Save changes' : 'Save draft'}</span>
+            </button>
+          </div>
         </div>
 
-        {/* RIGHT — media (same as create), live toggles, stats */}
-        <aside className="product-edit-page__aside space-y-4">
-
-          <ProductMediaPanel
-            imageUrls={form.imageUrls}
-            videoUrl={form.videoUrl}
-            onImageUrlsChange={(urls) => {
-              setForm((prev) => ({ ...prev, imageUrls: urls }))
-              setDirty(true)
-            }}
-            onVideoUrlChange={(url) => {
-              setForm((prev) => ({ ...prev, videoUrl: url }))
-              setDirty(true)
-            }}
-            className="product-edit-media !m-0"
+        <div className="dc-product-create__rail" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <DcStorefrontPreview
+            title={form.name.trim() || 'Untitled product'}
+            priceLabel={priceNum > 0 ? formatTaka(priceNum) : '৳ —'}
+            {...(compareNum > priceNum ? { compareLabel: formatTaka(compareNum) } : {})}
+            {...(pathLabel !== 'Pick a category' ? { dept: pathLabel } : {})}
+            {...(form.imageUrls[0] ? { imageUrl: form.imageUrls[0] } : {})}
+            colors={[]}
+            meta={`${product.variants?.length ?? 0} variants · ${totalStock} in stock`}
           />
 
-          {/* Visibility */}
-          <div className="admin-module-card product-edit-card product-edit-side-card space-y-1">
-            <div className="product-edit-card__head">
-              <div className="product-edit-card__icon">
-                <CheckCircle2 className="h-3.5 w-3.5 text-[var(--admin-brand-gold)]" strokeWidth={2} />
-              </div>
-              <h3 className="product-edit-card__title">Visibility</h3>
+          <div
+            style={{
+              border: '1px solid var(--line)',
+              borderRadius: 14,
+              background: 'var(--surface)',
+              backgroundImage: 'var(--card-sheen)',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                padding: '12px 15px',
+                borderBottom: '1px solid var(--line)',
+                font: `600 13px/1 ${FONT}`,
+                color: 'var(--ink)',
+              }}
+            >
+              Publishing
             </div>
-            <p className="pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--admin-text-muted)]">
-              Saves instantly · updates storefront
-            </p>
-            <AdminSwitchRow
-              label={form.isPublished ? 'Live on store' : 'Draft'}
-              desc={form.isPublished ? 'Visible on splaro.co' : 'Hidden until published'}
-              checked={form.isPublished}
-              disabled={visibilityBusy !== null}
-              highlight
-              onChange={() => void saveVisibility({ isPublished: !form.isPublished })}
-            />
-            {[
-              { key: 'isFeatured' as const, label: 'Featured', desc: 'Featured section' },
-              { key: 'isNewArrival' as const, label: 'New Arrival', desc: 'New arrivals' },
-              { key: 'isBestSeller' as const, label: 'Best Seller', desc: 'Best sellers' },
-            ].map(({ key, label, desc }) => (
+            <div style={{ padding: '8px 10px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
               <AdminSwitchRow
-                key={key}
-                label={label}
-                desc={desc}
-                checked={form[key]}
-                disabled={visibilityBusy !== null}
-                onChange={() => void saveVisibility({ [key]: !form[key] })}
+                label={form.isPublished ? 'Visible on storefront' : 'Draft — hidden'}
+                desc={form.isPublished ? 'Live on splaro.co' : 'Not on storefront yet'}
+                checked={form.isPublished}
+                disabled={visibilityBusy !== null || !canEditProducts}
+                highlight
+                onChange={() => void saveVisibility({ isPublished: !form.isPublished })}
               />
-            ))}
-          </div>
-
-          {/* Stats */}
-          <div className="admin-module-card product-edit-card product-edit-side-card space-y-3">
-            <div className="product-edit-card__head">
-              <div className="product-edit-card__icon">
-                <BarChart3 className="h-3.5 w-3.5 text-[var(--admin-brand-gold)]" strokeWidth={2} />
-              </div>
-              <h3 className="product-edit-card__title">Stats</h3>
-            </div>
-            {[
-              { label: 'SKU', value: String((product as unknown as Record<string, unknown>).sku ?? '—') },
-              { label: 'Variants', value: `${product.variants?.length ?? 0}` },
-              { label: 'Total stock', value: `${totalStock} units` },
-              { label: 'Status', value: String((product as unknown as Record<string, unknown>).status ?? (product.isPublished ? 'PUBLISHED' : 'DRAFT')) },
-              { label: 'URL slug', value: form.slug || '—' },
-            ].map(({ label, value }) => (
-              <div key={label} className="product-edit-stat-row">
-                <span className="product-edit-stat-row__label">{label}</span>
-                <span className={cn('product-edit-stat-row__value', label === 'URL slug' && 'font-mono text-[10px]')}>{value}</span>
-              </div>
-            ))}
-            {form.slug ? (
-              <div className="product-edit-storefront-link space-y-2 pt-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--admin-text-muted)]">Storefront link</p>
-                <p className="break-all font-mono text-[10px] font-semibold text-[var(--admin-text-secondary)]">{storefrontUrl}</p>
-                <div className="flex flex-wrap gap-2">
-                  <AdminButton variant="ghost" size="sm" onClick={() => void handleCopyStorefrontUrl()}>
-                    <Copy className="h-3 w-3" /> Copy
-                  </AdminButton>
-                  <AdminButton variant="ghost" size="sm" onClick={handleOpenStorefront} disabled={!form.isPublished}>
-                    <ExternalLink className="h-3 w-3" /> Open
-                  </AdminButton>
+              {(
+                [
+                  { key: 'isFeatured' as const, label: 'Featured', desc: 'Featured section' },
+                  { key: 'isNewArrival' as const, label: 'New Arrival', desc: 'New arrivals' },
+                  { key: 'isBestSeller' as const, label: 'Best Seller', desc: 'Best sellers' },
+                ] as const
+              ).map(({ key, label, desc }) => (
+                <AdminSwitchRow
+                  key={key}
+                  label={label}
+                  desc={desc}
+                  checked={form[key]}
+                  disabled={visibilityBusy !== null || !canEditProducts}
+                  onChange={() => void saveVisibility({ [key]: !form[key] })}
+                />
+              ))}
+              <div style={{ height: 1, background: 'var(--line)', margin: '8px 4px' }} />
+              <div style={{ padding: '4px 8px 8px' }}>
+                <span
+                  style={{
+                    font: `600 10.5px/1 ${FONT}`,
+                    letterSpacing: '.07em',
+                    textTransform: 'uppercase',
+                    color: 'var(--ink-3)',
+                  }}
+                >
+                  Category
+                </span>
+                <div
+                  style={{
+                    marginTop: 8,
+                    height: 36,
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '0 12px',
+                    borderRadius: 9,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface-2)',
+                    font: `500 13px/1 ${FONT}`,
+                    color: 'var(--ink)',
+                  }}
+                >
+                  {pathLabel}
                 </div>
-                {!form.isPublished ? (
-                  <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">Turn on Live on store to share this link.</p>
-                ) : null}
               </div>
-            ) : null}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 8px 8px' }}>
+                <AdminButton variant="ghost" size="sm" onClick={() => void handleCopyStorefrontUrl()}>
+                  Copy link
+                </AdminButton>
+                <AdminButton variant="ghost" size="sm" onClick={handleOpenStorefront} disabled={!form.isPublished}>
+                  View live
+                </AdminButton>
+              </div>
+            </div>
           </div>
 
-          {/* Danger zone — kept clear of floating Chat / Save dock */}
-          {canDeleteProducts && (
-            <div className="product-edit-page__danger">
-              <div className="mb-3 flex items-center gap-2">
-                <ShieldAlert className="h-3.5 w-3.5 text-red-500" />
-                <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-red-500">Danger Zone</p>
-              </div>
-              <p className="mb-3 text-xs font-semibold text-[var(--admin-text-muted)]">
-                Hides product from storefront. Cannot be undone.
+          {lowStock ? (
+            <div
+              style={{
+                border: '1px solid var(--warn-bd)',
+                borderRadius: 12,
+                background: 'var(--warn-soft)',
+                padding: '13px 14px',
+                display: 'flex',
+                gap: 10,
+              }}
+            >
+              <DcIcon name="icon-triangle-alert" size={14} color="var(--warn)" />
+              <span style={{ font: `500 12px/1.5 ${FONT}`, color: 'var(--ink-2)' }}>
+                Stock is low ({totalStock} units). Publishing stays visible but marked low stock on the storefront.
+              </span>
+            </div>
+          ) : null}
+
+          {canDeleteProducts ? (
+            <div
+              style={{
+                border: '1px solid color-mix(in srgb, var(--bad) 35%, var(--line))',
+                borderRadius: 14,
+                padding: 14,
+                background: 'var(--surface)',
+              }}
+            >
+              <p
+                style={{
+                  font: `600 11px/1 ${FONT}`,
+                  letterSpacing: '.1em',
+                  textTransform: 'uppercase',
+                  color: 'var(--bad)',
+                  marginBottom: 8,
+                }}
+              >
+                Danger zone
+              </p>
+              <p style={{ font: `500 12px/1.45 ${FONT}`, color: 'var(--ink-3)', marginBottom: 12 }}>
+                Hides product from storefront. Cannot be undone from here.
               </p>
               <AdminButton
                 variant="danger"
-                className="w-full justify-center border border-red-500/25"
+                className="w-full justify-center"
                 loading={deleteProduct.isPending}
-                onClick={handleArchive}
+                onClick={() => void handleArchive()}
               >
                 Archive product
               </AdminButton>
             </div>
-          )}
-        </aside>
-      </div>
-
-      {/* Docked save bar — sticky in-page, clears Chat FAB (no fixed overlay / transform hitbox drift) */}
-      {dirty ? (
-        <div className="product-edit-page__savebar product-edit-page__savebar--dock" role="status">
-          <Pencil className="h-3.5 w-3.5 shrink-0 text-[var(--admin-brand-gold)]" aria-hidden />
-          <span className="text-sm font-bold text-[var(--admin-text)]">Unsaved changes</span>
-          <AdminButton variant="accent" loading={saving} disabled={!canEditProducts} onClick={handleSave}>
-            <Save className="h-3.5 w-3.5" /> Save
-          </AdminButton>
+          ) : null}
         </div>
-      ) : null}
+      </div>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { assertOrderStatusTransition, STOCK_RESTORING_STATUSES } from '../../common/order-status.util'
 import { restoreOrderStock } from '../../common/order-stock.util'
@@ -26,7 +26,12 @@ export class OrderStatusService {
   ) {
     const existing = await this.prisma.order.findUnique({
       where: { id },
-      select: { id: true, storeId: true, status: true },
+      select: {
+        id: true,
+        storeId: true,
+        status: true,
+        courier: { select: { status: true, consignmentId: true } },
+      },
     })
     if (!existing) throw new NotFoundException('Order not found')
     if (callerStoreId && existing.storeId !== callerStoreId) {
@@ -37,6 +42,16 @@ export class OrderStatusService {
     const shouldRestoreStock =
       STOCK_RESTORING_STATUSES.includes(status) &&
       !STOCK_RESTORING_STATUSES.includes(existing.status)
+
+    if (
+      shouldRestoreStock &&
+      existing.courier?.status === 'BOOKED' &&
+      existing.courier.consignmentId
+    ) {
+      throw new BadRequestException(
+        'Cancel local courier booking first (or cancel in Steadfast panel) before cancelling this order — live parcel still open',
+      )
+    }
 
     const order = await this.prisma.$transaction(async (tx) => {
       const bumped = await tx.order.updateMany({

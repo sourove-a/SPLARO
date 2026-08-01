@@ -605,7 +605,7 @@ export default function CheckoutPageClient() {
       )
 
       if (form.payment === 'SSLCommerz') {
-        if (!saved.invoiceNumber) {
+        if (!saved.invoiceNumber || !saved.invoiceAccessKey) {
           setSubmitError('Order invoice missing — cannot start SSLCommerz. Retry or contact support.')
           return
         }
@@ -618,8 +618,8 @@ export default function CheckoutPageClient() {
         }
         try {
           const ssl = await startSslCommerzCheckout({
-            invoiceNumber: saved.invoiceNumber,
-            amount: totalBdt,
+            orderId: saved.id,
+            accessKey: saved.invoiceAccessKey!,
             customer: {
               name: form.name,
               email: form.email,
@@ -645,7 +645,7 @@ export default function CheckoutPageClient() {
       }
 
       if (form.payment === 'bKash' || form.payment === 'Nagad') {
-        if (!saved.invoiceNumber) {
+        if (!saved.invoiceNumber || !saved.invoiceAccessKey) {
           setSubmitError(
             `Order invoice missing — cannot start ${form.payment}. Retry or contact support.`,
           )
@@ -663,14 +663,14 @@ export default function CheckoutPageClient() {
             form.payment === 'bKash'
               ? (
                   await startBkashCheckout({
-                    invoiceNumber: saved.invoiceNumber!,
-                    amount: totalBdt,
+                    orderId: saved.id,
+                    accessKey: saved.invoiceAccessKey!,
                   })
                 ).redirectUrl
               : (
                   await startNagadCheckout({
-                    invoiceNumber: saved.invoiceNumber!,
-                    amount: totalBdt,
+                    orderId: saved.id,
+                    accessKey: saved.invoiceAccessKey!,
                   })
                 ).redirectUrl
           redirectToPaymentGateway(saved.id, redirectUrl, clearCart)

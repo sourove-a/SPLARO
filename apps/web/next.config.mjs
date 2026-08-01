@@ -142,7 +142,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://accounts.google.com",
               `img-src ${cspImgSrc}`,
               `media-src ${cspMediaSrc}`,
-              "font-src 'self' data: https://fonts.gstatic.com",
+              "font-src 'self' data: https://fonts.gstatic.com https://cdn.fontshare.com",
               `connect-src ${connectSrc}`,
               // youtube-nocookie: Instagram/social reels embed on the homepage story
               // section (SocialReelsDropdown → ReelCard iframe) — 'none' silently

@@ -12,8 +12,7 @@ import {
 import { Throttle } from '@nestjs/throttler'
 import {
   buildInvoiceAccessToken,
-  resolveCustomerFacingApiBase,
-  resolveCustomerFacingAssetUrl,
+  resolveAllowedPaymentCallbackUrl,
   resolveCustomerFacingSiteUrl,
   verifyInvoiceAccessToken,
 } from '@splaro/config'
@@ -21,11 +20,14 @@ import type { Prisma } from '@prisma/client'
 import type { Response } from 'express'
 import {
   BkashCreatePaymentDto,
+  BkashExecutePaymentDto,
+  BkashRefundDto,
   NagadInitPaymentDto,
   SslInitPaymentDto,
 } from '../../common/dtos/payments.dto'
 import { Public } from '../../common/auth/public.decorator'
 import { assertGatewayEnabled, loadStorePaymentFlags } from '../../common/payment-flags.util'
+import { paymentAmountMatches } from '../../common/payment-amount.util'
 import { PrismaService } from '../../common/prisma.service'
 import { BkashService } from './bkash.service'
 import { NagadService } from './nagad.service'
@@ -45,7 +47,7 @@ function assertOrderPayable(order: PayableOrder, requestedAmount: number): void 
   if (order.paymentStatus === 'PAID') {
     throw new BadRequestException('This order is already paid')
   }
-  if (Math.abs(requestedAmount - Number(order.total)) > 1) {
+  if (!paymentAmountMatches(requestedAmount, Number(order.total))) {
     throw new BadRequestException('Payment amount does not match the order total')
   }
 }
@@ -136,16 +138,18 @@ export class PaymentsController {
     const flags = await loadStorePaymentFlags(this.prisma, order.storeId)
     assertGatewayEnabled('bkash', flags)
     assertOrderPayable(order, Number(body.amount))
-    const callbackUrl =
-      resolveCustomerFacingAssetUrl(body.callbackUrl) ||
-      `${resolveCustomerFacingApiBase()}/payments/bkash/callback`
+    const callbackUrl = resolveAllowedPaymentCallbackUrl(
+      body.callbackUrl,
+      '/payments/bkash/callback',
+    )
     return this.bkash.createPayment({ ...body, callbackUrl })
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('bkash/execute')
-  async executeBkashPayment(@Body('paymentId') paymentId: string) {
-    const result = await this.bkash.executePayment(paymentId)
+  async executeBkashPayment(@Body() body: BkashExecutePaymentDto) {
+    const result = await this.bkash.executePayment(body.paymentId)
     if (result.transactionStatus === 'Completed' && result.merchantInvoiceNumber && result.trxID) {
       await this.confirmation.confirm({
         invoiceNumber: result.merchantInvoiceNumber,
@@ -159,22 +163,40 @@ export class PaymentsController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Get('bkash/query')
   queryBkashPayment(@Query('paymentId') paymentId: string) {
-    return this.bkash.queryPayment(paymentId)
+    if (!paymentId?.trim()) throw new BadRequestException('paymentId is required')
+    return this.bkash.queryPayment(paymentId.trim())
   }
 
   @Post('bkash/refund')
-  refundBkash(
-    @Body()
-    body: {
-      paymentId: string
-      trxId: string
-      amount: number
-      reason: string
-      sku?: string
-    },
-  ) {
+  async refundBkash(@Body() body: BkashRefundDto) {
+    // The gateway will happily refund whatever it is told to. Bound the request
+    // against our own ledger first — a refund is irreversible once it lands.
+    const payment = await this.prisma.payment.findUnique({
+      where: { transactionId: body.trxId },
+      select: { amount: true, refundAmount: true, status: true, method: true },
+    })
+    if (!payment) throw new BadRequestException('No payment found for this transaction')
+    if (payment.method !== 'BKASH') {
+      throw new BadRequestException('This transaction was not paid with bKash')
+    }
+    if (payment.status !== 'PAID') {
+      throw new BadRequestException('Only a paid transaction can be refunded')
+    }
+
+    const alreadyRefunded = Number(payment.refundAmount ?? 0)
+    const refundable = Number(payment.amount) - alreadyRefunded
+    if (refundable <= 0) {
+      throw new BadRequestException('This transaction is already fully refunded')
+    }
+    if (body.amount > refundable) {
+      throw new BadRequestException(
+        `Refund exceeds the refundable balance (${refundable.toFixed(2)})`,
+      )
+    }
+
     return this.bkash.refund({
       paymentId: body.paymentId,
       trxId: body.trxId,
@@ -238,9 +260,10 @@ export class PaymentsController {
     const flags = await loadStorePaymentFlags(this.prisma, order.storeId)
     assertGatewayEnabled('nagad', flags)
     assertOrderPayable(order, Number(body.amount))
-    const callbackUrl =
-      resolveCustomerFacingAssetUrl(body.callbackUrl) ||
-      `${resolveCustomerFacingApiBase()}/payments/nagad/verify?invoiceNumber=${encodeURIComponent(order.invoiceNumber)}`
+    const callbackUrl = resolveAllowedPaymentCallbackUrl(
+      body.callbackUrl,
+      `/payments/nagad/verify?invoiceNumber=${encodeURIComponent(order.invoiceNumber)}`,
+    )
     return this.nagad.initPayment({
       orderId: order.invoiceNumber,
       amount: body.amount,
@@ -277,7 +300,7 @@ export class PaymentsController {
             this.logger.error(
               `Nagad invalid amount for order ${order.invoiceNumber}: ${result.amount ?? 'missing'} (ref ${paymentRefId})`,
             )
-          } else if (Math.abs(verifiedAmount - expected) > 1) {
+          } else if (!paymentAmountMatches(verifiedAmount, expected)) {
             this.logger.error(
               `Nagad amount mismatch for order ${order.invoiceNumber}: paid ${verifiedAmount}, expected ${expected} (ref ${paymentRefId})`,
             )
@@ -317,14 +340,11 @@ export class PaymentsController {
     const flags = await loadStorePaymentFlags(this.prisma, order.storeId)
     assertGatewayEnabled('sslcommerz', flags)
     assertOrderPayable(order, Number(body.amount))
-    const apiBase = resolveCustomerFacingApiBase()
     return this.ssl.initPayment({
       ...body,
-      successUrl:
-        resolveCustomerFacingAssetUrl(body.successUrl) || `${apiBase}/payments/ssl/success`,
-      failUrl: resolveCustomerFacingAssetUrl(body.failUrl) || `${apiBase}/payments/ssl/fail`,
-      cancelUrl:
-        resolveCustomerFacingAssetUrl(body.cancelUrl) || `${apiBase}/payments/ssl/cancel`,
+      successUrl: resolveAllowedPaymentCallbackUrl(body.successUrl, '/payments/ssl/success'),
+      failUrl: resolveAllowedPaymentCallbackUrl(body.failUrl, '/payments/ssl/fail'),
+      cancelUrl: resolveAllowedPaymentCallbackUrl(body.cancelUrl, '/payments/ssl/cancel'),
     })
   }
 
@@ -348,20 +368,34 @@ export class PaymentsController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('ssl/fail')
-  sslFail(@Body() body: SslCommerzIpnPayload, @Res() res: Response) {
+  async sslFail(@Body() body: SslCommerzIpnPayload, @Res() res: Response) {
     const siteUrl = resolveCustomerFacingSiteUrl()
-    void this.ssl.handleCallback(body, 'fail')
+    // Awaited, not `void` — an unhandled rejection here takes the process down.
+    // The redirect must still happen even if the ledger write is rejected.
+    try {
+      await this.ssl.handleCallback(body, 'fail')
+    } catch (err) {
+      this.logger.error(`SSL fail callback error: ${err instanceof Error ? err.message : 'unknown'}`)
+    }
     return res.redirect(
       `${siteUrl}/payment/failed?invoice=${encodeURIComponent(body.tran_id)}&key=${encodeURIComponent(buildInvoiceAccessToken(body.tran_id))}`,
     )
   }
 
   @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('ssl/cancel')
-  sslCancel(@Body() body: SslCommerzIpnPayload, @Res() res: Response) {
+  async sslCancel(@Body() body: SslCommerzIpnPayload, @Res() res: Response) {
     const siteUrl = resolveCustomerFacingSiteUrl()
-    void this.ssl.handleCallback(body, 'cancel')
+    try {
+      await this.ssl.handleCallback(body, 'cancel')
+    } catch (err) {
+      this.logger.error(
+        `SSL cancel callback error: ${err instanceof Error ? err.message : 'unknown'}`,
+      )
+    }
     return res.redirect(
       `${siteUrl}/payment/cancelled?invoice=${encodeURIComponent(body.tran_id)}&key=${encodeURIComponent(buildInvoiceAccessToken(body.tran_id))}`,
     )

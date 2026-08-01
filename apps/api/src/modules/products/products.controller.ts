@@ -14,6 +14,7 @@ import {
   Req,
 } from '@nestjs/common'
 import type { Request } from 'express'
+import { Prisma } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
 import { CacheService } from '../../common/cache.service'
 import { ProductAdvancedService } from './product-advanced.service'
@@ -282,29 +283,52 @@ export class ProductsController {
     @Body() body: CreateAdminProductDto,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
+    const publishState = resolvePublishState(body)
     const categoryId = await assertStoreCategoryId(this.prisma, sid, body.categoryId, {
-      required: true,
+      required: publishState.status !== 'DRAFT',
     })
-    let slug = slugify(body.name)
+    let slug = slugify(body.slug?.trim() || body.name)
     const clash = await this.prisma.product.findFirst({ where: { storeId: sid, slug } })
     if (clash) slug = `${slug}-${Date.now().toString(36)}`
 
     const sizes = body.sizes?.length ? body.sizes : ['M', 'L']
     const variantStock = Math.max(0, Math.min(9999, Number(body.defaultStock) || 10))
-    const imageUrls = Array.from(new Set([body.imageUrl, ...(body.imageUrls ?? [])]
+    const legacyImageUrls = Array.from(new Set([body.imageUrl, ...(body.imageUrls ?? [])]
       .map((url) => toStoredMediaUrl(url))
       .filter(Boolean) as string[])).slice(0, MAX_PRODUCT_IMAGES)
+    const requestedMedia = body.media?.length
+      ? body.media
+          .map((row, index) => ({
+            url: toStoredMediaUrl(row.url),
+            type: row.type,
+            altText: row.altText?.trim(),
+            isDefault: row.isDefault === true,
+            position: row.position ?? index,
+          }))
+          .filter((row): row is typeof row & { url: string } => Boolean(row.url))
+          .slice(0, MAX_PRODUCT_IMAGES + 1)
+      : []
+    const imageUrls = requestedMedia.length
+      ? requestedMedia.filter((row) => row.type === 'image').map((row) => row.url).slice(0, MAX_PRODUCT_IMAGES)
+      : legacyImageUrls
     const primaryImage = imageUrls[0]
     const videoUrl = toStoredMediaUrl(body.videoUrl) || undefined
-    const mediaRows = [
-      ...(videoUrl ? [{ url: videoUrl, altText: MEDIA_VIDEO_ALT, isDefault: imageUrls.length === 0, position: -1 }] : []),
-      ...imageUrls.map((url, index) => ({
-        url,
-        altText: MEDIA_IMAGE_ALT,
-        isDefault: index === 0,
-        position: index,
-      })),
-    ]
+    const mediaRows = requestedMedia.length
+      ? requestedMedia.map((row, index) => ({
+          url: row.url,
+          altText: row.type === 'video' ? MEDIA_VIDEO_ALT : row.altText || body.name,
+          isDefault: row.type === 'image' && (row.isDefault || (!requestedMedia.some((item) => item.isDefault) && index === 0)),
+          position: row.type === 'video' ? -1 : row.position,
+        }))
+      : [
+          ...(videoUrl ? [{ url: videoUrl, altText: MEDIA_VIDEO_ALT, isDefault: imageUrls.length === 0, position: -1 }] : []),
+          ...imageUrls.map((url, index) => ({
+            url,
+            altText: body.name,
+            isDefault: index === 0,
+            position: index,
+          })),
+        ]
     type ColorDef = string | { name: string; hex: string; image?: string }
     const colorDefs: ColorDef[] = body.colors?.length ? body.colors : [{ name: 'Default', hex: '#111111' }]
     const normalizedColors = colorDefs.map((color, index) => {
@@ -328,10 +352,69 @@ export class ProductsController {
 
     const productSku = body.sku?.trim()
 
-    const publishState = resolvePublishState(body)
+    const requestedVariants = body.variants?.map((variant) => ({
+      size: optionalTrimmed(variant.size) ?? null,
+      color: optionalTrimmed(variant.colorName) ?? 'Default',
+      colorName: optionalTrimmed(variant.colorName) ?? 'Default',
+      colorHex: optionalTrimmed(variant.colorHex) ?? '#111111',
+      image: toStoredMediaUrl(variant.image) || primaryImage,
+      sku: optionalTrimmed(variant.sku) ?? null,
+      barcode: optionalTrimmed(variant.barcode) ?? null,
+      price: variant.price,
+      compareAtPrice: variant.compareAtPrice ?? null,
+      stock: variant.stock,
+      isActive: variant.isActive ?? true,
+    })) ?? []
 
-    const product = await this.prisma.product.create({
-      data: {
+    const legacyVariants = sizes.flatMap((size) =>
+      normalizedColors.map((color) => ({
+        size,
+        color: color.name,
+        colorHex: color.hex,
+        colorName: color.name,
+        price: body.basePrice,
+        compareAtPrice: body.compareAtPrice ?? null,
+        stock: variantStock,
+        image: color.image ?? primaryImage,
+        isActive: true,
+        ...(productSku
+          ? { sku: `${productSku}-${size}-${color.name}`.replace(/\s+/g, '-').slice(0, 80) }
+          : { sku: null }),
+        barcode: null,
+      })),
+    )
+    const variants = body.variants !== undefined ? requestedVariants : legacyVariants
+    const combinationKeys = variants.map((variant) =>
+      `${variant.size ?? ''}::${variant.colorName ?? ''}`.toLocaleLowerCase(),
+    )
+    if (new Set(combinationKeys).size !== combinationKeys.length) {
+      throw new BadRequestException({
+        message: 'Duplicate size and colour combinations are not allowed',
+        fieldErrors: { variants: 'Each size and colour combination must be unique.' },
+      })
+    }
+    const variantSkus = variants.map((variant) => variant.sku?.toLocaleLowerCase()).filter(Boolean)
+    if (new Set(variantSkus).size !== variantSkus.length) {
+      throw new BadRequestException({
+        message: 'Duplicate variant SKUs are not allowed',
+        fieldErrors: { variants: 'Each variant SKU must be unique.' },
+      })
+    }
+    if (publishState.status !== 'DRAFT') {
+      const fieldErrors: Record<string, string> = {}
+      if (!categoryId) fieldErrors.categoryId = 'Category is required to publish.'
+      if (!imageUrls.length) fieldErrors.media = 'Add at least one product image to publish.'
+      if (!variants.some((variant) => variant.isActive && Number(variant.price) > 0)) {
+        fieldErrors.variants = 'Add at least one active variant with a valid price.'
+      }
+      if (Object.keys(fieldErrors).length) {
+        throw new BadRequestException({ message: 'Product is not ready to publish', fieldErrors })
+      }
+    }
+
+    const product = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.product.create({
+        data: {
         storeId: sid,
         name: body.name,
         slug,
@@ -339,12 +422,23 @@ export class ProductsController {
         shortDescription: body.shortDescription,
         basePrice: body.basePrice,
         compareAtPrice: body.compareAtPrice,
+        isOnSale: body.compareAtPrice != null && Number(body.compareAtPrice) > Number(body.basePrice),
         costPrice: body.costPrice,
         sku: productSku || undefined,
         rmCode: optionalTrimmed(body.rmCode) ?? undefined,
         barcode: optionalTrimmed(body.barcode) ?? undefined,
         qrCode: optionalTrimmed(body.qrCode) ?? undefined,
         weight: body.weight != null ? body.weight : undefined,
+        lengthCm: body.lengthCm != null ? body.lengthCm : undefined,
+        widthCm: body.widthCm != null ? body.widthCm : undefined,
+        heightCm: body.heightCm != null ? body.heightCm : undefined,
+        productType: optionalTrimmed(body.productType) ?? undefined,
+        inventoryPolicy: body.inventoryPolicy ?? 'DENY',
+        preorderReleaseAt: body.preorderReleaseAt ? new Date(body.preorderReleaseAt) : undefined,
+        additionalDetails: body.additionalDetails?.length
+          ? (body.additionalDetails as unknown as Prisma.InputJsonValue)
+          : undefined,
+        origin: optionalTrimmed(body.origin) ?? 'Bangladesh',
         badge: optionalTrimmed(body.badge) ?? undefined,
         lowStockThreshold: body.lowStockThreshold ?? 5,
         tags: body.tags ?? [],
@@ -368,34 +462,23 @@ export class ProductsController {
           ? { create: mediaRows }
           : undefined,
         variants: {
-          create: sizes.flatMap((size) =>
-            normalizedColors.map((color) => ({
-              size,
-              color: color.name,
-              colorHex: color.hex,
-              colorName: color.name,
-              price: body.basePrice,
-              stock: variantStock,
-              image: color.image ?? primaryImage,
-              ...(productSku
-                ? { sku: `${productSku}-${size}-${color.name}`.replace(/\s+/g, '-').slice(0, 80) }
-                : {}),
-            })),
-          ),
+          create: variants,
         },
       },
       include: { images: true, variants: true, category: true },
-    })
-
-    if (body.collectionId) {
-      await this.prisma.collectionProduct.upsert({
-        where: {
-          collectionId_productId: { collectionId: body.collectionId, productId: product.id },
-        },
-        create: { collectionId: body.collectionId, productId: product.id },
-        update: {},
       })
-    }
+      if (body.collectionId) {
+        const collection = await tx.collection.findFirst({
+          where: { id: body.collectionId, storeId: sid },
+          select: { id: true },
+        })
+        if (!collection) throw new BadRequestException('Collection does not belong to this store')
+        await tx.collectionProduct.create({
+          data: { collectionId: body.collectionId, productId: created.id },
+        })
+      }
+      return created
+    })
 
     void this.search?.indexProducts(sid)
     await this.bustProductCache(sid)
@@ -434,7 +517,7 @@ export class ProductsController {
   async update(@Param('id') id: string, @Body() body: AdminProductPatchDto, @Req() req: AdminRequest) {
     const existing = await this.prisma.product.findUnique({
       where: { id },
-      select: { storeId: true, schemaMarkup: true },
+      select: { storeId: true, schemaMarkup: true, basePrice: true, compareAtPrice: true },
     })
     if (!existing) throw new NotFoundException('Product not found')
     if (req.adminUser?.storeId && existing.storeId !== req.adminUser.storeId) {
@@ -485,6 +568,13 @@ export class ProductsController {
         ...(body.shortDescription !== undefined ? { shortDescription: body.shortDescription } : {}),
         ...(body.basePrice !== undefined ? { basePrice: body.basePrice } : {}),
         ...(body.compareAtPrice !== undefined ? { compareAtPrice: body.compareAtPrice } : {}),
+        ...(body.compareAtPrice !== undefined || body.basePrice !== undefined
+          ? {
+              isOnSale:
+                Number(body.compareAtPrice ?? existing.compareAtPrice ?? 0) >
+                Number(body.basePrice ?? existing.basePrice),
+            }
+          : {}),
         ...(body.costPrice !== undefined ? { costPrice: body.costPrice } : {}),
         ...(body.sku !== undefined ? { sku: body.sku.trim() || null } : {}),
         ...(body.lowStockThreshold !== undefined ? { lowStockThreshold: body.lowStockThreshold } : {}),
@@ -499,6 +589,18 @@ export class ProductsController {
             }
           : {}),
         ...(body.weight !== undefined ? { weight: body.weight } : {}),
+        ...(body.lengthCm !== undefined ? { lengthCm: body.lengthCm } : {}),
+        ...(body.widthCm !== undefined ? { widthCm: body.widthCm } : {}),
+        ...(body.heightCm !== undefined ? { heightCm: body.heightCm } : {}),
+        ...(body.productType !== undefined ? { productType: optionalTrimmed(body.productType) } : {}),
+        ...(body.inventoryPolicy !== undefined ? { inventoryPolicy: body.inventoryPolicy } : {}),
+        ...(body.preorderReleaseAt !== undefined
+          ? { preorderReleaseAt: body.preorderReleaseAt ? new Date(body.preorderReleaseAt) : null }
+          : {}),
+        ...(body.additionalDetails !== undefined
+          ? { additionalDetails: body.additionalDetails as unknown as Prisma.InputJsonValue }
+          : {}),
+        ...(body.origin !== undefined ? { origin: optionalTrimmed(body.origin) } : {}),
         ...(body.badge !== undefined ? { badge: optionalTrimmed(body.badge) } : {}),
         ...(body.rmCode !== undefined ? { rmCode: optionalTrimmed(body.rmCode) } : {}),
         ...(body.barcode !== undefined ? { barcode: optionalTrimmed(body.barcode) } : {}),
@@ -779,6 +881,57 @@ export class ProductsController {
     return product
   }
 
+  /**
+   * Erase a product for good — for test rows and mistaken uploads that should
+   * never have existed. Refused once the product carries order history, because
+   * deleting it there would rewrite past invoices and the revenue they report.
+   * Archive that product instead: it leaves the storefront but the books stay true.
+   */
+  @Delete(':id/permanent')
+  async destroy(@Param('id') id: string, @Req() req: AdminRequest) {
+    const existing = await this.prisma.product.findUnique({
+      where: { id },
+      select: { id: true, storeId: true, name: true },
+    })
+    if (!existing) throw new NotFoundException('Product not found')
+    if (req.adminUser?.storeId && existing.storeId !== req.adminUser.storeId) {
+      throw new NotFoundException('Product not found')
+    }
+
+    const soldCount = await this.prisma.orderItem.count({ where: { productId: id } })
+    if (soldCount > 0) {
+      throw new BadRequestException(
+        `"${existing.name}" appears on ${soldCount} order item${soldCount === 1 ? '' : 's'}. ` +
+          'Delete those orders first, or archive the product to hide it without touching the books.',
+      )
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Variants, images, versions, collection links and wishlist entries all
+      // cascade. Everything below holds the product — or one of its variants —
+      // by a restricting FK, so it has to go first or Postgres refuses.
+      await tx.stockReservationItem.deleteMany({
+        where: { variant: { productId: id } },
+      })
+      // Matched on the variant as well as the product: these rows carry both
+      // keys, and a row whose two keys disagree would otherwise survive the
+      // product sweep and then block the variant cascade.
+      await tx.cartItem.deleteMany({
+        where: { OR: [{ productId: id }, { variant: { productId: id } }] },
+      })
+      await tx.inventoryLog.deleteMany({
+        where: { OR: [{ productId: id }, { variant: { productId: id } }] },
+      })
+      await tx.review.deleteMany({ where: { productId: id } })
+      await tx.aIJob.deleteMany({ where: { productId: id } })
+      await tx.product.delete({ where: { id } })
+    })
+
+    void this.search?.deleteFromIndex(id)
+    await this.bustProductCache(existing.storeId)
+    return { success: true, deleted: id }
+  }
+
   @Post(':id/generate-skus')
   async generateSKUs(@Param('id') id: string) {
     const product = await this.prisma.product.findUnique({
@@ -975,5 +1128,90 @@ export class ProductsController {
     void this.search?.indexProducts(sid)
     await this.bustProductCache(sid)
     return { updated: count }
+  }
+
+  @Post('bulk/price')
+  async bulkUpdatePrice(
+    @Query('storeId') storeId: string,
+    @Body()
+    body: {
+      updates: {
+        variantId?: string
+        sku?: string
+        productId?: string
+        price: number
+        compareAtPrice?: number | null
+      }[]
+    },
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const results: { key: string; ok: boolean; error?: string }[] = []
+
+    for (const row of body.updates ?? []) {
+      const key = row.sku ?? row.variantId ?? row.productId ?? 'unknown'
+      try {
+        if (row.price < 0) throw new Error('Price cannot be negative')
+
+        let variant = row.variantId
+          ? await this.prisma.productVariant.findFirst({
+              where: { id: row.variantId, product: { storeId: sid } },
+              include: { product: { select: { id: true } } },
+            })
+          : null
+
+        if (!variant && row.sku) {
+          variant = await this.prisma.productVariant.findFirst({
+            where: { sku: row.sku.trim(), product: { storeId: sid } },
+            include: { product: { select: { id: true } } },
+          })
+        }
+
+        if (!variant && row.productId) {
+          variant = await this.prisma.productVariant.findFirst({
+            where: { productId: row.productId, product: { storeId: sid } },
+            orderBy: { createdAt: 'asc' },
+            include: { product: { select: { id: true } } },
+          })
+        }
+
+        if (!variant) throw new Error(`SKU or variant not found: ${key}`)
+
+        await this.prisma.productVariant.update({
+          where: { id: variant.id },
+          data: {
+            price: row.price,
+            ...(row.compareAtPrice !== undefined ? { compareAtPrice: row.compareAtPrice } : {}),
+          },
+        })
+
+        const defaultVariant = await this.prisma.productVariant.findFirst({
+          where: { productId: variant.product.id },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true },
+        })
+        if (defaultVariant?.id === variant.id) {
+          await this.prisma.product.update({
+            where: { id: variant.product.id },
+            data: {
+              basePrice: row.price,
+              ...(row.compareAtPrice !== undefined ? { compareAtPrice: row.compareAtPrice } : {}),
+            },
+          })
+        }
+
+        results.push({ key, ok: true })
+      } catch (err) {
+        results.push({
+          key,
+          ok: false,
+          error: err instanceof Error ? err.message : 'Update failed',
+        })
+      }
+    }
+
+    void this.search?.indexProducts(sid)
+    await this.bustProductCache(sid)
+    const updated = results.filter((r) => r.ok).length
+    return { updated, failed: results.length - updated, results }
   }
 }

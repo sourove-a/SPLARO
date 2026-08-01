@@ -1,4 +1,4 @@
-import { IsEmail, IsNumber, IsString, Min, MinLength } from 'class-validator'
+import { IsEmail, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator'
 
 export class BkashCreatePaymentDto {
   @IsNumber()
@@ -26,6 +26,35 @@ export class NagadInitPaymentDto {
   @IsString()
   @MinLength(8)
   callbackUrl!: string
+}
+
+export class BkashExecutePaymentDto {
+  @IsString()
+  @MinLength(1)
+  paymentId!: string
+}
+
+export class BkashRefundDto {
+  @IsString()
+  @MinLength(1)
+  paymentId!: string
+
+  @IsString()
+  @MinLength(1)
+  trxId!: string
+
+  // Min(0.01), not Min(0) — a zero-value refund is never a real request.
+  @IsNumber()
+  @Min(0.01)
+  amount!: number
+
+  @IsString()
+  @MinLength(3)
+  reason!: string
+
+  @IsOptional()
+  @IsString()
+  sku?: string
 }
 
 export class SslInitPaymentDto {

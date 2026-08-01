@@ -18,6 +18,13 @@ Monorepo: Turborepo + PNPM workspaces.
 - Admin dashboard: `admin.splaro.co`
 - API: `api.splaro.co`
 
+### Current launch baseline — 2026-08-01
+
+Read `docs/LAUNCH-STABILIZATION-2026-08-01.md` before launch/security/Windows/SEO work.
+Local static, unit, isolated e2e, migration, build, reduced-motion, CSS, and runtime gates passed.
+Do not call platform production-ready until owner secret rotation, real Windows acceptance,
+Firefox/WebKit, live-provider journeys, CI/deploy, and production smoke pass.
+
 ---
 
 ## Tech Stack
@@ -106,7 +113,7 @@ Glass:        rgba(255,255,255,0.72) + backdrop-filter: blur(20px)
 **PDP / scroll locks (do not regress):**
 - Size Guide opens as modal (`SizeGuideModal`) with `uiStore.acquireScrollLock` — Lenis must stop when active
 - Mid-scroll clicks: `LenisPointerGuard` freezes Lenis inertia on `pointerdown`
-- PDP: no trust strip, no favorite heart; size pills = liquid glass + black text only
+- PDP: no trust strip, no favorite heart; size pills = ILYN glass when idle, black/white selected
 - Sticky buy bar never covers footer — full rules in `.cursor/skills/splaro-platform/SKILL.md`
 
 ---
@@ -175,11 +182,13 @@ pnpm build:web        # Build web only
 | 14 | Settings | ✅ Live | Verified save + catalog SKU policy (manual default) |
 | 15 | Security (roles) | ✅ Complete | Staff CRUD + permission matrix; API enforces per-module permissions (`admin-route-permissions` + `staffHasPermission`) |
 | 16 | Telegram Integration | ✅ Complete | |
-| 17 | SEO | ✅ Partial live | Product audit API, redirects, live sitemap XML; GSC indexing UI disabled until OAuth |
+| 17 | SEO | ✅ Partial live | Product audit, daily read-only recommendations, redirects, sitemap; Google ranking/indexing stays disconnected until Search Console OAuth |
 | 18 | WMS | 🟡 Beta | SKU-level stock + movements live; bin-level + export coming later |
 | 19 | SaaS multi-tenant | ⬜ N/A | Single-store SPLARO — not in launch scope |
 
 **Module wiring queue complete.** SKU policy: manual by default (`catalog.autoGenerateSku: false`).
+WMS/Procurement beta routes remain directly reachable for controlled review but stay hidden from
+launch sidebar and command navigation. Canonical admin routes must not appear twice.
 
 ---
 

@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, Optional } from '@nestjs/common'
 import { InjectQueue } from '@nestjs/bullmq'
 import { Queue } from 'bullmq'
 import { PrismaService } from '../../common/prisma.service'
 import { ConfigService } from '@nestjs/config'
 import { BadRequestException } from '@nestjs/common'
 import { EmailService } from '../email/email.service'
+import { SmsService } from '../notifications/sms.service'
 import { generateCampaignEmailHTML } from './campaign-email.template'
 import { resolveCustomerFacingSiteUrl } from '@splaro/config'
 
@@ -37,6 +38,7 @@ export class MarketingService {
     private readonly config: ConfigService,
     @InjectQueue('marketing') private readonly marketingQueue: Queue,
     private readonly email: EmailService,
+    @Optional() private readonly sms?: SmsService,
   ) {
     this.openai = null
   }
@@ -72,10 +74,39 @@ export class MarketingService {
     const campaign = await this.prisma.campaign.findUnique({ where: { id: campaignId } })
     if (!campaign) throw new Error(`Campaign ${campaignId} not found`)
 
+    if (campaign.type === 'SMS') {
+      if (!this.sms) {
+        throw new BadRequestException('SMS service is not available. Nothing was sent.')
+      }
+      const recipients = await this.getRecipients(campaign.storeId, campaign.recipientType, campaign.recipientTags[0], 'sms')
+      if (recipients.length === 0) {
+        throw new BadRequestException('No SMS recipients matched this segment.')
+      }
+
+      await this.prisma.campaign.update({ where: { id: campaignId }, data: { status: 'SENDING' } })
+      let sent = 0
+      for (const recipient of recipients) {
+        if (!recipient.phone) continue
+        const result = await this.sms.send(recipient.phone, campaign.body, campaign.storeId)
+        if (result.sent) sent += 1
+      }
+
+      await this.prisma.campaign.update({
+        where: { id: campaignId },
+        data: {
+          status: sent > 0 ? 'SENT' : 'FAILED',
+          sentAt: sent > 0 ? new Date() : null,
+          totalSent: sent,
+          totalDelivered: sent,
+        },
+      })
+      return { sent }
+    }
+
     if (campaign.type !== 'EMAIL') {
       throw new BadRequestException(`${campaign.type} delivery is not connected. Nothing was sent.`)
     }
-    const recipients = await this.getRecipients(campaign.storeId, campaign.recipientType, campaign.recipientTags[0])
+    const recipients = await this.getRecipients(campaign.storeId, campaign.recipientType, campaign.recipientTags[0], 'email')
     this.logger.log(`Sending campaign "${campaign.name}" to ${recipients.length} recipients`)
 
     await this.prisma.campaign.update({ where: { id: campaignId }, data: { status: 'SENDING' } })
@@ -213,8 +244,18 @@ Return JSON with: { subject, body, smsText }
 
   // ── HELPERS ───────────────────────────────────────────────
 
-  private async getRecipients(storeId: string, audience: string, tag?: string) {
-    const where: Record<string, unknown> = { storeId, acceptMarketing: true, email: { not: null } }
+  private async getRecipients(
+    storeId: string,
+    audience: string,
+    tag?: string,
+    channel: 'email' | 'sms' = 'email',
+  ) {
+    const where: Record<string, unknown> = { storeId, acceptMarketing: true }
+    if (channel === 'email') {
+      where['email'] = { not: null }
+    } else {
+      where['phone'] = { not: '' }
+    }
 
     if (audience === 'LOYAL') {
       where['loyaltyTier'] = { in: ['GOLD', 'PLATINUM', 'DIAMOND'] }

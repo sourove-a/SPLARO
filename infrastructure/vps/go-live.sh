@@ -103,7 +103,7 @@ NODE_ENV=development pnpm install --frozen-lockfile --prod=false
 
 log "Prisma generate + migrate..."
 pnpm db:generate
-pnpm db:migrate:prod || pnpm db:push:prod
+pnpm db:migrate:prod || die "Prisma migrate deploy failed — refuse silent db push"
 
 log "Seed (idempotent)..."
 pnpm db:seed || log "Seed skipped — check if first deploy"

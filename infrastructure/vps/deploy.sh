@@ -154,7 +154,7 @@ NODE_ENV=development pnpm install --frozen-lockfile --prod=false --network-concu
 
 log "Prisma..."
 pnpm db:generate
-pnpm db:migrate:prod || pnpm db:push:prod
+pnpm db:migrate:prod || die "Prisma migrate deploy failed — refuse silent db push"
 
 log "Bootstrap store contact from .env (idempotent)…"
 pnpm db:bootstrap-store 2>&1 | tail -8 || log "WARN: store bootstrap skipped"

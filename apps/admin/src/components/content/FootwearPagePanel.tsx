@@ -107,10 +107,7 @@ function SectionCard({
 
   return (
     <section
-      className={cn(
-        'footwear-section admin-module-card',
-        !visible && 'footwear-section--dimmed',
-      )}
+      className={cn('footwear-section dc-surface-card', !visible && 'footwear-section--dimmed')}
     >
       <div className="footwear-section__head">
         <div className="footwear-section__title-wrap">
@@ -257,7 +254,7 @@ export function FootwearPagePanel() {
             Reset
           </button>
         ) : null}
-        <AdminButton variant="gold" onClick={save} disabled={!dirty || saving}>
+        <AdminButton variant="accent" onClick={save} disabled={!dirty || saving}>
           {saving ? <Loader2 size={13} className="mr-1.5 animate-spin" /> : <Save size={13} className="mr-1.5" />}
           {saving ? 'Saving…' : 'Save Changes'}
         </AdminButton>

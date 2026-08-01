@@ -8,13 +8,42 @@ export interface AdminNotification {
   storeId?: string
   orderId?: string
   level?: 'info' | 'warn' | 'error'
+  /** Also drop a row in the admin tray, linking to this dashboard route. */
+  inAppHref?: `/dashboard/${string}`
 }
+
+/** How urgently the admin tray should paint the row. */
+export type NotificationLevel = 'info' | 'warn' | 'critical'
 
 export interface InAppNotification {
   storeId: string
   subject: string
   body: string
   href: `/dashboard/${string}`
+  level?: NotificationLevel
+  /**
+   * Suppress an identical alert raised inside this window. Omit for
+   * once-ever alerts (a given order only ever lands once); set it for
+   * recurring conditions like low stock, which must nag again later.
+   */
+  dedupeWindowMinutes?: number
+}
+
+const ADMIN_LEVEL_TO_TRAY: Record<'info' | 'warn' | 'error', NotificationLevel> = {
+  info: 'info',
+  warn: 'warn',
+  error: 'critical',
+}
+
+/**
+ * Nest's Logger exposes `log`, not `info`, so an alert raised at level 'info'
+ * used to throw before it sent anything — which silently took out every
+ * order-confirmed and payment-received notification.
+ */
+const LEVEL_TO_LOG_METHOD: Record<'info' | 'warn' | 'error', 'log' | 'warn' | 'error'> = {
+  info: 'log',
+  warn: 'warn',
+  error: 'error',
 }
 
 @Injectable()
@@ -28,6 +57,12 @@ export class NotificationsService {
 
   /** Persist a dashboard notification even when Telegram/email is disabled. */
   async notifyInApp(input: InAppNotification): Promise<boolean> {
+    return (await this.persistInApp(input)) !== 'failed'
+  }
+
+  private async persistInApp(
+    input: InAppNotification,
+  ): Promise<'created' | 'duplicate' | 'failed'> {
     try {
       const existing = await this.prisma.notificationDeliveryLog.findFirst({
         where: {
@@ -35,10 +70,17 @@ export class NotificationsService {
           channel: 'IN_APP',
           recipient: input.href,
           subject: input.subject,
+          ...(input.dedupeWindowMinutes
+            ? {
+                createdAt: {
+                  gte: new Date(Date.now() - input.dedupeWindowMinutes * 60_000),
+                },
+              }
+            : {}),
         },
         select: { id: true },
       })
-      if (existing) return true
+      if (existing) return 'duplicate'
 
       await this.prisma.notificationDeliveryLog.create({
         data: {
@@ -48,23 +90,39 @@ export class NotificationsService {
           subject: input.subject,
           body: input.body,
           status: 'DELIVERED',
+          level: input.level ?? 'info',
         },
       })
-      return true
+      return 'created'
     } catch (error) {
       this.logger.error(
         `In-app notification persist failed: ${error instanceof Error ? error.message : 'unknown'}`,
       )
-      return false
+      return 'failed'
     }
   }
 
   async notifyAdmin(input: AdminNotification): Promise<void> {
     const level = input.level ?? 'warn'
-    this.logger[level](`${input.subject}: ${input.body}`)
+    this.logger[LEVEL_TO_LOG_METHOD[level]](`${input.subject}: ${input.body}`)
 
     const storeId = input.storeId ?? (await this.getDefaultStoreId())
     if (!storeId) return
+
+    if (input.inAppHref) {
+      const outcome = await this.persistInApp({
+        storeId,
+        subject: input.subject,
+        body: input.body,
+        href: input.inAppHref,
+        level: ADMIN_LEVEL_TO_TRAY[level],
+        // Recurring conditions (low stock, a broken sync) are re-checked on a
+        // schedule. Suppressing the repeat here is what keeps a four-hourly
+        // sweep from turning into a four-hourly Telegram burst.
+        dedupeWindowMinutes: 720,
+      })
+      if (outcome === 'duplicate') return
+    }
 
     const emoji = level === 'error' ? '🔴' : level === 'warn' ? '🟡' : '🟢'
     const msg = `${emoji} <b>${input.subject}</b>\n${input.body}${input.orderId ? `\nOrder: ${input.orderId}` : ''}`
@@ -86,9 +144,12 @@ export class NotificationsService {
   async notifyLowStock(storeId: string, productName: string, variantSku: string, qty: number): Promise<void> {
     await this.notifyAdmin({
       storeId,
-      subject: 'Low Stock Alert',
+      // SKU in the subject so each variant nags on its own line, not as one
+      // rolled-up "Low Stock Alert" that dedupe would collapse.
+      subject: qty <= 0 ? `Out of stock: ${variantSku}` : `Low stock: ${variantSku}`,
       body: `${productName} (${variantSku}) — only ${qty} left`,
-      level: 'warn',
+      level: qty <= 0 ? 'error' : 'warn',
+      inAppHref: '/dashboard/inventory',
     })
   }
 
@@ -98,6 +159,17 @@ export class NotificationsService {
       subject: `Courier Failed: ${invoiceNumber}`,
       body: `Provider: ${provider}\nError: ${error}`,
       level: 'error',
+      inAppHref: '/dashboard/courier-hub',
+    })
+  }
+
+  async notifySyncFailed(storeId: string, jobType: string, error: string): Promise<void> {
+    await this.notifyAdmin({
+      storeId,
+      subject: `Google Sheets sync failed: ${jobType}`,
+      body: error,
+      level: 'error',
+      inAppHref: '/dashboard/automation/google-sheets-sync',
     })
   }
 

@@ -12,7 +12,7 @@ import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { downloadCsv } from '@/lib/admin/admin-actions'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
-import { createCustomer } from '@/lib/api/customers'
+import { bulkDeleteCustomers, createCustomer } from '@/lib/api/customers'
 import { useCustomers } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { formatBdPhone, phoneMatches } from '@/lib/format/bd-phone'
@@ -87,6 +87,10 @@ function DcCustomersBody() {
   const [createPhone, setCreatePhone] = useState('')
   const [createEmail, setCreateEmail] = useState('')
   const [creating, setCreating] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(() => new Set())
+  const [removeTargets, setRemoveTargets] = useState<ApiCustomer[] | null>(null)
+  const [removeOrders, setRemoveOrders] = useState(false)
+  const [removing, setRemoving] = useState(false)
 
   const customers = useCustomers({ limit: 200 })
   const { api } = useAdminConnection(25_000)
@@ -123,6 +127,77 @@ function DcCustomersBody() {
     { t: 'kpis', items: [] },
     { t: 'table', title: '', cols: [], rows: [] },
   ]
+
+  const selectedRows = useMemo(() => rows.filter((c) => selected.has(c.id)), [rows, selected])
+  const allVisibleSelected = rows.length > 0 && selectedRows.length === rows.length
+
+  const toggleOne = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAllVisible = () => {
+    setSelected((prev) => {
+      if (allVisibleSelected) {
+        const next = new Set(prev)
+        for (const c of rows) next.delete(c.id)
+        return next
+      }
+      return new Set([...prev, ...rows.map((c) => c.id)])
+    })
+  }
+
+  const openRemove = (targets: ApiCustomer[]) => {
+    setRemoveOrders(false)
+    setRemoveTargets(targets)
+  }
+
+  const runRemove = async () => {
+    const targets = removeTargets
+    if (!targets?.length) return
+    setRemoving(true)
+    try {
+      const result = await bulkDeleteCustomers(
+        targets.map((c) => c.id),
+        { force: removeOrders },
+      )
+      if (result.deleted > 0) {
+        const orders = result.ordersDeleted
+          ? ` and ${result.ordersDeleted} order${result.ordersDeleted === 1 ? '' : 's'}`
+          : ''
+        toastOk(
+          `Deleted ${result.deleted} customer${result.deleted === 1 ? '' : 's'}${orders}.`,
+        )
+      }
+      if (result.skipped.length > 0) {
+        // Named, not counted — the operator needs to know which record refused
+        // and why before they decide to force it.
+        const shown = result.skipped
+          .slice(0, 3)
+          .map((s) => `${s.name} (${s.reason})`)
+          .join('; ')
+        const more = result.skipped.length > 3 ? ` +${result.skipped.length - 3} more` : ''
+        toastFail(`Kept ${result.skipped.length}: ${shown}${more}`)
+      }
+      setSelected((prev) => {
+        const next = new Set(prev)
+        for (const c of targets) next.delete(c.id)
+        return next
+      })
+      setRemoveTargets(null)
+      void customers.refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not delete these customers.')
+    } finally {
+      setRemoving(false)
+    }
+  }
+
+  const removeOrderCount = (removeTargets ?? []).reduce((sum, c) => sum + (c.totalOrders ?? 0), 0)
 
   return (
     <>
@@ -299,6 +374,50 @@ function DcCustomersBody() {
               </div>
 
               <div style={{ flex: 1 }} />
+              {selectedRows.length > 0 ? (
+                <>
+                  <span style={{ font: `600 12px/1 ${FONT}`, color: 'var(--ink-2)' }}>
+                    {selectedRows.length} selected
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(new Set())}
+                    className="dc-hover-ink"
+                    style={{
+                      height: 30,
+                      padding: '0 11px',
+                      borderRadius: 8,
+                      border: '1px solid var(--line)',
+                      background: 'var(--surface-2)',
+                      color: 'var(--ink-2)',
+                      cursor: 'pointer',
+                      font: `600 12px/1 ${FONT}`,
+                    }}
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openRemove(selectedRows)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      height: 30,
+                      padding: '0 11px',
+                      borderRadius: 8,
+                      border: '1px solid var(--bad-bd)',
+                      background: 'var(--bad-soft)',
+                      color: 'var(--bad)',
+                      cursor: 'pointer',
+                      font: `600 12px/1 ${FONT}`,
+                    }}
+                  >
+                    <DcIcon name="icon-trash-2" size={13} />
+                    <span>Delete selected</span>
+                  </button>
+                </>
+              ) : null}
               <span style={{ font: `500 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>
                 {rows.length} of {all.length}
               </span>
@@ -356,6 +475,15 @@ function DcCustomersBody() {
                 <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
+                    <th style={{ ...th, width: 36 }}>
+                      <input
+                        type="checkbox"
+                        aria-label="Select all visible customers"
+                        checked={allVisibleSelected}
+                        onChange={toggleAllVisible}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </th>
                     <th style={th}>Customer</th>
                     <th style={th}>Tier</th>
                     <th style={{ ...th, textAlign: 'right' }}>Orders</th>
@@ -363,6 +491,9 @@ function DcCustomersBody() {
                     <th style={{ ...th, textAlign: 'right' }}>COD risk</th>
                     <th style={th}>Segment</th>
                     <th style={{ ...th, textAlign: 'right' }}>Last order</th>
+                    <th style={{ ...th, textAlign: 'right' }}>
+                      <span className="sr-only">Actions</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -385,6 +516,18 @@ function DcCustomersBody() {
                         className="dc-hover-surface"
                         style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer' }}
                       >
+                        <td
+                          style={{ padding: '10px 14px' }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${fullName(c)}`}
+                            checked={selected.has(c.id)}
+                            onChange={() => toggleOne(c.id)}
+                            style={{ cursor: 'pointer' }}
+                          />
+                        </td>
                         <td style={{ padding: '10px 14px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <span
@@ -527,6 +670,31 @@ function DcCustomersBody() {
                               })
                             : '—'}
                         </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            title={`Delete ${fullName(c)}`}
+                            aria-label={`Delete ${fullName(c)}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openRemove([c])
+                            }}
+                            className="dc-hover-line"
+                            style={{
+                              display: 'grid',
+                              placeItems: 'center',
+                              width: 28,
+                              height: 28,
+                              borderRadius: 8,
+                              border: '1px solid var(--line)',
+                              background: 'var(--surface-2)',
+                              color: 'var(--ink-3)',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <DcIcon name="icon-trash-2" size={13} />
+                          </button>
+                        </td>
                       </tr>
                     )
                   })}
@@ -624,6 +792,96 @@ function DcCustomersBody() {
                 }}
               >
                 {creating ? 'Saving…' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {removeTargets?.length ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Delete customers"
+          onClick={() => (removing ? undefined : setRemoveTargets(null))}
+        >
+          <div
+            className="admin-modal w-full max-w-md"
+            style={{ background: 'var(--surface)', border: '1px solid var(--line)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="admin-modal__header">
+              <h2 className="text-base font-black" style={{ color: 'var(--ink)' }}>
+                Delete {removeTargets.length === 1 ? fullName(removeTargets[0]!) : `${removeTargets.length} customers`}
+              </h2>
+              <p className="mt-1 text-xs" style={{ color: 'var(--ink-3)' }}>
+                Permanent. Removes the account, addresses, wishlist, reviews and loyalty history.
+              </p>
+            </div>
+            <div className="admin-modal__body space-y-3">
+              {removeTargets.length > 1 ? (
+                <div
+                  className="max-h-32 overflow-y-auto rounded-lg p-2 text-xs"
+                  style={{ border: '1px solid var(--line)', background: 'var(--surface-2)' }}
+                >
+                  {removeTargets.map((c) => (
+                    <div key={c.id} style={{ color: 'var(--ink-2)', padding: '2px 0' }}>
+                      {fullName(c)} · {formatBdPhone(c.phone)} · {c.totalOrders} order
+                      {c.totalOrders === 1 ? '' : 's'}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <label
+                className="flex cursor-pointer items-start gap-2 rounded-lg p-2 text-xs"
+                style={{
+                  border: `1px solid ${removeOrders ? 'var(--bad-bd)' : 'var(--line)'}`,
+                  background: removeOrders ? 'var(--bad-soft)' : 'var(--surface-2)',
+                  color: 'var(--ink-2)',
+                  lineHeight: 1.6,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={removeOrders}
+                  onChange={(e) => setRemoveOrders(e.target.checked)}
+                  style={{ marginTop: 2, cursor: 'pointer' }}
+                />
+                <span>
+                  <strong style={{ color: removeOrders ? 'var(--bad)' : 'var(--ink)' }}>
+                    Also delete their orders
+                  </strong>
+                  <br />
+                  Wipes {removeOrderCount} order{removeOrderCount === 1 ? '' : 's'} with their
+                  invoices, payments and courier records, and returns the stock to inventory. Use
+                  this for fake COD accounts. Leave it off and any customer holding orders is kept,
+                  not deleted.
+                </span>
+              </label>
+            </div>
+            <div className="admin-modal__footer flex justify-end gap-2">
+              <button
+                type="button"
+                className="admin-btn admin-btn--ghost"
+                disabled={removing}
+                onClick={() => setRemoveTargets(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-btn"
+                disabled={removing}
+                style={{
+                  border: '1px solid var(--bad-bd)',
+                  background: 'var(--bad-soft)',
+                  color: 'var(--bad)',
+                }}
+                onClick={() => void runRemove()}
+              >
+                {removing ? 'Deleting…' : 'Delete permanently'}
               </button>
             </div>
           </div>

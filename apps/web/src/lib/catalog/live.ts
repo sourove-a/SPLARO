@@ -85,6 +85,13 @@ interface LiveProduct {
   season?: string | null
   origin?: string | null
   weight?: number | string | null
+  lengthCm?: number | string | null
+  widthCm?: number | string | null
+  heightCm?: number | string | null
+  productType?: string | null
+  inventoryPolicy?: 'DENY' | 'CONTINUE' | 'PREORDER'
+  preorderReleaseAt?: string | null
+  additionalDetails?: Array<{ label?: unknown; value?: unknown }> | null
   tags?: string[]
   metaTitle?: string | null
   metaDescription?: string | null
@@ -366,6 +373,14 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
   const weavingType = typeof schema.weavingType === 'string' ? schema.weavingType : undefined
   const publicSku = sanitizeStorefrontProductCode(p.sku, p.slug)
   const specs = parseProductSpecs(schema)
+  for (const detail of p.additionalDetails ?? []) {
+    if (typeof detail.label !== 'string' || typeof detail.value !== 'string') continue
+    const label = detail.label.trim()
+    const value = detail.value.trim()
+    if (label && value && !specs.some((item) => item.label.toLowerCase() === label.toLowerCase())) {
+      specs.push({ label, value })
+    }
+  }
   const weightLabel = formatProductWeightGrams(p.weight)
   const weightGrams = (() => {
     if (p.weight == null || p.weight === '') return undefined
@@ -418,6 +433,18 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
     ...(p.fitType ? { fitType: p.fitType } : {}),
     ...(p.occasion ? { occasion: p.occasion } : {}),
     ...(p.season ? { season: p.season } : {}),
+    ...(p.productType ? { productType: p.productType } : {}),
+    ...(p.inventoryPolicy ? { inventoryPolicy: p.inventoryPolicy } : {}),
+    ...(p.preorderReleaseAt ? { preorderReleaseAt: p.preorderReleaseAt } : {}),
+    ...((p.lengthCm != null || p.widthCm != null || p.heightCm != null)
+      ? {
+          dimensionsCm: {
+            ...(p.lengthCm != null ? { length: Number(p.lengthCm) } : {}),
+            ...(p.widthCm != null ? { width: Number(p.widthCm) } : {}),
+            ...(p.heightCm != null ? { height: Number(p.heightCm) } : {}),
+          },
+        }
+      : {}),
     ...(weightGrams != null ? { weightGrams } : {}),
     ...(specs.length ? { specs } : {}),
     origin: p.origin ?? 'Bangladesh',

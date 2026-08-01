@@ -139,7 +139,11 @@ function collectCategoryIds(node: CategoryTreeNode<CategoryRow>): string[] {
 
 function deptSlugFromHref(href: string): string | null {
   const match = href.match(/^\/(?:c|collections)\/([^/?#]+)/)
-  return match?.[1] ?? null
+  if (match?.[1]) return match[1]
+  const path = href.split(/[?#]/, 1)[0]?.replace(/\/$/, '')
+  if (path === '/accessories') return 'accessories'
+  if (path === '/new-arrivals') return 'new-arrivals'
+  return null
 }
 
 function totalVisibleProducts(node: CategoryTreeNode<CategoryRow>): number {
@@ -208,7 +212,7 @@ export class NavBuilderService {
           return { ...item, megaMenu: undefined }
         }
 
-        return { ...item, href: departmentHref(slug), megaMenu }
+        return { ...item, megaMenu }
       }),
     )
   }

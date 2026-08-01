@@ -18,6 +18,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
+import { FONT } from '@/components/dc/tokens'
 import { PartnerSetupCard } from '@/components/finance/PartnerSetupCard'
 import { toastFail, toastOk, toastApiSaved } from '@/lib/admin/feedback'
 import { verifyNumberEquals, verifyPersisted, verifyStringEquals } from '@/lib/admin/mutation-verify'
@@ -42,6 +43,19 @@ import { formatBDT } from '@/lib/format/currency'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { cn } from '@/lib/utils/cn'
 
+const card = {
+  border: '1px solid var(--line)',
+  borderRadius: 14,
+  background: 'var(--surface)',
+  backgroundImage: 'var(--card-sheen)',
+} as const
+
+const capsLabel = {
+  font: `600 11px/1 ${FONT}`,
+  letterSpacing: '.09em',
+  textTransform: 'uppercase' as const,
+  color: 'var(--ink-3)',
+}
 const EXPENSE_CATEGORIES = [
   { value: 'PRODUCT_COST', label: 'Product cost' },
   { value: 'COURIER_COST', label: 'Courier / delivery' },
@@ -89,11 +103,18 @@ function PartnerAvatar({
 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border border-black/8 bg-gradient-to-br from-[var(--admin-color-accent-blue)]/25 to-white shadow-sm">
+      <div
+        className="flex h-full w-full items-center justify-center overflow-hidden"
+        style={{
+          borderRadius: 12,
+          border: '1px solid var(--line)',
+          background: 'var(--surface-2)',
+        }}
+      >
         {partner.avatarUrl ? (
           <Image src={partner.avatarUrl} alt={partner.name} width={size} height={size} className="h-full w-full object-cover" unoptimized />
         ) : (
-          <span className="text-lg font-semibold text-[var(--admin-c-3f3f46)]">{initials}</span>
+          <span style={{ font: `600 16px/1 ${FONT}`, color: 'var(--ink-2)' }}>{initials}</span>
         )}
       </div>
       {onUpload ? (
@@ -102,7 +123,13 @@ function PartnerAvatar({
             type="button"
             disabled={uploading}
             onClick={() => inputRef.current?.click()}
-            className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-white bg-[var(--admin-c-1c1c22)] text-white shadow-md transition hover:bg-[var(--admin-c-2f2f38)] disabled:opacity-60"
+            className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center disabled:opacity-60"
+            style={{
+              borderRadius: 999,
+              border: '1px solid var(--line)',
+              background: 'var(--violet-solid)',
+              color: 'var(--on-violet)',
+            }}
             aria-label={`Upload photo for ${partner.name}`}
           >
             <Camera className="h-3.5 w-3.5" />
@@ -129,7 +156,7 @@ function KpiTile({
   value,
   sub,
   icon: Icon,
-  tone = 'text-[var(--admin-color-accent-blue)]',
+  tone = 'var(--violet)',
 }: {
   label: string
   value: string
@@ -138,23 +165,25 @@ function KpiTile({
   tone?: string
 }) {
   return (
-    <div className="partner-kpi-card">
+    <div style={{ ...card, padding: '14px 16px' }}>
       <div className="flex items-center gap-2">
-        <Icon className={cn('h-4 w-4', tone)} />
-        <span className="admin-kpi__label">{label}</span>
+        <Icon className="h-4 w-4" style={{ color: tone }} />
+        <span style={capsLabel}>{label}</span>
       </div>
-      <p className="mt-2 text-xl font-semibold text-[var(--admin-text)]">{value}</p>
-      {sub ? <p className="mt-1 text-[11px] font-semibold text-[var(--admin-text-secondary)]">{sub}</p> : null}
+      <p style={{ margin: '8px 0 0', font: `600 20px/1.2 ${FONT}`, color: 'var(--ink)' }}>{value}</p>
+      {sub ? (
+        <p style={{ margin: '4px 0 0', font: `600 11px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>{sub}</p>
+      ) : null}
     </div>
   )
 }
 
 function demandBadge(item: InventoryItem) {
-  if (item.soldCount >= 10) return { label: 'Best seller', className: 'bg-emerald-100 text-emerald-800' }
-  if (item.viewCount >= 50) return { label: 'High demand', className: 'bg-amber-100 text-amber-800' }
-  if (item.stock === 0) return { label: 'Out of stock', className: 'bg-red-100 text-red-700' }
-  if (item.stock <= 5) return { label: 'Low stock', className: 'bg-orange-100 text-orange-800' }
-  return { label: 'Stable', className: 'bg-black/5 text-[var(--admin-text-secondary)]' }
+  if (item.soldCount >= 10) return { label: 'Best seller', bg: 'var(--ok-soft)', fg: 'var(--ok)', bd: 'var(--ok-bd)' }
+  if (item.viewCount >= 50) return { label: 'High demand', bg: 'var(--warn-soft)', fg: 'var(--warn)', bd: 'var(--warn-bd)' }
+  if (item.stock === 0) return { label: 'Out of stock', bg: 'var(--bad-soft)', fg: 'var(--bad)', bd: 'var(--bad-bd)' }
+  if (item.stock <= 5) return { label: 'Low stock', bg: 'var(--warn-soft)', fg: 'var(--warn)', bd: 'var(--warn-bd)' }
+  return { label: 'Stable', bg: 'var(--surface-2)', fg: 'var(--ink-3)', bd: 'var(--line)' }
 }
 
 export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accounts' }: ModuleContextProps) {
@@ -357,7 +386,12 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
   }
 
   if (loading) {
-    return <div className="h-56 animate-pulse rounded-[22px] bg-[var(--admin-surface-muted)]" />
+    return (
+      <div
+        className="h-56 animate-pulse"
+        style={{ borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--line)' }}
+      />
+    )
   }
 
   const totals = hub?.totals
@@ -378,21 +412,28 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
   ]
 
   return (
-    <div className="space-y-5">
+    <div className="dc-partner-body space-y-5" style={{ fontFamily: FONT }}>
       {!apiOnline ? (
-        <div className="admin-settings-status admin-settings-status--offline">
-          <p className="flex items-center gap-2 text-xs font-semibold text-amber-900">
+        <div
+          style={{
+            ...card,
+            padding: '12px 14px',
+            borderColor: 'var(--warn-bd)',
+            background: 'var(--warn-soft)',
+            backgroundImage: 'none',
+          }}
+        >
+          <p className="flex items-center gap-2" style={{ margin: 0, font: `600 12px/1.4 ${FONT}`, color: 'var(--warn)' }}>
             <WifiOff className="h-4 w-4" />
             API offline — start backend on port 4000. No fake data is shown.
           </p>
         </div>
       ) : null}
 
-      <section className="partner-hero-card">
+      <section className="dc-partner-intro" style={{ ...card, padding: '14px 16px', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent)]">{partnerLabel}</p>
-          <h2 className="mt-1 text-2xl font-semibold text-[var(--admin-text)]">Partner Command Center</h2>
-          <p className="mt-2 max-w-2xl text-sm font-semibold text-[var(--admin-text-secondary)]">
+          <p className="dc-partner-intro__eyebrow" style={{ ...capsLabel, margin: 0 }}>{partnerLabel}</p>
+          <p className="dc-partner-intro__copy" style={{ margin: '8px 0 0', maxWidth: '42rem', font: `500 13px/1.45 ${FONT}`, color: 'var(--ink-2)' }}>
             Protteker alada hisab, investment, stock value, profit/loss — sob live database theke. Apni je partner add korben, shei naam ekhane dekhabe.
           </p>
         </div>
@@ -409,22 +450,42 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
       {totals && partners.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           <KpiTile label="Combined balance" value={formatBDT(totals.combinedBalance)} icon={Wallet} />
-          <KpiTile label="Total invested" value={formatBDT(totals.totalInvested)} icon={TrendingUp} tone="text-emerald-700" />
-          <KpiTile label="Stock value (cost)" value={formatBDT(inv?.totalCostValue ?? 0)} sub={`${inv?.totalUnits ?? 0} units`} icon={Package} tone="text-zinc-700" />
+          <KpiTile label="Total invested" value={formatBDT(totals.totalInvested)} icon={TrendingUp} tone="var(--ok)" />
+          <KpiTile label="Stock value (cost)" value={formatBDT(inv?.totalCostValue ?? 0)} sub={`${inv?.totalUnits ?? 0} units`} icon={Package} tone="var(--ink-2)" />
           <KpiTile label="Stock value (retail)" value={formatBDT(inv?.totalRetailValue ?? 0)} sub={`${inv?.productCount ?? 0} products`} icon={Package} />
-          <KpiTile label="Monthly net profit" value={formatBDT(totals.monthlyNetProfit)} sub={`Revenue ${formatBDT(totals.monthlyRevenue)}`} icon={BarChart3} tone={totals.monthlyNetProfit >= 0 ? 'text-emerald-700' : 'text-red-600'} />
+          <KpiTile label="Monthly net profit" value={formatBDT(totals.monthlyNetProfit)} sub={`Revenue ${formatBDT(totals.monthlyRevenue)}`} icon={BarChart3} tone={totals.monthlyNetProfit >= 0 ? 'var(--ok)' : 'var(--bad)'} />
           <KpiTile label="Weekly net profit" value={formatBDT(totals.weeklyNetProfit)} icon={Clock} />
         </div>
       ) : null}
 
       {partners.length > 0 ? (
-      <div className="admin-tab-row flex-wrap">
-        {tabs.map(({ id, label, icon: Icon }) => (
-          <button key={id} type="button" onClick={() => setTab(id)} className={cn('admin-tab-pill', tab === id && 'admin-tab-pill--active')}>
-            <Icon className="h-3.5 w-3.5" />
-            {label}
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-2">
+        {tabs.map(({ id, label, icon: Icon }) => {
+          const active = tab === id
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                height: 34,
+                padding: '0 12px',
+                borderRadius: 9,
+                border: `1px solid ${active ? 'var(--violet-bd)' : 'var(--line)'}`,
+                background: active ? 'var(--violet-soft)' : 'var(--surface)',
+                color: active ? 'var(--violet)' : 'var(--ink-2)',
+                font: `600 12px/1 ${FONT}`,
+                cursor: 'pointer',
+              }}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </button>
+          )
+        })}
       </div>
       ) : null}
 
@@ -432,54 +493,58 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
         <div className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-3">
             {sortedPartners.map((partner) => (
-              <div key={partner.id} className="partner-mini-card">
+              <div key={partner.id} style={{ ...card, padding: '14px 16px' }}>
                 <div className="flex items-center gap-3">
                   <PartnerAvatar partner={partner} size={48} />
                   <div>
-                    <p className="text-lg font-semibold text-[var(--admin-text)]">{partner.name}</p>
-                    <p className="text-[11px] font-semibold text-[var(--admin-text-secondary)]">{Number(partner.sharePercent)}% share · alada hisab</p>
+                    <p style={{ margin: 0, font: `600 16px/1.3 ${FONT}`, color: 'var(--ink)' }}>{partner.name}</p>
+                    <p style={{ margin: '2px 0 0', font: `600 11px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>{Number(partner.sharePercent)}% share · alada hisab</p>
                   </div>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                  <div><p className="text-[var(--admin-text-secondary)]">Balance</p><p className="font-semibold text-[var(--admin-color-accent-blue)]">{formatBDT(Number(partner.currentBalance))}</p></div>
-                  <div><p className="text-[var(--admin-text-secondary)]">Invested</p><p className="font-semibold">{formatBDT(Number(partner.totalInvestment))}</p></div>
-                  <div><p className="text-[var(--admin-text-secondary)]">Profit share</p><p className="font-semibold text-emerald-700">{formatBDT(Number(partner.totalProfitShare))}</p></div>
-                  <div><p className="text-[var(--admin-text-secondary)]">Expense share</p><p className="font-semibold text-amber-800">{formatBDT(Number(partner.totalExpenseShare))}</p></div>
+                <div className="mt-4 grid grid-cols-2 gap-2" style={{ font: `500 12px/1.35 ${FONT}` }}>
+                  <div><p style={{ margin: 0, color: 'var(--ink-3)' }}>Balance</p><p style={{ margin: '2px 0 0', fontWeight: 600, color: 'var(--violet)' }}>{formatBDT(Number(partner.currentBalance))}</p></div>
+                  <div><p style={{ margin: 0, color: 'var(--ink-3)' }}>Invested</p><p style={{ margin: '2px 0 0', fontWeight: 600, color: 'var(--ink)' }}>{formatBDT(Number(partner.totalInvestment))}</p></div>
+                  <div><p style={{ margin: 0, color: 'var(--ink-3)' }}>Profit share</p><p style={{ margin: '2px 0 0', fontWeight: 600, color: 'var(--ok)' }}>{formatBDT(Number(partner.totalProfitShare))}</p></div>
+                  <div><p style={{ margin: 0, color: 'var(--ink-3)' }}>Expense share</p><p style={{ margin: '2px 0 0', fontWeight: 600, color: 'var(--warn)' }}>{formatBDT(Number(partner.totalExpenseShare))}</p></div>
                 </div>
               </div>
             ))}
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <section className="admin-module-card">
-              <h3 className="admin-module-card__title">Recent investments — ke koto invest korlo</h3>
+            <section style={{ ...card, padding: '14px 16px' }}>
+              <h3 style={{ margin: 0, font: `600 13px/1.3 ${FONT}`, color: 'var(--ink)' }}>Recent investments — ke koto invest korlo</h3>
               {hub.recentInvestments.length === 0 ? (
-                <p className="text-sm font-semibold text-[var(--admin-text-secondary)]">No investments recorded yet.</p>
+                <p style={{ margin: '10px 0 0', font: `600 13px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>No investments recorded yet.</p>
               ) : (
                 <div className="mt-3 space-y-2">
                   {hub.recentInvestments.slice(0, 8).map((row) => (
-                    <div key={row.id} className="flex items-center justify-between rounded-xl border border-black/5 bg-white/60 px-3 py-2.5">
+                    <div
+                      key={row.id}
+                      className="flex items-center justify-between px-3 py-2.5"
+                      style={{ borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface-2)' }}
+                    >
                       <div>
-                        <p className="text-sm font-semibold">{row.partner?.name ?? '—'}</p>
-                        <p className="text-[11px] text-[var(--admin-text-secondary)]">{row.note ?? 'Investment'} · {new Date(row.date).toLocaleDateString('en-BD')}</p>
+                        <p style={{ margin: 0, font: `600 13px/1.3 ${FONT}`, color: 'var(--ink)' }}>{row.partner?.name ?? '—'}</p>
+                        <p style={{ margin: '2px 0 0', font: `500 11px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>{row.note ?? 'Investment'} · {new Date(row.date).toLocaleDateString('en-BD')}</p>
                       </div>
-                      <p className="font-semibold text-emerald-700">{formatBDT(row.amount)}</p>
+                      <p style={{ margin: 0, font: `600 13px/1 ${FONT}`, color: 'var(--ok)' }}>{formatBDT(row.amount)}</p>
                     </div>
                   ))}
                 </div>
               )}
             </section>
 
-            <section className="admin-module-card">
-              <h3 className="admin-module-card__title">Expense breakdown — kothay khoroch</h3>
+            <section style={{ ...card, padding: '14px 16px' }}>
+              <h3 style={{ margin: 0, font: `600 13px/1.3 ${FONT}`, color: 'var(--ink)' }}>Expense breakdown — kothay khoroch</h3>
               {hub.expensesByCategory.length === 0 ? (
-                <p className="text-sm font-semibold text-[var(--admin-text-secondary)]">No approved expenses yet.</p>
+                <p style={{ margin: '10px 0 0', font: `600 13px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>No approved expenses yet.</p>
               ) : (
                 <div className="mt-3 space-y-2">
                   {hub.expensesByCategory.map((e) => (
-                    <div key={e.category} className="flex items-center justify-between text-sm">
-                      <span className="font-semibold capitalize">{e.category.replace(/_/g, ' ').toLowerCase()}</span>
-                      <span className="font-semibold text-[var(--admin-color-accent-blue)]">{formatBDT(e.amount)}</span>
+                    <div key={e.category} className="flex items-center justify-between" style={{ font: `600 13px/1.3 ${FONT}` }}>
+                      <span style={{ color: 'var(--ink)', textTransform: 'capitalize' }}>{e.category.replace(/_/g, ' ').toLowerCase()}</span>
+                      <span style={{ color: 'var(--violet)' }}>{formatBDT(e.amount)}</span>
                     </div>
                   ))}
                 </div>
@@ -522,12 +587,12 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
             <KpiTile label="Bikri mulya (retail)" value={formatBDT(inv?.totalRetailValue ?? 0)} icon={TrendingUp} />
             <KpiTile label="Potential margin" value={formatBDT((inv?.totalRetailValue ?? 0) - (inv?.totalCostValue ?? 0))} icon={BarChart3} tone="text-emerald-700" />
           </div>
-          <section className="admin-module-table-wrap">
+          <section className="dc-partner-table-wrap">
             <div className="border-b border-black/5 px-4 py-3">
               <p className="admin-kpi__label">Live inventory · {hub.inventory.items.length} products</p>
             </div>
             <div className="overflow-x-auto">
-              <table className="admin-module-table">
+              <table className="dc-partner-table">
                 <thead>
                   <tr>
                     <th>Product</th>
@@ -548,7 +613,23 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                         <td>{formatBDT(item.costValue)}</td>
                         <td>{formatBDT(item.retailValue)}</td>
                         <td>{item.soldCount}</td>
-                        <td><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase', badge.className)}>{badge.label}</span></td>
+                        <td>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              borderRadius: 8,
+                              padding: '3px 8px',
+                              font: `600 10px/1 ${FONT}`,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.06em',
+                              background: badge.bg,
+                              color: badge.fg,
+                              border: `1px solid ${badge.bd}`,
+                            }}
+                          >
+                            {badge.label}
+                          </span>
+                        </td>
                       </tr>
                     )
                   })}
@@ -560,12 +641,12 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
       ) : null}
 
       {tab === 'products' && hub ? (
-        <section className="admin-module-table-wrap">
+        <section className="dc-partner-table-wrap">
           <div className="border-b border-black/5 px-4 py-3">
             <p className="admin-kpi__label">Top products by demand — kon product bhalo cholche</p>
           </div>
           <div className="overflow-x-auto">
-            <table className="admin-module-table">
+            <table className="dc-partner-table">
               <thead>
                 <tr>
                   <th>#</th>
@@ -581,12 +662,28 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                   const badge = demandBadge(item)
                   return (
                     <tr key={item.id}>
-                      <td className="font-semibold text-[var(--admin-color-accent-blue)]">{idx + 1}</td>
+                      <td className="font-semibold text-[var(--violet)]">{idx + 1}</td>
                       <td className="font-semibold">{item.name}</td>
                       <td className="font-semibold">{item.soldCount}</td>
                       <td>{item.viewCount}</td>
                       <td>{item.stock}</td>
-                      <td><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase', badge.className)}>{badge.label}</span></td>
+                      <td>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            borderRadius: 8,
+                            padding: '3px 8px',
+                            font: `600 10px/1 ${FONT}`,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.06em',
+                            background: badge.bg,
+                            color: badge.fg,
+                            border: `1px solid ${badge.bd}`,
+                          }}
+                        >
+                          {badge.label}
+                        </span>
+                      </td>
                     </tr>
                   )
                 })}
@@ -594,7 +691,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
             </table>
           </div>
           {hub.topProducts.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm font-semibold text-[var(--admin-text-secondary)]">No products in catalog yet.</p>
+            <p className="px-4 py-8 text-center text-sm font-semibold text-[var(--ink-2)]">No products in catalog yet.</p>
           ) : null}
         </section>
       ) : null}
@@ -602,12 +699,12 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
       {tab === 'profit' && hub && monthly ? (
         <div className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
-            <section className="admin-module-card admin-module-card--accent">
-              <h3 className="admin-module-card__title">This month — labh / loss</h3>
+            <section className="dc-partner-card">
+              <h3 className="dc-partner-card__title">This month — labh / loss</h3>
               <p className={cn('mt-2 text-3xl font-semibold', monthly.netProfit >= 0 ? 'text-emerald-700' : 'text-red-600')}>
                 {formatBDT(monthly.netProfit)}
               </p>
-              <p className="mt-1 text-xs font-semibold text-[var(--admin-text-secondary)]">{hub.profitLoss.monthly.orderCount} delivered orders counted</p>
+              <p className="mt-1 text-xs font-semibold text-[var(--ink-2)]">{hub.profitLoss.monthly.orderCount} delivered orders counted</p>
               <dl className="mt-4 space-y-2 text-sm">
                 {[
                   ['Gross revenue', monthly.grossRevenue],
@@ -625,12 +722,12 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                 ))}
               </dl>
             </section>
-            <section className="admin-module-card">
-              <h3 className="admin-module-card__title">This week</h3>
+            <section className="dc-partner-card">
+              <h3 className="dc-partner-card__title">This week</h3>
               <p className={cn('mt-2 text-3xl font-semibold', (weekly?.netProfit ?? 0) >= 0 ? 'text-emerald-700' : 'text-red-600')}>
                 {formatBDT(weekly?.netProfit ?? 0)}
               </p>
-              <p className="mt-4 text-sm font-semibold text-[var(--admin-text-secondary)]">
+              <p className="mt-4 text-sm font-semibold text-[var(--ink-2)]">
                 Profit calculates automatically when orders are marked DELIVERED. No fake numbers.
               </p>
             </section>
@@ -640,9 +737,9 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
 
       {tab === 'expenses' ? (
         <div className="space-y-4">
-          <section className="admin-module-card admin-module-card--accent">
-            <h3 className="admin-module-card__title">Record expense</h3>
-            <p className="admin-module-card__subtitle mb-4">Ke kothay koto taka khoroch — ken khoroch korlo tar note likhun.</p>
+          <section className="dc-partner-card">
+            <h3 className="dc-partner-card__title">Record expense</h3>
+            <p className="dc-partner-card__sub mb-4">Ke kothay koto taka khoroch — ken khoroch korlo tar note likhun.</p>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="admin-field">
                 <span className="admin-kpi__label">Category</span>
@@ -676,12 +773,12 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
             </AdminButton>
           </section>
 
-          <section className="admin-module-table-wrap">
+          <section className="dc-partner-table-wrap">
             <div className="border-b border-black/5 px-4 py-3">
               <p className="admin-kpi__label">Live expenses · {expenses.length}</p>
             </div>
             <div className="overflow-x-auto">
-              <table className="admin-module-table">
+              <table className="dc-partner-table">
                 <thead>
                   <tr>
                     <th>Date</th>
@@ -727,22 +824,22 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
       {(tab === 'invest' || tab === 'withdraw') ? (
         <div className="space-y-4">
           {tab === 'withdraw' && pendingWithdrawals.length > 0 ? (
-            <section className="admin-module-card border-amber-500/25 bg-amber-500/6">
-              <h3 className="admin-module-card__title">Pending withdrawals — approval লাগবে</h3>
-              <p className="admin-module-card__subtitle mb-4">
+            <section className="dc-partner-card dc-partner-card--warn">
+              <h3 className="dc-partner-card__title">Pending withdrawals — approval লাগবে</h3>
+              <p className="dc-partner-card__sub mb-4">
                 Withdrawal approve না করা পর্যন্ত balance কাটা হবে না।
               </p>
               <div className="space-y-2">
                 {pendingWithdrawals.map((row) => (
                   <div
                     key={row.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-surface)] px-4 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[var(--line)] bg-[var(--surface)] px-4 py-3"
                   >
                     <div>
-                      <p className="text-sm font-semibold text-[var(--admin-text)]">
+                      <p className="text-sm font-semibold text-[var(--ink)]">
                         {row.partner?.name ?? 'Partner'} — {formatBDT(Number(row.amount))}
                       </p>
-                      <p className="text-xs text-[var(--admin-text-muted)]">{row.note ?? 'No note'}</p>
+                      <p className="text-xs text-[var(--ink-3)]">{row.note ?? 'No note'}</p>
                     </div>
                     <div className="flex gap-2">
                       <AdminButton size="sm" variant="accent" onClick={() => void handleApproveTxn(row.id)}>
@@ -760,15 +857,15 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
             </section>
           ) : null}
 
-          <section className="admin-module-card admin-module-card--accent max-w-xl">
-            <h3 className="admin-module-card__title">{tab === 'invest' ? 'Partner investment' : 'Partner withdrawal'}</h3>
-            <p className="admin-module-card__subtitle mb-4">
+          <section className="dc-partner-card max-w-xl">
+            <h3 className="dc-partner-card__title">{tab === 'invest' ? 'Partner investment' : 'Partner withdrawal'}</h3>
+            <p className="dc-partner-card__sub mb-4">
               {tab === 'invest'
                 ? 'Capital add korle turant balance update hobe.'
                 : 'Withdrawal request pending thakbe — approve korar por balance katabe.'}
             </p>
             {partners.length === 0 ? (
-              <p className="text-sm font-semibold text-[var(--admin-text-secondary)]">আগে partner যোগ করুন Partners tab থেকে।</p>
+              <p className="text-sm font-semibold text-[var(--ink-2)]">আগে partner যোগ করুন Partners tab থেকে।</p>
             ) : (
               <div className="space-y-3">
                 <label className="admin-field">
@@ -798,12 +895,12 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
       ) : null}
 
       {tab === 'ledger' ? (
-        <section className="admin-module-table-wrap">
+        <section className="dc-partner-table-wrap">
           <div className="border-b border-black/5 px-4 py-3">
             <p className="admin-kpi__label">Partner ledger · {ledger.length} entries</p>
           </div>
           <div className="overflow-x-auto">
-            <table className="admin-module-table">
+            <table className="dc-partner-table">
               <thead>
                 <tr>
                   <th>Date</th>
@@ -883,26 +980,26 @@ function PartnerProfileCard({
   }, [partner])
 
   return (
-    <article className="admin-module-card admin-module-card--accent flex flex-col">
+    <article className="dc-partner-card flex flex-col">
       <div className="mb-3 border-b border-black/5 pb-3">
-        <h2 className="text-2xl font-semibold tracking-wide text-[var(--admin-text)]">{partner.name}</h2>
-        <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--admin-text-secondary)]">
+        <h2 className="text-2xl font-semibold tracking-wide text-[var(--ink)]">{partner.name}</h2>
+        <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-2)]">
           Alada hisab · {Number(partner.sharePercent)}% share
         </p>
       </div>
       <div className="flex items-start gap-3">
         <PartnerAvatar partner={partner} onUpload={onUpload} uploading={uploading} />
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--admin-color-accent-blue)]">Current balance</p>
-          <p className="mt-1 text-2xl font-semibold text-[var(--admin-color-accent-blue)]">{formatBDT(Number(partner.currentBalance))}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--violet)]">Current balance</p>
+          <p className="mt-1 text-2xl font-semibold text-[var(--violet)]">{formatBDT(Number(partner.currentBalance))}</p>
         </div>
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
-        <div><dt className="text-[var(--admin-text-secondary)]">Invested</dt><dd className="font-semibold">{formatBDT(Number(partner.totalInvestment))}</dd></div>
-        <div><dt className="text-[var(--admin-text-secondary)]">Withdrawn</dt><dd className="font-semibold">{formatBDT(Number(partner.totalWithdrawal))}</dd></div>
-        <div><dt className="text-[var(--admin-text-secondary)]">Profit share</dt><dd className="font-semibold text-emerald-700">{formatBDT(Number(partner.totalProfitShare))}</dd></div>
-        <div><dt className="text-[var(--admin-text-secondary)]">Expense share</dt><dd className="font-semibold text-amber-800">{formatBDT(Number(partner.totalExpenseShare))}</dd></div>
+        <div><dt className="text-[var(--ink-2)]">Invested</dt><dd className="font-semibold">{formatBDT(Number(partner.totalInvestment))}</dd></div>
+        <div><dt className="text-[var(--ink-2)]">Withdrawn</dt><dd className="font-semibold">{formatBDT(Number(partner.totalWithdrawal))}</dd></div>
+        <div><dt className="text-[var(--ink-2)]">Profit share</dt><dd className="font-semibold text-emerald-700">{formatBDT(Number(partner.totalProfitShare))}</dd></div>
+        <div><dt className="text-[var(--ink-2)]">Expense share</dt><dd className="font-semibold text-amber-800">{formatBDT(Number(partner.totalExpenseShare))}</dd></div>
       </dl>
 
       {investments.length > 0 ? (
@@ -911,7 +1008,7 @@ function PartnerProfileCard({
           <div className="mt-2 space-y-1.5">
             {investments.slice(0, 3).map((inv) => (
               <div key={inv.id} className="flex justify-between text-xs">
-                <span className="truncate text-[var(--admin-text-secondary)]">{inv.note ?? 'Investment'}</span>
+                <span className="truncate text-[var(--ink-2)]">{inv.note ?? 'Investment'}</span>
                 <span className="font-semibold text-emerald-700">{formatBDT(inv.amount)}</span>
               </div>
             ))}
@@ -939,20 +1036,4 @@ function PartnerProfileCard({
       </AdminButton>
     </article>
   )
-}
-
-export function PartnerAccountsPage(props: ModuleContextProps) {
-  return <PartnerHubPage {...props} />
-}
-
-export function ExpensesPanel(props: ModuleContextProps) {
-  return <PartnerHubPage {...props} moduleHref="/dashboard/finance/expenses" />
-}
-
-export function InvestmentsPanel(props: ModuleContextProps) {
-  return <PartnerHubPage {...props} moduleHref="/dashboard/finance/investments" />
-}
-
-export function WithdrawalsPanel(props: ModuleContextProps) {
-  return <PartnerHubPage {...props} moduleHref="/dashboard/finance/withdrawals" />
 }

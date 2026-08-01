@@ -10,6 +10,8 @@ export interface DcHeaderProps {
   onlineLabel?: string | null
   onlineTitle?: string
   notifications?: number
+  /** True when any unread alert is critical — paints the badge red. */
+  notificationsUrgent?: boolean
   railOpen: boolean
   onToggleRail: () => void
   onOpenPalette?: () => void
@@ -31,6 +33,7 @@ export function DcHeader({
   onlineLabel,
   onlineTitle,
   notifications = 0,
+  notificationsUrgent = false,
   railOpen,
   onToggleRail,
   onOpenPalette,
@@ -191,7 +194,7 @@ export function DcHeader({
               display: 'grid',
               placeItems: 'center',
               borderRadius: 99,
-              background: 'var(--violet-solid)',
+              background: notificationsUrgent ? 'var(--bad)' : 'var(--violet-solid)',
               color: 'var(--on-violet)',
               font: `700 9.5px/1 ${FONT}`,
               border: '2px solid var(--headerbg)',

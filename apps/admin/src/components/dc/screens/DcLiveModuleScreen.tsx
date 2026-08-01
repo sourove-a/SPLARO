@@ -5,28 +5,25 @@ import { useRouter } from 'next/navigation'
 
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
+import { DcSoftLockPanel } from '@/components/dc/DcSoftLockPanel'
 import { dcConnectionChip } from '@/components/dc/page-status'
 import { metaForScreen } from '@/components/dc/screens'
-import { ModuleWorkspace } from '@/components/modules/ModuleWorkspace'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import type { FlatAdminRoute } from '@/lib/navigation/admin-nav'
 import { getModuleMaturity } from '@/lib/modules/module-maturity'
 
 /**
- * DC chrome + live ModuleWorkspace body.
- * Status chip reflects connection + module maturity — beta/prototype never claim LIVE.
+ * DC chrome for legacy screen keys — soft-lock, since the old panel bodies are gone.
  */
 export function DcLiveModuleScreen({
   screen,
   moduleHref,
   navItem,
-  subPath,
   fallbackTitle,
 }: {
   screen: string
   moduleHref: string
   navItem: FlatAdminRoute
-  subPath?: string[]
   fallbackTitle?: string
 }) {
   const router = useRouter()
@@ -45,19 +42,6 @@ export function DcLiveModuleScreen({
         ? { label: 'BETA' as const, tone: 'warn' as const }
         : { label: 'PREVIEW' as const, tone: 'mute' as const })
 
-  const syncLabel =
-    api.pulse === 'offline'
-      ? 'API offline — panel may be empty'
-      : api.pulse === 'degraded'
-        ? 'Platform degraded — some services may fail'
-        : maturity === 'live'
-          ? api.latencyMs != null
-            ? `API · ${api.latencyMs}ms · live panel`
-            : 'Live module panel · verified API only'
-          : maturity === 'beta'
-            ? 'Beta — some writes locked until APIs ship'
-            : 'Preview shell — no verified write path'
-
   return (
     <DcScreenProvider
       screen={screen}
@@ -70,7 +54,7 @@ export function DcLiveModuleScreen({
         title={title}
         statusLabel={status.label}
         statusTone={status.tone}
-        syncLabel={syncLabel}
+        syncLabel="Not in primary DC nav — use sidebar screens"
         onSync={() => {
           void queryClient.invalidateQueries()
           router.refresh()
@@ -84,16 +68,8 @@ export function DcLiveModuleScreen({
             }
           : {})}
       />
-      <div
-        className={`dc-detail-host dc-live-module dc-live-module--${screen}`}
-        data-dc-screen={screen}
-      >
-        <ModuleWorkspace
-          key={`${moduleHref}-${(subPath ?? []).join('/')}`}
-          navItem={navItem}
-          moduleHref={moduleHref}
-          {...(subPath && subPath.length > 0 ? { subPath } : {})}
-        />
+      <div className={`dc-detail-host dc-live-module dc-live-module--${screen}`} data-dc-screen={screen}>
+        <DcSoftLockPanel title={title} href="/dashboard" />
       </div>
     </DcScreenProvider>
   )

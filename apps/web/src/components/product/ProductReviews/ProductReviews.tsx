@@ -182,10 +182,15 @@ export function ProductReviews({
   const triggerEyebrow = 'গ্রাহক রিভিউ · Customer Reviews'
   const triggerTitle =
     displayCount > 0 ? 'Trusted by our community' : 'Fit, fabric & feel'
+  // With no reviews yet the old line read "none yet for this piece", which
+  // announced the missing social proof instead of the section's remaining
+  // purpose. Hiding the block outright — the obvious alternative — would also
+  // hide the write-a-review form inside it, so a product with no reviews could
+  // never get its first. Invite instead of apologise.
   const triggerHint =
     displayCount > 0
       ? `${displayRating.toFixed(1)} · ${displayCount} review${displayCount === 1 ? '' : 's'}`
-      : 'Honest notes from real orders — none yet for this piece'
+      : 'Bought this? Tell the next shopper how it fits'
   const triggerAriaLabel = `${triggerEyebrow}. ${triggerTitle}. ${triggerHint}`
   const formTitle = isLoggedIn
     ? 'রিভিউ লিখুন · Write a review'

@@ -23,35 +23,15 @@ export function SectionPageHeader({
   badge?: string
 }) {
   return (
-    <div className="settings-page-header">
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '1rem' }}>
+    <div className="settings-page-header settings-page-header--dc">
+      <div className="settings-page-header__row">
         <div className="settings-page-header__icon">{icon}</div>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <h2
-              style={{
-                fontSize: '1.125rem',
-                fontWeight: 900,
-                letterSpacing: '-0.02em',
-                color: 'var(--admin-text-strong)',
-                lineHeight: 1.2,
-              }}
-            >
-              {title}
-            </h2>
+        <div className="settings-page-header__copy">
+          <div className="settings-page-header__title-row">
+            <h2 className="settings-page-header__title">{title}</h2>
             {badge ? <span className="settings-eyebrow-badge">{badge}</span> : null}
           </div>
-          <p
-            style={{
-              marginTop: '0.25rem',
-              fontSize: '0.8125rem',
-              fontWeight: 500,
-              color: 'var(--admin-text-muted)',
-              lineHeight: 1.5,
-            }}
-          >
-            {subtitle}
-          </p>
+          <p className="settings-page-header__subtitle">{subtitle}</p>
         </div>
       </div>
     </div>
@@ -105,9 +85,10 @@ export function SectionCard({
   id?: string
 }) {
   return (
-    <section id={id} className="settings-section-card settings-card">
-      <span className="settings-section-card__shine" aria-hidden />
-      {accent ? <span className="settings-section-card__accent" aria-hidden /> : null}
+    <section
+      id={id}
+      className={cn('settings-section-card settings-card', accent && 'settings-section-card--accent')}
+    >
       <div className="settings-section-card__body">
         <div className="settings-section-card__title">
           <h3 className="settings-section-card__heading">{title}</h3>

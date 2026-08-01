@@ -78,6 +78,24 @@ run('pnpm', ['--filter', '@splaro/api', 'lint'])
 run('node', ['scripts/db-run.mjs', 'migrate', 'deploy'], {
   label: 'prisma migrate deploy',
 })
+run(
+  'npx',
+  [
+    'prisma',
+    'migrate',
+    'diff',
+    '--from-url',
+    CI_ENV.DATABASE_URL,
+    '--to-schema-datamodel',
+    'prisma/schema.prisma',
+    '--exit-code',
+  ],
+  {
+    label: 'prisma schema drift check',
+    cwd: resolve(ROOT, 'packages/database'),
+    env: CI_ENV,
+  },
+)
 
 // next build overwrites apps/*/.next — stop next dev first or chunks go missing (./899.js)
 async function stopNextDevBeforeBuild() {

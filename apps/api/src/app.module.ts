@@ -16,6 +16,7 @@ import { validateEnv } from './common/config/env.validation'
 import { PrismaService } from './common/prisma.service'
 import { FinanceAuditService } from './common/finance-audit.service'
 import { RedisService } from './common/redis.service'
+import { PresenceService } from './common/presence.service'
 import { CacheService } from './common/cache.service'
 import { RequestIdMiddleware } from './common/request-id.middleware'
 
@@ -43,6 +44,7 @@ import { SslCommerzService } from './modules/payments/sslcommerz.service'
 import { PaymentConfirmationService } from './modules/payments/payment-confirmation.service'
 import { StockReservationService } from './modules/payments/stock-reservation.service'
 import { NotificationsService } from './modules/notifications/notifications.service'
+import { StockAlertsCron } from './modules/notifications/stock-alerts.cron'
 import { AdminTelegramHubService } from './modules/notifications/admin-telegram-hub.service'
 import { OrderNotificationsService } from './modules/notifications/order-notifications.service'
 import { OrderEventsService } from './modules/orders/order-events.service'
@@ -147,6 +149,7 @@ import { AgentLoopService } from './modules/agent/agent-loop.service'
 import { AgentAuditService } from './modules/agent/agent-audit.service'
 import { AgentConfirmationsService } from './modules/agent/agent-confirmations.service'
 import { AgentCostService } from './modules/agent/agent-cost.service'
+import { SeoDailyBriefCron } from './modules/agent/seo-daily-brief.cron'
 import { PromptManager } from './modules/agent/prompts/prompt.manager'
 import { ConversationStore } from './modules/agent/memory/conversation.store'
 import { ModelRouter } from './modules/agent/providers/model-router'
@@ -295,6 +298,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     FinanceAuditService,
     RedisService,
     CacheService,
+    PresenceService,
     AdminSessionResolver,
     MetaCapiService,
     DashboardService,
@@ -321,6 +325,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     ProductAdvancedService,
     ProductPublishCron,
     NotificationsService,
+    StockAlertsCron,
     AdminTelegramHubService,
     OrderNotificationsService,
     OrderEventsService,
@@ -373,6 +378,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     AgentAuditService,
     AgentConfirmationsService,
     AgentCostService,
+    SeoDailyBriefCron,
     PromptManager,
     ConversationStore,
     AgentDiagnosticsService,

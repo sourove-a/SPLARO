@@ -194,7 +194,7 @@ export function InvoiceActionsBar({
         ) : null}
         <AdminButton
           size="sm"
-          variant="gold"
+          variant="accent"
           disabled={busy !== null}
           loading={busy === 'email'}
           onClick={() => void run('email', sendEmail)}

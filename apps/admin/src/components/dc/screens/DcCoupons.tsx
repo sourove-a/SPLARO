@@ -13,6 +13,11 @@ import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
 import {
+  verifyBooleanEquals,
+  verifyDeleteSuccess,
+  verifyStringEquals,
+} from '@/lib/admin/mutation-verify'
+import {
   createCoupon,
   deleteCoupon,
   fetchCoupons,
@@ -230,12 +235,14 @@ function DcCouponsBody() {
       },
       {
         onSuccess: (res) => {
+          if (!verifyStringEquals(res.coupon.code, code, 'Coupon code')) return
+          if (!verifyBooleanEquals(res.coupon.isActive, true, 'Coupon active state')) return
           setNewOpen(false)
           setForm(EMPTY_FORM)
           toast(
             'ok',
-            `${res.coupon.code} is live`,
-            'It works at checkout right now. Switch it off here to stop it.',
+            `${res.coupon.code} saved and active`,
+            'Server confirmed checkout eligibility. Switch it off here to stop it.',
           )
         },
         onError: (err) =>
@@ -252,14 +259,15 @@ function DcCouponsBody() {
     toggle.mutate(
       { id: c.id, isActive: next },
       {
-        onSuccess: () => {
+        onSuccess: (res) => {
+          if (!verifyBooleanEquals(res.coupon.isActive, next, 'Coupon active state')) return
           setConfirmOff(null)
           toast(
             'ok',
-            `${c.code} is now ${next ? 'live' : 'switched off'}`,
+            `${c.code} is now ${next ? 'active' : 'switched off'}`,
             next
-              ? 'Customers can use it at checkout immediately.'
-              : 'Checkout will reject it from now on.',
+              ? 'Server confirmed checkout eligibility.'
+              : 'Server confirmed checkout will reject new attempts.',
           )
         },
         onError: (err) => {
@@ -794,10 +802,11 @@ function DcCouponsBody() {
         onConfirm={() =>
           confirmDelete &&
           remove.mutate(confirmDelete.id, {
-            onSuccess: () => {
+            onSuccess: (res) => {
+              if (!verifyDeleteSuccess(res)) return
               const code = confirmDelete.code
               setConfirmDelete(null)
-              toast('ok', `${code} deleted`, 'The code no longer exists at checkout.')
+              toast('ok', `${code} deleted`, 'Server confirmed the coupon was removed.')
             },
             onError: (err) => {
               setConfirmDelete(null)

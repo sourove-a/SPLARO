@@ -13,7 +13,6 @@ import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/
 import { useInventoryAlerts, useProducts } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { AdminButton } from '@/components/ui/AdminButton'
-import { DecisionCard } from '@/components/ui/AdminHandoffBlocks'
 import type { ApiProduct } from '@/lib/api/products'
 
 const card = {
@@ -257,32 +256,57 @@ function DcInventoryBody() {
                 }}
               >
                 {publishedOut.slice(0, 8).map((p) => (
-                  <DecisionCard
+                  <div
                     key={p.id}
-                    tone="bad"
-                    title={p.name}
-                    sku={p.sku ?? p.id}
-                    badge="Out of stock · still live"
-                    decision="Restock or unpublish"
-                    deadline="today"
-                    stats={[
-                      { label: 'On hand', value: '0' },
-                      {
-                        label: 'Variants',
-                        value: p._count?.variants ?? p.variants?.length ?? 0,
-                      },
-                      { label: 'Price', value: formatTaka(Number(p.basePrice || 0)) },
-                    ]}
-                    why="Leaving it published keeps the product page indexed but unbuyable."
-                    actions={
-                      <AdminButton
-                        variant="primary"
-                        onClick={() => router.push(`/dashboard/products/${p.id}/edit`)}
+                    style={{
+                      ...card,
+                      padding: 14,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 10,
+                      borderColor: 'var(--bad-bd, var(--line))',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ font: `600 13px/1.2 ${FONT}`, color: 'var(--ink)', flex: 1 }}>
+                        {p.name}
+                      </span>
+                      <span
+                        style={{
+                          padding: '3px 7px',
+                          borderRadius: 6,
+                          font: `600 10.5px/1 ${FONT}`,
+                          background: 'var(--bad-soft, var(--surface-2))',
+                          color: 'var(--bad)',
+                        }}
                       >
-                        Open product
-                      </AdminButton>
-                    }
-                  />
+                        Out of stock · still live
+                      </span>
+                    </div>
+                    <span style={{ font: `500 11.5px/1 ${MONO}`, color: 'var(--ink-3)' }}>
+                      {p.sku ?? p.id} · {formatTaka(Number(p.basePrice || 0))}
+                    </span>
+                    <p style={{ font: `400 12px/1.4 ${FONT}`, color: 'var(--ink-2)' }}>
+                      Restock or unpublish — leaving it live keeps the page indexed but unbuyable.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/dashboard/products/${p.id}/edit`)}
+                      style={{
+                        alignSelf: 'flex-start',
+                        height: 32,
+                        padding: '0 12px',
+                        borderRadius: 8,
+                        border: 0,
+                        background: 'var(--violet-solid)',
+                        color: 'var(--on-violet)',
+                        font: `600 12px/1 ${FONT}`,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Open product
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>

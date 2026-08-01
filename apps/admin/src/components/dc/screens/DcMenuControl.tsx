@@ -17,6 +17,7 @@ import type { CategoryTreeNode } from '@/lib/api/categories'
 import { useCategoryTree, useSettings, useUpdateSettings } from '@/lib/api/hooks'
 import type { DepartmentMenuOverride, NavLink } from '@/lib/api/settings'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { verifySettingsApplied } from '@/lib/admin/settings-save'
 
 const card = {
   border: '1px solid var(--line)',
@@ -111,17 +112,25 @@ function DcMenuControlBody() {
 
   const runSave = () => {
     if (!draft) return
-    update.mutate(
-      {
-        navigation: {
-          headerNav: draft.headerNav,
-          footerGroups: settings.data?.navigation?.footerGroups ?? [],
-        },
-        menuOverrides: { autoSync: draft.autoSync, departments: draft.departments },
+    const settingsPatch = {
+      navigation: {
+        headerNav: draft.headerNav,
+        footerGroups: settings.data?.navigation?.footerGroups ?? [],
       },
+      menuOverrides: { autoSync: draft.autoSync, departments: draft.departments },
+    }
+    update.mutate(
+      settingsPatch,
       {
-        onSuccess: () =>
-          toast('ok', 'Saved and verified', 'The storefront menu reads this order now.'),
+        onSuccess: (saved) => {
+          const verified = verifySettingsApplied(settingsPatch, saved)
+          if (!verified.ok) {
+            toast('bad', 'Save not verified', verified.reason)
+            void settings.refetch()
+            return
+          }
+          toast('ok', 'Saved and verified', 'The storefront menu reads this order now.')
+        },
         onError: (err) =>
           toast(
             'bad',

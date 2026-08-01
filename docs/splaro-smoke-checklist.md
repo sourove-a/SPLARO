@@ -24,6 +24,9 @@ Run before push/deploy.
 - `/shop` bottom to product click opens PDP at top, not footer.
 - PDP size, color, quantity, add-to-bag controls do not move on press.
 - Mobile `390x844`: nav, chat, sticky CTA, cart drawer do not overlap.
+- ILYN size pills: idle glass/black text; selected black/white; no hover/press jump.
+- `prefers-reduced-motion: reduce`: hero autoplay/progress/video warm-up and marquee stay stopped.
+- Presence concurrency does not return false `502`; BFF preserves upstream status.
 
 ## Checkout
 
@@ -31,6 +34,8 @@ Run before push/deploy.
 - Delivery charge recalculates from district/zone.
 - COD path reaches order confirmation.
 - Online payment sandbox shows honest pending/failed/paid state.
+- Mobile keyboard open on final address field: Place order stays visible and submits on one tap.
+- Closing keyboard does not leave sticky action floating above viewport.
 
 ## Scroll Pass (owner final — 2026-07-21)
 
@@ -43,6 +48,18 @@ Run before push/deploy.
 ### Windows Pass
 - Windows Chrome uses **native** scroll only.
 - No Lenis class remains on `html`.
-- No hero video on Windows.
+- Hardware-accelerated Windows uses lightweight hero video when configured.
+- RDP/software rendering/reduced-motion/video failure shows poster without freezing slider.
 - Product grid hover/click uses opacity only.
 - Slider advances automatically after touch/pointer interaction.
+- Menu/modal close releases scroll lock and restores native wheel.
+
+## External launch gates
+
+- Real Windows Chrome pass completed on owner PC.
+- Firefox and WebKit core journeys pass.
+- Real Google/OTP/payment callback/courier staging journeys pass without simulated success.
+- Local Google test: register both loopback origins, set
+  `NEXT_PUBLIC_GOOGLE_OAUTH_LOCAL_ENABLED=true`, rebuild, then verify GIS popup.
+- Production secrets rotated; sessions reissued; encrypted integrations re-saved.
+- CI secret scan passes; deploy and production smoke complete only after explicit owner permission.

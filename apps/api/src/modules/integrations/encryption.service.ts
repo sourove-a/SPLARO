@@ -4,6 +4,11 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypt
 @Injectable()
 export class EncryptionService implements OnModuleInit {
   private key!: Buffer
+  private previousKey?: Buffer
+
+  private deriveKey(raw: string): Buffer {
+    return scryptSync(raw, 'splaro-integration-v1', 32)
+  }
 
   onModuleInit() {
     const raw = process.env['ENCRYPTION_KEY']?.trim()
@@ -12,7 +17,13 @@ export class EncryptionService implements OnModuleInit {
         'ENCRYPTION_KEY is required (minimum 32 characters). Add it to .env before starting the API.',
       )
     }
-    this.key = scryptSync(raw, 'splaro-integration-v1', 32)
+    this.key = this.deriveKey(raw)
+
+    const previous = process.env['ENCRYPTION_KEY_PREVIOUS']?.trim()
+    if (previous && previous.length < 32) {
+      throw new Error('ENCRYPTION_KEY_PREVIOUS must be at least 32 characters when set.')
+    }
+    this.previousKey = previous ? this.deriveKey(previous) : undefined
   }
 
   encrypt(plain: string): string {
@@ -27,12 +38,21 @@ export class EncryptionService implements OnModuleInit {
     if (!stored.startsWith('enc:')) return stored
     const [, ivB, tagB, dataB] = stored.split(':')
     if (!ivB || !tagB || !dataB) throw new Error('Invalid encrypted payload')
-    const decipher = createDecipheriv('aes-256-gcm', this.key, Buffer.from(ivB, 'base64'))
-    decipher.setAuthTag(Buffer.from(tagB, 'base64'))
-    return Buffer.concat([
-      decipher.update(Buffer.from(dataB, 'base64')),
-      decipher.final(),
-    ]).toString('utf8')
+    const decryptWith = (key: Buffer) => {
+      const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(ivB, 'base64'))
+      decipher.setAuthTag(Buffer.from(tagB, 'base64'))
+      return Buffer.concat([
+        decipher.update(Buffer.from(dataB, 'base64')),
+        decipher.final(),
+      ]).toString('utf8')
+    }
+
+    try {
+      return decryptWith(this.key)
+    } catch (error) {
+      if (!this.previousKey) throw error
+      return decryptWith(this.previousKey)
+    }
   }
 
   mask(secret: string | null | undefined): string | null {

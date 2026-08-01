@@ -135,7 +135,11 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
     return map
   }, [open])
 
-  const pageStatus = dcPageStatus([proc], api.pulse)
+  const connectionStatus = dcPageStatus([proc], api.pulse)
+  const pageStatus =
+    connectionStatus.label === 'LIVE'
+      ? { label: 'BETA' as const, tone: 'warn' as const }
+      : connectionStatus
   const poTotal = poForm.lines.reduce(
     (s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitCost) || 0),
     0,

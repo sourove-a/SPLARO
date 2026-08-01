@@ -17,7 +17,7 @@ echo "[deploy] install..."
 pnpm install --frozen-lockfile --prod=false --ignore-scripts
 
 echo "[deploy] prisma..."
-(cd packages/database && npx prisma generate && npx prisma db push)
+(cd packages/database && npx prisma generate && npx prisma migrate deploy)
 
 echo "[deploy] build packages + api..."
 cd "$APP"

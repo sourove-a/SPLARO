@@ -275,9 +275,9 @@ function DcAutomationRulesBody() {
             active={active}
             total={rows.length}
             runs={stats.data?.totalRuns ?? rows.reduce((sum, row) => sum + row.runCount, 0)}
-            actions={stats.data?.successCount ?? 0}
-            failures={stats.data?.failCount ?? 0}
-            successRate={stats.data?.successRate ?? 100}
+            actions={stats.data?.successCount ?? null}
+            failures={stats.data?.failCount ?? null}
+            successRate={stats.data?.successRate ?? null}
           />
 
           <div
@@ -348,16 +348,26 @@ function AutomationKpis({
   active: number
   total: number
   runs: number
-  actions: number
-  failures: number
-  successRate: number
+  actions: number | null
+  failures: number | null
+  successRate: number | null
 }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(185px, 1fr))', gap: 12 }}>
       <Kpi label="Rules active" value={String(active)} sub={`of ${total} defined`} tone="vio" />
       <Kpi label="Total runs" value={String(runs)} sub="worker execution log" tone="info" />
-      <Kpi label="Actions completed" value={String(actions)} sub={`${successRate}% success rate`} tone="ok" />
-      <Kpi label="Failures recorded" value={String(failures)} sub="all retained in log" tone={failures ? 'warn' : 'ok'} />
+      <Kpi
+        label="Actions completed"
+        value={actions == null ? '—' : String(actions)}
+        sub={successRate == null ? 'stats unavailable' : `${successRate}% success rate`}
+        tone={actions == null ? 'mute' : 'ok'}
+      />
+      <Kpi
+        label="Failures recorded"
+        value={failures == null ? '—' : String(failures)}
+        sub={failures == null ? 'stats unavailable' : 'all retained in log'}
+        tone={failures == null ? 'mute' : failures ? 'warn' : 'ok'}
+      />
     </div>
   )
 }

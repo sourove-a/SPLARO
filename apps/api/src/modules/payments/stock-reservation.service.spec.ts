@@ -38,6 +38,44 @@ describe('StockReservationService', () => {
     )
   })
 
+  it('allows COD oversell only when product policy already permitted it', async () => {
+    const update = jest.fn().mockResolvedValue({ id: 'v1', stock: -2 })
+    const tx = {
+      productVariant: { update },
+      $executeRaw: jest.fn(),
+    } as unknown as Prisma.TransactionClient
+
+    await service.decrementCodStock(tx, [
+      { variantId: 'v1', quantity: 2, name: 'Preorder dress', allowOversell: true },
+    ])
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'v1' },
+      data: { stock: { decrement: 2 } },
+    })
+    expect((tx as unknown as { $executeRaw: jest.Mock }).$executeRaw).not.toHaveBeenCalled()
+  })
+
+  it('reserves an oversell line without stock gate', async () => {
+    const update = jest.fn().mockResolvedValue({ id: 'v1', reservedStock: 3 })
+    const create = jest.fn().mockResolvedValue({ id: 'reservation-1' })
+    const tx = {
+      productVariant: { update },
+      stockReservation: { create },
+      $executeRaw: jest.fn(),
+    } as unknown as Prisma.TransactionClient
+
+    await service.createReservation(tx, 'order-1', [
+      { variantId: 'v1', quantity: 3, name: 'Preorder dress', allowOversell: true },
+    ])
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'v1' },
+      data: { reservedStock: { increment: 3 } },
+    })
+    expect(create).toHaveBeenCalled()
+  })
+
   it('does not consume an expired reservation', async () => {
     const tx = {
       stockReservation: {

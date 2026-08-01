@@ -150,7 +150,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     group: 'Finance',
     items: [
       item('Finance Overview', 'finance/finance-reports', 'FileBarChart', 'Live finance overview & exports'),
-      item('Partner Hub', 'finance/partner-accounts', 'Users', 'Partner hisab, balance, investment & withdrawal'),
+      item('Partner Hub', 'finance/partner-accounts', 'Handshake', 'Partner hisab, balance, investment & withdrawal'),
       item('Expenses', 'finance/expenses', 'Receipt', 'Ke kothay koto khoroch — approval workflow'),
       item('Investments', 'finance/investments', 'PiggyBank', 'Partner capital investment'),
       item('Withdrawals', 'finance/withdrawals', 'Banknote', 'Partner withdrawal ledger'),
@@ -199,7 +199,6 @@ export const adminNavGroups: AdminNavGroup[] = [
     group: 'Automation',
     items: [
       item('Telegram Notifications', 'automation/telegram-notifications', 'Send', 'Business notification center'),
-      item('Google Sheets Sync', 'automation/google-sheets-sync', 'RefreshCw', 'Auto & manual sheet sync'),
       item('Automation Rules', 'automation-rules', 'Zap', 'Workflow automation and triggers'),
       item('AI Product Agent', 'automation/ai-product-agent', 'Wand2', 'AI product listing generator'),
       item('AI SEO Agent', 'automation/ai-seo-agent', 'Globe', 'AI SEO meta & keywords'),
@@ -340,7 +339,6 @@ export const adminNavGroups: AdminNavGroup[] = [
     group: 'System',
     items: [
       item('Settings', 'settings', 'Settings', 'Global store and platform settings'),
-      item('Export Center', 'executive/export-center', 'Download', 'Orders, customers & products CSV export'),
       item('Sync Logs', 'system/sync-logs', 'RefreshCw', 'Google Sheets sync history'),
       item('Telegram Logs', 'system/telegram-logs', 'MessageSquare', 'Bot command & notification logs'),
       item('Finance Audit Logs', 'system/finance-audit-logs', 'ScrollText', 'Sensitive finance change trail'),
@@ -397,13 +395,14 @@ export const NAV_HIDDEN_HREFS = new Set<string>([
   '/dashboard/observability/center',
   '/dashboard/observability/disaster-recovery',
   '/dashboard/social-commerce/hub',
-  // WMS detail routes stay secondary; Warehouse & Stock overview is in primary design nav
+  // WMS / Procurement remain URL-reachable but beta-locked for launch
+  '/dashboard/wms/overview',
   '/dashboard/wms/warehouses',
   '/dashboard/wms/stock-movements',
   '/dashboard/wms/transfers',
   '/dashboard/procurement/overview',
   '/dashboard/procurement/suppliers',
-  // Purchase Orders stays visible in handoff Operations nav
+  '/dashboard/procurement/purchase-orders',
   '/dashboard/procurement/goods-received',
   '/dashboard/production/overview',
   '/dashboard/production/fabric-inventory',

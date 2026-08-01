@@ -1,5 +1,0 @@
-export { CatalogModulePanel } from '@/components/modules/CatalogModulePanel'
-export { ProductCreatePanel } from '@/components/modules/ProductCreatePanel'
-export { ProductEditPanel } from '@/components/modules/ProductEditPanel'
-export { LiveProductCodesPanel } from '@/components/modules/LiveProductCodesPanel'
-export { LiveCategoriesPanel } from '@/components/modules/LiveCategoriesPanel'

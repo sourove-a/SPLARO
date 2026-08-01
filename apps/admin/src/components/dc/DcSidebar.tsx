@@ -22,6 +22,7 @@ export interface DcSidebarUser {
   name: string
   role: string
   initials: string
+  email?: string
 }
 
 export interface DcSidebarProps {
@@ -31,6 +32,8 @@ export interface DcSidebarProps {
   onToggleCollapsed: () => void
   user: DcSidebarUser
   onSignOut?: (() => void) | undefined
+  /** Opens admin profile (details, IP, password). Prefer over immediate sign-out. */
+  onOpenProfile?: (() => void) | undefined
 }
 
 interface Row {
@@ -108,6 +111,7 @@ export function DcSidebar({
   onToggleCollapsed,
   user,
   onSignOut,
+  onOpenProfile,
 }: DcSidebarProps) {
   const [query, setQuery] = useState('')
 
@@ -477,8 +481,9 @@ export function DcSidebar({
       <div style={{ flex: 'none', borderTop: '1px solid var(--line)', padding: '9px 10px' }}>
         <button
           type="button"
-          onClick={onSignOut}
+          onClick={() => (onOpenProfile ? onOpenProfile() : onSignOut?.())}
           className="dc-hover-surface"
+          title="Open profile"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -533,7 +538,7 @@ export function DcSidebar({
                   {user.role}
                 </span>
               </span>
-              <DcIcon name="icon-log-out" size={14} color="var(--ink-3)" />
+              <DcIcon name="icon-user" size={14} color="var(--ink-3)" />
             </>
           ) : null}
         </button>

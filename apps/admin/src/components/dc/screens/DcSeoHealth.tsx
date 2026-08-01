@@ -151,6 +151,22 @@ function DcSeoHealthBody() {
       ) : (
         <>
           <ScoreOverview data={data} needsMeta={needsMeta} />
+          {!data.searchConsole.connected ? (
+            <section
+              style={{
+                ...card,
+                marginTop: 12,
+                padding: '12px 14px',
+                borderColor: 'var(--warn-bd)',
+                background: 'var(--warn-soft)',
+                color: 'var(--warn)',
+                font: `500 11.5px/1.45 ${FONT}`,
+              }}
+            >
+              <strong>Search Console disconnected.</strong> {data.searchConsole.message} Daily targets use
+              catalog metadata and onsite searches only; no product is changed automatically.
+            </section>
+          ) : null}
           <div
             style={{
               display: 'flex',
@@ -428,9 +444,9 @@ function TechnicalChecks({ data }: { data: SeoOverview }) {
     },
     {
       icon: 'icon-globe',
-      label: 'Index readiness',
-      sub: `${data.indexPages.length} catalog URLs monitored`,
-      value: data.indexPages.length ? 'LIVE' : 'EMPTY',
+      label: 'Metadata readiness',
+      sub: `${data.indexPages.length} catalog URLs checked locally`,
+      value: data.indexPages.length ? 'READY' : 'EMPTY',
       ok: data.indexPages.length > 0,
     },
     {
@@ -446,6 +462,13 @@ function TechnicalChecks({ data }: { data: SeoOverview }) {
       sub: `${data.keywords.length} storefront queries tracked`,
       value: data.keywords.length ? 'LIVE' : 'WAITING',
       ok: data.keywords.length > 0,
+    },
+    {
+      icon: 'icon-globe',
+      label: 'Google ranking',
+      sub: data.searchConsole.message,
+      value: data.searchConsole.connected ? 'CONNECTED' : 'DISCONNECTED',
+      ok: data.searchConsole.connected,
     },
   ]
 

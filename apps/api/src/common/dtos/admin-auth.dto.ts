@@ -68,3 +68,13 @@ export class AdminAcceptInviteDto {
   @IsString()
   firstName?: string
 }
+
+export class AdminChangePasswordDto {
+  @IsString()
+  @MinLength(8, { message: 'Current password required' })
+  currentPassword!: string
+
+  @IsString()
+  @MinLength(8, { message: 'New password must be at least 8 characters' })
+  newPassword!: string
+}

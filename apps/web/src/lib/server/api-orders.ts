@@ -305,57 +305,29 @@ export async function fetchOrdersViaApi(phone: string): Promise<StoredOrder[]> {
 
 export async function fetchOrderByIdViaApi(
   orderId: string,
-  options?: { accessKey?: string | null | undefined; phone?: string | null | undefined },
+  options?: {
+    accessKey?: string | null | undefined
+    phone?: string | null | undefined
+    sessionToken?: string | null | undefined
+    phoneAccessToken?: string | null | undefined
+  },
 ): Promise<StoredOrder | null> {
-  const base = getServerApiBaseUrl()
-
-  const fetchOne = async (id: string): Promise<StoredOrder | null> => {
-    try {
-      const res = await fetchWithTimeout(`${base}/admin/orders/${encodeURIComponent(id)}`, {
-        headers: internalApiHeaders(),
-        cache: 'no-store',
-      })
-      if (!res || !res.ok) return null
-      const order = (await res.json()) as Parameters<typeof mapApiOrderToStored>[0]
-      return mapApiOrderToStored(order)
-    } catch {
-      return null
-    }
-  }
-
-  const direct = await fetchOne(orderId)
-  if (direct) return direct
-
-  if (orderId.includes('-')) {
-    try {
-      const res = await fetchWithTimeout(
-        `${base}/admin/orders?storeId=${encodeURIComponent(STORE_ID)}&search=${encodeURIComponent(orderId)}&limit=1`,
-        { headers: internalApiHeaders(), cache: 'no-store' },
-      )
-      if (res?.ok) {
-        const payload = (await res.json()) as {
-          orders?: Parameters<typeof mapApiOrderToStored>[0][]
-        }
-        const match = payload.orders?.find(
-          (order) => order.id === orderId || order.invoiceNumber === orderId,
-        )
-        if (match) return mapApiOrderToStored(match)
-      }
-    } catch {
-      // fall through to storefront access lookup
-    }
-  }
-
+  // Customer BFF must never use admin/internal lookup — that bypasses Nest OTP/key gates.
   if (!options?.accessKey && !options?.phone) return null
 
+  const base = getServerApiBaseUrl()
   const params = new URLSearchParams({ storeId: STORE_ID })
   if (options.accessKey) params.set('key', options.accessKey)
   if (options.phone) params.set('phone', options.phone)
 
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (options.sessionToken) headers['x-splaro-session'] = options.sessionToken
+  if (options.phoneAccessToken) headers['x-splaro-phone-access'] = options.phoneAccessToken
+
   try {
     const res = await fetchWithTimeout(
       `${base}/storefront/orders/${encodeURIComponent(orderId)}?${params.toString()}`,
-      { cache: 'no-store' },
+      { headers, cache: 'no-store' },
     )
     if (!res || !res.ok) return null
     const payload = (await res.json()) as { order: Parameters<typeof mapApiOrderToStored>[0] }

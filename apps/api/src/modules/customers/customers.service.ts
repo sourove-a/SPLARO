@@ -223,4 +223,78 @@ export class CustomersService {
       throw err
     }
   }
+
+  /** Admin panel — create a customer without storefront signup (phone-only account). */
+  async createFromAdmin(
+    storeId: string,
+    input: { firstName: string; lastName?: string; phone: string; email?: string },
+  ) {
+    const phone = normalizeBdPhone(input.phone)
+    const firstName = input.firstName.trim()
+    const lastName = (input.lastName ?? '').trim() || firstName
+    const email = input.email?.trim() ? normalizeEmail(input.email) : null
+
+    if (!firstName) throw new BadRequestException('First name is required')
+    if (!isValidBdMobile(phone)) {
+      throw new BadRequestException('Enter a valid Bangladesh mobile number (01XXXXXXXXX)')
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const existingUser = await tx.user.findFirst({
+          where: {
+            OR: [
+              { phone: { in: bdPhoneLookupVariants(phone) } },
+              ...(email ? [{ email }] : []),
+            ],
+          },
+          select: { id: true, customer: { select: { id: true, storeId: true } } },
+        })
+
+        if (existingUser?.customer) {
+          if (existingUser.customer.storeId === storeId) {
+            throw new ConflictException('A customer with this phone or email already exists.')
+          }
+          return tx.customer.update({
+            where: { id: existingUser.customer.id },
+            data: { storeId, firstName, lastName, email, phone },
+          })
+        }
+        if (existingUser) {
+          throw new ConflictException('A user with this phone or email exists but has no customer profile.')
+        }
+
+        const user = await tx.user.create({
+          data: {
+            phone,
+            email,
+            firstName,
+            lastName,
+            role: 'CUSTOMER',
+            isActive: true,
+            authProvider: 'password',
+          },
+          select: { id: true },
+        })
+
+        return tx.customer.create({
+          data: {
+            userId: user.id,
+            storeId,
+            firstName,
+            lastName,
+            email,
+            phone,
+            tags: ['admin-created'],
+          },
+        })
+      })
+    } catch (err) {
+      if (err instanceof ConflictException || err instanceof BadRequestException) throw err
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException('A customer with this phone or email already exists.')
+      }
+      throw err
+    }
+  }
 }

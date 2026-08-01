@@ -52,6 +52,33 @@ export function fetchDashboardInsights(period: '1d' | '7d' | '30d' | '90d' = '7d
   return apiFetch<DashboardInsightsResponse>(`/admin/dashboard/insights?period=${period}`)
 }
 
+export interface RevenueSeriesResponse {
+  data: Array<{ date: string; revenue: number; orders: number }>
+  period: string
+  group: string
+}
+
+/**
+ * Day-by-day revenue straight off the orders table, zero-filled by the API so
+ * every day in the window has a bucket. Preferred over the profit-loss timeline
+ * for anything chart-shaped: that one is built from ProfitCalculation rows,
+ * which only exist once the costing job has run, so it is empty on most stores.
+ */
+export function fetchRevenueSeries(period: '7d' | '30d' | '90d' = '30d') {
+  return apiFetch<RevenueSeriesResponse>(
+    `/admin/analytics/revenue?period=${period}&group=day`,
+  )
+}
+
+export interface ConversionFunnelResponse {
+  period: string
+  steps: Array<{ label: string; count: number }>
+}
+
+export function fetchConversionFunnel(period: '1d' | '7d' | '30d' | '90d' = '30d') {
+  return apiFetch<ConversionFunnelResponse>(`/admin/analytics/funnel?period=${period}`)
+}
+
 export interface InventoryAlertsResponse {
   outOfStock: number
   lowStock: number
@@ -59,6 +86,26 @@ export interface InventoryAlertsResponse {
 
 export function fetchInventoryAlerts() {
   return apiFetch<InventoryAlertsResponse>('/admin/dashboard/inventory-alerts')
+}
+
+export interface DailyGoalResponse {
+  /** null when nobody has set a target — prompt for one, do not assume. */
+  goal: number | null
+  achieved: number
+  orders: number
+  percent: number | null
+  remaining: number | null
+}
+
+export function fetchDailyGoal() {
+  return apiFetch<DailyGoalResponse>('/admin/dashboard/daily-goal')
+}
+
+export function saveDailyGoal(goal: number | null) {
+  return apiFetch<{ goal: number | null }>('/admin/dashboard/daily-goal', {
+    method: 'POST',
+    body: JSON.stringify({ goal }),
+  })
 }
 
 export interface ActionRequiredResponse {

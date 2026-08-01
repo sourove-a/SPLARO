@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
+import { ArrowRight } from 'lucide-react'
+import { useReducedMotion } from '@/lib/motion/react'
 import Link from 'next/link'
 import type { HeroBanner } from '@/lib/api/banners'
 import { LiquidGlassNavButton } from '@/components/ui/LiquidGlass/LiquidGlassNavButton'
@@ -9,6 +11,7 @@ import { cn } from '@/lib/utils/cn'
 import { HERO_DEFAULT_SLIDES, HERO_DEFAULT_VIDEO } from '@splaro/config'
 import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import { preferLocalHeroSrc, resolveLocalHeroVariants } from '@/lib/assets/hero-cdn'
+import { isSoftwareRenderer, isWindowsOS } from '@/lib/earth/globe-performance'
 import { useMobileViewport, isMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 
 const SLIDE_DURATION_MS = 7500
@@ -111,13 +114,14 @@ function normalizeHeroVideoUrl(url: string): { video: string; videoMobile?: stri
   return mobile ? { video, videoMobile: mobile } : { video }
 }
 
-/** Ordered renditions to try on mobile before falling back to poster. */
-function heroVideoSources(slide: HeroSlide, mobile: boolean): string[] {
+/** Ordered lightweight-first renditions for mobile and Windows video decode. */
+function heroVideoSources(slide: HeroSlide, mobile: boolean, lightweight = false): string[] {
   const urls: string[] = []
-  if (mobile && slide.videoMobile?.trim()) urls.push(slide.videoMobile.trim())
+  const preferLightweight = mobile || lightweight
+  if (preferLightweight && slide.videoMobile?.trim()) urls.push(slide.videoMobile.trim())
   if (slide.video?.trim()) {
     const normalized = normalizeHeroVideoUrl(slide.video.trim())
-    if (mobile && normalized.videoMobile) urls.push(normalized.videoMobile)
+    if (preferLightweight && normalized.videoMobile) urls.push(normalized.videoMobile)
     urls.push(normalized.video)
   }
   return [...new Set(urls.filter(Boolean))]
@@ -209,15 +213,19 @@ function useAllowHeroVideo(): boolean {
       const slowLink = conn?.effectiveType === '2g' || conn?.effectiveType === 'slow-2g'
       /** Low-power / save-data lite profile — images only. Re-check when data-perf flips. */
       const lite = document.documentElement.getAttribute('data-perf') === 'lite'
-      // Any Windows UA: images only — never decode Pexels next to slider RAF (incl. touch / narrow).
-      const isWin = /Windows/i.test(navigator.userAgent || '')
+      const isWin = isWindowsOS()
+      // Software rendering/RDP cannot decode + composite hero video reliably.
+      const softwareRenderer = isSoftwareRenderer()
       // GlobalDeviceUx sets data-perf=lite for all touch UIs — that must NOT kill hero video.
-      // Mobile/tablet still play via SD chain (heroVideoSources); only save-data / 2G / Windows stay off.
+      // Mobile/tablet/Windows play via lightweight chain; save-data, 2G, or software rendering stay off.
       const isTouchUi =
         window.matchMedia('(max-width: 1023px)').matches ||
         window.matchMedia('(pointer: coarse)').matches
-      const liteBlocksVideo = lite && !isTouchUi
-      setAllow(!saveData && !slowLink && !liteBlocksVideo && !isWin)
+      // Windows boot uses the lite paint profile for glass/scroll safety. That
+      // profile must not disable video on hardware-accelerated Windows; Windows
+      // receives the 540p rendition below instead of the 12.8MB HD source.
+      const liteBlocksVideo = lite && !isTouchUi && !isWin
+      setAllow(!saveData && !slowLink && !liteBlocksVideo && !softwareRenderer)
     }
 
     sync()
@@ -375,9 +383,10 @@ function HeroBackground({
   const isMobile = useMobileViewport()
   const mounted = useMounted()
   const mobileActive = mounted && isMobile
+  const windowsActive = mounted && isWindowsOS()
   const sourceChain = useMemo(
-    () => heroVideoSources(slide, mobileActive),
-    [slide, mobileActive],
+    () => heroVideoSources(slide, mobileActive, windowsActive),
+    [slide, mobileActive, windowsActive],
   )
   const videoSrc = sourceChain[sourceIndex]
   const poster =
@@ -502,6 +511,7 @@ function HeroBackground({
 }
 
 export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
+  const reducedMotion = useReducedMotion() === true
   const slides = useMemo(() => initialBanners.map(mapBannerToSlide), [initialBanners])
   const slidesSignature = useMemo(() => slides.map((s) => s.id).join('|'), [slides])
 
@@ -538,12 +548,18 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
 
   const resetAutoplayTimer = useCallback(() => {
     clearAutoplayTimer()
-    if (!HERO_AUTOPLAY_ENABLED || paused || !sliderActive || slides.length <= 1) return
+    if (
+      !HERO_AUTOPLAY_ENABLED ||
+      reducedMotion ||
+      paused ||
+      !sliderActive ||
+      slides.length <= 1
+    ) return
     // Single timeout (not interval) — restarts cleanly after manual next/prev/dot.
     autoplayTimeoutRef.current = window.setTimeout(() => {
       transitionToRef.current((indexRef.current + 1) % slides.length)
     }, SLIDE_DURATION_MS)
-  }, [clearAutoplayTimer, paused, sliderActive, slides.length])
+  }, [clearAutoplayTimer, paused, reducedMotion, sliderActive, slides.length])
 
   const transitionTo = useCallback(
     (next: number) => {
@@ -628,19 +644,18 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
     // Eager: slide 0 + next only. Windows/lite skip idle-warm of the rest (see warmHeroSlideMedia).
     const eager = new Set([0, slides.length > 1 ? 1 : 0])
     warmHeroSlideMedia(slides, eager)
-    if (/Windows/i.test(navigator.userAgent || '')) return
     const first = slides[0]
     if (!first) return
-    const firstSources = heroVideoSources(first, isMobileViewport())
+    const firstSources = heroVideoSources(first, isMobileViewport(), isWindowsOS())
     const firstVideo = firstSources[0] ?? first.video ?? ''
-    if (firstVideo && allowVideo) warmHeroVideo(firstVideo)
-  }, [slidesSignature, slides, allowVideo])
+    if (firstVideo && allowVideo && !reducedMotion) warmHeroVideo(firstVideo)
+  }, [slidesSignature, slides, allowVideo, reducedMotion])
 
   useEffect(() => {
     if (!slides.length) return
     const nextIndex = (index + 1) % slides.length
     // Windows: images only for warm. Mobile/desktop: warm next video for instant advance.
-    if (/Windows/i.test(navigator.userAgent || '')) {
+    if (isWindowsOS()) {
       warmHeroSlideMedia(slides, new Set([index, nextIndex]))
       return
     }
@@ -649,8 +664,8 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
     if (!nextSlide) return
     const nextSources = heroVideoSources(nextSlide, isMobileViewport())
     const nextVideo = nextSources[0] ?? nextSlide.video ?? ''
-    if (nextVideo && allowVideo) warmHeroVideo(nextVideo)
-  }, [index, slides, allowVideo])
+    if (nextVideo && allowVideo && !reducedMotion) warmHeroVideo(nextVideo)
+  }, [index, slides, allowVideo, reducedMotion])
 
   useEffect(() => {
     setIndex(0)
@@ -789,7 +804,7 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
                       isActive={isActive}
                       playbackActive={isActive && sliderActive}
                       priority={slideIndex === 0}
-                      allowVideo={allowVideo}
+                      allowVideo={allowVideo && !reducedMotion}
                     />
                   </div>
                 </div>
@@ -805,6 +820,20 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
                     </p>
                   )}
                   <p className="hero-subtitle">{item.subtitle}</p>
+                  {/* The slide has carried a `primaryLabel` all along and never
+                      showed it, so the hero had no visible call to action —
+                      the whole panel was clickable but nothing said so. Drawn
+                      as a span, not a button: this sits inside the slide's
+                      own <Link>, and nesting a control inside an anchor is
+                      invalid and breaks keyboard order. */}
+                  {item.primaryLabel ? (
+                    <span className="hero-actions" aria-hidden>
+                      <span className="hero-cta">
+                        {item.primaryLabel}
+                        <ArrowRight className="hero-cta__arrow" size={16} strokeWidth={2} />
+                      </span>
+                    </span>
+                  ) : null}
                 </div>
               </Link>
             </article>

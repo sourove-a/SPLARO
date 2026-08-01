@@ -234,9 +234,10 @@ export class AdminHubService {
         id: `kw-${index}`,
         keyword,
         volume,
-        position: 0,
+        position: null,
         change: '—',
-        difficulty: Math.min(99, 20 + volume * 3),
+        difficulty: null,
+        signalSource: 'storefront_search' as const,
         status: volume > 5 ? 'good' : volume > 1 ? 'warning' : 'pending',
       }))
 
@@ -359,10 +360,15 @@ export class AdminHubService {
       sitemaps: sitemaps.map((s) => ({
         ...s,
         lastGen: new Date().toISOString(),
-        submitted: s.status === 'good' ? 'Google' : 'Pending',
+        submitted: 'Not submitted',
       })),
       redirects: allRedirects,
       productAudits,
+      searchConsole: {
+        connected: false,
+        status: 'not_connected',
+        message: 'Google ranking and crawl data unavailable until Search Console OAuth is connected.',
+      },
       summary: {
         avgScore,
         criticalErrors: productAudits.filter((p) => p.score < 50).length,
@@ -433,6 +439,7 @@ export class AdminHubService {
         subject: l.subject,
         body: l.body,
         status: l.status,
+        level: l.level,
         createdAt: l.createdAt.toISOString(),
       })),
       summary: {
@@ -440,6 +447,7 @@ export class AdminHubService {
         sent,
         failed,
         pending,
+        critical: logs.filter((l) => l.level === 'critical').length,
         deliveredRate: logs.length > 0 ? Math.round((sent / logs.length) * 1000) / 10 : 0,
       },
     }

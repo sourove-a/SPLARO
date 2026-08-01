@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useAuthGoogleBridge } from '@/components/auth/auth-google-bridge'
 import { useStorefrontAuthConfig } from '@/hooks/useStorefrontAuthConfig'
+import { useGoogleOAuthOriginEligibility } from '@/hooks/useGoogleOAuthOriginEligibility'
 
 const BAKED_GOOGLE =
   process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID?.trim() ||
@@ -25,6 +26,7 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
     useAuthGoogleBridge()
   const googleClientId = runtimeGoogleClientId || BAKED_GOOGLE
   const configured = Boolean(googleClientId)
+  const originEligible = useGoogleOAuthOriginEligibility()
 
   useEffect(() => {
     const host = googleHostRef.current
@@ -38,7 +40,7 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
     const observer = new ResizeObserver(updateWidth)
     observer.observe(host)
     return () => observer.disconnect()
-  }, [configured])
+  }, [configured, originEligible])
 
   const handleCredential = useCallback(
     (response: CredentialResponse) => {
@@ -55,6 +57,8 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
   // Hide ONLY when config confirms disabled AND no client id exists (baked or runtime).
   // Never unmount a visible button — flash-then-vanish is worse than a brief loading state.
   if (configLoaded && !googleSignInEnabled && !googleClientId) return null
+  // Local GIS stays fully unmounted until its origin is registered and explicitly enabled.
+  if (configured && originEligible !== true) return null
 
   return (
     <div

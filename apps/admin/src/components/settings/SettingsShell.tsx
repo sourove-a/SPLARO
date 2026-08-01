@@ -11,7 +11,7 @@ import { usePermission } from '@/lib/api/hooks'
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_OUR_STORY, mergeStoryDeckCards } from '@/lib/storefront/homepage-defaults'
 import type { AdminSettingsData } from '@/lib/api/settings'
 import { SettingsSidebar, type SettingsSection, isSettingsSection } from './SettingsSidebar'
-import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
+import { FONT, TONE } from '@/components/dc/tokens'
 import { GeneralSection } from './sections/GeneralSection'
 import { BrandingSection } from './sections/BrandingSection'
 import { ContactSection } from './sections/ContactSection'
@@ -47,7 +47,7 @@ export const EMPTY_SETTINGS: AdminSettingsData = {
   telegram: null,
 }
 
-export function SettingsShell({ chrome = true }: { chrome?: boolean } = {}) {
+export function SettingsShell() {
   const { data: apiData, isLoading, isError, refetch } = useSettings()
   const updateSettings = useUpdateSettings()
   const canEditSettings = usePermission('settings', 'edit')
@@ -207,76 +207,32 @@ export function SettingsShell({ chrome = true }: { chrome?: boolean } = {}) {
   const sharedProps = { draft, setDraft, save, saving, apiOnline: settingsLoaded && canEditSettings }
 
   return (
-    <div className="settings-layout settings-layout--advanced settings-shell" data-settings-shell>
-      {chrome ? (
-      <header className="settings-command-hero admin-catalog-hero admin-panel-hero !mb-0">
-        <div className="admin-catalog-hero__top !mb-0">
-          <div className="admin-catalog-hero__title-row">
-            <div className="admin-catalog-icon-ring admin-catalog-icon-ring--lg">
-              <span className="text-sm font-semibold">S</span>
-            </div>
-            <div>
-              <p className="admin-page-eyebrow !mb-1">Commerce control</p>
-              <h1 className="admin-catalog-hero__title !text-[1.35rem]">Settings Command Center</h1>
-              <p className="mt-1 text-[12px] font-semibold text-[var(--admin-text-muted)]">
-                Store, branding, payments, shipping, notifications — verified PATCH only.
-              </p>
-            </div>
-          </div>
-          <div className="admin-catalog-hero__actions">
-            <span className="admin-section-chip">{section}</span>
-          </div>
-        </div>
-      </header>
-      ) : null}
-
+    <div
+      className="settings-layout settings-layout--advanced settings-shell settings-shell--dc"
+      data-settings-shell
+      data-chrome="off"
+    >
       <aside className="settings-sidebar-panel settings-sidebar-nav">
         <SettingsSidebar active={section} onChange={changeSection} settingsLoaded={settingsLoaded} />
       </aside>
 
       <div key={animKey} className="settings-section-enter settings-layout__main">
-        <ModuleLiveStrip
-          onRefresh={() => void refetch()}
-          items={[
-            {
-              label: 'Settings API',
-              value: settingsLoaded ? 'Loaded from server' : 'Offline',
-              ok: settingsLoaded,
-              hint: 'GET /admin/settings',
-            },
-            {
-              label: 'Active section',
-              value: section,
-              ok: true,
-              informational: true,
-              hint: 'Synced to ?section=',
-            },
-            {
-              label: 'SKU policy',
-              value: draft.catalog.autoGenerateSku ? 'Auto-generate on' : 'Manual entry (live)',
-              ok: !draft.catalog.autoGenerateSku,
-              hint: 'General → Catalog & SKU policy',
-            },
-            {
-              label: 'Save',
-              value: saving ? 'Saving…' : 'Verified PATCH',
-              ok: settingsLoaded && !saving,
-            },
-          ]}
-        />
         {!settingsLoaded || !canEditSettings ? (
-          <div
-            className="admin-settings-status admin-settings-status--offline"
-            style={{ marginBottom: 0 }}
+          <p
+            className="dc-settings-notice"
+            style={{
+              background: TONE.warn.bg,
+              color: TONE.warn.fg,
+              borderColor: TONE.warn.bd,
+              font: `600 12px/1.5 ${FONT}`,
+            }}
           >
-            <p className="flex items-center gap-2 text-xs font-semibold text-amber-900">
-              {!settingsLoaded
-                ? apiOfflineSaveMessage()
-                : 'You do not have permission to save settings.'}
-            </p>
-          </div>
+            {!settingsLoaded
+              ? apiOfflineSaveMessage()
+              : 'You do not have permission to save settings.'}
+          </p>
         ) : null}
-        <div className="settings-advanced-panel admin-module-card !mt-3">
+        <div className="settings-advanced-panel dc-settings-panel !mt-3">
           {section === 'general' && <GeneralSection {...sharedProps} />}
           {section === 'branding' && <BrandingSection {...sharedProps} />}
           {section === 'contact' && <ContactSection {...sharedProps} />}

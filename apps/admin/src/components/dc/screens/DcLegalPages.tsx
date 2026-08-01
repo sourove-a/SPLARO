@@ -16,6 +16,7 @@ import { useLegalPages, useSaveLegalPage } from '@/lib/api/hooks'
 import type { LegalPageRecord } from '@/lib/api/legal-pages'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import type { LegalPageSection } from '@splaro/types'
+import { getStorefrontOrigin } from '@/lib/storefront-origin'
 
 const card = {
   border: '1px solid var(--line)',
@@ -120,8 +121,18 @@ function DcLegalPagesBody() {
         },
       },
       {
-        onSuccess: () =>
-          toast('ok', 'Saved and verified', `${selected.label} is live on the storefront.`),
+        onSuccess: (saved) => {
+          if (!sameDraft(draftOf(saved), draft)) {
+            toast('bad', 'Save not verified', `${selected.label} fields did not persist on server.`)
+            void pages.refetch()
+            return
+          }
+          toast(
+            'ok',
+            'Saved and verified',
+            `${selected.label} is saved on server; storefront refresh is queued.`,
+          )
+        },
         onError: (err) =>
           toast(
             'bad',
@@ -162,7 +173,12 @@ function DcLegalPagesBody() {
                 {
                   label: 'Preview',
                   icon: 'icon-external-link',
-                  onClick: () => window.open(selected.path, '_blank', 'noopener'),
+                  onClick: () =>
+                    window.open(
+                      new URL(selected.path, getStorefrontOrigin()).toString(),
+                      '_blank',
+                      'noopener,noreferrer',
+                    ),
                 },
               ]
             : []

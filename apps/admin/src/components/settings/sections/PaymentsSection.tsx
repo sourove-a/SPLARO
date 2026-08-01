@@ -177,7 +177,7 @@ function PaymentProviderBlock({
             ))}
           </div>
           <div className="flex flex-wrap gap-2 pt-1">
-            <AdminButton variant="gold" loading={saving} onClick={() => void onSaveCredentials(draft)}>
+            <AdminButton variant="accent" loading={saving} onClick={() => void onSaveCredentials(draft)}>
               Save keys
             </AdminButton>
             <AdminButton variant="ghost" loading={testing} onClick={() => void handleTest()}>

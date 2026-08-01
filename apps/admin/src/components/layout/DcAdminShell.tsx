@@ -4,15 +4,18 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { DcShell } from '@/components/dc'
+import { DcAdminProfilePopover } from '@/components/dc/DcAdminProfilePopover'
 import { DcCommandPalette } from '@/components/dc/DcCommandPalette'
 import { DcNotificationsPopover } from '@/components/dc/DcNotificationsPopover'
 import type { DcActivityItem, DcQuickAction, DcTone } from '@/components/dc'
 import { useAdminSession, useDashboardInsights } from '@/lib/api/hooks'
+import { fetchAdminAuthProfile } from '@/lib/api/auth-profile'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { useOnlinePresence } from '@/lib/hooks/use-online-presence'
 import { getCommandItems, normalizeAdminHref } from '@/lib/navigation/admin-nav'
 import { getHandoffSidebarNavGroups } from '@/lib/navigation/handoff-sidebar'
 import type { AdminNavSession } from '@/lib/navigation/admin-nav-permissions'
+import { formatAdminDisplayName, formatAdminRoleLabel } from '@/lib/auth/role-label'
 import { useAdminUiStore } from '@/store/uiStore'
 
 /** Quick actions in the right rail — the six the design pins there. */
@@ -58,12 +61,58 @@ export function DcAdminShell({ banner, children }: DcAdminShellProps) {
   const { data: sessionUser } = useAdminSession()
   const { api, storefront, database, checking } = useAdminConnection(25_000)
   const apiReachable = api.pulse === 'online' || api.pulse === 'degraded'
-  const { label: onlineLabel, title: onlineTitle } = useOnlinePresence(apiReachable)
+  const { label: onlineLabel, title: onlineTitle, presence } = useOnlinePresence(apiReachable)
   const setAgentChatOpen = useAdminUiStore((s) => s.setAgentChatOpen)
   const insights = useDashboardInsights('7 Days')
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifUnread, setNotifUnread] = useState(0)
+  const [notifUrgent, setNotifUrgent] = useState(0)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [profileExtras, setProfileExtras] = useState<{
+    canChangePassword: boolean
+    lastLoginIp: string | null
+    lastLoginAt: string | null
+    requestIp: string | null
+  }>({ canChangePassword: false, lastLoginIp: null, lastLoginAt: null, requestIp: null })
+
+  useEffect(() => {
+    if (!profileOpen || !apiReachable) return
+    let cancelled = false
+    void fetchAdminAuthProfile()
+      .then((data) => {
+        if (cancelled) return
+        setProfileExtras({
+          canChangePassword: Boolean(data.canChangePassword),
+          lastLoginIp: data.lastLoginIp ?? null,
+          lastLoginAt: data.lastLoginAt ?? null,
+          requestIp: data.requestIp ?? null,
+        })
+      })
+      .catch(() => {
+        /* profile extras are best-effort */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [profileOpen, apiReachable])
+
+  // Also capture client IP from the admin BFF /api/auth/me when available.
+  useEffect(() => {
+    let cancelled = false
+    void fetch('/api/auth/me', { credentials: 'include' })
+      .then(async (res) => {
+        if (!res.ok || cancelled) return
+        const data = (await res.json()) as { clientIp?: string | null }
+        if (!cancelled && data.clientIp) {
+          setProfileExtras((prev) => ({ ...prev, requestIp: prev.requestIp || data.clientIp || null }))
+        }
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [sessionUser?.id])
 
   // The rail timeline shows real store activity — never a fixture.
   const activity: DcActivityItem[] = useMemo(
@@ -89,7 +138,10 @@ export function DcAdminShell({ banner, children }: DcAdminShellProps) {
   const openPalette = useCallback(() => setPaletteOpen(true), [])
   const toggleNotifs = useCallback(() => setNotifOpen((v) => !v), [])
   const closeNotifs = useCallback(() => setNotifOpen(false), [])
-  const onUnreadChange = useCallback((count: number) => setNotifUnread(count), [])
+  const onUnreadChange = useCallback((count: number, critical: number) => {
+    setNotifUnread(count)
+    setNotifUrgent(critical)
+  }, [])
 
   // Unread only — never invent a badge from fixture NOTIFS.
   const notifBadge = notifUnread
@@ -133,22 +185,29 @@ export function DcAdminShell({ banner, children }: DcAdminShellProps) {
     [router],
   )
 
+  const displayName = formatAdminDisplayName(sessionUser?.name ?? 'SPLARO admin', sessionUser?.email)
+  const displayRole = formatAdminRoleLabel(sessionUser?.role ?? 'ADMIN', sessionUser?.email)
+  const displayInitials = initialsOf(displayName)
+
   return (
     <DcShell
       groups={groups}
       activeHref={activeHref}
       user={{
-        name: sessionUser?.name ?? 'SPLARO admin',
-        role: sessionUser?.role ?? '—',
-        initials: initialsOf(sessionUser?.name ?? 'SPLARO'),
+        name: displayName,
+        role: displayRole,
+        initials: displayInitials,
+        ...(sessionUser?.email ? { email: sessionUser.email } : {}),
       }}
       onSignOut={() => router.push('/api/auth/logout')}
+      onOpenProfile={() => setProfileOpen(true)}
       header={{
         apiLabel,
         apiTone,
         onlineLabel,
         ...(onlineTitle ? { onlineTitle } : {}),
         notifications: notifBadge,
+        notificationsUrgent: notifUrgent > 0,
         onOpenPalette: openPalette,
         onOpenNotifications: toggleNotifs,
       }}
@@ -157,6 +216,20 @@ export function DcAdminShell({ banner, children }: DcAdminShellProps) {
       onAskSplaro={() => setAgentChatOpen(true)}
     >
       {children}
+      <DcAdminProfilePopover
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        onSignOut={() => router.push('/api/auth/logout')}
+        name={displayName}
+        email={sessionUser?.email ?? ''}
+        role={displayRole}
+        initials={displayInitials}
+        clientIp={profileExtras.requestIp}
+        lastLoginIp={profileExtras.lastLoginIp}
+        lastLoginAt={profileExtras.lastLoginAt}
+        canChangePassword={profileExtras.canChangePassword}
+        presence={presence ?? null}
+      />
       <DcCommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}

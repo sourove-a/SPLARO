@@ -10,7 +10,6 @@ import {
   Mail,
   MessageCircle,
   Plug,
-  RefreshCw,
   Send,
   Server,
   Smartphone,
@@ -19,8 +18,7 @@ import {
   Webhook,
 } from 'lucide-react'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
-import { HandoffPageChrome } from '@/components/ui/HandoffPageChrome'
-import { KpiGrid } from '@/components/ui/AdminHandoffBlocks'
+import { DcKpiStrip } from '@/components/dc/DcKpiStrip'
 import { toastOk, toastFail, toastIntegrationTestResult } from '@/lib/admin/feedback'
 import {
   useIntegrationsCatalog,
@@ -58,7 +56,6 @@ const ICONS: Record<string, typeof Activity> = {
   smtp: Webhook,
   sms: MessageCircle,
 }
-
 const PROVIDER_COPY: Record<string, string> = {
   telegram: 'Login codes and order alerts',
   openai: 'AI operations and command tools',
@@ -224,7 +221,8 @@ export function AllIntegrationsPanel({
   embedded = false,
   previewState = 'live',
 }: AllIntegrationsPanelProps) {
-  const { data, isError, error, isLoading, refetch, isFetching } = useIntegrationsCatalog()
+  void embedded
+  const { data, isError, error, isLoading, refetch } = useIntegrationsCatalog()
   const testTelegram = useTestTelegramIntegration()
   const testAi = useTestAiIntegration()
   const testGoogle = useTestGoogleIntegration()
@@ -259,7 +257,6 @@ export function AllIntegrationsPanel({
     return stamped ?? null
   }, [items])
   const lastHealthValue = isLoading ? '…' : relativeTime(lastHealthAt)
-  const lastHealthText = lastHealthAt ? `health checked ${relativeTime(lastHealthAt)}` : 'no health check yet'
 
   const runTest = async (item: IntegrationCard) => {
     setTestingId(item.id)
@@ -335,31 +332,11 @@ export function AllIntegrationsPanel({
     ) : null
 
   return (
-    <div className={cn('integ-page', embedded && 'integ-page--dc')}>
-      <HandoffPageChrome
-        group="Integrations"
-        title="All Integrations"
-        hideHeader={embedded}
-        {...(embedded ? { className: 'integ-chrome--embedded' } : {})}
-        sync={loadError ? 'health unavailable' : isFetching ? 'health checking…' : lastHealthText}
-        offline={Boolean(loadError)}
-        actions={
-          embedded ? undefined : (
-            <>
-              <AdminButton variant="ghost" loading={isFetching} onClick={() => void refetch()}>
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </AdminButton>
-              <AdminLinkButton href={firstSetupHref} variant="primary">
-                Add integration
-              </AdminLinkButton>
-            </>
-          )
-        }
-      >
-        {previewOverride ?? (
-          <>
-          <KpiGrid
+    <div className="integ-page integ-page--dc">
+      {previewOverride ?? (
+        <>
+          <div className="dc-integ-kpi-host">
+          <DcKpiStrip
           columns={4}
           items={[
             {
@@ -390,6 +367,7 @@ export function AllIntegrationsPanel({
             },
           ]}
         />
+          </div>
 
           {loadError ? <ApiOfflineBanner message={loadError} /> : null}
 
@@ -408,42 +386,8 @@ export function AllIntegrationsPanel({
               ))}
             </div>
           )}
-          </>
-        )}
-      </HandoffPageChrome>
-    </div>
-  )
-}
-
-export function WebhooksPanel() {
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-[var(--admin-text-muted)]">Webhook management — Developer API Center.</p>
-      <AdminLinkButton href="/dashboard/developer/api-center" variant="gold" className="px-4 py-2 text-xs font-black">
-        API Center
-      </AdminLinkButton>
-    </div>
-  )
-}
-
-export function MetaBusinessPanel() {
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-[var(--admin-text-muted)]">Meta Pixel & GA4 — Marketing settings.</p>
-      <AdminLinkButton href="/dashboard/settings?section=marketing" variant="gold" className="px-4 py-2 text-xs font-black">
-        Marketing settings
-      </AdminLinkButton>
-    </div>
-  )
-}
-
-export function GoogleMerchantPanel() {
-  return (
-    <div className="admin-module-card">
-      <p className="admin-module-card__title">Google Merchant feed</p>
-      <AdminButton variant="gold" className="mt-3" onClick={() => window.open('https://splaro.co/feeds/google-merchant.xml', '_blank')}>
-        View feed
-      </AdminButton>
+        </>
+      )}
     </div>
   )
 }

@@ -32,7 +32,7 @@ const CEO_EMAIL = (process.env['ADMIN_EMAIL'] ?? process.env['CEO_EMAIL'] ?? 'sp
   .trim()
   .toLowerCase()
 
-/** Password-invite path — Super Admin stays Telegram-only. */
+/** Email activation path. ADMIN links Telegram during its trusted first session. */
 const INVITABLE_ROLES = new Set<UserRole>(['ADMIN', 'MANAGER', 'STAFF'])
 
 /** Roles that can be assigned on staff role updates (includes Super Admin). */
@@ -188,8 +188,36 @@ export class SecurityService {
 
     const existingStaff = await this.prisma.staffRole.findFirst({
       where: { storeId, user: { email } },
-      include: { user: { select: { id: true, email: true } } },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            isActive: true,
+            emailVerified: true,
+            lastLoginAt: true,
+            twoFAEnabled: true,
+          },
+        },
+      },
     })
+
+    // Pending invite (never verified) — rotate token + resend instead of Conflict dead-end.
+    if (existingStaff && !existingStaff.user.emailVerified) {
+      return this.resendPendingInvite({
+        storeId,
+        email,
+        firstName,
+        lastName,
+        role,
+        staffRole: existingStaff,
+        actor,
+        req,
+      })
+    }
+
     if (existingStaff) {
       throw new ConflictException('This email already has admin access for this store')
     }
@@ -266,26 +294,143 @@ export class SecurityService {
       return staffRole
     })
 
+    return this.sendInviteEmailAndAudit({
+      storeId,
+      email,
+      firstName,
+      role,
+      rawToken,
+      staffUser: result.user,
+      staffRole: result.role,
+      actor,
+      req,
+    })
+  }
+
+  private async resendPendingInvite(input: {
+    storeId: string
+    email: string
+    firstName: string
+    lastName: string
+    role: UserRole
+    staffRole: {
+      userId: string
+      role: UserRole
+      user: {
+        id: string
+        email: string | null
+        firstName: string
+        lastName: string
+        isActive: boolean
+        lastLoginAt: Date | null
+        twoFAEnabled: boolean
+      }
+    }
+    actor?: AdminSessionPayload
+    req?: AdminRequest
+  }) {
+    this.assertRoleAssignment(input.actor, input.role)
+    this.assertInviteRole(input.role)
+    const { rawToken, tokenHash, expiresAt } = this.auth.createInviteTokenPair()
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: input.staffRole.userId },
+        data: {
+          firstName: input.firstName,
+          lastName: input.lastName || input.staffRole.user.lastName || 'Staff',
+          role: input.role,
+          emailVerified: false,
+          passwordHash: null,
+        },
+      })
+      await tx.staffRole.update({
+        where: { userId_storeId: { userId: input.staffRole.userId, storeId: input.storeId } },
+        data: { role: input.role },
+      })
+      await tx.adminInvite.deleteMany({
+        where: {
+          storeId: input.storeId,
+          email: input.email,
+          acceptedAt: null,
+        },
+      })
+      await tx.adminInvite.create({
+        data: {
+          tokenHash,
+          email: input.email,
+          role: input.role,
+          storeId: input.storeId,
+          invitedById: input.actor?.userId,
+          firstName: input.firstName,
+          lastName: input.lastName || '',
+          userId: input.staffRole.userId,
+          expiresAt,
+        },
+      })
+    })
+
+    return this.sendInviteEmailAndAudit({
+      storeId: input.storeId,
+      email: input.email,
+      firstName: input.firstName,
+      role: input.role,
+      rawToken,
+      staffUser: {
+        ...input.staffRole.user,
+        firstName: input.firstName,
+        lastName: input.lastName || input.staffRole.user.lastName,
+      },
+      staffRole: input.role,
+      actor: input.actor,
+      req: input.req,
+      resent: true,
+    })
+  }
+
+  private async sendInviteEmailAndAudit(input: {
+    storeId: string
+    email: string
+    firstName: string
+    role: UserRole
+    rawToken: string
+    staffUser: {
+      id: string
+      email: string | null
+      firstName: string
+      lastName: string
+      isActive: boolean
+      lastLoginAt: Date | null
+      twoFAEnabled: boolean
+    }
+    staffRole: UserRole
+    actor?: AdminSessionPayload
+    req?: AdminRequest
+    resent?: boolean
+  }) {
     const adminUrl = resolvePublicAdminUrl()
-    const inviteUrl = `${adminUrl}/invite/accept?token=${encodeURIComponent(rawToken)}`
-    const store = await this.prisma.store.findUnique({ where: { id: storeId }, select: { name: true } })
-    const roleLabel = ROLE_API_TO_UI[role] ?? role
+    const inviteUrl = `${adminUrl}/invite/accept?token=${encodeURIComponent(input.rawToken)}`
+    const store = await this.prisma.store.findUnique({
+      where: { id: input.storeId },
+      select: { name: true },
+    })
+    const roleLabel = ROLE_API_TO_UI[input.role] ?? input.role
 
     const emailSent = await this.email.sendForStore({
-      storeId,
-      to: email,
+      storeId: input.storeId,
+      to: input.email,
       subject: `${store?.name ?? 'SPLARO'} admin invite — set your password`,
       html: generateAdminInviteEmailHTML({
-        firstName,
+        firstName: input.firstName,
         inviteUrl,
         roleLabel,
-        inviterName: actor?.name,
+        inviterName: input.actor?.name,
         storeName: store?.name ?? 'SPLARO',
         adminUrl,
         expiresHours: 48,
       }),
       text: generateAdminInviteEmailText({
-        firstName,
+        firstName: input.firstName,
         inviteUrl,
         roleLabel,
       }),
@@ -293,24 +438,26 @@ export class SecurityService {
     })
 
     await this.writeAudit(
-      storeId,
-      actor,
-      'staff.invited',
-      result.userId,
-      { email, role, emailSent },
+      input.storeId,
+      input.actor,
+      input.resent ? 'staff.invite_resent' : 'staff.invited',
+      input.staffUser.id,
+      { email: input.email, role: input.role, emailSent },
       undefined,
-      req,
+      input.req,
     )
 
     return {
-      id: result.user.id,
-      email: result.user.email,
-      name: `${result.user.firstName} ${result.user.lastName}`.trim(),
-      role: result.role,
+      id: input.staffUser.id,
+      email: input.staffUser.email ?? input.email,
+      name: `${input.staffUser.firstName} ${input.staffUser.lastName}`.trim(),
+      role: input.staffRole,
       status: 'pending',
       emailSent,
       message: emailSent
-        ? 'Invite email sent — they must verify and set a password'
+        ? input.resent
+          ? 'Invite email resent — they must verify and set a password'
+          : 'Invite email sent — they must verify and set a password'
         : 'Invite created but email failed — check SMTP / Gmail, then re-invite',
     }
   }

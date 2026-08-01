@@ -1,10 +1,6 @@
 import { getApiBaseUrl } from '@splaro/config'
 import { DEFAULT_SUPPORT_EMAIL } from '@/lib/storefront/defaults'
 
-function paymentsBase(): string {
-  return `${getApiBaseUrl()}/payments`
-}
-
 async function readPaymentError(res: Response): Promise<string> {
   const payload = (await res.json().catch(() => null)) as {
     message?: string | string[]
@@ -14,51 +10,66 @@ async function readPaymentError(res: Response): Promise<string> {
   return payload?.message ?? payload?.error ?? `Payment failed (${res.status})`
 }
 
+/** Same-origin BFF — never call Nest `:4000` from the browser. */
+function bffPaymentsBase(): string {
+  if (typeof window !== 'undefined') return '/api/payments'
+  return `${getApiBaseUrl().replace(/\/api\/v1\/?$/, '')}/api/payments`
+}
+
 export async function startBkashCheckout(input: {
-  invoiceNumber: string
-  amount: number
+  orderId: string
+  accessKey: string
 }): Promise<{ redirectUrl: string; paymentId: string }> {
-  const base = paymentsBase()
-  const res = await fetch(`${base}/bkash/create`, {
+  const res = await fetch(`${bffPaymentsBase()}/bkash/create`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      invoiceNumber: input.invoiceNumber,
-      amount: input.amount,
-      callbackUrl: `${base}/bkash/callback`,
+      orderId: input.orderId,
+      accessKey: input.accessKey,
     }),
   })
   if (!res.ok) throw new Error(await readPaymentError(res))
-  const data = (await res.json()) as { paymentID: string; bkashURL: string }
-  if (!data.bkashURL) throw new Error('bKash did not return a payment URL')
-  return { redirectUrl: data.bkashURL, paymentId: data.paymentID }
+  const data = (await res.json()) as {
+    redirectUrl?: string
+    paymentId?: string
+    bkashURL?: string
+    paymentID?: string
+  }
+  const redirectUrl = data.redirectUrl ?? data.bkashURL
+  const paymentId = data.paymentId ?? data.paymentID
+  if (!redirectUrl) throw new Error('bKash did not return a payment URL')
+  return { redirectUrl, paymentId: paymentId ?? '' }
 }
 
 export async function startNagadCheckout(input: {
-  invoiceNumber: string
-  amount: number
+  orderId: string
+  accessKey: string
 }): Promise<{ redirectUrl: string; paymentRefId: string }> {
-  const base = paymentsBase()
-  const callbackUrl = `${base}/nagad/verify?invoiceNumber=${encodeURIComponent(input.invoiceNumber)}`
-  const res = await fetch(`${base}/nagad/init`, {
+  const res = await fetch(`${bffPaymentsBase()}/nagad/create`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      invoiceNumber: input.invoiceNumber,
-      amount: input.amount,
-      callbackUrl,
+      orderId: input.orderId,
+      accessKey: input.accessKey,
     }),
   })
   if (!res.ok) throw new Error(await readPaymentError(res))
-  const data = (await res.json()) as { url: string; paymentRefId: string }
-  if (!data.url) throw new Error('Nagad did not return a payment URL')
-  return { redirectUrl: data.url, paymentRefId: data.paymentRefId }
+  const data = (await res.json()) as {
+    redirectUrl?: string
+    paymentId?: string
+    paymentRefId?: string
+  }
+  if (!data.redirectUrl) throw new Error('Nagad did not return a payment URL')
+  return {
+    redirectUrl: data.redirectUrl,
+    paymentRefId: data.paymentRefId ?? data.paymentId ?? '',
+  }
 }
 
 export async function startSslCommerzCheckout(input: {
-  invoiceNumber: string
-  amount: number
-  customer: {
+  orderId: string
+  accessKey: string
+  customer?: {
     name: string
     email: string
     phone: string
@@ -66,25 +77,22 @@ export async function startSslCommerzCheckout(input: {
     city: string
   }
 }): Promise<{ gatewayUrl: string }> {
-  const base = paymentsBase()
-  const res = await fetch(`${base}/ssl/init`, {
+  const res = await fetch(`${bffPaymentsBase()}/sslcommerz/init`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      invoiceNumber: input.invoiceNumber,
-      amount: input.amount,
-      customerName: input.customer.name,
-      customerEmail: input.customer.email || DEFAULT_SUPPORT_EMAIL,
-      customerPhone: input.customer.phone,
-      customerAddress: input.customer.address,
-      customerCity: input.customer.city,
-      successUrl: `${base}/ssl/success`,
-      failUrl: `${base}/ssl/fail`,
-      cancelUrl: `${base}/ssl/cancel`,
+      orderId: input.orderId,
+      accessKey: input.accessKey,
+      customer: input.customer
+        ? {
+            ...input.customer,
+            email: input.customer.email || DEFAULT_SUPPORT_EMAIL,
+          }
+        : undefined,
     }),
   })
   if (!res.ok) throw new Error(await readPaymentError(res))
-  const data = (await res.json()) as { gatewayUrl: string }
+  const data = (await res.json()) as { gatewayUrl?: string }
   if (!data.gatewayUrl) throw new Error('SSLCommerz did not return a gateway URL')
   return { gatewayUrl: data.gatewayUrl }
 }

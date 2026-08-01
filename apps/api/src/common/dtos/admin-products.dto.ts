@@ -2,9 +2,13 @@ import { Type } from 'class-transformer'
 import {
   IsArray,
   IsBoolean,
+  IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
+  Max,
+  MaxLength,
   Min,
   MinLength,
   ValidateNested,
@@ -22,6 +26,91 @@ export class AdminProductColorDto {
   @IsOptional()
   @IsString()
   image?: string
+}
+
+export class AdminProductMediaDto {
+  @IsString()
+  @MinLength(1)
+  url!: string
+
+  @IsIn(['image', 'video'])
+  type!: 'image' | 'video'
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(180)
+  altText?: string
+
+  @IsOptional()
+  @IsBoolean()
+  isDefault?: boolean
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(20)
+  position?: number
+}
+
+export class AdminProductVariantCreateDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  size?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  colorName?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  colorHex?: string
+
+  @IsOptional()
+  @IsString()
+  image?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  sku?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  barcode?: string
+
+  @IsNumber()
+  @Min(0)
+  price!: number
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  compareAtPrice?: number | null
+
+  @IsInt()
+  @Min(0)
+  @Max(999999)
+  stock!: number
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean
+}
+
+export class AdminProductDetailDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(60)
+  label!: string
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(180)
+  value!: string
 }
 
 /** Partial product update — all fields optional. */
@@ -158,6 +247,43 @@ export class AdminProductPatchDto {
   weight?: number | null
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  lengthCm?: number | null
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  widthCm?: number | null
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  heightCm?: number | null
+
+  @IsOptional()
+  @IsString()
+  productType?: string | null
+
+  @IsOptional()
+  @IsIn(['DENY', 'CONTINUE', 'PREORDER'])
+  inventoryPolicy?: 'DENY' | 'CONTINUE' | 'PREORDER'
+
+  @IsOptional()
+  @IsString()
+  preorderReleaseAt?: string | null
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AdminProductDetailDto)
+  additionalDetails?: AdminProductDetailDto[]
+
+  @IsOptional()
+  @IsString()
+  origin?: string | null
+
+  @IsOptional()
   @IsString()
   badge?: string | null
 
@@ -205,4 +331,16 @@ export class CreateAdminProductDto extends AdminProductPatchDto {
   @IsNumber()
   @Min(0)
   defaultStock?: number
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AdminProductMediaDto)
+  media?: AdminProductMediaDto[]
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AdminProductVariantCreateDto)
+  variants?: AdminProductVariantCreateDto[]
 }

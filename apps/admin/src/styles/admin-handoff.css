@@ -940,20 +940,70 @@ html:not(.dark) .premium-dash [class*='radial-gradient'] {
   color: var(--ink) !important;
 }
 
-.dc-product-new .admin-catalog-hero,
-.dc-product-edit .admin-catalog-hero,
-.dc-product-new .admin-module-hero,
-.dc-product-edit .admin-module-hero {
+/* Product edit under DC — kill legacy topbar / gold chrome; match Add product cards. */
+.dc-product-edit .product-edit-page--dc {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.dc-product-edit .product-edit-page__topbar {
   display: none !important;
 }
 
-.dc-product-new .admin-module-card,
+.dc-product-edit .product-edit-page__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.dc-product-edit .product-edit-page__summary > div {
+  border: 1px solid var(--line) !important;
+  border-radius: 12px !important;
+  background: var(--surface) !important;
+  background-image: var(--card-sheen) !important;
+  box-shadow: none !important;
+  padding: 12px 14px !important;
+}
+
+.dc-product-edit .product-edit-page__summary > div span {
+  color: var(--ink-3) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+.dc-product-edit .product-edit-page__summary > div strong {
+  color: var(--ink) !important;
+  font-weight: 600 !important;
+}
+
+.dc-product-edit .product-form-section,
+.dc-product-edit .product-edit-card,
 .dc-product-edit .admin-module-card,
-.dc-product-new .admin-module-section,
-.dc-product-edit .admin-module-section {
-  border-color: var(--line) !important;
+.dc-product-edit .product-create-section {
+  border: 1px solid var(--line) !important;
   border-radius: 14px !important;
-  background-color: var(--surface) !important;
+  background: var(--surface) !important;
+  background-image: var(--card-sheen) !important;
+  box-shadow: none !important;
+}
+
+.dc-product-edit .product-form-section__title,
+.dc-product-edit .admin-module-card__title {
+  color: var(--ink) !important;
+  font-weight: 600 !important;
+}
+
+.dc-product-edit .text-\[var\(--admin-brand-gold\)\],
+.dc-product-edit [class*='admin-brand-gold'] {
+  color: var(--violet) !important;
+}
+
+.dc-product-edit .product-edit-page__savebar {
+  border: 1px solid var(--line) !important;
+  border-radius: 12px !important;
+  background: var(--surface) !important;
   background-image: var(--card-sheen) !important;
   box-shadow: none !important;
 }

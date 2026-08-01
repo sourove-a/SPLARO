@@ -163,8 +163,16 @@ export class IntegrationsController {
       return { connected: Boolean(key), detail: key ? 'Verification key saved' : 'Add verification key' }
     }
     if (provider === 'smtp') {
-      const connected = Boolean(settings?.emailEnabled)
-      return { connected, detail: connected ? 'SMTP enabled' : 'Enable email in settings' }
+      const enabled = Boolean(settings?.emailEnabled)
+      const tested = meta.lastTestStatus === 'success'
+      return {
+        connected: enabled,
+        detail: tested
+          ? 'SMTP verified'
+          : enabled
+            ? 'SMTP enabled — run Test in Notifications'
+            : 'Enable email in settings',
+      }
     }
     if (provider === 'google_sheets') {
       const connected = Boolean(googleStatus?.services?.sheets?.connected)
@@ -196,25 +204,38 @@ export class IntegrationsController {
     }
     if (provider === 'steadfast') {
       const stub = process.env.COURIER_DEV_STUB === 'true'
+      const tested = meta.lastTestStatus === 'success'
       return {
         connected: steadfastConfigured,
-        detail: steadfastConfigured
-          ? 'API keys saved — run Test connection'
-          : stub
-            ? 'Dev stub only (COURIER_DEV_STUB) — not live courier'
-            : 'Add keys in Infrastructure settings',
+        detail: tested
+          ? 'Steadfast test passed'
+          : steadfastConfigured
+            ? 'API keys saved — run Test connection'
+            : stub
+              ? 'Dev stub only (COURIER_DEV_STUB) — not live courier'
+              : 'Add keys in Infrastructure settings',
       }
     }
     if (provider === 'pathao') {
+      const tested = meta.lastTestStatus === 'success'
       return {
         connected: pathaoConfigured,
-        detail: pathaoConfigured ? 'API keys saved' : 'Add keys in Infrastructure settings',
+        detail: tested
+          ? 'Pathao test passed'
+          : pathaoConfigured
+            ? 'API keys saved — run Test connection'
+            : 'Add keys in Infrastructure settings',
       }
     }
     if (provider === 'redx') {
+      const tested = meta.lastTestStatus === 'success'
       return {
         connected: redxConfigured,
-        detail: redxConfigured ? 'API key saved' : 'Add API key in Infrastructure settings',
+        detail: tested
+          ? 'RedX test passed'
+          : redxConfigured
+            ? 'API key saved — run Test connection'
+            : 'Add API key in Infrastructure settings',
       }
     }
     if (provider === 'cloudflare_r2') {

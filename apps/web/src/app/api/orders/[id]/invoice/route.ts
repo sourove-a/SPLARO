@@ -37,7 +37,8 @@ export async function GET(request: Request, context: RouteContext) {
   const key = searchParams.get('key')
   const order = await resolveOrderById(id, {
     accessKey: key,
-    phone: sessionUser?.phone ?? searchParams.get('phone'),
+    phone: sessionUser?.phone ?? null,
+    sessionToken,
   })
 
   if (!order) {
@@ -64,7 +65,7 @@ export async function GET(request: Request, context: RouteContext) {
 
   const apiHtml = await fetchApiInvoiceHtml(order.id, {
     key: hasInvoiceKey ? key : null,
-    phone: order.customer.phone,
+    phone: ownsOrder ? order.customer.phone : null,
   })
 
   const html = apiHtml ?? renderInvoiceHtml(order)

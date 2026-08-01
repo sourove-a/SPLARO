@@ -4,19 +4,31 @@ import { deleteOrderWithRelations } from '../../common/order-cleanup'
 import { resolveStoreId } from '../../common/store.util'
 import { resolveAdminPagination } from '../../common/admin-pagination.util'
 import { LoyaltyService } from '../loyalty/loyalty.service'
+import { CustomersService } from './customers.service'
 import type { LoyaltyTier, Prisma } from '@prisma/client'
 import {
   buildFraudFlags,
+  FRAUD_SIGNAL_WINDOW_DAYS,
+  isPrivateOrLoopbackIp,
   maskDeviceId,
   summarizeUserAgent,
   type CustomerFraudSignals,
 } from './customer-fraud-signals'
+
+/**
+ * Purging one customer walks every order they ever placed, and each order drags
+ * ~15 dependent tables with it. Prisma's 5s interactive-transaction default
+ * times out on a long-standing account, which would surface as a bogus
+ * "delete failed" against a perfectly valid record.
+ */
+const PURGE_TX_OPTIONS = { maxWait: 10_000, timeout: 120_000 } as const
 
 @Controller('admin/customers')
 export class CustomersController {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(LoyaltyService) private readonly loyalty: LoyaltyService,
+    @Inject(CustomersService) private readonly customersService: CustomersService,
   ) {}
 
   private sid(raw?: string) {
@@ -91,6 +103,21 @@ export class CustomersController {
     }))
 
     return { customers, total, page: pageNum, totalPages: Math.ceil(total / take) }
+  }
+
+  @Post()
+  async create(
+    @Body()
+    body: {
+      storeId?: string
+      firstName: string
+      lastName?: string
+      phone: string
+      email?: string
+    },
+  ) {
+    const sid = await this.sid(body.storeId)
+    return this.customersService.createFromAdmin(sid, body)
   }
 
   /** Export customers CSV — static segment before :id */
@@ -216,45 +243,55 @@ export class CustomersController {
         distinctPhonesOnDevice: 0,
         distinctPhonesOnIp: 0,
         firstSeenAt: null,
+        firstSeenAtIp: null,
+        firstSeenAtDevice: null,
         lastSeenAt: null,
         flags: [],
         captured: false,
       }
     }
 
-    const [sameIpOrderCount, sameDeviceOrderCount, phonesOnDevice, phonesOnIp, firstSeen] =
+    const windowStart = new Date()
+    windowStart.setDate(windowStart.getDate() - FRAUD_SIGNAL_WINDOW_DAYS)
+
+    const [sameIpOrderCount, sameDeviceOrderCount, phonesOnDevice, phonesOnIp, firstSeenIp, firstSeenDevice] =
       await Promise.all([
-        lastIp
-          ? this.prisma.order.count({ where: { storeId, clientIp: lastIp } })
+        lastIp && !isPrivateOrLoopbackIp(lastIp)
+          ? this.prisma.order.count({
+              where: { storeId, clientIp: lastIp, createdAt: { gte: windowStart } },
+            })
           : Promise.resolve(0),
         lastDeviceId
-          ? this.prisma.order.count({ where: { storeId, deviceId: lastDeviceId } })
+          ? this.prisma.order.count({
+              where: { storeId, deviceId: lastDeviceId, createdAt: { gte: windowStart } },
+            })
           : Promise.resolve(0),
         lastDeviceId
           ? this.prisma.order.findMany({
-              where: { storeId, deviceId: lastDeviceId },
+              where: { storeId, deviceId: lastDeviceId, createdAt: { gte: windowStart } },
+              select: { shippingPhone: true },
+              distinct: ['shippingPhone'],
+              take: 50,
+            })
+          : Promise.resolve([] as { shippingPhone: string }[]),
+        lastIp && !isPrivateOrLoopbackIp(lastIp)
+          ? this.prisma.order.findMany({
+              where: { storeId, clientIp: lastIp, createdAt: { gte: windowStart } },
               select: { shippingPhone: true },
               distinct: ['shippingPhone'],
               take: 50,
             })
           : Promise.resolve([] as { shippingPhone: string }[]),
         lastIp
-          ? this.prisma.order.findMany({
-              where: { storeId, clientIp: lastIp },
-              select: { shippingPhone: true },
-              distinct: ['shippingPhone'],
-              take: 50,
-            })
-          : Promise.resolve([] as { shippingPhone: string }[]),
-        lastDeviceId || lastIp
           ? this.prisma.order.findFirst({
-              where: {
-                storeId,
-                OR: [
-                  ...(lastDeviceId ? [{ deviceId: lastDeviceId }] : []),
-                  ...(lastIp ? [{ clientIp: lastIp }] : []),
-                ],
-              },
+              where: { storeId, clientIp: lastIp },
+              orderBy: { createdAt: 'asc' },
+              select: { createdAt: true },
+            })
+          : Promise.resolve(null),
+        lastDeviceId
+          ? this.prisma.order.findFirst({
+              where: { storeId, deviceId: lastDeviceId },
               orderBy: { createdAt: 'asc' },
               select: { createdAt: true },
             })
@@ -268,7 +305,14 @@ export class CustomersController {
       sameDeviceOrderCount,
       distinctPhonesOnDevice,
       distinctPhonesOnIp,
+      ipIsPrivate: isPrivateOrLoopbackIp(lastIp),
     })
+
+    const firstSeenAtIp = firstSeenIp?.createdAt.toISOString() ?? null
+    const firstSeenAtDevice = firstSeenDevice?.createdAt.toISOString() ?? null
+    const firstSeenCandidates = [firstSeenAtIp, firstSeenAtDevice].filter(Boolean) as string[]
+    const firstSeenAt =
+      firstSeenCandidates.sort()[0] ?? latest.createdAt.toISOString()
 
     return {
       lastIp,
@@ -278,7 +322,9 @@ export class CustomersController {
       sameDeviceOrderCount,
       distinctPhonesOnDevice,
       distinctPhonesOnIp,
-      firstSeenAt: firstSeen?.createdAt.toISOString() ?? latest.createdAt.toISOString(),
+      firstSeenAt,
+      firstSeenAtIp,
+      firstSeenAtDevice,
       lastSeenAt: latest.createdAt.toISOString(),
       flags,
       captured: true,
@@ -414,31 +460,139 @@ export class CustomersController {
     @Query('force') force?: string,
     @Query('storeId') storeId?: string,
   ) {
-    const customer = await this.ownedCustomer(id, storeId, { userId: true, totalOrders: true })
-    if (customer.totalOrders > 0 && force !== 'true') {
+    const customer = await this.ownedCustomer(id, storeId, { userId: true })
+    // Counted, not read off Customer.totalOrders — that column is denormalised
+    // and a stale zero would send a customer with real orders down the
+    // no-force path, straight into a raw foreign-key error.
+    const orderCount = await this.prisma.order.count({ where: { customerId: id } })
+    if (orderCount > 0 && force !== 'true') {
       throw new BadRequestException('Delete orders first, or use force delete from admin.')
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      if (force === 'true') {
-        const orders = await tx.order.findMany({
-          where: { customerId: id },
-          select: { id: true },
-        })
-        for (const order of orders) {
-          await deleteOrderWithRelations(tx, order.id)
-        }
-      }
+    const orders = await this.prisma.$transaction(
+      (tx) => this.purgeCustomer(tx, id, customer.userId, force === 'true'),
+      PURGE_TX_OPTIONS,
+    )
 
-      await tx.loyaltyHistory.deleteMany({ where: { customerId: id } })
-      await tx.customerNote.deleteMany({ where: { customerId: id } })
-      await tx.address.deleteMany({ where: { customerId: id } })
-      await tx.wishlist.deleteMany({ where: { customerId: id } })
-      await tx.cartSession.deleteMany({ where: { customerId: id } })
-      await tx.customer.delete({ where: { id } })
-      await tx.user.delete({ where: { id: customer.userId } })
+    return { success: true, ordersDeleted: orders }
+  }
+
+  /**
+   * Purge fake and duplicate accounts in one pass — the throwaway records a
+   * COD scammer leaves behind, or a run of test checkouts. `force` takes their
+   * orders down with them; without it a customer holding orders is skipped and
+   * reported back, so a stray click can never wipe real sales history.
+   */
+  @Post('bulk/delete')
+  async bulkRemove(
+    @Body() body: { ids?: string[]; force?: boolean; storeId?: string },
+  ) {
+    const ids = [...new Set((body.ids ?? []).filter((id) => typeof id === 'string' && id.trim()))]
+    if (ids.length === 0) throw new BadRequestException('Select at least one customer to delete.')
+    if (ids.length > 100) throw new BadRequestException('Delete at most 100 customers at a time.')
+
+    const sid = await this.sid(body.storeId)
+    const customers = await this.prisma.customer.findMany({
+      where: { id: { in: ids }, storeId: sid },
+      select: {
+        id: true,
+        userId: true,
+        firstName: true,
+        lastName: true,
+        // Counted rather than read from the denormalised totalOrders column,
+        // which can lag and would wave a real customer through the no-force path.
+        _count: { select: { orders: true } },
+      },
     })
 
-    return { success: true }
+    const deleted: string[] = []
+    const skipped: { id: string; name: string; reason: string }[] = []
+    let ordersDeleted = 0
+
+    for (const customer of customers) {
+      const name = `${customer.firstName} ${customer.lastName}`.trim() || customer.id
+      const orderCount = customer._count.orders
+      if (orderCount > 0 && !body.force) {
+        skipped.push({
+          id: customer.id,
+          name,
+          reason: `${orderCount} order${orderCount === 1 ? '' : 's'} on file`,
+        })
+        continue
+      }
+      try {
+        // One transaction per customer: a single bad record must not roll back
+        // the whole sweep.
+        ordersDeleted += await this.prisma.$transaction(
+          (tx) => this.purgeCustomer(tx, customer.id, customer.userId, Boolean(body.force)),
+          PURGE_TX_OPTIONS,
+        )
+        deleted.push(customer.id)
+      } catch (error) {
+        skipped.push({
+          id: customer.id,
+          name,
+          reason: error instanceof Error ? error.message : 'Delete failed',
+        })
+      }
+    }
+
+    const missing = ids.filter((id) => !customers.some((c) => c.id === id))
+    for (const id of missing) {
+      skipped.push({ id, name: id, reason: 'Not found in this store' })
+    }
+
+    return { success: true, deleted: deleted.length, ordersDeleted, skipped }
+  }
+
+  /**
+   * Removes a customer and everything that points at them. Every table listed
+   * here holds the customer by a restricting foreign key — miss one and
+   * Postgres refuses the delete. Cascading relations are deliberately absent.
+   */
+  private async purgeCustomer(
+    tx: Prisma.TransactionClient,
+    id: string,
+    userId: string,
+    force: boolean,
+  ): Promise<number> {
+    let ordersDeleted = 0
+    if (force) {
+      const orders = await tx.order.findMany({ where: { customerId: id }, select: { id: true } })
+      for (const order of orders) {
+        await deleteOrderWithRelations(tx, order.id)
+        ordersDeleted += 1
+      }
+    }
+
+    await tx.loyaltyHistory.deleteMany({ where: { customerId: id } })
+    await tx.customerNote.deleteMany({ where: { customerId: id } })
+    await tx.address.deleteMany({ where: { customerId: id } })
+    await tx.wishlist.deleteMany({ where: { customerId: id } })
+    await tx.cartSession.deleteMany({ where: { customerId: id } })
+    await tx.review.deleteMany({ where: { customerId: id } })
+    await tx.notification.deleteMany({ where: { customerId: id } })
+    await tx.webPushToken.deleteMany({ where: { customerId: id } })
+    await tx.referral.deleteMany({ where: { referrerId: id } })
+    await tx.rMA.updateMany({ where: { customerId: id }, data: { customerId: null } })
+    await tx.customer.delete({ where: { id } })
+
+    // Audit trail outlives the account it describes — detach, never delete.
+    await tx.auditLog.updateMany({ where: { userId }, data: { userId: null } })
+
+    // The same login can also be a vendor or own a store, and both hold the
+    // User by a restricting FK. Deactivate rather than delete in that case:
+    // the shopper record is gone either way, and the alternative is a raw
+    // foreign-key error that reads like a bug.
+    const stillReferenced = await tx.user.findFirst({
+      where: { id: userId, OR: [{ vendor: { isNot: null } }, { ownedStores: { some: {} } }] },
+      select: { id: true },
+    })
+    if (stillReferenced) {
+      await tx.user.update({ where: { id: userId }, data: { isActive: false } })
+    } else {
+      await tx.user.delete({ where: { id: userId } })
+    }
+    return ordersDeleted
   }
 }

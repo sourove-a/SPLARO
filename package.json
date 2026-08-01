@@ -87,7 +87,10 @@
     "verify:deploy-health": "node scripts/verify-deploy-health.mjs",
     "build:hostinger": "bash scripts/hostinger-build.sh",
     "start:hostinger": "node apps/web/.next/standalone/apps/web/server.js",
-    "postinstall": "node scripts/postinstall.mjs"
+    "postinstall": "node scripts/postinstall.mjs",
+    "check:admin-auth-contrast": "node scripts/check-admin-auth-contrast.mjs",
+    "check:admin-tables": "node scripts/check-admin-table-scroll.mjs",
+    "check:admin-tokens": "node scripts/admin-hex-to-tokens.mjs --check"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

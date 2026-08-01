@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 
@@ -11,14 +11,18 @@ import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, formatTaka, statusToneStyle, toneStyle, type DcTone } from '@/components/dc/tokens'
-import { fetchProfitLoss } from '@/lib/api/finance'
+
 import {
   useAdminSession,
+  useConversionFunnel,
+  useDailyGoal,
   useDashboardInsights,
   useDashboardStats,
   useInventoryAlerts,
   useOrders,
   useProducts,
+  useRevenueSeries,
+  useSaveDailyGoal,
 } from '@/lib/api/hooks'
 import { useClientNow } from '@/components/dc/useClientNow'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
@@ -72,6 +76,11 @@ interface TimelinePoint {
   revenue: number
 }
 
+/** The API window to pull; 14D is served by slicing the 30d series. */
+function seriesPeriodFor(range: RangeId): '7d' | '30d' {
+  return range === '7D' ? '7d' : '30d'
+}
+
 function titleCase(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
 }
@@ -114,19 +123,27 @@ function DcDashboardBody() {
   const orders = useOrders({ limit: 100 })
   const products = useProducts({ limit: 200 })
   const connection = useAdminConnection(25_000)
+  const funnel = useConversionFunnel('30d')
+  const goal = useDailyGoal()
+  const saveGoal = useSaveDailyGoal()
 
-  // The only revenue timeline the API exposes. No synthetic daily split — if it
-  // comes back empty the chart says so rather than drawing noise.
-  const pl = useQuery({
-    queryKey: ['profit-loss', 'monthly'],
-    queryFn: () => fetchProfitLoss('monthly'),
-    staleTime: 60_000,
-  })
+  // Revenue comes off the orders table, zero-filled per day by the API. The
+  // profit-loss timeline was the old source, but it is built from
+  // ProfitCalculation rows that only exist once costing has run — on most
+  // stores that left this chart permanently empty.
+  const revenue = useRevenueSeries(seriesPeriodFor(range))
 
-  const timeline: TimelinePoint[] = useMemo(() => {
-    const raw = pl.data as { timeline?: TimelinePoint[] } | undefined
-    return Array.isArray(raw?.timeline) ? raw.timeline : []
-  }, [pl.data])
+  const timeline: TimelinePoint[] = useMemo(
+    () =>
+      (revenue.data?.data ?? []).map((row) => ({
+        label: new Date(`${row.date}T00:00:00`).toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'short',
+        }),
+        revenue: Math.round(row.revenue),
+      })),
+    [revenue.data],
+  )
 
   const rangeDays = RANGES.find((r) => r.id === range)?.days ?? 14
   const chartPoints = useMemo(() => timeline.slice(-rangeDays), [timeline, rangeDays])
@@ -187,9 +204,34 @@ function DcDashboardBody() {
     [catalog],
   )
 
+  // Orders per cart. Carts are the only top-of-funnel figure recorded — there
+  // is no page-view tracking — so this is the honest conversion denominator.
+  const { conversion, carts } = useMemo(() => {
+    const steps = funnel.data?.steps ?? []
+    const cartCount = steps.find((s) => s.label === 'Carts created')?.count ?? null
+    const placed = steps.find((s) => s.label === 'Orders placed')?.count ?? 0
+    return {
+      carts: cartCount,
+      conversion: cartCount && cartCount > 0 ? (placed / cartCount) * 100 : null,
+    }
+  }, [funnel.data])
+
+  const bestSellers: BestSellerRow[] = useMemo(
+    () =>
+      (insights.data?.topProducts ?? []).slice(0, 6).map((p) => ({
+        id: p.id,
+        name: p.name,
+        sku: p.sku,
+        sold: p.sold,
+        revenue: p.revenue,
+        trend: p.trend,
+      })),
+    [insights.data],
+  )
+
   const s = stats.data
-  const pageStatus = dcPageStatus([stats, orders, products, insights, alerts, pl], connection.api.pulse)
-  const loading = [stats, orders, products, insights, alerts, pl].some((q) => q.isLoading)
+  const pageStatus = dcPageStatus([stats, orders, products, insights, alerts, revenue], connection.api.pulse)
+  const loading = [stats, orders, products, insights, alerts, revenue].some((q) => q.isLoading)
   const error = stats.error
 
   const skeleton: DcBlock[] = [
@@ -206,7 +248,9 @@ function DcDashboardBody() {
     void alerts.refetch()
     void orders.refetch()
     void products.refetch()
-    void pl.refetch()
+    void revenue.refetch()
+    void funnel.refetch()
+    void goal.refetch()
   }
 
   return (
@@ -273,7 +317,11 @@ function DcDashboardBody() {
               now={now}
               stats={s}
               awaitingAction={awaitingAction}
-              customers={s?.customers.value ?? 0}
+              conversion={conversion}
+              carts={carts}
+              goal={goal.data}
+              onSetGoal={(value) => saveGoal.mutate(value)}
+              savingGoal={saveGoal.isPending}
             />
             <CopilotCard
               publishedOut={publishedOut.length}
@@ -283,6 +331,7 @@ function DcDashboardBody() {
               codRisk={s?.alerts.codRiskOrders ?? 0}
               codExposure={codExposure}
               codParcels={codParcels}
+              readAt={stats.dataUpdatedAt || null}
               onGo={(href) => router.push(href)}
             />
           </div>
@@ -306,7 +355,7 @@ function DcDashboardBody() {
               footer={
                 timeline.length > 0
                   ? `${formatTaka(chartTotal)} over the last ${chartPoints.length} days`
-                  : 'No revenue timeline from /profit-loss/monthly yet'
+                  : 'No orders in this window yet'
               }
             />
             <KpiCard
@@ -356,7 +405,7 @@ function DcDashboardBody() {
               total={chartTotal}
               range={range}
               onRange={setRange}
-              loading={pl.isLoading}
+              loading={revenue.isLoading}
             />
             <PipelineCard
               counts={stageCounts}
@@ -473,6 +522,14 @@ function DcDashboardBody() {
               />
             </div>
           </div>
+
+          {/* ── row 5: what is actually selling ─────────────────────── */}
+          <BestSellersCard
+            items={bestSellers}
+            loading={insights.isLoading}
+            onOpen={() => router.push('/dashboard/analytics')}
+            onProduct={(id) => router.push(`/dashboard/products/${id}/edit`)}
+          />
 
           {insights.data?.recentActivities?.length ? (
             <div style={{ ...card, padding: '6px 16px 10px' }}>
@@ -711,7 +768,11 @@ function TodayCard({
   now,
   stats,
   awaitingAction,
-  customers,
+  conversion,
+  carts,
+  goal,
+  onSetGoal,
+  savingGoal,
 }: {
   greeting: string
   now: Date | null
@@ -723,7 +784,14 @@ function TodayCard({
       }
     | undefined
   awaitingAction: number
-  customers: number
+  /** Orders per cart over 30 days, or null when no carts were recorded. */
+  conversion: number | null
+  carts: number | null
+  goal:
+    | { goal: number | null; achieved: number; percent: number | null; remaining: number | null }
+    | undefined
+  onSetGoal: (value: number | null) => void
+  savingGoal: boolean
 }) {
   const change = stats?.revenue.change ?? 0
   const tone = toneStyle(deltaTone(change))
@@ -794,8 +862,8 @@ function TodayCard({
         </span>
       </div>
 
-      {/* The design shows a daily-target bar. No target endpoint exists, so this
-          row carries the figures the API does return instead of an invented goal. */}
+      <GoalBar goal={goal} onSetGoal={onSetGoal} saving={savingGoal} />
+
       <div
         style={{
           display: 'grid',
@@ -814,16 +882,154 @@ function TodayCard({
           sub={`${awaitingAction} awaiting action`}
           subColor={awaitingAction > 0 ? 'var(--warn)' : 'var(--ink-3)'}
         />
+        {/* The design's third and fourth figures are Conversion and Visitors.
+            Conversion is real — orders over carts, from /analytics/funnel.
+            Visitors is not: nothing records page views, so the cart count goes
+            here instead of a number we would have to invent. */}
+        {/* Named for exactly what it measures. Carts here are checkout sessions,
+            not browsing sessions, so calling this "conversion" would read as a
+            storefront rate it is not. */}
         <SubStat
-          label="Avg order value"
-          value={formatTaka(stats?.avgOrderValue.value ?? 0)}
-          sub={delta(stats?.avgOrderValue.change ?? 0)}
-          subColor={
-            (stats?.avgOrderValue.change ?? 0) < -0.5 ? 'var(--bad)' : 'var(--ink-3)'
-          }
+          label="Cart → order"
+          value={conversion == null ? '—' : `${conversion.toFixed(1)}%`}
+          sub={conversion == null ? 'no cart data yet' : 'of carts checked out · 30d'}
+          subColor="var(--ink-3)"
         />
-        <SubStat label="Customers" value={String(customers)} sub="in this window" subColor="var(--ink-3)" />
+        <SubStat
+          label="Carts"
+          value={carts == null ? '—' : String(carts)}
+          sub="started · 30d"
+          subColor="var(--ink-3)"
+        />
       </div>
+    </div>
+  )
+}
+
+/**
+ * Progress against the store's own daily revenue target. Until someone sets a
+ * target there is nothing honest to draw, so the bar is replaced by the control
+ * that sets one.
+ */
+function GoalBar({
+  goal,
+  onSetGoal,
+  saving,
+}: {
+  goal: { goal: number | null; achieved: number; percent: number | null; remaining: number | null } | undefined
+  onSetGoal: (value: number | null) => void
+  saving: boolean
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  if (!goal?.goal) {
+    return editing ? (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          inputMode="numeric"
+          placeholder="Daily revenue goal, e.g. 150000"
+          aria-label="Daily revenue goal"
+          className="admin-input"
+          style={{ flex: 1, minWidth: 0 }}
+        />
+        <button
+          type="button"
+          className="admin-btn admin-btn--primary"
+          disabled={saving}
+          onClick={() => {
+            const value = Number(draft.replace(/[^\d.]/g, ''))
+            if (!Number.isFinite(value) || value <= 0) return
+            onSetGoal(value)
+            setEditing(false)
+          }}
+        >
+          {saving ? 'Saving…' : 'Set'}
+        </button>
+        <button type="button" className="admin-btn admin-btn--ghost" onClick={() => setEditing(false)}>
+          Cancel
+        </button>
+      </div>
+    ) : (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="dc-hover-ink"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7,
+          alignSelf: 'flex-start',
+          height: 30,
+          padding: '0 11px',
+          borderRadius: 8,
+          border: '1px dashed var(--line-2)',
+          background: 'transparent',
+          color: 'var(--ink-3)',
+          cursor: 'pointer',
+          font: `600 11.5px/1 ${FONT}`,
+        }}
+      >
+        <DcIcon name="icon-target" size={13} />
+        <span>Set a daily revenue goal</span>
+      </button>
+    )
+  }
+
+  const pct = goal.percent ?? 0
+  const hit = pct >= 100
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        <span style={{ ...capsLabel, flex: 1 }}>Today&rsquo;s goal · {formatTaka(goal.goal)}</span>
+        <span style={{ font: `600 12px/1 ${MONO}`, color: 'var(--ink-2)' }}>{pct}%</span>
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(String(goal.goal))
+            setEditing(true)
+          }}
+          title="Change goal"
+          aria-label="Change daily revenue goal"
+          style={{
+            border: 0,
+            background: 'transparent',
+            color: 'var(--ink-3)',
+            cursor: 'pointer',
+            padding: 0,
+            display: 'grid',
+            placeItems: 'center',
+          }}
+        >
+          <DcIcon name="icon-pencil" size={11} />
+        </button>
+      </div>
+      <div
+        style={{
+          height: 7,
+          borderRadius: 99,
+          background: 'var(--surface-3)',
+          overflow: 'hidden',
+          display: 'flex',
+        }}
+      >
+        <span
+          style={{
+            display: 'block',
+            height: '100%',
+            width: `${Math.min(100, pct)}%`,
+            borderRadius: 99,
+            background: hit ? 'var(--ok)' : 'var(--violet)',
+          }}
+        />
+      </div>
+      <span style={{ font: `400 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+        {hit
+          ? `Goal met · ${formatTaka(goal.achieved)} booked today`
+          : `${formatTaka(goal.remaining ?? 0)} to go`}
+      </span>
     </div>
   )
 }
@@ -872,6 +1078,12 @@ interface Signal {
   cta: string
   href: string
   weight: number
+  /** What is actually at stake, and in what unit — shown on the action card. */
+  impact: string
+  impactCaption: string
+  impactTone: DcTone
+  /** One line on why this outranks the rest, in the operator's terms. */
+  why: string
 }
 
 /**
@@ -887,6 +1099,7 @@ function CopilotCard({
   codRisk,
   codExposure,
   codParcels,
+  readAt,
   onGo,
 }: {
   publishedOut: number
@@ -896,8 +1109,14 @@ function CopilotCard({
   codRisk: number
   codExposure: number
   codParcels: number
+  /** When the underlying counters were last fetched. */
+  readAt: number | null
   onGo: (href: string) => void
 }) {
+  // Both reset on reload — a dismissal is "not this sitting", not a stored
+  // preference, and the panel must come back with the next set of numbers.
+  const [dismissed, setDismissed] = useState(false)
+  const [showWhy, setShowWhy] = useState(false)
   const signals: Signal[] = []
 
   if (publishedOut > 0) {
@@ -909,6 +1128,10 @@ function CopilotCard({
       cta: 'Inventory',
       href: '/dashboard/inventory',
       weight: 100,
+      impact: String(publishedOut),
+      impactCaption: publishedOut === 1 ? 'dead listing' : 'dead listings',
+      impactTone: 'bad',
+      why: 'These pages take traffic and ad spend and can never convert. Nothing else on this list wastes money as quietly.',
     })
   }
   if (failedPayments > 0) {
@@ -920,6 +1143,10 @@ function CopilotCard({
       cta: 'Orders',
       href: '/dashboard/orders',
       weight: 90,
+      impact: String(failedPayments),
+      impactCaption: 'checkouts lost',
+      impactTone: 'bad',
+      why: 'A customer reached checkout and the money did not land. Recoverable while the intent is fresh.',
     })
   }
   if (awaitingAction > 0) {
@@ -931,6 +1158,10 @@ function CopilotCard({
       cta: 'Packing',
       href: '/dashboard/packing-station',
       weight: 80,
+      impact: String(awaitingAction),
+      impactCaption: 'in the queue',
+      impactTone: 'warn',
+      why: 'Every hour here is an hour added to delivery, and late COD parcels are the ones that get refused.',
     })
   }
   if (codParcels > 0) {
@@ -942,6 +1173,10 @@ function CopilotCard({
       cta: 'Courier',
       href: '/dashboard/courier-hub',
       weight: 70,
+      impact: formatTaka(codExposure),
+      impactCaption: `across ${codParcels} parcel${codParcels === 1 ? '' : 's'}`,
+      impactTone: 'warn',
+      why: 'Cash the store has already spent stock on but does not hold yet. It settles only when riders remit.',
     })
   }
   if (codRisk > 0) {
@@ -953,6 +1188,10 @@ function CopilotCard({
       cta: 'Orders',
       href: '/dashboard/orders',
       weight: 60,
+      impact: String(codRisk),
+      impactCaption: codRisk === 1 ? 'flagged order' : 'flagged orders',
+      impactTone: 'warn',
+      why: 'Flagged on the customer’s own history. Confirming by phone before dispatch is cheaper than a return.',
     })
   }
   if (lowStock > 0) {
@@ -964,6 +1203,10 @@ function CopilotCard({
       cta: 'Restock',
       href: '/dashboard/inventory',
       weight: 50,
+      impact: String(lowStock),
+      impactCaption: lowStock === 1 ? 'SKU short' : 'SKUs short',
+      impactTone: 'warn',
+      why: 'Reordering now costs a purchase order. Reordering after they hit zero costs the sales in between.',
     })
   }
 
@@ -997,6 +1240,9 @@ function CopilotCard({
           Business Copilot
         </span>
         <span style={{ font: `500 10.5px/1 ${MONO}`, color: 'var(--ink-3)' }}>
+          {readAt
+            ? `read ${new Date(readAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} · `
+            : ''}
           {signals.length} signal{signals.length === 1 ? '' : 's'}
         </span>
       </div>
@@ -1092,7 +1338,7 @@ function CopilotCard({
         )}
       </div>
 
-      {top ? (
+      {top && !dismissed ? (
         <div
           style={{
             margin: '0 11px 11px',
@@ -1105,14 +1351,39 @@ function CopilotCard({
             gap: 10,
           }}
         >
-          <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ ...capsLabel, font: `600 10.5px/1 ${FONT}` }}>Most urgent</span>
-            <span style={{ font: `600 13.5px/1.35 ${FONT}`, color: 'var(--ink)' }}>{top.text}</span>
-          </span>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ ...capsLabel, font: `600 10.5px/1 ${FONT}` }}>Recommended action</span>
+              <span style={{ font: `600 13.5px/1.35 ${FONT}`, color: 'var(--ink)' }}>
+                {top.text}
+              </span>
+            </span>
+            <span
+              style={{
+                flex: 'none',
+                textAlign: 'right',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 3,
+              }}
+            >
+              <span
+                style={{
+                  font: `700 17px/1 ${FONT}`,
+                  color: toneStyle(top.impactTone).fg,
+                }}
+              >
+                {top.impact}
+              </span>
+              <span style={{ font: `500 10px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                {top.impactCaption}
+              </span>
+            </span>
+          </div>
           <span
             style={{ font: `400 11.5px/1.5 ${FONT}`, color: 'var(--ink-3)', textWrap: 'pretty' }}
           >
-            Ranked by how much it blocks — read from {top.source}.
+            {showWhy ? top.why : `Ranked highest of ${signals.length} — read from ${top.source}.`}
           </span>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button
@@ -1130,6 +1401,38 @@ function CopilotCard({
               }}
             >
               Open {top.cta}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowWhy((v) => !v)}
+              style={{
+                height: 31,
+                padding: '0 12px',
+                borderRadius: 8,
+                border: '1px solid var(--line-2)',
+                background: 'var(--surface)',
+                color: 'var(--ink-2)',
+                cursor: 'pointer',
+                font: `600 12px/1 ${FONT}`,
+              }}
+            >
+              {showWhy ? 'Hide reasoning' : 'Why this first'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDismissed(true)}
+              style={{
+                height: 31,
+                padding: '0 12px',
+                borderRadius: 8,
+                border: 0,
+                background: 'transparent',
+                color: 'var(--ink-3)',
+                cursor: 'pointer',
+                font: `600 12px/1 ${FONT}`,
+              }}
+            >
+              Not now
             </button>
           </div>
         </div>
@@ -1192,6 +1495,9 @@ function KpiCard({
             color: t.fg,
           }}
         >
+          {tone === 'mute' ? null : (
+            <DcIcon name={tone === 'bad' ? 'icon-trending-down' : 'icon-trending-up'} size={11} />
+          )}
           {deltaText}
         </span>
         <span style={{ font: `400 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>{sub}</span>
@@ -1316,7 +1622,7 @@ function RevenueChart({
           text={
             loading
               ? 'Loading the revenue timeline…'
-              : 'GET /profit-loss/monthly returned no timeline. The chart appears once the API sends one — nothing is drawn from a guess.'
+              : 'No orders in this window. Bars appear the day the first one lands — nothing is drawn from a guess.'
           }
         />
       ) : (
@@ -1474,6 +1780,182 @@ function PipelineCard({
               </button>
             )
           })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── best sellers ────────────────────────────────────────────────── */
+
+interface BestSellerRow {
+  id: string
+  name: string
+  sku: string
+  sold: number
+  revenue: number
+  trend: number
+}
+
+/**
+ * What is actually moving, ranked by units sold over the insights window.
+ * Share bars are drawn against the leader rather than the total, so the top
+ * row always fills — the eye compares rows to each other, not to 100%.
+ */
+function BestSellersCard({
+  items,
+  onOpen,
+  onProduct,
+  loading,
+}: {
+  items: BestSellerRow[]
+  onOpen: () => void
+  onProduct: (id: string) => void
+  loading: boolean
+}) {
+  const leader = items[0]?.sold ?? 0
+  return (
+    <div style={{ ...card, minWidth: 0, overflow: 'hidden' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '13px 16px',
+          borderBottom: '1px solid var(--line)',
+        }}
+      >
+        <DcIcon name="icon-trending-up" size={14} color="var(--ok)" />
+        <span style={{ flex: 1, font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)' }}>
+          Best sellers · last 30 days
+        </span>
+        <button
+          type="button"
+          onClick={onOpen}
+          style={{
+            border: 0,
+            background: 'transparent',
+            cursor: 'pointer',
+            font: `600 12px/1 ${FONT}`,
+            color: 'var(--violet)',
+          }}
+        >
+          Full report
+        </button>
+      </div>
+
+      {items.length === 0 ? (
+        <EmptyNote
+          text={
+            loading
+              ? 'Ranking products by units sold…'
+              : 'No sales in this window yet — the ranking fills after the first delivered order.'
+          }
+        />
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={th}>#</th>
+                <th style={th}>Product</th>
+                <th style={th}>Share of top seller</th>
+                <th style={{ ...th, textAlign: 'right' }}>Sold</th>
+                <th style={{ ...th, textAlign: 'right' }}>Revenue</th>
+                <th style={{ ...th, textAlign: 'right' }}>Trend</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((p, i) => {
+                const pct = leader > 0 ? Math.round((p.sold / leader) * 100) : 0
+                const tone = toneStyle(deltaTone(p.trend))
+                return (
+                  <tr
+                    key={p.id}
+                    onClick={() => onProduct(p.id)}
+                    className="dc-hover-surface"
+                    style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer' }}
+                  >
+                    <td
+                      style={{
+                        padding: '11px 16px',
+                        font: `700 12px/1 ${MONO}`,
+                        color: i === 0 ? 'var(--ok)' : 'var(--ink-3)',
+                      }}
+                    >
+                      {i + 1}
+                    </td>
+                    <td style={{ padding: '11px 16px', minWidth: 180 }}>
+                      <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <span style={{ font: `500 13px/1.25 ${FONT}`, color: 'var(--ink)' }}>
+                          {p.name}
+                        </span>
+                        <span style={{ font: `400 11px/1 ${MONO}`, color: 'var(--ink-3)' }}>
+                          {p.sku || '—'}
+                        </span>
+                      </span>
+                    </td>
+                    <td style={{ padding: '11px 16px', minWidth: 120 }}>
+                      <span
+                        style={{
+                          display: 'block',
+                          height: 6,
+                          borderRadius: 99,
+                          background: 'var(--surface-2)',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <span
+                          style={{
+                            display: 'block',
+                            width: `${pct}%`,
+                            height: '100%',
+                            borderRadius: 99,
+                            background: i === 0 ? 'var(--ok)' : 'var(--violet)',
+                          }}
+                        />
+                      </span>
+                    </td>
+                    <td
+                      style={{
+                        padding: '11px 16px',
+                        textAlign: 'right',
+                        font: `600 13px/1 ${MONO}`,
+                        color: 'var(--ink)',
+                      }}
+                    >
+                      {p.sold}
+                    </td>
+                    <td
+                      style={{
+                        padding: '11px 16px',
+                        textAlign: 'right',
+                        font: `600 13px/1 ${MONO}`,
+                        color: 'var(--ink-2)',
+                      }}
+                    >
+                      {formatTaka(p.revenue)}
+                    </td>
+                    <td style={{ padding: '11px 16px', textAlign: 'right' }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          padding: '3px 7px',
+                          borderRadius: 6,
+                          font: `600 11px/1 ${MONO}`,
+                          border: `1px solid ${tone.bd}`,
+                          background: tone.bg,
+                          color: tone.fg,
+                        }}
+                      >
+                        {delta(p.trend)}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

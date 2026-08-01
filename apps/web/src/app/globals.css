@@ -6,6 +6,7 @@
 
 @import '../styles/performance.css';
 @import '../styles/glass-tokens.css';
+@import '../styles/touch-targets.css';
 
 /* Fonts loaded via next/font/google in layout.tsx */
 /* ── CSS VARIABLES ────────────────────────────────────────────── */
@@ -8599,8 +8600,21 @@ html[data-chrome-pin='1'] .site-header-glass {
   text-transform: uppercase;
 }
 
+/* "IN STOCK" on every card is not information — it is the default, so it says
+   nothing while still taking a line under every product. Stock only earns its
+   place on the card when it is a constraint, so the in-stock state is dropped
+   and low / only-left / sold-out below keep speaking. Still exposed to screen
+   readers; only the visual line goes. */
 .pc-info__stock--in-stock {
-  color: rgba(16, 17, 20, 0.42);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .pc-info__stock--low-stock {
@@ -8761,7 +8775,11 @@ html[data-chrome-pin='1'] .site-header-glass {
 }
 
 .pc-info__name {
-  font-size: 0.8125rem;
+  /* Was 0.8125rem (13px). At that size the product name lost to the badge,
+     the strikethrough price and the stock line beside it — the metadata read
+     as the story and the product did not. 15px puts the name back on top
+     without touching the card's footprint. */
+  font-size: 0.9375rem;
   font-weight: 600;
   color: #111111;
   line-height: 1.35;

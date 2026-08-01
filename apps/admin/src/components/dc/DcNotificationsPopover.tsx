@@ -1,14 +1,19 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { DcIcon } from '@/components/dc/DcIcon'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { toastFail, toastInfo, toastOk, toastWarn } from '@/lib/admin/feedback'
+import type { NotificationLevel } from '@/lib/api/admin-hub'
 import { useNotificationsOverview } from '@/lib/api/hooks'
 import { formatRelativeTime } from '@/lib/api/orders'
 
 const READ_KEY = 'splaro_dc_read_notification_ids'
+
+/** Toasts fired for a single poll before the rest collapse into one summary. */
+const MAX_TOASTS_PER_POLL = 4
 
 function loadReadIds(): Set<string> {
   if (typeof window === 'undefined') return new Set()
@@ -31,7 +36,19 @@ function saveReadIds(ids: Set<string>) {
   }
 }
 
-function channelTone(status: string): DcTone {
+const LEVEL_TONE: Record<NotificationLevel, DcTone> = {
+  critical: 'bad',
+  warn: 'warn',
+  info: 'info',
+}
+
+/**
+ * Severity beats delivery state. A new order is `critical` and must read red
+ * even though its row is, technically, a successfully delivered notification.
+ * Only when the API sends no level do we fall back to the delivery status.
+ */
+function rowTone(level: NotificationLevel | null | undefined, status: string): DcTone {
+  if (level && LEVEL_TONE[level]) return LEVEL_TONE[level]
   const s = status.toUpperCase()
   if (s === 'FAILED' || s === 'ERROR') return 'bad'
   if (s === 'PENDING' || s === 'QUEUED') return 'warn'
@@ -41,9 +58,13 @@ function channelTone(status: string): DcTone {
 
 function channelIcon(channel: string, subject: string | null): string {
   const c = channel.toUpperCase()
+  const s = subject?.toLowerCase() ?? ''
   if (c === 'IN_APP') {
-    if (subject?.toLowerCase().includes('new order')) return 'icon-shopping-bag'
-    if (subject?.toLowerCase().includes('new customer')) return 'icon-user-plus'
+    if (s.includes('new order')) return 'icon-shopping-bag'
+    if (s.includes('new customer')) return 'icon-user-plus'
+    if (s.includes('stock')) return 'icon-package'
+    if (s.includes('sync')) return 'icon-refresh-cw'
+    if (s.includes('courier')) return 'icon-truck'
     return 'icon-bell'
   }
   if (c === 'SMS') return 'icon-smartphone'
@@ -52,11 +73,18 @@ function channelIcon(channel: string, subject: string | null): string {
   return 'icon-mail'
 }
 
+function isNewOrder(subject: string | null): boolean {
+  return (subject ?? '').toLowerCase().startsWith('new order')
+}
+
 export interface DcNotificationsPopoverProps {
   open: boolean
   onClose: () => void
-  /** Called whenever unread count changes so the header badge stays honest. */
-  onUnreadChange?: (count: number) => void
+  /**
+   * Called whenever the unread tally changes so the header badge stays honest.
+   * `critical` is the subset that must read red rather than violet.
+   */
+  onUnreadChange?: (count: number, critical: number) => void
 }
 
 export function DcNotificationsPopover({
@@ -77,12 +105,19 @@ export function DcNotificationsPopover({
       (data?.logs ?? []).slice(0, 20).map((log) => ({
         id: log.id,
         title: log.subject?.trim() || log.body?.trim() || `${log.channel} → ${log.recipient}`,
-        sub: log.channel.toUpperCase() === 'IN_APP'
-          ? 'Admin alert · live'
-          : `${log.channel} · ${log.status.toLowerCase()}`,
+        body: log.body?.trim() ?? '',
+        // The body carries the detail an operator acts on — customer and
+        // amount for an order, units left for a stock alert. Show it over a
+        // generic channel label whenever there is one.
+        sub:
+          log.channel.toUpperCase() === 'IN_APP'
+            ? log.body?.trim() || 'Admin alert · live'
+            : `${log.channel} · ${log.status.toLowerCase()}`,
         time: formatRelativeTime(log.createdAt),
         icon: channelIcon(log.channel, log.subject),
-        tone: channelTone(log.status),
+        tone: rowTone(log.level, log.status),
+        level: (log.level ?? 'info') as NotificationLevel,
+        newOrder: isNewOrder(log.subject),
         href:
           log.channel.toUpperCase() === 'IN_APP' && log.recipient.startsWith('/dashboard/')
             ? log.recipient
@@ -92,10 +127,46 @@ export function DcNotificationsPopover({
   )
 
   const unread = items.filter((item) => !readIds.has(item.id)).length
+  const unreadCritical = items.filter(
+    (item) => item.level === 'critical' && !readIds.has(item.id),
+  ).length
 
   useEffect(() => {
-    onUnreadChange?.(unread)
-  }, [unread, onUnreadChange])
+    onUnreadChange?.(unread, unreadCritical)
+  }, [unread, unreadCritical, onUnreadChange])
+
+  // Toast alerts that land while the operator is on another screen. The first
+  // poll only seeds the baseline — otherwise every page load would replay the
+  // whole backlog as toasts.
+  const seenIds = useRef<Set<string> | null>(null)
+  useEffect(() => {
+    if (!data?.logs) return
+    if (seenIds.current === null) {
+      seenIds.current = new Set(data.logs.map((log) => log.id))
+      return
+    }
+    const seen = seenIds.current
+    // Oldest first, so a burst of orders toasts in the order they arrived.
+    const fresh = [...items].reverse().filter((item) => {
+      const isNew = !seen.has(item.id)
+      seen.add(item.id)
+      return isNew && !readIds.has(item.id)
+    })
+
+    // A tab left open through a busy hour can come back to a dozen new alerts.
+    // Toasting each one buries the screen, so show the first few and count the
+    // rest — the tray itself holds the full list.
+    for (const item of fresh.slice(0, MAX_TOASTS_PER_POLL)) {
+      const line = item.body ? `${item.title} — ${item.body}` : item.title
+      if (item.newOrder) toastOk(line, `notif:${item.id}`)
+      else if (item.level === 'critical') toastFail(line, `notif:${item.id}`)
+      else if (item.level === 'warn') toastWarn(line, `notif:${item.id}`)
+    }
+    const overflow = fresh.length - MAX_TOASTS_PER_POLL
+    if (overflow > 0) {
+      toastInfo(`+${overflow} more notification${overflow === 1 ? '' : 's'} — open the bell`)
+    }
+  }, [data?.logs, items, readIds])
 
   const markRead = useCallback((id: string) => {
     setReadIds((prev) => {
@@ -158,6 +229,25 @@ export function DcNotificationsPopover({
           <span style={{ flex: 1, font: `600 13px/1 ${FONT}`, color: 'var(--ink)' }}>
             Notifications
           </span>
+          {unreadCritical > 0 ? (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '3px 8px',
+                borderRadius: 6,
+                border: '1px solid var(--bad-bd)',
+                background: 'var(--bad-soft)',
+                color: 'var(--bad)',
+                font: `700 10.5px/1 ${FONT}`,
+                letterSpacing: '.05em',
+              }}
+            >
+              <span style={{ width: 5, height: 5, borderRadius: 99, background: 'currentColor' }} />
+              {unreadCritical} URGENT
+            </span>
+          ) : null}
           {items.length > 0 && unread > 0 ? (
             <button
               type="button"
@@ -236,6 +326,7 @@ export function DcNotificationsPopover({
             items.map((nt) => {
               const tone = toneStyle(nt.tone)
               const isUnread = !readIds.has(nt.id)
+              const urgent = nt.level === 'critical'
               return (
                 <button
                   key={nt.id}
@@ -252,8 +343,15 @@ export function DcNotificationsPopover({
                     width: '100%',
                     padding: '11px 14px',
                     border: 0,
+                    // A red rail down the left edge is what makes an unread
+                    // order readable at a glance from across the room.
+                    borderLeft: `3px solid ${urgent && isUnread ? 'var(--bad)' : 'transparent'}`,
                     borderBottom: '1px solid var(--line)',
-                    background: isUnread ? 'var(--violet-soft)' : 'transparent',
+                    background: isUnread
+                      ? urgent
+                        ? 'var(--bad-soft)'
+                        : 'var(--violet-soft)'
+                      : 'transparent',
                     cursor: 'pointer',
                     textAlign: 'left',
                   }}
@@ -289,7 +387,16 @@ export function DcNotificationsPopover({
                     >
                       {nt.title}
                     </span>
-                    <span style={{ font: `400 11px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
+                    <span
+                      style={{
+                        font: `400 11px/1.4 ${FONT}`,
+                        color: 'var(--ink-3)',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}
+                    >
                       {nt.sub}
                     </span>
                   </span>
@@ -311,7 +418,7 @@ export function DcNotificationsPopover({
                           width: 6,
                           height: 6,
                           borderRadius: 99,
-                          background: 'var(--violet)',
+                          background: urgent ? 'var(--bad)' : 'var(--violet)',
                         }}
                       />
                     ) : null}

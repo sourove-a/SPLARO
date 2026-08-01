@@ -102,7 +102,7 @@ export function DcSettings() {
       </div>
 
       <div className="dc-settings-host">
-        <SettingsShell chrome={false} />
+        <SettingsShell />
       </div>
     </DcScreenProvider>
   )

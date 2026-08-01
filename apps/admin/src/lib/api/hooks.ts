@@ -1,7 +1,16 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchDashboardStats, fetchDashboardInsights, fetchInventoryAlerts, periodFromLabel } from './dashboard'
+import {
+  fetchConversionFunnel,
+  fetchDailyGoal,
+  fetchDashboardStats,
+  fetchDashboardInsights,
+  fetchInventoryAlerts,
+  fetchRevenueSeries,
+  periodFromLabel,
+  saveDailyGoal,
+} from './dashboard'
 import { fetchOrders, fetchOrder, updateOrderStatus, updateOrderPaymentStatus, deleteOrder, bookOrderCourier, bookOrdersCourierBulk, createOrder, bulkUpdateOrderStatus, setOrderCodRisk, addOrderNote, type OrderPaymentStatus } from './orders'
 import { fetchProducts, createProduct, updateProduct, deleteProduct, fetchProduct, updateProductVariant, fetchProductVersions, restoreProductVersion, createProductVariant, archiveProductVariant } from './products'
 import {
@@ -1148,6 +1157,41 @@ export function useInventoryAlerts() {
     queryFn: fetchInventoryAlerts,
     staleTime: 30_000,
     retry: 1,
+  })
+}
+
+export function useRevenueSeries(period: '7d' | '30d' | '90d') {
+  return useQuery({
+    queryKey: ['revenue-series', period],
+    queryFn: () => fetchRevenueSeries(period),
+    staleTime: 60_000,
+    retry: 1,
+  })
+}
+
+export function useConversionFunnel(period: '1d' | '7d' | '30d' | '90d' = '30d') {
+  return useQuery({
+    queryKey: ['conversion-funnel', period],
+    queryFn: () => fetchConversionFunnel(period),
+    staleTime: 60_000,
+    retry: 1,
+  })
+}
+
+export function useDailyGoal() {
+  return useQuery({
+    queryKey: ['daily-goal'],
+    queryFn: fetchDailyGoal,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useSaveDailyGoal() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: saveDailyGoal,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['daily-goal'] }),
   })
 }
 

@@ -98,7 +98,7 @@ export function OrderFulfillmentStepper({
 
       {next && !isTerminal && !disabled ? (
         <AdminButton
-          variant="gold"
+          variant="accent"
           loading={Boolean(loading)}
           className="order-flow__action"
           onClick={() => onAdvance(next.next, `${next.label} from admin`)}

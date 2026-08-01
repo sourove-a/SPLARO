@@ -245,7 +245,7 @@ export class StorefrontOrdersService {
       }
       const variant = resolved.variant
       const available = Math.max(0, variant.stock - variant.reservedStock)
-      if (available < item.quantity) {
+      if (variant.product.inventoryPolicy === 'DENY' && available < item.quantity) {
         errors.push(`${item.name}: only ${available} left in stock`)
         return
       }
@@ -338,6 +338,7 @@ export class StorefrontOrdersService {
       variantId: line.variant.id,
       quantity: line.item.quantity,
       name: line.item.name,
+      allowOversell: line.variant.product.inventoryPolicy !== 'DENY',
     }))
 
     const idemKey = input.idempotencyKey?.trim()

@@ -214,8 +214,12 @@ export function Header() {
 
   // Same sticky threshold on every page — shared Header behavior.
   const { isScrolled } = useHeaderScroll(24, headerPinned)
-  const forceSolidForSearch = isSearchOpen
-  // Mega / search over home hero must not stay transparent — hero bleeds / chrome jitters.
+  // Keep over-hero glass while search opens at the top of home — forcing
+  // --scrolled collapses row height (88→61) and flashes white chrome.
+  // Field contrast is handled by .site-header-glass--over-hero…search-desktop CSS.
+  const overHomeHero = isHome && !pastHeroRef.current
+  const forceSolidForSearch = isSearchOpen && !overHomeHero
+  // Mega over home hero must not stay transparent — hero bleeds under the panel.
   const forceSolidForMega = isMegaMenuOpen
   const forceSolidChrome = forceSolidForSearch || forceSolidForMega
 

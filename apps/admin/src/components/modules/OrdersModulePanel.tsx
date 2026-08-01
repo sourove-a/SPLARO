@@ -23,9 +23,7 @@ import {
 } from 'lucide-react'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { AdminStatusBadge, type AdminBadgeTone } from '@/components/ui/AdminStatusBadge'
-import { OrdersPanel } from '@/components/modules/OrdersPanel'
 import { OrderFulfillmentStepper } from '@/components/orders/OrderFulfillmentStepper'
-import { OrderCreatePanel } from '@/components/modules/OrderCreatePanel'
 import { InvoiceActionsBar } from '@/components/modules/InvoiceActionsBar'
 import {
   useOrder,
@@ -40,7 +38,6 @@ import {
 } from '@/lib/api/hooks'
 import { useInfrastructureConfig } from '@/lib/api/integration-hooks'
 import { mapPaymentMethod, mapOrderStatus, type OrderPaymentStatus } from '@/lib/api/orders'
-import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { formatBDT } from '@/lib/utils/currency'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 import { useAdminUiStore } from '@/store/uiStore'
@@ -61,12 +58,44 @@ function StatusPill({ value }: { value: string }) {
 
 function SideCard({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
   return (
-    <section className="admin-catalog-hero admin-panel-hero !mb-0 !p-5">
-      <div className="admin-catalog-hero__title-row !mb-3">
-        <span className="admin-catalog-icon-ring !h-7 !w-7">
-          <Icon className="h-3.5 w-3.5" />
+    <section
+      className="dc-order-side-card"
+      style={{
+        margin: 0,
+        padding: 16,
+        border: '1px solid var(--line)',
+        borderRadius: 14,
+        background: 'var(--surface)',
+        backgroundImage: 'var(--card-sheen)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            border: '1px solid var(--line)',
+            background: 'var(--surface-2)',
+            color: 'var(--violet)',
+          }}
+        >
+          <Icon style={{ width: 14, height: 14 }} />
         </span>
-        <p className="m-0 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[var(--admin-text-muted)]">{title}</p>
+        <p
+          style={{
+            margin: 0,
+            font: '600 10.5px/1 var(--dc-font, inherit)',
+            letterSpacing: '0.09em',
+            textTransform: 'uppercase',
+            color: 'var(--ink-3)',
+          }}
+        >
+          {title}
+        </p>
       </div>
       {children}
     </section>
@@ -261,28 +290,43 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
   }
 
   return (
-    <div className="admin-panel-page dc-order-detail-body mx-auto max-w-[960px] space-y-4">
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_280px]">
-        <div className="dc-order-hero flex flex-col gap-5 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="dc-order-detail-body mx-auto max-w-[960px]" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 280px', gap: 14, alignItems: 'start' }} className="dc-order-detail-grid">
+        <div
+          className="dc-order-hero"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+            padding: 16,
+            border: '1px solid var(--line)',
+            borderRadius: 14,
+            background: 'var(--surface)',
+            backgroundImage: 'var(--card-sheen)',
+          }}
+        >
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
             <div>
               <h2
-                className="mb-2 font-mono text-lg font-black"
-                style={{ color: 'var(--ink)' }}
+                style={{
+                  margin: '0 0 8px',
+                  font: '700 17px/1.2 var(--dc-mono, ui-monospace, monospace)',
+                  color: 'var(--ink)',
+                }}
               >
                 {order.invoiceNumber}
               </h2>
-              <div className="flex flex-wrap items-center gap-2">
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
                 <StatusPill value={status} />
                 {order.isCodRisk ? (
                   <AdminStatusBadge label="COD risk" tone="warning" />
                 ) : null}
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {canEditOrders && order.status === 'PENDING' ? (
                 <AdminButton
-                  variant="gold"
+                  variant="accent"
                   loading={updateStatus.isPending}
                   onClick={() => void handleAdvanceStatus('CONFIRMED', 'Confirmed from order detail')}
                 >
@@ -291,7 +335,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
               ) : null}
               {canEditOrders && !order.courier?.consignmentId && order.status !== 'CANCELLED' ? (
                 <AdminButton
-                  variant="gold"
+                  variant="accent"
                   disabled={!courierReady}
                   loading={bookCourier.isPending}
                   title={
@@ -335,41 +379,54 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
             onAdvance={(nextStatus, note) => void handleAdvanceStatus(nextStatus, note)}
           />
 
-          <div className="admin-catalog-table-shell overflow-hidden">
-            <table className="admin-catalog-data-table">
+          <div style={{ border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   {['Product', 'Qty', 'Price', 'Subtotal'].map((h) => (
-                    <th key={h} className="admin-catalog-th">{h}</th>
+                    <th
+                      key={h}
+                      style={{
+                        textAlign: 'left',
+                        padding: '9px 14px',
+                        font: '600 10.5px/1 var(--dc-font, inherit)',
+                        letterSpacing: '0.09em',
+                        textTransform: 'uppercase',
+                        color: 'var(--ink-3)',
+                        borderBottom: '1px solid var(--line)',
+                      }}
+                    >
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {items.map((item) => (
-                  <tr key={item.name} className="admin-catalog-row">
-                    <td className="admin-catalog-td admin-catalog-td--strong">{item.name}</td>
-                    <td className="admin-catalog-td">{item.qty}</td>
-                    <td className="admin-catalog-td">{formatBDT(item.price)}</td>
-                    <td className="admin-catalog-td admin-catalog-td--strong">{formatBDT(item.price * item.qty)}</td>
+                  <tr key={item.name}>
+                    <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--ink)', borderBottom: '1px solid var(--line)' }}>{item.name}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--ink-2)', borderBottom: '1px solid var(--line)', fontFamily: 'var(--dc-mono, ui-monospace, monospace)' }}>{item.qty}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--ink-2)', borderBottom: '1px solid var(--line)', fontFamily: 'var(--dc-mono, ui-monospace, monospace)' }}>{formatBDT(item.price)}</td>
+                    <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--ink)', borderBottom: '1px solid var(--line)', fontFamily: 'var(--dc-mono, ui-monospace, monospace)' }}>{formatBDT(item.price * item.qty)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <div className="flex flex-col gap-1.5 border-t border-[rgba(15,23,42,0.06)] pt-4">
-            {[['Subtotal', formatBDT(subtotal)], ['Shipping', formatBDT(shipping)]].map(([l, v]) => (
-              <div key={l} className="flex justify-between text-[13px] font-semibold text-[var(--admin-text-muted)]">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px solid var(--line)', paddingTop: 14 }}>
+            {([['Subtotal', formatBDT(subtotal)], ['Shipping', formatBDT(shipping)]] as const).map(([l, v]) => (
+              <div key={l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, color: 'var(--ink-3)' }}>
                 <span>{l}</span><span>{v}</span>
               </div>
             ))}
-            <div className="flex justify-between text-[15px] font-black text-[var(--admin-text-primary)]">
-              <span>Total</span><span className="text-[var(--admin-accent)]">{formatBDT(total)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 800, color: 'var(--ink)' }}>
+              <span>Total</span><span style={{ color: 'var(--violet)' }}>{formatBDT(total)}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <InvoiceActionsBar
             orderId={order.id}
             invoiceNumber={order.invoiceNumber}
@@ -378,13 +435,13 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
           />
 
           <SideCard title="Customer" icon={Phone}>
-            <p style={{ fontSize: 14, fontWeight: 900, color: 'var(--admin-text-primary)', margin: 0 }}>{order.shippingName}</p>
-            <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--admin-text-muted)', margin: '6px 0 0' }}>
+            <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', margin: 0 }}>{order.shippingName}</p>
+            <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-3)', margin: '6px 0 0' }}>
               <Phone style={{ width: 12, height: 12 }} />{order.shippingPhone}
             </p>
             <button
               type="button"
-              className="mt-2.5 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[rgba(113,46,255,0.28)] bg-[rgba(113,46,255,0.10)] py-1.5 text-xs font-extrabold text-[var(--admin-c-5b1fd9)]"
+              className="mt-2.5 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[var(--violet-bd)] bg-[var(--violet-soft)] py-1.5 text-xs font-extrabold text-[var(--violet)]"
               onClick={() => { const p = order.shippingPhone.replace(/\D/g, ''); window.open(`https://wa.me/88${p.startsWith('0') ? p.slice(1) : p}`, '_blank') }}
             >
               <MessageSquare className="h-3.5 w-3.5" /> WhatsApp customer
@@ -392,11 +449,11 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
           </SideCard>
 
           <SideCard title="Shipping" icon={MapPin}>
-            <p style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--admin-text-primary)', margin: 0 }}>
-              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--admin-accent)]" />
+            <p style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--violet)]" />
               {[order.shippingAddress, order.shippingCity, order.shippingDistrict].filter(Boolean).join(', ')}
             </p>
-            <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--admin-text-muted)', margin: '8px 0 0' }}>
+            <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-3)', margin: '8px 0 0' }}>
               <Truck style={{ width: 12, height: 12 }} />
               {order.courier?.provider ?? 'Not assigned'}
               {order.courier?.consignmentId ? ` · ${order.courier.consignmentId}` : ''}
@@ -409,7 +466,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
                   </p>
                 ) : null}
                 <AdminButton
-                  variant="gold"
+                  variant="accent"
                   size="sm"
                   className="mt-3 w-full"
                   disabled={!courierReady}
@@ -423,12 +480,12 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
           </SideCard>
 
           <SideCard title="Payment" icon={CreditCard}>
-            <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--admin-text-primary)', margin: 0 }}>
-              <CreditCard className="h-4 w-4 text-[var(--admin-accent)]" />{payment}
+            <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
+              <CreditCard className="h-4 w-4 text-[var(--violet)]" />{payment}
             </p>
             {canEditOrders ? (
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                   Payment status
                 </label>
                 <select
@@ -437,13 +494,13 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
                   onChange={(e) => void handlePaymentStatusChange(e.target.value as OrderPaymentStatus)}
                   style={{
                     width: '100%',
-                    borderRadius: 10,
-                    border: '1px solid var(--admin-glass-border)',
-                    background: 'var(--admin-surface)',
+                    borderRadius: 9,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface-2)',
                     padding: '8px 10px',
                     fontSize: 12,
                     fontWeight: 700,
-                    color: 'var(--admin-text-primary)',
+                    color: 'var(--ink)',
                   }}
                 >
                   {PAYMENT_STATUS_OPTIONS.map((opt) => (
@@ -452,21 +509,21 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
                 </select>
               </div>
             ) : (
-              <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: '4px 0 0' }}>Status: {order.paymentStatus}</p>
+              <p style={{ fontSize: 12, color: 'var(--ink-3)', margin: '4px 0 0' }}>Status: {order.paymentStatus}</p>
             )}
           </SideCard>
 
           {(order.paymentMethod === 'CASH_ON_DELIVERY' || order.isCodRisk) && canEditOrders ? (
             <SideCard title="COD risk" icon={AlertTriangle}>
-              <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: '0 0 10px' }}>
+              <p style={{ fontSize: 12, color: 'var(--ink-3)', margin: '0 0 10px' }}>
                 Flag high-risk COD orders and optionally require advance payment before fulfillment.
               </p>
               {order.customer?.codRiskScore !== undefined ? (
-                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--admin-text-primary)', margin: '0 0 10px' }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', margin: '0 0 10px' }}>
                   Customer COD score: {order.customer.codRiskScore}/100
                 </p>
               ) : null}
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, color: 'var(--admin-text-secondary)', marginBottom: 10 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 10 }}>
                 <input
                   type="checkbox"
                   checked={requireAdvance}
@@ -486,7 +543,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
                 {order.isCodRisk ? 'Clear COD risk flag' : 'Flag as COD risk'}
               </AdminButton>
               {order.requireAdvancePayment ? (
-                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--admin-warning-ink)', margin: '8px 0 0' }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--warn)', margin: '8px 0 0' }}>
                   Advance payment required on this order
                 </p>
               ) : null}
@@ -497,13 +554,13 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
             {order.internalNotes?.length ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: canEditOrders ? 12 : 0 }}>
                 {order.internalNotes.map((note) => (
-                  <div key={note.id} className="settings-card admin-panel-glass-subtle" style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: 'var(--admin-text-primary)' }}>
+                  <div key={note.id} style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 10, background: 'var(--surface-2)' }}>
                     {note.body}
                   </div>
                 ))}
               </div>
             ) : (
-              <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: canEditOrders ? '0 0 12px' : 0 }}>
+              <p style={{ fontSize: 12, color: 'var(--ink-3)', margin: canEditOrders ? '0 0 12px' : 0 }}>
                 No internal notes yet.
               </p>
             )}
@@ -516,19 +573,19 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
                   rows={3}
                   style={{
                     width: '100%',
-                    borderRadius: 10,
-                    border: '1px solid var(--admin-glass-border)',
-                    background: 'var(--admin-surface)',
+                    borderRadius: 9,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface-2)',
                     padding: '8px 10px',
                     fontSize: 12,
                     fontWeight: 600,
-                    color: 'var(--admin-text-primary)',
+                    color: 'var(--ink)',
                     resize: 'vertical',
                   }}
                 />
                 <AdminButton
                   size="sm"
-                  variant="gold"
+                  variant="accent"
                   loading={addNote.isPending}
                   disabled={!noteDraft.trim()}
                   onClick={() => void handleAddNote()}
@@ -541,7 +598,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
 
           {canEditOrders && order.status !== 'CANCELLED' ? (
             <SideCard title="Returns & refunds" icon={RotateCcw}>
-              <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: '0 0 10px' }}>
+              <p style={{ fontSize: 12, color: 'var(--ink-3)', margin: '0 0 10px' }}>
                 Open an RMA linked to this order. Refund workflow continues in Finance → Returns.
               </p>
               {showReturnForm ? (
@@ -553,17 +610,18 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
                     placeholder="Return reason (required)"
                     style={{
                       width: '100%',
-                      borderRadius: 10,
-                      border: '1px solid var(--admin-glass-border)',
-                      background: 'var(--admin-surface)',
+                      borderRadius: 9,
+                      border: '1px solid var(--line)',
+                      background: 'var(--surface-2)',
                       padding: '8px 10px',
                       fontSize: 12,
                       fontWeight: 600,
+                      color: 'var(--ink)',
                     }}
                   />
                   <div style={{ display: 'flex', gap: 8 }}>
                     <AdminButton
-                      variant="gold"
+                      variant="accent"
                       size="sm"
                       loading={createReturn.isPending}
                       disabled={!returnReason.trim()}
@@ -578,7 +636,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <AdminButton size="sm" variant="gold" onClick={() => setShowReturnForm(true)}>
+                  <AdminButton size="sm" variant="accent" onClick={() => setShowReturnForm(true)}>
                     <RotateCcw style={{ width: 14, height: 14 }} /> Open return request
                   </AdminButton>
                   <AdminButton size="sm" variant="ghost" onClick={() => navigate('/dashboard/returns-rma')}>
@@ -590,12 +648,11 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
           ) : null}
         </div>
       </div>
+      <style>{`
+        @media (max-width: 900px) {
+          .dc-order-detail-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   )
-}
-
-export function OrdersModulePanel({ moduleHref, subPath, action }: ModuleContextProps) {
-  if (action === 'create') return <OrderCreatePanel moduleHref={moduleHref} />
-  if (action === 'detail' && subPath?.[0]) return <OrderDetailPanel recordId={subPath[0]} moduleHref={moduleHref} />
-  return <OrdersPanel />
 }

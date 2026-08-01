@@ -326,9 +326,13 @@ export default function ProductPageClient({
   const productHasStock = product.variants.some(
     (v) => v.isActive !== false && v.stock > 0,
   )
+  const allowOversell =
+    product.inventoryPolicy === 'CONTINUE' || product.inventoryPolicy === 'PREORDER'
   const stock = activeVariant?.stock ?? 0
   const selectionInStock = stock > 0
-  const inStock = selectionInStock
+  const sellableProduct = productHasStock || allowOversell
+  const sellableSelection = selectionInStock || allowOversell
+  const inStock = sellableSelection
   const lowStock = inStock && stock <= 5
   const unitPrice = activeVariant?.price ?? product.price
   const compareAtPrice = activeVariant?.compareAtPrice ?? product.compareAtPrice
@@ -392,12 +396,26 @@ export default function ProductPageClient({
       // Require scroll intent before floating — the bar used to be prominent
       // on first paint (inline CTA below the fold on mobile) and crammed the
       // page together with the bottom nav + chat bubble.
+      //
+      // "Visible" has to mean *usable*, though. On a 390×844 phone the inline
+      // CTA starts at 832px: its top edge clears the old test while 40 of its
+      // 52px sit under the fold, so the bar stayed hidden behind a button
+      // nobody could press. Require the whole control to be in view, and drop
+      // the scroll gate to the first real flick so intent still comes first
+      // without making the shopper hunt for the buy button.
       const topInset = 72
-      const bottomInset = 28
-      const visible =
-        rect.bottom > topInset && rect.top < window.innerHeight - bottomInset
-      const hasScrolled = window.scrollY > 120
-      const next = !visible && hasScrolled
+      // The mobile tab bar is fixed at z-120 over the page. A CTA sitting
+      // under it is not reachable however "visible" its coordinates look, so
+      // the bottom inset has to be the bar's real height, not a token gap.
+      const navBar = document.querySelector('.mobile-bottom-nav')
+      const bottomInset =
+        navBar && navBar.getBoundingClientRect().height > 0
+          ? navBar.getBoundingClientRect().height + 12
+          : 28
+      const fullyVisible =
+        rect.top > topInset && rect.bottom < window.innerHeight - bottomInset
+      const hasScrolled = window.scrollY > 40
+      const next = !fullyVisible && hasScrolled
       setShowFloatingCta((prev) => (prev === next ? prev : next))
     }
 
@@ -503,7 +521,11 @@ export default function ProductPageClient({
       quantity: 1,
       brand: 'SPLARO',
     })
-    setSelectedSize(sizes[0] ?? null)
+    // Deliberately unselected. Pre-picking the smallest size makes a decision
+    // the shopper has to notice and undo, and an unnoticed one ships the wrong
+    // fit — the costliest kind of return on COD. Add to Bag already blocks and
+    // points at this row when nothing is chosen.
+    setSelectedSize(null)
     setSelectedColor(colorOptions[0]?.hex ?? null)
     setActiveImage(0)
     setQuantity(1)
@@ -643,7 +665,7 @@ export default function ProductPageClient({
   ])
 
   const buildSelectedCartItem = (): CartItem | null => {
-    if (!productHasStock || !selectionInStock) return null
+    if (!sellableProduct || !sellableSelection) return null
     // Synthetic variant ids (product.id or `${product.id}-…`) are UI-only —
     // the API rejects them, so only send ids that came from the database.
     const realVariantId =
@@ -694,13 +716,13 @@ export default function ProductPageClient({
   }
 
   const validatePurchaseSelection = (): boolean => {
-    if (!productHasStock) {
+    if (!sellableProduct) {
       setCtaShake(true)
       window.setTimeout(() => setCtaShake(false), 480)
       toast.error('This product is out of stock')
       return false
     }
-    if (!selectionInStock) {
+    if (!sellableSelection) {
       setCtaShake(true)
       scrollElIntoView(optionsRef.current)
       toast.error(
@@ -719,7 +741,7 @@ export default function ProductPageClient({
         window.setTimeout(() => setSizeShake(false), 520)
         return false
       }
-      if ((sizeStock.get(selectedSize) ?? 0) === 0) {
+      if ((sizeStock.get(selectedSize) ?? 0) === 0 && !allowOversell) {
         setSizeShake(true)
         scrollElIntoView(sizeRowRef.current)
         toast.error('Selected option is out of stock')
@@ -1160,7 +1182,25 @@ export default function ProductPageClient({
                   Only {stock} left — order soon
                 </motion.p>
               )}
-              {!productHasStock ? (
+              {product.inventoryPolicy === 'PREORDER' ? (
+                <motion.p
+                  key="preorder"
+                  className="pp-info__lowstock"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.24, ease: productGalleryEase }}
+                >
+                  Preorder
+                  {product.preorderReleaseAt
+                    ? ` · Expected ${new Date(product.preorderReleaseAt).toLocaleDateString('en-BD', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                    : ''}
+                </motion.p>
+              ) : product.inventoryPolicy === 'CONTINUE' && !selectionInStock ? (
+                <motion.p key="backorder" className="pp-info__lowstock">
+                  Available on backorder
+                </motion.p>
+              ) : !sellableProduct ? (
                 <motion.p
                   key="out-stock"
                   className="pp-info__outstock"
@@ -1238,10 +1278,10 @@ export default function ProductPageClient({
               )}
 
               {sizeOptionUi.showSelector ? (
-                <div className="pp-info__option">
+                <div className="pp-info__option pp-info__option--size">
                   <div className="pp-info__option-head">
                     <p className="pp-info__option-label pp-info__option-label--inline">
-                      {sizeOptionUi.label}
+                      {sizeOptionUi.kind === 'footwear' ? 'Select Shoe Size' : 'Select Size'}
                     </p>
                     {sizeOptionUi.showSizeGuide ? (
                       <MotionPressable
@@ -1250,8 +1290,8 @@ export default function ProductPageClient({
                         variant="subtle"
                         onClick={() => setSizeGuideOpen(true)}
                       >
-                        <Ruler className="h-4 w-4" strokeWidth={1.75} />
                         <span className="pp-size-guide__label">Size Guide</span>
+                        <Ruler className="h-4 w-4" strokeWidth={1.75} />
                       </MotionPressable>
                     ) : null}
                   </div>
@@ -1265,7 +1305,7 @@ export default function ProductPageClient({
                   >
                     {sizes.map((size) => {
                       const qty = sizeStock.get(size) ?? 0
-                      const disabled = qty === 0
+                      const disabled = qty === 0 && !allowOversell
                       const active = selectedSize === size && !disabled
                       return (
                         <button
@@ -1340,7 +1380,7 @@ export default function ProductPageClient({
                   addingToCart && !addedPulse && 'pp-btn-add--pending',
                 )}
                 onClick={handleAddToCart}
-                disabled={!productHasStock || !selectionInStock || addingToCart}
+                disabled={!sellableProduct || !sellableSelection || addingToCart}
                 variant="cta"
               >
                 <AddToBagIconBadge size={17} tone="dark" pulse={addedPulse} />
@@ -1366,7 +1406,7 @@ export default function ProductPageClient({
                 className="pp-btn-store pp-pressable"
                 onClick={handleBuyNow}
                 onPointerEnter={() => router.prefetch(getCheckoutEntryPath())}
-                disabled={!productHasStock || !selectionInStock}
+                disabled={!sellableProduct || !sellableSelection}
                 variant="cta"
               >
                 Buy Now
@@ -1589,7 +1629,7 @@ export default function ProductPageClient({
 
       <ProductPurchaseSticky
         showFloating={showFloatingCta}
-        inStock={productHasStock}
+        inStock={sellableProduct}
         price={unitPrice}
         quantity={quantity}
         selectedSize={selectedSize}

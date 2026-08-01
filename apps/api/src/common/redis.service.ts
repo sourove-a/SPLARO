@@ -161,6 +161,35 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
+  /** Track a live visitor/admin session in a sorted set (score = epoch ms). */
+  async touchPresenceSet(setKey: string, member: string, windowMs: number): Promise<void> {
+    if (!this.client) await this.ensureClient()
+    if (!this.client || !member.trim()) return
+    const now = Date.now()
+    const min = now - windowMs
+    try {
+      await this.client.zadd(setKey, now, member.trim())
+      await this.client.zremrangebyscore(setKey, 0, min)
+      await this.client.expire(setKey, Math.max(60, Math.ceil(windowMs / 1000) * 2))
+    } catch {
+      /* presence is best-effort */
+    }
+  }
+
+  /** Count members seen inside the rolling presence window. */
+  async countPresenceSet(setKey: string, windowMs: number): Promise<number> {
+    if (!this.client) await this.ensureClient()
+    if (!this.client) return 0
+    const now = Date.now()
+    const min = now - windowMs
+    try {
+      await this.client.zremrangebyscore(setKey, 0, min)
+      return await this.client.zcard(setKey)
+    } catch {
+      return 0
+    }
+  }
+
   /** SET NX lock — returns token when acquired, null when held by another caller. */
   async tryAcquireLock(key: string, ttlSeconds: number): Promise<string | null> {
     if (!this.client) await this.ensureClient()

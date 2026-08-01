@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { CheckCircle2, Mail, Plus, Power, Server, Trash2, XCircle } from 'lucide-react'
-import { TelegramBotConfigPanel } from '@/components/modules/TelegramBotConfigPanel'
 import { sendSmtpTestEmail, verifySmtpConnection } from '@/lib/api/settings'
 import { toastFail, toastOk } from '@/lib/admin/feedback'
 import { SectionCard, SectionPageHeader, FieldGrid, Field, Toggle, SaveBar, type SectionProps } from './shared'
@@ -368,14 +367,14 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
       <SectionCard
         id="telegram"
         title="Telegram Bot"
-        subtitle="Full setup lives on Integrations → Telegram Bot. Embedded panel below uses the same verified API."
+        subtitle="Ops alerts, OTP login, and bot token live on the dedicated Telegram screen."
       >
-        <p style={{ margin: '0 0 12px', fontSize: '0.8125rem', fontWeight: 600 }}>
-          <Link href="/dashboard/telegram-bot" className="settings-text-link">
-            Open dedicated Telegram Bot screen →
-          </Link>
+        <p style={{ margin: '0 0 12px', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--ink-2)' }}>
+          Token, chat ID, admin linking, and alert toggles are verified there — not duplicated in Settings.
         </p>
-        <TelegramBotConfigPanel embedded />
+        <Link href="/dashboard/telegram-bot" className="settings-text-link">
+          Open Telegram Bot screen →
+        </Link>
       </SectionCard>
 
       <SectionCard title="Newsletter subscribers" subtitle="Emails collected from the storefront newsletter signup.">

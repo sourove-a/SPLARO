@@ -4617,6 +4617,25 @@ html[data-os='windows'] .home-story-deck[data-story-visible='true'] .home-story-
   }
 }
 
+/* User motion preference wins over legacy decorative-motion exceptions.
+   Hero remains manually navigable; autoplay/video/marquee motion stops. */
+@media (prefers-reduced-motion: reduce) {
+  .home-hero-slider .hero-progress-fill.hero-progress-fill,
+  .home-flow-strip__track {
+    animation: none !important;
+  }
+
+  .home-hero-slider .hero-slide,
+  .home-hero-slider .hero-bg-video,
+  .home-hero-slider .hero-bg-image,
+  .home-hero-slider .hero-slide__media img.hero-bg-image,
+  .home-hero-slider .hero-slide__media video.hero-bg-video,
+  .home-hero-slider .hero-content > * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 
 /* ── Horizontal scroll rails (all devices) ──────────────────────── */
 .h-scroll-rail {
@@ -4836,4 +4855,72 @@ html[data-os='windows'] .home-story-deck[data-story-visible='true'] .home-story-
 .h-scroll-rail--fade-only.h-scroll-rail--can-left::before,
 .h-scroll-rail--fade-only.h-scroll-rail--can-right::after {
   opacity: 1;
+}
+
+/* ── Trust bar labels ─────────────────────────────────────────────────
+   The strip is a compact pill sized for icons alone (19rem across four
+   cells on desktop). The promise text used to live only in `title`, which
+   is a hover tooltip — and a phone never hovers, so on mobile a shield and
+   a lightning bolt said nothing.
+
+   So the label shows on touch widths only, where it is the sole way to
+   read the promise, and the pill grows just enough to carry it. Desktop
+   keeps the icon-only pill it was designed as: the tooltip already works
+   there, and forcing four labels into 19rem is what made them collide. */
+.trust-bar__label {
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+  color: rgba(17, 17, 17, 0.55);
+  text-wrap: balance;
+}
+
+@media (max-width: 767px) {
+  /* Room for text under each icon — the icon-only width cannot hold it. */
+  .trust-bar__panel {
+    max-width: min(21rem, 100%);
+    border-radius: 1.35rem;
+  }
+
+  .trust-bar__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 0.3rem 0.2rem;
+  }
+
+  .trust-bar__cell {
+    border-bottom: none;
+  }
+
+  .trust-bar__cell:nth-child(2n) {
+    border-right: 1px solid rgba(198, 164, 106, 0.14);
+  }
+
+  .trust-bar__cell:last-child {
+    border-right: none;
+  }
+
+  .trust-bar__link {
+    flex-direction: column;
+    gap: 0.22rem;
+    padding: 0.4rem 0.15rem;
+    border-radius: 0.9rem;
+  }
+}
+
+/* Desktop reads the promise from the tooltip, as it always did. */
+@media (min-width: 768px) {
+  .trust-bar__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 }

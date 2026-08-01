@@ -76,6 +76,14 @@ export interface ProductDetailData extends ProductCardData {
   occasion?: string
   season?: string
   origin?: string
+  productType?: string
+  inventoryPolicy?: 'DENY' | 'CONTINUE' | 'PREORDER'
+  preorderReleaseAt?: string
+  dimensionsCm?: {
+    length?: number
+    width?: number
+    height?: number
+  }
   /** Product weight in grams when set in admin/catalog. */
   weightGrams?: number
   /** Structured facts from schemaMarkup.specs (dimensions, strap, closure…). */

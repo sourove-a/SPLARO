@@ -18,7 +18,15 @@ import type { CourierProvider, Order } from '@prisma/client'
 
 export interface BookCourierOptions {
   fromRetry?: boolean
+  storeId?: string
 }
+
+const NON_BOOKABLE_ORDER_STATUSES = new Set([
+  'CANCELLED',
+  'REFUNDED',
+  'DELIVERED',
+  'RETURNED',
+])
 
 export interface CourierBookingResult {
   success: boolean
@@ -75,7 +83,8 @@ export class CourierService {
       where: { orderId },
       select: { consignmentId: true, trackingCode: true, trackingUrl: true, status: true },
     })
-    if (existing?.consignmentId) {
+    // Locally cancelled bookings may still hold a stale consignmentId — allow rebook.
+    if (existing?.consignmentId && existing.status !== 'CANCELLED') {
       return {
         success: true,
         alreadyBooked: true,
@@ -97,13 +106,22 @@ export class CourierService {
     provider?: CourierProvider,
     opts?: BookCourierOptions,
   ): Promise<CourierBookingResult> {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
+    const order = await this.prisma.order.findFirst({
+      where: {
+        OR: [{ id: orderId }, { invoiceNumber: orderId }],
+        ...(opts?.storeId ? { storeId: opts.storeId } : {}),
+      },
       include: { items: true, courier: true },
     })
 
-    if (!order) throw new Error(`Order ${orderId} not found`)
-    if (order.courier?.consignmentId) {
+    if (!order) throw new NotFoundException(`Order ${orderId} not found`)
+    if (NON_BOOKABLE_ORDER_STATUSES.has(order.status)) {
+      return {
+        success: false,
+        error: `Cannot book courier for ${order.status.toLowerCase()} orders`,
+      }
+    }
+    if (order.courier?.consignmentId && order.courier.status !== 'CANCELLED') {
       this.logger.warn(`Order ${orderId} already has courier booking`)
       return {
         success: true,
@@ -423,6 +441,10 @@ export class CourierService {
       data: {
         status: 'CANCELLED',
         failureReason: note,
+        // Clear ids so a later book is not blocked as "already booked".
+        consignmentId: null,
+        trackingCode: null,
+        trackingUrl: null,
       },
     })
 

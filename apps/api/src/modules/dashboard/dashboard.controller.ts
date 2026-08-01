@@ -1,14 +1,32 @@
-import { Controller, Get, Inject, Query } from '@nestjs/common'
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Inject,
+  NotFoundException,
+  Post,
+  Query,
+  Req,
+  UnauthorizedException,
+} from '@nestjs/common'
+import type { Request } from 'express'
 import { DashboardService } from './dashboard.service'
 import { PrismaService } from '../../common/prisma.service'
+import { PresenceService } from '../../common/presence.service'
+import { mergeStorefrontConfig } from '../settings/storefront-config'
 import { resolveStoreId } from '../../common/store.util'
+import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import type { DashboardInsightsResponse, DashboardStatsResponse } from './dashboard.types'
+
+type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
 @Controller('admin/dashboard')
 export class DashboardController {
   constructor(
     @Inject(DashboardService) private readonly dashboard: DashboardService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(PresenceService) private readonly presence: PresenceService,
   ) {}
 
   @Get('stats')
@@ -25,6 +43,25 @@ export class DashboardController {
     @Query('period') period?: string,
   ): Promise<DashboardInsightsResponse> {
     return this.dashboard.getInsights(storeId, period)
+  }
+
+  /** Live visitors + staff currently active (Redis presence, session fallback). */
+  @Get('presence')
+  getPresence(@Query('storeId') storeId?: string) {
+    return this.presence.getPresence(storeId ?? 'splaro')
+  }
+
+  /** Admin panel heartbeat — keeps staff in the live online count. */
+  @Post('presence/heartbeat')
+  async adminPresenceHeartbeat(
+    @Query('storeId') storeId: string | undefined,
+    @Req() req: AdminRequest,
+  ) {
+    if (!req.adminUser?.userId) throw new UnauthorizedException('Admin authentication required')
+    const sid = await resolveStoreId(this.prisma, storeId ?? 'splaro')
+    const visitorId = `admin:${req.adminUser.userId}`
+    await this.presence.heartbeat(sid, visitorId, 'admin')
+    return { ok: true, presence: await this.presence.getPresence(sid) }
   }
 
   /** Recent orders feed — live ticker */
@@ -202,5 +239,66 @@ export class DashboardController {
       failedShipments,
       total: pendingOrders + pendingRMAs + pendingReviews + failedShipments,
     }
+  }
+
+  /**
+   * The revenue target for a single trading day, with today's progress toward
+   * it. `goal: null` means nobody has set one — the dashboard prompts for it
+   * rather than drawing a bar against a number the store never agreed to.
+   */
+  @Get('daily-goal')
+  async dailyGoal(@Query('storeId') storeId: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const settings = await this.prisma.siteSettings.findUnique({
+      where: { storeId: sid },
+      select: { storefrontConfig: true },
+    })
+    const goal = mergeStorefrontConfig(settings?.storefrontConfig).dailyRevenueGoal ?? null
+
+    const dayStart = new Date()
+    dayStart.setHours(0, 0, 0, 0)
+    const today = await this.prisma.order.aggregate({
+      where: {
+        storeId: sid,
+        createdAt: { gte: dayStart },
+        status: { notIn: ['CANCELLED'] },
+      },
+      _sum: { total: true },
+      _count: { id: true },
+    })
+
+    const achieved = Number(today._sum.total ?? 0)
+    return {
+      goal,
+      achieved,
+      orders: today._count.id,
+      // Uncapped on purpose: beating the target by 20% should read as 120%.
+      percent: goal && goal > 0 ? Math.round((achieved / goal) * 100) : null,
+      remaining: goal ? Math.max(0, goal - achieved) : null,
+    }
+  }
+
+  @Post('daily-goal')
+  async setDailyGoal(@Query('storeId') storeId: string, @Body() body: { goal: number | null }) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const raw = body.goal
+    if (raw !== null && (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0)) {
+      throw new BadRequestException('Goal must be a positive amount, or null to clear it.')
+    }
+
+    const settings = await this.prisma.siteSettings.findUnique({
+      where: { storeId: sid },
+      select: { storefrontConfig: true },
+    })
+    if (!settings) throw new NotFoundException('Store settings not found')
+
+    const config = mergeStorefrontConfig(settings.storefrontConfig)
+    const next = { ...config, dailyRevenueGoal: raw === null ? undefined : Math.round(raw) }
+    await this.prisma.siteSettings.update({
+      where: { storeId: sid },
+      data: { storefrontConfig: next as object },
+    })
+
+    return { goal: next.dailyRevenueGoal ?? null }
   }
 }

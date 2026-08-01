@@ -43,6 +43,8 @@ export class OrderNotificationsService {
       subject: `New order · ${order.invoiceNumber}`,
       body: `${order.shippingName} · ${formatBDT(Number(order.total))} · ${order.paymentMethod.replace(/_/g, ' ')}`,
       href: `/dashboard/orders/${encodeURIComponent(order.invoiceNumber)}`,
+      // A new order is the one thing the operator must never scroll past.
+      level: 'critical',
     })
 
     const store = await this.prisma.store.findUnique({ where: { id: storeId } })

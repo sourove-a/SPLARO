@@ -36,6 +36,8 @@ export async function cacheOrderInFile(order: StoredOrder): Promise<void> {
 export interface ResolveOrderOptions {
   accessKey?: string | null | undefined
   phone?: string | null | undefined
+  sessionToken?: string | null | undefined
+  phoneAccessToken?: string | null | undefined
 }
 
 /** API-first order lookup; dev file cache consulted only when enabled. */

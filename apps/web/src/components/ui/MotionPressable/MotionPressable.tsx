@@ -40,7 +40,7 @@ type MotionPressableProps = HTMLMotionProps<'button'> & {
 
 export const MotionPressable = forwardRef<HTMLButtonElement, MotionPressableProps>(
   function MotionPressable(
-    { variant = 'chip', disabled, children, transition, ...props },
+    { variant = 'chip', disabled, children, transition, tabIndex, ...props },
     ref,
   ) {
     const reducedMotion = useReducedMotion()
@@ -51,6 +51,7 @@ export const MotionPressable = forwardRef<HTMLButtonElement, MotionPressableProp
         ref={ref}
         type="button"
         disabled={disabled}
+        tabIndex={tabIndex ?? 0}
         data-no-press=""
         transition={transition ?? PRESS_DOWN}
         {...preset}
@@ -77,6 +78,7 @@ export const MotionLink = forwardRef<HTMLAnchorElement, MotionLinkProps>(functio
     <Link ref={ref} className={className} {...props}>
       <motion.span
         className="inline-flex items-center gap-[inherit]"
+        tabIndex={-1}
         transition={PRESS_DOWN}
         {...preset}
       >
@@ -91,14 +93,20 @@ type MotionAnchorProps = HTMLMotionProps<'a'> & {
 }
 
 export const MotionAnchor = forwardRef<HTMLAnchorElement, MotionAnchorProps>(function MotionAnchor(
-  { variant = 'icon', children, transition, ...props },
+  { variant = 'icon', children, transition, tabIndex, ...props },
   ref,
 ) {
   const reducedMotion = useReducedMotion()
   const preset = reducedMotion ? {} : VARIANT_MOTION[variant]
 
   return (
-    <motion.a ref={ref} transition={transition ?? PRESS_DOWN} {...preset} {...props}>
+    <motion.a
+      ref={ref}
+      tabIndex={tabIndex ?? 0}
+      transition={transition ?? PRESS_DOWN}
+      {...preset}
+      {...props}
+    >
       {children}
     </motion.a>
   )

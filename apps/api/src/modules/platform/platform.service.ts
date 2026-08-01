@@ -93,7 +93,7 @@ export class PlatformService {
 
   async getSecurity(storeIdOrSlug: string) {
     const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
-    const [staff, auditLogs, failedLogins, sessions, twoFaCount] = await Promise.all([
+    const [staff, auditLogs, successfulLogins, failedLogins, sessions, twoFaCount] = await Promise.all([
       this.prisma.staffRole.findMany({
         where: { storeId },
         include: {
@@ -119,6 +119,13 @@ export class PlatformService {
         orderBy: { createdAt: 'desc' },
         take: 50,
         include: { user: { select: { firstName: true, lastName: true, email: true } } },
+      }),
+      this.prisma.loginHistory.count({
+        where: {
+          success: true,
+          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+          user: { staffRoles: { some: { storeId } } },
+        },
       }),
       this.prisma.loginHistory.count({
         where: {
@@ -191,6 +198,7 @@ export class PlatformService {
         activeAdmins: adminUsers.filter((u) => u.status === 'active').length,
         twoFaEnabled: twoFaCount,
         activeSessions: sessions,
+        logins24h: successfulLogins,
         failedLogins24h: failedLogins,
         threatLevel: failedLogins > 5 ? 'high' : failedLogins > 0 ? 'medium' : 'low',
       },

@@ -231,6 +231,16 @@ function DcCampaignsBody() {
       },
       {
         onSuccess: (res) => {
+          const persisted =
+            Boolean(res.id) &&
+            res.name.trim() === form.name.trim() &&
+            String(res.subject ?? '').trim() === form.subject.trim() &&
+            mapCampaignStatus(res.status) === 'draft'
+          if (!persisted) {
+            toast('bad', 'Draft could not be verified', 'Server response did not match the campaign form.')
+            refetchAll()
+            return
+          }
           setNewOpen(false)
           setForm(EMPTY_FORM)
           toast(
@@ -558,12 +568,18 @@ function DcCampaignsBody() {
                             disabled={duplicate.isPending}
                             onClick={() =>
                               duplicate.mutate(c.id, {
-                                onSuccess: (res) =>
+                                onSuccess: (res) => {
+                                  if (!res.id || mapCampaignStatus(res.status) !== 'draft') {
+                                    toast('bad', 'Copy could not be verified', 'Server did not return a saved draft.')
+                                    refetchAll()
+                                    return
+                                  }
                                   toast(
                                     'ok',
                                     `Copied to “${res.name}”`,
                                     'The copy is a draft — nothing was sent.',
-                                  ),
+                                  )
+                                },
                                 onError: (err) =>
                                   toast(
                                     'bad',
@@ -725,11 +741,17 @@ function DcCampaignsBody() {
             onSuccess: (res) => {
               const name = confirmSend.name
               setConfirmSend(null)
-              toast(
-                'ok',
-                `${name} sent to ${res.sent.toLocaleString('en-IN')}`,
-                'Open and click rates fill in as people react.',
-              )
+              if (!Number.isFinite(res.sent) || res.sent < 0) {
+                toast('bad', 'Send result could not be verified', 'Server returned an invalid recipient count.')
+              } else if (res.sent === 0) {
+                toast('warn', `${name} reached nobody`, 'Server reported 0 recipients. Check audience and channel setup.')
+              } else {
+                toast(
+                  'ok',
+                  `${name} sent to ${res.sent.toLocaleString('en-IN')}`,
+                  'Server confirmed recipient count. Open and click rates fill in later.',
+                )
+              }
             },
             onError: (err) => {
               setConfirmSend(null)
@@ -763,7 +785,12 @@ function DcCampaignsBody() {
         onConfirm={() =>
           confirmDelete &&
           remove.mutate(confirmDelete.id, {
-            onSuccess: () => {
+            onSuccess: (res) => {
+              if (res.deleted !== confirmDelete.id) {
+                toast('bad', 'Delete could not be verified', 'Server did not confirm the campaign ID.')
+                refetchAll()
+                return
+              }
               const name = confirmDelete.name
               setConfirmDelete(null)
               toast('ok', `${name} deleted`, 'It is gone from the campaign list.')

@@ -46,6 +46,8 @@
 
 ## Overview
 
+> Launch stabilization status and verified evidence: [`docs/LAUNCH-STABILIZATION-2026-08-01.md`](docs/LAUNCH-STABILIZATION-2026-08-01.md). Local gates passing does not by itself mean production-ready.
+
 SPLARO is a world-class luxury women's fashion brand built for the Bangladesh market with international reach. This platform is engineered to the same standard as a $100,000+ custom agency build — combining the editorial luxury of Dior, the usability precision of Apple, and the conversion focus of leading fashion brands.
 
 **Brand Positioning:** Luxury fashion house, not a typical eCommerce store.

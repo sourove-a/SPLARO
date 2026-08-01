@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Storefront interaction smoke test — emulates Windows "Animation effects OFF"
- * (prefers-reduced-motion: reduce) and verifies decorative motion still runs.
+ * Storefront reduced-motion smoke test — emulates Windows "Animation effects OFF"
+ * and verifies autoplay/progress/marquee motion stays stopped without console errors.
  *
  * Run: node scripts/check-web-interactions.mjs
  * Env: WEB_URL=http://127.0.0.1:3000
@@ -148,25 +148,12 @@ async function main() {
 
     const checks = {
       reducedMotionActive: state.reducedMotion === true,
-      heroAutoplay: state.heroDotChanged,
-      heroProgressRunning:
-        state.heroProgressAnim?.name !== 'none' &&
-        parseFloat(state.heroProgressAnim?.duration ?? '0') > 0.1,
-      marqueeScroll: state.marqueeMoved || state.marqueeAnim?.name === 'home-flow-marquee',
+      heroAutoplayStopped: !state.heroDotChanged,
+      heroProgressStopped:
+        state.heroProgressAnim?.name === 'none' ||
+        parseFloat(state.heroProgressAnim?.duration ?? '0') <= 0.1,
+      marqueeStopped: !state.marqueeMoved && state.marqueeAnim?.name !== 'home-flow-marquee',
       marqueeNoWrap: state.marqueeWrap === 'nowrap',
-      chatDots: state.chatDotMoved || state.chatDotAnim?.name === 'supportDotWave',
-      chatSway: state.chatBtnAnim?.name === 'supportSway',
-      storyEarth:
-        state.storyMapMoved ||
-        state.storyMapAnim?.name === 'story-earth-map-scroll' ||
-        storyWebGL,
-      footerEarth:
-        state.footerVideoVisible ||
-        state.footerVideoPlaying ||
-        state.footerLive === 'video' ||
-        state.footerMapMoved ||
-        state.footerWebGL ||
-        state.footerReady,
       noLiteProfile: state.dataPerf !== 'lite',
       noConsoleErrors: consoleErrors.length === 0,
     }
@@ -178,7 +165,7 @@ async function main() {
           ok,
           base: BASE,
           checks,
-          details: state,
+          details: { ...state, storyWebGL },
           consoleErrors: consoleErrors.slice(0, 8),
         },
         null,

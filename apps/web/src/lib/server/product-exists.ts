@@ -4,10 +4,24 @@ import { fetchWithTimeout } from '@/lib/server/build-safe-fetch'
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 const CACHE_MS = 30_000
 const TIMEOUT_MS = 900
+/**
+ * Entries only ever expire on read, so without a cap a flood of
+ * `/products/<random>` requests grows this map without bound. Map keeps
+ * insertion order, so the oldest key is the first one `keys()` yields.
+ */
+const CACHE_MAX_ENTRIES = 1000
 
 type CacheEntry = { exists: boolean; expiresAt: number }
 
 const cache = new Map<string, CacheEntry>()
+
+function cacheSet(key: string, entry: CacheEntry): void {
+  if (cache.size >= CACHE_MAX_ENTRIES && !cache.has(key)) {
+    const oldest = cache.keys().next().value
+    if (oldest !== undefined) cache.delete(oldest)
+  }
+  cache.set(key, entry)
+}
 
 /**
  * Fast existence probe for middleware — real HTTP 404 when Next soft-200s
@@ -34,11 +48,11 @@ export async function productSlugExists(slug: string): Promise<boolean | null> {
     )
     if (!res) return null
     if (res.status === 404) {
-      cache.set(key, { exists: false, expiresAt: now + CACHE_MS })
+      cacheSet(key, { exists: false, expiresAt: now + CACHE_MS })
       return false
     }
     if (!res.ok) return null
-    cache.set(key, { exists: true, expiresAt: now + CACHE_MS })
+    cacheSet(key, { exists: true, expiresAt: now + CACHE_MS })
     return true
   } catch {
     return null

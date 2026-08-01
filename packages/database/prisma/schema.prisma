@@ -191,6 +191,12 @@ enum InventoryAction {
   INITIAL
 }
 
+enum InventoryPolicy {
+  DENY
+  CONTINUE
+  PREORDER
+}
+
 enum ReviewStatus {
   PENDING
   APPROVED
@@ -815,6 +821,13 @@ model Product {
   status           String              @default("PUBLISHED") // DRAFT | PUBLISHED | SCHEDULED | ARCHIVED
   publishAt        DateTime?
   weight           Decimal?            @db.Decimal(8, 3)
+  lengthCm         Decimal?            @db.Decimal(8, 2)
+  widthCm          Decimal?            @db.Decimal(8, 2)
+  heightCm         Decimal?            @db.Decimal(8, 2)
+  productType      String?
+  inventoryPolicy InventoryPolicy      @default(DENY)
+  preorderReleaseAt DateTime?
+  additionalDetails Json?
   fabricContent    String?
   careInstructions String?
   fitType          String?
@@ -2916,11 +2929,15 @@ model NotificationDeliveryLog {
   subject   String?
   body      String?
   status    NotificationStatus @default(PENDING)
+  // Operator severity, independent of delivery status: info | warn | critical.
+  // Drives the colour the admin notification tray paints the row.
+  level     String             @default("info")
   errorMsg  String?
   store     Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
   createdAt DateTime           @default(now())
 
   @@index([storeId, channel, status])
+  @@index([storeId, createdAt])
 }
 
 model ExecutiveInsight {

@@ -1,25 +1,55 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Inject,
+  NotFoundException,
   Param,
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common'
-import type { CourierProvider, CourierStatus } from '@prisma/client'
+import type { Request } from 'express'
+import type { CourierProvider, CourierStatus, OrderStatus } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { CourierService } from './courier.service'
+import { OrderStatusService } from '../orders/order-status.service'
+
+type AdminRequest = Request & { adminUser?: AdminSessionPayload }
+
+const COURIER_TO_ORDER_STATUS: Partial<Record<CourierStatus, OrderStatus>> = {
+  PICKED_UP: 'PICKED_UP',
+  IN_TRANSIT: 'IN_TRANSIT',
+  DELIVERED: 'DELIVERED',
+  RETURNED: 'RETURNED',
+  CANCELLED: 'CANCELLED',
+}
 
 @Controller('admin/courier')
 export class CourierController {
   constructor(
     @Inject(CourierService) private readonly courier: CourierService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(OrderStatusService) private readonly orderStatus: OrderStatusService,
   ) {}
+
+  private async ownedOrderId(idOrInvoice: string, req: AdminRequest): Promise<string> {
+    const storeId = req.adminUser?.storeId
+      ? await resolveStoreId(this.prisma, req.adminUser.storeId)
+      : await resolveStoreId(this.prisma, undefined)
+    const order = await this.prisma.order.findFirst({
+      where: {
+        storeId,
+        OR: [{ id: idOrInvoice }, { invoiceNumber: idOrInvoice }],
+      },
+      select: { id: true },
+    })
+    if (!order) throw new NotFoundException('Order not found')
+    return order.id
+  }
 
   /** All shipments for a store with filters */
   @Get()
@@ -76,7 +106,7 @@ export class CourierController {
 
   /** Courier performance stats — must be registered before :orderId routes */
   @Get('stats/overview')
-  async stats(@Query('storeId') storeId: string, @Query('days') days?: string) {
+  async overview(@Query('storeId') storeId?: string, @Query('days') days?: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
     const since = new Date()
     since.setDate(since.getDate() - (Number(days) || 30))
@@ -109,24 +139,30 @@ export class CourierController {
     return { byStatus, byProvider, recentFailed }
   }
 
-  /** Bulk status update */
+  /** Bulk status update — also drives order status when mapped */
   @Post('bulk/status')
-  async bulkStatus(@Body() body: { orderIds: string[]; status: CourierStatus }) {
-    const result = await this.prisma.courierShipment.updateMany({
-      where: { orderId: { in: body.orderIds } },
-      data: {
-        status: body.status,
-        ...(body.status === 'DELIVERED' ? { deliveredAt: new Date() } : {}),
-      },
-    })
-    return { updated: result.count }
+  async bulkStatus(
+    @Body() body: { orderIds: string[]; status: CourierStatus; note?: string },
+    @Req() req: AdminRequest,
+  ) {
+    let updated = 0
+    for (const rawId of body.orderIds ?? []) {
+      try {
+        await this.updateStatus(rawId, { status: body.status, note: body.note }, req)
+        updated += 1
+      } catch {
+        /* skip unauthorized / missing */
+      }
+    }
+    return { updated }
   }
 
   /** Single shipment detail with webhook events */
   @Get(':orderId')
-  async detail(@Param('orderId') orderId: string) {
+  async detail(@Param('orderId') orderId: string, @Req() req: AdminRequest) {
+    const ownedId = await this.ownedOrderId(orderId, req)
     const shipment = await this.prisma.courierShipment.findUnique({
-      where: { orderId },
+      where: { orderId: ownedId },
       include: {
         order: {
           select: {
@@ -151,28 +187,35 @@ export class CourierController {
 
   /** Book courier for an order */
   @Post(':orderId/book')
-  book(
+  async book(
     @Param('orderId') orderId: string,
-    @Body('provider') provider?: CourierProvider,
+    @Body('provider') provider: CourierProvider | undefined,
+    @Req() req: AdminRequest,
   ) {
-    return this.courier.bookCourier(orderId, provider)
+    const ownedId = await this.ownedOrderId(orderId, req)
+    return this.courier.bookCourier(ownedId, provider, {
+      storeId: req.adminUser?.storeId,
+    })
   }
 
   /** Retry failed booking */
   @Post(':orderId/retry')
-  retry(
+  async retry(
     @Param('orderId') orderId: string,
-    @Body('provider') provider?: CourierProvider,
+    @Body('provider') provider: CourierProvider | undefined,
+    @Req() req: AdminRequest,
   ) {
-    return this.courier.manualRetry(orderId, provider)
+    const ownedId = await this.ownedOrderId(orderId, req)
+    return this.courier.manualRetry(ownedId, provider)
   }
 
   /** Live tracking status from courier API */
   @Get(':orderId/track')
-  async track(@Param('orderId') orderId: string) {
-    const status = await this.courier.getTrackingStatus(orderId)
-    const shipment = await this.prisma.courierShipment.findFirst({
-      where: { OR: [{ orderId }, { order: { invoiceNumber: orderId } }] },
+  async track(@Param('orderId') orderId: string, @Req() req: AdminRequest) {
+    const ownedId = await this.ownedOrderId(orderId, req)
+    const status = await this.courier.getTrackingStatus(ownedId)
+    const shipment = await this.prisma.courierShipment.findUnique({
+      where: { orderId: ownedId },
       select: {
         provider: true,
         status: true,
@@ -195,22 +238,28 @@ export class CourierController {
    * Never reports courier-side cancellation as success.
    */
   @Post(':orderId/cancel-booking')
-  cancelBooking(
+  async cancelBooking(
     @Param('orderId') orderId: string,
     @Body() body: { note?: string },
-    @Query('storeId') _storeId?: string,
+    @Req() req: AdminRequest,
   ) {
-    return this.courier.cancelBookingLocal(orderId, { note: body?.note })
+    const ownedId = await this.ownedOrderId(orderId, req)
+    return this.courier.cancelBookingLocal(ownedId, {
+      note: body?.note,
+      storeId: req.adminUser?.storeId,
+    })
   }
 
-  /** Manually update shipment status (admin override) */
+  /** Manually update shipment status (admin override) — syncs order when mapped */
   @Patch(':orderId/status')
   async updateStatus(
     @Param('orderId') orderId: string,
     @Body() body: { status: CourierStatus; note?: string },
+    @Req() req: AdminRequest,
   ) {
+    const ownedId = await this.ownedOrderId(orderId, req)
     const shipment = await this.prisma.courierShipment.update({
-      where: { orderId },
+      where: { orderId: ownedId },
       data: {
         status: body.status,
         ...(body.status === 'DELIVERED' ? { deliveredAt: new Date() } : {}),
@@ -219,13 +268,30 @@ export class CourierController {
         ...(body.note ? { failureReason: body.note } : {}),
       },
     })
+
+    const mapped = COURIER_TO_ORDER_STATUS[body.status]
+    if (mapped) {
+      try {
+        await this.orderStatus.applyStatusChange(
+          ownedId,
+          mapped,
+          body.note ?? `Courier status → ${body.status}`,
+          req.adminUser?.storeId,
+          { notePrefix: '[Courier] ' },
+        )
+      } catch {
+        // Shipment row updated; order transition may be illegal (e.g. already delivered).
+      }
+    }
+
     return shipment
   }
 
   /** Webhook events for a shipment */
   @Get(':orderId/events')
-  async events(@Param('orderId') orderId: string) {
-    const shipment = await this.prisma.courierShipment.findUnique({ where: { orderId } })
+  async events(@Param('orderId') orderId: string, @Req() req: AdminRequest) {
+    const ownedId = await this.ownedOrderId(orderId, req)
+    const shipment = await this.prisma.courierShipment.findUnique({ where: { orderId: ownedId } })
     if (!shipment) return []
     return this.prisma.courierWebhookEvent.findMany({
       where: { shipmentId: shipment.id },

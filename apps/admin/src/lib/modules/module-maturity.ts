@@ -3,18 +3,11 @@ import { flatAdminRoutes } from '@/lib/navigation/admin-nav'
 
 export type ModuleMaturity = 'live' | 'beta' | 'prototype'
 
-/**
- * Routes with dedicated live panels in the module registry.
- *
- * Built lazily: `registry` pulls in every module panel, and several of those
- * import this file, so reading `REGISTERED_MODULE_HREFS` at module scope hits a
- * temporal-dead-zone error whenever registry happens to be the cycle's entry
- * point. Nothing here is needed until a route is actually classified.
- */
-let liveRoutes: Set<string> | null = null
+/** Routes backed by a real screen and API, as listed in the module registry. */
+const LIVE_ROUTES = new Set<string>(['/dashboard', ...REGISTERED_MODULE_HREFS])
+
 function getLiveRoutes(): Set<string> {
-  liveRoutes ??= new Set<string>(['/dashboard', ...REGISTERED_MODULE_HREFS])
-  return liveRoutes
+  return LIVE_ROUTES
 }
 
 /**
@@ -22,6 +15,14 @@ function getLiveRoutes(): Set<string> {
  * Checked before LIVE_ROUTES so maturity is not overstated.
  */
 const BETA_ROUTES = new Set<string>([
+  '/dashboard/wms/overview',
+  '/dashboard/wms/warehouses',
+  '/dashboard/wms/stock-movements',
+  '/dashboard/wms/transfers',
+  '/dashboard/procurement/overview',
+  '/dashboard/procurement/suppliers',
+  '/dashboard/procurement/purchase-orders',
+  '/dashboard/procurement/goods-received',
   '/dashboard/production/overview',
   '/dashboard/production/fabric-inventory',
   '/dashboard/support/helpdesk',

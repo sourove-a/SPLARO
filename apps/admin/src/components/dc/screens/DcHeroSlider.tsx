@@ -77,100 +77,161 @@ function DcHeroSliderBody() {
   }
 
   const toggle = useMutation({
-    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      updateBanner(id, { isActive }),
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      await updateBanner(id, { isActive })
+      const fresh = await fetchBanners(HERO_POSITION)
+      if (fresh.banners.find((row) => row.id === id)?.isActive !== isActive) {
+        throw new Error('Slide visibility did not persist on server')
+      }
+      return { isActive }
+    },
     onSuccess: (_r, vars) => {
       afterWrite()
       toast(
         vars.isActive ? 'ok' : 'info',
         vars.isActive ? 'Slide published' : 'Slide hidden',
         vars.isActive
-          ? 'Live in the storefront hero now.'
-          : 'Removed from the hero — the record is kept.',
+          ? 'Server confirmed active; storefront refresh is queued.'
+          : 'Server confirmed hidden; the record is kept.',
       )
     },
-    onError: (err) =>
+    onError: (err) => {
+      afterWrite()
       toast(
         'bad',
         'Could not update the slide',
         err instanceof Error ? err.message : 'PATCH /admin/banners/:id failed',
-      ),
+      )
+    },
   })
 
   const reorder = useMutation({
-    mutationFn: ({ id, sortOrder }: { id: string; sortOrder: number }) =>
-      updateBanner(id, { sortOrder }),
+    mutationFn: async ({
+      currentId,
+      targetId,
+      index,
+      target,
+    }: {
+      currentId: string
+      targetId: string
+      index: number
+      target: number
+    }) => {
+      await updateBanner(currentId, { sortOrder: target })
+      await updateBanner(targetId, { sortOrder: index })
+      const fresh = await fetchBanners(HERO_POSITION)
+      if (fresh.banners[index]?.id !== targetId || fresh.banners[target]?.id !== currentId) {
+        throw new Error('Slide order did not persist on server')
+      }
+    },
     onSuccess: () => {
       afterWrite()
-      toast('ok', 'Order saved', 'The hero reads this order on the next render.')
+      toast('ok', 'Order saved and verified', 'Server returned the slides in this order.')
     },
-    onError: (err) =>
+    onError: (err) => {
+      afterWrite()
       toast(
         'bad',
         'Could not save the order',
-        err instanceof Error ? err.message : 'PATCH /admin/banners/:id failed',
-      ),
+        err instanceof Error ? err.message : 'Slide order was not fully verified; refresh and retry.',
+      )
+    },
   })
 
   const create = useMutation({
-    mutationFn: () =>
-      createBanner({
+    mutationFn: async () => {
+      const expected = {
         image: form.image.trim(),
         position: HERO_POSITION,
         isActive: false,
         ...(form.title.trim() ? { title: form.title.trim() } : {}),
         ...(form.subtitle.trim() ? { subtitle: form.subtitle.trim() } : {}),
         ...(form.linkUrl.trim() ? { linkUrl: form.linkUrl.trim() } : {}),
-      }),
+      }
+      const saved = await createBanner(expected)
+      const fresh = await fetchBanners(HERO_POSITION)
+      const row = fresh.banners.find((item) => item.id === saved.id)
+      if (!row || row.image !== expected.image || row.isActive !== false) {
+        throw new Error('Created slide did not persist on server')
+      }
+      return row
+    },
     onSuccess: () => {
       afterWrite()
       setCreateOpen(false)
-      toast('ok', 'Slide created', 'Created hidden — publish it once the image is right.')
+      toast('ok', 'Slide created and verified', 'Created hidden — publish it once the image is right.')
     },
-    onError: (err) =>
+    onError: (err) => {
+      afterWrite()
       toast(
         'bad',
         'Could not create the slide',
         err instanceof Error ? err.message : 'POST /admin/banners failed',
-      ),
+      )
+    },
   })
 
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!editing) throw new Error('No slide selected')
-      return updateBanner(editing.id, {
+      const expected = {
         title: form.title.trim(),
         subtitle: form.subtitle.trim(),
         linkUrl: form.linkUrl.trim(),
         image: form.image.trim(),
-      })
+      }
+      await updateBanner(editing.id, expected)
+      const fresh = await fetchBanners(HERO_POSITION)
+      const row = fresh.banners.find((item) => item.id === editing.id)
+      if (
+        !row ||
+        String(row.title ?? '') !== expected.title ||
+        String(row.subtitle ?? '') !== expected.subtitle ||
+        String(row.linkUrl ?? '') !== expected.linkUrl ||
+        row.image !== expected.image
+      ) {
+        throw new Error('Slide changes did not persist on server')
+      }
+      return row
     },
     onSuccess: () => {
       afterWrite()
       setEditing(null)
-      toast('ok', 'Saved', 'The storefront picked the change up.')
+      toast('ok', 'Saved and verified', 'Server confirmed changes; storefront refresh is queued.')
     },
-    onError: (err) =>
+    onError: (err) => {
+      afterWrite()
       toast(
         'bad',
         'Could not save the slide',
         err instanceof Error ? err.message : 'PATCH /admin/banners/:id failed',
-      ),
+      )
+    },
   })
 
   const remove = useMutation({
-    mutationFn: (id: string) => deleteBanner(id),
+    mutationFn: async (id: string) => {
+      const result = await deleteBanner(id)
+      if (result.deleted !== true) throw new Error('Slide delete was not confirmed by server')
+      const fresh = await fetchBanners(HERO_POSITION)
+      if (fresh.banners.some((item) => item.id === id)) {
+        throw new Error('Slide still exists after delete')
+      }
+      return id
+    },
     onSuccess: () => {
       afterWrite()
       setRemoving(null)
-      toast('ok', 'Slide deleted', 'Removed permanently — this cannot be undone.')
+      toast('ok', 'Slide deleted and verified', 'Fresh server read confirms it no longer exists.')
     },
-    onError: (err) =>
+    onError: (err) => {
+      afterWrite()
       toast(
         'bad',
         'Could not delete the slide',
         err instanceof Error ? err.message : 'DELETE /admin/banners/:id failed',
-      ),
+      )
+    },
   })
 
   const busy =
@@ -180,8 +241,12 @@ function DcHeroSliderBody() {
     const target = index + direction
     if (target < 0 || target >= rows.length) return
     // sortOrder is relative, so swapping two rows means writing both.
-    reorder.mutate({ id: rows[index]!.id, sortOrder: target })
-    reorder.mutate({ id: rows[target]!.id, sortOrder: index })
+    reorder.mutate({
+      currentId: rows[index]!.id,
+      targetId: rows[target]!.id,
+      index,
+      target,
+    })
   }
 
   const skeleton: DcBlock[] = [

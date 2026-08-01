@@ -8,6 +8,7 @@ export interface ReservableLine {
   variantId: string
   quantity: number
   name: string
+  allowOversell?: boolean
 }
 
 const DEFAULT_RESERVATION_MINUTES = 15
@@ -32,6 +33,13 @@ export class StockReservationService {
     lines: ReservableLine[],
   ): Promise<void> {
     for (const line of lines) {
+      if (line.allowOversell) {
+        await tx.productVariant.update({
+          where: { id: line.variantId },
+          data: { stock: { decrement: line.quantity } },
+        })
+        continue
+      }
       const changed = await tx.$executeRaw`
         UPDATE "ProductVariant"
         SET "stock" = "stock" - ${line.quantity}, "updatedAt" = NOW()
@@ -50,6 +58,13 @@ export class StockReservationService {
     lines: ReservableLine[],
   ): Promise<void> {
     for (const line of lines) {
+      if (line.allowOversell) {
+        await tx.productVariant.update({
+          where: { id: line.variantId },
+          data: { reservedStock: { increment: line.quantity } },
+        })
+        continue
+      }
       const changed = await tx.$executeRaw`
         UPDATE "ProductVariant"
         SET "reservedStock" = "reservedStock" + ${line.quantity}, "updatedAt" = NOW()
@@ -102,8 +117,16 @@ export class StockReservationService {
             "reservedStock" = "reservedStock" - ${item.quantity},
             "updatedAt" = NOW()
         WHERE "id" = ${item.variantId}
-          AND "stock" >= ${item.quantity}
           AND "reservedStock" >= ${item.quantity}
+          AND (
+            "stock" >= ${item.quantity}
+            OR EXISTS (
+              SELECT 1
+              FROM "Product"
+              WHERE "Product"."id" = "ProductVariant"."productId"
+                AND "Product"."inventoryPolicy" <> 'DENY'
+            )
+          )
       `
       if (changed !== 1) {
         throw new BadRequestException('Reserved stock is unavailable — payment requires reconciliation')

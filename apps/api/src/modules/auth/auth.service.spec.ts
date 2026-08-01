@@ -73,6 +73,7 @@ describe('AuthService role-split login', () => {
       adminInvite: {
         findUnique: jest.fn(),
         update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
     }
@@ -131,6 +132,21 @@ describe('AuthService role-split login', () => {
     await expect(service.resolveLoginMethod('staff@example.com')).resolves.toEqual({
       method: 'password',
       email: 'staff@example.com',
+    })
+  })
+
+  it('resolves telegram method for ADMIN', async () => {
+    const { service } = buildService({
+      staff: {
+        userId: 'u-admin',
+        email: 'admin@example.com',
+        role: 'ADMIN',
+        storeId: 'store-1',
+      },
+    })
+    await expect(service.resolveLoginMethod('admin@example.com')).resolves.toEqual({
+      method: 'telegram',
+      email: 'admin@example.com',
     })
   })
 
@@ -217,7 +233,7 @@ describe('AuthService role-split login', () => {
     const result = await service.acceptInvite(rawToken, password, undefined, { ipAddress: '127.0.0.1' })
     expect(result.email).toBe('invitee@example.com')
     expect(result.role).toBe('STAFF')
-    expect((prisma.adminInvite as { update: jest.Mock }).update).toHaveBeenCalled()
+    expect((prisma.adminInvite as { updateMany: jest.Mock }).updateMany).toHaveBeenCalled()
   })
 
   it('createInviteTokenPair returns hashable token', () => {

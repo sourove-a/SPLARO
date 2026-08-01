@@ -10,9 +10,10 @@ import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { toastFail, toastOk } from '@/lib/admin/feedback'
 import { useProducts } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
-import type { ApiProduct } from '@/lib/api/products'
+import { deleteProduct, permanentlyDeleteProduct, type ApiProduct } from '@/lib/api/products'
 import { resolveMediaUrl } from '@/lib/media-url'
 
 const TABS = ['All', 'Active', 'Draft', 'Out of stock'] as const
@@ -72,6 +73,8 @@ function DcProductsBody() {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('All')
   const [query, setQuery] = useState('')
+  const [removeTarget, setRemoveTarget] = useState<ApiProduct | null>(null)
+  const [removing, setRemoving] = useState(false)
 
   const products = useProducts({ limit: 200 })
   const { api } = useAdminConnection(25_000)
@@ -108,6 +111,29 @@ function DcProductsBody() {
     { t: 'kpis', items: [] },
     { t: 'table', title: '', cols: [], rows: [] },
   ]
+
+  const runRemove = async (mode: 'archive' | 'permanent') => {
+    const target = removeTarget
+    if (!target) return
+    setRemoving(true)
+    try {
+      if (mode === 'archive') {
+        await deleteProduct(target.id)
+        toastOk(`"${target.name}" archived — off the storefront, still in the books.`)
+      } else {
+        await permanentlyDeleteProduct(target.id)
+        toastOk(`"${target.name}" deleted for good.`)
+      }
+      setRemoveTarget(null)
+      void products.refetch()
+    } catch (e) {
+      // The API refuses a permanent delete once the product has been sold —
+      // surface that message rather than a generic failure.
+      toastFail(e instanceof Error ? e.message : 'Could not delete this product.')
+    } finally {
+      setRemoving(false)
+    }
+  }
 
   return (
     <>
@@ -314,6 +340,9 @@ function DcProductsBody() {
                   <th style={th}>Stock</th>
                   <th style={{ ...th, textAlign: 'right' }}>Price</th>
                   <th style={th}>Status</th>
+                  <th style={{ ...th, textAlign: 'right' }}>
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -434,6 +463,31 @@ function DcProductsBody() {
                           {status}
                         </span>
                       </td>
+                      <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                        <button
+                          type="button"
+                          title={`Remove ${p.name}`}
+                          aria-label={`Remove ${p.name}`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setRemoveTarget(p)
+                          }}
+                          className="dc-hover-line"
+                          style={{
+                            display: 'grid',
+                            placeItems: 'center',
+                            width: 28,
+                            height: 28,
+                            borderRadius: 8,
+                            border: '1px solid var(--line)',
+                            background: 'var(--surface-2)',
+                            color: 'var(--ink-3)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <DcIcon name="icon-trash-2" size={13} />
+                        </button>
+                      </td>
                     </tr>
                   )
                 })}
@@ -444,6 +498,74 @@ function DcProductsBody() {
           </div>
         </>
       )}
+
+      {removeTarget ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Remove product"
+          onClick={() => (removing ? undefined : setRemoveTarget(null))}
+        >
+          <div
+            className="admin-modal w-full max-w-md"
+            style={{ background: 'var(--surface)', border: '1px solid var(--line)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="admin-modal__header">
+              <h2 className="text-base font-black" style={{ color: 'var(--ink)' }}>
+                Remove “{removeTarget.name}”
+              </h2>
+              <p className="mt-1 text-xs" style={{ color: 'var(--ink-3)' }}>
+                Two different things, so pick deliberately.
+              </p>
+            </div>
+            <div className="admin-modal__body space-y-3">
+              <p className="text-xs" style={{ color: 'var(--ink-2)', lineHeight: 1.6 }}>
+                <strong style={{ color: 'var(--ink)' }}>Archive</strong> pulls it off the storefront
+                and out of search, but keeps the row so past orders and reports still add up. This is
+                the right choice for a product that has ever sold.
+              </p>
+              <p className="text-xs" style={{ color: 'var(--ink-2)', lineHeight: 1.6 }}>
+                <strong style={{ color: 'var(--bad)' }}>Delete permanently</strong> erases the
+                product, its variants, images and reviews. It cannot be undone, and the API refuses
+                it outright if the product appears on any order.
+              </p>
+            </div>
+            <div className="admin-modal__footer flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="admin-btn admin-btn--ghost"
+                disabled={removing}
+                onClick={() => setRemoveTarget(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-btn"
+                disabled={removing}
+                onClick={() => void runRemove('archive')}
+              >
+                {removing ? 'Working…' : 'Archive'}
+              </button>
+              <button
+                type="button"
+                className="admin-btn"
+                disabled={removing}
+                style={{
+                  border: '1px solid var(--bad-bd)',
+                  background: 'var(--bad-soft)',
+                  color: 'var(--bad)',
+                }}
+                onClick={() => void runRemove('permanent')}
+              >
+                {removing ? 'Working…' : 'Delete permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   )
 }

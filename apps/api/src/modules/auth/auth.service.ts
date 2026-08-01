@@ -51,11 +51,15 @@ export class AuthService {
     private readonly email: EmailService,
   ) {}
 
-  /** Super Admin / CEO: Telegram OTP only. Everyone else: password only. */
+  /** Owner / Super Admin / Admin: Telegram OTP. Manager / Staff: password. */
   isTelegramOnlyAdmin(role: string, email: string): boolean {
     const normalizedRole = role.toUpperCase()
     const normalizedEmail = email.trim().toLowerCase()
-    return normalizedRole === 'SUPER_ADMIN' || normalizedEmail === CEO_EMAIL
+    return (
+      normalizedRole === 'SUPER_ADMIN' ||
+      normalizedRole === 'ADMIN' ||
+      normalizedEmail === CEO_EMAIL
+    )
   }
 
   verifyToken(token: string): AdminSessionPayload | null {
@@ -210,10 +214,10 @@ export class AuthService {
         ipAddress,
         userAgent,
         success: false,
-        failReason: 'super_admin_password_blocked',
+        failReason: 'telegram_policy_password_blocked',
       })
       await this.recordIpFailedAttempt(ipAddress)
-      throw new ForbiddenException('Super Admin must sign in with Telegram login token')
+      throw new ForbiddenException('This admin account must sign in with a Telegram code')
     }
 
     const hashMatches = verifyPasswordWithTimingPad(password, user?.passwordHash)
@@ -370,7 +374,7 @@ export class AuthService {
       throw new UnauthorizedException('No admin account found for this email')
     }
     if (!this.isTelegramOnlyAdmin(admin.role, admin.email)) {
-      throw new ForbiddenException('Use email and password to sign in — Telegram login is for Super Admin only')
+      throw new ForbiddenException('Use email and password to sign in')
     }
 
     const code = await this.loginTokens.issue({
@@ -480,7 +484,7 @@ export class AuthService {
 
     const role = user.staffRoles[0]?.role ?? user.role
     if (this.isTelegramOnlyAdmin(role, user.email ?? '')) {
-      throw new ForbiddenException('Super Admin cannot reset password — use Telegram login')
+      throw new ForbiddenException('This account uses Telegram code sign-in')
     }
 
     await this.prisma.user.update({
@@ -529,9 +533,6 @@ export class AuthService {
     }
 
     const invite = await this.findValidInvite(token)
-    if (this.isTelegramOnlyAdmin(invite.role, invite.email)) {
-      throw new ForbiddenException('Super Admin accounts cannot use password invite')
-    }
 
     const user = invite.userId
       ? await this.prisma.user.findUnique({ where: { id: invite.userId } })
@@ -541,6 +542,13 @@ export class AuthService {
 
     const resolvedFirst = firstName?.trim() || invite.firstName || user.firstName
     await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.adminInvite.updateMany({
+        where: { id: invite.id, acceptedAt: null },
+        data: { acceptedAt: new Date(), userId: user.id },
+      })
+      if (claimed.count !== 1) {
+        throw new BadRequestException('Invalid or expired invite link')
+      }
       await tx.user.update({
         where: { id: user.id },
         data: {
@@ -554,13 +562,39 @@ export class AuthService {
           verifyToken: null,
         },
       })
-      await tx.adminInvite.update({
-        where: { id: invite.id },
-        data: { acceptedAt: new Date(), userId: user.id },
-      })
     })
 
-    return this.loginWithPassword(invite.email, password.trim(), invite.storeId, meta)
+    if (!this.isTelegramOnlyAdmin(invite.role, invite.email)) {
+      return this.loginWithPassword(invite.email, password.trim(), invite.storeId, meta)
+    }
+
+    // ADMIN invite acceptance is a trusted, one-time first session. It lets the
+    // new admin enter Security and link personal Telegram before future logins.
+    const admin = await this.resolveAdminStaff(invite.email, invite.storeId)
+    if (!admin) {
+      throw new UnauthorizedException('Admin access could not be resolved after invite acceptance')
+    }
+    const ipAddress = meta?.ipAddress ?? 'unknown'
+    const userAgent = meta?.userAgent
+    await Promise.all([
+      this.prisma.user.update({
+        where: { id: admin.userId },
+        data: { lastLoginAt: new Date() },
+      }),
+      this.recordLoginAttempt({
+        userId: admin.userId,
+        ipAddress,
+        userAgent,
+        success: true,
+      }),
+    ])
+    const permissions = await resolveStaffPermissionTokens(
+      this.prisma,
+      admin.userId,
+      admin.storeId,
+      admin.role,
+    )
+    return { ...admin, permissions }
   }
 
   private async findValidInvite(token: string) {
@@ -675,6 +709,84 @@ export class AuthService {
       name: `${user.firstName} ${user.lastName}`.trim() || user.email,
       role: staff.role,
       storeId: staff.storeId,
+    }
+  }
+
+  /** Sub-admins (password login) can change their own password while signed in. */
+  async changeOwnPassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ ok: true }> {
+    if (newPassword.trim().length < 8) {
+      throw new BadRequestException('New password must be at least 8 characters')
+    }
+    if (currentPassword === newPassword) {
+      throw new BadRequestException('New password must be different from the current password')
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        passwordHash: true,
+        staffRoles: { select: { role: true }, take: 1 },
+      },
+    })
+    if (!user?.email) throw new UnauthorizedException('Account not found')
+
+    const role = user.staffRoles[0]?.role ?? user.role
+    if (this.isTelegramOnlyAdmin(role, user.email)) {
+      throw new ForbiddenException('This account uses Telegram code sign-in — password change is for staff accounts')
+    }
+    if (!user.passwordHash) {
+      throw new BadRequestException('No password set — use the invite or reset link first')
+    }
+
+    const ok = verifyPasswordWithTimingPad(currentPassword, user.passwordHash)
+    if (!ok) throw new UnauthorizedException('Current password is incorrect')
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: hashPassword(newPassword.trim()) },
+    })
+
+    return { ok: true }
+  }
+
+  async getProfileExtras(userId: string): Promise<{
+    canChangePassword: boolean
+    lastLoginIp: string | null
+    lastLoginAt: string | null
+  }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        role: true,
+        passwordHash: true,
+        lastLoginAt: true,
+        staffRoles: { select: { role: true }, take: 1 },
+        loginHistory: {
+          where: { success: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { ipAddress: true, createdAt: true },
+        },
+      },
+    })
+    if (!user?.email) {
+      return { canChangePassword: false, lastLoginIp: null, lastLoginAt: null }
+    }
+    const role = user.staffRoles[0]?.role ?? user.role
+    const telegramOnly = this.isTelegramOnlyAdmin(role, user.email)
+    const last = user.loginHistory[0]
+    return {
+      canChangePassword: !telegramOnly && Boolean(user.passwordHash),
+      lastLoginIp: last?.ipAddress ?? null,
+      lastLoginAt: (last?.createdAt ?? user.lastLoginAt)?.toISOString() ?? null,
     }
   }
 }

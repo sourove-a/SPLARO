@@ -228,7 +228,7 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
         </div>
         <AdminButton
           className="mt-4"
-          variant="gold"
+          variant="accent"
           disabled={!apiOnline}
           loading={busy === 'save-cloudflare_r2'}
           onClick={() => void save('cloudflare_r2', r2Draft)}
@@ -267,7 +267,7 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <AdminButton
-            variant="gold"
+            variant="accent"
             disabled={!apiOnline}
             loading={busy === 'save-steadfast'}
             onClick={() => void save('steadfast', sfDraft)}
@@ -301,7 +301,7 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <AdminButton
-            variant="gold"
+            variant="accent"
             disabled={!apiOnline}
             loading={busy === 'save-pathao'}
             onClick={() => void save('pathao', pathaoDraft)}
@@ -331,7 +331,7 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <AdminButton
-            variant="gold"
+            variant="accent"
             disabled={!apiOnline}
             loading={busy === 'save-redx'}
             onClick={() => void save('redx', redxDraft)}

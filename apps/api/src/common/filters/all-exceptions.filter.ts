@@ -17,6 +17,12 @@ type ErrorBody = {
   timestamp: string
 }
 
+function isProduction() {
+  return process.env['NODE_ENV'] === 'production'
+}
+
+const GENERIC_5XX_MESSAGE = 'Internal server error'
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name)
@@ -62,9 +68,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
       )
     }
 
+    // Unexpected errors carry Prisma model/column names and argument values in
+    // their message. Those belong in the log line above, never in the response —
+    // the requestId is what support correlates on. Kept verbatim in development.
+    const clientMessage =
+      statusCode >= 500 && isProduction() ? GENERIC_5XX_MESSAGE : message
+
     const payload: ErrorBody = {
       statusCode,
-      message,
+      message: clientMessage,
       error,
       path: request.url,
       timestamp: new Date().toISOString(),

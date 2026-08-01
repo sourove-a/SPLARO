@@ -4,6 +4,7 @@ import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { assertOrderStatusTransition } from '../../common/order-status.util'
 import { generatePaymentCode } from '../../common/payment-code.util'
+import { isUnderpayment, paymentAmountMatches } from '../../common/payment-amount.util'
 import { PaymentIntegrationService } from '../integrations/payment-integration.service'
 
 export interface SslCommerzInitPayload {
@@ -162,7 +163,7 @@ export class SslCommerzService {
     if (order) {
       const paid = parseFloat(data.amount ?? body.amount ?? '0')
       const expected = Number(order.total)
-      if (!Number.isFinite(paid) || Math.abs(paid - expected) > 0.01) {
+      if (!paymentAmountMatches(paid, expected)) {
         this.logger.warn(
           `SSLCommerz amount mismatch for ${tranId}: paid=${paid} expected=${expected}`,
         )
@@ -207,6 +208,22 @@ export class SslCommerzService {
         : type === 'fail'
           ? 'FAILED'
           : 'CANCELLED'
+
+    if (!invoiceNumber?.trim()) {
+      this.logger.warn(`SSLCommerz ${type} callback with no tran_id — ignored`)
+      return { ok: false, invoiceNumber: invoiceNumber ?? '', status: 'INVALID' }
+    }
+
+    // Every callback type is signature-checked, not just the PAID ones. fail/cancel
+    // used to skip this, so an unauthenticated POST to /payments/ssl/fail carrying
+    // only { tran_id } could rewrite the ledger row of any order.
+    const signed = await this.verifyHash(body, invoiceNumber)
+    if (!signed) {
+      this.logger.warn(
+        `SSLCommerz ${type} callback rejected — signature invalid for ${invoiceNumber}`,
+      )
+      return { ok: false, invoiceNumber, status: 'INVALID' }
+    }
 
     if (type === 'success' || type === 'ipn') {
       const valid = await this.validateIpn(body, invoiceNumber)
@@ -258,7 +275,7 @@ export class SslCommerzService {
       }
       // Underpayment guard.
       const paidAmount = parseFloat(body.amount ?? '0')
-      if (paidAmount + 1 < Number(order.total)) {
+      if (isUnderpayment(paidAmount, Number(order.total))) {
         this.logger.error(
           `SSLCommerz underpayment for ${invoiceNumber}: paid ${paidAmount}, order total ${Number(order.total)} — order NOT confirmed`,
         )
@@ -273,7 +290,20 @@ export class SslCommerzService {
       }
     }
 
-    const existing = await this.prisma.payment.findFirst({ where: { orderId: order.id } })
+    // Scoped to SSLCOMMERZ — an unscoped findFirst would pick up (and overwrite)
+    // the bKash/Nagad/COD ledger row of the same order.
+    const existing = await this.prisma.payment.findFirst({
+      where: { orderId: order.id, method: 'SSLCOMMERZ' },
+    })
+
+    // A settled payment is never downgraded by a later fail/cancel callback.
+    if (existing?.status === 'PAID' && status !== 'PAID') {
+      this.logger.warn(
+        `SSLCommerz ${status} callback for already-paid payment on ${invoiceNumber} ignored`,
+      )
+      return
+    }
+
     const txId = body.bank_tran_id ?? body.val_id ?? ''
     const dbStatus = (status === 'PAID' ? 'PAID' : status === 'FAILED' ? 'FAILED' : 'PENDING') as never
 

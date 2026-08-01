@@ -105,7 +105,24 @@ export function blockCustomer(id: string, blocked: boolean) {
 
 export function deleteCustomer(id: string, options?: { force?: boolean }) {
   const qs = options?.force ? '?force=true' : ''
-  return apiFetch<{ success: boolean }>(`/admin/customers/${id}${qs}`, { method: 'DELETE' })
+  return apiFetch<{ success: boolean; ordersDeleted: number }>(`/admin/customers/${id}${qs}`, {
+    method: 'DELETE',
+  })
+}
+
+export interface BulkDeleteCustomersResult {
+  success: boolean
+  deleted: number
+  ordersDeleted: number
+  skipped: { id: string; name: string; reason: string }[]
+}
+
+/** Force also removes each customer's orders — used to clear fake COD accounts. */
+export function bulkDeleteCustomers(ids: string[], options?: { force?: boolean }) {
+  return apiFetch<BulkDeleteCustomersResult>('/admin/customers/bulk/delete', {
+    method: 'POST',
+    body: JSON.stringify({ ids, force: options?.force === true }),
+  })
 }
 
 export function createCustomer(input: {

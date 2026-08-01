@@ -12,6 +12,14 @@ type LucideComponent = ComponentType<{
   'aria-hidden'?: boolean | undefined
 }>
 
+/** Lucide renames / design-prototype aliases that are not 1:1 with current package exports. */
+const ICON_ALIASES: Record<string, string> = {
+  ChartColumn: 'BarChart3',
+  ChartNoAxesCombined: 'LineChart',
+  FileBarChart: 'FileBarChart2',
+  House: 'Home',
+}
+
 /**
  * Resolves an icon name to a `lucide-react` component.
  *
@@ -29,8 +37,9 @@ export function resolveIcon(name?: string): LucideComponent | null {
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join('')
     : name
-  const found = (Icons as unknown as Record<string, LucideComponent | undefined>)[pascal]
-  return found ?? null
+  const table = Icons as unknown as Record<string, LucideComponent | undefined>
+  const aliased = ICON_ALIASES[pascal] ?? pascal
+  return table[aliased] ?? table[pascal] ?? table[`${pascal}Icon`] ?? null
 }
 
 export interface DcIconProps {
@@ -44,8 +53,25 @@ export interface DcIconProps {
 export function DcIcon({ name, size = 14, color, style, className }: DcIconProps) {
   const Cmp = resolveIcon(name)
   if (!Cmp) {
-    // Unknown icon: reserve the same box so rows do not shift.
-    return <span aria-hidden style={{ display: 'inline-block', width: size, height: size }} />
+    // Unknown icon: visible fallback mark so missing names are obvious (not empty space).
+    return (
+      <span
+        aria-hidden
+        className={className}
+        title={name ? `Missing icon: ${name}` : undefined}
+        style={{
+          display: 'inline-grid',
+          placeItems: 'center',
+          width: size,
+          height: size,
+          flex: 'none',
+          borderRadius: 3,
+          border: '1.5px solid currentColor',
+          opacity: 0.55,
+          ...style,
+        }}
+      />
+    )
   }
   return (
     <Cmp

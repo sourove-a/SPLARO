@@ -15,6 +15,8 @@ import { FONT, MONO, toneStyle } from '@/components/dc/tokens'
 import { useSettings, useUpdateSettings } from '@/lib/api/hooks'
 import type { HomepageSectionsConfig } from '@/lib/api/settings'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { verifySettingsApplied } from '@/lib/admin/settings-save'
+import { getStorefrontOrigin } from '@/lib/storefront-origin'
 
 const card = {
   border: '1px solid var(--line)',
@@ -104,12 +106,19 @@ function DcHomePageBody() {
     update.mutate(
       { homepage: draft },
       {
-        onSuccess: () =>
+        onSuccess: (saved) => {
+          const verified = verifySettingsApplied({ homepage: draft }, saved)
+          if (!verified.ok) {
+            toast('bad', 'Save not verified', verified.reason)
+            void settings.refetch()
+            return
+          }
           toast(
             'ok',
             'Saved and verified',
             'The storefront home page renders this layout on the next request.',
-          ),
+          )
+        },
         onError: (err) =>
           toast(
             'bad',
@@ -142,7 +151,7 @@ function DcHomePageBody() {
           {
             label: 'Preview',
             icon: 'icon-external-link',
-            onClick: () => window.open('/', '_blank', 'noopener'),
+            onClick: () => window.open(getStorefrontOrigin(), '_blank', 'noopener,noreferrer'),
           },
         ]}
       />

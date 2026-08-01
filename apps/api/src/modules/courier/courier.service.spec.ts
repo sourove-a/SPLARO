@@ -42,10 +42,15 @@ describe('CourierService booking honesty', () => {
     const upsert = jest.fn().mockResolvedValue({})
     const prisma = {
       order: {
-        findUnique: jest.fn().mockResolvedValue({
+        findFirst: jest.fn().mockResolvedValue({
           ...order,
           courier: opts.existingConsignment
-            ? { consignmentId: opts.existingConsignment, trackingCode: 'T1', trackingUrl: null }
+            ? {
+                consignmentId: opts.existingConsignment,
+                trackingCode: 'T1',
+                trackingUrl: null,
+                status: 'BOOKED',
+              }
             : null,
         }),
       },
@@ -126,6 +131,36 @@ describe('CourierService booking honesty', () => {
     const result = await service.bookCourier('ord-1')
     expect(result.alreadyBooked).toBe(true)
     expect(result.consignmentId).toBe('SF-EXISTING')
+    expect(upsert).not.toHaveBeenCalled()
+  })
+
+  it('rejects booking for cancelled orders before provider call', async () => {
+    const upsert = jest.fn()
+    const createParcel = jest.fn()
+    const prisma = {
+      order: {
+        findFirst: jest.fn().mockResolvedValue({ ...order, status: 'CANCELLED', courier: null }),
+      },
+      courierShipment: { upsert, findUnique: jest.fn().mockResolvedValue(null) },
+    } as unknown as PrismaService
+    const service = new CourierService(
+      prisma,
+      { createParcel } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { notifyAdmin: jest.fn() } as never,
+      null,
+      { add: jest.fn() } as never,
+      { isReady: () => true } as unknown as RedisService,
+      orderStatus,
+    )
+    ;(service as unknown as { selectProvider: () => string }).selectProvider = () => 'STEADFAST'
+    const result = await service.bookCourier('ord-1')
+    expect(result.success).toBe(false)
+    expect(createParcel).not.toHaveBeenCalled()
     expect(upsert).not.toHaveBeenCalled()
   })
 })

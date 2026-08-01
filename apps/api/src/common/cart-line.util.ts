@@ -13,7 +13,7 @@ export function clampCartLineQuantity(raw: unknown): number {
   return Math.min(CART_MAX_LINE_QTY, Math.max(1, qty))
 }
 
-type CartVariantRow = { id: string; stock: number }
+type CartVariantRow = { id: string; stock: number; allowOversell: boolean }
 
 type CheckoutVariantRow = {
   id: string
@@ -27,7 +27,10 @@ type CheckoutVariantRow = {
   colorHex?: string | null
   colorName?: string | null
   price: { toString(): string }
-  product: { basePrice: { toString(): string } }
+  product: {
+    basePrice: { toString(): string }
+    inventoryPolicy: 'DENY' | 'CONTINUE' | 'PREORDER'
+  }
 }
 
 export type { CheckoutVariantRow }
@@ -44,7 +47,9 @@ export interface CheckoutLineInput {
   name: string
 }
 
-const checkoutVariantInclude = { product: { select: { basePrice: true } } } as const
+const checkoutVariantInclude = {
+  product: { select: { basePrice: true, inventoryPolicy: true } },
+} as const
 
 function matchVariantBySizeColor(
   variants: CheckoutVariantRow[],
@@ -239,8 +244,12 @@ export async function resolveCartVariant(
   if (variantId) {
     return prisma.productVariant.findFirst({
       where: { id: variantId, ...base },
-      select: { id: true, stock: true },
-    })
+      select: { id: true, stock: true, product: { select: { inventoryPolicy: true } } },
+    }).then((row) => row ? {
+      id: row.id,
+      stock: row.stock,
+      allowOversell: row.product.inventoryPolicy !== 'DENY',
+    } : null)
   }
 
   const size = hints?.size?.trim()
@@ -255,6 +264,7 @@ export async function resolveCartVariant(
         color: true,
         colorHex: true,
         colorName: true,
+        product: { select: { inventoryPolicy: true } },
       },
       orderBy: [{ stock: 'desc' }, { createdAt: 'asc' }],
     })
@@ -268,28 +278,35 @@ export async function resolveCartVariant(
         row.colorName?.toLowerCase() === colorLower
       return sizeOk && colorOk
     })
-    if (matched) return { id: matched.id, stock: matched.stock }
+    if (matched) return { id: matched.id, stock: matched.stock, allowOversell: matched.product.inventoryPolicy !== 'DENY' }
   }
 
-  return (
+  const fallback = (
     (await prisma.productVariant.findFirst({
       where: { ...base, stock: { gte: 1 } },
-      select: { id: true, stock: true },
+      select: { id: true, stock: true, product: { select: { inventoryPolicy: true } } },
       orderBy: [{ stock: 'desc' }, { createdAt: 'asc' }],
     })) ??
     (await prisma.productVariant.findFirst({
       where: base,
-      select: { id: true, stock: true },
+      select: { id: true, stock: true, product: { select: { inventoryPolicy: true } } },
       orderBy: [{ stock: 'desc' }, { createdAt: 'asc' }],
     }))
   )
+  return fallback ? {
+    id: fallback.id,
+    stock: fallback.stock,
+    allowOversell: fallback.product.inventoryPolicy !== 'DENY',
+  } : null
 }
 
 export function assertCartLineStock(
   productLabel: string,
   requestedQty: number,
   availableStock: number,
+  allowOversell = false,
 ): void {
+  if (allowOversell) return
   if (availableStock < 1) {
     throw new BadRequestException(`${productLabel}: out of stock`)
   }
@@ -330,9 +347,12 @@ export async function resolveCartReplaceLines(
 
   const visibleProducts = await prisma.product.findMany({
     where: storefrontVisibleProductWhere({ storeId, id: { in: productIds } }),
-    select: { id: true },
+    select: { id: true, inventoryPolicy: true },
   })
   const visible = new Set(visibleProducts.map((row) => row.id))
+  const oversellProducts = new Set(
+    visibleProducts.filter((row) => row.inventoryPolicy !== 'DENY').map((row) => row.id),
+  )
   if (!visible.size) return []
 
   const variantIds = [
@@ -343,7 +363,7 @@ export async function resolveCartReplaceLines(
     ),
   ]
 
-  const byVariantId = new Map<string, CartVariantRow & { productId: string }>()
+  const byVariantId = new Map<string, { id: string; stock: number; productId: string }>()
   if (variantIds.length) {
     const rows = await prisma.productVariant.findMany({
       where: {
@@ -414,7 +434,7 @@ export async function resolveCartReplaceLines(
     if (variantId) {
       const hit = byVariantId.get(variantId)
       if (hit && hit.productId === productId) {
-        resolved = { id: hit.id, stock: hit.stock }
+        resolved = { id: hit.id, stock: hit.stock, allowOversell: oversellProducts.has(productId) }
       }
     }
 
@@ -433,17 +453,19 @@ export async function resolveCartReplaceLines(
             row.colorName?.toLowerCase() === colorLower
           return sizeOk && colorOk
         })
-        if (matched) resolved = { id: matched.id, stock: matched.stock }
+        if (matched) resolved = { id: matched.id, stock: matched.stock, allowOversell: oversellProducts.has(productId) }
       }
       if (!resolved) {
         const inStock = rows.find((row) => row.stock >= 1)
         const fallback = inStock ?? rows[0]
-        if (fallback) resolved = { id: fallback.id, stock: fallback.stock }
+        if (fallback) resolved = { id: fallback.id, stock: fallback.stock, allowOversell: oversellProducts.has(productId) }
       }
     }
 
     if (!resolved) continue
-    const quantity = clampCartLineToStock(item.quantity ?? 1, resolved.stock)
+    const quantity = resolved.allowOversell
+      ? clampCartLineQuantity(item.quantity ?? 1)
+      : clampCartLineToStock(item.quantity ?? 1, resolved.stock)
     if (quantity === null) continue
     validated.push({ productId, variantId: resolved.id, quantity })
   }

@@ -6,37 +6,38 @@ import { useRouter } from 'next/navigation'
 
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
+import { DcSoftLockPanel } from '@/components/dc/DcSoftLockPanel'
 import { dcConnectionChip } from '@/components/dc/page-status'
-import { ModuleWorkspace } from '@/components/modules/ModuleWorkspace'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import type { FlatAdminRoute } from '@/lib/navigation/admin-nav'
 import { getModuleMaturity } from '@/lib/modules/module-maturity'
 
 /**
- * Universal DC chrome for any live ModuleWorkspace (or custom children).
- * Replaces AdminPageShell so list / create / detail share one page head.
+ * Universal DC chrome. Custom children (footwear, stubs) render as-is.
+ * Everything else soft-locks — the pre-DC panel bodies are retired.
  */
 export function DcModuleHost({
   navItem,
   moduleHref,
-  subPath,
   action,
   title,
   screen = 'module',
   crumbGroup,
   children,
   showBack,
+  softLockHint,
+  softLockHref,
 }: {
   navItem: FlatAdminRoute
   moduleHref: string
-  subPath?: string[]
   action?: 'create' | 'edit' | 'detail' | null
   title?: string
   screen?: string
   crumbGroup?: string
   children?: ReactNode
-  /** Force back control; defaults to true when action is set. */
   showBack?: boolean
+  softLockHint?: string
+  softLockHref?: string
 }) {
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -54,18 +55,13 @@ export function DcModuleHost({
         ? { label: 'BETA' as const, tone: 'warn' as const }
         : { label: 'PREVIEW' as const, tone: 'mute' as const })
 
-  const syncLabel =
-    api.pulse === 'offline'
+  const syncLabel = children
+    ? api.pulse === 'offline'
       ? 'API offline — panel may be empty'
-      : api.pulse === 'degraded'
-        ? 'Platform degraded — some services may fail'
-        : maturity === 'live'
-          ? api.latencyMs != null
-            ? `API · ${api.latencyMs}ms · live panel`
-            : 'Live module panel · verified API only'
-          : maturity === 'beta'
-            ? 'Beta — some writes locked until APIs ship'
-            : 'Preview shell — no verified write path'
+      : api.latencyMs != null
+        ? `API · ${api.latencyMs}ms`
+        : 'Verified API panel'
+    : 'Not in primary DC nav — use sidebar screens'
 
   return (
     <DcScreenProvider
@@ -97,12 +93,10 @@ export function DcModuleHost({
         data-dc-screen={screen}
       >
         {children ?? (
-          <ModuleWorkspace
-            key={`${moduleHref}-${(subPath ?? []).join('/')}-${action ?? 'list'}`}
-            navItem={navItem}
-            moduleHref={moduleHref}
-            {...(subPath && subPath.length > 0 ? { subPath } : {})}
-            {...(action ? { action } : {})}
+          <DcSoftLockPanel
+            title={pageTitle}
+            href={softLockHref ?? '/dashboard'}
+            {...(softLockHint ? { hint: softLockHint } : {})}
           />
         )}
       </div>

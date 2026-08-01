@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { dcConnectionChip } from '@/components/dc/page-status'
-import { FONT, MONO } from '@/components/dc/tokens'
-import { ExportCenterPanelLive } from '@/components/modules/EnterpriseLivePanels'
+import { DcExportCenterBody } from '@/components/dc/screens/DcExportCenterBody'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 
 /** Export Center — DC chrome + live CSV export (not mock SCREENS rows). */
@@ -29,30 +28,8 @@ export function DcExports() {
         }
         onSync={() => router.refresh()}
       />
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          flexWrap: 'wrap',
-          padding: '9px 14px',
-          borderRadius: 11,
-          border: '1px solid var(--line)',
-          background: 'var(--surface)',
-          backgroundImage: 'var(--card-sheen)',
-          marginBottom: 4,
-        }}
-      >
-        <span style={{ font: `600 10.5px/1 ${FONT}`, letterSpacing: '.08em', color: 'var(--ink-3)' }}>
-          LIVE EXPORT
-        </span>
-        <span style={{ width: 1, height: 16, background: 'var(--line)' }} />
-        <span style={{ font: `400 11.5px/1 ${MONO}`, color: 'var(--ink-3)' }}>
-          CSV · max 500 rows · verified API only
-        </span>
-      </div>
-      <div className="dc-detail-host dc-live-module dc-exports-host">
-        <ExportCenterPanelLive />
+      <div className="dc-detail-host dc-exports-host">
+        <DcExportCenterBody />
       </div>
     </DcScreenProvider>
   )

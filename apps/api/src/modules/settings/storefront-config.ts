@@ -1,6 +1,7 @@
 export interface NavLink {
   label: string
   href: string
+  hidden?: boolean
   megaMenu?: MegaMenuConfig
 }
 
@@ -199,6 +200,12 @@ export interface StorefrontConfig {
   shopFilters?: ShopFiltersConfig
   footwear?: Record<string, unknown>
   menuOverrides?: MenuOverridesConfig
+  /**
+   * Revenue the store is aiming at in a single trading day, in BDT. Drives the
+   * dashboard's goal bar. Absent means the operator has not set one — show the
+   * prompt to set it rather than assuming a target.
+   */
+  dailyRevenueGoal?: number
 }
 
 export type { CatalogChannel }
@@ -227,34 +234,14 @@ export const DEFAULT_HEADER_NAV: NavLink[] = [
   { label: 'Accessories', href: '/accessories' },
 ]
 
-function ensureKidsNavItem(nav: NavLink[]): NavLink[] {
-  const hasKids = nav.some(
-    (item) => item.href === '/c/kids' || item.href === '/collections/kids' || item.label.toLowerCase() === 'kids',
-  )
-  if (hasKids) return nav
-
-  const kidsItem: NavLink = { label: 'Kids', href: '/c/kids' }
-  const footwearIndex = nav.findIndex(
-    (item) => item.href === '/c/footwear' || item.href === '/collections/footwear' || item.label.toLowerCase() === 'footwear',
-  )
-
-  if (footwearIndex >= 0) {
-    return [...nav.slice(0, footwearIndex), kidsItem, ...nav.slice(footwearIndex)]
-  }
-
-  return [...nav, kidsItem]
-}
-
-export function mergeHeaderNav(current: NavLink[] | undefined, incoming: NavLink[]): NavLink[] {
-  const currentByHref = new Map((current ?? []).map((item) => [item.href, item]))
-
-  return ensureKidsNavItem(
-    incoming.map((item) => {
-      const previous = currentByHref.get(item.href)
-      if (item.megaMenu || !previous?.megaMenu) return item
-      return { ...item, megaMenu: previous.megaMenu }
-    }),
-  )
+export function mergeHeaderNav(_current: NavLink[] | undefined, incoming: NavLink[]): NavLink[] {
+  // Admin settings are the source of truth. Do not silently restore removed links
+  // or stale fixture mega-menu payloads; NavBuilderService creates live mega data.
+  return incoming.map(({ label, href, hidden }) => ({
+    label,
+    href,
+    ...(hidden !== undefined ? { hidden } : {}),
+  }))
 }
 
 export const DEFAULT_FOOTER_GROUPS: FooterGroup[] = [

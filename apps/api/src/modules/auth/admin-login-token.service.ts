@@ -60,14 +60,19 @@ export class AdminLoginTokenService {
     const code = this.normalizeCode(rawCode)
     const normalizedEmail = email.trim().toLowerCase()
 
-    const row = await this.prisma.adminLoginToken.findUnique({ where: { code } })
-    if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) return null
-    if (row.email !== normalizedEmail) return null
-
-    await this.prisma.adminLoginToken.update({
-      where: { id: row.id },
+    const claimed = await this.prisma.adminLoginToken.updateMany({
+      where: {
+        code,
+        email: normalizedEmail,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
       data: { usedAt: new Date() },
     })
+    if (claimed.count !== 1) return null
+
+    const row = await this.prisma.adminLoginToken.findUnique({ where: { code } })
+    if (!row) return null
 
     return {
       email: row.email,

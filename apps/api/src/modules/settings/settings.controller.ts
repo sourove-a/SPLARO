@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, NotFoundException, Patch, Post, Query } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Patch, Post, Query } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { CacheService } from '../../common/cache.service'
 import { EmailService } from '../email/email.service'
@@ -7,6 +7,17 @@ import { resolvePublicSiteUrl } from '@splaro/config'
 import { DEFAULT_CATALOG_CHANNELS, mergeShopFilters } from '@splaro/types'
 import { emptyStorefrontConfig, mergeStorefrontConfig, mergeHeaderNav, mergeCatalogChannels, type StorefrontConfig } from './storefront-config'
 import { mergeStoryDeckCards } from './story-deck-defaults'
+
+function isSafeMenuHref(value: string): boolean {
+  const href = value.trim()
+  return (
+    href.startsWith('/') ||
+    href.startsWith('https://') ||
+    href.startsWith('http://') ||
+    href.startsWith('mailto:') ||
+    href.startsWith('tel:')
+  )
+}
 
 @Controller('admin/settings')
 export class SettingsController {
@@ -288,6 +299,48 @@ export class SettingsController {
   ) {
     const store = await this.resolveStore(storeId)
     const currentConfig = mergeStorefrontConfig(store.settings?.storefrontConfig)
+    const headerNavPatch = body.navigation?.headerNav
+
+    if (headerNavPatch) {
+      if (headerNavPatch.length === 0) {
+        throw new BadRequestException('Header navigation needs at least one link; hide it if needed')
+      }
+      if (headerNavPatch.length > 20) {
+        throw new BadRequestException('Header navigation supports up to 20 links')
+      }
+      const invalid = headerNavPatch.find(
+        (item) => !item.label.trim() || !item.href.trim() || !isSafeMenuHref(item.href),
+      )
+      if (invalid) {
+        throw new BadRequestException('Every header link needs a label and valid destination')
+      }
+      const seen = new Set<string>()
+      for (const item of headerNavPatch) {
+        const key = `${item.label.trim().toLowerCase()}\u0000${item.href.trim()}`
+        if (seen.has(key)) throw new BadRequestException(`Duplicate header link: ${item.label.trim()}`)
+        seen.add(key)
+      }
+    }
+
+    for (const department of body.menuOverrides?.departments ?? []) {
+      if (department.hidden && department.forceVisible) {
+        throw new BadRequestException(`${department.departmentSlug} cannot be hidden and forced live`)
+      }
+      for (const hero of department.heroes ?? []) {
+        const hasAny = Boolean(hero.label.trim() || hero.href.trim() || hero.image.trim())
+        if (hasAny && (!hero.label.trim() || !hero.href.trim() || !isSafeMenuHref(hero.href))) {
+          throw new BadRequestException(`${department.departmentSlug} hero needs label and valid destination`)
+        }
+        if (
+          hero.image.trim() &&
+          !hero.image.trim().startsWith('/') &&
+          !hero.image.trim().startsWith('https://') &&
+          !hero.image.trim().startsWith('http://')
+        ) {
+          throw new BadRequestException(`${department.departmentSlug} hero image URL is invalid`)
+        }
+      }
+    }
 
     const nextConfig: StorefrontConfig = {
       ...currentConfig,
@@ -295,8 +348,17 @@ export class SettingsController {
       ...(body.branding?.storeLabel !== undefined ? { storeLabel: body.branding.storeLabel } : {}),
       ...(body.branding?.footerTagline !== undefined ? { footerTagline: body.branding.footerTagline } : {}),
       ...(body.branding?.footerCopyright !== undefined ? { footerCopyright: body.branding.footerCopyright } : {}),
-      ...(body.navigation?.headerNav
-        ? { headerNav: mergeHeaderNav(currentConfig.headerNav, body.navigation.headerNav) }
+      ...(headerNavPatch
+        ? {
+            headerNav: mergeHeaderNav(
+              currentConfig.headerNav,
+              headerNavPatch.map((item) => ({
+                ...item,
+                label: item.label.trim(),
+                href: item.href.trim(),
+              })),
+            ),
+          }
         : {}),
       ...(body.navigation?.footerGroups ? { footerGroups: body.navigation.footerGroups } : {}),
       ...(body.menuOverrides ? { menuOverrides: body.menuOverrides } : {}),

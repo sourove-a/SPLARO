@@ -170,8 +170,16 @@ export function updateProduct(id: string, input: Partial<CreateProductInput>) {
   })
 }
 
+/** Archives the product — it leaves the storefront but stays in the books. */
 export function deleteProduct(id: string) {
   return apiFetch<{ id: string }>(`/admin/products/${id}`, { method: 'DELETE' })
+}
+
+/** Erases the product row. Rejected by the API once it appears on any order. */
+export function permanentlyDeleteProduct(id: string) {
+  return apiFetch<{ success: boolean; deleted: string }>(`/admin/products/${id}/permanent`, {
+    method: 'DELETE',
+  })
 }
 
 export interface ProductVariantWriteInput {

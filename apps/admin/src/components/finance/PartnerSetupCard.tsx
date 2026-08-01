@@ -129,19 +129,19 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
 
   if (partners.length === 0) {
     return (
-      <section className="admin-module-card admin-module-card--accent overflow-hidden">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--admin-glass-border-subtle)] pb-5">
+      <section className="dc-partner-setup-card">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--line)] pb-5">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--admin-accent)]">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--violet)]">
               Partner setup
             </p>
-            <h3 className="mt-1 text-xl font-black text-[var(--admin-text)]">আপনার partner যোগ করুন</h3>
-            <p className="mt-2 max-w-lg text-sm font-medium text-[var(--admin-text-secondary)]">
+            <h3 className="mt-1 text-xl font-black text-[var(--ink)]">আপনার partner যোগ করুন</h3>
+            <p className="mt-2 max-w-lg text-sm font-medium text-[var(--ink-2)]">
               আগে থেকে partner name দরকার নেই — email/phone (এবং agreement notes) দিয়ে partner তৈরি হবে, এরপর share % বসাবেন। Finance tracking তখনই শুরু হবে।
             </p>
           </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--admin-accent-muted)]">
-            <Users className="h-6 w-6 text-[var(--admin-accent)]" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--violet-soft)]">
+            <Users className="h-6 w-6 text-[var(--violet)]" />
           </div>
         </div>
 
@@ -151,7 +151,7 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
             <div className="admin-input" style={{ padding: '10px 12px' }} aria-label="Derived partner name">
               {derivedPartnerName}
             </div>
-            <p className="mt-2 text-xs font-semibold text-[var(--admin-text-muted)]">
+            <p className="mt-2 text-xs font-semibold text-[var(--ink-3)]">
               Derived from email/phone. Agreement/terms নিচে দিন।
             </p>
           </div>
@@ -198,7 +198,7 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
           </label>
         </div>
 
-        <AdminButton variant="gold" className="mt-5" loading={saving} onClick={() => void handleAddPartner()}>
+        <AdminButton variant="accent" className="mt-5" loading={saving} onClick={() => void handleAddPartner()}>
           <UserPlus className="h-4 w-4" />
           প্রথম partner যোগ করুন
         </AdminButton>
@@ -209,13 +209,13 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
   if (compact) return null
 
   return (
-    <section className="admin-module-card space-y-4">
+    <section className="dc-partner-setup-card space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--admin-text-muted)]">
+          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--ink-3)]">
             Add another partner
           </p>
-          <h3 className="text-sm font-black text-[var(--admin-text)]">নতুন partner</h3>
+          <h3 className="text-sm font-black text-[var(--ink)]">নতুন partner</h3>
         </div>
         <span
           className={cn(
@@ -234,7 +234,7 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
         <label className="admin-field">
           <span className="admin-kpi__label">Email</span>
           <input className="admin-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="partner@email.com" />
-          <p className="mt-2 text-xs font-semibold text-[var(--admin-text-muted)]">
+          <p className="mt-2 text-xs font-semibold text-[var(--ink-3)]">
             Auto partner name: {derivedPartnerName}
           </p>
         </label>
@@ -254,7 +254,7 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
           <input className="admin-input" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </label>
         <label className="admin-field flex items-end">
-          <AdminButton variant="gold" className="w-full" loading={saving} onClick={() => void handleAddPartner()}>
+          <AdminButton variant="accent" className="w-full" loading={saving} onClick={() => void handleAddPartner()}>
             <Plus className="h-4 w-4" />
             Add
           </AdminButton>
@@ -272,7 +272,7 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
       </label>
 
       {partners.length >= 2 ? (
-        <div className="rounded-[16px] border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-surface)] p-4">
+        <div className="rounded-[16px] border border-[var(--line)] bg-[var(--admin-surface)] p-4">
           <p className="admin-kpi__label mb-3">Profit share split — মোট ১০০% হতে হবে</p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {partners.map((p) => (

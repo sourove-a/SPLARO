@@ -119,12 +119,13 @@ const SET_GROUPS: Array<[string, SettingsSection[]]> = [
 
 export function SettingsSidebar({ active, onChange, settingsLoaded }: Props) {
   return (
-    <nav style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <nav className="settings-sidebar-rail" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <ConnectionStatus settingsLoaded={settingsLoaded} />
 
       {SET_GROUPS.map(([groupLabel, ids]) => (
-        <div key={groupLabel} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div key={groupLabel} className="settings-sidebar-rail__group" style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <div
+            className="settings-sidebar-rail__label"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -150,7 +151,11 @@ export function SettingsSidebar({ active, onChange, settingsLoaded }: Props) {
                 key={id}
                 type="button"
                 onClick={() => onChange(id)}
-                className={isActive ? undefined : 'dc-hover-surface'}
+                className={cn(
+                  'settings-sidebar-rail__item',
+                  isActive ? 'settings-sidebar-rail__item--active' : 'dc-hover-surface',
+                )}
+                aria-current={isActive ? 'page' : undefined}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -158,13 +163,14 @@ export function SettingsSidebar({ active, onChange, settingsLoaded }: Props) {
                   width: '100%',
                   padding: '8px 9px',
                   borderRadius: 9,
-                  border: `1px solid ${isActive ? 'var(--violet-bd)' : 'transparent'}`,
-                  background: isActive ? 'var(--violet-soft)' : 'transparent',
+                  border: `1px solid ${isActive ? 'var(--violet-bd)' : 'var(--line)'}`,
+                  background: isActive ? 'var(--violet-soft)' : 'var(--surface)',
                   cursor: 'pointer',
                   textAlign: 'left',
                 }}
               >
                 <span
+                  className="settings-sidebar-rail__icon"
                   style={{
                     display: 'grid',
                     placeItems: 'center',
@@ -173,7 +179,7 @@ export function SettingsSidebar({ active, onChange, settingsLoaded }: Props) {
                     flex: 'none',
                     borderRadius: 7,
                     border: '1px solid var(--line)',
-                    background: 'var(--surface-2)',
+                    background: isActive ? 'var(--surface)' : 'var(--surface-2)',
                     color: isActive ? 'var(--violet)' : 'var(--ink-3)',
                   }}
                 >

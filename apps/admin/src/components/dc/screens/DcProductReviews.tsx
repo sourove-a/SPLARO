@@ -134,7 +134,7 @@ function DcProductReviewsBody() {
       if (!verifyPersisted(updated.status === next, 'Review status did not persist on server')) return
       afterWrite()
       if (next === 'APPROVED') {
-        toastOk('Review approved — live on storefront.')
+        toastOk('Review approved on server. Storefront refresh requested.')
       } else {
         toastApiSaved('Review marked rejected')
       }

@@ -17,6 +17,7 @@ import { Throttle } from '@nestjs/throttler'
 import type { Request } from 'express'
 import {
   AdminAcceptInviteDto,
+  AdminChangePasswordDto,
   AdminForgotPasswordDto,
   AdminLoginDto,
   AdminLoginMethodDto,
@@ -47,10 +48,10 @@ export class AuthController {
     const email = body.email.trim()
     const storeId = body.storeId ?? 'splaro'
 
-    // Staff accounts must use password — Telegram OTP is Super Admin only.
+    // Owner/Admin accounts use Telegram; Manager/Staff use password.
     const method = await this.auth.resolveLoginMethod(email, body.storeId)
     if (method.method !== 'telegram') {
-      throw new ForbiddenException('Use email and password to sign in — Telegram login is for Super Admin only')
+      throw new ForbiddenException('Use email and password to sign in')
     }
 
     const delivery = await this.telegram.resolveAdminLoginDelivery(storeId, email)
@@ -88,7 +89,7 @@ export class AuthController {
         throw new UnauthorizedException('Telegram login token required')
       }
       if (body.password?.trim()) {
-        throw new UnauthorizedException('Super Admin must use Telegram login token — password is disabled')
+        throw new UnauthorizedException('This admin account must use a Telegram login code')
       }
       const user = await this.auth.loginWithToken(email, token, body.storeId, meta)
       return {
@@ -109,7 +110,7 @@ export class AuthController {
       throw new UnauthorizedException('Email and password required')
     }
     if (body.token?.trim()) {
-      throw new UnauthorizedException('Use email and password — Telegram login is for Super Admin only')
+      throw new UnauthorizedException('Use email and password for this account')
     }
 
     const user = await this.auth.loginWithPassword(email, password, body.storeId, meta)
@@ -171,12 +172,22 @@ export class AuthController {
   }
 
   @Get('me')
-  async me(@Headers('authorization') authorization?: string) {
+  async me(@Headers('authorization') authorization?: string, @Req() req?: Request) {
     const token = authorization?.replace(/^Bearer\s+/i, '').trim()
     if (!token) throw new UnauthorizedException('Missing bearer token')
 
     const user = await this.auth.verifyLiveToken(token)
     if (!user) throw new UnauthorizedException('Invalid or expired session')
+
+    const extras = await this.auth.getProfileExtras(user.userId)
+    const requestIp =
+      (typeof req?.headers['x-forwarded-for'] === 'string'
+        ? req.headers['x-forwarded-for'].split(',')[0]?.trim()
+        : undefined) ||
+      (typeof req?.headers['x-real-ip'] === 'string' ? req.headers['x-real-ip'] : undefined) ||
+      req?.ip ||
+      req?.socket?.remoteAddress ||
+      null
 
     return {
       user: {
@@ -187,6 +198,24 @@ export class AuthController {
         storeId: user.storeId,
         permissions: user.permissions,
       },
+      canChangePassword: extras.canChangePassword,
+      lastLoginIp: extras.lastLoginIp,
+      lastLoginAt: extras.lastLoginAt,
+      requestIp,
     }
+  }
+
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
+  @Post('change-password')
+  async changePassword(
+    @Body() body: AdminChangePasswordDto,
+    @Headers('authorization') authorization?: string,
+  ) {
+    const token = authorization?.replace(/^Bearer\s+/i, '').trim()
+    if (!token) throw new UnauthorizedException('Missing bearer token')
+    const user = await this.auth.verifyLiveToken(token)
+    if (!user) throw new UnauthorizedException('Invalid or expired session')
+    await this.auth.changeOwnPassword(user.userId, body.currentPassword, body.newPassword)
+    return { ok: true, message: 'Password updated — use the new password next sign-in.' }
   }
 }

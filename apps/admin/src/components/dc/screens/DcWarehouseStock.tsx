@@ -143,7 +143,11 @@ function DcWarehouseStockBody() {
   const pending = transfers.filter((t) => t.status.toUpperCase() === 'PENDING')
   const inTransit = transfers.filter((t) => t.status.toUpperCase() === 'IN_TRANSIT')
 
-  const pageStatus = dcPageStatus([wms], api.pulse)
+  const connectionStatus = dcPageStatus([wms], api.pulse)
+  const pageStatus =
+    connectionStatus.label === 'LIVE'
+      ? { label: 'BETA' as const, tone: 'warn' as const }
+      : connectionStatus
   const n = (v: number) => v.toLocaleString('en-IN')
 
   const deltaNum = Number(form.delta)

@@ -10,13 +10,20 @@ import { addCustomerNote, updateCustomerTags } from '@/lib/api/customers'
 import { useBlockCustomer, useCustomer } from '@/lib/api/hooks'
 import { formatRelativeTime } from '@/lib/api/orders'
 
+const CARD: React.CSSProperties = {
+  border: '1px solid var(--line)',
+  borderRadius: 14,
+  background: 'var(--surface)',
+  backgroundImage: 'var(--card-sheen)',
+}
+
 export function CustomerProfileClient({ customerId }: { customerId: string }) {
   const { data, isLoading, isError, refetch } = useCustomer(customerId)
   const blockCustomer = useBlockCustomer()
 
   if (isLoading) {
     return (
-      <div className="admin-module-card py-12 text-center text-sm text-[var(--admin-text-secondary)]">
+      <div style={CARD} className="py-12 text-center text-sm text-[var(--ink-3)]">
         Loading customer profile…
       </div>
     )
@@ -24,7 +31,7 @@ export function CustomerProfileClient({ customerId }: { customerId: string }) {
 
   if (isError || !data) {
     return (
-      <div className="admin-module-card py-12 text-center text-sm text-amber-700">
+      <div style={CARD} className="py-12 text-center text-sm text-[var(--warn)]">
         Customer not found or API offline — start backend on :4000
       </div>
     )

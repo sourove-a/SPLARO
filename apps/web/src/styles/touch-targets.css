@@ -1,0 +1,70 @@
+/* ── Touch target floor ───────────────────────────────────────────────
+   A number of icon-only controls are drawn at 24–38px because that is the
+   size the layout wants. On a finger that sits under the 44px minimum both
+   Apple's HIG and WCAG 2.5.8 ask for — and the smallest of them sit in a
+   row (three share icons, gallery prev/next, hero dots), so a near miss
+   lands on the neighbour rather than on nothing.
+
+   Each control keeps the size it is drawn at. Only the hit area grows, via
+   a centred transparent overlay, so nothing in the layout shifts and the
+   quiet look is untouched.
+
+   Applies to touch devices and to narrow viewports. `pointer: coarse` alone
+   would be the tighter signal, but desktop browsers report `fine` even in a
+   phone-sized window, which makes the rule impossible to verify anywhere
+   except a real handset. The width arm covers that and costs nothing: a
+   roomier target on a narrow window is not a regression.
+
+   Measured with getBoundingClientRect at 375px before and after. */
+
+@media (pointer: coarse), (max-width: 768px) {
+  .pp-view .pp-share__btn,
+  .pp-view .pp-gallery__zoom,
+  .pp-view .pp-gallery__nav,
+  .pp-qty__btn,
+  .hero-dot,
+  .mm-drawer__icon-btn,
+  .home-dept-row__explore {
+    position: relative;
+  }
+
+  .pp-view .pp-share__btn::after,
+  .pp-view .pp-gallery__zoom::after,
+  .pp-view .pp-gallery__nav::after,
+  .pp-qty__btn::after,
+  .hero-dot::after,
+  .mm-drawer__icon-btn::after,
+  .home-dept-row__explore::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-width: 44px;
+    min-height: 44px;
+    width: 100%;
+    height: 100%;
+    transform: translate(-50%, -50%);
+    background: transparent;
+    /* Never paints, never blocks a scroll gesture over the gallery. */
+    pointer-events: auto;
+  }
+
+  /* A disabled stepper must not keep a live 44px pad sitting over the
+     enabled one next to it. */
+  .pp-qty__btn:disabled::after {
+    pointer-events: none;
+  }
+
+  /* Size chips are deliberately left out. They already own ::after for the
+     sold-out strike-through, and they clip it with overflow:hidden — a pad
+     here would either be invisible or would replace that strike. They sit in
+     a gapped row at a size the design asks for, so separation does the work
+     the pad would. */
+
+  /* Hero dots are 26px and only ~8px apart. Padding both to a full 44
+     would overlap; 40 clears the gap while still being a real target. */
+  .hero-dot::after {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}

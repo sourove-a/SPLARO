@@ -147,7 +147,7 @@ function DcAdminUsersBody() {
 
   const handleRoleChange = async (row: StaffRow, nextRole: string) => {
     if (row.email.toLowerCase() === CEO_EMAIL) {
-      toastFail('CEO role cannot be changed')
+      toastFail('Owner role cannot be changed')
       return
     }
     await confirmStaffRoleUpdated(row.id, nextRole, () =>
@@ -157,7 +157,7 @@ function DcAdminUsersBody() {
 
   const handleReactivate = async (row: StaffRow) => {
     if (row.email.toLowerCase() === CEO_EMAIL) {
-      toastFail('CEO account cannot be deactivated')
+      toastFail('Owner account cannot be deactivated')
       return
     }
     await confirmStaffActiveUpdated(row.id, true, () =>
@@ -282,7 +282,7 @@ function DcAdminUsersBody() {
             <Kpi
               label="Owners"
               value={String(ownerCount)}
-              sub="CEO and Super Admin access"
+              sub="Owner and Super Admin access"
             />
             <Kpi
               label="2FA linked"
@@ -565,7 +565,7 @@ function AdminUsersTable({
                     </td>
                     <td style={cellStyle}>
                       {isCeo ? (
-                        <span style={{ font: `600 11.5px/1 ${FONT}`, color: 'var(--ink)' }}>CEO</span>
+                        <span style={{ font: `600 11.5px/1 ${FONT}`, color: 'var(--ink)' }}>Owner</span>
                       ) : (
                         <select
                           value={value}

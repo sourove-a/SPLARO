@@ -1,220 +1,159 @@
-import { createElement, type ComponentType } from 'react'
-import type { ModuleContextProps } from '@/lib/modules/module-data'
-import { GenericModulePanel } from '@/components/modules/GenericModulePanel'
-import { SettingsShell } from '@/components/settings/SettingsShell'
-import { TelegramBotConfigPanel } from '@/components/modules/TelegramBotConfigPanel'
-import { EmailSmsPanel } from '@/components/modules/EmailSmsPanel'
-import { ContentModulePanel } from '@/components/content'
-import { CouponsLivePanel, MarketingModulePanel } from '@/components/marketing'
-import { CatalogModulePanel } from '@/components/products'
-import { OrdersModulePanel } from '@/components/orders'
-import { SecurityModulePanel } from '@/components/security'
-import { SeoModulePanel } from '@/components/seo'
-import { AiCenterModulePanel } from '@/components/ai'
-import { AutomationModulePanel } from '@/components/automation'
-import { OperationsHubPanel } from '@/components/courier'
-import { PackingStationPanel } from '@/components/modules/PackingStationPanel'
-import { CommerceModulePanel } from '@/components/modules/CommerceModulePanel'
-import { PosPanel } from '@/components/pos/PosPanel'
-import { CommerceFinanceModulePanel } from '@/components/modules/CommerceFinanceModulePanel'
-import { OpsModulePanel } from '@/components/modules/OpsModulePanel'
-import { GrowthModulePanel } from '@/components/modules/GrowthModulePanel'
-import { AnalyticsModulePanel } from '@/components/modules/AnalyticsModulePanel'
-import { SystemModulePanel } from '@/components/modules/SystemModulePanel'
-import { SaaSModulePanel } from '@/components/modules/SaaSModulePanel'
-import { WmsModulePanel } from '@/components/modules/WmsModulePanel'
-import { BulkCsvPanel } from '@/components/modules/BulkCsvPanel'
-import { SmsCenterPanel } from '@/components/modules/SmsCenterPanel'
-import { AutomationRulesPanel } from '@/components/modules/AutomationRulesPanel'
-import {
-  AllIntegrationsPanel,
-  GoogleMerchantPanel,
-  MetaBusinessPanel,
-  WebhooksPanel,
-} from '@/components/modules/IntegrationPanels'
-import { ApiHealthPanel } from '@/components/modules/ApiHealthPanel'
-import { GoogleWorkspaceModulePanel } from '@/components/google-workspace/GoogleWorkspacePanels'
-import { MediaModulePanel } from '@/components/modules/MediaModulePanel'
-import {
-  DeveloperModulePanel,
-  MarketplaceModulePanel,
-  ObservabilityModulePanel,
-} from '@/components/modules/PlatformModulePanels'
-import { FinanceModulePanel } from '@/components/modules/FinanceModulePanel'
-import { GoogleSheetsPanel } from '@/components/finance/GoogleSheetsPanel'
-import { TelegramPanel } from '@/components/finance/TelegramPanel'
-import { FinanceAuditLogsPanel } from '@/components/finance/FinanceAuditLogsPanel'
-import { ExecutiveDashboard } from '@/components/enterprise/ExecutiveDashboard'
-import { ExportCenterPanelLive, NotificationCenterPanelLive, SocialCommercePanelLive } from '@/components/modules/EnterpriseLivePanels'
 import { flatAdminRoutes } from '@/lib/navigation/admin-nav'
 
-type ModuleComponent = ComponentType<ModuleContextProps> | ComponentType
-
-function wrapStatic(Component: ComponentType): ComponentType<ModuleContextProps> {
-  return function WrappedModulePanel(_props: ModuleContextProps) {
-    return createElement(Component)
-  }
-}
-
-function wrapGeneric(Component: ComponentType<ModuleContextProps>): ComponentType<ModuleContextProps> {
-  return Component
-}
-
-const SPECIFIC_MODULES: Record<string, ModuleComponent> = {
-  '/dashboard/finance/partner-accounts': wrapGeneric(FinanceModulePanel),
-  '/dashboard/finance/profit-loss': wrapGeneric(FinanceModulePanel),
-  '/dashboard/finance/expenses': wrapGeneric(FinanceModulePanel),
-  '/dashboard/finance/investments': wrapGeneric(FinanceModulePanel),
-  '/dashboard/finance/withdrawals': wrapGeneric(FinanceModulePanel),
-  '/dashboard/finance/daily-closing': wrapGeneric(FinanceModulePanel),
-  '/dashboard/finance/finance-reports': wrapGeneric(FinanceModulePanel),
-  '/dashboard/finance/google-sheets-finance': wrapGeneric(FinanceModulePanel),
-  '/dashboard/automation/telegram-notifications': wrapGeneric(AutomationModulePanel),
-  '/dashboard/automation/google-sheets-sync': wrapGeneric(AutomationModulePanel),
-  '/dashboard/automation/ai-product-agent': wrapGeneric(AutomationModulePanel),
-  '/dashboard/automation/ai-seo-agent': wrapGeneric(AutomationModulePanel),
-  '/dashboard/automation/ai-sales-insights': wrapGeneric(AutomationModulePanel),
-  '/dashboard/system/sync-logs': wrapStatic(GoogleSheetsPanel),
-  '/dashboard/system/telegram-logs': wrapStatic(TelegramPanel),
-  '/dashboard/system/finance-audit-logs': wrapStatic(FinanceAuditLogsPanel),
-  '/dashboard/executive/ceo-dashboard': wrapStatic(ExecutiveDashboard),
-  '/dashboard/revenue-center': wrapStatic(ExecutiveDashboard),
-  '/dashboard/business-intelligence': wrapStatic(ExecutiveDashboard),
-  '/dashboard/executive/export-center': wrapStatic(ExportCenterPanelLive),
-  '/dashboard/wms/overview': wrapGeneric(WmsModulePanel),
-  '/dashboard/wms/warehouses': wrapGeneric(WmsModulePanel),
-  '/dashboard/wms/stock-movements': wrapGeneric(WmsModulePanel),
-  '/dashboard/wms/transfers': wrapGeneric(WmsModulePanel),
-  '/dashboard/procurement/overview': wrapGeneric(OpsModulePanel),
-  '/dashboard/procurement/suppliers': wrapGeneric(OpsModulePanel),
-  '/dashboard/procurement/purchase-orders': wrapGeneric(OpsModulePanel),
-  '/dashboard/procurement/goods-received': wrapGeneric(OpsModulePanel),
-  '/dashboard/production/overview': wrapGeneric(OpsModulePanel),
-  '/dashboard/production/fabric-inventory': wrapGeneric(OpsModulePanel),
-  '/dashboard/support/helpdesk': wrapGeneric(OpsModulePanel),
-  '/dashboard/support/live-chat': wrapGeneric(OpsModulePanel),
-  '/dashboard/delivery/agents': wrapGeneric(OpsModulePanel),
-  '/dashboard/delivery/assignments': wrapGeneric(OpsModulePanel),
-  '/dashboard/company/dashboard': wrapGeneric(OpsModulePanel),
-  '/dashboard/company/employees': wrapGeneric(OpsModulePanel),
-  '/dashboard/company/payroll': wrapGeneric(OpsModulePanel),
-  '/dashboard/company/tasks': wrapGeneric(OpsModulePanel),
-  '/dashboard/company/documents': wrapGeneric(OpsModulePanel),
-  '/dashboard/executive/notification-center': wrapStatic(NotificationCenterPanelLive),
-  '/dashboard/observability/center': wrapGeneric(ObservabilityModulePanel),
-  '/dashboard/observability/disaster-recovery': wrapGeneric(ObservabilityModulePanel),
-  '/dashboard/marketplace/overview': wrapGeneric(MarketplaceModulePanel),
-  '/dashboard/social-commerce/hub': wrapStatic(SocialCommercePanelLive),
-  '/dashboard/developer/api-center': wrapGeneric(DeveloperModulePanel),
-  '/dashboard/media-library': wrapGeneric(MediaModulePanel),
-  '/dashboard/video-library': wrapGeneric(MediaModulePanel),
-  '/dashboard/ugc-gallery': wrapGeneric(MediaModulePanel),
-  '/dashboard/seo-health': wrapGeneric(SeoModulePanel),
-  '/dashboard/keywords': wrapGeneric(SeoModulePanel),
-  '/dashboard/index-monitor': wrapGeneric(SeoModulePanel),
-  '/dashboard/schema-manager': wrapGeneric(SeoModulePanel),
-  '/dashboard/sitemap-manager': wrapGeneric(SeoModulePanel),
-  '/dashboard/redirect-manager': wrapGeneric(SeoModulePanel),
-  '/dashboard/ai-agent': wrapGeneric(AiCenterModulePanel),
-  '/dashboard/ai-content': wrapGeneric(AiCenterModulePanel),
-  '/dashboard/ai-seo': wrapGeneric(AiCenterModulePanel),
-  '/dashboard/ai-analytics': wrapGeneric(AiCenterModulePanel),
-  '/dashboard/ai-sales': wrapGeneric(AiCenterModulePanel),
-  '/dashboard/ai-customer-insights': wrapGeneric(AiCenterModulePanel),
-  '/dashboard/ai-product-generator': wrapGeneric(AiCenterModulePanel),
-  '/dashboard/automation-rules': wrapStatic(AutomationRulesPanel),
-  '/dashboard/all-integrations': wrapGeneric(AllIntegrationsPanel),
-  '/dashboard/telegram-bot': wrapStatic(TelegramBotConfigPanel),
-  '/dashboard/api-health': wrapStatic(ApiHealthPanel),
-  '/dashboard/webhooks': wrapStatic(WebhooksPanel),
-  '/dashboard/meta-business': wrapStatic(MetaBusinessPanel),
-  '/dashboard/google-merchant': wrapStatic(GoogleMerchantPanel),
-  '/dashboard/google-workspace': wrapGeneric(GoogleWorkspaceModulePanel),
-  '/dashboard/google-workspace/connect': wrapGeneric(GoogleWorkspaceModulePanel),
-  '/dashboard/google-workspace/sheets-sync': wrapGeneric(GoogleWorkspaceModulePanel),
-  '/dashboard/google-workspace/gmail': wrapGeneric(GoogleWorkspaceModulePanel),
-  '/dashboard/google-workspace/drive': wrapGeneric(GoogleWorkspaceModulePanel),
-  '/dashboard/google-workspace/docs': wrapGeneric(GoogleWorkspaceModulePanel),
-  '/dashboard/google-workspace/calendar': wrapGeneric(GoogleWorkspaceModulePanel),
-  '/dashboard/google-workspace/contacts': wrapGeneric(GoogleWorkspaceModulePanel),
-  '/dashboard/google-workspace/analytics': wrapGeneric(GoogleWorkspaceModulePanel),
-  '/dashboard/google-workspace/search-console': wrapGeneric(GoogleWorkspaceModulePanel),
-  '/dashboard/google-workspace/merchant-center': wrapGeneric(GoogleWorkspaceModulePanel),
-  '/dashboard/google-workspace/sync-logs': wrapGeneric(GoogleWorkspaceModulePanel),
-  '/dashboard/google-workspace/oauth-settings': wrapGeneric(GoogleWorkspaceModulePanel),
-  '/dashboard/settings': wrapStatic(SettingsShell),
-  '/dashboard/email-sms': wrapGeneric(EmailSmsPanel),
-  '/dashboard/bulk': wrapGeneric(BulkCsvPanel),
-  '/dashboard/sms': wrapGeneric(SmsCenterPanel),
-  '/dashboard/security-center': wrapGeneric(SecurityModulePanel),
-  '/dashboard/admin-users': wrapGeneric(SecurityModulePanel),
-  '/dashboard/roles': wrapGeneric(SecurityModulePanel),
-  '/dashboard/permissions': wrapGeneric(SecurityModulePanel),
-  '/dashboard/audit-logs': wrapGeneric(SecurityModulePanel),
-  '/dashboard/backups': wrapGeneric(SystemModulePanel),
-  '/dashboard/logs': wrapGeneric(SystemModulePanel),
-  '/dashboard/system-health': wrapGeneric(SystemModulePanel),
-  '/dashboard/stores': wrapGeneric(SaaSModulePanel),
-  '/dashboard/saas-subscriptions': wrapGeneric(SaaSModulePanel),
-  '/dashboard/domains': wrapGeneric(SaaSModulePanel),
-  '/dashboard/tenants': wrapGeneric(SaaSModulePanel),
-  '/dashboard/billing': wrapGeneric(SaaSModulePanel),
-  '/dashboard/orders': wrapGeneric(OrdersModulePanel),
-  '/dashboard/pos': wrapStatic(PosPanel),
-  '/dashboard/returns-rma': wrapGeneric(CommerceFinanceModulePanel),
-  '/dashboard/subscriptions': wrapGeneric(CommerceFinanceModulePanel),
-  '/dashboard/invoices': wrapGeneric(CommerceFinanceModulePanel),
-  '/dashboard/transactions': wrapGeneric(CommerceFinanceModulePanel),
-  '/dashboard/products': wrapGeneric(CatalogModulePanel),
-  '/dashboard/product-reviews': wrapGeneric(CatalogModulePanel),
-  '/dashboard/collections': wrapGeneric(CatalogModulePanel),
-  '/dashboard/categories': wrapGeneric(CatalogModulePanel),
-  '/dashboard/inventory': wrapGeneric(CatalogModulePanel),
-  '/dashboard/brands': wrapGeneric(CatalogModulePanel),
-  '/dashboard/attributes': wrapGeneric(CatalogModulePanel),
-  '/dashboard/sku-manager': wrapGeneric(CatalogModulePanel),
-  '/dashboard/qr-manager': wrapGeneric(CatalogModulePanel),
-  '/dashboard/barcode-manager': wrapGeneric(CatalogModulePanel),
-  '/dashboard/customers': wrapGeneric(CommerceModulePanel),
-  '/dashboard/vip-members': wrapGeneric(GrowthModulePanel),
-  '/dashboard/loyalty-program': wrapGeneric(GrowthModulePanel),
-  '/dashboard/referrals': wrapGeneric(GrowthModulePanel),
-  '/dashboard/segments': wrapGeneric(GrowthModulePanel),
-  '/dashboard/customer-intelligence': wrapGeneric(GrowthModulePanel),
-  '/dashboard/shipping': wrapGeneric(OperationsHubPanel),
-  '/dashboard/operations': wrapGeneric(OperationsHubPanel),
-  '/dashboard/courier-hub': wrapGeneric(OperationsHubPanel),
-  '/dashboard/warehouse': wrapGeneric(OperationsHubPanel),
-  '/dashboard/packing-station': wrapStatic(PackingStationPanel),
-  '/dashboard/supplier-management': wrapGeneric(OperationsHubPanel),
-  '/dashboard/analytics': wrapStatic(AnalyticsModulePanel),
-  '/dashboard/campaigns': wrapGeneric(MarketingModulePanel),
-  '/dashboard/coupons': wrapStatic(CouponsLivePanel),
-  '/dashboard/whatsapp': wrapGeneric(MarketingModulePanel),
-  '/dashboard/affiliate': wrapGeneric(MarketingModulePanel),
-  '/dashboard/influencers': wrapGeneric(MarketingModulePanel),
-  '/dashboard/home-page': wrapGeneric(ContentModulePanel),
-  '/dashboard/footwear-page': wrapGeneric(ContentModulePanel),
-  '/dashboard/theme-builder': wrapGeneric(ContentModulePanel),
-  '/dashboard/menu-control': wrapGeneric(ContentModulePanel),
-  '/dashboard/hero-slider': wrapGeneric(ContentModulePanel),
-  '/dashboard/lookbooks': wrapGeneric(ContentModulePanel),
-  '/dashboard/reels': wrapGeneric(ContentModulePanel),
-  '/dashboard/blog': wrapGeneric(ContentModulePanel),
-  '/dashboard/legal-pages': wrapGeneric(ContentModulePanel),
-  '/dashboard/cms': wrapGeneric(ContentModulePanel),
-  '/dashboard/landing-pages': wrapGeneric(ContentModulePanel),
-}
-
-/** All module routes with dedicated panels (not GenericModulePanel). */
-export const REGISTERED_MODULE_HREFS = Object.keys(SPECIFIC_MODULES)
-
-export function getModuleComponent(href: string): ComponentType<ModuleContextProps> {
-  const normalized = href.replace(/\/+$/, '')
-  const specific = SPECIFIC_MODULES[normalized]
-  if (specific) return specific as ComponentType<ModuleContextProps>
-  return GenericModulePanel
-}
+/**
+ * Module routes that shipped a dedicated panel before the DC unification.
+ *
+ * The panels themselves are gone — every live screen is now a DC screen under
+ * `components/dc`. This list survives only as the "live maturity" allow-list
+ * consumed by `module-maturity.ts`, so the hrefs must stay byte-identical to
+ * the old registry keys.
+ */
+export const REGISTERED_MODULE_HREFS: string[] = [
+  '/dashboard/finance/partner-accounts',
+  '/dashboard/finance/profit-loss',
+  '/dashboard/finance/expenses',
+  '/dashboard/finance/investments',
+  '/dashboard/finance/withdrawals',
+  '/dashboard/finance/daily-closing',
+  '/dashboard/finance/finance-reports',
+  '/dashboard/finance/google-sheets-finance',
+  '/dashboard/automation/telegram-notifications',
+  '/dashboard/automation/google-sheets-sync',
+  '/dashboard/automation/ai-product-agent',
+  '/dashboard/automation/ai-seo-agent',
+  '/dashboard/automation/ai-sales-insights',
+  '/dashboard/system/sync-logs',
+  '/dashboard/system/telegram-logs',
+  '/dashboard/system/finance-audit-logs',
+  '/dashboard/executive/ceo-dashboard',
+  '/dashboard/revenue-center',
+  '/dashboard/business-intelligence',
+  '/dashboard/executive/export-center',
+  '/dashboard/wms/overview',
+  '/dashboard/wms/warehouses',
+  '/dashboard/wms/stock-movements',
+  '/dashboard/wms/transfers',
+  '/dashboard/procurement/overview',
+  '/dashboard/procurement/suppliers',
+  '/dashboard/procurement/purchase-orders',
+  '/dashboard/procurement/goods-received',
+  '/dashboard/production/overview',
+  '/dashboard/production/fabric-inventory',
+  '/dashboard/support/helpdesk',
+  '/dashboard/support/live-chat',
+  '/dashboard/delivery/agents',
+  '/dashboard/delivery/assignments',
+  '/dashboard/company/dashboard',
+  '/dashboard/company/employees',
+  '/dashboard/company/payroll',
+  '/dashboard/company/tasks',
+  '/dashboard/company/documents',
+  '/dashboard/executive/notification-center',
+  '/dashboard/observability/center',
+  '/dashboard/observability/disaster-recovery',
+  '/dashboard/marketplace/overview',
+  '/dashboard/social-commerce/hub',
+  '/dashboard/developer/api-center',
+  '/dashboard/media-library',
+  '/dashboard/video-library',
+  '/dashboard/ugc-gallery',
+  '/dashboard/seo-health',
+  '/dashboard/keywords',
+  '/dashboard/index-monitor',
+  '/dashboard/schema-manager',
+  '/dashboard/sitemap-manager',
+  '/dashboard/redirect-manager',
+  '/dashboard/ai-agent',
+  '/dashboard/ai-content',
+  '/dashboard/ai-seo',
+  '/dashboard/ai-analytics',
+  '/dashboard/ai-sales',
+  '/dashboard/ai-customer-insights',
+  '/dashboard/ai-product-generator',
+  '/dashboard/automation-rules',
+  '/dashboard/all-integrations',
+  '/dashboard/webhooks',
+  '/dashboard/meta-business',
+  '/dashboard/google-merchant',
+  '/dashboard/google-workspace',
+  '/dashboard/google-workspace/connect',
+  '/dashboard/google-workspace/sheets-sync',
+  '/dashboard/google-workspace/gmail',
+  '/dashboard/google-workspace/drive',
+  '/dashboard/google-workspace/docs',
+  '/dashboard/google-workspace/calendar',
+  '/dashboard/google-workspace/contacts',
+  '/dashboard/google-workspace/analytics',
+  '/dashboard/google-workspace/search-console',
+  '/dashboard/google-workspace/merchant-center',
+  '/dashboard/google-workspace/sync-logs',
+  '/dashboard/google-workspace/oauth-settings',
+  '/dashboard/settings',
+  '/dashboard/mobile-screens',
+  '/dashboard/bulk',
+  '/dashboard/sms',
+  '/dashboard/telegram-bot',
+  '/dashboard/api-health',
+  '/dashboard/email-sms',
+  '/dashboard/security-center',
+  '/dashboard/admin-users',
+  '/dashboard/roles',
+  '/dashboard/permissions',
+  '/dashboard/audit-logs',
+  '/dashboard/backups',
+  '/dashboard/logs',
+  '/dashboard/system-health',
+  '/dashboard/stores',
+  '/dashboard/saas-subscriptions',
+  '/dashboard/domains',
+  '/dashboard/tenants',
+  '/dashboard/billing',
+  '/dashboard/orders',
+  '/dashboard/pos',
+  '/dashboard/returns-rma',
+  '/dashboard/subscriptions',
+  '/dashboard/invoices',
+  '/dashboard/transactions',
+  '/dashboard/products',
+  '/dashboard/product-reviews',
+  '/dashboard/collections',
+  '/dashboard/categories',
+  '/dashboard/inventory',
+  '/dashboard/brands',
+  '/dashboard/attributes',
+  '/dashboard/sku-manager',
+  '/dashboard/qr-manager',
+  '/dashboard/barcode-manager',
+  '/dashboard/customers',
+  '/dashboard/vip-members',
+  '/dashboard/loyalty-program',
+  '/dashboard/referrals',
+  '/dashboard/segments',
+  '/dashboard/customer-intelligence',
+  '/dashboard/shipping',
+  '/dashboard/operations',
+  '/dashboard/courier-hub',
+  '/dashboard/warehouse',
+  '/dashboard/packing-station',
+  '/dashboard/supplier-management',
+  '/dashboard/analytics',
+  '/dashboard/campaigns',
+  '/dashboard/coupons',
+  '/dashboard/whatsapp',
+  '/dashboard/affiliate',
+  '/dashboard/influencers',
+  '/dashboard/home-page',
+  '/dashboard/footwear-page',
+  '/dashboard/theme-builder',
+  '/dashboard/menu-control',
+  '/dashboard/hero-slider',
+  '/dashboard/lookbooks',
+  '/dashboard/reels',
+  '/dashboard/blog',
+  '/dashboard/legal-pages',
+  '/dashboard/cms',
+  '/dashboard/landing-pages',
+]
 
 export function getAllModuleHrefs(): string[] {
   return flatAdminRoutes.map((route) => route.href)

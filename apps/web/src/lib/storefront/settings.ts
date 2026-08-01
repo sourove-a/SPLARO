@@ -18,7 +18,6 @@ import {
   DEFAULT_STORE_LABEL,
   DEFAULT_SUPPORT_EMAIL,
 } from '@/lib/storefront/defaults'
-import { fetchLiveHeaderNav } from '@/lib/catalog/menu-nav'
 import {
   ACCESSORIES_MEGA_CATEGORIES,
   ACCESSORIES_MEGA_HEROES,
@@ -390,20 +389,16 @@ async function fetchStorefrontNav(): Promise<NavLink[] | null> {
   }
 }
 
-async function fetchNavQuick(): Promise<[NavLink[] | null, NavLink[] | null]> {
-  // Dev: allow full settings timeout so Men/Women megas aren't dropped for Accessories FALLBACK.
-  // Prod: keep a short cap so homepage TTFB stays fast; fillMissing still covers gaps.
+async function fetchNavQuick(): Promise<NavLink[] | null> {
+  // Menu Control settings + NavBuilder are the single source of truth.
   const cap =
     process.env.NODE_ENV === 'development'
       ? settingsFetchTimeoutMs()
       : Math.min(settingsFetchTimeoutMs(), 1200)
-  const withCap = (fn: () => Promise<NavLink[] | null>) =>
-    Promise.race([
-      fn(),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), cap)),
-    ]).catch(() => null)
-
-  return Promise.all([withCap(fetchLiveHeaderNav), withCap(fetchStorefrontNav)])
+  return Promise.race([
+    fetchStorefrontNav(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), cap)),
+  ]).catch(() => null)
 }
 
 async function fetchSettingsRaw(): Promise<StorefrontSettings> {
@@ -437,17 +432,8 @@ async function fetchSettingsRaw(): Promise<StorefrontSettings> {
     return FALLBACK_SETTINGS
   }
 
-  // Always merge live department megas (Men/Women/Kids…) — skipping this left
-  // Accessories-only FALLBACK megas and wrong Men/Women links in local + timeout paths.
-  const [menuNav, dynamicNav] = await fetchNavQuick()
-
-  if (menuNav?.length) {
-    settings.config.headerNav = menuNav
-  }
-
-  if (dynamicNav?.length) {
-    settings.config.headerNav = mergeDynamicMegaMenus(settings.config.headerNav ?? [], dynamicNav)
-  }
+  const dynamicNav = await fetchNavQuick()
+  if (dynamicNav?.length) settings.config.headerNav = dynamicNav
 
   return settings
 }
@@ -471,65 +457,6 @@ function isSummerEditionNavItem(item: { href: string; label?: string }): boolean
     href === '/collections/summer-edition' ||
     item.label?.trim().toLowerCase() === 'summer edition'
   )
-}
-
-function mergeDynamicMegaMenus(nav: NavLink[], apiNav: NavLink[]): NavLink[] {
-  const apiByHref = new Map(apiNav.map((item) => [normalizeHref(item.href), item]))
-  const apiByLabel = new Map(apiNav.map((item) => [item.label.toLowerCase(), item]))
-
-  return nav.map((item) => {
-    const match =
-      apiByHref.get(normalizeHref(item.href)) ?? apiByLabel.get(item.label.toLowerCase())
-    if (match?.megaMenu) {
-      const merged: NavLink = {
-        ...item,
-        href: match.href || item.href,
-        megaMenu: match.megaMenu,
-      }
-      if (match.hidden !== undefined) merged.hidden = match.hidden
-      return merged
-    }
-    if (item.megaMenu) return item
-    return restoreMegaMenus([item])[0] ?? item
-  })
-}
-
-/** Fill only missing megas — never overwrite live NavBuilder Men/Women trees. */
-function restoreMegaMenus(nav: NavLink[]): NavLink[] {
-  const fallback = FALLBACK_SETTINGS.config.headerNav ?? []
-  return nav.map((item) => {
-    if (item.megaMenu?.categories?.length) return item
-    const byLabel = fallback.find(
-      (entry) => entry.label.toLowerCase() === item.label.toLowerCase(),
-    )
-    if (byLabel?.megaMenu?.categories?.length) {
-      return { ...item, megaMenu: byLabel.megaMenu }
-    }
-    const byHref = fallback.find(
-      (entry) => normalizeHref(entry.href) === normalizeHref(item.href),
-    )
-    return byHref?.megaMenu?.categories?.length
-      ? { ...item, megaMenu: byHref.megaMenu }
-      : item
-  })
-}
-
-function ensureFallbackNavItems(nav: NavLink[]): NavLink[] {
-  const fallback = FALLBACK_SETTINGS.config.headerNav ?? []
-  let result = [...nav]
-
-  for (const fallbackItem of fallback) {
-    const exists = result.some(
-      (item) =>
-        normalizeHref(item.href) === normalizeHref(fallbackItem.href) ||
-        item.label.toLowerCase() === fallbackItem.label.toLowerCase(),
-    )
-    if (!exists) {
-      // append missing fallback items (e.g. Accessories) at the end
-      result = [...result, fallbackItem]
-    }
-  }
-  return result
 }
 
 /** Department links that must appear in footer Shop (same set as header depts). */
@@ -579,70 +506,12 @@ function ensureFallbackFooterShopLinks(groups: FooterGroup[]): FooterGroup[] {
   })
 }
 
-/** Men → Women → Kids → Footwear → Accessories among department links only. */
-const DEPARTMENT_NAV_RANK: Record<string, number> = {
-  men: 0,
-  women: 1,
-  kids: 2,
-  footwear: 3,
-  accessories: 4,
-}
-
-function departmentNavRank(href: string, label: string): number | null {
-  const normalized = normalizeHref(href)
-  const labelKey = label.trim().toLowerCase()
-  for (const [slug, rank] of Object.entries(DEPARTMENT_NAV_RANK)) {
-    if (labelKey === slug) return rank
-    if (slug === 'accessories' && (normalized === '/accessories' || normalized.endsWith('/accessories'))) {
-      return rank
-    }
-    if (
-      normalized === `/c/${slug}` ||
-      normalized === `/collections/${slug}` ||
-      normalized.endsWith(`/c/${slug}`) ||
-      normalized.endsWith(`/collections/${slug}`)
-    ) {
-      return rank
-    }
-  }
-  return null
-}
-
-function orderDepartmentNavLinks(nav: NavLink[]): NavLink[] {
-  const tagged = nav.map((item, index) => ({
-    item,
-    index,
-    rank: departmentNavRank(item.href, item.label),
-  }))
-  const departments = tagged
-    .filter((entry) => entry.rank !== null)
-    .sort((a, b) => (a.rank! - b.rank!) || a.index - b.index)
-  let deptCursor = 0
-  return tagged.map((entry) => {
-    if (entry.rank === null) return entry.item
-    return departments[deptCursor++]!.item
-  })
-}
-
-function dynamicNavApplied(nav: NavLink[]): NavLink[] {
-  // Per-item fill: Accessories having a mega must NOT skip Men/Women restore.
-  return restoreMegaMenus(nav)
-}
-
 function applyStoreDefaults(settings: StorefrontSettings): StorefrontSettings {
   const fallbackGroups = FALLBACK_SETTINGS.config.footerGroups ?? []
   const headerNav = settings.config.headerNav?.length
     ? settings.config.headerNav
     : FALLBACK_SETTINGS.config.headerNav
-  const normalizedHeaderNav = orderDepartmentNavLinks(
-    dynamicNavApplied(
-      ensureFallbackNavItems(
-        headerNav?.some((item) => item.href === '/')
-          ? (headerNav ?? [])
-          : [{ label: 'Home', href: '/' }, ...(headerNav ?? [])],
-      ),
-    ),
-  )
+  const normalizedHeaderNav = headerNav ?? []
 
   const catalogChannels = mergeCatalogChannels(
     settings.config.catalogChannels ?? FALLBACK_SETTINGS.config.catalogChannels,

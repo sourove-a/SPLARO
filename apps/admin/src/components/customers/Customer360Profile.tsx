@@ -69,13 +69,13 @@ const TIER_COLORS: Record<string, string> = {
 const TABS = ['Overview', 'Orders', 'Activity', 'AI Summary', 'Notes', 'Tags'] as const
 
 const SURFACE_CHIP =
-  'rounded-full border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-surface)] px-2.5 py-0.5 text-[11px] text-[var(--admin-text-secondary)]'
+  'dc-c360-chip rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2.5 py-0.5 text-[11px] text-[var(--ink-2)]'
 const SURFACE_PANEL =
-  'rounded-lg border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-surface)] p-3'
+  'dc-c360-panel rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-3'
 const INPUT_CLASS =
-  'w-full rounded-lg border border-[var(--admin-glass-border)] bg-[var(--admin-surface-input)] px-3 py-2 text-sm text-[var(--admin-text)] placeholder:text-[var(--admin-text-muted)] focus:border-gold/40 focus:outline-none'
+  'w-full rounded-[9px] border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:border-[var(--violet-bd)] focus:outline-none'
 const PRESET_CHIP =
-  'rounded-full border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-surface)] px-3 py-1 text-xs text-[var(--admin-text-secondary)] transition-colors hover:border-gold/30 hover:text-gold'
+  'rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-1 text-xs text-[var(--ink-2)] transition-colors hover:border-[var(--violet-bd)] hover:text-[var(--violet)]'
 
 export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBlock }: Customer360ProfileProps) {
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>('Overview')
@@ -83,16 +83,25 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
   const [newTag, setNewTag] = useState('')
 
   return (
-    <div className="space-y-6">
-      <div className="admin-module-card">
+    <div className="dc-c360-body space-y-4">
+      <div
+        className="dc-c360-hero"
+        style={{
+          border: '1px solid var(--line)',
+          borderRadius: 14,
+          background: 'var(--surface)',
+          backgroundImage: 'var(--card-sheen)',
+          padding: 16,
+        }}
+      >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
           <div className="relative shrink-0 self-start">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gold/20 text-xl font-serif font-light text-gold sm:h-16 sm:w-16 sm:text-2xl">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--violet-soft)] text-xl font-serif font-light text-[var(--violet)] sm:h-16 sm:w-16 sm:text-2xl">
               {customer.firstName[0]}{customer.lastName[0]}
             </div>
             <span
               className={cn(
-                'absolute -bottom-1 -right-1 rounded-full border-2 border-[var(--admin-bg)] px-1.5 py-0.5 text-[9px] font-semibold',
+                'absolute -bottom-1 -right-1 rounded-full border-2 border-[var(--surface)] px-1.5 py-0.5 text-[9px] font-semibold',
                 TIER_COLORS[customer.loyaltyTier] ?? TIER_COLORS['BRONZE']!,
               )}
             >
@@ -102,7 +111,7 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <h2 className="text-lg font-semibold text-[var(--admin-text)] sm:text-xl">
+              <h2 className="text-lg font-semibold text-[var(--ink)] sm:text-xl">
                 {customer.firstName} {customer.lastName}
               </h2>
               <span
@@ -119,7 +128,7 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
                 </span>
               ) : null}
               {customer.vipScore >= 80 && (
-                <span className="rounded-full border border-gold/30 bg-gold/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gold">
+                <span className="rounded-full border border-[var(--violet-bd)] bg-[var(--violet-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--violet)]">
                   VIP
                 </span>
               )}
@@ -134,7 +143,7 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
                 </span>
               ) : null}
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[var(--admin-text-secondary)]">
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[var(--ink-2)]">
               <span className="flex items-center gap-1.5">
                 <Phone className="h-3.5 w-3.5 shrink-0" />
                 {customer.phone}
@@ -167,7 +176,7 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
             {onToggleBlock ? (
               <AdminButton
                 size="sm"
-                variant={customer.isBlocked ? 'gold' : 'ghost'}
+                variant={customer.isBlocked ? 'accent' : 'ghost'}
                 onClick={() => void onToggleBlock(!customer.isBlocked)}
               >
                 {customer.isBlocked ? (
@@ -208,9 +217,17 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
         />
       </div>
 
-      <div className="admin-module-card !p-0 overflow-hidden">
+      <div
+        className="dc-c360-tabs overflow-hidden"
+        style={{
+          border: '1px solid var(--line)',
+          borderRadius: 14,
+          background: 'var(--surface)',
+          backgroundImage: 'var(--card-sheen)',
+        }}
+      >
         <div
-          className="flex overflow-x-auto border-b border-[var(--admin-glass-border-subtle)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex overflow-x-auto border-b border-[var(--line)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           role="tablist"
           aria-label="Customer profile sections"
         >
@@ -224,8 +241,8 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
               className={cn(
                 'shrink-0 whitespace-nowrap px-3.5 py-3 text-xs font-medium transition-colors sm:px-4',
                 activeTab === tab
-                  ? 'border-b-2 border-[var(--admin-brand-gold)] text-[var(--admin-brand-gold)]'
-                  : 'border-b-2 border-transparent text-[var(--admin-text-muted)] hover:text-[var(--admin-text-secondary)]',
+                  ? 'border-b-2 border-[var(--violet)] text-[var(--violet)]'
+                  : 'border-b-2 border-transparent text-[var(--ink-3)] hover:text-[var(--ink-2)]',
               )}
             >
               {tab}
@@ -237,9 +254,9 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
           {activeTab === 'Orders' && (
             <div className="space-y-2">
               {(customer.orders ?? []).length === 0 ? (
-                <p className="text-sm text-[var(--admin-text-secondary)]">No orders yet.</p>
+                <p className="text-sm text-[var(--ink-2)]">No orders yet.</p>
               ) : (
-                <table className="admin-module-table">
+                <table className="dc-c360-table w-full text-sm">
                   <thead>
                     <tr>
                       <th>Invoice</th>
@@ -273,19 +290,19 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
             <div className="space-y-3">
               {(customer.activityNotes ?? []).map((note) => (
                 <div key={note.id} className={SURFACE_PANEL}>
-                  <p className="text-sm text-[var(--admin-text)]">{note.body}</p>
-                  <p className="mt-1 text-[10px] text-[var(--admin-text-secondary)]">
+                  <p className="text-sm text-[var(--ink)]">{note.body}</p>
+                  <p className="mt-1 text-[10px] text-[var(--ink-2)]">
                     {note.createdAt.slice(0, 16).replace('T', ' ')}
                   </p>
                 </div>
               ))}
               {(customer.orders ?? []).slice(0, 5).map((order) => (
-                <div key={`act-${order.id}`} className={cn(SURFACE_PANEL, 'text-xs text-[var(--admin-text-secondary)]')}>
+                <div key={`act-${order.id}`} className={cn(SURFACE_PANEL, 'text-xs text-[var(--ink-2)]')}>
                   Order <span className="font-mono font-bold">{order.invoiceNumber}</span> — {order.status} — {formatBDT(Number(order.total))}
                 </div>
               ))}
               {!customer.activityNotes?.length && !customer.orders?.length ? (
-                <p className="text-sm text-[var(--admin-text-secondary)]">No activity recorded yet.</p>
+                <p className="text-sm text-[var(--ink-2)]">No activity recorded yet.</p>
               ) : null}
             </div>
           )}
@@ -327,7 +344,7 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
             <div className="space-y-4">
               {customer.adminNotes && (
                 <div className={SURFACE_PANEL}>
-                  <p className="text-sm text-[var(--admin-text-secondary)]">{customer.adminNotes}</p>
+                  <p className="text-sm text-[var(--ink-2)]">{customer.adminNotes}</p>
                 </div>
               )}
               <div className="space-y-2">
@@ -349,7 +366,7 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
                     })()
                   }}
                   disabled={!newNote.trim()}
-                  className="flex items-center gap-2 rounded-lg bg-gold/20 px-4 py-2 text-xs font-medium text-gold transition-opacity hover:opacity-80 disabled:opacity-30"
+                  className="flex items-center gap-2 rounded-lg bg-[var(--violet-soft)] px-4 py-2 text-xs font-medium text-[var(--violet)] transition-opacity hover:opacity-80 disabled:opacity-30"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Save Note
@@ -361,7 +378,7 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
           {activeTab === 'Tags' && (
             <div className="space-y-5">
               <div className="space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--admin-text-muted)]">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-3)]">
                   Applied
                 </p>
                 {customer.tags.length > 0 ? (
@@ -373,12 +390,12 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-[var(--admin-text-secondary)]">No tags yet.</p>
+                  <p className="text-sm text-[var(--ink-2)]">No tags yet.</p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--admin-text-muted)]">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-3)]">
                   Suggested
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -398,7 +415,7 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
                         className={cn(
                           PRESET_CHIP,
                           'inline-flex items-center gap-1.5',
-                          applied && 'cursor-default opacity-45 hover:border-[var(--admin-glass-border-subtle)] hover:text-[var(--admin-text-secondary)]',
+                          applied && 'cursor-default opacity-45 hover:border-[var(--line)] hover:text-[var(--ink-2)]',
                         )}
                       >
                         {!applied ? <Plus className="h-3 w-3 shrink-0" strokeWidth={2.2} /> : null}
@@ -427,7 +444,7 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
                     })()
                   }}
                   disabled={!newTag.trim() || !onAddTag}
-                  className="rounded-lg bg-gold/20 px-4 py-2 text-xs font-medium text-gold transition-opacity hover:opacity-80 disabled:opacity-30"
+                  className="rounded-lg bg-[var(--violet-soft)] px-4 py-2 text-xs font-medium text-[var(--violet)] transition-opacity hover:opacity-80 disabled:opacity-30"
                 >
                   Add
                 </button>
@@ -437,12 +454,12 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
 
           {activeTab === 'AI Summary' && (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm text-[var(--admin-text-muted)]">
-                <Bot className="h-4 w-4 text-gold" />
+              <div className="flex items-center gap-2 text-sm text-[var(--ink-3)]">
+                <Bot className="h-4 w-4 text-[var(--violet)]" />
                 <span>AI-generated customer intelligence</span>
               </div>
-              <div className="rounded-lg border border-gold/10 bg-gold/5 p-4">
-                <p className="text-sm leading-relaxed text-[var(--admin-text-secondary)]">
+              <div className="rounded-lg border border-[var(--violet-bd)] bg-[var(--violet-soft)] p-4">
+                <p className="text-sm leading-relaxed text-[var(--ink-2)]">
                   This customer has been shopping with SPLARO for {customer.totalOrders} orders,
                   spending a total of {formatBDT(customer.totalSpent)} with an average order value
                   of {formatBDT(customer.avgOrderValue)}. Their COD risk score is {customer.codRiskScore}/100
@@ -475,13 +492,32 @@ function MiniStat({
   sub?: string
 }) {
   return (
-    <div className="admin-kpi rounded-[20px]">
-      <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--admin-accent-muted)]">
-        <Icon className="h-3.5 w-3.5 text-[var(--admin-accent)]" strokeWidth={1.5} />
+    <div style={{
+      border: '1px solid var(--line)',
+      borderRadius: 14,
+      background: 'var(--surface)',
+      backgroundImage: 'var(--card-sheen)',
+      padding: 14,
+    }}>
+      <div
+        className="mb-2 flex h-7 w-7 items-center justify-center rounded-lg"
+        style={{ background: 'var(--violet-soft)', color: 'var(--violet)' }}
+      >
+        <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
       </div>
-      <p className="admin-kpi__value text-lg">{value}</p>
-      <p className="admin-kpi__label">{label}</p>
-      {sub ? <p className="mt-1 text-[11px] font-medium text-[var(--admin-text-muted)]">{sub}</p> : null}
+      <p style={{ margin: 0, font: '700 18px/1.2 var(--dc-mono, ui-monospace, monospace)', color: 'var(--ink)' }}>{value}</p>
+      <p
+        style={{
+          margin: '6px 0 0',
+          font: '600 10.5px/1 var(--dc-font, inherit)',
+          letterSpacing: '0.09em',
+          textTransform: 'uppercase',
+          color: 'var(--ink-3)',
+        }}
+      >
+        {label}
+      </p>
+      {sub ? <p className="mt-1 text-[11px] font-medium text-[var(--ink-3)]">{sub}</p> : null}
     </div>
   )
 }
@@ -490,11 +526,11 @@ function FraudSignalsPanel({ signals }: { signals?: CustomerFraudSignals | undef
   if (!signals) {
     return (
       <div className={cn(SURFACE_PANEL, 'mt-2 space-y-2')}>
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--admin-text-muted)]">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ink-3)]">
           <ShieldAlert className="h-3.5 w-3.5" strokeWidth={1.5} />
           Fraud signals
         </div>
-        <p className="text-sm text-[var(--admin-text-secondary)]">Signals unavailable.</p>
+        <p className="text-sm text-[var(--ink-2)]">Signals unavailable.</p>
       </div>
     )
   }
@@ -502,11 +538,11 @@ function FraudSignalsPanel({ signals }: { signals?: CustomerFraudSignals | undef
   if (!signals.captured) {
     return (
       <div className={cn(SURFACE_PANEL, 'mt-2 space-y-2')}>
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--admin-text-muted)]">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ink-3)]">
           <ShieldAlert className="h-3.5 w-3.5" strokeWidth={1.5} />
           Fraud signals
         </div>
-        <p className="text-sm text-[var(--admin-text-secondary)]">
+        <p className="text-sm text-[var(--ink-2)]">
           Not captured on older orders — new checkouts will store IP and device ID.
         </p>
       </div>
@@ -518,10 +554,10 @@ function FraudSignalsPanel({ signals }: { signals?: CustomerFraudSignals | undef
 
   return (
     <div className={cn(SURFACE_PANEL, 'mt-2 space-y-3')}>
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--admin-text-muted)]">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ink-3)]">
         <ShieldAlert className="h-3.5 w-3.5" strokeWidth={1.5} />
         Fraud signals
-        <span className="font-normal normal-case tracking-normal text-[var(--admin-text-muted)]">
+        <span className="font-normal normal-case tracking-normal text-[var(--ink-3)]">
           (review only — no auto-block)
         </span>
       </div>
@@ -564,9 +600,9 @@ function FraudSignalsPanel({ signals }: { signals?: CustomerFraudSignals | undef
 
 function SignalStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-bg)]/40 px-2.5 py-2">
-      <p className="text-[10px] uppercase tracking-wide text-[var(--admin-text-muted)]">{label}</p>
-      <p className="mt-0.5 break-all font-mono text-xs text-[var(--admin-text)]">{value}</p>
+    <div className="rounded-md border border-[var(--line)] bg-[var(--surface)]/40 px-2.5 py-2">
+      <p className="text-[10px] uppercase tracking-wide text-[var(--ink-3)]">{label}</p>
+      <p className="mt-0.5 break-all font-mono text-xs text-[var(--ink)]">{value}</p>
     </div>
   )
 }
@@ -578,8 +614,8 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
         <Icon className="h-3.5 w-3.5 text-[var(--admin-accent)]" strokeWidth={1.5} />
       </div>
       <div className="flex flex-1 items-center justify-between gap-3">
-        <p className="text-xs text-[var(--admin-text-muted)]">{label}</p>
-        <p className="text-sm text-[var(--admin-text)]">{value}</p>
+        <p className="text-xs text-[var(--ink-3)]">{label}</p>
+        <p className="text-sm text-[var(--ink)]">{value}</p>
       </div>
     </div>
   )

@@ -872,10 +872,10 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                   value={form.name}
                   onChange={(e) => set('name', e.target.value)}
                   onBlur={() => {
-                    if (!form.descriptionEn.trim() && !form.descriptionBn.trim() && form.name.trim()) {
-                      applyDescriptionDraft(true)
-                    }
-                  }}
+              if (!form.descriptionEn.trim() && !form.descriptionBn.trim() && form.name.trim()) {
+                applyDescriptionDraft(true)
+              }
+            }}
                 />
               </DcField>
               <DcField label="Title · বাংলা">
@@ -913,7 +913,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                   onChange={(e) => setHandleOverride(e.target.value)}
                   style={{ border: 0, borderRadius: 0, background: 'transparent' }}
                 />
-              </div>
+          </div>
             </DcField>
             <DcField
               label="Description · English"
@@ -962,13 +962,13 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             badge={<DcPill>{`${form.imageUrls.filter(Boolean).length} of 6 filled`}</DcPill>}
           >
             <DcProductMediaSlots
-              imageUrls={form.imageUrls}
-              videoUrl={form.videoUrl}
+          imageUrls={form.imageUrls}
+          videoUrl={form.videoUrl}
               altText={altText}
-              onImageUrlsChange={(urls) => setForm((prev) => ({ ...prev, imageUrls: urls }))}
-              onVideoUrlChange={(url) => setForm((prev) => ({ ...prev, videoUrl: url }))}
+          onImageUrlsChange={(urls) => setForm((prev) => ({ ...prev, imageUrls: urls }))}
+          onVideoUrlChange={(url) => setForm((prev) => ({ ...prev, videoUrl: url }))}
               onAltChange={setAltText}
-              disabled={aiLoading}
+          disabled={aiLoading}
             />
           </DcSectionCard>
 

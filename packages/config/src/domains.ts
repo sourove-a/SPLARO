@@ -178,6 +178,35 @@ export function resolveCustomerFacingAssetUrl(value?: string | null): string {
   }
 }
 
+/**
+ * Payment-gateway callback URLs must stay on SPLARO API hosts under `/payments/`.
+ * Foreign origins (open redirect / callback injection) fall back to the fixed path.
+ */
+export function resolveAllowedPaymentCallbackUrl(
+  value: string | null | undefined,
+  fallbackPath: string,
+): string {
+  const apiBase = resolveCustomerFacingApiBase()
+  const path = fallbackPath.startsWith('/') ? fallbackPath : `/${fallbackPath}`
+  const fallback = `${apiBase}${path}`
+  const raw = value?.trim()
+  if (!raw) return fallback
+
+  try {
+    const rewritten = resolveCustomerFacingAssetUrl(raw)
+    if (!rewritten) return fallback
+    const url = new URL(rewritten)
+    const apiHost = new URL(apiBase).hostname.replace(/^www\./, '').toLowerCase()
+    const host = url.hostname.replace(/^www\./, '').toLowerCase()
+    const allowedHosts = new Set([apiHost, 'splaro.co', 'api.splaro.co'])
+    if (!allowedHosts.has(host)) return fallback
+    if (!/\/payments\//i.test(url.pathname)) return fallback
+    return url.toString()
+  } catch {
+    return fallback
+  }
+}
+
 /** Public admin origin — never localhost in production. */
 export function resolvePublicAdminUrl(override?: string | null): string {
   const candidates = [

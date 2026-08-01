@@ -10,7 +10,7 @@ import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO } from '@/components/dc/tokens'
-import { TelegramBotConfigPanel } from '@/components/modules/TelegramBotConfigPanel'
+import { DcTelegramSetupForm } from '@/components/dc/screens/DcTelegramSetupForm'
 import {
   confirmTelegramSettingsSaved,
   confirmTelegramTestSent,
@@ -566,8 +566,8 @@ function DcTelegramBotBody() {
               </span>
             </button>
             {setupOpen ? (
-              <div style={{ marginTop: 12 }}>
-                <TelegramBotConfigPanel embedded />
+              <div id="telegram-setup-form" style={{ marginTop: 12 }}>
+                <DcTelegramSetupForm />
               </div>
             ) : null}
           </div>

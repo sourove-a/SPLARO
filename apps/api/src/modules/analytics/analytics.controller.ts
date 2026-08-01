@@ -2,6 +2,7 @@ import { Controller, Get, Inject, Query } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { AnalyticsService } from './analytics.service'
+import { buildRevenueBuckets } from './revenue-buckets.util'
 
 function periodStart(period: string): Date {
   const now = new Date()
@@ -46,18 +47,13 @@ export class AnalyticsController {
       orderBy: { createdAt: 'asc' },
     })
 
-    const buckets = new Map<string, { date: string; revenue: number; orders: number }>()
-    for (const o of orders) {
-      const key = group === 'month'
-        ? o.createdAt.toISOString().slice(0, 7)
-        : o.createdAt.toISOString().slice(0, 10)
-      const b = buckets.get(key) ?? { date: key, revenue: 0, orders: 0 }
-      b.revenue += Number(o.total)
-      b.orders += 1
-      buckets.set(key, b)
-    }
-
-    return { data: [...buckets.values()], period, group }
+    const data = buildRevenueBuckets(
+      orders,
+      since,
+      new Date(),
+      group === 'month' ? 'month' : 'day',
+    )
+    return { data, period, group }
   }
 
   // ── Top products ───────────────────────────────────────────

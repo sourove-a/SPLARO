@@ -23,8 +23,7 @@ import {
 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AgentChatLauncher } from '@/components/agent/AgentChatLauncher'
-import { HandoffPageChrome } from '@/components/ui/HandoffPageChrome'
-import { KpiGrid } from '@/components/ui/AdminHandoffBlocks'
+import { DcKpiStrip } from '@/components/dc/DcKpiStrip'
 import { AGENT_TOOL_CATALOG, AGENT_TOOL_TIERS } from '@/lib/agent/tool-catalog'
 import { AGENT_QUICK_COMMANDS } from '@/lib/agent/quick-commands'
 import {
@@ -94,6 +93,7 @@ function activeModelHasKey(
 }
 
 export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean }) {
+  void embedded
   const openAgentChat = useAdminUiStore((s) => s.openAgentChat)
   const { data: tgData } = useTelegramIntegration()
   const { data: aiIntegration } = useAiIntegration()
@@ -309,45 +309,13 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
   const activeModelLabel = MODELS.find((m) => m.id === activeModel)?.label ?? activeModel
 
   return (
-    <div
-      className={cn(
-        'ai-command ai-command-page mx-auto max-w-6xl space-y-5 pb-28',
-        embedded && 'ai-command-page--dc',
-      )}
-    >
-      <HandoffPageChrome
-        group="Intelligence"
-        title="AI Command Brain"
-        sync={apiOffline ? 'backend offline' : `model ${activeModel}`}
-        live={false}
-        hideHeader={embedded}
-        {...(embedded ? { className: 'ai-command-chrome--embedded' } : {})}
-        actions={
-          embedded ? undefined : (
-            <AdminButton
-              variant="ghost"
-              className="shrink-0"
-              onClick={() => document.getElementById('ai-guardrails')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-            >
-              Guardrails
-            </AdminButton>
-          )
-        }
-      >
-        {!embedded ? (
-          <div className="admin-beta-banner" role="note">
-            <span className="admin-beta-banner__chip">BETA</span>
-            <span>
-              Every AI action shows a preview and needs one click to apply. Nothing writes to orders, stock or payouts without confirmation.
-            </span>
-          </div>
-        ) : (
-          <p className="ai-command-confirm-note" role="note">
-            Confirm-gated writes — nothing touches orders, stock, or payouts without one explicit apply click.
-          </p>
-        )}
+    <div className="ai-command ai-command-page ai-command-page--dc mx-auto max-w-6xl space-y-5 pb-28">
+      <p className="ai-command-confirm-note" role="note">
+        Confirm-gated writes — nothing touches orders, stock, or payouts without one explicit apply click.
+      </p>
 
-        <KpiGrid
+      <div className="dc-ai-kpi-host">
+      <DcKpiStrip
           columns={4}
           items={[
             {
@@ -376,18 +344,13 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
             },
           ]}
         />
+      </div>
 
       <section className="ai-command-hero">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
             <AgentChatLauncher online={chatReady} size="inline" />
             <div>
-              {!embedded ? (
-                <>
-                  <p className="ai-command-eyebrow">Intelligence</p>
-                  <h1 className="ai-command-title">AI Command Brain</h1>
-                </>
-              ) : null}
               <p className="ai-command-sub mt-1 max-w-xl">
                 এখানে model + API key সেট করুন। Chat করবেন নিচের ডান পাশের <strong>CHAT</strong> বাটন দিয়ে — সেখানেই live brain (orders, finance, courier, SEO)।
               </p>
@@ -840,7 +803,6 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
           Save AI settings
         </AdminButton>
       </div>
-      </HandoffPageChrome>
     </div>
   )
 }

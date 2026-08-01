@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common'
 import { Job } from 'bullmq'
 import { PrismaService } from '../../common/prisma.service'
 import { TelegramIntegrationService } from '../integrations/telegram-integration.service'
+import { NotificationsService } from '../notifications/notifications.service'
 import { GOOGLE_SYNC_JOB_TYPES } from './google.constants'
 import { GoogleSheetsSyncService } from './google-sheets-sync.service'
 import type { GoogleSyncJobPayload } from './google-sync-queue.service'
@@ -15,6 +16,7 @@ export class GoogleSyncProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly sheets: GoogleSheetsSyncService,
     private readonly telegram: TelegramIntegrationService,
+    private readonly notifications: NotificationsService,
   ) {
     super()
   }
@@ -94,6 +96,8 @@ export class GoogleSyncProcessor extends WorkerHost {
         await this.telegram
           .test(storeId, undefined, `⚠️ SPLARO Google Sync failed: ${jobType}\n${msg}`)
           .catch(() => undefined)
+        // Telegram can be off or unconfigured — the tray must still show it.
+        await this.notifications.notifySyncFailed(storeId, jobType, msg).catch(() => undefined)
       }
 
       throw err

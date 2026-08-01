@@ -6,6 +6,9 @@ Cursor agents: read this first, then apply skill `.cursor/skills/splaro-platform
 
 ## Agent workflow (every task)
 
+Launch stabilization evidence/limits: `docs/LAUNCH-STABILIZATION-2026-08-01.md`. Never turn its
+local pass into a “100% perfect” or production-ready claim; external gates listed there still apply.
+
 ### Before editing
 1. Read existing files in the target module — match naming, imports, patterns.
 2. Apply `splaro-platform` skill for routes, env vars, and honesty rules.
@@ -230,6 +233,9 @@ After prompt edits: restart API (`pnpm dev:api` or `pnpm dev:reset`). Tools must
 | Admin data empty | API down / DB disconnected | Check `:4000/health`, `DATABASE_URL`, `pnpm db:push` |
 | Save green but data unchanged | Client toast without `res.ok` | Use `toastFail` + verify response |
 | CORS in dev | Browser → `:4000` direct | Use web BFF route or ensure `CORS_ORIGINS` includes `:3000` |
+| Presence heartbeat returns false `502` | API throttle/status hidden by BFF | Preserve upstream status/`Retry-After`; forward resolved client address; keep heartbeat limit concurrency-safe |
+| Local login logs Google unauthorized origin | GIS initialized before loopback origin is registered | Keep `NEXT_PUBLIC_GOOGLE_OAUTH_LOCAL_ENABLED=false`; register both local origins in Google Cloud, then enable |
+| Mobile checkout CTA hides behind keyboard | Fixed bar follows layout viewport, not visible viewport | Keep `CheckoutMobileBar` visual-viewport offset + same-tap keyboard blur/submit |
 | OTP / rate-limit flaky | Redis down | `REDIS_URL`, `pnpm infra:redis` (Docker on Windows) |
 | Windows port stuck | Old listener / duplicate dev | `pnpm dev:reset` (`taskkill /T` tree kill via `killProcessTree`) |
 | `db:*` fails on Windows | Was bash-only | Now `node scripts/db-run.mjs` — cross-platform |
@@ -246,6 +252,10 @@ After prompt edits: restart API (`pnpm dev:api` or `pnpm dev:reset`). Tools must
 ## Security reminders
 
 - Never commit `.env`, secrets, or real API keys.
+- `infrastructure/hostinger/.env.splaro.co.production` must remain ignored/untracked; only redacted
+  `.example` may be committed. CI tracked-env blocker + Gitleaks gate must remain enabled.
+- Encryption rotation uses new `ENCRYPTION_KEY` plus temporary `ENCRYPTION_KEY_PREVIOUS`; re-save
+  integrations before removing previous key. Production secret rotation does not wait for history purge.
 - Production requires: `ADMIN_SESSION_SECRET`, `ENCRYPTION_KEY`, `CORS_ORIGINS` (no trailing slash).
 - Production also: `REDIS_ENABLED=true`, `COURIER_DEV_STUB=false` — `scripts/validate-production-env.mjs`.
 - Admin sessions: JWT verified **and** live DB `isActive` + staff role (`AdminSessionResolver`).

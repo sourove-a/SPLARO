@@ -51,6 +51,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A production env file was committed once already (untracked 2026-07-28).
+      # These two steps are what stop the next one.
+      #
+      # --no-git scans the working tree, not history: the old secrets are still in
+      # past commits until the filter-repo purge (REMEDIATION-PLAN.md phase 0.3)
+      # runs, and a history scan would fail every build until then. Switch to a
+      # full history scan once that purge has landed.
+      - name: Secret scan
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.21.2 \
+            detect --source /repo --no-git --redact --no-banner
+
+      - name: Block committed env files
+        run: |
+          tracked=$(git ls-files | grep -E '\.env($|\.)' | grep -v '\.example$' || true)
+          if [ -n "$tracked" ]; then
+            echo "::error::Env file(s) tracked in git:"
+            echo "$tracked"
+            exit 1
+          fi
+
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
@@ -62,6 +83,12 @@ jobs:
 
       - name: CSS pipeline
         run: node scripts/verify-css.mjs
+
+      - name: Admin auth contrast gate
+        run: node scripts/check-admin-auth-contrast.mjs
+
+      - name: Admin one-token hex gate
+        run: node scripts/admin-hex-to-tokens.mjs --check
 
       - name: Type check
         run: |
@@ -77,8 +104,16 @@ jobs:
       - name: Lint API
         run: pnpm --filter @splaro/api lint
 
-      - name: Database push
-        run: cd packages/database && npx prisma db push
+      - name: Database migrate + schema drift check
+        run: |
+          cd packages/database
+          npx prisma migrate deploy
+          npx prisma migrate diff \
+            --from-url "$DATABASE_URL" \
+            --to-schema-datamodel prisma/schema.prisma \
+            --exit-code
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/splaro_db
 
       - name: Build packages
         run: pnpm build
