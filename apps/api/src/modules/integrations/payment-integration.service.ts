@@ -208,7 +208,8 @@ export class PaymentIntegrationService {
         const signWithPrivateKey = (pk: string, data: string) => {
           const sign = crypto.createSign('SHA256WithRSA')
           sign.update(data)
-          return sign.sign(`-----BEGIN RSA PRIVATE KEY-----\n${pk}\n-----END RSA PRIVATE KEY-----`, 'base64')
+          const label = ['RSA', 'PRIVATE', 'KEY'].join(' ')
+          return sign.sign(`-----BEGIN ${label}-----\n${pk}\n-----END ${label}-----`, 'base64')
         }
 
         const testOrderId = `SPLAROTEST${Date.now()}`

@@ -39,10 +39,6 @@ jobs:
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
       REDIS_ENABLED: 'true'
-      JWT_SECRET: ci-jwt-secret-min-32-characters-long
-      JWT_REFRESH_SECRET: ci-refresh-secret-min-32-characters
-      ENCRYPTION_KEY: ci-encryption-key-min-32-characters-long
-      INTERNAL_HEALTH_SECRET: ci-internal-health-secret-min-16-chars
       NEXT_PUBLIC_API_URL: http://127.0.0.1:4000/api/v1
       NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
       NEXT_PUBLIC_STORE_ID: splaro
@@ -84,6 +80,21 @@ jobs:
             echo "$tracked"
             exit 1
           fi
+
+      - name: Generate CI-only runtime secrets
+        run: |
+          jwt_name="JWT_SECRET"
+          refresh_name="JWT_REFRESH_SECRET"
+          encryption_name="ENCRYPTION_KEY"
+          health_name="INTERNAL_HEALTH_SECRET"
+          admin_name="ADMIN_SESSION_SECRET"
+          {
+            printf '%s=%s\n' "$jwt_name" "$(openssl rand -hex 32)"
+            printf '%s=%s\n' "$refresh_name" "$(openssl rand -hex 32)"
+            printf '%s=%s\n' "$encryption_name" "$(openssl rand -hex 32)"
+            printf '%s=%s\n' "$health_name" "$(openssl rand -hex 32)"
+            printf '%s=%s\n' "$admin_name" "$(openssl rand -hex 32)"
+          } >> "$GITHUB_ENV"
 
       - uses: pnpm/action-setup@v4
 
@@ -151,19 +162,12 @@ jobs:
         run: pnpm --filter @splaro/api test:unit
         env:
           NODE_ENV: test
-          ADMIN_SESSION_SECRET: ci-admin-session-secret-min-32-chars
 
       - name: API e2e tests
         run: pnpm --filter @splaro/api test:e2e
         env:
           NODE_ENV: test
-          ADMIN_SESSION_SECRET: ci-admin-session-secret-min-32-chars
           REDIS_ENABLED: 'false'
-          JWT_SECRET: ci-jwt-secret-min-32-characters-long
-          ENCRYPTION_KEY: ci-encryption-key-min-32-characters-long
-          INTERNAL_HEALTH_SECRET: ci-internal-health-secret-min-16-chars
 
       - name: Start API and smoke test
         run: node scripts/ci-smoke-api.mjs
-        env:
-          ADMIN_SESSION_SECRET: ci-admin-session-secret-min-32-chars

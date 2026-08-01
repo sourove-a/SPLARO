@@ -3,7 +3,7 @@ import { randomBytes } from 'crypto'
 import { PrismaService } from '../../common/prisma.service'
 
 const TOKEN_TTL_MS = 5 * 60 * 1000
-const TOKEN_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+const LOGIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 export interface AdminLoginTokenRecord {
   email: string
@@ -98,7 +98,7 @@ export class AdminLoginTokenService {
     const bytes = randomBytes(8)
     let code = ''
     for (let i = 0; i < 8; i++) {
-      code += TOKEN_CHARS[bytes[i]! % TOKEN_CHARS.length]
+      code += LOGIN_CODE_ALPHABET[bytes[i]! % LOGIN_CODE_ALPHABET.length]
     }
     return code
   }

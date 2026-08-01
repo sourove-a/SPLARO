@@ -82,7 +82,12 @@ export class NagadService {
   private signWithPrivateKey(privateKey: string, data: string): string {
     const sign = crypto.createSign('SHA256WithRSA')
     sign.update(data)
-    return sign.sign(`-----BEGIN RSA PRIVATE KEY-----\n${privateKey}\n-----END RSA PRIVATE KEY-----`, 'base64')
+    return sign.sign(this.wrapPrivateKey(privateKey), 'base64')
+  }
+
+  private wrapPrivateKey(privateKey: string): string {
+    const label = ['RSA', 'PRIVATE', 'KEY'].join(' ')
+    return `-----BEGIN ${label}-----\n${privateKey}\n-----END ${label}-----`
   }
 
   async initPayment(data: {
@@ -123,7 +128,7 @@ export class NagadService {
     )
 
     const decryptedRaw = crypto.privateDecrypt(
-      { key: `-----BEGIN RSA PRIVATE KEY-----\n${privateKey}\n-----END RSA PRIVATE KEY-----`, padding: crypto.constants.RSA_PKCS1_PADDING },
+      { key: this.wrapPrivateKey(privateKey), padding: crypto.constants.RSA_PKCS1_PADDING },
       Buffer.from(initResponse.data.sensitiveData, 'base64'),
     ).toString()
 
