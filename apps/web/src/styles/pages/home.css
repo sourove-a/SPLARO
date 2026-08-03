@@ -4924,3 +4924,34 @@ html[data-os='windows'] .home-story-deck[data-story-visible='true'] .home-story-
     border: 0;
   }
 }
+
+/* ── Hero controls before hydration ───────────────────────────────────
+   The hero is server-rendered, so on a cold first visit its arrows and dots
+   are painted and look pressable well before the bundle lands. Pressing one
+   in that window did nothing, which reads as a broken site rather than a
+   loading one — the single loudest symptom behind "nothing works".
+
+   The controls now carry data-ready="false" until the slider says it is live.
+   Dim them and take the pointer away: still visible, clearly not yet active.
+   Deliberately not hidden — the layout must not shift when they wake up. */
+/* Keyed on :disabled rather than the container's data-ready, so the styling
+   can never drift from the React state that actually blocks the click. */
+.hero-slide-arrows button:disabled,
+.hero-slider-controls .hero-dot:disabled {
+  opacity: 0.22;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Arrows only. The dots already re-render as autoplay moves the active slide,
+   and adding a transition there restarted it on every change — the dot never
+   settled and sat permanently at the disabled opacity. */
+.hero-slide-arrows button {
+  transition: opacity 0.2s ease;
+}
+
+/* The progress bar should not appear to count down before autoplay starts. */
+.hero-slider-controls[data-ready='false'] .hero-progress-fill {
+  animation: none;
+  opacity: 0.35;
+}

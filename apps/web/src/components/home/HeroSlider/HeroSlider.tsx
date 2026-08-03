@@ -841,14 +841,20 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
         })}
       </div>
 
+      {/* Gated on `ready`. The markup is server-rendered, so on a cold first
+          visit these arrows are on screen and look pressable for the seconds it
+          takes the bundle to arrive and hydrate — and a press in that window
+          does nothing at all. Reporting that honestly is the difference between
+          "still loading" and "this site is broken". */}
       {slides.length > 1 ? (
-        <div className="hero-slide-arrows home-hero-slider__arrows">
+        <div className="hero-slide-arrows home-hero-slider__arrows" data-ready={ready ? 'true' : 'false'}>
           <LiquidGlassNavButton
             direction="left"
             size="lg"
             variant="glass-dark"
             overlay
-            aria-label="Previous slide"
+            disabled={!ready}
+            aria-label={ready ? 'Previous slide' : 'Slideshow still loading'}
             onClick={goPrev}
           />
           <LiquidGlassNavButton
@@ -856,20 +862,26 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
             size="lg"
             variant="glass-dark"
             overlay
-            aria-label="Next slide"
+            disabled={!ready}
+            aria-label={ready ? 'Next slide' : 'Slideshow still loading'}
             onClick={goNext}
           />
         </div>
       ) : null}
 
-      <div className="hero-slider-controls" aria-hidden={slides.length <= 1}>
+      <div
+        className="hero-slider-controls"
+        aria-hidden={slides.length <= 1}
+        data-ready={ready ? 'true' : 'false'}
+      >
         {slides.map((s, i) => (
           <button
             key={s.id}
             type="button"
             className={i === index ? 'hero-dot active' : 'hero-dot'}
             onClick={() => goTo(i)}
-            aria-label={`Go to slide ${i + 1}`}
+            disabled={!ready}
+            aria-label={ready ? `Go to slide ${i + 1}` : 'Slideshow still loading'}
             aria-current={i === index ? 'true' : undefined}
           />
         ))}
