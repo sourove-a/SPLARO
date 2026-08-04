@@ -1,4 +1,5 @@
 import { CacheService } from '../../common/cache.service'
+import { fireAndForget } from '../../common/fire-and-forget'
 import { revalidateStorefrontWeb } from '../../common/revalidate-web'
 import type { SearchService } from '../search/search.service'
 
@@ -7,12 +8,14 @@ export async function refreshProductCatalogAfterMutation(
   deps: { cache: CacheService; search?: SearchService | null | undefined },
   storeId: string,
 ): Promise<void> {
-  void deps.search?.indexProducts(storeId)
+  if (deps.search) {
+    fireAndForget(deps.search.indexProducts(storeId), 'search.indexProducts')
+  }
   await Promise.all([
     deps.cache.invalidateStoreResource(storeId, 'products'),
     deps.cache.invalidateStoreResource(storeId, 'product'),
   ])
-  void revalidateStorefrontWeb(['storefront-products'])
+  fireAndForget(revalidateStorefrontWeb(['storefront-products']), 'revalidate.storefront-products')
 }
 
 export async function refreshCategoryCatalogAfterMutation(

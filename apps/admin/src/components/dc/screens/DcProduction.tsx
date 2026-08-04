@@ -20,10 +20,10 @@ export function DcProduction() {
 function DcProductionBody() {
   const production = useProductionOverview()
   const [tab, setTab] = useState<'batches' | 'fabric'>('batches')
-  const fabrics = production.data?.fabrics ?? []
-  const batches = production.data?.batches ?? []
 
   const rows = useMemo(() => {
+    const fabrics = production.data?.fabrics ?? []
+    const batches = production.data?.batches ?? []
     if (tab === 'fabric') {
       return fabrics.map((f) => [
         f.name,
@@ -33,7 +33,7 @@ function DcProductionBody() {
       ])
     }
     return batches.map((b) => [b.productName, b.quantity, b.status, b.createdAt])
-  }, [tab, fabrics, batches])
+  }, [tab, production.data])
 
   return (
     <DcHubFrame crumbGroup="Production" title="Production" queries={[production]} empty={rows.length === 0}>
@@ -47,8 +47,8 @@ function DcProductionBody() {
       />
       <HubKpis
         items={[
-          { label: 'Batches', value: batches.length },
-          { label: 'Fabrics', value: fabrics.length },
+          { label: 'Batches', value: production.data?.batches?.length ?? 0 },
+          { label: 'Fabrics', value: production.data?.fabrics?.length ?? 0 },
         ]}
       />
       <HubTable

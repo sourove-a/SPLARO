@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { assertOrderStatusTransition, STOCK_RESTORING_STATUSES } from '../../common/order-status.util'
 import { restoreOrderStock } from '../../common/order-stock.util'
@@ -11,6 +11,8 @@ import { StockReservationService } from '../payments/stock-reservation.service'
  */
 @Injectable()
 export class OrderStatusService {
+  private readonly logger = new Logger(OrderStatusService.name)
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly orderEvents: OrderEventsService,
@@ -97,7 +99,13 @@ export class OrderStatusService {
 
     void this.orderEvents
       .onStatusChanged(order.storeId, id, order.status, note)
-      .catch(() => undefined)
+      .catch((error: unknown) =>
+        this.logger.warn(
+          `Order status event failed for ${id}: ${
+            error instanceof Error ? error.message : 'unknown'
+          }`,
+        ),
+      )
 
     return order
   }

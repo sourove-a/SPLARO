@@ -4628,11 +4628,12 @@ html[data-os='windows'] .home-story-deck[data-story-visible='true'] .home-story-
   }
 }
 
-/* User motion preference wins over legacy decorative-motion exceptions.
-   Hero remains manually navigable; autoplay/video/marquee motion stops. */
+/* User motion preference: stop hero autoplay / Ken Burns under reduce.
+   Brand ribbon under the hero (`.home-flow-strip`) stays as intentional
+   decorative motion — same exception as earth/footer loops above. Windows
+   “Animation effects OFF” must not freeze that title ticker. */
 @media (prefers-reduced-motion: reduce) {
-  .home-hero-slider .hero-progress-fill.hero-progress-fill,
-  .home-flow-strip__track {
+  .home-hero-slider .hero-progress-fill.hero-progress-fill {
     animation: none !important;
   }
 

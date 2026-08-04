@@ -34,10 +34,10 @@ function DcHelpdeskBody() {
     },
   })
 
-  const tickets = helpdesk.data?.tickets ?? []
+  const tickets = helpdesk.data?.tickets
   const rows = useMemo(
     () =>
-      tickets.map((t) => [
+      (tickets ?? []).map((t) => [
         t.subject,
         t.channel,
         t.priority,
@@ -73,7 +73,7 @@ function DcHelpdeskBody() {
         <HubKpis
           items={[
             { label: 'Open', value: helpdesk.data?.open ?? 0 },
-            { label: 'Total', value: helpdesk.data?.total ?? tickets.length },
+            { label: 'Total', value: helpdesk.data?.total ?? tickets?.length ?? 0 },
           ]}
         />
         <HubTable columns={['Subject', 'Channel', 'Priority', 'Status', 'Updated', '']} rows={rows} />

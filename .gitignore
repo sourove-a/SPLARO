@@ -48,10 +48,13 @@ infrastructure/pm2/logs/
 Thumbs.db
 desktop.ini
 
-# Dev screenshots accidentally saved in repo root
+# Dev screenshots accidentally saved in repo root / app trees
 /*.png
 /*.jpeg
 /*.jpg
+apps/web/*.png
+apps/admin/*.png
+output/
 
 # Local product uploads (use CDN/R2 in production)
 apps/web/public/uploads/

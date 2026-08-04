@@ -140,8 +140,14 @@ export class SearchService implements OnModuleInit {
     }
   }
 
-  async indexProducts(storeId: string): Promise<{ indexed: number }> {
-    if (!this.productIndex) throw new Error('Meilisearch not configured')
+  async indexProducts(
+    storeId: string,
+  ): Promise<{ indexed: number; skipped?: boolean; reason?: string }> {
+    // Background product mutations call this via fire-and-forget. Never throw when
+    // Meili is off — that used to spam unhandledRejection on every save.
+    if (!this.productIndex) {
+      return { indexed: 0, skipped: true, reason: 'Meilisearch not configured' }
+    }
 
     const products = await this.prisma.product.findMany({
       where: storefrontVisibleProductWhere({ storeId }),
@@ -178,7 +184,13 @@ export class SearchService implements OnModuleInit {
 
   async deleteFromIndex(productId: string): Promise<void> {
     if (!this.productIndex) return
-    await this.productIndex.deleteDocument(productId)
+    try {
+      await this.productIndex.deleteDocument(productId)
+    } catch (err) {
+      this.logger.warn(
+        `Meilisearch delete failed for ${productId}: ${err instanceof Error ? err.message : 'error'}`,
+      )
+    }
   }
 
   async getSearchAnalytics(storeId: string, days = 7) {

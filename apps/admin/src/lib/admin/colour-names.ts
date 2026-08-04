@@ -45,10 +45,17 @@ export const FASHION_COLOURS: NamedColour[] = [
 
 export const DEFAULT_COLOUR_HEX = '#1a1a1a'
 
+/**
+ * Canonical product swatch hex: `#rrggbb` lowercase.
+ * Accepts `#rgb`, `#rrggbb`, `#rrggbbaa` (alpha dropped), with or without `#`.
+ * Rejects CSS vars and incomplete/garbage values.
+ */
 export function normalizeHex(input: string): string | null {
-  const raw = input.trim()
+  const raw = input.trim().replace(/\s+/g, '')
   if (!raw || raw.startsWith('var(')) return null
   const withHash = raw.startsWith('#') ? raw : `#${raw}`
+  const eight = /^#([0-9a-f]{8})$/i.exec(withHash)
+  if (eight?.[1]) return `#${eight[1].slice(0, 6).toLowerCase()}`
   const short = /^#([0-9a-f]{3})$/i.exec(withHash)
   if (short?.[1]) {
     const [r, g, b] = short[1].split('')
@@ -56,6 +63,31 @@ export function normalizeHex(input: string): string | null {
   }
   if (/^#[0-9a-f]{6}$/i.test(withHash)) return withHash.toLowerCase()
   return null
+}
+
+export function isValidHex(input: string): boolean {
+  return normalizeHex(input) !== null
+}
+
+/**
+ * Keep the hex text field editable while typing — only `#` + hex digits, max 7 chars.
+ * Does not expand `#rgb` mid-keystroke (that happens on blur / when complete).
+ */
+export function sanitizeHexTyping(input: string): string {
+  const trimmed = input.trim()
+  if (!trimmed) return ''
+  const digits = trimmed.replace(/^#/, '').replace(/[^0-9a-fA-F]/gi, '')
+  return `#${digits.slice(0, 6)}`
+}
+
+/** `<input type="color">` and swatch backgrounds — always a valid `#rrggbb`. */
+export function colourInputValue(hex: string): string {
+  return normalizeHex(hex) ?? DEFAULT_COLOUR_HEX
+}
+
+/** Alias for swatch / preview CSS backgrounds. */
+export function swatchCss(hex: string): string {
+  return colourInputValue(hex)
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
@@ -86,10 +118,6 @@ export function nearestColourName(hex: string): string {
   return best.name
 }
 
-export function colourInputValue(hex: string): string {
-  return normalizeHex(hex) ?? DEFAULT_COLOUR_HEX
-}
-
 type EyeDropperResult = { sRGBHex: string }
 
 /** Browser EyeDropper — pick colour from anywhere on screen (product photo, etc.). */
@@ -100,7 +128,7 @@ export async function pickColourWithEyeDropper(): Promise<{ hex: string; name: s
   if (!EyeDropperCtor) return null
   try {
     const result = await new EyeDropperCtor().open()
-    const hex = normalizeHex(result.sRGBHex) ?? result.sRGBHex
+    const hex = normalizeHex(result.sRGBHex) ?? DEFAULT_COLOUR_HEX
     return { hex, name: nearestColourName(hex) }
   } catch {
     // User cancelled

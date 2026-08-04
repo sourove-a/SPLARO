@@ -10,6 +10,7 @@ html,body{background:#fff;color:#111;scroll-behavior:auto!important}
 .home-flow-strip__item{display:inline-flex;align-items:center;gap:.55rem;padding:0 1.5rem;flex-shrink:0;white-space:nowrap}
 .home-flow-strip__text{white-space:nowrap;font-size:.62rem;font-weight:550;letter-spacing:.14em;text-transform:uppercase;color:rgba(16,17,20,.62)}
 @keyframes home-flow-marquee{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
+@media (prefers-reduced-motion:reduce){.home-flow-strip__track{animation:home-flow-marquee 36s linear infinite!important;animation-duration:36s!important}}
 @media (max-width:767px){.home-flow-strip{display:none!important}}
 .home-hero-slider{position:relative;overflow:hidden;background:#111}
 @media (min-width:1024px){.home-hero-slider{min-height:clamp(420px,72vh,760px)}}

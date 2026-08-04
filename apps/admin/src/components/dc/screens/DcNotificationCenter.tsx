@@ -18,12 +18,12 @@ export function DcNotificationCenter() {
 
 function DcNotificationCenterBody() {
   const notifications = useNotificationsOverview()
-  const logs = notifications.data?.logs ?? []
+  const logs = notifications.data?.logs
   const summary = notifications.data?.summary
 
   const rows = useMemo(
     () =>
-      logs.slice(0, 50).map((e) => [
+      (logs ?? []).slice(0, 50).map((e) => [
         e.channel,
         e.subject ?? e.recipient,
         e.status,

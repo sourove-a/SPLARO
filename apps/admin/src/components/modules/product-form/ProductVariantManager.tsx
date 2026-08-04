@@ -21,7 +21,9 @@ import {
   DEFAULT_COLOUR_HEX,
   eyeDropperSupported,
   nearestColourName,
+  normalizeHex,
   pickColourWithEyeDropper,
+  swatchCss,
 } from '@/lib/admin/colour-names'
 import { sizeChipsForDept, sizeDeptFromSlugOrName } from '@/lib/admin/size-presets'
 
@@ -225,7 +227,7 @@ export function ProductVariantManager({
     }
 
     const colorName = bulk.colorName.trim() || 'Default'
-    const colorHex = bulk.colorHex.trim() || 'var(--admin-color-ink-near)'
+    const colorHex = normalizeHex(bulk.colorHex) ?? DEFAULT_COLOUR_HEX
     const toCreate = selectedSizes.filter(
       (size) => !existingKeys.has(existingSizeKey(size, colorHex)),
     )
@@ -605,7 +607,7 @@ export function ProductVariantManager({
                 onChange={(e) =>
                   setBulk((p) => ({
                     ...p,
-                    colorHex: e.target.value,
+                    colorHex: normalizeHex(e.target.value) ?? e.target.value,
                     colorName:
                       !p.colorName.trim() || p.colorName === 'Default' || p.colorName === nearestColourName(p.colorHex)
                         ? nearestColourName(e.target.value)
@@ -722,7 +724,7 @@ export function ProductVariantManager({
                             onClick={() => void toggleActive(v)}
                             title={active ? 'Active — click to deactivate' : 'Inactive — click to activate'}
                           />
-                          <span className="sf-variants__swatch" style={{ background: d.colorHex || 'var(--admin-c-cccccc)' }} />
+                          <span className="sf-variants__swatch" style={{ background: swatchCss(d.colorHex) }} />
                           <div className="sf-variants__variant-meta">
                             <strong>{d.size || '—'}</strong>
                             <span>{d.colorName || 'Default'}</span>

@@ -74,8 +74,8 @@ export function DcHubFrame({
         title={title}
         statusLabel={status.label}
         statusTone={status.tone}
-        syncLabel={syncing ? 'Refreshing…' : 'Synced'}
-        syncing={syncing}
+        syncLabel={errored ? 'Failed' : syncing ? 'Refreshing…' : 'Synced'}
+        syncing={syncing && !errored}
         onSync={() => {
           for (const q of queries) void q.refetch()
         }}

@@ -575,7 +575,7 @@ export function ProductDetailPanel({
                 </MotionSwapLabel>
               </MotionPressable>
 
-              <div className="flex gap-2.5">
+              <div className="flex gap-3">
                 <MotionPressable type="button" className="pdp-cta-secondary flex-1" onClick={handleCheckout} variant="cta">
                   Buy Now
                 </MotionPressable>

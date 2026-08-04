@@ -157,9 +157,8 @@ in `AGENTS.md` so they stop being re-reported:
 
 - **Two deploy paths.** `deploy-hostinger.yml` is `workflow_dispatch`-only,
   never fires on push, never SSHes, writes to no host. `deploy-vps.yml` is the
-  only auto-deploy and is gated on CI green. Root-level `deploy-run.yml`,
-  `gh-actions.yml`, `hpanel-advanced.yml` etc. are not in `.github/workflows`,
-  so GitHub never reads them.
+  only auto-deploy and is gated on CI green. Fake root `*.yml` Playwright dumps
+  (formerly mistaken for a second deploy path) were deleted 2026-08-04.
 - **Secrets in git.** Only `.env.example` and
   `infrastructure/hostinger/.env.splaro.co.production.example` are tracked.
   `.env` and `apps/web/.env.local` are ignored and absent from history. A scan

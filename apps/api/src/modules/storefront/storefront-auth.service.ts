@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common'
+import {
+  BadRequestException,
+  Injectable,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common'
+import { fireAndForget } from '../../common/fire-and-forget'
 import { Prisma } from '@prisma/client'
 import { resolveCustomerFacingSiteUrl } from '@splaro/config'
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'crypto'
@@ -280,10 +286,13 @@ export class StorefrontAuthService {
 
     if (!session?.user?.isActive) return null
 
-    void this.prisma.deviceSession.update({
-      where: { id: session.id },
-      data: { lastActive: new Date() },
-    })
+    fireAndForget(
+      this.prisma.deviceSession.update({
+        where: { id: session.id },
+        data: { lastActive: new Date() },
+      }),
+      'auth.deviceSession.lastActive',
+    )
 
     return this.toAuthUser(session.user, session.user.customer?.id, session.user.customer?.loyaltyTier)
   }

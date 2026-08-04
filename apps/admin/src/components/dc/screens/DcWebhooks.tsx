@@ -18,9 +18,9 @@ export function DcWebhooks() {
 
 function DcWebhooksBody() {
   const developer = useDeveloper()
-  const webhooks = developer.data?.webhooks ?? []
+  const webhooks = developer.data?.webhooks
   const rows = useMemo(
-    () => webhooks.map((w) => [w.name, w.trigger, w.status, w.updated]),
+    () => (webhooks ?? []).map((w) => [w.name, w.trigger, w.status, w.updated]),
     [webhooks],
   )
 
@@ -34,7 +34,7 @@ function DcWebhooksBody() {
     >
       <HubKpis
         items={[
-          { label: 'Webhooks', value: developer.data?.kpis.webhooks ?? webhooks.length },
+          { label: 'Webhooks', value: developer.data?.kpis.webhooks ?? webhooks?.length ?? 0 },
           { label: 'API keys', value: developer.data?.kpis.apiKeys ?? '—' },
         ]}
       />

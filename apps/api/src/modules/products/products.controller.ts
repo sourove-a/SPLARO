@@ -22,6 +22,8 @@ import { SearchService } from '../search/search.service'
 import { assertStoreCategoryId } from '../../common/assert-store-category'
 import { resolveStoreId, slugify } from '../../common/store.util'
 import { resolveAdminPagination } from '../../common/admin-pagination.util'
+import { fireAndForget } from '../../common/fire-and-forget'
+import { normalizeProductHex, productHexOrDefault } from '../../common/color-hex.util'
 import { revalidateStorefrontWeb } from '../../common/revalidate-web'
 import { mergeStorefrontConfig } from '../settings/storefront-config'
 import { CreateAdminProductDto, AdminProductPatchDto } from '../../common/dtos/admin-products.dto'
@@ -335,13 +337,13 @@ export class ProductsController {
       if (typeof color === 'string') {
         return {
           name: color,
-          hex: '#111111',
+          hex: productHexOrDefault(undefined),
           image: imageUrls[index] ?? primaryImage,
         }
       }
       return {
         name: color.name,
-        hex: color.hex,
+        hex: productHexOrDefault(color.hex),
         image: toStoredMediaUrl(color.image) || imageUrls[index] || primaryImage,
       }
     })
@@ -361,7 +363,7 @@ export class ProductsController {
       size: optionalTrimmed(variant.size) ?? null,
       color: optionalTrimmed(variant.colorName) ?? 'Default',
       colorName: optionalTrimmed(variant.colorName) ?? 'Default',
-      colorHex: optionalTrimmed(variant.colorHex) ?? '#111111',
+      colorHex: productHexOrDefault(variant.colorHex),
       image: toStoredMediaUrl(variant.image) || primaryImage,
       sku: optionalTrimmed(variant.sku) ?? null,
       barcode: optionalTrimmed(variant.barcode) ?? null,
@@ -485,7 +487,7 @@ export class ProductsController {
       return created
     })
 
-    void this.search?.indexProducts(sid)
+    if (this.search) fireAndForget(this.search.indexProducts(sid), 'search.indexProducts')
     await this.bustProductCache(sid)
 
     // Fill any missing variant SKUs from slug/product SKU (never cuid tails).
@@ -665,7 +667,7 @@ export class ProductsController {
       }
     }
 
-    void this.search?.indexProducts(product.storeId)
+    if (this.search) fireAndForget(this.search.indexProducts(product.storeId), 'search.indexProducts')
     await this.bustProductCache(product.storeId)
     return this.prisma.product.findUnique({
       where: { id },
@@ -721,7 +723,7 @@ export class ProductsController {
         size,
         color,
         colorName: body.colorName?.trim() || color || null,
-        colorHex: body.colorHex?.trim() || null,
+        colorHex: body.colorHex?.trim() ? productHexOrDefault(body.colorHex) : null,
         image: body.image?.trim() || null,
         sku: sku ?? null,
         price: body.price,
@@ -744,7 +746,7 @@ export class ProductsController {
       })
     }
 
-    void this.search?.indexProducts(product.storeId)
+    if (this.search) fireAndForget(this.search.indexProducts(product.storeId), 'search.indexProducts')
     await this.bustProductCache(product.storeId)
     return variant
   }
@@ -814,7 +816,9 @@ export class ProductsController {
         ...(body.size !== undefined ? { size: nextSize } : {}),
         ...(body.color !== undefined ? { color: nextColor } : {}),
         ...(body.colorName !== undefined ? { colorName: body.colorName.trim() || null } : {}),
-        ...(body.colorHex !== undefined ? { colorHex: body.colorHex.trim() || null } : {}),
+        ...(body.colorHex !== undefined
+          ? { colorHex: body.colorHex.trim() ? normalizeProductHex(body.colorHex) : null }
+          : {}),
         ...(body.image !== undefined ? { image: body.image.trim() || null } : {}),
       },
     })
@@ -836,7 +840,7 @@ export class ProductsController {
       })
     }
 
-    void this.search?.indexProducts(product.storeId)
+    if (this.search) fireAndForget(this.search.indexProducts(product.storeId), 'search.indexProducts')
     await this.bustProductCache(product.storeId)
     return updated
   }
@@ -854,7 +858,7 @@ export class ProductsController {
       data: { isActive: false },
     })
 
-    void this.search?.indexProducts(product.storeId)
+    if (this.search) fireAndForget(this.search.indexProducts(product.storeId), 'search.indexProducts')
     await this.bustProductCache(product.storeId)
     return updated
   }
@@ -871,7 +875,7 @@ export class ProductsController {
       where: { id },
       data: { isPublished: false, status: 'ARCHIVED' },
     })
-    void this.search?.deleteFromIndex(id)
+    if (this.search) fireAndForget(this.search.deleteFromIndex(id), 'search.deleteFromIndex')
     await this.bustProductCache(product.storeId)
     return product
   }
@@ -922,7 +926,7 @@ export class ProductsController {
       await tx.product.delete({ where: { id } })
     })
 
-    void this.search?.deleteFromIndex(id)
+    if (this.search) fireAndForget(this.search.deleteFromIndex(id), 'search.deleteFromIndex')
     await this.bustProductCache(existing.storeId)
     return { success: true, deleted: id }
   }
@@ -1010,7 +1014,7 @@ export class ProductsController {
       versionId,
       restoredBy ?? 'admin',
     )
-    void this.search?.indexProducts(storeId)
+    if (this.search) fireAndForget(this.search.indexProducts(storeId), 'search.indexProducts')
     await this.bustProductCache(storeId)
     return { success: true }
   }
@@ -1025,7 +1029,7 @@ export class ProductsController {
       data: { tags: tags ?? [] },
       select: { id: true, tags: true, storeId: true },
     })
-    void this.search?.indexProducts(product.storeId)
+    if (this.search) fireAndForget(this.search.indexProducts(product.storeId), 'search.indexProducts')
     await this.bustProductCache(product.storeId)
     return product
   }
@@ -1120,7 +1124,7 @@ export class ProductsController {
       where: { id: { in: body.ids }, storeId: sid },
       data: { isPublished: body.isPublished },
     })
-    void this.search?.indexProducts(sid)
+    if (this.search) fireAndForget(this.search.indexProducts(sid), 'search.indexProducts')
     await this.bustProductCache(sid)
     return { updated: count }
   }
@@ -1204,7 +1208,7 @@ export class ProductsController {
       }
     }
 
-    void this.search?.indexProducts(sid)
+    if (this.search) fireAndForget(this.search.indexProducts(sid), 'search.indexProducts')
     await this.bustProductCache(sid)
     const updated = results.filter((r) => r.ok).length
     return { updated, failed: results.length - updated, results }

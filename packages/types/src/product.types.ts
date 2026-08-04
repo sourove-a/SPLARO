@@ -1,4 +1,5 @@
 export interface ColorOption {
+  /** Canonical `#rrggbb` lowercase — storefront swatch CSS. */
   hex: string
   name: string
 }

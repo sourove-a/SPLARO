@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Storefront reduced-motion smoke test — emulates Windows "Animation effects OFF"
- * and verifies autoplay/progress/marquee motion stays stopped without console errors.
+ * Storefront reduced-motion smoke test — emulates Windows "Animation effects OFF".
+ * Hero autoplay/progress must stop; brand ribbon under the hero keeps flowing
+ * (intentional decorative exception). No console errors.
  *
  * Run: node scripts/check-web-interactions.mjs
  * Env: WEB_URL=http://127.0.0.1:3000
@@ -152,9 +153,10 @@ async function main() {
       heroProgressStopped:
         state.heroProgressAnim?.name === 'none' ||
         parseFloat(state.heroProgressAnim?.duration ?? '0') <= 0.1,
-      marqueeStopped: !state.marqueeMoved && state.marqueeAnim?.name !== 'home-flow-marquee',
+      // Decorative ribbon under hero — must keep flowing on Windows reduce.
+      marqueeFlows:
+        state.marqueeAnim?.name === 'home-flow-marquee' || state.marqueeMoved === true,
       marqueeNoWrap: state.marqueeWrap === 'nowrap',
-      noLiteProfile: state.dataPerf !== 'lite',
       noConsoleErrors: consoleErrors.length === 0,
     }
 

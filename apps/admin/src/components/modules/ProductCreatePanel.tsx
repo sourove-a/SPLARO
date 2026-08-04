@@ -23,9 +23,12 @@ import {
   colourInputValue,
   DEFAULT_COLOUR_HEX,
   eyeDropperSupported,
+  isValidHex,
   nearestColourName,
   normalizeHex,
   pickColourWithEyeDropper,
+  sanitizeHexTyping,
+  swatchCss,
 } from '@/lib/admin/colour-names'
 import {
   mediaFolderForDept,
@@ -273,7 +276,8 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   }
 
   const applyHexToColour = (id: string, rawHex: string, opts?: { fillName?: boolean }) => {
-    const hex = normalizeHex(rawHex) ?? rawHex
+    const hex = normalizeHex(rawHex)
+    if (!hex) return
     const name = nearestColourName(hex)
     setColorRows((rows) =>
       rows.map((row) => {
@@ -285,6 +289,21 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         return { ...row, hex, name: nextName }
       }),
     )
+  }
+
+  const commitHexField = (id: string, raw: string) => {
+    const hex = normalizeHex(raw)
+    if (hex) {
+      applyHexToColour(id, hex, { fillName: true })
+      return
+    }
+    // Incomplete / invalid on blur — restore a safe swatch, keep Custom name if user typed one
+    setColorRows((rows) =>
+      rows.map((row) => (row.id === id ? { ...row, hex: DEFAULT_COLOUR_HEX } : row)),
+    )
+    if (raw.trim() && raw.trim() !== '#') {
+      toastWarn('Hex must be #RGB or #RRGGBB — restored default', 'hex-invalid')
+    }
   }
 
   const eyeDropColour = async (id: string) => {
@@ -448,6 +467,14 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
       return
     }
 
+    if (activeColors.length > 0) {
+      const badHex = activeColors.find((row) => !isValidHex(row.hex))
+      if (badHex) {
+        toastFail(`Fix hex for “${badHex.name || 'colour'}” — use #RRGGBB`)
+        return
+      }
+    }
+
     if (activeColors.length > 1) {
       const colourImages = activeColors.map(
         (row) => (row.imageUrl || form.imageUrls[0] || '').trim(),
@@ -487,7 +514,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         activeColors.length > 0
           ? activeColors.map((row) => ({
               name: row.name.trim(),
-              hex: row.hex,
+              hex: normalizeHex(row.hex) ?? DEFAULT_COLOUR_HEX,
               ...(row.imageUrl || form.imageUrls[0]
                 ? { image: row.imageUrl || form.imageUrls[0] }
                 : {}),
@@ -1055,7 +1082,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                         flex: 'none',
                         borderRadius: 9,
                         border: '1px solid var(--line-2)',
-                        background: colourInputValue(row.hex),
+                        background: swatchCss(row.hex),
                         cursor: 'pointer',
                         padding: 0,
                         overflow: 'hidden',
@@ -1139,7 +1166,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                         onFocus={() => setActiveColorId(row.id)}
                       />
                     </DcField>
-                    <DcField label="Hex">
+                    <DcField label="Hex · #RRGGBB">
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <input
                           type="color"
@@ -1160,13 +1187,19 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                           mono
                           value={row.hex}
                           onChange={(e) => {
-                            const raw = e.target.value
-                            updateColorRow(row.id, { hex: raw })
-                            const n = normalizeHex(raw)
+                            const typed = sanitizeHexTyping(e.target.value)
+                            const n = normalizeHex(typed)
                             if (n) applyHexToColour(row.id, n, { fillName: true })
+                            else updateColorRow(row.id, { hex: typed })
                           }}
+                          onBlur={(e) => commitHexField(row.id, e.target.value)}
                           onFocus={() => setActiveColorId(row.id)}
                           placeholder={DEFAULT_COLOUR_HEX}
+                          style={
+                            row.hex && !isValidHex(row.hex)
+                              ? { borderColor: 'var(--bad)', color: 'var(--bad)' }
+                              : undefined
+                          }
                         />
                       </div>
                     </DcField>
@@ -1313,7 +1346,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                                   flex: 'none',
                                   borderRadius: 4,
                                   border: '1px solid var(--line-2)',
-                                  background: v.hex,
+                                  background: swatchCss(v.hex),
                                 }}
                               />
                               <span style={{ font: `500 12.5px/1 ${FONT}`, color: 'var(--ink)' }}>{v.label}</span>
@@ -1844,7 +1877,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
               {...(pathLabel !== 'Pick a menu' ? { dept: pathLabel } : {})}
               {...(form.imageUrls[0] ? { imageUrl: form.imageUrls[0] } : {})}
               colors={activeColors.map((c, i) => ({
-                hex: c.hex,
+                hex: swatchCss(c.hex),
                 name: c.name,
                 on: (activeColorRow?.id ?? colorRows[0]?.id) === c.id || i === 0,
               }))}

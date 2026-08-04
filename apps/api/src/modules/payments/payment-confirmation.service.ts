@@ -194,10 +194,22 @@ export class PaymentConfirmationService {
           input.amount,
           input.method.toLowerCase(),
         )
-        .catch(() => undefined)
+        .catch((error: unknown) =>
+          this.logger.error(
+            `Payment event notify failed for ${input.invoiceNumber}: ${
+              error instanceof Error ? error.message : 'unknown'
+            }`,
+          ),
+        )
       await this.orderEvents
         .onStatusChanged(result.order.storeId, result.order.id, 'CONFIRMED')
-        .catch(() => undefined)
+        .catch((error: unknown) =>
+          this.logger.error(
+            `Payment status event failed for ${input.invoiceNumber}: ${
+              error instanceof Error ? error.message : 'unknown'
+            }`,
+          ),
+        )
       if (process.env.AUTO_COURIER_BOOK !== 'false') {
         void this.courier.bookCourier(result.order.id).catch((error: unknown) => {
           this.logger.error(

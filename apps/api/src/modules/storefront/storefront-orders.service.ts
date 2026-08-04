@@ -21,6 +21,7 @@ import {
   resolveOrderDistrict,
 } from '../../common/delivery-charge.util'
 import { CommerceEventOutboxService } from '../orders/commerce-event-outbox.service'
+import { fireAndForget } from '../../common/fire-and-forget'
 import { PaymentIntegrationService } from '../integrations/payment-integration.service'
 import { StockReservationService } from '../payments/stock-reservation.service'
 import type { OrderStatus, PaymentMethod, PaymentStatus, Prisma } from '@prisma/client'
@@ -569,7 +570,7 @@ export class StorefrontOrdersService {
     }
 
     if (paymentMethod === 'CASH_ON_DELIVERY') {
-      void this.commerceEvents.dispatchForOrder(order.id)
+      fireAndForget(this.commerceEvents.dispatchForOrder(order.id), 'orders.commerceEvents.cod')
     }
 
     return order

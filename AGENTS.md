@@ -278,10 +278,10 @@ risk of “the wrong deploy running”. It is not one:
 | `.github/workflows/deploy-vps.yml` | `workflow_run` after **CI green on main** | **The only auto-deploy.** SSH → VPS → `/opt/splaro/deploy.sh` |
 | `.github/workflows/deploy-hostinger.yml` | `workflow_dispatch` only | Legacy URL smoke. Never fires on push, never SSHes, writes to no host |
 
-Root-level `deploy-run.yml`, `gh-actions.yml`, `gh-deploy.yml`, `hpanel-advanced.yml`,
-`ssh-access.yml` and `docker-compose*.yml` are **not** in `.github/workflows`, so
-GitHub never reads them. They are reference snippets — clutter, not a second
-deploy path. Delete them only with the owner's say-so.
+Root-level Playwright dump files formerly named `deploy-run.yml` / `gh-actions.yml` /
+etc. were removed (2026-08-04) — they were never real workflows. Root
+`docker-compose.yml` / `docker-compose.prod.yml` stay for local Redis/Postgres and
+optional VPS DB; they are not GitHub Actions and are not a second deploy path.
 
 ---
 

@@ -35,10 +35,9 @@ function DcDeliveryOpsBody() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['delivery-overview'] }),
   })
 
-  const agents = delivery.data?.agents ?? []
-  const assignments = delivery.data?.assignments ?? []
-
   const rows = useMemo(() => {
+    const agents = delivery.data?.agents ?? []
+    const assignments = delivery.data?.assignments ?? []
     if (tab === 'agents') {
       return agents.map((a) => [
         a.name,
@@ -54,7 +53,7 @@ function DcDeliveryOpsBody() {
       a.status,
       a.updatedAt ?? '—',
     ])
-  }, [tab, agents, assignments])
+  }, [tab, delivery.data])
 
   return (
     <>
@@ -82,8 +81,8 @@ function DcDeliveryOpsBody() {
         />
         <HubKpis
           items={[
-            { label: 'Agents', value: agents.length },
-            { label: 'Assignments', value: assignments.length },
+            { label: 'Agents', value: delivery.data?.agents?.length ?? 0 },
+            { label: 'Assignments', value: delivery.data?.assignments?.length ?? 0 },
           ]}
         />
         <HubTable

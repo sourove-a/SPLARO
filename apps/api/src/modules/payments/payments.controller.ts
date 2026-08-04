@@ -349,21 +349,33 @@ export class PaymentsController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('ssl/success')
   async sslSuccess(@Body() body: SslCommerzIpnPayload, @Res() res: Response) {
     const siteUrl = resolveCustomerFacingSiteUrl()
-    const result = await this.ssl.handleCallback(body, 'success')
-    if (result.ok) {
-      await this.confirmation.confirm({
-        invoiceNumber: result.invoiceNumber,
-        method: 'SSLCOMMERZ',
-        transactionId: body.bank_tran_id ?? body.val_id ?? body.tran_id,
-        amount: Number.parseFloat(body.amount),
-        gatewayResponse: body as never,
-      })
+    // Mirror fail/cancel: always redirect even if ledger/confirm throws.
+    let ok = false
+    let invoiceNumber = body.tran_id ?? ''
+    try {
+      const result = await this.ssl.handleCallback(body, 'success')
+      ok = result.ok
+      invoiceNumber = result.invoiceNumber || invoiceNumber
+      if (result.ok) {
+        await this.confirmation.confirm({
+          invoiceNumber: result.invoiceNumber,
+          method: 'SSLCOMMERZ',
+          transactionId: body.bank_tran_id ?? body.val_id ?? body.tran_id,
+          amount: Number.parseFloat(body.amount),
+          gatewayResponse: body as never,
+        })
+      }
+    } catch (err) {
+      this.logger.error(
+        `SSL success callback error: ${err instanceof Error ? err.message : 'unknown'}`,
+      )
     }
     return res.redirect(
-      `${siteUrl}/payment/${result.ok ? 'success' : 'failed'}?invoice=${encodeURIComponent(result.invoiceNumber)}&key=${encodeURIComponent(buildInvoiceAccessToken(result.invoiceNumber))}`,
+      `${siteUrl}/payment/${ok ? 'success' : 'failed'}?invoice=${encodeURIComponent(invoiceNumber)}&key=${encodeURIComponent(buildInvoiceAccessToken(invoiceNumber))}`,
     )
   }
 
@@ -402,18 +414,27 @@ export class PaymentsController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('ssl/ipn')
   async sslIpn(@Body() body: SslCommerzIpnPayload) {
-    const result = await this.ssl.handleCallback(body, 'ipn')
-    if (result.ok) {
-      await this.confirmation.confirm({
-        invoiceNumber: result.invoiceNumber,
-        method: 'SSLCOMMERZ',
-        transactionId: body.bank_tran_id ?? body.val_id ?? body.tran_id,
-        amount: Number.parseFloat(body.amount),
-        gatewayResponse: body as never,
-      })
+    // IPN must ACK even on ledger failure — SSLCommerz retries otherwise.
+    try {
+      const result = await this.ssl.handleCallback(body, 'ipn')
+      if (result.ok) {
+        await this.confirmation.confirm({
+          invoiceNumber: result.invoiceNumber,
+          method: 'SSLCOMMERZ',
+          transactionId: body.bank_tran_id ?? body.val_id ?? body.tran_id,
+          amount: Number.parseFloat(body.amount),
+          gatewayResponse: body as never,
+        })
+      }
+      return { received: true, status: result.status }
+    } catch (err) {
+      this.logger.error(
+        `SSL IPN callback error: ${err instanceof Error ? err.message : 'unknown'}`,
+      )
+      return { received: true, status: 'ERROR' }
     }
-    return { received: true, status: result.status }
   }
 }

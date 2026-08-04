@@ -7,12 +7,14 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
   MinLength,
   ValidateNested,
 } from 'class-validator'
+import { PRODUCT_HEX_PATTERN } from '../color-hex.util'
 
 export class AdminProductColorDto {
   @IsString()
@@ -20,7 +22,9 @@ export class AdminProductColorDto {
   name!: string
 
   @IsString()
-  @MinLength(4)
+  @Matches(PRODUCT_HEX_PATTERN, {
+    message: 'hex must be #RGB, #RRGGBB, or #RRGGBBAA',
+  })
   hex!: string
 
   @IsOptional()
@@ -66,6 +70,9 @@ export class AdminProductVariantCreateDto {
   @IsOptional()
   @IsString()
   @MaxLength(16)
+  @Matches(PRODUCT_HEX_PATTERN, {
+    message: 'colorHex must be #RGB, #RRGGBB, or #RRGGBBAA',
+  })
   colorHex?: string
 
   @IsOptional()

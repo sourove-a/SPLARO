@@ -8646,6 +8646,17 @@ html[data-chrome-pin='1'] .site-header-glass {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+
+  /* Decorative brand ribbon under the hero — keep real marquee duration.
+     Windows Animation effects OFF sets prefers-reduced-motion: reduce; without
+     this exception the ticker freezes while still looking like a broken loop. */
+  .home-flow-strip__track,
+  .home-flow-strip__track * {
+    animation-duration: 36s !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: infinite !important;
+    transition-duration: 0s !important;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════

@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Patch, Post, Query } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { CacheService } from '../../common/cache.service'
+import { fireAndForget } from '../../common/fire-and-forget'
 import { EmailService } from '../email/email.service'
 import { OrderNotificationsService } from '../notifications/order-notifications.service'
 import { resolvePublicSiteUrl } from '@splaro/config'
@@ -528,19 +529,22 @@ export class SettingsController {
     }
 
     if (body.smtp?.host && body.smtp.fromEmail) {
-      void this.orderNotifications.onSmtpConfigured(store.id, {
-        host: body.smtp.host,
-        fromEmail: body.smtp.fromEmail,
-        fromName: body.smtp.fromName || store.name,
-      })
+      fireAndForget(
+        this.orderNotifications.onSmtpConfigured(store.id, {
+          host: body.smtp.host,
+          fromEmail: body.smtp.fromEmail,
+          fromName: body.smtp.fromName || store.name,
+        }),
+        'settings.onSmtpConfigured',
+      )
     }
 
     const refreshed = await this.resolveStore(storeId)
 
     // Always bust Redis settings cache after any admin write — TTL alone is not
     // enough after deploy or direct DB fixes.
-    void this.purgeStorefrontCache(refreshed.id)
-    void this.revalidateStorefrontWeb()
+    fireAndForget(this.purgeStorefrontCache(refreshed.id), 'settings.purgeStorefrontCache')
+    fireAndForget(this.revalidateStorefrontWeb(), 'settings.revalidateStorefrontWeb')
 
     return await this.mapResponse(refreshed)
   }

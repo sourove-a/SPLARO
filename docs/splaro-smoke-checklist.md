@@ -25,7 +25,7 @@ Run before push/deploy.
 - PDP size, color, quantity, add-to-bag controls do not move on press.
 - Mobile `390x844`: nav, chat, sticky CTA, cart drawer do not overlap.
 - ILYN size pills: idle glass/black text; selected black/white; no hover/press jump.
-- `prefers-reduced-motion: reduce`: hero autoplay/progress/video warm-up and marquee stay stopped.
+- `prefers-reduced-motion: reduce`: hero autoplay/progress/video warm-up stay stopped; brand ribbon under the hero (`.home-flow-strip`) keeps flowing as decorative motion.
 - Presence concurrency does not return false `502`; BFF preserves upstream status.
 
 ## Checkout
