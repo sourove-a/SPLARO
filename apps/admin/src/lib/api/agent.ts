@@ -217,7 +217,8 @@ export async function streamAgentChat(
   const { sessionId, message, context, storeId, onEvent, signal } = params
   const res = await fetch(agentUrl('/agent/chat', storeId), {
     method: 'POST',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    // Accept drives the proxy's long/streaming timeout and its no-buffering headers.
+    headers: { ...authHeaders(), 'Content-Type': 'application/json', Accept: 'text/event-stream' },
     credentials: 'include',
     ...(signal ? { signal } : {}),
     body: JSON.stringify({ sessionId, message, stream: true, context }),

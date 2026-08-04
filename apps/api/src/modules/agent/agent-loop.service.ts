@@ -272,6 +272,13 @@ export class AgentLoopService {
           const cacheKey =
             tier === 'READ' ? this.cost.getReadCacheKey(storeId, trimmed, call.name, call.arguments) : null
 
+          // Must be captured BEFORE the tool runs, or the audit log records the
+          // post-write state as "previous" and undo data is wrong.
+          const previousValues =
+            tier === 'READ'
+              ? undefined
+              : await this.tools.capturePreviousValues(storeId, call.name, call.arguments)
+
           let toolResult: unknown
           if (cacheKey) {
             const cached = this.cost.getCachedRead(cacheKey)
@@ -298,7 +305,7 @@ export class AgentLoopService {
             tier,
             input: call.arguments,
             resultSummary: truncated,
-            previousValues: await this.tools.capturePreviousValues(storeId, call.name, call.arguments),
+            previousValues,
             // Only DANGEROUS confirm-path sets confirmed:true — WRITE alone is not "confirmed"
             confirmed: false,
           })

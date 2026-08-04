@@ -60,7 +60,17 @@ async function bootstrap() {
     res.redirect(302, '/api/v1/')
   })
 
-  app.use(compression())
+  app.use(
+    compression({
+      // SSE must not be gzipped: zlib buffers agent tokens until ~1KB or stream
+      // end, so the chat looks frozen and then dumps everything at once.
+      filter: (req, res) => {
+        const type = res.getHeader('Content-Type')
+        if (typeof type === 'string' && type.includes('text/event-stream')) return false
+        return compression.filter(req, res)
+      },
+    }),
+  )
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: 'cross-origin' },

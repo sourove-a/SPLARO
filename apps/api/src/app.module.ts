@@ -121,7 +121,7 @@ import {
 import { AdminHubController } from './modules/admin-hub/admin-hub.controller'
 import { AdminHubService } from './modules/admin-hub/admin-hub.service'
 import { AnalyticsController, AnalyticsService } from './modules/analytics'
-import { AiExecutiveController, AiProductAgentController, AiService } from './modules/ai'
+import { AiProductAgentController, AiService } from './modules/ai'
 import { AuthController, AuthService, AdminLoginTokenService } from './modules/auth'
 import { PurgeDemoCatalogService } from './modules/catalog/purge-demo-catalog.service'
 import { SeedDemoCatalogService } from './modules/catalog/seed-demo-catalog.service'
@@ -256,7 +256,6 @@ const queueWorkerProviders = redisQueuesEnabled()
     GoogleSheetsController,
     ReportsController,
     AiProductAgentController,
-    AiExecutiveController,
     AnalyticsController,
     AuthController,
     ContentController,

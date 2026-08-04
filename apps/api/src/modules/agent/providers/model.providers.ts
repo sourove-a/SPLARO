@@ -1,3 +1,4 @@
+import Anthropic from '@anthropic-ai/sdk'
 import type { AgentMessage, AgentToolCall, AgentToolDefinition, ModelChatResult } from '../agent.types'
 import { callOpenAiChat, formatOpenAiMessages } from './openai-models'
 
@@ -120,42 +121,101 @@ export class OpenAiProvider implements ModelProvider {
   }
 }
 
+export const DEFAULT_CLAUDE_MODEL = 'claude-opus-5'
+const CLAUDE_MAX_TOKENS = 8192
+
 export class ClaudeProvider implements ModelProvider {
   readonly id = 'claude'
 
-  private resolveEndpoint(options?: ModelProviderOptions): string {
-    const base =
-      options?.claude?.baseUrl?.trim() ||
-      process.env['ANTHROPIC_BASE_URL']?.trim() ||
-      'https://api.anthropic.com'
-    const normalized = base.replace(/\/+$/, '')
-    if (normalized.endsWith('/v1/messages')) return normalized
-    if (normalized.endsWith('/v1')) return `${normalized}/messages`
-    return `${normalized}/v1/messages`
+  private resolveModel(options?: ModelProviderOptions): string {
+    return options?.model ?? process.env['ANTHROPIC_MODEL'] ?? DEFAULT_CLAUDE_MODEL
   }
 
-  private resolveHeaders(apiKey: string, options?: ModelProviderOptions): Record<string, string> {
-    const mode =
-      options?.claude?.authMode ??
-      (process.env['ANTHROPIC_BASE_URL'] ? 'antigravity_proxy' : 'api_key')
+  /**
+   * Supports both a plain API key and the "antigravity proxy" mode, where an
+   * ANTHROPIC_BASE_URL fronts the API and auth moves to a bearer token.
+   */
+  private client(apiKey: string, options?: ModelProviderOptions): Anthropic {
+    const baseURL =
+      options?.claude?.baseUrl?.trim() || process.env['ANTHROPIC_BASE_URL']?.trim() || undefined
+    const mode = options?.claude?.authMode ?? (baseURL ? 'antigravity_proxy' : 'api_key')
 
     if (mode === 'antigravity_proxy') {
-      const token =
+      const authToken =
         options?.claude?.authToken?.trim() ||
         apiKey?.trim() ||
         process.env['ANTHROPIC_AUTH_TOKEN']?.trim() ||
         'test'
-      return {
-        Authorization: `Bearer ${token}`,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      }
+      return new Anthropic({ authToken, ...(baseURL ? { baseURL } : {}) })
     }
 
+    return new Anthropic({ apiKey, ...(baseURL ? { baseURL } : {}) })
+  }
+
+  /**
+   * Anthropic needs real `tool_use` / `tool_result` content blocks, and every
+   * `tool_result` must ride on a user turn. Consecutive tool messages are merged
+   * into one user turn, which the API also requires.
+   */
+  private toMessageParams(messages: AgentMessage[]): Anthropic.MessageParam[] {
+    const out: Anthropic.MessageParam[] = []
+
+    for (const message of messages) {
+      if (message.role === 'system') continue
+
+      if (message.role === 'tool') {
+        if (!message.toolCallId) continue
+        const block: Anthropic.ToolResultBlockParam = {
+          type: 'tool_result',
+          tool_use_id: message.toolCallId,
+          content: message.content || '(no output)',
+        }
+        const previous = out[out.length - 1]
+        if (previous?.role === 'user' && Array.isArray(previous.content)) {
+          previous.content.push(block)
+        } else {
+          out.push({ role: 'user', content: [block] })
+        }
+        continue
+      }
+
+      if (message.role === 'assistant' && message.toolCalls?.length) {
+        const blocks: Anthropic.ContentBlockParam[] = []
+        // An empty text block is rejected — omit it rather than sending ''.
+        if (message.content.trim()) blocks.push({ type: 'text', text: message.content })
+        for (const call of message.toolCalls) {
+          blocks.push({ type: 'tool_use', id: call.id, name: call.name, input: call.arguments })
+        }
+        out.push({ role: 'assistant', content: blocks })
+        continue
+      }
+
+      if (!message.content.trim()) continue
+      out.push({ role: message.role, content: message.content })
+    }
+
+    return out
+  }
+
+  private toTools(tools: AgentToolDefinition[]): Anthropic.ToolUnion[] {
+    return tools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      input_schema: t.parameters as Anthropic.Tool.InputSchema,
+    }))
+  }
+
+  private baseParams(messages: AgentMessage[], options?: ModelProviderOptions) {
     return {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json',
+      model: this.resolveModel(options),
+      max_tokens: CLAUDE_MAX_TOKENS,
+      system: messages.find((m) => m.role === 'system')?.content ?? '',
+      messages: this.toMessageParams(messages),
+      // Thinking stays off: extended thinking with tool use requires echoing
+      // thinking blocks back on the next turn, and AgentMessage has nowhere to
+      // carry them. Depth comes from `effort` instead, which is valid at high.
+      thinking: { type: 'disabled' } as Anthropic.ThinkingConfigDisabled,
+      output_config: { effort: 'high' } as Anthropic.OutputConfig,
     }
   }
 
@@ -165,47 +225,26 @@ export class ClaudeProvider implements ModelProvider {
     apiKey: string,
     options?: ModelProviderOptions,
   ): Promise<ModelChatResult> {
-    const model = options?.model ?? process.env['ANTHROPIC_MODEL'] ?? 'claude-sonnet-4-20250514'
-    const system = messages.find((m) => m.role === 'system')?.content ?? ''
-    const chatMessages = messages
-      .filter((m) => m.role !== 'system')
-      .map((m) => ({ role: m.role === 'tool' ? 'user' : m.role, content: m.content }))
-
-    const res = await fetch(this.resolveEndpoint(options), {
-      method: 'POST',
-      headers: this.resolveHeaders(apiKey, options),
-      body: JSON.stringify({
-        model,
-        max_tokens: 4096,
-        system,
-        messages: chatMessages,
-        tools: tools.map((t) => ({
-          name: t.name,
-          description: t.description,
-          input_schema: t.parameters,
-        })),
-      }),
+    const response = await this.client(apiKey, options).messages.create({
+      ...this.baseParams(messages, options),
+      ...(tools.length ? { tools: this.toTools(tools) } : {}),
     })
 
-    if (!res.ok) {
-      const err = await res.text()
-      throw new Error(`Claude error ${res.status}: ${err.slice(0, 200)}`)
-    }
-
-    const data = (await res.json()) as {
-      content?: Array<{ type: string; text?: string; name?: string; input?: Record<string, unknown>; id?: string }>
+    if (response.stop_reason === 'refusal') {
+      const category = response.stop_details?.category ?? 'policy'
+      throw new Error(`Claude declined this request (${category}). Rephrase it or switch model.`)
     }
 
     let content = ''
     const toolCalls: AgentToolCall[] = []
 
-    for (const block of data.content ?? []) {
-      if (block.type === 'text' && block.text) content += block.text
-      if (block.type === 'tool_use' && block.name) {
+    for (const block of response.content) {
+      if (block.type === 'text') content += block.text
+      if (block.type === 'tool_use') {
         toolCalls.push({
-          id: block.id ?? `tool_${toolCalls.length}`,
+          id: block.id,
           name: block.name,
-          arguments: block.input ?? {},
+          arguments: (block.input ?? {}) as Record<string, unknown>,
         })
       }
     }
@@ -213,9 +252,24 @@ export class ClaudeProvider implements ModelProvider {
     return { content, toolCalls }
   }
 
-  async *streamText(messages: AgentMessage[], apiKey: string, options?: ModelProviderOptions): AsyncGenerator<string> {
-    const result = await this.chat(messages, [], apiKey, options)
-    if (result.content) yield result.content
+  async *streamText(
+    messages: AgentMessage[],
+    apiKey: string,
+    options?: ModelProviderOptions,
+  ): AsyncGenerator<string> {
+    const stream = this.client(apiKey, options).messages.stream(this.baseParams(messages, options))
+
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        yield event.delta.text
+      }
+    }
+
+    const final = await stream.finalMessage()
+    if (final.stop_reason === 'refusal') {
+      const category = final.stop_details?.category ?? 'policy'
+      throw new Error(`Claude declined this request (${category}). Rephrase it or switch model.`)
+    }
   }
 }
 
@@ -228,7 +282,8 @@ export class GeminiProvider implements ModelProvider {
     apiKey: string,
     options?: ModelProviderOptions,
   ): Promise<ModelChatResult> {
-    const model = options?.model ?? process.env['GEMINI_MODEL'] ?? 'gemini-1.5-pro'
+    const model = options?.model ?? process.env['GEMINI_MODEL'] ?? 'gemini-2.5-pro'
+    const system = messages.find((m) => m.role === 'system')?.content ?? ''
     const contents = messages
       .filter((m) => m.role !== 'system')
       .map((m) => ({
@@ -243,6 +298,9 @@ export class GeminiProvider implements ModelProvider {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents,
+          // Without this the agent loses its identity, platform knowledge and
+          // honesty rules on Gemini — Gemini ignores `system`-role turns.
+          ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
           tools: [{ functionDeclarations: tools.map((t) => ({ name: t.name, description: t.description, parameters: t.parameters })) }],
         }),
       },
@@ -283,7 +341,7 @@ export class GrokProvider implements ModelProvider {
     apiKey: string,
     options?: ModelProviderOptions,
   ): Promise<ModelChatResult> {
-    const model = options?.model ?? process.env['GROK_MODEL'] ?? 'grok-beta'
+    const model = options?.model ?? process.env['GROK_MODEL'] ?? 'grok-4'
     const res = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: {

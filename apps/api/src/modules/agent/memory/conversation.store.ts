@@ -42,13 +42,15 @@ export class ConversationStore {
     const cached = await this.redis.getJson<AgentMessage[]>(this.cacheKey(storeId, sessionId))
     if (cached?.length) return cached.slice(-limit)
 
+    // Newest N, then restored to chronological order. Taking the OLDEST N would
+    // freeze the agent's context on the first `limit` turns of the session.
     const rows = await this.prisma.agentConversation.findMany({
       where: { storeId, sessionId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'desc' },
       take: limit,
     })
 
-    const messages: AgentMessage[] = rows.map((row) => ({
+    const messages: AgentMessage[] = rows.reverse().map((row) => ({
       role: row.role as AgentMessage['role'],
       content: row.content,
     }))

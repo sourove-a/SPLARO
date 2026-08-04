@@ -67,7 +67,12 @@ export class AgentController {
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache, no-transform')
     res.setHeader('Connection', 'keep-alive')
+    res.setHeader('X-Accel-Buffering', 'no')
     res.flushHeaders?.()
+
+    // compression() is skipped for SSE, but express-compression still decorates
+    // the response with flush(); call it so each event leaves immediately.
+    const flush = () => (res as Response & { flush?: () => void }).flush?.()
 
     try {
       for await (const event of this.agent.chatStream(
@@ -78,6 +83,7 @@ export class AgentController {
         body.context,
       )) {
         res.write(`data: ${JSON.stringify(event)}\n\n`)
+        flush()
       }
     } catch (err) {
       const errMessage = err instanceof Error ? err.message : 'Chat failed'

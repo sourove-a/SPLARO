@@ -152,8 +152,13 @@ export class ModelRouter {
     const cheap = cheapModelForProvider(base.model)
     if (!cheap) return base
 
-    const options: ModelProviderOptions = { ...(base.providerOptions ?? {}) }
-    if (cheap) options.model = cheap
+    // An operator-chosen model wins over difficulty routing. Without this the
+    // cheap tier applies to everything except COMPLEX_PATTERN matches, so the
+    // model picked in AI Command Brain almost never takes effect.
+    const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    if (await this.resolveExplicitModel(storeId, base.model)) return base
+
+    const options: ModelProviderOptions = { ...(base.providerOptions ?? {}), model: cheap }
 
     return { ...base, providerOptions: options }
   }
@@ -174,10 +179,26 @@ export class ModelRouter {
   }
 
   private async resolveOpenAiModel(storeId: string): Promise<string> {
-    const map = await this.integrations.getProviderMap(storeId, 'openai')
+    return (await this.resolveExplicitModel(storeId, 'openai')) ?? DEFAULT_OPENAI_MODEL
+  }
+
+  /**
+   * The model an operator actually chose, or null when we're only falling back to
+   * a default. Difficulty routing must not override an explicit choice.
+   */
+  private async resolveExplicitModel(storeId: string, model: AgentModelId): Promise<string | null> {
+    const map = await this.integrations.getProviderMap(storeId, model)
     const fromDb = map.model ?? map.defaultModel
     if (fromDb) return String(fromDb)
-    return this.config.get<string>('OPENAI_MODEL') ?? DEFAULT_OPENAI_MODEL
+    const envVar =
+      model === 'openai'
+        ? 'OPENAI_MODEL'
+        : model === 'claude'
+          ? 'ANTHROPIC_MODEL'
+          : model === 'gemini'
+            ? 'GEMINI_MODEL'
+            : 'GROK_MODEL'
+    return this.config.get<string>(envVar)?.trim() || null
   }
 
   private decryptKey(stored: string | null | undefined): string | null {

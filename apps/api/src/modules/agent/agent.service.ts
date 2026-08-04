@@ -55,11 +55,10 @@ export class AgentService {
       return
     }
 
-    await this.conversations.append(storeId, sessionId, 'user', trimmed)
-
-    this.router.invalidateCache()
-
+    // Read history BEFORE persisting this turn — the loop pushes `trimmed` itself,
+    // so appending first would send the user's message to the model twice.
     const history = sanitizeAgentHistory(await this.conversations.getHistory(storeId, sessionId))
+    await this.conversations.append(storeId, sessionId, 'user', trimmed)
     const systemPrompt = await this.prompts.getSystemPrompt(storeId)
     const fullSystem = context ? `${systemPrompt}\n\nCONTEXT:\n${context}` : systemPrompt
 

@@ -407,7 +407,7 @@ export function AgentChatPanel({
           Start API — no fake replies
         </div>
       ) : !ready ? (
-        <div className="border-b border-[var(--admin-border)] bg-[rgba(16, 17, 20, 0.08)] px-4 py-3 text-[11px] leading-relaxed text-[var(--admin-text-secondary)]">
+        <div className="border-b border-[var(--admin-border)] bg-[rgba(16,17,20,0.08)] px-4 py-3 text-[11px] leading-relaxed text-[var(--admin-text-secondary)]">
           <p className="font-bold text-[var(--admin-text)]">API key লাগবে chat চালাতে</p>
           <p className="mt-1">
             Sidebar → <strong>AI Command Brain</strong> → API key save করুন।
@@ -479,7 +479,7 @@ export function AgentChatPanel({
                     'rounded-full px-3 py-1 text-[10px] font-bold',
                     warn
                       ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
-                      : 'bg-[rgba(16, 17, 20, 0.12)] text-[var(--admin-c-3f3f46)]',
+                      : 'bg-[rgba(16,17,20,0.12)] text-[var(--admin-c-3f3f46)]',
                   )}
                 >
                   {msg.pending ? <Loader2 className="mr-1 inline h-3 w-3 animate-spin" /> : warn ? '⚠ ' : '🔧 '}

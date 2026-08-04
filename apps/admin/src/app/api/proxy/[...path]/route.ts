@@ -8,6 +8,8 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 const PROXY_TIMEOUT_MS = 30_000
+/** Agent turns stream for minutes; the normal timeout would abort them mid-flight. */
+const PROXY_STREAM_TIMEOUT_MS = 600_000
 
 interface RouteContext {
   params: Promise<{ path: string[] }>
@@ -47,19 +49,28 @@ async function proxyToApi(request: NextRequest, context: RouteContext): Promise<
 
   const method = request.method.toUpperCase()
   const hasBody = !['GET', 'HEAD'].includes(method)
+  const wantsStream = (headers.Accept ?? '').includes('text/event-stream')
 
   try {
     const upstream = await fetch(upstreamUrl, {
       method,
       headers,
       cache: 'no-store',
-      signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
+      signal: AbortSignal.timeout(wantsStream ? PROXY_STREAM_TIMEOUT_MS : PROXY_TIMEOUT_MS),
       ...(hasBody ? { body: await request.arrayBuffer() } : {}),
     })
 
     const responseHeaders = new Headers()
     const upstreamType = upstream.headers.get('content-type')
     if (upstreamType) responseHeaders.set('Content-Type', upstreamType)
+
+    if (upstreamType?.includes('text/event-stream')) {
+      // Without these, nginx (and any intermediate cache) buffers the whole SSE
+      // response instead of forwarding each chunk.
+      responseHeaders.set('Cache-Control', 'no-cache, no-transform')
+      responseHeaders.set('Connection', 'keep-alive')
+      responseHeaders.set('X-Accel-Buffering', 'no')
+    }
 
     return new NextResponse(upstream.body, {
       status: upstream.status,

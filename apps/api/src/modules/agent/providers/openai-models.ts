@@ -3,13 +3,7 @@ import type { AgentMessage } from '../agent.types'
 export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
 
 /** Models tried in order when the preferred model is unavailable on the OpenAI project. */
-export const OPENAI_MODELS = [
-  'gpt-4o-mini',
-  'gpt-4o',
-  'gpt-4-turbo',
-  'gpt-4',
-  'gpt-3.5-turbo',
-] as const
+export const OPENAI_MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo'] as const
 
 export type OpenAiModelId = (typeof OPENAI_MODELS)[number]
 
