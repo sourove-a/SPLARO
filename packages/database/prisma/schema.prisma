@@ -2969,7 +2969,7 @@ model AgentConfig {
   geminiKey          String?
   claudeKey          String?
   grokKey            String?
-  /// Manus autonomous-tasks API key (not a chat model). Saved from AI Command Brain.
+  /// Manus API key — AI Command Brain active model + autonomous tasks.
   manusKey           String?
   telegramBotToken   String?
   telegramChatId     String?
