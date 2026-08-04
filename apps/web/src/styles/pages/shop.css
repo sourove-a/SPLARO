@@ -1047,24 +1047,6 @@
   padding-top: 0.85rem;
 }
 
-.shop-page-intro__copy {
-  max-width: 1720px;
-  margin: 0.45rem auto 0;
-  font-size: 0.9rem;
-  line-height: 1.55;
-  color: rgba(17, 17, 17, 0.62);
-}
-
-.shop-page-intro__link {
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
-}
-
-.shop-page-intro__link:hover {
-  color: rgba(17, 17, 17, 0.9);
-}
-
 .shop-breadcrumbs__list {
   display: flex;
   flex-wrap: wrap;

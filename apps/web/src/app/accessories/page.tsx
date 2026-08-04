@@ -3,7 +3,6 @@ import { mergeCatalogChannels } from '@splaro/types'
 import { ShopExperience } from '@/components/shop/ShopExperience'
 import { getStorefrontCatalogForCollection } from '@/lib/catalog/server'
 import {
-  buildCategoryIntro,
   buildCategoryMetaDescription,
 } from '@/lib/storefront/collection-page'
 import { resolveCollectionContext } from '@/lib/storefront/collection-context'
@@ -78,8 +77,6 @@ export default async function AccessoriesPage({ searchParams }: AccessoriesPageP
             : {})}
         listingMode="scoped"
         initialCatalog={catalog}
-        categoryIntro={buildCategoryIntro(pageTitle)}
-        thinCatalog={(catalog.total ?? catalog.products.length) <= 8}
         {...(preset ? { catalogPreset: preset } : {})}
       />
     </Suspense>

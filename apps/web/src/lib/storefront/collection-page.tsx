@@ -7,7 +7,7 @@ import { getStorefrontSettings } from '@/lib/storefront/settings'
 
 export { titleFromCollectionSlug } from '@/lib/storefront/collection-context'
 
-/** Concise unique blurb — not fluff; helps thin PLPs stay distinct for users + crawlers. */
+/** Meta description only — not rendered as visible PLP copy. */
 export function buildCategoryIntro(title: string): string {
   return `Shop ${title} from SPLARO — premium fashion for everyday wear in Bangladesh, with cash on delivery and nationwide courier.`
 }
@@ -26,15 +26,12 @@ export async function CollectionPageContent({ slug }: { slug: string }) {
 
   const context = resolveCollectionContext(slug, channels)
   const catalog = await getStorefrontCatalogForCollection(context)
-  const productCount = catalog.total ?? catalog.products.length
 
   return (
     <CollectionShopClient
       slug={slug}
       context={context}
       initialCatalog={catalog}
-      categoryIntro={buildCategoryIntro(context.title)}
-      thinCatalog={productCount <= 8}
     />
   )
 }
