@@ -1,7 +1,14 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common'
+import { Injectable, Logger, NotFoundException, BadRequestException, Optional } from '@nestjs/common'
+import { randomBytes } from 'crypto'
+import { resolveCustomerFacingSiteUrl } from '@splaro/config'
 import { PrismaService } from '../../common/prisma.service'
 import { FinanceAuditService } from '../../common/finance-audit.service'
 import { resolveStoreId } from '../../common/store.util'
+import { EmailService } from '../email/email.service'
+import {
+  generatePartnerInviteEmailHTML,
+  generatePartnerInviteEmailText,
+} from '../email/partner-invite-email.template'
 import type { PartnerTransactionType, FinanceTransactionStatus } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library'
 
@@ -16,6 +23,14 @@ function slugifyPartnerName(name: string): string {
   return base || 'partner'
 }
 
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+function newInviteToken(): string {
+  return randomBytes(32).toString('hex')
+}
+
 @Injectable()
 export class PartnersService {
   private readonly logger = new Logger(PartnersService.name)
@@ -23,10 +38,65 @@ export class PartnersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: FinanceAuditService,
+    @Optional() private readonly email?: EmailService,
   ) {}
 
   private sid(raw: string) {
     return resolveStoreId(this.prisma, raw)
+  }
+
+  private inviteConfirmUrl(token: string): string {
+    const site = resolveCustomerFacingSiteUrl().replace(/\/$/, '')
+    return `${site}/partner-invite/${token}`
+  }
+
+  private async sendInviteEmail(partner: {
+    id: string
+    storeId: string
+    name: string
+    email: string | null
+    sharePercent: { toNumber?: () => number } | number | string
+    inviteToken: string | null
+  }): Promise<boolean> {
+    const email = partner.email?.trim()
+    const token = partner.inviteToken?.trim()
+    if (!email || !token || !this.email) return false
+
+    const store = await this.prisma.store.findUnique({
+      where: { id: partner.storeId },
+      select: { name: true },
+    })
+    const shareRaw = partner.sharePercent as { toNumber?: () => number } | number | string
+    const share =
+      typeof shareRaw === 'object' && shareRaw != null && typeof shareRaw.toNumber === 'function'
+        ? Number(shareRaw.toNumber())
+        : Number(shareRaw)
+    const confirmUrl = this.inviteConfirmUrl(token)
+    const siteUrl = resolveCustomerFacingSiteUrl()
+    const payload = {
+      partnerName: partner.name,
+      partnerEmail: email,
+      storeName: store?.name?.trim() || 'SPLARO',
+      sharePercent: Number.isFinite(share) ? share : 0,
+      confirmUrl,
+      siteUrl,
+    }
+
+    try {
+      return await this.email.sendForStore({
+        storeId: partner.storeId,
+        to: email,
+        subject: `Partner invitation — ${payload.storeName}`,
+        html: generatePartnerInviteEmailHTML(payload),
+        text: generatePartnerInviteEmailText(payload),
+        transactional: true,
+      })
+    } catch (err) {
+      this.logger.warn(
+        `Partner invite email failed for ${partner.id}: ${err instanceof Error ? err.message : 'unknown'}`,
+      )
+      return false
+    }
   }
 
   async ensureDefaultPartners(storeIdOrSlug: string, _createdBy?: string) {
@@ -42,7 +112,7 @@ export class PartnersService {
     data: {
       name: string
       slug?: string
-      email?: string
+      email: string
       phone?: string
       sharePercent: number
       notes?: string
@@ -52,7 +122,12 @@ export class PartnersService {
     const storeId = await this.sid(storeIdOrSlug)
     const name = data.name?.trim()
     if (!name || name.length < 2) {
-      throw new BadRequestException('Partner name is required (min 2 characters)')
+      throw new BadRequestException('Full name is required (min 2 characters)')
+    }
+
+    const email = data.email?.trim().toLowerCase()
+    if (!email || !isValidEmail(email)) {
+      throw new BadRequestException('A valid email is required')
     }
 
     const sharePercent = Number(data.sharePercent)
@@ -63,19 +138,32 @@ export class PartnersService {
     const slug = (data.slug?.trim() || slugifyPartnerName(name)).toLowerCase()
     const duplicate = await this.prisma.partner.findFirst({ where: { storeId, slug } })
     if (duplicate) {
-      throw new BadRequestException('A partner with this slug already exists — choose a different name')
+      throw new BadRequestException('A partner with this name already exists — choose a different name')
     }
+
+    const emailTaken = await this.prisma.partner.findFirst({
+      where: { storeId, email, isActive: true },
+    })
+    if (emailTaken) {
+      throw new BadRequestException('A partner with this email already exists')
+    }
+
+    const inviteToken = newInviteToken()
+    const inviteSentAt = new Date()
 
     const partner = await this.prisma.partner.create({
       data: {
         storeId,
         name,
         slug,
-        email: data.email?.trim() || null,
+        email,
         phone: data.phone?.trim() || null,
         sharePercent,
         notes: data.notes?.trim() || null,
         createdBy: data.createdBy,
+        inviteStatus: 'INVITED',
+        inviteToken,
+        inviteSentAt,
       },
     })
 
@@ -88,6 +176,8 @@ export class PartnersService {
       },
     })
 
+    const inviteEmailSent = await this.sendInviteEmail(partner)
+
     await this.audit.log({
       storeId,
       action: 'CREATE',
@@ -95,10 +185,108 @@ export class PartnersService {
       resourceId: partner.id,
       after: partner,
       userId: data.createdBy,
-      note: `Created partner ${name}`,
+      note: `Created partner ${name}${inviteEmailSent ? ' · invite emailed' : ' · invite email not sent'}`,
     })
 
-    return partner
+    return { partner, inviteEmailSent }
+  }
+
+  async resendInvite(storeIdOrSlug: string, slug: string) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const partner = await this.prisma.partner.findFirst({
+      where: { storeId, slug: slug.toLowerCase(), isActive: true },
+    })
+    if (!partner) throw new NotFoundException(`Partner ${slug} not found`)
+    if (!partner.email?.trim()) {
+      throw new BadRequestException('Add an email on the partner profile before resending the invite')
+    }
+
+    const inviteToken = newInviteToken()
+    const updated = await this.prisma.partner.update({
+      where: { id: partner.id },
+      data: {
+        inviteStatus: 'INVITED',
+        inviteToken,
+        inviteSentAt: new Date(),
+        inviteConfirmedAt: null,
+      },
+    })
+
+    const inviteEmailSent = await this.sendInviteEmail(updated)
+    return { partner: updated, inviteEmailSent }
+  }
+
+  async previewInvite(token: string) {
+    const partner = await this.prisma.partner.findFirst({
+      where: { inviteToken: token.trim(), isActive: true },
+      select: {
+        name: true,
+        email: true,
+        sharePercent: true,
+        inviteStatus: true,
+        store: { select: { name: true } },
+      },
+    })
+    if (!partner) throw new NotFoundException('Invite link is invalid or expired')
+    return {
+      name: partner.name,
+      email: partner.email,
+      sharePercent: Number(partner.sharePercent),
+      inviteStatus: partner.inviteStatus,
+      storeName: partner.store.name,
+      alreadyConfirmed: partner.inviteStatus === 'CONFIRMED',
+    }
+  }
+
+  async confirmInvite(token: string) {
+    const partner = await this.prisma.partner.findFirst({
+      where: { inviteToken: token.trim(), isActive: true },
+    })
+    if (!partner) throw new NotFoundException('Invite link is invalid or expired')
+
+    if (partner.inviteStatus === 'CONFIRMED') {
+      return {
+        ok: true as const,
+        alreadyConfirmed: true,
+        name: partner.name,
+        storeName: (
+          await this.prisma.store.findUnique({
+            where: { id: partner.storeId },
+            select: { name: true },
+          })
+        )?.name,
+      }
+    }
+
+    const updated = await this.prisma.partner.update({
+      where: { id: partner.id },
+      data: {
+        inviteStatus: 'CONFIRMED',
+        inviteConfirmedAt: new Date(),
+        inviteToken: null,
+      },
+    })
+
+    await this.audit.log({
+      storeId: partner.storeId,
+      action: 'UPDATE',
+      resource: 'Partner',
+      resourceId: partner.id,
+      after: updated,
+      note: 'Partner confirmed invite via email link',
+    })
+
+    const store = await this.prisma.store.findUnique({
+      where: { id: partner.storeId },
+      select: { name: true },
+    })
+
+    return {
+      ok: true as const,
+      alreadyConfirmed: false,
+      name: updated.name,
+      storeName: store?.name,
+    }
   }
 
   async list(storeIdOrSlug: string) {
@@ -118,6 +306,7 @@ export class PartnersService {
       ...p,
       lastTransaction: p.transactions[0] ?? null,
       transactions: undefined,
+      inviteToken: undefined,
     }))
   }
 

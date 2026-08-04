@@ -3,7 +3,7 @@ import { flatAdminRoutes } from '@/lib/navigation/admin-nav'
 
 export type ModuleMaturity = 'live' | 'beta' | 'prototype'
 
-/** Routes backed by a real screen and API, as listed in the module registry. */
+/** Routes backed by a real DC bespoke / dedicated screen (see `registry.ts`). */
 const LIVE_ROUTES = new Set<string>(['/dashboard', ...REGISTERED_MODULE_HREFS])
 
 function getLiveRoutes(): Set<string> {
@@ -13,43 +13,32 @@ function getLiveRoutes(): Set<string> {
 /**
  * Registered routes with partial API — preview actions, coming-soon forms, or read-only shells.
  * Checked before LIVE_ROUTES so maturity is not overstated.
+ * Thin hubs from all-nav-live stay beta until they have verified daily workflows.
  */
 const BETA_ROUTES = new Set<string>([
-  '/dashboard/wms/overview',
-  '/dashboard/wms/warehouses',
-  '/dashboard/wms/stock-movements',
-  '/dashboard/wms/transfers',
-  '/dashboard/procurement/overview',
-  '/dashboard/procurement/suppliers',
-  '/dashboard/procurement/purchase-orders',
-  '/dashboard/procurement/goods-received',
-  '/dashboard/production/overview',
-  '/dashboard/production/fabric-inventory',
+  '/dashboard/pos',
+  '/dashboard/invoices',
+  '/dashboard/transactions',
+  '/dashboard/subscriptions',
+  '/dashboard/brands',
+  '/dashboard/webhooks',
   '/dashboard/support/helpdesk',
   '/dashboard/delivery/agents',
-  '/dashboard/delivery/assignments',
   '/dashboard/company/dashboard',
   '/dashboard/company/employees',
   '/dashboard/company/payroll',
   '/dashboard/company/tasks',
-  '/dashboard/warehouse',
-  '/dashboard/supplier-management',
+  '/dashboard/production/overview',
+  '/dashboard/production/fabric-inventory',
+  '/dashboard/developer/api-center',
+  '/dashboard/observability/center',
 ])
 
 /**
  * UI shells / read-only placeholders — no verified backend write path.
  * Keep these out of BETA so the banner matches reality.
  */
-const PROTOTYPE_SHELL_ROUTES = new Set<string>([
-  '/dashboard/support/live-chat',
-  '/dashboard/company/documents',
-  '/dashboard/google-workspace/docs',
-  '/dashboard/google-workspace/calendar',
-  '/dashboard/google-workspace/contacts',
-  '/dashboard/google-workspace/analytics',
-  '/dashboard/google-workspace/search-console',
-  '/dashboard/google-workspace/merchant-center',
-])
+const PROTOTYPE_SHELL_ROUTES = new Set<string>([])
 
 /** Nav routes without a dedicated panel — GenericModulePanel fallback. */
 let prototypeRoutes: Set<string> | null = null

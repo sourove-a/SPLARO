@@ -73,21 +73,25 @@ export function GlassStorefront({
   return (
     <>
       {showHero && homepage.hero ? (
-        <HeroSlider initialBanners={heroBanners} />
+        <HeroSlider key="home-hero" initialBanners={heroBanners} />
       ) : null}
 
       {homepage.marquee || homepage.trustBar ? (
-        <div className="home-post-hero">
-          {homepage.marquee ? <MarqueeStrip /> : null}
-          {homepage.trustBar ? <TrustBar /> : null}
+        <div key="home-post-hero" className="home-post-hero">
+          {homepage.marquee ? <MarqueeStrip key="home-marquee" /> : null}
+          {homepage.trustBar ? <TrustBar key="home-trust" /> : null}
         </div>
       ) : null}
 
-      <div className="ed-root">
-        {showSpecialOffer ? <SpecialOffer /> : null}
+      <div key="home-ed-root" className="ed-root">
+        {showSpecialOffer ? <SpecialOffer key="home-special-offer" /> : null}
 
         {showCatalog ? (
-          <section className="ed-catalog-intro" aria-label="Shop by department">
+          <section
+            key="home-catalog"
+            className="ed-catalog-intro"
+            aria-label="Shop by department"
+          >
             <div className="ed-catalog-intro__ambient" aria-hidden />
             <HomeDepartmentRows rows={visibleDepartmentRows} />
           </section>
@@ -95,7 +99,7 @@ export function GlassStorefront({
 
         {storySlot}
 
-        {showNewsletter ? <NewsletterSection /> : null}
+        {showNewsletter ? <NewsletterSection key="home-newsletter" /> : null}
       </div>
     </>
   )

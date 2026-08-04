@@ -22,14 +22,18 @@ function buildProcessor() {
   } as unknown as PrismaService
   const telegram = { test: jest.fn().mockResolvedValue(undefined) }
   const notifications = { notifySyncFailed: jest.fn().mockResolvedValue(undefined) }
+  const financeSheets = {
+    markWorkspaceSyncComplete: jest.fn().mockResolvedValue([]),
+  }
 
   const processor = new GoogleSyncProcessor(
     prisma,
     sheets as never,
     telegram as never,
     notifications as never,
+    financeSheets as never,
   )
-  return { processor, sheets, prisma }
+  return { processor, sheets, prisma, financeSheets }
 }
 
 const job = (jobType: string, resourceId?: string) =>

@@ -12,6 +12,7 @@ import type {
   NavLink,
   StorefrontConfig,
 } from './storefront-config'
+import { ensureEssentialHeaderDepartments } from './storefront-config'
 
 type CategoryRow = {
   id: string
@@ -170,8 +171,15 @@ export class NavBuilderService {
   constructor(private readonly prisma: PrismaService) {}
 
   async buildStorefrontNav(storeId: string, config: StorefrontConfig): Promise<NavLink[]> {
-    const headerNav = config.headerNav ?? []
+    // Saved headerNav may omit Accessories (or other essentials) — heal before mega build.
+    const headerNav = ensureEssentialHeaderDepartments(config.headerNav)
     const overrides = config.menuOverrides ?? { autoSync: true }
+    // Accessories must stay visible on storefront even if an old override hid the dept.
+    const departments = (overrides.departments ?? []).map((d) =>
+      d.departmentSlug === 'accessories' && d.hidden
+        ? { ...d, hidden: false, forceVisible: true }
+        : d,
+    )
 
     const flat = await this.prisma.category.findMany({
       where: { storeId, isActive: true },
@@ -195,7 +203,7 @@ export class NavBuilderService {
           return item
         }
 
-        const deptOverride = overrides.departments?.find((d) => d.departmentSlug === slug)
+        const deptOverride = departments.find((d) => d.departmentSlug === slug)
         if (deptOverride?.hidden) return { ...item, hidden: true }
 
         const deptNode = deptBySlug.get(slug)

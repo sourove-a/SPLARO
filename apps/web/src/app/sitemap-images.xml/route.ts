@@ -9,6 +9,10 @@ export const dynamic = 'force-dynamic'
 /**
  * Image sitemap for Google Image Search + product discovery.
  * https://developers.google.com/search/docs/crawling-indexing/sitemaps/image-sitemaps
+ *
+ * Only `<image:image>` + `<image:loc>` — title/caption tags are deprecated (2022).
+ * External hosts (e.g. Unsplash) are allowed when they are the live product media;
+ * placeholders are still excluded.
  */
 export async function GET() {
   const base = SEO_SITE_URL
@@ -19,13 +23,22 @@ export async function GET() {
     for (const product of products) {
       const slug = product.slug ?? productSlug(product)
       const loc = `${base}/products/${slug}`
-      const images = [
+      const rawImages = [
         product.image,
         product.hoverImage,
         ...(product.media ?? []).filter((m) => m.type === 'image').map((m) => m.url),
+        ...(product.variantRefs ?? []).map((ref) => ref.image).filter(Boolean),
       ]
+
+      const images = rawImages
+        .filter((src): src is string => Boolean(src))
         .map((src) => absoluteUrl(src))
-        .filter(Boolean)
+        .filter((u): u is string => {
+          if (!u) return false
+          const lower = u.toLowerCase()
+          return !lower.includes('placeholder') && !lower.includes('placehold.co')
+        })
+
       const unique = [...new Set(images)].slice(0, 10)
       if (!unique.length) continue
 
@@ -33,8 +46,6 @@ export async function GET() {
         .map(
           (img) => `    <image:image>
       <image:loc>${xmlEscape(img)}</image:loc>
-      <image:title>${xmlEscape(product.name)}</image:title>
-      <image:caption>${xmlEscape(`${product.name} — SPLARO Bangladesh`)}</image:caption>
     </image:image>`,
         )
         .join('\n')

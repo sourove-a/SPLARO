@@ -130,7 +130,7 @@ export function AddToBagIconBadge({
       transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
       {...motionProps}
     >
-      <BagIcon size={size} strokeWidth={strokeWidth ?? 1.37} plus />
+      <BagIcon size={size} strokeWidth={strokeWidth ?? 1.75} plus />
     </motion.span>
   )
 }

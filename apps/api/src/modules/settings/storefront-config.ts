@@ -244,6 +244,76 @@ export function mergeHeaderNav(_current: NavLink[] | undefined, incoming: NavLin
   }))
 }
 
+function normalizeHeaderPath(href: string): string {
+  return (href ?? '').split(/[?#]/, 1)[0]?.replace(/\/$/, '') || '/'
+}
+
+/** Department slug from header href (`/c/men`, `/collections/men`, `/accessories`). */
+export function headerDeptSlug(href: string): string | null {
+  const path = normalizeHeaderPath(href)
+  const match = path.match(/^\/(?:c|collections)\/([^/]+)$/)
+  if (match?.[1]) return match[1]
+  if (path === '/accessories') return 'accessories'
+  if (path === '/new-arrivals') return 'new-arrivals'
+  return null
+}
+
+function headerLinkMatchesDefault(item: NavLink, def: NavLink): boolean {
+  const href = normalizeHeaderPath(item.href)
+  const defHref = normalizeHeaderPath(def.href)
+  if (href === defHref) return true
+
+  const itemSlug = headerDeptSlug(item.href)
+  const defSlug = headerDeptSlug(def.href)
+  if (itemSlug && defSlug && itemSlug === defSlug) return true
+
+  const label = item.label?.trim().toLowerCase() ?? ''
+  const defLabel = def.label.trim().toLowerCase()
+  if (defLabel === 'accessories' && (label === 'accessories' || itemSlug === 'accessories')) {
+    return true
+  }
+  return false
+}
+
+/**
+ * Heal-on-read: re-inject essential department links missing from a saved headerNav.
+ * Does not rewrite custom order/labels for links that already exist (any href alias).
+ * Accessories that were only `hidden` are surfaced again.
+ */
+export function ensureEssentialHeaderDepartments(nav: NavLink[] | undefined): NavLink[] {
+  const next = (nav ?? []).map((item) => ({ ...item }))
+
+  for (const def of DEFAULT_HEADER_NAV) {
+    const idx = next.findIndex((item) => headerLinkMatchesDefault(item, def))
+    const isAccessories = normalizeHeaderPath(def.href) === '/accessories'
+
+    if (idx < 0) {
+      const link: NavLink = { label: def.label, href: def.href }
+      if (isAccessories) {
+        const footwearIdx = next.findIndex((item) =>
+          headerLinkMatchesDefault(item, { label: 'Footwear', href: '/c/footwear' }),
+        )
+        if (footwearIdx >= 0) next.splice(footwearIdx + 1, 0, link)
+        else next.push(link)
+      } else {
+        next.push(link)
+      }
+      continue
+    }
+
+    if (isAccessories && next[idx]?.hidden) {
+      const current = next[idx]!
+      next[idx] = {
+        label: current.label?.trim() || 'Accessories',
+        href: '/accessories',
+        ...(current.megaMenu ? { megaMenu: current.megaMenu } : {}),
+      }
+    }
+  }
+
+  return next
+}
+
 export const DEFAULT_FOOTER_GROUPS: FooterGroup[] = [
   {
     id: 'shop',

@@ -20,8 +20,13 @@ import {
 import { AdminButton } from '@/components/ui/AdminButton'
 import { FONT } from '@/components/dc/tokens'
 import { PartnerSetupCard } from '@/components/finance/PartnerSetupCard'
-import { toastFail, toastOk, toastApiSaved } from '@/lib/admin/feedback'
+import { toastFail, toastOk, toastApiSaved, toastWarn } from '@/lib/admin/feedback'
 import { verifyNumberEquals, verifyPersisted, verifyStringEquals } from '@/lib/admin/mutation-verify'
+import { useAdminSession, usePermission } from '@/lib/api/hooks'
+import {
+  PERMISSION_DENIED_TITLE,
+  canManagePartnerRoster,
+} from '@/lib/auth/permissions'
 import {
   approveExpense,
   approveTransaction,
@@ -31,6 +36,7 @@ import {
   fetchPartnerHub,
   fetchPartnerTransactions,
   rejectTransaction,
+  resendPartnerInvite,
   type ExpenseRow,
   type InventoryItem,
   type PartnerAccount,
@@ -92,14 +98,17 @@ function PartnerAvatar({
   size = 56,
   onUpload,
   uploading,
+  canUpload = true,
 }: {
   partner: PartnerAccount
   size?: number
   onUpload?: (file: File) => void
   uploading?: boolean
+  canUpload?: boolean
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const initials = partner.name.slice(0, 2).toUpperCase()
+  const showUpload = Boolean(onUpload && canUpload)
 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
@@ -117,7 +126,7 @@ function PartnerAvatar({
           <span style={{ font: `600 16px/1 ${FONT}`, color: 'var(--ink-2)' }}>{initials}</span>
         )}
       </div>
-      {onUpload ? (
+      {showUpload ? (
         <>
           <button
             type="button"
@@ -141,7 +150,7 @@ function PartnerAvatar({
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0]
-              if (file) onUpload(file)
+              if (file) onUpload?.(file)
               e.target.value = ''
             }}
           />
@@ -187,6 +196,11 @@ function demandBadge(item: InventoryItem) {
 }
 
 export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accounts' }: ModuleContextProps) {
+  const session = useAdminSession()
+  const canCreateFinance = usePermission('finance', 'create')
+  const canEditFinance = usePermission('finance', 'edit')
+  const canManageRoster = canManagePartnerRoster(session.data?.role) && canCreateFinance
+
   const [tab, setTab] = useState<HubTab>(() => tabFromHref(moduleHref))
   const [hub, setHub] = useState<PartnerHubData | null>(null)
   const [expenses, setExpenses] = useState<ExpenseRow[]>([])
@@ -253,6 +267,10 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
   )
 
   const handleAvatarUpload = async (partner: PartnerAccount, file: File) => {
+    if (!canEditFinance) {
+      toastFail(PERMISSION_DENIED_TITLE)
+      return
+    }
     setUploadingSlug(partner.slug)
     try {
       const uploaded = await uploadAdminImage(file, 'partners')
@@ -269,6 +287,10 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
   }
 
   const handleSaveProfile = async (partner: PartnerAccount, patch: { name: string; email: string; phone: string }) => {
+    if (!canEditFinance) {
+      toastFail(PERMISSION_DENIED_TITLE)
+      return
+    }
     setSavingSlug(partner.slug)
     try {
       const saved = await updatePartnerProfile(partner.slug, patch)
@@ -284,7 +306,32 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
     }
   }
 
+  const handleResendInvite = async (partner: PartnerAccount) => {
+    if (!canManageRoster) {
+      toastFail(`${PERMISSION_DENIED_TITLE} — only Owner or Admin can resend invites`)
+      return
+    }
+    setSavingSlug(partner.slug)
+    try {
+      const result = await resendPartnerInvite(partner.slug)
+      if (result.inviteEmailSent) {
+        toastOk(`Invite resent to ${partner.email ?? 'partner'}`)
+      } else {
+        toastWarn('Invite regenerated but email was not sent — check SMTP in Settings')
+      }
+      loadAll()
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not resend invite')
+    } finally {
+      setSavingSlug(null)
+    }
+  }
+
   const handleCreateExpense = async () => {
+    if (!canCreateFinance) {
+      toastFail(PERMISSION_DENIED_TITLE)
+      return
+    }
     const amount = Number(expenseForm.amount)
     if (!Number.isFinite(amount) || amount <= 0) {
       toastFail('Enter a valid amount')
@@ -315,6 +362,10 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
   }
 
   const handleApproveExpense = async (id: string) => {
+    if (!canEditFinance) {
+      toastFail(`${PERMISSION_DENIED_TITLE} — approval requires Admin or Owner`)
+      return
+    }
     try {
       const approved = await approveExpense(id, 'admin')
       if (!verifyPersisted(approved.status === 'APPROVED', 'Expense approval did not persist on server')) return
@@ -326,6 +377,10 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
   }
 
   const handleCreateTxn = async (type: 'INVESTMENT' | 'WITHDRAWAL') => {
+    if (!canCreateFinance) {
+      toastFail(PERMISSION_DENIED_TITLE)
+      return
+    }
     const amount = Number(txnForm.amount)
     if (!txnForm.partnerId || !Number.isFinite(amount) || amount <= 0) {
       toastFail('Select partner and valid amount')
@@ -363,6 +418,10 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
   }
 
   const handleApproveTxn = async (id: string) => {
+    if (!canEditFinance) {
+      toastFail(`${PERMISSION_DENIED_TITLE} — approval requires Admin or Owner`)
+      return
+    }
     try {
       const approved = await approveTransaction(id, 'admin')
       if (!verifyPersisted(approved.status === 'APPROVED', 'Transaction approval did not persist on server')) return
@@ -374,6 +433,10 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
   }
 
   const handleRejectTxn = async (id: string) => {
+    if (!canEditFinance) {
+      toastFail(`${PERMISSION_DENIED_TITLE} — rejection requires Admin or Owner`)
+      return
+    }
     const reason = window.prompt('Reject reason (optional)') ?? 'Rejected by admin'
     try {
       const rejected = await rejectTransaction(id, reason, 'admin')
@@ -434,7 +497,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
         <div>
           <p className="dc-partner-intro__eyebrow" style={{ ...capsLabel, margin: 0 }}>{partnerLabel}</p>
           <p className="dc-partner-intro__copy" style={{ margin: '8px 0 0', maxWidth: '42rem', font: `500 13px/1.45 ${FONT}`, color: 'var(--ink-2)' }}>
-            Protteker alada hisab, investment, stock value, profit/loss — sob live database theke. Apni je partner add korben, shei naam ekhane dekhabe.
+            Equity partners with live balances, investments, and P&amp;L shares from the ledger. Add partners with full name and email — a confirmation invite is sent automatically.
           </p>
         </div>
         <AdminButton variant="accent" onClick={loadAll}>
@@ -493,12 +556,31 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
         <div className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-3">
             {sortedPartners.map((partner) => (
-              <div key={partner.id} style={{ ...card, padding: '14px 16px' }}>
-                <div className="flex items-center gap-3">
-                  <PartnerAvatar partner={partner} size={48} />
-                  <div>
-                    <p style={{ margin: 0, font: `600 16px/1.3 ${FONT}`, color: 'var(--ink)' }}>{partner.name}</p>
-                    <p style={{ margin: '2px 0 0', font: `600 11px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>{Number(partner.sharePercent)}% share · alada hisab</p>
+              <div key={partner.id} style={{ ...card, padding: '16px 18px' }}>
+                <div className="flex items-start gap-3">
+                  <PartnerAvatar partner={partner} size={52} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p style={{ margin: 0, font: `600 16px/1.3 ${FONT}`, color: 'var(--ink)' }}>{partner.name}</p>
+                      <PartnerInviteStatus status={partner.inviteStatus} />
+                    </div>
+                    <p style={{ margin: '4px 0 0', font: `500 12.5px/1.35 ${FONT}`, color: 'var(--ink-2)', wordBreak: 'break-word' }}>
+                      {partner.email?.trim() || 'No email on file'}
+                    </p>
+                    <p
+                      style={{
+                        margin: '8px 0 0',
+                        display: 'inline-block',
+                        padding: '4px 10px',
+                        borderRadius: 999,
+                        border: '1px solid var(--line)',
+                        font: `600 11px/1 ${FONT}`,
+                        color: 'var(--ink-2)',
+                        background: 'var(--surface-2)',
+                      }}
+                    >
+                      {Number(partner.sharePercent)}% equity
+                    </p>
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2" style={{ font: `500 12px/1.35 ${FONT}` }}>
@@ -569,8 +651,11 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                   investments={hub?.recentInvestments.filter((i) => i.partner?.slug === partner.slug) ?? []}
                   uploading={uploadingSlug === partner.slug}
                   saving={savingSlug === partner.slug}
+                  canEdit={canEditFinance}
+                  canResendInvite={canManageRoster}
                   onUpload={(file) => handleAvatarUpload(partner, file)}
                   onSave={(patch) => handleSaveProfile(partner, patch)}
+                  onResendInvite={() => void handleResendInvite(partner)}
                 />
               ))}
               </div>
@@ -737,41 +822,45 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
 
       {tab === 'expenses' ? (
         <div className="space-y-4">
-          <section className="dc-partner-card">
-            <h3 className="dc-partner-card__title">Record expense</h3>
-            <p className="dc-partner-card__sub mb-4">Ke kothay koto taka khoroch — ken khoroch korlo tar note likhun.</p>
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="admin-field">
-                <span className="admin-kpi__label">Category</span>
-                <select className="admin-input" value={expenseForm.category} onChange={(e) => setExpenseForm((f) => ({ ...f, category: e.target.value }))}>
-                  {EXPENSE_CATEGORIES.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="admin-field">
-                <span className="admin-kpi__label">Amount (৳)</span>
-                <input className="admin-input" type="number" min="0" value={expenseForm.amount} onChange={(e) => setExpenseForm((f) => ({ ...f, amount: e.target.value }))} />
-              </label>
-              <label className="admin-field">
-                <span className="admin-kpi__label">Paid by partner (optional)</span>
-                <select className="admin-input" value={expenseForm.partnerId} onChange={(e) => setExpenseForm((f) => ({ ...f, partnerId: e.target.value }))}>
-                  <option value="">Split by share %</option>
-                  {partners.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="admin-field md:col-span-2">
-                <span className="admin-kpi__label">Why / what for</span>
-                <input className="admin-input" placeholder="e.g. Steadfast courier bill" value={expenseForm.note} onChange={(e) => setExpenseForm((f) => ({ ...f, note: e.target.value }))} />
-              </label>
-            </div>
-            <AdminButton variant="accent" className="mt-4" onClick={handleCreateExpense}>
-              <Plus className="h-4 w-4" />
-              Add expense
-            </AdminButton>
-          </section>
+          {canCreateFinance ? (
+            <section className="dc-partner-card">
+              <h3 className="dc-partner-card__title">Record expense</h3>
+              <p className="dc-partner-card__sub mb-4">Ke kothay koto taka khoroch — ken khoroch korlo tar note likhun.</p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="admin-field">
+                  <span className="admin-kpi__label">Category</span>
+                  <select className="admin-input" value={expenseForm.category} onChange={(e) => setExpenseForm((f) => ({ ...f, category: e.target.value }))}>
+                    {EXPENSE_CATEGORIES.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="admin-field">
+                  <span className="admin-kpi__label">Amount (৳)</span>
+                  <input className="admin-input" type="number" min="0" value={expenseForm.amount} onChange={(e) => setExpenseForm((f) => ({ ...f, amount: e.target.value }))} />
+                </label>
+                <label className="admin-field">
+                  <span className="admin-kpi__label">Paid by partner (optional)</span>
+                  <select className="admin-input" value={expenseForm.partnerId} onChange={(e) => setExpenseForm((f) => ({ ...f, partnerId: e.target.value }))}>
+                    <option value="">Split by share %</option>
+                    {partners.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="admin-field md:col-span-2">
+                  <span className="admin-kpi__label">Why / what for</span>
+                  <input className="admin-input" placeholder="e.g. Steadfast courier bill" value={expenseForm.note} onChange={(e) => setExpenseForm((f) => ({ ...f, note: e.target.value }))} />
+                </label>
+              </div>
+              <AdminButton variant="accent" className="mt-4" onClick={handleCreateExpense}>
+                <Plus className="h-4 w-4" />
+                Add expense
+              </AdminButton>
+            </section>
+          ) : (
+            <p className="text-sm font-medium text-[var(--ink-2)]">{PERMISSION_DENIED_TITLE} — your role can view expenses only.</p>
+          )}
 
           <section className="dc-partner-table-wrap">
             <div className="border-b border-black/5 px-4 py-3">
@@ -804,12 +893,14 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                         </span>
                       </td>
                       <td>
-                        {row.status === 'PENDING' ? (
+                        {row.status === 'PENDING' && canEditFinance ? (
                           <AdminButton variant="accent" size="sm" onClick={() => handleApproveExpense(row.id)}>
                             Approve
                           </AdminButton>
-                        ) : (
+                        ) : row.status === 'APPROVED' ? (
                           <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        ) : (
+                          <span className="text-[10px] font-semibold uppercase text-[var(--ink-3)]">Pending</span>
                         )}
                       </td>
                     </tr>
@@ -842,14 +933,20 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                       <p className="text-xs text-[var(--ink-3)]">{row.note ?? 'No note'}</p>
                     </div>
                     <div className="flex gap-2">
-                      <AdminButton size="sm" variant="accent" onClick={() => void handleApproveTxn(row.id)}>
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Approve
-                      </AdminButton>
-                      <AdminButton size="sm" variant="ghost" onClick={() => void handleRejectTxn(row.id)}>
-                        <XCircle className="h-3.5 w-3.5" />
-                        Reject
-                      </AdminButton>
+                      {canEditFinance ? (
+                        <>
+                          <AdminButton size="sm" variant="accent" onClick={() => void handleApproveTxn(row.id)}>
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Approve
+                          </AdminButton>
+                          <AdminButton size="sm" variant="ghost" onClick={() => void handleRejectTxn(row.id)}>
+                            <XCircle className="h-3.5 w-3.5" />
+                            Reject
+                          </AdminButton>
+                        </>
+                      ) : (
+                        <span className="text-xs font-medium text-[var(--ink-3)]">Awaiting Admin/Owner approval</span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -866,6 +963,8 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
             </p>
             {partners.length === 0 ? (
               <p className="text-sm font-semibold text-[var(--ink-2)]">আগে partner যোগ করুন Partners tab থেকে।</p>
+            ) : !canCreateFinance ? (
+              <p className="text-sm font-medium text-[var(--ink-2)]">{PERMISSION_DENIED_TITLE} — your role can view this tab only.</p>
             ) : (
               <div className="space-y-3">
                 <label className="admin-field">
@@ -920,7 +1019,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                     <td className="max-w-[220px] truncate text-xs">{row.note ?? '—'}</td>
                     <td className="font-semibold">{formatBDT(Number(row.amount))}</td>
                     <td>
-                      {row.status === 'PENDING' ? (
+                      {row.status === 'PENDING' && canEditFinance ? (
                         <div className="flex flex-wrap gap-1">
                           <button
                             type="button"
@@ -954,20 +1053,54 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
   )
 }
 
+function PartnerInviteStatus({ status }: { status?: string | null | undefined }) {
+  const key = (status ?? 'ACTIVE').toUpperCase()
+  const label =
+    key === 'INVITED' ? 'Invite sent' : key === 'CONFIRMED' ? 'Confirmed' : 'Active'
+  const color =
+    key === 'INVITED' ? 'var(--warn)' : key === 'CONFIRMED' ? 'var(--ok)' : 'var(--ink-3)'
+  const border =
+    key === 'INVITED' ? 'var(--warn)' : key === 'CONFIRMED' ? 'var(--ok)' : 'var(--line)'
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        height: 22,
+        padding: '0 8px',
+        borderRadius: 999,
+        border: `1px solid ${border}`,
+        color,
+        font: `600 10px/1 ${FONT}`,
+        letterSpacing: '0.04em',
+        textTransform: 'uppercase',
+      }}
+    >
+      {label}
+    </span>
+  )
+}
+
 function PartnerProfileCard({
   partner,
   investments,
   uploading,
   saving,
+  canEdit,
+  canResendInvite,
   onUpload,
   onSave,
+  onResendInvite,
 }: {
   partner: PartnerAccount
   investments: PartnerHubData['recentInvestments']
   uploading: boolean
   saving: boolean
+  canEdit: boolean
+  canResendInvite: boolean
   onUpload: (file: File) => void
   onSave: (patch: { name: string; email: string; phone: string }) => void
+  onResendInvite: () => void
 }) {
   const [name, setName] = useState(partner.name)
   const [email, setEmail] = useState(partner.email ?? '')
@@ -979,16 +1112,31 @@ function PartnerProfileCard({
     setPhone(partner.phone ?? '')
   }, [partner])
 
+  const showResend =
+    canResendInvite &&
+    ((partner.inviteStatus ?? '').toUpperCase() === 'INVITED' || Boolean(partner.email?.trim()))
+
   return (
     <article className="dc-partner-card flex flex-col">
       <div className="mb-3 border-b border-black/5 pb-3">
-        <h2 className="text-2xl font-semibold tracking-wide text-[var(--ink)]">{partner.name}</h2>
-        <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-2)]">
-          Alada hisab · {Number(partner.sharePercent)}% share
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-2xl font-semibold tracking-wide text-[var(--ink)]">{partner.name}</h2>
+          <PartnerInviteStatus status={partner.inviteStatus} />
+        </div>
+        <p className="mt-1 text-sm font-medium text-[var(--ink-2)]">
+          {partner.email?.trim() || 'No email on file'}
+        </p>
+        <p className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">
+          {Number(partner.sharePercent)}% equity share
         </p>
       </div>
       <div className="flex items-start gap-3">
-        <PartnerAvatar partner={partner} onUpload={onUpload} uploading={uploading} />
+        <PartnerAvatar
+          partner={partner}
+          onUpload={onUpload}
+          uploading={uploading}
+          canUpload={canEdit}
+        />
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--violet)]">Current balance</p>
           <p className="mt-1 text-2xl font-semibold text-[var(--violet)]">{formatBDT(Number(partner.currentBalance))}</p>
@@ -1018,22 +1166,55 @@ function PartnerProfileCard({
 
       <div className="mt-4 space-y-2">
         <label className="admin-field">
-          <span className="admin-kpi__label">Name</span>
-          <input className="admin-input" value={name} onChange={(e) => setName(e.target.value)} />
+          <span className="admin-kpi__label">Full name</span>
+          <input
+            className="admin-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={!canEdit}
+            readOnly={!canEdit}
+          />
         </label>
         <label className="admin-field">
           <span className="admin-kpi__label">Email</span>
-          <input className="admin-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input
+            className="admin-input"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={!canEdit}
+            readOnly={!canEdit}
+          />
         </label>
         <label className="admin-field">
           <span className="admin-kpi__label">Phone</span>
-          <input className="admin-input" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <input
+            className="admin-input"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            disabled={!canEdit}
+            readOnly={!canEdit}
+          />
         </label>
+        {canEdit || showResend ? (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {canEdit ? (
+              <AdminButton
+                variant="accent"
+                disabled={saving}
+                onClick={() => onSave({ name: name.trim(), email: email.trim(), phone: phone.trim() })}
+              >
+                {saving ? 'Saving…' : 'Save profile'}
+              </AdminButton>
+            ) : null}
+            {showResend ? (
+              <AdminButton variant="ghost" disabled={saving || !email.trim()} onClick={onResendInvite}>
+                Resend invite
+              </AdminButton>
+            ) : null}
+          </div>
+        ) : null}
       </div>
-
-      <AdminButton variant="accent" className="mt-4 w-full" loading={saving} onClick={() => onSave({ name: name.trim(), email: email.trim(), phone: phone.trim() })}>
-        Save profile
-      </AdminButton>
     </article>
   )
 }

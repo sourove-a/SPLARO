@@ -12,7 +12,14 @@ import {
 } from '@/lib/api/integration-hooks'
 import { SectionCard, SectionPageHeader, type SectionProps } from './shared'
 
-const SECRET_FIELD_KEYS = new Set(['accessKey', 'secretKey', 'apiKey', 'clientSecret', 'password'])
+const SECRET_FIELD_KEYS = new Set([
+  'accessKey',
+  'secretKey',
+  'apiKey',
+  'clientSecret',
+  'password',
+  'webhookBearerToken',
+])
 
 function isMaskedOrEmpty(value: string | undefined): boolean {
   const v = (value ?? '').trim()
@@ -282,6 +289,138 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
           >
             Test connection
           </AdminButton>
+        </div>
+
+        <div
+          className="mt-6 rounded-xl border border-[var(--line)] p-4"
+          style={{ background: 'var(--surface-2, rgba(16,17,20,0.02))' }}
+        >
+          <p className="text-[13px] font-bold text-[var(--ink)]">Webhook Integration</p>
+          <p className="mt-1 text-[12px] font-medium leading-relaxed text-[var(--admin-text-muted)]">
+            Paste these into Steadfast portal → Webhook Integration. Callback Url is always your
+            live domain (<code className="rounded bg-black/5 px-1 py-0.5 text-[11px]">https://splaro.co/api/v1/…</code>
+            ) — never localhost. Steadfast will{' '}
+            <code className="rounded bg-black/5 px-1 py-0.5 text-[11px]">POST</code> delivery
+            status updates here with <code className="rounded bg-black/5 px-1 py-0.5 text-[11px]">Authorization: Bearer …</code>.
+            Green toast only after verified save.
+          </p>
+
+          <label className="mt-4 block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-[var(--admin-text-muted)]">
+              Callback Url
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <input
+                className="settings-input min-w-0 flex-1 font-mono text-[12px]"
+                readOnly
+                value={steadfast.data?.callbackUrl ?? ''}
+                placeholder="https://splaro.co/api/v1/webhooks/steadfast"
+              />
+              <AdminButton
+                type="button"
+                variant="ghost"
+                disabled={!steadfast.data?.callbackUrl}
+                onClick={() => {
+                  const url = steadfast.data?.callbackUrl
+                  if (!url) return
+                  void navigator.clipboard.writeText(url).then(
+                    () => toastInfo('Callback URL copied — paste into Steadfast portal'),
+                    () => toastFail('Copy failed'),
+                  )
+                }}
+              >
+                Copy
+              </AdminButton>
+            </div>
+          </label>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+            <Field
+              label="Auth Token (Bearer)"
+              value={sfDraft.webhookBearerToken ?? ''}
+              onChange={(v) => setSfDraft((p) => ({ ...p, webhookBearerToken: v }))}
+              secret
+              placeholder="Generate → Copy → Save Steadfast → paste into Steadfast portal"
+            />
+            <AdminButton
+              type="button"
+              variant="ghost"
+              className="sm:mb-0.5"
+              onClick={() => {
+                const bytes = new Uint8Array(32)
+                crypto.getRandomValues(bytes)
+                const token = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+                setSfDraft((p) => ({ ...p, webhookBearerToken: token }))
+                void navigator.clipboard.writeText(token).then(
+                  () =>
+                    toastInfo(
+                      'Token generated + copied — click Save Steadfast, then paste into Steadfast Auth Token',
+                    ),
+                  () =>
+                    toastInfo(
+                      'Token generated (copy failed) — select the field, copy manually, then Save Steadfast',
+                    ),
+                )
+              }}
+            >
+              Generate
+            </AdminButton>
+            <AdminButton
+              type="button"
+              variant="ghost"
+              className="sm:mb-0.5"
+              disabled={
+                !(sfDraft.webhookBearerToken ?? '').trim() ||
+                isMaskedOrEmpty(sfDraft.webhookBearerToken)
+              }
+              onClick={() => {
+                const token = (sfDraft.webhookBearerToken ?? '').trim()
+                if (!token || isMaskedOrEmpty(token)) {
+                  toastFail(
+                    'Generate a new token first — saved tokens are encrypted and cannot be re-copied',
+                  )
+                  return
+                }
+                void navigator.clipboard.writeText(token).then(
+                  () => toastInfo('Bearer token copied — paste into Steadfast Auth Token field'),
+                  () => toastFail('Copy failed — select the field and copy manually'),
+                )
+              }}
+            >
+              Copy
+            </AdminButton>
+          </div>
+
+          <p className="mt-3 text-[11px] font-semibold text-[var(--admin-text-muted)]">
+            {steadfast.data?.webhookConfigured
+              ? 'Webhook Bearer is saved (encrypted). To copy again: Generate → Copy → Save Steadfast → update Steadfast portal.'
+              : 'Steps: Generate (auto-copies) → Save Steadfast → paste the same token into Steadfast → Auth Token (Bearer).'}
+          </p>
+
+          <details className="mt-4 text-[12px] text-[var(--admin-text-muted)]">
+            <summary className="cursor-pointer font-bold text-[var(--ink)]">
+              Webhook response documentation
+            </summary>
+            <p className="mt-2 leading-relaxed">
+              Steadfast sends <code className="rounded bg-black/5 px-1">POST</code> JSON. Example{' '}
+              <code className="rounded bg-black/5 px-1">delivery_status</code> payload:
+            </p>
+            <pre className="mt-2 overflow-x-auto rounded-lg border border-[var(--line)] bg-[var(--surface)] p-3 text-[11px] leading-relaxed text-[var(--ink)]">
+{`{
+  "notification_type": "delivery_status",
+  "consignment_id": 12345,
+  "invoice": "SPL-1001",
+  "tracking_code": "15BAEB8A",
+  "delivery_status": "delivered"
+}`}
+            </pre>
+            <p className="mt-2 leading-relaxed">
+              Mapped statuses: <code className="rounded bg-black/5 px-1">delivered*</code> → Delivered,{' '}
+              <code className="rounded bg-black/5 px-1">cancelled*</code> → Returned,{' '}
+              <code className="rounded bg-black/5 px-1">hold</code> → In transit,{' '}
+              <code className="rounded bg-black/5 px-1">in_review / pending</code> → Booked.
+            </p>
+          </details>
         </div>
       </SectionCard>
 

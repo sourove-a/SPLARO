@@ -2166,6 +2166,11 @@ model Partner {
   totalProfitShare       Decimal              @default(0) @db.Decimal(14, 2)
   currentBalance         Decimal              @default(0) @db.Decimal(14, 2)
   isActive               Boolean              @default(true)
+  // ACTIVE = legacy; INVITED = email sent; CONFIRMED = accepted invite
+  inviteStatus           String               @default("ACTIVE")
+  inviteToken            String?              @unique
+  inviteSentAt           DateTime?
+  inviteConfirmedAt      DateTime?
   notes                  String?
   createdBy              String?
   store                  Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
@@ -2177,6 +2182,7 @@ model Partner {
 
   @@unique([storeId, slug])
   @@index([storeId, isActive])
+  @@index([storeId, email])
 }
 
 model PartnerShareSetting {

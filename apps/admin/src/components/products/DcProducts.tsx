@@ -11,9 +11,17 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { toastFail, toastOk } from '@/lib/admin/feedback'
+import { verifyProductArchived } from '@/lib/admin/catalog-mutation-verify'
+import { verifyDeleteSuccess, verifyPersisted } from '@/lib/admin/mutation-verify'
+import { ApiError } from '@/lib/api/client'
 import { useProducts } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
-import { deleteProduct, permanentlyDeleteProduct, type ApiProduct } from '@/lib/api/products'
+import {
+  deleteProduct,
+  fetchProduct,
+  permanentlyDeleteProduct,
+  type ApiProduct,
+} from '@/lib/api/products'
 import { resolveMediaUrl } from '@/lib/media-url'
 
 const TABS = ['All', 'Active', 'Draft', 'Out of stock'] as const
@@ -118,10 +126,21 @@ function DcProductsBody() {
     setRemoving(true)
     try {
       if (mode === 'archive') {
-        await deleteProduct(target.id)
+        const saved = await deleteProduct(target.id)
+        if (!(await verifyProductArchived(target.id, saved))) return
         toastOk(`"${target.name}" archived — off the storefront, still in the books.`)
       } else {
-        await permanentlyDeleteProduct(target.id)
+        const saved = await permanentlyDeleteProduct(target.id)
+        if (!verifyDeleteSuccess(saved)) return
+        try {
+          await fetchProduct(target.id)
+          if (!verifyPersisted(false, 'Product delete did not persist on server')) return
+        } catch (err) {
+          if (!(err instanceof ApiError && err.isNotFound)) {
+            toastFail('Could not verify product delete on server')
+            return
+          }
+        }
         toastOk(`"${target.name}" deleted for good.`)
       }
       setRemoveTarget(null)

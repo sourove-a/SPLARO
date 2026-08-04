@@ -1003,6 +1003,10 @@ export class GoogleSheetsSyncService {
 
     const store = await this.prisma.store.findUnique({ where: { id: storeId }, select: { name: true } })
     const nowBD = formatDateTimeBD(new Date())
+
+    // Ensure all 13 business hub tabs exist (creates missing tabs like 'Partner Accounts' if sheet was created prior to tab addition)
+    await this.normalizeBusinessTabs(spreadsheetId, storeId)
+
     const sheets = await this.client.sheets(storeId)
     const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties' })
     const sheetIdByTab = new Map<string, number>()

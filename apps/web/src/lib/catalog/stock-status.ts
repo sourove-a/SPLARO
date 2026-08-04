@@ -25,9 +25,9 @@ export function resolveStockStatus(units: number | null | undefined): StockStatu
     }
   }
   if (safe <= LOW_STOCK_THRESHOLD) {
-    return { kind: 'low_stock', units: safe, label: 'Low Stock' }
+    return { kind: 'low_stock', units: safe, label: `Low Stock · ${safe}` }
   }
-  return { kind: 'in_stock', units: safe, label: 'In Stock' }
+  return { kind: 'in_stock', units: safe, label: `In Stock · ${safe}` }
 }
 
 export function stockUnitsFromVariantRefs(

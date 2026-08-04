@@ -18,7 +18,7 @@ export function storefrontToDetailItem(
     image: product.image,
     hoverImage: product.hoverImage,
     ...(product.media ? { media: product.media } : {}),
-    fit: product.fit,
-    material: product.material,
+    ...(product.fit ? { fit: product.fit } : {}),
+    ...(product.material ? { material: product.material } : {}),
   }
 }

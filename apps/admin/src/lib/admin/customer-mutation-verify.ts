@@ -27,6 +27,27 @@ export async function verifyCustomerBlockPersisted(id: string, blocked: boolean)
   }
 }
 
+/** Created customers must round-trip on detail fetch before green toast. */
+export async function verifyCustomerCreated(
+  saved: unknown,
+  expected: { firstName: string; phone: string },
+): Promise<boolean> {
+  if (!saved || typeof saved !== 'object' || !('id' in saved)) {
+    return verifyPersisted(false, 'Customer did not persist on server')
+  }
+  const id = String((saved as { id: unknown }).id ?? '')
+  if (!verifyPersisted(Boolean(id), 'Customer did not persist on server')) return false
+  try {
+    const customer = await fetchCustomer(id)
+    if (!verifyStringEquals(customer.firstName, expected.firstName, 'Customer first name')) return false
+    if (!verifyStringEquals(customer.phone, expected.phone, 'Customer phone')) return false
+    return true
+  } catch {
+    toastFail('Could not verify customer on server')
+    return false
+  }
+}
+
 /** Deleted customers must 404 on detail fetch — list pagination can miss rows. */
 export async function verifyCustomerRemoved(id: string): Promise<boolean> {
   try {

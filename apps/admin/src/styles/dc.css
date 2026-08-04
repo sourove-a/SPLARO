@@ -2563,6 +2563,80 @@
   background: var(--surface) !important;
   background-image: var(--card-sheen) !important;
   box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Navigation nested glass — always DC surface (wins over legacy white .dark rules) */
+.dc-settings-host .settings-menu-input,
+.dc-settings-host .settings-footer-group .settings-input {
+  border-color: var(--line) !important;
+  background: var(--surface-2) !important;
+  color: var(--ink) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.dc-settings-host .settings-menu-input:hover,
+.dc-settings-host .settings-menu-input:focus,
+.dc-settings-host .settings-footer-group .settings-input:focus {
+  border-color: var(--violet-bd, var(--line)) !important;
+  background: var(--surface) !important;
+  color: var(--ink) !important;
+  box-shadow: 0 0 0 3px var(--violet-soft, rgba(124, 92, 255, 0.18)) !important;
+}
+
+.dc-settings-host .settings-menu-input::placeholder {
+  color: var(--ink-3) !important;
+}
+
+.dc-settings-host .settings-footer-group {
+  border-color: var(--line) !important;
+  background: var(--surface-2) !important;
+  background-image: var(--card-sheen) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.dc-settings-host .settings-footer-group::before {
+  display: none !important;
+}
+
+.dc-settings-host .settings-footer-group__links {
+  border-left-color: var(--line) !important;
+}
+
+.dc-settings-host .settings-btn-glass {
+  border-color: var(--line) !important;
+  background: var(--surface-2) !important;
+  color: var(--ink) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+}
+
+.dc-settings-host .settings-btn-glass:hover {
+  border-color: var(--violet-bd, var(--line)) !important;
+  background: var(--surface) !important;
+  transform: none !important;
+}
+
+.dc-settings-host .settings-menu-row__grip,
+.dc-settings-host .settings-menu-icon-btn,
+.dc-settings-host .settings-menu-empty {
+  color: var(--ink-3) !important;
+}
+
+.dc-settings-host .settings-menu-icon-btn:hover,
+.dc-settings-host .settings-menu-add-btn:hover {
+  color: var(--ink) !important;
+  transform: none !important;
+}
+
+.dc-settings-host .settings-menu-add-btn {
+  color: var(--ink-2) !important;
 }
 
 .dc-settings-host .settings-section-card__heading {

@@ -326,6 +326,39 @@ html[data-os='windows'] .auth-google-glass__backdrop {
   text-shadow: none;
 }
 
+.auth-google-glass__hint {
+  max-width: 22rem;
+  margin: 0;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 550;
+  line-height: 1.5;
+  color: rgba(16, 17, 20, 0.55);
+}
+
+.auth-google-glass__hint--quiet {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(16, 17, 20, 0.42);
+}
+
+.auth-google-glass__hint-link {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.auth-google-glass__hint-link:hover {
+  color: #101114;
+}
+
+.auth-google-glass__hint-code {
+  font-size: 0.68rem;
+  font-weight: 650;
+  word-break: break-all;
+}
+
 .auth-google-glass__native {
   position: relative;
   display: flex;

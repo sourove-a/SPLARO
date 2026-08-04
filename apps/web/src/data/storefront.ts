@@ -13,6 +13,10 @@ export interface StorefrontVariantRef {
   id: string
   size?: string
   colorHex?: string
+  /** Human color label from API — preferred over hex → Multi fallbacks in feeds */
+  colorName?: string
+  /** Variant-specific image when available */
+  image?: string
   stock: number
   isActive: boolean
 }
@@ -46,8 +50,12 @@ export interface StorefrontProduct {
   image: string
   hoverImage: string
   media?: { type: 'image' | 'video'; url: string; alt?: string }[]
-  fit: string
-  material: string
+  /** Real fitType from API — omit when missing (never invent "Regular"). */
+  fit?: string
+  /** Real fabricContent from API — omit when missing (never invent "Premium fabric"). */
+  material?: string
+  updatedAt?: string
+  createdAt?: string
   /** Real API variants (id + size + colorHex) so quick-add can send a valid variantId */
   variantRefs?: StorefrontVariantRef[]
   /** Aggregate rating from API — only shown when reviewCount > 0 */

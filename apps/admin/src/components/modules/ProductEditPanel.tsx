@@ -13,6 +13,7 @@ import {
   DcTextarea,
 } from '@/components/dc/product/DcProductFormPrimitives'
 import { DcProductMediaSlots } from '@/components/dc/product/DcProductMediaSlots'
+import { mediaFolderForDept } from '@/lib/admin/size-presets'
 import { FONT, MONO, formatTaka } from '@/components/dc/tokens'
 import { buildCategoryPicker } from '@/lib/admin/category-picker'
 import {
@@ -25,12 +26,14 @@ import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
 import {
   confirmProductArchived,
+  confirmProductCreated,
   confirmProductRestored,
   confirmProductSaved,
 } from '@/lib/admin/catalog-save'
+import { buildCloneProductPayload } from '@/lib/admin/product-clone'
 import { copyProductStorefrontUrl, productStorefrontUrl } from '@/lib/admin/product-storefront-url'
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
-import { useCategoryTree, useCollections, useProduct, useUpdateProduct, useDeleteProduct, useProductVersions, useRestoreProductVersion, useAdminSession, usePermission } from '@/lib/api/hooks'
+import { useCategoryTree, useCollections, useProduct, useUpdateProduct, useDeleteProduct, useCreateProduct, useProductVersions, useRestoreProductVersion, useAdminSession, usePermission } from '@/lib/api/hooks'
 import { ProductVariantManager } from '@/components/modules/product-form/ProductVariantManager'
 import { parseProductMedia } from '@/lib/admin/product-media-utils'
 import { AdminSwitchRow } from '@/components/ui/AdminSwitch'
@@ -81,13 +84,16 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
   const { data: collectionsData } = useCollections()
   const collections = collectionsData?.collections ?? []
   const updateProduct = useUpdateProduct()
+  const createProduct = useCreateProduct()
   const deleteProduct = useDeleteProduct()
   const { data: adminSession } = useAdminSession()
   const canEditProducts = usePermission('products', 'edit')
+  const canCreateProducts = usePermission('products', 'create')
   const canDeleteProducts = usePermission('products', 'delete')
   const { data: versions = [] } = useProductVersions(productId)
   const restoreVersion = useRestoreProductVersion()
   const [saving, setSaving] = useState(false)
+  const [cloning, setCloning] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const [fillAllLoading, setFillAllLoading] = useState(false)
@@ -157,6 +163,16 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
   const subDepartments = useMemo(
     () => (subDepartmentId ? categoryPicker.childrenOf(subDepartmentId) : []),
     [subDepartmentId, categoryPicker],
+  )
+
+  const departmentHint = useMemo(() => {
+    const dept = categories.find((c) => c.id === departmentId)
+    return dept ? `${dept.name} ${dept.slug}` : undefined
+  }, [categories, departmentId])
+
+  const mediaUploadFolder = useMemo(
+    () => mediaFolderForDept(departmentHint),
+    [departmentHint],
   )
 
   const fullDescription = useMemo(
@@ -566,6 +582,37 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
     if (ok) navigate(moduleHref)
   }
 
+  const handleClone = async () => {
+    if (!canCreateProducts) {
+      toastFail('Your role cannot create products.')
+      return
+    }
+    if (!product) return
+    if (dirty && !window.confirm('You have unsaved changes. Clone the last saved product anyway?')) {
+      return
+    }
+    setCloning(true)
+    try {
+      const defaultStock = Number(form.defaultStock) || 0
+      const payload = buildCloneProductPayload(product, { defaultStock })
+      const newId = await confirmProductCreated(
+        {
+          name: payload.name,
+          basePrice: payload.basePrice,
+          isPublished: false,
+          categoryId: payload.categoryId ?? '',
+          status: 'DRAFT',
+        },
+        () => createProduct.mutateAsync(payload),
+      )
+      if (newId) navigate(`${moduleHref}/${newId}/edit`)
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not duplicate product.')
+    } finally {
+      setCloning(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '64px 0' }}>
@@ -906,7 +953,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
             id="pe-media"
             num="02"
             title="Media"
-            hint="First image is the storefront thumbnail."
+            hint="Upload, paste a link, or pick from the library. Saves under the selected menu folder."
             badge={<DcPill>{`${form.imageUrls.filter(Boolean).length} of 6 filled`}</DcPill>}
           >
             <DcProductMediaSlots
@@ -923,6 +970,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
               }}
               onAltChange={setMediaAlt}
               disabled={!canEditProducts}
+              uploadFolder={mediaUploadFolder}
             />
           </DcSectionCard>
 
@@ -937,6 +985,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
               productId={productId}
               variants={product.variants ?? []}
               productImages={form.imageUrls}
+              {...(departmentHint ? { departmentHint } : {})}
             />
           </DcSectionCard>
 
@@ -1056,6 +1105,29 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
             <span style={{ flex: 1, font: `600 12.5px/1.3 ${FONT}`, color: dirty ? 'var(--warn)' : 'var(--ink-3)' }}>
               {dirty ? 'Unsaved changes' : 'All changes saved'}
             </span>
+            <button
+              type="button"
+              disabled={!canCreateProducts || cloning || saving}
+              onClick={() => void handleClone()}
+              title="Duplicate as a new draft (same cut, new colour drop)"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                height: 38,
+                padding: '0 14px',
+                borderRadius: 10,
+                border: '1px solid var(--line-2)',
+                background: 'var(--surface)',
+                color: 'var(--ink-2)',
+                cursor: !canCreateProducts || cloning || saving ? 'not-allowed' : 'pointer',
+                opacity: !canCreateProducts || cloning || saving ? 0.55 : 1,
+                font: `600 12.5px/1 ${FONT}`,
+              }}
+            >
+              <DcIcon name="icon-copy" size={14} />
+              <span>{cloning ? 'Duplicating…' : 'Duplicate'}</span>
+            </button>
             <button
               type="button"
               data-dc-publish-primary="1"

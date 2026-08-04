@@ -52,10 +52,8 @@ export function SettingsShell() {
   const updateSettings = useUpdateSettings()
   const canEditSettings = usePermission('settings', 'edit')
   const [section, setSection] = useState<SettingsSection>('general')
-  const [animKey, setAnimKey] = useState(0)
   const changeSection = useCallback((s: SettingsSection, opts?: { hash?: string }) => {
     setSection(s)
-    setAnimKey((k) => k + 1)
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href)
       url.searchParams.set('section', s)
@@ -87,7 +85,7 @@ export function SettingsShell() {
       document.getElementById('telegram')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 150)
     return () => window.clearTimeout(timer)
-  }, [section, animKey])
+  }, [section])
 
   useEffect(() => {
     if (apiData) {
@@ -216,7 +214,7 @@ export function SettingsShell() {
         <SettingsSidebar active={section} onChange={changeSection} settingsLoaded={settingsLoaded} />
       </aside>
 
-      <div key={animKey} className="settings-section-enter settings-layout__main">
+      <div className="settings-layout__main">
         {!settingsLoaded || !canEditSettings ? (
           <p
             className="dc-settings-notice"

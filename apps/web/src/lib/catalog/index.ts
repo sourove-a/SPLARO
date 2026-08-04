@@ -161,18 +161,26 @@ export function toProductCard(product: StorefrontProduct): ProductCardData {
 export function toProductDetail(product: StorefrontProduct): ProductDetailData {
   const card = baseCardFields(product)
 
+  const shortBits = [product.fit ? `${product.fit} fit` : null, product.material]
+    .filter(Boolean)
+    .join(' · ')
+  const metaBits = [product.material, product.fit ? `${product.fit} fit` : null]
+    .filter(Boolean)
+    .join(', ')
+
   return {
     ...card,
-    description: `${product.name} is crafted from ${product.material.toLowerCase()} with a ${product.fit.toLowerCase()} fit. Designed for everyday SPLARO wear with refined finishing and breathable comfort.`,
-    shortDescription: `${product.fit} fit · ${product.material}`,
+    description: product.name,
+    ...(shortBits ? { shortDescription: shortBits } : {}),
     sku: product.code,
-    fabricContent: product.material,
-    careInstructions: 'Machine wash cold · Do not bleach · Line dry in shade',
+    ...(product.material ? { fabricContent: product.material } : {}),
     origin: 'Bangladesh',
     variants: generateVariants(product),
-    tags: [product.category, product.status, product.fit],
+    tags: [product.category, product.status, product.fit].filter(Boolean) as string[],
     metaTitle: product.name,
-    metaDescription: `Shop ${product.name} at SPLARO. ${product.material}, ${product.fit} fit. Price in BDT ${product.price.toLocaleString('en-BD')}.`,
+    metaDescription: metaBits
+      ? `Shop ${product.name} at SPLARO. ${metaBits}. Price in BDT ${product.price.toLocaleString('en-BD')}.`
+      : `Shop ${product.name} at SPLARO. Price in BDT ${product.price.toLocaleString('en-BD')}.`,
   }
 }
 
@@ -210,7 +218,7 @@ export function searchProducts(q: string): ProductCardData[] {
         product.name.toLowerCase().includes(query) ||
         product.code.toLowerCase().includes(query) ||
         product.category.toLowerCase().includes(query) ||
-        product.material.toLowerCase().includes(query) ||
+        (product.material?.toLowerCase().includes(query) ?? false) ||
         slug.includes(query) ||
         product.id.toLowerCase().includes(query)
       )

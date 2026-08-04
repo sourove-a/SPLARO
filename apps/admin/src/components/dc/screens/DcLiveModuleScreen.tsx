@@ -10,14 +10,13 @@ import { dcConnectionChip } from '@/components/dc/page-status'
 import { metaForScreen } from '@/components/dc/screens'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import type { FlatAdminRoute } from '@/lib/navigation/admin-nav'
-import { getModuleMaturity } from '@/lib/modules/module-maturity'
 
 /**
  * DC chrome for legacy screen keys — soft-lock, since the old panel bodies are gone.
  */
 export function DcLiveModuleScreen({
   screen,
-  moduleHref,
+  moduleHref: _moduleHref,
   navItem,
   fallbackTitle,
 }: {
@@ -30,17 +29,11 @@ export function DcLiveModuleScreen({
   const queryClient = useQueryClient()
   const { api } = useAdminConnection(25_000)
   const meta = metaForScreen(screen)
-  const maturity = getModuleMaturity(moduleHref)
   const title = meta?.title ?? fallbackTitle ?? navItem.label
 
   const conn = dcConnectionChip(api.pulse)
-  const status =
-    conn ??
-    (maturity === 'live'
-      ? { label: 'LIVE' as const, tone: 'ok' as const }
-      : maturity === 'beta'
-        ? { label: 'BETA' as const, tone: 'warn' as const }
-        : { label: 'PREVIEW' as const, tone: 'mute' as const })
+  // Always soft-locks — never show LIVE/BETA maturity as if the panel were wired.
+  const status = conn ?? { label: 'SOFT' as const, tone: 'mute' as const }
 
   return (
     <DcScreenProvider

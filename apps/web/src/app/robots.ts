@@ -36,7 +36,17 @@ const AI_CRAWLERS = [
   'AI2Bot',
 ]
 
-const PRIVATE = ['/account/', '/checkout/', '/cart', '/api/', '/auth/', '/reset-password', '/forgot-password']
+const PRIVATE = [
+  '/account/',
+  '/checkout/',
+  '/cart',
+  '/api/',
+  '/auth/',
+  '/reset-password',
+  '/forgot-password',
+  '/admin',
+  // Do NOT blanket-block /*?* — Merchant/Meta variant deep-links use ?v=
+]
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -48,8 +58,19 @@ export default function robots(): MetadataRoute.Robots {
       },
       {
         userAgent: AI_CRAWLERS,
-        allow: ['/', '/llms.txt', '/ai.txt', '/.well-known/llms.txt', '/shop', '/products/', '/faq', '/about', '/contact', '/stores'],
-        disallow: ['/account/', '/checkout/', '/api/'],
+        allow: [
+          '/',
+          '/llms.txt',
+          '/ai.txt',
+          '/.well-known/llms.txt',
+          '/shop',
+          '/products/',
+          '/faq',
+          '/about',
+          '/contact',
+          '/stores',
+        ],
+        disallow: PRIVATE,
       },
     ],
     sitemap: [

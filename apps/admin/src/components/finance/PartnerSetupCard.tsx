@@ -1,14 +1,20 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Percent, Plus, Save, UserPlus, Users } from 'lucide-react'
+import { Percent, Save, UserPlus, Users } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
-import { toastFail, toastOk } from '@/lib/admin/feedback'
+import { toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
 import {
   createPartner,
   updatePartnerShares,
   type PartnerAccount,
 } from '@/lib/api/finance'
+import { useAdminSession, usePermission } from '@/lib/api/hooks'
+import {
+  PERMISSION_DENIED_TITLE,
+  canManagePartnerEquity,
+  canManagePartnerRoster,
+} from '@/lib/auth/permissions'
 import { cn } from '@/lib/utils/cn'
 
 interface PartnerSetupCardProps {
@@ -18,6 +24,12 @@ interface PartnerSetupCardProps {
 }
 
 export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupCardProps) {
+  const session = useAdminSession()
+  const canCreateFinance = usePermission('finance', 'create')
+  const canAddPartner = canManagePartnerRoster(session.data?.role) && canCreateFinance
+  const canEditEquity = canManagePartnerEquity(session.data?.role)
+
+  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [sharePercent, setSharePercent] = useState('')
@@ -38,66 +50,67 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
 
   const shareValid = Math.abs(shareTotal - 100) < 0.05
 
-  const derivedPartnerName = useMemo(() => {
-    const e = email.trim().toLowerCase()
-    if (e.includes('@')) {
-      const local = e.split('@')[0] ?? ''
-      const cleaned = local.replace(/[^a-z0-9]+/g, ' ').trim()
-      const parts = cleaned.split(/\s+/).filter(Boolean)
-      if (parts.length > 0) {
-        const titled = parts.map((p) => p.slice(0, 1).toUpperCase() + p.slice(1)).join(' ')
-        if (titled.trim().length >= 2) return titled.trim()
-      }
-    }
-
-    const digits = phone.replace(/\D/g, '')
-    if (digits.length >= 4) return `Partner ${digits.slice(-4)}`
-
-    return 'Partner'
-  }, [email, phone])
-
   const handleAddPartner = async () => {
-    const displayName = derivedPartnerName.trim()
-    if (displayName.length < 2) {
-      toastFail('Partner name derive kora jacche na — email/phone diye চেষ্টা করুন')
+    if (!canAddPartner) {
+      toastFail(PERMISSION_DENIED_TITLE)
+      return
+    }
+    const name = fullName.trim()
+    if (name.length < 2) {
+      toastFail('Enter the partner’s full name')
+      return
+    }
+    const mail = email.trim().toLowerCase()
+    if (!mail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) {
+      toastFail('Enter a valid email — invite will be sent here')
       return
     }
     const share = Number(sharePercent)
     if (!Number.isFinite(share) || share <= 0 || share > 100) {
-      toastFail('Share % ১–১০০ এর মধ্যে দিন')
+      toastFail('Equity share must be between 1 and 100')
       return
     }
 
     setSaving(true)
     try {
-      const created = await createPartner({
-        name: displayName,
-        ...(email.trim() ? { email: email.trim() } : {}),
+      const result = await createPartner({
+        name,
+        email: mail,
         ...(phone.trim() ? { phone: phone.trim() } : {}),
         sharePercent: share,
         ...(notes.trim() ? { notes: notes.trim() } : {}),
         createdBy: 'admin',
       })
-      if (created.name.trim() !== displayName) {
+      if (result.partner.name.trim() !== name) {
         toastFail('Partner save did not persist on server')
         return
       }
-      toastOk(`${displayName} partner হিসেবে যোগ হয়েছে`)
+      toastOk(`${name} added to partner roster`)
+      if (!result.inviteEmailSent) {
+        toastWarn('Invite email not sent — check SMTP in Settings, then Resend invite')
+      } else {
+        toastOk(`Confirmation email sent to ${mail}`)
+      }
+      setFullName('')
       setEmail('')
       setPhone('')
       setSharePercent('')
       setNotes('')
       onUpdated()
     } catch (err) {
-      toastFail(err instanceof Error ? err.message : 'Partner যোগ করা যায়নি')
+      toastFail(err instanceof Error ? err.message : 'Could not add partner')
     } finally {
       setSaving(false)
     }
   }
 
   const handleSaveShares = async () => {
+    if (!canEditEquity) {
+      toastFail(`${PERMISSION_DENIED_TITLE} — only Owner can change equity shares`)
+      return
+    }
     if (!shareValid) {
-      toastFail(`Share মোট ১০০% হতে হবে — এখন ${shareTotal.toFixed(1)}%`)
+      toastFail(`Equity shares must total 100% — currently ${shareTotal.toFixed(1)}%`)
       return
     }
     setSavingShares(true)
@@ -118,188 +131,176 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
         toastFail('Share % did not persist on server')
         return
       }
-      toastOk('Partner share % সেভ হয়েছে')
+      toastOk('Equity shares saved')
       onUpdated()
     } catch (err) {
-      toastFail(err instanceof Error ? err.message : 'Share সেভ করা যায়নি')
+      toastFail(err instanceof Error ? err.message : 'Could not save shares')
     } finally {
       setSavingShares(false)
     }
   }
 
-  if (partners.length === 0) {
+  if (!canAddPartner && partners.length < 2) {
     return (
-      <section className="dc-partner-setup-card">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--line)] pb-5">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--violet)]">
-              Partner setup
-            </p>
-            <h3 className="mt-1 text-xl font-black text-[var(--ink)]">আপনার partner যোগ করুন</h3>
-            <p className="mt-2 max-w-lg text-sm font-medium text-[var(--ink-2)]">
-              আগে থেকে partner name দরকার নেই — email/phone (এবং agreement notes) দিয়ে partner তৈরি হবে, এরপর share % বসাবেন। Finance tracking তখনই শুরু হবে।
-            </p>
-          </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--violet-soft)]">
-            <Users className="h-6 w-6 text-[var(--violet)]" />
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <div className="admin-field md:col-span-2">
-            <span className="admin-kpi__label">Partner (auto)</span>
-            <div className="admin-input" style={{ padding: '10px 12px' }} aria-label="Derived partner name">
-              {derivedPartnerName}
-            </div>
-            <p className="mt-2 text-xs font-semibold text-[var(--ink-3)]">
-              Derived from email/phone. Agreement/terms নিচে দিন।
-            </p>
-          </div>
-          <label className="admin-field">
-            <span className="admin-kpi__label">Profit share % *</span>
-            <input
-              className="admin-input"
-              type="number"
-              min="0.01"
-              max="100"
-              step="0.01"
-              placeholder="33.33"
-              value={sharePercent}
-              onChange={(e) => setSharePercent(e.target.value)}
-            />
-          </label>
-          <label className="admin-field">
-            <span className="admin-kpi__label">Phone (optional)</span>
-            <input
-              className="admin-input"
-              placeholder="01XXXXXXXXX"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </label>
-          <label className="admin-field">
-            <span className="admin-kpi__label">Email (optional)</span>
-            <input
-              className="admin-input"
-              type="email"
-              placeholder="partner@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
-          <label className="admin-field">
-            <span className="admin-kpi__label">Agreement / terms (optional)</span>
-            <textarea
-              className="admin-input min-h-[110px] resize-y"
-              placeholder="Partner agreement text, responsibilities, payout terms, etc."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </label>
-        </div>
-
-        <AdminButton variant="accent" className="mt-5" loading={saving} onClick={() => void handleAddPartner()}>
-          <UserPlus className="h-4 w-4" />
-          প্রথম partner যোগ করুন
-        </AdminButton>
+      <section
+        className={cn('dc-partner-setup-card', compact && 'dc-partner-setup-card--compact')}
+        style={{
+          border: '1px solid var(--line)',
+          borderRadius: 14,
+          background: 'var(--surface)',
+          padding: compact ? '16px 18px' : '20px 22px',
+        }}
+      >
+        <p className="text-sm font-medium text-[var(--ink-2)]">
+          {PERMISSION_DENIED_TITLE} — only Owner or Admin can add equity partners.
+        </p>
       </section>
     )
   }
 
-  if (compact) return null
-
   return (
-    <section className="dc-partner-setup-card space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--ink-3)]">
-            Add another partner
-          </p>
-          <h3 className="text-sm font-black text-[var(--ink)]">নতুন partner</h3>
-        </div>
-        <span
-          className={cn(
-            'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase',
-            shareValid
-              ? 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300'
-              : 'bg-amber-500/12 text-amber-800 dark:text-amber-300',
-          )}
-        >
-          <Percent className="h-3 w-3" />
-          Total share: {shareTotal.toFixed(1)}%
-        </span>
-      </div>
+    <section
+      className={cn('dc-partner-setup-card', compact && 'dc-partner-setup-card--compact')}
+      style={{
+        border: '1px solid var(--line)',
+        borderRadius: 14,
+        background: 'var(--surface)',
+        backgroundImage: 'var(--card-sheen)',
+        padding: compact ? '16px 18px' : '20px 22px',
+      }}
+    >
+      {canAddPartner ? (
+        <>
+          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--line)] pb-5">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--violet)]">
+                Add partner
+              </p>
+              <h3 className="mt-1 text-xl font-semibold text-[var(--ink)]">Invite to the equity roster</h3>
+              <p className="mt-2 max-w-lg text-sm font-medium text-[var(--ink-2)]">
+                Enter legal full name and email. A confirmation email is sent on save. Equity shares across
+                all partners should total 100%.
+              </p>
+            </div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--violet-soft)]">
+              <Users className="h-6 w-6 text-[var(--violet)]" />
+            </div>
+          </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="admin-field">
-          <span className="admin-kpi__label">Email</span>
-          <input className="admin-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="partner@email.com" />
-          <p className="mt-2 text-xs font-semibold text-[var(--ink-3)]">
-            Auto partner name: {derivedPartnerName}
-          </p>
-        </label>
-        <label className="admin-field">
-          <span className="admin-kpi__label">Share %</span>
-          <input
-            className="admin-input"
-            type="number"
-            min="0.01"
-            max="100"
-            value={sharePercent}
-            onChange={(e) => setSharePercent(e.target.value)}
-          />
-        </label>
-        <label className="admin-field">
-          <span className="admin-kpi__label">Phone</span>
-          <input className="admin-input" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        </label>
-        <label className="admin-field flex items-end">
-          <AdminButton variant="accent" className="w-full" loading={saving} onClick={() => void handleAddPartner()}>
-            <Plus className="h-4 w-4" />
-            Add
-          </AdminButton>
-        </label>
-      </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <label className="admin-field md:col-span-2">
+              <span className="admin-kpi__label">Full name *</span>
+              <input
+                className="admin-input"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="e.g. Md. Sourove Ahmed"
+                autoComplete="name"
+              />
+            </label>
+            <label className="admin-field">
+              <span className="admin-kpi__label">Email *</span>
+              <input
+                className="admin-input"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="partner@example.com"
+                autoComplete="email"
+              />
+            </label>
+            <label className="admin-field">
+              <span className="admin-kpi__label">Phone</span>
+              <input
+                className="admin-input"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="01XXXXXXXXX"
+                autoComplete="tel"
+              />
+            </label>
+            <label className="admin-field">
+              <span className="admin-kpi__label">Equity share % *</span>
+              <div className="relative">
+                <input
+                  className="admin-input pr-10"
+                  inputMode="decimal"
+                  value={sharePercent}
+                  onChange={(e) => setSharePercent(e.target.value)}
+                  placeholder="33.33"
+                />
+                <Percent className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ink-3)]" />
+              </div>
+            </label>
+            <label className="admin-field md:col-span-2">
+              <span className="admin-kpi__label">Notes / agreement</span>
+              <textarea
+                className="admin-input min-h-[72px]"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Optional partnership terms"
+              />
+            </label>
+          </div>
 
-      <label className="admin-field">
-        <span className="admin-kpi__label">Agreement / terms (optional)</span>
-        <textarea
-          className="admin-input min-h-[95px] resize-y"
-          placeholder="Paste partner agreement text / payout terms / responsibilities..."
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-      </label>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <AdminButton variant="accent" disabled={saving} onClick={() => void handleAddPartner()}>
+              <UserPlus className="h-4 w-4" />
+              {saving ? 'Adding…' : 'Add partner & send invite'}
+            </AdminButton>
+          </div>
+        </>
+      ) : null}
 
       {partners.length >= 2 ? (
-        <div className="rounded-[16px] border border-[var(--line)] bg-[var(--admin-surface)] p-4">
-          <p className="admin-kpi__label mb-3">Profit share split — মোট ১০০% হতে হবে</p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className={cn(canAddPartner && 'mt-8 border-t border-[var(--line)] pt-5')}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--ink-3)]">
+                Equity split
+              </p>
+              <p className="mt-1 text-sm font-medium text-[var(--ink-2)]">
+                {canEditEquity
+                  ? 'Adjust shares so the total is exactly 100%.'
+                  : 'Only Owner can change equity shares. Current split is shown below.'}
+              </p>
+            </div>
+            <p
+              className={cn(
+                'text-sm font-semibold',
+                shareValid ? 'text-[var(--ok)]' : 'text-[var(--warn)]',
+              )}
+            >
+              Total {shareTotal.toFixed(2)}%
+            </p>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {partners.map((p) => (
               <label key={p.id} className="admin-field">
                 <span className="admin-kpi__label">{p.name}</span>
                 <input
                   className="admin-input"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  defaultValue={p.sharePercent}
+                  inputMode="decimal"
+                  value={shareDraft[p.id] ?? String(p.sharePercent)}
                   onChange={(e) => setShareDraft((d) => ({ ...d, [p.id]: e.target.value }))}
+                  disabled={!canEditEquity}
+                  readOnly={!canEditEquity}
                 />
               </label>
             ))}
           </div>
-          <AdminButton
-            variant="ghost"
-            className="mt-3"
-            loading={savingShares}
-            disabled={!shareValid}
-            onClick={() => void handleSaveShares()}
-          >
-            <Save className="h-4 w-4" />
-            Save share split
-          </AdminButton>
+          {canEditEquity ? (
+            <div className="mt-4">
+              <AdminButton
+                variant="ghost"
+                disabled={savingShares || !shareValid}
+                onClick={() => void handleSaveShares()}
+              >
+                <Save className="h-4 w-4" />
+                {savingShares ? 'Saving…' : 'Save equity shares'}
+              </AdminButton>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>

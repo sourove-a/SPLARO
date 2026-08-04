@@ -18,7 +18,16 @@ const tokensPath = join(adminSrc, 'styles/admin-tokens.css')
 const checkOnly = process.argv.includes('--check')
 
 const SKIP_DIRS = new Set(['_retired', 'node_modules', '.next', 'dist'])
+/** Product swatch / EyeDropper data — must stay real #rrggbb (CSS vars break <input type="color">). */
+const HEX_ALLOW_FILES = new Set([
+  join(adminSrc, 'lib/admin/colour-names.ts').replace(/\\/g, '/'),
+])
 const HEX_RE = /#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/g
+
+function isHexAllowed(file) {
+  const norm = file.replace(/\\/g, '/')
+  return HEX_ALLOW_FILES.has(norm) || [...HEX_ALLOW_FILES].some((a) => norm.endsWith('lib/admin/colour-names.ts'))
+}
 
 /** Expand #rgb → #rrggbb (lowercase). Drop alpha-only 8-digit if last 2 are not meaningful for token id. */
 function normalizeHex(raw) {
@@ -83,6 +92,7 @@ function walk(dir, out = []) {
 function collectHexes(files) {
   const set = new Set()
   for (const file of files) {
+    if (isHexAllowed(file)) continue
     const text = readFileSync(file, 'utf8')
     for (const m of text.matchAll(HEX_RE)) {
       set.add(normalizeHex(m[0]))
@@ -152,7 +162,7 @@ function ensureTokensFile(hexes) {
 }
 
 function replaceHexInFile(file, hexesSet) {
-  if (file === tokensPath) return { file, changed: false, count: 0 }
+  if (file === tokensPath || isHexAllowed(file)) return { file, changed: false, count: 0 }
   let text = readFileSync(file, 'utf8')
   let count = 0
   const next = text.replace(HEX_RE, (match, _g, offset) => {
@@ -195,7 +205,7 @@ function replaceHexInFile(file, hexesSet) {
 function assertZeroOutside(files) {
   const offenders = []
   for (const file of files) {
-    if (file === tokensPath) continue
+    if (file === tokensPath || isHexAllowed(file)) continue
     const rel = relative(root, file)
     // allow scripts that document hex / contrast checks outside src? only admin src
     const text = readFileSync(file, 'utf8')

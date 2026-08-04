@@ -13,6 +13,7 @@ import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { useCourierShipments, useCourierStats } from '@/lib/api/hooks'
 import { bookCourierShipment, retryCourierShipment, type CourierShipmentRow } from '@/lib/api/courier'
 import { toastCourierResult } from '@/lib/admin/feedback'
+import { isDevCourierConsignment, isLiveCourierConsignment } from '@/lib/admin/courier-save'
 import { DcModal } from '@/components/dc/DcModal'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
@@ -294,8 +295,10 @@ function DcCourierBody() {
                   <tbody>
                     {rows.map((r) => {
                       const tone = toneStyle(STATE_TONE[r.status.toUpperCase()] ?? 'mute')
-                      const booked = !!(r.consignmentId || r.trackingCode)
+                      const booked = isLiveCourierConsignment(r.consignmentId, r.trackingCode)
+                      const simulated = isDevCourierConsignment(r.consignmentId, r.trackingCode)
                       const hasFailed = ['FAILED', 'CANCELLED'].includes(r.status.toUpperCase())
+                      const cnLabel = r.consignmentId ?? r.trackingCode ?? '—'
                       return (
                         <tr
                           key={r.id}
@@ -312,8 +315,14 @@ function DcCourierBody() {
                           <td style={{ padding: '11px 14px', font: `500 12px/1 ${FONT}`, color: 'var(--ink-2)' }}>
                             {r.provider}
                           </td>
-                          <td style={{ padding: '11px 14px', font: `500 12px/1 ${MONO}`, color: r.consignmentId ? 'var(--ink-2)' : 'var(--ink-3)' }}>
-                            {r.consignmentId ?? r.trackingCode ?? '—'}
+                          <td
+                            style={{
+                              padding: '11px 14px',
+                              font: `500 12px/1 ${MONO}`,
+                              color: booked ? 'var(--ink-2)' : simulated ? 'var(--warn)' : 'var(--ink-3)',
+                            }}
+                          >
+                            {simulated ? `${cnLabel} · sim` : cnLabel}
                           </td>
                           <td style={{ padding: '11px 14px' }}>
                             <span

@@ -1379,6 +1379,7 @@ export function useSeedDefaultCategories() {
     mutationFn: seedDefaultCategories,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['categories'] })
+      void qc.invalidateQueries({ queryKey: ['categories', 'tree'] })
       void revalidateWebCache(['storefront-products', 'storefront-settings'])
     },
   })

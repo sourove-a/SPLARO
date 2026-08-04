@@ -68,14 +68,11 @@ export const adminNavGroups: AdminNavGroup[] = [
       item('Dashboard', '', 'LayoutDashboard', 'Real-time store performance and KPIs'),
       item('Analytics', 'analytics', 'BarChart3', 'Sales, traffic, and conversion analytics'),
       item('Mobile screens', 'mobile-screens', 'Smartphone', 'Reference frames for the admin on a phone'),
-      item('Business Intelligence', 'business-intelligence', 'LineChart', 'Executive analytics and forecasts'),
-      item('Revenue Center', 'revenue-center', 'TrendingUp', 'Revenue breakdown, forecasts, and targets'),
     ],
   },
   {
     group: 'Executive',
     items: [
-      item('CEO Dashboard', 'executive/ceo-dashboard', 'Crown', 'Executive KPIs, AI chat, and store pulse'),
       item('Notification Center', 'executive/notification-center', 'Bell', 'Email, SMS, WhatsApp & Telegram delivery log'),
       item('Export Center', 'executive/export-center', 'Download', 'Orders, customers & products CSV export'),
     ],
@@ -99,34 +96,19 @@ export const adminNavGroups: AdminNavGroup[] = [
       item('Collections', 'collections', 'Layers', 'Curated product collections'),
       item('Categories', 'categories', 'FolderTree', 'Category hierarchy and navigation'),
       item('Inventory', 'inventory', 'Archive', 'Stock levels, alerts, and adjustments'),
-      item('Bulk & CSV', 'bulk', 'FileSpreadsheet', 'Bulk stock, publish, CSV import/export — honesty for not-built price bulk'),
+      item('Bulk & CSV', 'bulk', 'FileSpreadsheet', 'Bulk stock, price & publish CSV — customer export not built'),
       item('Brands', 'brands', 'Award', 'Brand profiles and vendor associations'),
-      item('Attributes', 'attributes', 'Tags', 'Size, colour, and variant attributes'),
-      item('SKU Manager', 'sku-manager', 'Hash', 'SKU codes across catalog'),
-      item('QR Manager', 'qr-manager', 'QrCode', 'Product QR labels'),
-      item('Barcode Manager', 'barcode-manager', 'Barcode', 'Barcode generation and print'),
     ],
   },
   {
     group: 'Customers',
-    items: [
-      item('Customers', 'customers', 'Users', 'Customer profiles and order history'),
-      item('VIP Members', 'vip-members', 'Crown', 'VIP tiers and exclusive benefits'),
-      item('Loyalty Program', 'loyalty-program', 'Wallet', 'Points, rewards, and redemption'),
-    ],
+    items: [item('Customers', 'customers', 'Users', 'Customer profiles and order history')],
   },
   {
     group: 'Marketing',
     items: [
       item('Campaigns', 'campaigns', 'Megaphone', 'Multi-channel marketing campaigns'),
       item('Coupons', 'coupons', 'Tag', 'Discount codes and promotional rules'),
-      item('Email & SMS', 'email-sms', 'Mail', 'Email and SMS broadcast management'),
-      item('WhatsApp', 'whatsapp', 'MessageCircle', 'WhatsApp Business messaging'),
-      item('Referrals', 'referrals', 'UserPlus', 'Referral program and rewards'),
-      item('Affiliate', 'affiliate', 'Link2', 'Affiliate partners and commissions'),
-      item('Influencers', 'influencers', 'Star', 'Influencer collaborations'),
-      item('Segments', 'segments', 'PieChart', 'Customer segments for campaigns'),
-      item('Customer Intelligence', 'customer-intelligence', 'Brain', 'RFM and behavior insights'),
     ],
   },
   {
@@ -151,12 +133,8 @@ export const adminNavGroups: AdminNavGroup[] = [
     items: [
       item('Finance Overview', 'finance/finance-reports', 'FileBarChart', 'Live finance overview & exports'),
       item('Partner Hub', 'finance/partner-accounts', 'Handshake', 'Partner hisab, balance, investment & withdrawal'),
-      item('Expenses', 'finance/expenses', 'Receipt', 'Ke kothay koto khoroch — approval workflow'),
-      item('Investments', 'finance/investments', 'PiggyBank', 'Partner capital investment'),
-      item('Withdrawals', 'finance/withdrawals', 'Banknote', 'Partner withdrawal ledger'),
       item('Profit & Loss', 'finance/profit-loss', 'TrendingUp', 'Daily, weekly, monthly profit reports'),
       item('Daily Closing', 'finance/daily-closing', 'CalendarCheck', 'End-of-day finance closing'),
-      item('Google Sheets Finance', 'finance/google-sheets-finance', 'Sheet', 'Live spreadsheet backup & sync'),
     ],
   },
   {
@@ -168,61 +146,34 @@ export const adminNavGroups: AdminNavGroup[] = [
       item('Telegram Bot', 'telegram-bot', 'Send', 'Bot token, chat ID & alerts — verified Telegram integration'),
       item('API Health', 'api-health', 'Activity', 'API uptime and response monitoring'),
       item('Webhooks', 'webhooks', 'Webhook', 'Webhook endpoints and event logs'),
-      item('Meta Business', 'meta-business', 'Facebook', 'Meta catalog and ads integration'),
-      item('Google Merchant', 'google-merchant', 'ShoppingCart', 'Google Merchant Center feed'),
     ],
   },
   {
     group: 'SEO Center',
-    items: [
-      item('SEO Health', 'seo-health', 'Activity', 'Site-wide SEO audits and scores'),
-      item('Keywords', 'keywords', 'Search', 'Keyword tracking and opportunities'),
-      item('Index Monitor', 'index-monitor', 'Globe', 'Search engine indexing status'),
-      item('Schema Manager', 'schema-manager', 'Code', 'Structured data and rich snippets'),
-      item('Sitemap Manager', 'sitemap-manager', 'Map', 'XML sitemap generation and submission'),
-      item('Redirect Manager', 'redirect-manager', 'ArrowRightLeft', 'URL redirects and 404 fixes'),
-    ],
+    items: [item('SEO Health', 'seo-health', 'Activity', 'Site-wide SEO audits and scores')],
   },
   {
     group: 'AI Center',
     items: [
       item('AI Command Brain', 'ai-agent', 'MessageSquare', 'Model, keys & AI instructions — one place'),
-      item('AI Content', 'ai-content', 'Sparkles', 'AI-generated product and page content'),
-      item('AI SEO', 'ai-seo', 'Globe', 'AI-powered SEO optimization'),
-      item('AI Analytics', 'ai-analytics', 'LineChart', 'Predictive analytics and forecasting'),
-      item('AI Sales', 'ai-sales', 'TrendingUp', 'Sales recommendations and upsell AI'),
-      item('AI Customer Insights', 'ai-customer-insights', 'Users', 'Customer behavior AI analysis'),
-      item('AI Product Generator', 'ai-product-generator', 'Wand2', 'Bulk product listing generation'),
     ],
   },
   {
     group: 'Automation',
-    items: [
-      item('Telegram Notifications', 'automation/telegram-notifications', 'Send', 'Business notification center'),
-      item('Automation Rules', 'automation-rules', 'Zap', 'Workflow automation and triggers'),
-      item('AI Product Agent', 'automation/ai-product-agent', 'Wand2', 'AI product listing generator'),
-      item('AI SEO Agent', 'automation/ai-seo-agent', 'Globe', 'AI SEO meta & keywords'),
-      item('AI Sales Insights', 'automation/ai-sales-insights', 'LineChart', 'AI sales recommendations'),
-    ],
+    items: [item('Automation Rules', 'automation-rules', 'Zap', 'Workflow automation and triggers')],
   },
   {
     group: 'Operations',
     items: [
       item('Operations Hub', 'operations', 'LayoutGrid', 'Shipping, courier, warehouse & suppliers — live overview'),
       item('Packing Station', 'packing-station', 'ScanLine', 'Scan barcode to pack or dispatch orders'),
-      item('Shipping', 'shipping', 'Truck', 'Shipping zones, rates, and carriers'),
       item('Courier Hub', 'courier-hub', 'PackageCheck', 'Courier bookings and tracking'),
-      item('Warehouse', 'warehouse', 'Warehouse', 'Warehouse locations and pick lists'),
-      item('Supplier Management', 'supplier-management', 'Building2', 'Suppliers, POs, and procurement'),
     ],
   },
   {
     group: 'WMS',
     items: [
       item('Warehouse & Stock', 'wms/overview', 'Warehouse', 'Warehouses, transfers, stock movement ledger'),
-      item('Warehouses', 'wms/warehouses', 'Building2', 'Warehouse locations & staff'),
-      item('Stock Movements', 'wms/stock-movements', 'ArrowLeftRight', 'Full inventory movement audit'),
-      item('Stock Transfers', 'wms/transfers', 'Truck', 'Inter-warehouse transfers'),
     ],
   },
   {
@@ -236,53 +187,19 @@ export const adminNavGroups: AdminNavGroup[] = [
   },
   {
     group: 'Production',
-    items: [
-      item('Production Overview', 'production/overview', 'Scissors', 'Fashion production pipeline'),
-      item('Fabric Inventory', 'production/fabric-inventory', 'Layers', 'Fabric stock & usage'),
-    ],
+    items: [item('Production Overview', 'production/overview', 'Scissors', 'Fashion production pipeline')],
   },
   {
     group: 'Support',
-    items: [
-      item('Helpdesk', 'support/helpdesk', 'Headphones', 'Tickets from all channels'),
-      item('Live Chat', 'support/live-chat', 'MessageCircle', 'Real-time customer support'),
-    ],
+    items: [item('Helpdesk', 'support/helpdesk', 'Headphones', 'Tickets from all channels')],
   },
   {
     group: 'Delivery',
-    items: [
-      item('Delivery Agents', 'delivery/agents', 'Bike', 'Rider management & earnings'),
-      item('Assignments', 'delivery/assignments', 'MapPin', 'Order pickup & delivery tracking'),
-    ],
+    items: [item('Delivery Agents', 'delivery/agents', 'Bike', 'Rider management & earnings')],
   },
   {
     group: 'Company OS',
-    items: [
-      item('Company Dashboard', 'company/dashboard', 'Building', 'Internal workspace overview'),
-      item('Employees', 'company/employees', 'Users', 'HR profiles & performance'),
-      item('Payroll', 'company/payroll', 'Banknote', 'Salary, bonus, payslips'),
-      item('Tasks', 'company/tasks', 'CheckSquare', 'Kanban tasks & projects'),
-      item('Documents', 'company/documents', 'FolderOpen', 'Contracts, policies, approvals'),
-    ],
-  },
-  {
-    group: 'Media',
-    items: [
-      item('Video Library', 'video-library', 'Film', 'Video uploads and streaming assets'),
-      item('UGC Gallery', 'ugc-gallery', 'Camera', 'User-generated content moderation'),
-    ],
-  },
-  {
-    group: 'Marketplace',
-    items: [
-      item('Marketplace Overview', 'marketplace/overview', 'Store', 'Multi-vendor platform'),
-    ],
-  },
-  {
-    group: 'Social Commerce',
-    items: [
-      item('Social Hub', 'social-commerce/hub', 'Share2', 'FB, IG, TikTok, WhatsApp inbox'),
-    ],
+    items: [item('Company Dashboard', 'company/dashboard', 'Building', 'Internal workspace overview')],
   },
   {
     group: 'Developer',
@@ -294,35 +211,16 @@ export const adminNavGroups: AdminNavGroup[] = [
     group: 'Observability',
     items: [
       item('Observability Center', 'observability/center', 'Activity', 'Errors, performance, queue health'),
-      item('Disaster Recovery', 'observability/disaster-recovery', 'ShieldAlert', 'Backups & restore'),
     ],
   },
   {
     group: 'Google Workspace',
     items: [
-      item('Overview', 'google-workspace', 'Cloud', 'Google integration dashboard'),
       item('Connect Google Account', 'google-workspace/connect', 'Link', 'OAuth 2.0 connect & revoke'),
-      item('Google Sheets Sync', 'google-workspace/sheets-sync', 'Sheet', 'Auto sync business data to Sheets'),
       item('Gmail', 'google-workspace/gmail', 'Mail', 'Transactional email via Gmail API'),
       item('Google Drive', 'google-workspace/drive', 'FolderOpen', 'Backups & document folders'),
-      item('Google Docs', 'google-workspace/docs', 'FileText', 'Reports & document templates'),
-      item('Calendar', 'google-workspace/calendar', 'Calendar', 'Campaign & task scheduling'),
-      item('Contacts', 'google-workspace/contacts', 'Users', 'Optional contact sync'),
-      item('Analytics', 'google-workspace/analytics', 'BarChart2', 'GA4 metrics dashboard'),
-      item('Search Console', 'google-workspace/search-console', 'Globe', 'SEO & indexing data'),
-      item('Merchant Center', 'google-workspace/merchant-center', 'ShoppingCart', 'Product feed sync'),
       item('Sync Logs', 'google-workspace/sync-logs', 'Activity', 'Google sync job history'),
       item('OAuth Settings', 'google-workspace/oauth-settings', 'KeyRound', 'Client ID, secret, redirect URI'),
-    ],
-  },
-  {
-    group: 'SaaS',
-    items: [
-      item('Stores', 'stores', 'Store', 'Multi-store management'),
-      item('Subscriptions', 'saas-subscriptions', 'Repeat', 'SaaS plan subscriptions'),
-      item('Domains', 'domains', 'Globe2', 'Custom domains and DNS'),
-      item('Tenants', 'tenants', 'Building', 'Tenant accounts and isolation'),
-      item('Billing', 'billing', 'Receipt', 'SaaS billing and invoicing'),
     ],
   },
   {
@@ -330,180 +228,25 @@ export const adminNavGroups: AdminNavGroup[] = [
     items: [
       item('Security Center', 'security-center', 'Shield', 'Security overview and threat monitoring'),
       item('Admin Users', 'admin-users', 'UserCog', 'Admin accounts and access'),
-      item('Roles', 'roles', 'ShieldCheck', 'Role definitions and assignments'),
-      item('Permissions', 'permissions', 'Lock', 'Granular permission matrix'),
-      item('Audit Logs', 'audit-logs', 'ScrollText', 'Admin action audit trail'),
     ],
   },
   {
     group: 'System',
     items: [
       item('Settings', 'settings', 'Settings', 'Global store and platform settings'),
-      item('Sync Logs', 'system/sync-logs', 'RefreshCw', 'Google Sheets sync history'),
-      item('Telegram Logs', 'system/telegram-logs', 'MessageSquare', 'Bot command & notification logs'),
-      item('Finance Audit Logs', 'system/finance-audit-logs', 'ScrollText', 'Sensitive finance change trail'),
-      item('Backups', 'backups', 'Database', 'Database backups and restore'),
       item('Logs', 'logs', 'FileText', 'Application and error logs'),
-      item('System Health', 'system-health', 'HeartPulse', 'Infrastructure health and uptime'),
     ],
   },
 ]
 
 /**
- * Registered routes omitted from sidebar & command palette.
- * Direct URLs still resolve — see getNavHiddenReason() for on-page notice.
+ * Formerly used to omit routes from sidebar/command palette.
+ * Empty after all-nav-live cleanup — aliases + REMOVE + WIRE replace hide shells.
  */
-export const NAV_HIDDEN_HREFS = new Set<string>([
-  // Duplicate ops aliases — canonical: WMS / Procurement
-  '/dashboard/warehouse',
-  '/dashboard/supplier-management',
-  // Overview duplicates — Dashboard is the single entry (Analytics + Mobile stay visible)
-  '/dashboard/revenue-center',
-  '/dashboard/business-intelligence',
-  // Executive — CEO view duplicates Dashboard KPIs
-  '/dashboard/executive/ceo-dashboard',
-  // Commerce extras — Orders is the daily hub
-  '/dashboard/pos',
-  '/dashboard/invoices',
-  '/dashboard/transactions',
-  '/dashboard/subscriptions',
-  // Finance sub-routes — tabs inside Partner Hub
-  '/dashboard/finance/expenses',
-  '/dashboard/finance/investments',
-  '/dashboard/finance/withdrawals',
-  '/dashboard/finance/google-sheets-finance',
-  // Google Workspace — keep Connect + Sheets Sync only
-  '/dashboard/google-workspace',
-  '/dashboard/google-workspace/docs',
-  '/dashboard/google-workspace/calendar',
-  '/dashboard/google-workspace/contacts',
-  '/dashboard/google-workspace/analytics',
-  '/dashboard/google-workspace/search-console',
-  '/dashboard/google-workspace/merchant-center',
-  '/dashboard/google-workspace/gmail',
-  '/dashboard/google-workspace/drive',
-  '/dashboard/google-workspace/sync-logs',
-  '/dashboard/google-workspace/oauth-settings',
-  // Platform / multi-tenant shells — not daily SPLARO ops
-  '/dashboard/stores',
-  '/dashboard/saas-subscriptions',
-  '/dashboard/domains',
-  '/dashboard/tenants',
-  '/dashboard/billing',
-  '/dashboard/marketplace/overview',
-  '/dashboard/developer/api-center',
-  '/dashboard/observability/center',
-  '/dashboard/observability/disaster-recovery',
-  '/dashboard/social-commerce/hub',
-  // WMS / Procurement remain URL-reachable but beta-locked for launch
-  '/dashboard/wms/overview',
-  '/dashboard/wms/warehouses',
-  '/dashboard/wms/stock-movements',
-  '/dashboard/wms/transfers',
-  '/dashboard/procurement/overview',
-  '/dashboard/procurement/suppliers',
-  '/dashboard/procurement/purchase-orders',
-  '/dashboard/procurement/goods-received',
-  '/dashboard/production/overview',
-  '/dashboard/production/fabric-inventory',
-  // Support / Delivery / Company OS — not connected for daily ops
-  '/dashboard/support/helpdesk',
-  '/dashboard/support/live-chat',
-  '/dashboard/delivery/agents',
-  '/dashboard/delivery/assignments',
-  '/dashboard/company/dashboard',
-  '/dashboard/company/employees',
-  '/dashboard/company/payroll',
-  '/dashboard/company/tasks',
-  '/dashboard/company/documents',
-  // Operations duplicate — Courier Hub covers shipping
-  '/dashboard/shipping',
-  // Automation duplicates — Settings + Google Workspace Sheets
-  '/dashboard/automation/telegram-notifications',
-  // Google Sheets sync is visible under Integrations (handoff)
-  '/dashboard/automation/ai-product-agent',
-  '/dashboard/automation/ai-seo-agent',
-  '/dashboard/automation/ai-sales-insights',
-  // Integrations — advanced / not daily
-  '/dashboard/webhooks',
-  '/dashboard/meta-business',
-  '/dashboard/google-merchant',
-  // Media shells
-  '/dashboard/video-library',
-  '/dashboard/ugc-gallery',
-  // AI sub-pages (AI Command Brain is the entry point)
-  '/dashboard/ai-content',
-  '/dashboard/ai-seo',
-  '/dashboard/ai-analytics',
-  '/dashboard/ai-sales',
-  '/dashboard/ai-customer-insights',
-  '/dashboard/ai-product-generator',
-  // Marketing — enable when campaigns/channels are live
-  '/dashboard/email-sms',
-  '/dashboard/whatsapp',
-  '/dashboard/influencers',
-  '/dashboard/affiliate',
-  '/dashboard/referrals',
-  '/dashboard/segments',
-  '/dashboard/customer-intelligence',
-  // Catalog utility duplicates — products/inventory cover daily use
-  '/dashboard/sku-manager',
-  '/dashboard/qr-manager',
-  '/dashboard/barcode-manager',
-  '/dashboard/brands',
-  '/dashboard/attributes',
-  // Growth placeholders
-  '/dashboard/vip-members',
-  '/dashboard/loyalty-program',
-  // Content shells — home/hero/legal/menu cover storefront
-  '/dashboard/lookbooks',
-  '/dashboard/reels',
-  '/dashboard/cms',
-  '/dashboard/landing-pages',
-  '/dashboard/theme-builder',
-  '/dashboard/footwear-page',
-  '/dashboard/blog',
-  // SEO sub-tools — SEO Health is the hub
-  '/dashboard/keywords',
-  '/dashboard/index-monitor',
-  '/dashboard/schema-manager',
-  '/dashboard/sitemap-manager',
-  '/dashboard/redirect-manager',
-  // Security advanced — single-store admin
-  '/dashboard/roles',
-  '/dashboard/permissions',
-  '/dashboard/audit-logs',
-  // System ops — dev/infra, not daily merchant
-  '/dashboard/backups',
-  '/dashboard/logs',
-  '/dashboard/system-health',
-  '/dashboard/system/sync-logs',
-  '/dashboard/system/telegram-logs',
-  '/dashboard/system/finance-audit-logs',
-])
+export const NAV_HIDDEN_HREFS = new Set<string>([])
 
-/** Shown when a hidden route is opened via bookmark or legacy link. */
-export const NAV_HIDDEN_REASONS: Record<string, string> = {
-  '/dashboard/warehouse': 'Legacy alias — use Operations Hub or Courier Hub.',
-  '/dashboard/supplier-management': 'Hidden — Procurement module not needed for daily retail.',
-  '/dashboard/analytics': 'Hidden — use Dashboard for daily KPIs.',
-  '/dashboard/revenue-center': 'Hidden — same data as Dashboard.',
-  '/dashboard/business-intelligence': 'Hidden — same data as Dashboard.',
-  '/dashboard/executive/ceo-dashboard': 'Hidden — use Dashboard.',
-  '/dashboard/finance/expenses': 'Partner Hub → Expenses tab এ আছে।',
-  '/dashboard/finance/investments': 'Partner Hub → Investment tab এ আছে।',
-  '/dashboard/finance/withdrawals': 'Partner Hub → Withdrawal tab এ আছে।',
-  '/dashboard/finance/google-sheets-finance': 'Google Workspace → Sheets Sync ব্যবহার করুন।',
-  '/dashboard/shipping': 'Courier Hub দিয়ে Steadfast booking করুন।',
-  '/dashboard/support/live-chat': 'Live chat connect হয়নি।',
-  '/dashboard/support/helpdesk': 'Helpdesk beta — daily ops এ লাগে না।',
-  '/dashboard/company/documents': 'Document upload API connect হয়নি।',
-  '/dashboard/wms/overview': 'WMS beta — single warehouse এ Inventory যথেষ্ট।',
-  '/dashboard/procurement/overview': 'Procurement beta — factory sourcing না হলে লাগে না।',
-  '/dashboard/production/overview': 'Production beta — নিজে manufacture না করলে লাগে না।',
-  '/dashboard/delivery/agents': 'Steadfast courier ব্যবহার করলে নিজের rider লাগে না।',
-  '/dashboard/pos': 'Online store — physical POS লাগলে URL bookmark করুন।',
-}
+/** @deprecated — no hidden primary routes remain; kept for callers. */
+export const NAV_HIDDEN_REASONS: Record<string, string> = {}
 
 export function normalizeAdminHref(href: string): string {
   return href.replace(/\/+$/, '') || '/dashboard'

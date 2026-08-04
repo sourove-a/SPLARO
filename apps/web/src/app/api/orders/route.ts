@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { apiAuthMe, getSessionToken } from '@/lib/server/api-auth'
 import { validateCoupon } from '@/lib/server/coupons'
 import { createOrderViaApi, fetchCustomerOrdersViaApi } from '@/lib/server/api-orders'
 import { cacheOrderInFile } from '@/lib/server/orders'
+import { trackOrderPurchaseMetaCapi } from '@/lib/server/meta-capi'
 import { getCheckoutShippingSettings } from '@/lib/storefront/settings'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
 import { getTrustedClientIp } from '@/lib/server/client-ip'
@@ -105,7 +106,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const limit = await rateLimit(getClientKey(request, 'orders-create'), 8, 60_000)
   if (!limit.ok) {
     return NextResponse.json(
@@ -253,8 +254,18 @@ export async function POST(request: Request) {
       throw new Error('Unable to create order')
     }
 
-    // Dev file cache only — never block the place-order response.
+    // Dev file cache & Meta CAPI server-side event — never block the place-order response.
     void cacheOrderInFile(order)
+
+    const fbpCookie = request.cookies.get('_fbp')?.value
+    const fbcCookie = request.cookies.get('_fbc')?.value
+    const capiAttribution = {
+      ...body.attribution,
+      ...(fbpCookie && !body.attribution?.fbp ? { fbp: fbpCookie } : {}),
+      ...(fbcCookie && !body.attribution?.fbc ? { fbc: fbcCookie } : {}),
+    }
+
+    void trackOrderPurchaseMetaCapi(order, { clientIp, userAgent, attribution: capiAttribution })
 
     const response = NextResponse.json({ order }, { status: 201 })
     if (isNewDeviceId) {

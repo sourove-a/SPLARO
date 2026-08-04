@@ -31,7 +31,8 @@ export function isGenericProductCopy(text?: string | null): boolean {
 
 /**
  * Honest fallback when DB copy is missing or is a seed/QA template.
- * Uses real material / carry / occasion fields — never “quality materials”.
+ * Only uses real merchant fields — never invents “premium fabric” / fit prose.
+ * Returns empty when nothing real exists (caller shows blank, not fake copy).
  */
 export function buildProductDescriptionFallback(input: {
   name: string
@@ -41,31 +42,22 @@ export function buildProductDescriptionFallback(input: {
   category?: string | null | undefined
   categorySlug?: string | null | undefined
 }): string {
-  const name = input.name.trim() || 'SPLARO piece'
+  const name = input.name.trim()
   const material = input.fabricContent?.trim()
   const silhouette = input.fitType?.trim()
   const occasion = input.occasion?.trim()
-  const isAccessory = /accessor|bag|wallet|watch|scarf|belt|tote|crossbody/i.test(
-    `${input.category ?? ''} ${input.categorySlug ?? ''} ${name}`,
-  )
 
-  const materialBit = material
-    ? material.toLowerCase()
-    : isAccessory
-      ? 'considered materials'
-      : 'premium fabric'
-  const shapeBit = silhouette
-    ? silhouette.toLowerCase()
-    : isAccessory
-      ? 'everyday carry profile'
-      : 'considered fit'
-  const occasionBit = occasion ? ` Made for ${occasion.toLowerCase()}.` : ''
-
-  if (isAccessory) {
-    return `${name} in ${materialBit} with a ${shapeBit}.${occasionBit} Quiet details, practical structure — ready for daily wear in Bangladesh.`
+  if (!material && !silhouette && !occasion) {
+    return ''
   }
 
-  return `${name} in ${materialBit} with a ${shapeBit}.${occasionBit} Refined finishing for everyday wear in Bangladesh.`
+  const bits: string[] = []
+  if (name) bits.push(name)
+  if (material) bits.push(`in ${material}`)
+  if (silhouette) bits.push(`${silhouette} fit`)
+  const head = bits.join(' · ')
+  const occasionBit = occasion ? ` Made for ${occasion}.` : ''
+  return `${head}.${occasionBit}`.replace(/\.\./g, '.').trim()
 }
 
 export function parseProductSpecs(

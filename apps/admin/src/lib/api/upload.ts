@@ -61,7 +61,7 @@ export async function createUpscalePreview(file: File): Promise<UpscalePreviewRe
 
 /** Best-effort delete of original + all size siblings for a product pipeline URL. */
 export async function deleteProductPipelineUpload(url: string): Promise<void> {
-  if (!url.includes('/uploads/products/')) return
+  if (!/\/uploads\/products(?:-[a-z]+)?\//.test(url)) return
   try {
     await fetch('/api/upload/product-pipeline', {
       method: 'DELETE',
@@ -82,7 +82,7 @@ export async function uploadAdminImage(
   form.append('file', file)
   form.append('folder', folder)
   form.append('optimize', options.optimize === false ? '0' : '1')
-  if (folder === 'products') {
+  if (folder === 'products' || folder.startsWith('products-')) {
     form.append('pipeline', options.pipeline === false ? '0' : '1')
     if (options.upscalePreviewId) {
       form.append('upscalePreviewId', options.upscalePreviewId)

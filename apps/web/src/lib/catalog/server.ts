@@ -45,12 +45,16 @@ function toProductDetailFromStale(
       return row
     })
 
+  const shortBits = [product.fit ? `${product.fit} fit` : null, product.material]
+    .filter(Boolean)
+    .join(' · ')
+
   return {
     ...card,
-    description: `${product.name} — premium piece from SPLARO.`,
-    shortDescription: `${product.fit} fit · ${product.material}`,
+    description: product.name,
+    ...(shortBits ? { shortDescription: shortBits } : {}),
     sku: product.code,
-    fabricContent: product.material,
+    ...(product.material ? { fabricContent: product.material } : {}),
     variants,
     tags: [product.category, product.status, product.fit].filter(Boolean) as string[],
     metaTitle: product.name,

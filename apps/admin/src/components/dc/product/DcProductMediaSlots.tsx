@@ -4,18 +4,19 @@ import { useCallback, useRef, useState } from 'react'
 import Image from 'next/image'
 
 import { DcIcon } from '@/components/dc/DcIcon'
+import { DcMediaPickModal } from '@/components/dc/product/DcMediaPickModal'
 import { DcField, DcInput } from '@/components/dc/product/DcProductFormPrimitives'
 import { FONT, MONO } from '@/components/dc/tokens'
-import { toastFail } from '@/lib/admin/feedback'
+import { toastFail, toastWarn } from '@/lib/admin/feedback'
 import { uploadAdminImage } from '@/lib/api/upload'
 
 const SLOT_META = [
-  { key: 'main', label: 'Main card thumbnail', hint: 'Drop main photo or browse files', ratio: '1 / 1' },
-  { key: 'front', label: 'Front', hint: 'Drop photo or browse files', ratio: '3 / 4' },
-  { key: 'back', label: 'Back', hint: 'Drop photo or browse files', ratio: '3 / 4' },
-  { key: 'cuff', label: 'Cuff detail', hint: 'Drop photo or browse files', ratio: '3 / 4' },
-  { key: 'model', label: 'On model', hint: 'Drop photo or browse files', ratio: '3 / 4' },
-  { key: 'fabric', label: 'Fabric close-up', hint: 'Drop photo or browse files', ratio: '3 / 4' },
+  { key: 'main', label: 'Main card thumbnail', hint: 'Upload · URL · library', ratio: '1 / 1' },
+  { key: 'front', label: 'Front', hint: 'Upload · URL · library', ratio: '3 / 4' },
+  { key: 'back', label: 'Back', hint: 'Upload · URL · library', ratio: '3 / 4' },
+  { key: 'cuff', label: 'Cuff detail', hint: 'Upload · URL · library', ratio: '3 / 4' },
+  { key: 'model', label: 'On model', hint: 'Upload · URL · library', ratio: '3 / 4' },
+  { key: 'fabric', label: 'Fabric close-up', hint: 'Upload · URL · library', ratio: '3 / 4' },
 ] as const
 
 export function DcProductMediaSlots({
@@ -26,6 +27,7 @@ export function DcProductMediaSlots({
   onVideoUrlChange,
   onAltChange,
   disabled,
+  uploadFolder = 'products',
 }: {
   imageUrls: string[]
   videoUrl: string
@@ -34,8 +36,12 @@ export function DcProductMediaSlots({
   onVideoUrlChange: (url: string) => void
   onAltChange: (alt: string) => void
   disabled?: boolean
+  /** Department folder e.g. products-men — keeps library organised. */
+  uploadFolder?: string
 }) {
   const [busyIdx, setBusyIdx] = useState<number | null>(null)
+  const [urlDrafts, setUrlDrafts] = useState<Record<number, string>>({})
+  const [librarySlot, setLibrarySlot] = useState<number | null>(null)
   const inputRefs = useRef<Array<HTMLInputElement | null>>([])
   const filled = imageUrls.filter(Boolean).length
 
@@ -49,7 +55,6 @@ export function DcProductMediaSlots({
         onImageUrlsChange([])
         return
       }
-      // Dense list for API, preserving order (empty holes dropped only after last filled)
       onImageUrlsChange(slots.slice(0, last + 1).filter(Boolean))
     },
     [imageUrls, onImageUrlsChange],
@@ -59,11 +64,11 @@ export function DcProductMediaSlots({
     if (disabled) return
     setBusyIdx(index)
     try {
-      const res = await uploadAdminImage(file)
-      const url = (res as { url?: string; publicUrl?: string }).url
-        ?? (res as { publicUrl?: string }).publicUrl
+      const res = await uploadAdminImage(file, uploadFolder)
+      const url =
+        (res as { url?: string; publicUrl?: string }).url ??
+        (res as { publicUrl?: string }).publicUrl
       if (!url) throw new Error('Upload returned no URL')
-      // Preserve positional slots when possible
       const slots = Array.from({ length: 6 }, (_, i) => imageUrls[i] ?? '')
       slots[index] = url
       let last = -1
@@ -76,12 +81,26 @@ export function DcProductMediaSlots({
     }
   }
 
+  const applyUrl = (index: number) => {
+    const raw = (urlDrafts[index] ?? '').trim()
+    if (!raw) {
+      toastWarn('Paste an image link first')
+      return
+    }
+    if (!/^https?:\/\//i.test(raw) && !raw.startsWith('/')) {
+      toastWarn('URL must start with https:// or /uploads/…')
+      return
+    }
+    writeSlot(index, raw)
+    setUrlDrafts((prev) => ({ ...prev, [index]: '' }))
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(168px, 1fr))',
           gap: 12,
         }}
       >
@@ -207,6 +226,62 @@ export function DcProductMediaSlots({
                   {index === 0 ? 'MAIN' : String(index + 1).padStart(2, '0')}
                 </span>
               </span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input
+                  value={urlDrafts[index] ?? ''}
+                  onChange={(e) => setUrlDrafts((prev) => ({ ...prev, [index]: e.target.value }))}
+                  placeholder="https://… or /uploads/…"
+                  disabled={disabled}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    height: 30,
+                    padding: '0 8px',
+                    borderRadius: 8,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface)',
+                    color: 'var(--ink)',
+                    font: `400 11px/1 ${MONO}`,
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => applyUrl(index)}
+                  title="Use link"
+                  style={{
+                    height: 30,
+                    padding: '0 8px',
+                    borderRadius: 8,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface)',
+                    cursor: 'pointer',
+                    font: `600 10px/1 ${FONT}`,
+                    color: 'var(--ink-2)',
+                  }}
+                >
+                  Link
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setLibrarySlot(index)}
+                  title="Pick from media library"
+                  style={{
+                    height: 30,
+                    width: 30,
+                    display: 'grid',
+                    placeItems: 'center',
+                    borderRadius: 8,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface)',
+                    cursor: 'pointer',
+                    color: 'var(--ink-2)',
+                  }}
+                >
+                  <DcIcon name="icon-folder-open" size={12} />
+                </button>
+              </div>
             </div>
           )
         })}
@@ -234,8 +309,18 @@ export function DcProductMediaSlots({
       </div>
 
       <span style={{ font: `400 11px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
-        {filled} of 6 filled · first image is the storefront card thumbnail
+        {filled} of 6 filled · first image is the storefront card thumbnail · uploads go to{' '}
+        <code style={{ fontFamily: MONO }}>{uploadFolder}</code>
       </span>
+
+      <DcMediaPickModal
+        open={librarySlot != null}
+        preferredFolder={uploadFolder}
+        onClose={() => setLibrarySlot(null)}
+        onPick={(picked) => {
+          if (librarySlot != null) writeSlot(librarySlot, picked)
+        }}
+      />
     </div>
   )
 }

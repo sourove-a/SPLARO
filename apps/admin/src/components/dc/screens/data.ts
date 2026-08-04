@@ -1160,7 +1160,6 @@ Object.assign(SCREENS, <Record<string, ScreenDef>>{
 
   footwear: () => [
     subnav(),
-    B.beta('/dashboard/footwear-page', 'Not in primary nav · home / hero / legal / menu cover the storefront. Visibility switches here save immediately; text still needs Save.'),
     B.vis('Page sections', '', [
       { id:'fw-hero', label:'Hero banner', sub:'heroBanner.visible', on:true },
       { id:'fw-cat', label:'Shop by category', sub:'shopByCategory.visible', on:true },
@@ -1182,8 +1181,8 @@ Object.assign(SCREENS, <Record<string, ScreenDef>>{
 
   theme: () => [
     subnav(),
-    B.beta('/dashboard/theme-builder', 'Read-only. There is no theme editor in this build — tokens come from the storefront settings and the Tailwind config.', 'Open storefront settings', 'settings'),
-    B.table('Brand and theme tokens', 'read-only', ['Token','Value','Source'], [
+    B.banner('ok', 'icon-check', 'Theme = storefront branding. Logo, favicon and footer copy save via Settings API — not a CSS theme canvas.'),
+    B.table('Brand and theme tokens', 'branding panel', ['Token','Value','Source'], [
       [{ v:'Primary' }, { m:'#' + '712eff' }, { v:'tailwind.config.ts' }],
       [{ v:'Ink · light' }, { m:'#' + '0a0a0a' }, { v:'tailwind.config.ts' }],
       [{ v:'Ink · dark' }, { m:'#' + 'f4f4f6' }, { v:'tailwind.config.ts' }],
@@ -1192,36 +1191,36 @@ Object.assign(SCREENS, <Record<string, ScreenDef>>{
       [{ v:'Store name' }, { v:'SPLARO' }, { v:'Settings → Branding' }],
       [{ v:'Support phone' }, { m:'+880 1711-000111' }, { v:'Settings → Contact' }],
     ], 'main'),
-    B.list('Why this is read-only', '', [
-      { icon:'icon-lock', color:'var(--warn)', title:'Tokens live in code', sub:'a visual editor would drift from the repo', value:'BY DESIGN' },
-      { icon:'icon-settings', color:'var(--violet)', title:'Edit in settings', sub:'brand, contact and logo are editable there', value:'OPEN' },
+    B.list('Where to edit', '', [
+      { icon:'icon-palette', color:'var(--violet)', title:'Theme tab', sub:'logo, favicon, footer copy', value:'LIVE' },
+      { icon:'icon-settings', color:'var(--info)', title:'Full settings', sub:'branding section is the same fields', value:'OPEN' },
     ], 'side'),
   ],
 
   lookbooks: () => [
     subnav(),
-    B.beta('/dashboard/lookbooks', 'Lookbooks are collections shown as editorial pages. Status is display-only for now — publishing still happens in Collections.'),
+    B.banner('ok', 'icon-check', 'Lookbooks are product collections — create/edit/toggle here; assign products in Collections.'),
     B.pub('Lookbooks', [
-      { id:'lb-1', title:'The Eid Edit', sub:'42 products · from collection isActive', thumb:true, on:true, locked:true, editLabel:'View', lockNote:'Publish still lives in Collections — this page only reports status.' },
-      { id:'lb-2', title:'Heritage Saree', sub:'24 products', thumb:true, on:true, locked:true, editLabel:'View', lockNote:'Publish still lives in Collections — this page only reports status.' },
-      { id:'lb-3', title:'Everyday Cotton', sub:'31 products', thumb:true, on:true, locked:true, editLabel:'View', lockNote:'Publish still lives in Collections — this page only reports status.' },
-      { id:'lb-4', title:'Winter Preview', sub:'9 products · collection is a draft', thumb:true, on:false, locked:true, editLabel:'View', lockNote:'Publish still lives in Collections — this page only reports status.' },
-    ], 'full', 'New lookbook', ['info', 'Name the lookbook', 'It is created from an existing collection — nothing is published yet.']),
+      { id:'lb-1', title:'The Eid Edit', sub:'42 products · from collection isActive', thumb:true, on:true, editLabel:'Edit' },
+      { id:'lb-2', title:'Heritage Saree', sub:'24 products', thumb:true, on:true, editLabel:'Edit' },
+      { id:'lb-3', title:'Everyday Cotton', sub:'31 products', thumb:true, on:true, editLabel:'Edit' },
+      { id:'lb-4', title:'Winter Preview', sub:'9 products · collection is a draft', thumb:true, on:false, editLabel:'Edit' },
+    ], 'full', 'New lookbook', ['ok', 'Creates a collection', 'Saved via Collections API after verify.']),
   ],
 
   reels: () => [
     subnav(),
-    B.beta('/dashboard/reels', 'Reels are video banners. Uploading happens in Media Library — this page only lists and reports.'),
+    B.banner('ok', 'icon-check', 'Reels are banners with position=reels. Upload media, then save — green only after the banners API confirms.'),
     B.pub('Reels', [
-      { id:'rl-1', title:'Eid Edit studio cut', sub:'18s · 1080×1920 · 4.2 MB', thumb:true, on:true, locked:true, editLabel:'Details', lockNote:'Live and hidden counts are display-only in this build.' },
-      { id:'rl-2', title:'Jamdani weaving', sub:'24s · 1080×1920 · 6.1 MB', thumb:true, on:true, locked:true, editLabel:'Details', lockNote:'Live and hidden counts are display-only in this build.' },
-      { id:'rl-3', title:'Behind the fitting', sub:'12s · 1080×1920 · 2.8 MB', thumb:true, on:false, locked:true, editLabel:'Details', lockNote:'Live and hidden counts are display-only in this build.' },
-    ], 'full', 'Upload reel', ['warn', 'Use Media Library', 'Reels upload through Media Library, then appear here automatically.']),
+      { id:'rl-1', title:'Eid Edit studio cut', sub:'18s · 1080×1920 · 4.2 MB', thumb:true, on:true, editLabel:'Details' },
+      { id:'rl-2', title:'Jamdani weaving', sub:'24s · 1080×1920 · 6.1 MB', thumb:true, on:true, editLabel:'Details' },
+      { id:'rl-3', title:'Behind the fitting', sub:'12s · 1080×1920 · 2.8 MB', thumb:true, on:false, editLabel:'Details' },
+    ], 'full', 'Add reel', ['ok', 'Upload then save', 'position=reels on the banners API.']),
   ],
 
   blog: () => [
     subnav(),
-    B.beta('/dashboard/blog', 'New posts are always created as Draft. There is no body editor in this panel yet — write the post in CMS.'),
+    B.banner('ok', 'icon-check', 'Blog CRUD against /admin/content/blog — draft, publish, delete.'),
     B.tabs('blog', [['all','All','12'],['pub','Published','7'],['draft','Draft','4'],['sched','Scheduled','1']]),
     B.pub('Posts', [
       { id:'bp-1', title:'How to measure yourself for an abaya', sub:'published 18 Jul · 1,240 reads', url:'/blog/measure-abaya', on:true, badgeOn:'PUBLISHED', badgeOff:'DRAFT', btnOff:'Unpublish', btnOn:'Publish' },
@@ -1233,18 +1232,17 @@ Object.assign(SCREENS, <Record<string, ScreenDef>>{
 
   cms: () => [
     subnav(),
-    B.beta('/dashboard/cms', 'CMS aggregates static pages and published blog posts. There is no page creator here — static pages are edited in Legal Pages.'),
+    B.banner('ok', 'icon-check', 'CMS site pages (legal excluded) — create, edit, publish, delete via content pages API.'),
     B.pub('All pages', [
-      { id:'cm-1', title:'Terms of service', sub:'static · edited in Legal Pages', url:'/pages/terms', on:true, badgeOn:'LIVE', badgeOff:'HIDDEN', editLabel:'Edit in Legal Pages', editToast:'Opens Legal Pages with this page selected.', locked:true, btnOn:'View live', lockNote:'Static pages are always live — visibility is not togglable.' },
-      { id:'cm-2', title:'Privacy policy', sub:'static · edited in Legal Pages', url:'/pages/privacy', on:true, badgeOn:'LIVE', badgeOff:'HIDDEN', editLabel:'Edit in Legal Pages', editToast:'Opens Legal Pages with this page selected.', locked:true, btnOn:'View live', lockNote:'Static pages are always live — visibility is not togglable.' },
-      { id:'cm-3', title:'Delivery information', sub:'static · draft, not in sitemap', url:'/pages/delivery', on:false, badgeOn:'LIVE', badgeOff:'DRAFT', editLabel:'Edit in Legal Pages', editToast:'Opens Legal Pages with this page selected.', locked:true, btnOn:'View live', lockNote:'Static pages are always live — visibility is not togglable.' },
-      { id:'cm-4', title:'How to measure yourself for an abaya', sub:'blog · published 18 Jul', url:'/blog/measure-abaya', on:true, badgeOn:'LIVE', badgeOff:'HIDDEN', editLabel:'Open in Blog', editToast:'Opens the Blog list filtered to this post.', locked:true, btnOn:'View live', lockNote:'Publishing is handled on the Blog page.' },
-    ], 'full', 'New page', ['warn', 'No page creator here', 'Static pages are created in Legal Pages; posts in Blog.']),
+      { id:'cm-1', title:'Campaign FAQ', sub:'site page · CMS', url:'/pages/campaign-faq', on:true, badgeOn:'LIVE', badgeOff:'DRAFT', btnOff:'Unpublish', btnOn:'Publish' },
+      { id:'cm-2', title:'Size tips', sub:'site page · CMS', url:'/pages/size-tips', on:true, badgeOn:'LIVE', badgeOff:'DRAFT', btnOff:'Unpublish', btnOn:'Publish' },
+      { id:'cm-3', title:'Delivery information', sub:'draft, not in sitemap', url:'/pages/delivery', on:false, badgeOn:'LIVE', badgeOff:'DRAFT', btnOff:'Unpublish', btnOn:'Publish' },
+    ], 'full', 'New page', ['ok', 'Starts as draft', 'Publish when ready. Legal stays under Legal Pages.']),
   ],
 
   landing: () => [
     subnav(),
-    B.beta('/dashboard/landing-pages', 'Campaign landing pages at /lp/{slug}. Created unpublished — Publish is the only thing that makes one reachable.'),
+    B.banner('ok', 'icon-check', 'Campaign landing pages at /lp/{slug}. CRUD via content pages API — publish when ready.'),
     B.pub('Landing pages', [
       { id:'lp-1', title:'Eid Edit · Meta ads', sub:'created 12 Jul · 4,820 visits', url:'/lp/eid-edit-2026', on:true },
       { id:'lp-2', title:'VIP early access', sub:'created 18 Jul · 46 invited', url:'/lp/vip-early-access', on:true },

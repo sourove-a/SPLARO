@@ -237,6 +237,16 @@ export function deleteProductImage(productId: string, imageId: string) {
   return apiFetch<{ deleted: boolean }>(`/admin/products/${productId}/images/${imageId}`, { method: 'DELETE' })
 }
 
+export function addProductImage(
+  productId: string,
+  data: { url: string; altText?: string; isDefault?: boolean },
+) {
+  return apiFetch<{ id: string; url: string }>(`/admin/products/${productId}/images`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
 export function fetchProduct(id: string) {
   return apiFetch<ApiProduct>(`/admin/products/${id}`)
 }

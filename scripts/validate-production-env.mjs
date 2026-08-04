@@ -130,6 +130,12 @@ for (const flag of ['PAYMENT_DEV_STUB', 'COURIER_DEV_STUB']) {
   }
 }
 
+if (process.env.ALLOW_DEMO_CATALOG_SEED?.trim() === 'true') {
+  warnings.push(
+    'ALLOW_DEMO_CATALOG_SEED=true — empty production catalog will auto-seed Unsplash demos on API boot. Leave false for an honest empty shop.',
+  )
+}
+
 // Redis required on VPS for OTP rate-limits + courier retry queues
 if (process.env.REDIS_ENABLED?.trim() === 'false') {
   errors.push(

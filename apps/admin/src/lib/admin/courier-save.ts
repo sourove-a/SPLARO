@@ -44,6 +44,26 @@ export function isRealCourierBooking(r: {
   )
 }
 
+/** True only for a live Steadfast CN / tracking — never DEV-* stubs. */
+export function isLiveCourierConsignment(
+  consignmentId?: string | null,
+  trackingCode?: string | null,
+): boolean {
+  const cid = consignmentId?.trim() || ''
+  const track = trackingCode?.trim() || ''
+  if (cid.startsWith('DEV-') || track.startsWith('DEV-')) return false
+  return Boolean(cid || track)
+}
+
+export function isDevCourierConsignment(
+  consignmentId?: string | null,
+  trackingCode?: string | null,
+): boolean {
+  const cid = consignmentId?.trim() || ''
+  const track = trackingCode?.trim() || ''
+  return cid.startsWith('DEV-') || track.startsWith('DEV-')
+}
+
 export async function verifyBulkCourierSamplePersisted(
   results: Array<{
     orderId: string

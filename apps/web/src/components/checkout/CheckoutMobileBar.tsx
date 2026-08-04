@@ -39,8 +39,9 @@ export function CheckoutMobileBar({
 
         const visibleBottom = viewport.offsetTop + viewport.height
         const currentOffset = keyboardOffsetRef.current
-        const coveredByKeyboard = bar.getBoundingClientRect().bottom - visibleBottom
-        const nextOffset = Math.max(0, Math.round(currentOffset + coveredByKeyboard))
+        const rect = bar.getBoundingClientRect()
+        const unshiftedBottom = rect.bottom + currentOffset
+        const nextOffset = Math.max(0, Math.round(unshiftedBottom - visibleBottom))
         if (Math.abs(nextOffset - currentOffset) <= 1) return
 
         keyboardOffsetRef.current = nextOffset

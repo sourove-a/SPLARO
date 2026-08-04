@@ -34,7 +34,15 @@ export interface PartnerAccount {
   totalExpenseShare: number
   totalProfitShare: number
   currentBalance: number
+  inviteStatus?: string | null
+  inviteSentAt?: string | null
+  inviteConfirmedAt?: string | null
   lastTransaction?: unknown
+}
+
+export interface CreatePartnerResult {
+  partner: PartnerAccount
+  inviteEmailSent: boolean
 }
 
 export interface ExpenseRow {
@@ -148,15 +156,22 @@ export function fetchPartners() {
 export function createPartner(body: {
   name: string
   slug?: string
-  email?: string
+  email: string
   phone?: string
   sharePercent: number
   notes?: string
   createdBy?: string
 }) {
-  return apiFetch<PartnerAccount>('/partners', {
+  return apiFetch<CreatePartnerResult>('/partners', {
     method: 'POST',
     body: JSON.stringify(body),
+  })
+}
+
+export function resendPartnerInvite(slug: string) {
+  return apiFetch<CreatePartnerResult>(`/partners/${encodeURIComponent(slug)}/resend-invite`, {
+    method: 'POST',
+    body: JSON.stringify({}),
   })
 }
 

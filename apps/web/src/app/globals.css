@@ -32,11 +32,12 @@
   --hero-slide-height-desktop: clamp(680px, 78vh, 860px);
   --hero-image-ratio-mobile: 900 / 1200;
   --hero-image-ratio-desktop: 1920 / 760;
-  --header-nav-height: 5.5rem;
+  /* Slim header (~18% shorter) — locks viewport for PDP / catalog. */
+  --header-nav-height: 4.5rem;
   --header-float-pad: 0;
   --header-float-max: 1680px;
   --header-float-radius: 0;
-  --header-mobile-row: 4.25rem;
+  --header-mobile-row: 3.75rem;
   --header-mobile-pad: 0;
   --header-gap: 0.4rem;
   --header-height: var(--header-nav-height);
@@ -70,13 +71,15 @@
   --glass-highlight: inset 0 1.5px 0 rgba(255, 255, 255, 1);
   /* Plan aliases (--glass-bg / Pearl) live in styles/glass-tokens.css */
 
-  /* ── Header — Pearl frost ── */
-  --header-glass-bg: var(--pearl-frost, var(--glass-white));
-  --header-glass-bg-scrolled: rgba(255, 255, 255, 0.97);
-  --header-glass-blur: var(--pearl-blur-soft, blur(16px) saturate(1.28));
-  --header-glass-blur-scrolled: var(--pearl-blur-soft, blur(16px) saturate(1.32));
-  --header-glass-border: var(--pearl-edge, rgba(255, 255, 255, 0.96));
-  --header-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 1);
+  /* ── Header — ILYN-style frosted glass (Pearl family) ── */
+  --header-glass-bg: rgba(255, 255, 255, 0.55);
+  --header-glass-bg-scrolled: rgba(255, 255, 255, 0.7);
+  --header-glass-blur: blur(12px) saturate(1.8);
+  --header-glass-blur-scrolled: blur(12px) saturate(1.8);
+  --header-glass-border: rgba(255, 255, 255, 0.2);
+  --header-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --header-glass-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --header-glass-duration: 0.4s;
   --header-nav-pill-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 1),
     0 4px 20px rgba(16, 22, 36, 0.05),
@@ -197,7 +200,7 @@ html {
   /* auto on load — smooth + boot scrollTo(0) caused a white flash on reload.
      Anchor smooth is enabled after boot via [data-splaro-booted]. */
   scroll-behavior: auto;
-  /* Windows classic scrollbars: reserve gutter so modal scroll-locks don't shift layout */
+  /* Always reserve scrollbar width — accordion expand must not shift the page sideways. */
   scrollbar-gutter: stable;
   scroll-padding-top: var(--site-content-pad);
   -webkit-font-smoothing: antialiased;
@@ -1074,10 +1077,23 @@ html[data-scroll-profile='mobile'].lenis [data-lenis-prevent] {
 }
 
 @media (min-width: 1024px) {
+  /* Default: no utility topbar (shop/PDP/etc). Home opts in via data-topbar=visible. */
   :root {
+    --site-header-offset: var(--header-height);
+    --site-content-pad: calc(var(--header-height) + var(--header-gap));
+    --page-content-top: calc(var(--header-height) + 0.35rem);
+  }
+
+  html[data-topbar='visible'] {
     --site-header-offset: calc(var(--header-height) + var(--topbar-height));
     --site-content-pad: calc(var(--header-height) + var(--topbar-height) + var(--header-gap));
     --page-content-top: calc(var(--site-header-offset) + 0.35rem);
+  }
+
+  html[data-topbar='hidden'] {
+    --site-header-offset: var(--header-height);
+    --site-content-pad: calc(var(--header-height) + var(--header-gap));
+    --page-content-top: calc(var(--header-height) + 0.35rem);
   }
 }
 
@@ -1116,15 +1132,14 @@ html[data-scroll-profile='mobile'].lenis [data-lenis-prevent] {
     pointer-events: none;
   }
 
-  html[data-topbar='hidden'] {
-    --site-header-offset: var(--header-height);
-    --site-content-pad: calc(var(--header-height) + var(--header-gap));
-    --page-content-top: calc(var(--header-height) + 0.35rem);
+  .site-header-glass.site-header-glass--topbar-collapsed,
+  html[data-topbar='hidden'] .site-header-glass,
+  html:not([data-topbar]) .site-header-glass {
+    top: 0;
   }
 
-  .site-header-glass.site-header-glass--topbar-collapsed,
-  html[data-topbar='hidden'] .site-header-glass {
-    top: 0;
+  html[data-topbar='visible'] .site-header-glass {
+    top: var(--topbar-height);
   }
 }
 
@@ -5550,26 +5565,35 @@ html[data-chrome-pin='1'] .site-header-glass {
   gap: 0.7rem;
   flex: 1;
   min-width: 0;
-  min-height: 2.85rem;
-  padding: 0 0.9rem 0 1.05rem;
+  min-height: 2.7rem;
+  padding: 0 0.85rem 0 1rem;
   overflow: hidden;
   border-radius: 999px;
-  border: 1px solid rgba(16, 17, 20, 0.07);
+  border: 1px solid rgba(16, 17, 20, 0.08);
   background:
     linear-gradient(
       165deg,
-      rgba(255, 255, 255, 0.98) 0%,
-      rgba(250, 250, 252, 0.94) 100%
+      rgba(255, 255, 255, 0.99) 0%,
+      rgba(252, 252, 254, 0.96) 100%
     );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 1),
-    inset 0 -0.5px 0 rgba(16, 17, 20, 0.03),
-    0 1px 2px rgba(16, 17, 20, 0.03),
-    0 10px 28px rgba(16, 17, 20, 0.05);
+    inset 0 -0.5px 0 rgba(16, 17, 20, 0.025),
+    0 1px 2px rgba(16, 17, 20, 0.025),
+    0 8px 24px rgba(16, 17, 20, 0.045);
   transition:
-    border-color 320ms cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 320ms cubic-bezier(0.4, 0, 0.2, 1),
-    background 320ms cubic-bezier(0.4, 0, 0.2, 1);
+    border-color 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    background 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.site-header-search__field:hover {
+  border-color: rgba(16, 17, 20, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 2px 4px rgba(16, 17, 20, 0.03),
+    0 12px 28px rgba(16, 17, 20, 0.06);
 }
 
 .site-header-search__field-shine {
@@ -5608,7 +5632,7 @@ html[data-chrome-pin='1'] .site-header-glass {
   z-index: 1;
   flex: 1;
   min-width: 0;
-  height: 2.85rem;
+  height: 2.7rem;
   margin: 0;
   padding: 0;
   border: 0;
@@ -7700,23 +7724,27 @@ html[data-chrome-pin='1'] .site-header-glass {
   background: var(--header-glass-bg);
   backdrop-filter: var(--header-glass-blur);
   -webkit-backdrop-filter: var(--header-glass-blur);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.85);
+  border-bottom: 1px solid var(--header-glass-border);
   box-shadow:
     var(--header-glass-highlight),
     0 4px 30px rgba(17, 17, 17, 0.04),
     0 1px 0 rgba(17, 17, 17, 0.03);
   transform: translateZ(0);
+  will-change: transform, background;
   /* Never animate `top` — topbar hide + header top 48→0 left a blank gap
      and read as sticky-header jitter while Lenis was still settling. */
   transition:
-    background 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 520ms cubic-bezier(0.22, 1, 0.36, 1);
+    background var(--header-glass-duration) var(--header-glass-ease),
+    box-shadow var(--header-glass-duration) var(--header-glass-ease),
+    border-color var(--header-glass-duration) var(--header-glass-ease),
+    backdrop-filter var(--header-glass-duration) var(--header-glass-ease),
+    -webkit-backdrop-filter var(--header-glass-duration) var(--header-glass-ease);
 }
 
 @media (min-width: 1024px) {
+  /* Topbar only on home — non-home headers sit at top:0 (see data-topbar rules). */
   .site-header-glass {
-    top: var(--topbar-height);
+    top: 0;
   }
 }
 
@@ -7782,9 +7810,9 @@ html[data-chrome-pin='1'] .site-header-glass {
 
   .site-header-glass--scrolled {
     background: var(--header-glass-bg-scrolled);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    border-bottom-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: var(--header-glass-blur-scrolled);
+    -webkit-backdrop-filter: var(--header-glass-blur-scrolled);
+    border-bottom-color: var(--header-glass-border);
     box-shadow:
       var(--header-glass-highlight),
       0 8px 32px rgba(17, 17, 17, 0.06);
@@ -7884,8 +7912,8 @@ html[data-chrome-pin='1'] .site-header-glass {
   }
 
   .site-header-glass__icon-btn svg {
-    width: 1.35rem;
-    height: 1.35rem;
+    width: 1.375rem;
+    height: 1.375rem;
   }
 
   .site-header-glass__icon-btn:hover {
@@ -7893,7 +7921,12 @@ html[data-chrome-pin='1'] .site-header-glass {
     box-shadow: none;
     border-color: transparent;
     transform: none;
-    opacity: 0.72;
+    opacity: 1;
+  }
+
+  .site-header-glass__icon-btn:hover svg {
+    opacity: 1;
+    transform: scale(1.1);
   }
 
   .site-header-glass__menu-btn:active,
@@ -7916,26 +7949,27 @@ html[data-chrome-pin='1'] .site-header-glass {
 
 .site-header-glass--scrolled {
   background: var(--header-glass-bg-scrolled);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border-bottom-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: var(--header-glass-blur-scrolled);
+  -webkit-backdrop-filter: var(--header-glass-blur-scrolled);
+  border-bottom-color: var(--header-glass-border);
   box-shadow:
     var(--header-glass-highlight),
-    0 4px 20px rgba(17, 17, 17, 0.04),
-    0 1px 4px rgba(17, 17, 17, 0.02);
+    0 8px 28px rgba(17, 17, 17, 0.06),
+    0 1px 4px rgba(17, 17, 17, 0.03);
 }
 
+/*
+ * Header height stays locked on scroll — only glass/blur changes.
+ * Shrinking the row (old 5.5→3.75rem) made the whole page jump when
+ * accordions opened and scroll position crossed the scrolled threshold.
+ */
 .site-header-glass--scrolled .site-header-glass__row {
-  min-height: 3.5rem;
+  min-height: var(--header-mobile-row);
 }
 
 @media (min-width: 1024px) {
   .site-header-glass--scrolled .site-header-glass__row {
-    min-height: 3.75rem;
-  }
-
-  .site-header-glass--scrolled .site-header-glass__nav-link {
-    font-size: 0.72rem;
+    min-height: var(--header-nav-height);
   }
 }
 
@@ -7969,7 +8003,7 @@ html[data-chrome-pin='1'] .site-header-glass {
 
 @media (min-width: 640px) {
   .site-header-glass__row {
-    min-height: 4.5rem;
+    min-height: var(--header-mobile-row);
     padding: 0 1.25rem;
   }
 }
@@ -8132,8 +8166,14 @@ html[data-chrome-pin='1'] .site-header-glass {
   background: transparent;
   cursor: pointer;
   font-family: inherit;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   transition:
-    color 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    color var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1)),
+    background var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1)),
+    border-color var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1)),
+    box-shadow var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1)),
     transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 280ms ease;
   -webkit-tap-highlight-color: transparent;
@@ -8168,9 +8208,12 @@ html[data-chrome-pin='1'] .site-header-glass {
 
 .site-header-glass__nav-link:hover:not(.site-header-glass__nav-link--open) {
   color: #111111;
-  background: rgba(255, 255, 255, 0.62);
-  border: 1px solid rgba(255, 255, 255, 0.82);
-  box-shadow: 0 6px 20px rgba(17, 17, 17, 0.06);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 20px rgba(186, 196, 210, 0.22),
+    0 4px 14px rgba(16, 22, 36, 0.06);
   transform: translateY(-1px);
 }
 
@@ -8323,14 +8366,14 @@ html[data-chrome-pin='1'] .site-header-glass {
   z-index: 3;
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 1.25rem;
   margin-left: auto;
   overflow: visible;
 }
 
 @media (min-width: 1024px) {
   .site-header-glass__actions {
-    gap: 0.6rem;
+    gap: 1.5rem;
   }
 }
 
@@ -8349,64 +8392,84 @@ html[data-chrome-pin='1'] .site-header-glass {
   justify-content: center;
   width: 2.65rem;
   height: 2.65rem;
-  border: 1px solid rgba(255, 255, 255, 0.95);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
-  /* No backdrop-filter: it forces border-radius clipping in Chromium/WebKit
-     and chops the cart badge + white disk edge. Glass paint is in premium-icons.css. */
+  background: transparent;
+  /* No glass disk — ILYN linear glyphs on the frosted header. */
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  color: #111111;
-  box-shadow: var(--header-icon-shadow);
+  color: rgba(0, 0, 0, 0.92);
+  box-shadow: none;
   transition:
-    transform var(--duration-hover) var(--ease-out-expo),
-    box-shadow var(--duration-hover) var(--ease-out-expo),
-    background var(--duration-hover) var(--ease-out-expo),
-    border-color var(--duration-hover) var(--ease-out-expo),
-    color var(--duration-hover) var(--ease-out-expo);
+    color 0.3s ease,
+    background 0.3s ease,
+    border-color 0.3s ease,
+    opacity 0.3s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
 @media (min-width: 1024px) {
   .site-header-glass__icon-btn {
-    width: 48px;
-    height: 48px;
+    width: 2.65rem;
+    height: 2.65rem;
   }
 }
 
 .site-header-glass__icon-btn:hover {
-  background: rgba(255, 255, 255, 0.92);
-  border-color: rgba(255, 255, 255, 1);
-  color: rgba(17, 17, 17, 0.78);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 3px 10px rgba(17, 17, 17, 0.05);
+  background: transparent;
+  border-color: transparent;
+  color: rgba(0, 0, 0, 1);
+  box-shadow: none;
 }
 
 .site-header-glass__icon-btn:active {
   transform: scale(var(--press-scale));
   transition-duration: 80ms;
-  box-shadow: var(--header-icon-shadow);
+  box-shadow: none;
 }
 
 .site-header-glass__icon-btn svg {
-  width: 1.12rem;
-  height: 1.12rem;
+  width: 1.375rem;
+  height: 1.375rem;
+  opacity: 1;
+  color: inherit;
+  stroke: currentColor;
+  stroke-width: 2;
+  transition:
+    transform 0.3s ease,
+    opacity 0.3s ease,
+    color 0.3s ease;
+  transform-origin: center;
+}
+
+.site-header-glass__icon-btn:hover svg {
+  opacity: 1;
+  transform: scale(1.1);
 }
 
 .site-header-glass__nav-icon {
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.375rem;
+  height: 1.375rem;
   color: inherit;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
+.site-header-glass__nav-icon--search,
+.site-header-glass__search-svg {
+  width: 1.375rem;
+  height: 1.375rem;
+}
+
 .site-header-glass__nav-icon--bag {
-  width: 1.18rem;
-  height: 1.18rem;
+  width: 1.375rem;
+  height: 1.375rem;
   /* Optical: bag reads a hair smaller than person glyph */
   transform: translateY(0.5px);
+}
+
+.site-header-glass__icon-btn:hover .site-header-glass__nav-icon--bag {
+  transform: translateY(0.5px) scale(1.1);
 }
 
 .site-header-glass__count-badge {
@@ -8452,8 +8515,8 @@ html[data-chrome-pin='1'] .site-header-glass {
 
 .site-header-glass__nav-icon {
   display: block;
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.375rem;
+  height: 1.375rem;
   color: inherit;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -8461,8 +8524,8 @@ html[data-chrome-pin='1'] .site-header-glass {
 }
 
 .site-header-glass__nav-icon--bag {
-  width: 1.18rem;
-  height: 1.18rem;
+  width: 1.375rem;
+  height: 1.375rem;
   /* Optical: bag reads a hair smaller than person glyph */
   transform: translateY(0.5px);
 }
@@ -8474,12 +8537,19 @@ html[data-chrome-pin='1'] .site-header-glass {
     transition-duration: 0.01ms;
   }
 
+  .site-header-glass__icon-btn svg,
+  .site-header-glass__nav-icon--bag {
+    transition-duration: 0.01ms;
+  }
+
   .site-header-glass__nav-link:hover,
   .site-header-glass__nav-link--active,
   .site-header-glass__nav-link--open,
   .site-header-glass__icon-btn:hover,
   .site-header-glass__icon-btn:active,
-  .site-header-glass__nav-link:active {
+  .site-header-glass__nav-link:active,
+  .site-header-glass__icon-btn:hover svg,
+  .site-header-glass__icon-btn:hover .site-header-glass__nav-icon--bag {
     transform: none;
   }
 

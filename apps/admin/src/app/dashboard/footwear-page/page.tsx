@@ -1,25 +1,8 @@
 'use client'
 
-import { DcModuleHost } from '@/components/dc/screens/DcModuleHost'
-import { FootwearPagePanel } from '@/components/content/FootwearPagePanel'
-import { getNavItemByHref } from '@/lib/navigation/admin-nav'
+import { DcFootwearPage } from '@/components/dc/screens/DcFootwearPage'
 
-const HREF = '/dashboard/footwear-page'
-
+/** Dedicated route — same live DC screen as the catch-all bespoke map. */
 export default function FootwearPageAdmin() {
-  const navItem = getNavItemByHref(HREF)
-  if (!navItem) {
-    return (
-      <div className="dc-detail-host p-6">
-        <FootwearPagePanel />
-      </div>
-    )
-  }
-
-  // Prefer designed live host when prototype screen key exists.
-  return (
-    <DcModuleHost navItem={navItem} moduleHref={HREF} title="Footwear Page" screen="footwear">
-      <FootwearPagePanel />
-    </DcModuleHost>
-  )
+  return <DcFootwearPage />
 }

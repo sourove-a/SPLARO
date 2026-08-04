@@ -8,7 +8,7 @@ import { DcIcon } from '@/components/dc/DcIcon'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider, useDcScreen } from '@/components/dc/DcScreenContext'
 import { DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
-import { DcModal } from '@/components/dc/DcModal'
+import { DcField, DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
@@ -19,7 +19,11 @@ import {
   syncSheet,
   type SheetsDashboardSheet,
 } from '@/lib/api/finance'
-import { fetchGoogleSyncLogs } from '@/lib/api/google-workspace'
+import {
+  createDefaultSpreadsheet,
+  fetchGoogleSyncLogs,
+  linkGoogleSpreadsheet,
+} from '@/lib/api/google-workspace'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 
 const card = {
@@ -144,8 +148,18 @@ function DcGoogleSheetsBody() {
   const syncOne = useMutation({ mutationFn: (t: string) => syncSheet(t), onSuccess: invalidate })
   const syncAll = useMutation({ mutationFn: () => syncAllSheets(), onSuccess: invalidate })
   const retry = useMutation({ mutationFn: retryFailedSheets, onSuccess: invalidate })
+  const createSheet = useMutation({
+    mutationFn: createDefaultSpreadsheet,
+    onSuccess: invalidate,
+  })
+  const linkSheet = useMutation({
+    mutationFn: (spreadsheetUrl: string) => linkGoogleSpreadsheet({ spreadsheetUrl }),
+    onSuccess: invalidate,
+  })
 
   const [confirmAll, setConfirmAll] = useState(false)
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkUrl, setLinkUrl] = useState('')
 
   const sheets = useMemo(() => dash.data?.sheets ?? [], [dash.data])
   const stats = dash.data?.stats
@@ -156,6 +170,48 @@ function DcGoogleSheetsBody() {
   const failing = sheets.filter((s) => statusTone(s) === 'bad')
   const unconfigured = sheets.filter((s) => !s.configured)
   const neverSynced = sheets.filter((s) => s.configured && !s.lastSync)
+  const needsSpreadsheet = Boolean(conn?.workspaceConnected && !conn?.spreadsheetLinked)
+
+  const runCreateSpreadsheet = () => {
+    createSheet.mutate(undefined, {
+      onSuccess: (res) => {
+        if (!res?.spreadsheetId) {
+          toast('bad', 'Create failed', 'API did not return a spreadsheet id — nothing was linked.')
+          return
+        }
+        toast(
+          'ok',
+          'Spreadsheet created',
+          res.spreadsheetUrl
+            ? 'Linked to this store. Open it from the banner above.'
+            : 'Linked to this store.',
+        )
+      },
+      onError: (err) =>
+        toast('bad', 'Create failed', err instanceof Error ? err.message : 'Check Google connection'),
+    })
+  }
+
+  const runLinkSpreadsheet = () => {
+    const url = linkUrl.trim()
+    if (!url) {
+      toast('warn', 'URL required', 'Paste a Google Sheets URL or spreadsheet id.')
+      return
+    }
+    linkSheet.mutate(url, {
+      onSuccess: (res) => {
+        if (!res?.spreadsheetId && !res?.linked) {
+          toast('bad', 'Link failed', 'Server did not confirm the spreadsheet link.')
+          return
+        }
+        setLinkOpen(false)
+        setLinkUrl('')
+        toast('ok', 'Spreadsheet linked', 'Tabs can sync into this workbook now.')
+      },
+      onError: (err) =>
+        toast('bad', 'Link failed', err instanceof Error ? err.message : 'Check the URL and sharing'),
+    })
+  }
 
   const skeleton: DcBlock[] = [
     { t: 'kpis' } as DcBlock,
@@ -190,12 +246,26 @@ function DcGoogleSheetsBody() {
                   icon: 'icon-refresh-cw',
                   onClick: () =>
                     retry.mutate(undefined, {
-                      onSuccess: () =>
+                      onSuccess: (res) => {
+                        const msg =
+                          res && typeof res === 'object' && 'message' in res
+                            ? String((res as { message?: string }).message ?? '')
+                            : ''
+                        const queued =
+                          res &&
+                          typeof res === 'object' &&
+                          'queued' in res &&
+                          (res as { queued?: boolean }).queued === false
+                        if (queued) {
+                          toast('warn', 'Retry not queued', msg || 'Could not start re-sync')
+                          return
+                        }
                         toast(
                           'ok',
                           'Retry queued',
-                          'Only the tabs that failed were re-pushed. Watch the status below.',
-                        ),
+                          msg || 'Full spreadsheet re-sync started. Watch tab status below.',
+                        )
+                      },
                       onError: (err) =>
                         toast(
                           'bad',
@@ -297,6 +367,52 @@ function DcGoogleSheetsBody() {
               </span>
             </span>
             <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {needsSpreadsheet ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={createSheet.isPending || linkSheet.isPending}
+                    onClick={runCreateSpreadsheet}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 7,
+                      height: 32,
+                      padding: '0 12px',
+                      borderRadius: 9,
+                      border: '1px solid var(--violet-solid)',
+                      background: 'var(--violet-solid)',
+                      color: 'var(--on-violet)',
+                      font: `600 12px/1 ${FONT}`,
+                      cursor: createSheet.isPending ? 'wait' : 'pointer',
+                    }}
+                  >
+                    <DcIcon name="icon-plus" size={13} />
+                    <span>{createSheet.isPending ? 'Creating…' : 'Create spreadsheet'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={createSheet.isPending || linkSheet.isPending}
+                    onClick={() => setLinkOpen(true)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 7,
+                      height: 32,
+                      padding: '0 12px',
+                      borderRadius: 9,
+                      border: '1px solid var(--line-2)',
+                      background: 'var(--surface-2)',
+                      color: 'var(--ink-2)',
+                      font: `600 12px/1 ${FONT}`,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <DcIcon name="icon-link" size={13} />
+                    <span>Link existing</span>
+                  </button>
+                </>
+              ) : null}
               {conn?.spreadsheetUrl ? (
                 <a
                   href={conn.spreadsheetUrl}
@@ -368,7 +484,7 @@ function DcGoogleSheetsBody() {
               value={String(stats?.failed ?? failing.length)}
               sub={
                 failing.length > 0
-                  ? 'the sheet is stale for these'
+                  ? 'last push failed — use Retry or Sync everything'
                   : 'nothing failed on the last run'
               }
               color={(stats?.failed ?? failing.length) > 0 ? 'var(--bad)' : undefined}
@@ -529,12 +645,26 @@ function DcGoogleSheetsBody() {
                       disabled={!s.configured || busy || syncAll.isPending}
                       onClick={() =>
                         syncOne.mutate(s.sheetType, {
-                          onSuccess: () =>
+                          onSuccess: (res) => {
+                            const queued =
+                              res &&
+                              typeof res === 'object' &&
+                              'queued' in res &&
+                              (res as { queued?: boolean }).queued === false
+                            if (queued) {
+                              toast(
+                                'warn',
+                                `${prettySheet(s.sheetType)} not queued`,
+                                String((res as { reason?: string }).reason ?? 'Sync did not start'),
+                              )
+                              return
+                            }
                             toast(
                               'ok',
                               `${prettySheet(s.sheetType)} pushed`,
                               'The tab now matches SPLARO. Anything typed into it by hand is gone.',
-                            ),
+                            )
+                          },
                           onError: (err) =>
                             toast(
                               'bad',
@@ -855,6 +985,24 @@ function DcGoogleSheetsBody() {
           })
         }
       />
+
+      <DcModal
+        open={linkOpen}
+        title="Link existing spreadsheet"
+        subtitle="Paste a Google Sheets URL or spreadsheet id. Share Editor access with the connected Google account or service account."
+        confirmLabel={linkSheet.isPending ? 'Linking…' : 'Link spreadsheet'}
+        busy={linkSheet.isPending}
+        onClose={() => !linkSheet.isPending && setLinkOpen(false)}
+        onConfirm={runLinkSpreadsheet}
+      >
+        <DcField
+          label="Spreadsheet URL or ID"
+          value={linkUrl}
+          onChange={setLinkUrl}
+          placeholder="https://docs.google.com/spreadsheets/d/…"
+          mono
+        />
+      </DcModal>
     </>
   )
 }

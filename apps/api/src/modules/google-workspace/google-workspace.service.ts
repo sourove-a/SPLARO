@@ -8,6 +8,7 @@ import { GoogleClientService } from './google-client.service'
 import { GoogleSheetsSyncService } from './google-sheets-sync.service'
 import { GoogleGmailService, GoogleDriveService } from './google-gmail-drive.service'
 import { GoogleServiceAccountService } from './google-service-account.service'
+import { GoogleSyncQueueService } from './google-sync-queue.service'
 import { isGoogleServiceAccountEmail } from './google-api.util'
 
 @Injectable()
@@ -22,6 +23,7 @@ export class GoogleWorkspaceService {
     private readonly gmail: GoogleGmailService,
     private readonly drive: GoogleDriveService,
     private readonly serviceAccount: GoogleServiceAccountService,
+    private readonly syncQueue: GoogleSyncQueueService,
   ) {}
 
   async getStatus(storeIdRaw: string) {
@@ -190,12 +192,13 @@ export class GoogleWorkspaceService {
 
   async retryFailed(storeIdRaw: string, userId?: string) {
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
-    const failed = await this.prisma.googleSyncLog.findMany({
-      where: { storeId, status: 'failed' },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    })
-    return { retried: failed.length, message: 'Re-queue failed syncs via manual full sync' }
+    const result = await this.syncQueue.manualFullSync(storeId, userId ?? 'admin-retry-failed')
+    return {
+      ...result,
+      message: result.queued
+        ? 'Full spreadsheet re-sync queued — watch Google Sheets for fresh tabs'
+        : `Could not queue retry${result.reason ? `: ${result.reason}` : ''}`,
+    }
   }
 
   sheetsService() {

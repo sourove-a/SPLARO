@@ -213,7 +213,7 @@ export function Header() {
     isMobileMenuOpen || isSearchOpen || isCartOpen || isMegaMenuOpen
 
   // Same sticky threshold on every page — shared Header behavior.
-  const { isScrolled } = useHeaderScroll(24, headerPinned)
+  const { isScrolled } = useHeaderScroll(10, headerPinned)
   // Keep over-hero glass while search opens at the top of home — forcing
   // --scrolled collapses row height (88→61) and flashes white chrome.
   // Field contrast is handled by .site-header-glass--over-hero…search-desktop CSS.
@@ -256,14 +256,22 @@ export function Header() {
     const root = document.documentElement
     if (!isHome || !isDesktop) {
       root.removeAttribute('data-home-hero')
+      root.removeAttribute('data-topbar')
       return
+    }
+    // Seed topbar visible so header sits under it before IntersectionObserver runs.
+    if (!root.hasAttribute('data-topbar')) {
+      root.setAttribute('data-topbar', pastHeroRef.current ? 'hidden' : 'visible')
     }
     // Only seed initial attr if IO hasn't run yet — avoid fighting DOM toggles.
     if (!root.hasAttribute('data-home-hero')) {
       root.setAttribute('data-home-hero', pastHeroRef.current ? 'scrolled' : 'top')
     }
     return () => {
-      if (!isHome) root.removeAttribute('data-home-hero')
+      if (!isHome) {
+        root.removeAttribute('data-home-hero')
+        root.removeAttribute('data-topbar')
+      }
     }
   }, [isHome, isDesktop])
 
@@ -286,7 +294,7 @@ export function Header() {
 
   return (
     <>
-      <TopBar />
+      {isHome ? <TopBar /> : null}
 
       <header
         data-site-chrome
@@ -319,7 +327,7 @@ export function Header() {
                 mobileSearchActive && 'site-header-glass__chrome-hide',
               )}
             >
-              {isMobileMenuOpen ? <X strokeWidth={1.55} /> : <Menu strokeWidth={1.55} />}
+              {isMobileMenuOpen ? <X strokeWidth={2} /> : <Menu strokeWidth={2} />}
             </MotionPressable>
 
             <div
@@ -365,7 +373,11 @@ export function Header() {
                   variant="icon"
                   className={cn(iconBtnClass, 'site-header-glass__action-search')}
                 >
-                  <Search className="site-header-glass__search-svg" strokeWidth={1.55} />
+                  <Search
+                    className="site-header-glass__nav-icon site-header-glass__nav-icon--search site-header-glass__search-svg"
+                    strokeWidth={2}
+                    absoluteStrokeWidth
+                  />
                 </MotionPressable>
               )}
 
@@ -382,7 +394,7 @@ export function Header() {
               >
                 <User
                   className="site-header-glass__nav-icon site-header-glass__nav-icon--account"
-                  strokeWidth={1.5}
+                  strokeWidth={2}
                   absoluteStrokeWidth
                 />
               </MotionLink>
@@ -404,7 +416,7 @@ export function Header() {
                 >
                   <ShoppingBag
                     className="site-header-glass__nav-icon site-header-glass__nav-icon--bag"
-                    strokeWidth={1.5}
+                    strokeWidth={2}
                     absoluteStrokeWidth
                   />
                 </MotionPressable>

@@ -24,7 +24,11 @@ export const HANDOFF_PINNED_HREFS = [
 export const HANDOFF_SIDEBAR_GROUPS: ReadonlyArray<{ group: string; hrefs: readonly string[] }> = [
   {
     group: 'Overview',
-    hrefs: ['/dashboard/analytics', '/dashboard/mobile-screens'],
+    hrefs: [
+      '/dashboard/analytics',
+      '/dashboard/mobile-screens',
+      '/dashboard/executive/notification-center',
+    ],
   },
   {
     group: 'Commerce',
@@ -49,7 +53,10 @@ export const HANDOFF_SIDEBAR_GROUPS: ReadonlyArray<{ group: string; hrefs: reado
     hrefs: [
       '/dashboard/operations',
       '/dashboard/courier-hub',
-      // WMS / Purchase Orders stay URL-reachable but beta-locked — not in primary nav
+      '/dashboard/wms/overview',
+      '/dashboard/procurement/purchase-orders',
+      '/dashboard/procurement/suppliers',
+      '/dashboard/procurement/goods-received',
     ],
   },
   {
@@ -72,6 +79,13 @@ export const HANDOFF_SIDEBAR_GROUPS: ReadonlyArray<{ group: string; hrefs: reado
       '/dashboard/media-library',
       '/dashboard/menu-control',
       '/dashboard/legal-pages',
+      '/dashboard/footwear-page',
+      '/dashboard/theme-builder',
+      '/dashboard/lookbooks',
+      '/dashboard/reels',
+      '/dashboard/blog',
+      '/dashboard/cms',
+      '/dashboard/landing-pages',
     ],
   },
   {
@@ -82,6 +96,8 @@ export const HANDOFF_SIDEBAR_GROUPS: ReadonlyArray<{ group: string; hrefs: reado
       '/dashboard/api-health',
       '/dashboard/sms',
       '/dashboard/automation/google-sheets-sync',
+      '/dashboard/google-workspace/connect',
+      '/dashboard/webhooks',
     ],
   },
   {
@@ -94,7 +110,7 @@ export const HANDOFF_SIDEBAR_GROUPS: ReadonlyArray<{ group: string; hrefs: reado
   },
   {
     group: 'System',
-    hrefs: ['/dashboard/settings', '/dashboard/executive/export-center'],
+    hrefs: ['/dashboard/settings', '/dashboard/executive/export-center', '/dashboard/logs'],
   },
 ]
 

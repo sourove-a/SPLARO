@@ -26,6 +26,27 @@ function methodToAction(method: string): PermissionAction {
   }
 }
 
+/**
+ * Partner Hub + finance ledger live outside `admin/` — without this rule any
+ * authenticated staff could mutate equity/money (guard returned null).
+ */
+function isFinanceLedgerPath(path: string): boolean {
+  return (
+    path === 'partners' ||
+    path.startsWith('partners/') ||
+    path === 'partner-transactions' ||
+    path.startsWith('partner-transactions/') ||
+    path === 'expenses' ||
+    path.startsWith('expenses/') ||
+    path === 'profit-loss' ||
+    path.startsWith('profit-loss/') ||
+    path === 'daily-closing' ||
+    path.startsWith('daily-closing/') ||
+    path === 'finance-reports' ||
+    path.startsWith('finance-reports/')
+  )
+}
+
 type RouteRule = { test: (path: string) => boolean; module: string }
 
 const ROUTE_RULES: RouteRule[] = [
@@ -53,7 +74,8 @@ const ROUTE_RULES: RouteRule[] = [
       p.startsWith('admin/payments') ||
       p.startsWith('admin/coupons') ||
       p.startsWith('admin/affiliates') ||
-      p.startsWith('commerce-os/procurement'),
+      p.startsWith('commerce-os/procurement') ||
+      isFinanceLedgerPath(p),
     module: 'finance',
   },
   {
@@ -81,6 +103,12 @@ export function resolveRoutePermission(
   if (isStaffSelfTelegramPath(normalized)) {
     return null
   }
+
+  // Finance ledger routes are not under admin/ but must still enforce the matrix.
+  if (isFinanceLedgerPath(normalized)) {
+    return { moduleSlug: 'finance', action: methodToAction(method) }
+  }
+
   if (
     !normalized.startsWith('admin/') &&
     !normalized.startsWith('commerce-os/') &&

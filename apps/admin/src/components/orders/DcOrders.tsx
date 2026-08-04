@@ -12,6 +12,7 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, formatTaka, statusToneStyle, toneStyle } from '@/components/dc/tokens'
 import { downloadCsv } from '@/lib/admin/admin-actions'
+import { isDevCourierConsignment, isLiveCourierConsignment } from '@/lib/admin/courier-save'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
 import { useOrders } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
@@ -59,8 +60,13 @@ function titleCase(s: string) {
 }
 
 function courierLabel(o: ApiOrder): { text: string; color: string } {
-  if (o.courier?.consignmentId || o.courier?.trackingCode) {
-    return { text: o.courier.provider ?? 'Booked', color: 'var(--ink-2)' }
+  const cid = o.courier?.consignmentId
+  const track = o.courier?.trackingCode
+  if (isLiveCourierConsignment(cid, track)) {
+    return { text: o.courier?.provider ?? 'Booked', color: 'var(--ink-2)' }
+  }
+  if (isDevCourierConsignment(cid, track)) {
+    return { text: 'Simulated', color: 'var(--warn)' }
   }
   if (o.status.toUpperCase() === 'PACKED') {
     return { text: 'Ready to book', color: 'var(--warn)' }

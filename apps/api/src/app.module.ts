@@ -85,6 +85,7 @@ import { AutomationController } from './modules/automation/automation.controller
 import { MarketingController } from './modules/marketing/marketing.controller'
 import {
   PartnersController,
+  PartnerInvitesController,
   PartnerTransactionsController,
 } from './modules/finance/finance.controllers'
 import {
@@ -129,6 +130,8 @@ import { GoogleSheetsController, GoogleSheetsService } from './modules/google-sh
 import { ReportsController, ReportsService } from './modules/reports'
 import { RmaController, RmaService } from './modules/rma'
 import { CourierController } from './modules/courier/courier.controller'
+import { SteadfastWebhookController } from './modules/courier/steadfast-webhook.controller'
+import { SteadfastWebhookService } from './modules/courier/steadfast-webhook.service'
 import { NotificationsController } from './modules/notifications/notifications.controller'
 import { InvoiceController } from './modules/invoices/invoice.controller'
 import { PosController } from './modules/pos/pos.controller'
@@ -244,8 +247,9 @@ const queueWorkerProviders = redisQueuesEnabled()
     PaymentsController,
     AutomationController,
     MarketingController,
-    PartnersController,
-    PartnerTransactionsController,
+  PartnersController,
+  PartnerInvitesController,
+  PartnerTransactionsController,
     ExpensesController,
     ProfitLossController,
     DailyClosingController,
@@ -282,6 +286,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     GoogleWorkspaceController,
     LoyaltyController,
     CourierController,
+    SteadfastWebhookController,
     NotificationsController,
     InvoiceController,
     PosController,
@@ -306,6 +311,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     TelegramService,
     AutomationService,
     CourierService,
+    SteadfastWebhookService,
     ...queueWorkerProviders,
     SteadfastService,
     RedxService,

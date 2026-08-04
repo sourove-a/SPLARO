@@ -197,6 +197,10 @@ export interface InfrastructureConfig {
   fields: Record<string, string>
   lastTestedAt?: string | null
   lastTestStatus?: string | null
+  /** Steadfast only — paste into portal Callback Url */
+  callbackUrl?: string
+  /** Steadfast only — true when Bearer token is saved */
+  webhookConfigured?: boolean
 }
 
 export type InfraProvider = 'cloudflare_r2' | 'steadfast' | 'pathao' | 'redx'

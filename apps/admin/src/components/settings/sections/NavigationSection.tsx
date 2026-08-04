@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Navigation } from 'lucide-react'
 import { Eye, EyeOff, Trash2, Plus, GripVertical } from 'lucide-react'
 import { SectionCard, SectionPageHeader, SaveBar, type SectionProps } from './shared'
@@ -129,10 +130,21 @@ export function NavigationSection({ draft, setDraft, save, saving, apiOnline }: 
       <SectionPageHeader
         icon={<Navigation size={22} />}
         title="Navigation"
-        subtitle="Header nav links and footer column groups shown on the storefront."
+        subtitle="Footer columns live here. Header + department mega-menu are edited in Menu Control."
         badge="Menus"
       />
-      <SectionCard title="Header navigation" subtitle="Links shown in the main nav bar across the storefront.">
+      <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, color: 'var(--ink-3)' }}>
+        This section owns <strong style={{ color: 'var(--ink-2)' }}>footer</strong> link groups.
+        For header / Men·Women·Kids mega rules, open{' '}
+        <Link
+          href="/dashboard/menu-control"
+          style={{ color: 'var(--violet-ink)', fontWeight: 600, textDecoration: 'underline' }}
+        >
+          Menu Control
+        </Link>
+        .
+      </p>
+      <SectionCard title="Header navigation" subtitle="Links shown in the main nav bar across the storefront. Prefer Menu Control for department mega-menus.">
         <div className="settings-menu-list">
           {headerNav.map((link, i) => (
             <NavLinkRow

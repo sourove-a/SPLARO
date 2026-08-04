@@ -79,11 +79,11 @@ export function MarqueeStrip() {
         <div className="home-flow-strip__track">
           {/* Each -50% half needs two groups: a single 3-phrase set is narrower
               than the rail, which left a blank gap at the end of every loop. */}
-          <MarqueeGroup items={items} />
-          <MarqueeGroup items={items} />
+          <MarqueeGroup key="flow-a" items={items} />
+          <MarqueeGroup key="flow-b" items={items} />
           {/* Seamless -50% loop clone — decorative, never announced twice. */}
-          <MarqueeGroup items={items} />
-          <MarqueeGroup items={items} />
+          <MarqueeGroup key="flow-c" items={items} />
+          <MarqueeGroup key="flow-d" items={items} />
         </div>
       </div>
     </section>

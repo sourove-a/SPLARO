@@ -1,19 +1,26 @@
 'use client'
 
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 import { DcContentNav } from '@/components/dc/DcContentNav'
 import { DcIcon } from '@/components/dc/DcIcon'
+import { DcModal } from '@/components/dc/DcModal'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider, useDcScreen } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
-import { useMedia } from '@/lib/api/hooks'
+import { deleteBanner, createBanner } from '@/lib/api/banners'
+import { updateCategory } from '@/lib/api/categories'
+import { useMedia, useProducts } from '@/lib/api/hooks'
+import { addProductImage, deleteProductImage } from '@/lib/api/products'
+import { uploadAdminImage } from '@/lib/api/upload'
 import { resolveMediaUrl } from '@/lib/media-url'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { MEDIA_DEPT_FOLDERS, type MediaDeptFolder } from '@/lib/admin/size-presets'
 
 const card = {
   border: '1px solid var(--line)',
@@ -39,6 +46,18 @@ const SOURCE_TONE: Record<string, DcTone> = {
 const FILTERS = ['All', 'Product', 'Banner', 'Category'] as const
 type Filter = (typeof FILTERS)[number]
 
+type MediaAsset = {
+  id: string
+  type: string
+  name: string
+  url: string
+  altText: string
+  source: string
+  updated: string
+  productId?: string
+  productSlug?: string
+}
+
 export function DcMediaLibrary() {
   const router = useRouter()
   return (
@@ -51,19 +70,39 @@ export function DcMediaLibrary() {
 function DcMediaLibraryBody() {
   const router = useRouter()
   const { toast } = useDcScreen()
+  const qc = useQueryClient()
   const media = useMedia()
+  const products = useProducts({ limit: 100 })
   const { api } = useAdminConnection(25_000)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const [filter, setFilter] = useState<Filter>('All')
+  const [deptFolder, setDeptFolder] = useState<MediaDeptFolder | 'all'>('all')
   const [query, setQuery] = useState('')
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [uploadFolder, setUploadFolder] = useState<MediaDeptFolder>('products')
+  const [uploadName, setUploadName] = useState('')
+  const [attachProductId, setAttachProductId] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<MediaAsset | null>(null)
+
+  const resetUploadModal = () => {
+    setPendingFile(null)
+    setUploadFolder('products')
+    setUploadName('')
+    setAttachProductId('')
+  }
 
   const stats = media.data?.stats
-  const assets = useMemo(() => media.data?.assets ?? [], [media.data])
+  const assets = useMemo(() => (media.data?.assets ?? []) as MediaAsset[], [media.data])
+  const productOptions = products.data?.products ?? []
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     return assets.filter((a) => {
       if (filter !== 'All' && (a.type ?? '').toLowerCase() !== filter.toLowerCase()) return false
+      if (deptFolder !== 'all') {
+        if (!a.url.includes(`/uploads/${deptFolder}/`)) return false
+      }
       if (!q) return true
       return (
         a.name.toLowerCase().includes(q) ||
@@ -71,10 +110,85 @@ function DcMediaLibraryBody() {
         (a.url ?? '').toLowerCase().includes(q)
       )
     })
-  }, [assets, filter, query])
+  }, [assets, filter, query, deptFolder])
 
   const missingAlt = useMemo(() => assets.filter((a) => !a.altText?.trim()).length, [assets])
   const pageStatus = dcPageStatus([media], api.pulse)
+
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ['platform-media'] })
+    void media.refetch()
+  }
+
+  const uploadMut = useMutation({
+    mutationFn: async ({
+      file,
+      productId,
+      folder,
+      name,
+    }: {
+      file: File
+      productId: string | null
+      folder: MediaDeptFolder
+      name: string
+    }) => {
+      const displayName = name.trim() || file.name.replace(/\.[^.]+$/, '') || 'Library asset'
+      const uploaded = await uploadAdminImage(file, folder)
+      if (productId) {
+        await addProductImage(productId, {
+          url: uploaded.url,
+          altText: displayName,
+        })
+        return { mode: 'product' as const, url: uploaded.url, folder, name: displayName }
+      }
+      await createBanner({
+        image: uploaded.url,
+        title: displayName,
+        position: 'library',
+        isActive: false,
+      })
+      return { mode: 'library' as const, url: uploaded.url, folder, name: displayName }
+    },
+    onSuccess: (res) => {
+      resetUploadModal()
+      setDeptFolder(res.folder === 'products' ? 'all' : res.folder)
+      invalidate()
+      toast(
+        'ok',
+        res.mode === 'product' ? 'Image attached to product' : 'Saved to media library',
+        `${res.name} · ${res.folder}`,
+      )
+    },
+    onError: (err) =>
+      toast('bad', 'Upload failed', err instanceof Error ? err.message : 'Could not upload image'),
+  })
+
+  const deleteMut = useMutation({
+    mutationFn: async (asset: MediaAsset) => {
+      const type = (asset.type ?? '').toLowerCase()
+      if (type === 'product') {
+        if (!asset.productId) throw new Error('Missing product id for this image')
+        await deleteProductImage(asset.productId, asset.id)
+        return
+      }
+      if (type === 'banner') {
+        await deleteBanner(asset.id)
+        return
+      }
+      if (type === 'category') {
+        await updateCategory(asset.id, { image: null })
+        return
+      }
+      throw new Error(`Cannot delete ${type || 'unknown'} assets from here`)
+    },
+    onSuccess: () => {
+      setDeleteTarget(null)
+      invalidate()
+      toast('ok', 'Removed', 'Asset deleted from the catalogue index.')
+    },
+    onError: (err) =>
+      toast('bad', 'Delete failed', err instanceof Error ? err.message : 'Could not delete asset'),
+  })
 
   const skeleton: DcBlock[] = [
     { t: 'tabs', group: 'nav', items: [] } as DcBlock,
@@ -84,6 +198,22 @@ function DcMediaLibraryBody() {
 
   return (
     <>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/avif"
+        hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0] ?? null
+          e.target.value = ''
+          if (!file) return
+          setAttachProductId('')
+          setUploadFolder(deptFolder === 'all' ? 'products' : deptFolder)
+          setUploadName(file.name.replace(/\.[^.]+$/, '') || '')
+          setPendingFile(file)
+        }}
+      />
+
       <DcPageHead
         crumbGroup="Content"
         title="Media Library"
@@ -101,12 +231,7 @@ function DcMediaLibraryBody() {
             label: 'Upload',
             icon: 'icon-upload',
             variant: 'primary',
-            onClick: () =>
-              toast(
-                'info',
-                'Upload happens where the image is used',
-                'Images attach from the product editor, Hero Slider or a category — there is no standalone upload endpoint.',
-              ),
+            onClick: () => fileRef.current?.click(),
           },
         ]}
       />
@@ -121,13 +246,13 @@ function DcMediaLibraryBody() {
           hint="Images already on the storefront are unaffected — only this index failed to load."
           onRetry={() => void media.refetch()}
         />
-      ) : assets.length === 0 ? (
+      ) : assets.length === 0 && !pendingFile ? (
         <DcEmptyState
           icon="icon-image"
           title="Media library is empty"
-          body="Assets appear here once an image is attached to a product, a hero slide or a category. Nothing is uploaded from this screen directly."
-          cta="Open Products"
-          onCta={() => router.push('/dashboard/products')}
+          body="Upload an image here, or attach one from a product / hero slide. Upload can save to the library or attach straight to a product."
+          cta="Upload image"
+          onCta={() => fileRef.current?.click()}
         />
       ) : (
         <>
@@ -148,7 +273,7 @@ function DcMediaLibraryBody() {
               value={String(stats?.products ?? 0)}
               sub="attached to a product"
             />
-            <Kpi label="Banners" value={String(stats?.banners ?? 0)} sub="hero and offer strips" />
+            <Kpi label="Banners" value={String(stats?.banners ?? 0)} sub="hero and library" />
             <Kpi
               label="Missing alt text"
               value={String(missingAlt)}
@@ -222,6 +347,33 @@ function DcMediaLibraryBody() {
               })}
             </div>
 
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', width: '100%' }}>
+              <span style={{ ...capsLabel, alignSelf: 'center' }}>Folder</span>
+              {MEDIA_DEPT_FOLDERS.map((f) => {
+                const value = f.key === 'all' ? 'all' : f.folder
+                const on = deptFolder === value
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setDeptFolder(value as MediaDeptFolder | 'all')}
+                    style={{
+                      height: 28,
+                      padding: '0 10px',
+                      borderRadius: 999,
+                      cursor: 'pointer',
+                      font: `600 11px/1 ${FONT}`,
+                      border: `1px solid ${on ? 'var(--ink)' : 'var(--line)'}`,
+                      background: on ? 'var(--ink)' : 'transparent',
+                      color: on ? 'var(--surface)' : 'var(--ink-2)',
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                )
+              })}
+            </div>
+
             <div style={{ flex: 1 }} />
             <span style={{ font: `500 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>
               {rows.length} of {assets.length}
@@ -248,7 +400,7 @@ function DcMediaLibraryBody() {
                 const noAlt = !a.altText?.trim()
                 return (
                   <div
-                    key={a.id}
+                    key={`${a.type}-${a.id}`}
                     style={{
                       ...card,
                       padding: 10,
@@ -297,116 +449,90 @@ function DcMediaLibraryBody() {
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                       }}
+                      title={a.name}
                     >
                       {a.name}
                     </span>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <span
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          padding: '3px 8px',
+                          height: 22,
+                          padding: '0 7px',
                           borderRadius: 6,
-                          font: `600 10px/1 ${FONT}`,
-                          letterSpacing: '.05em',
-                          textTransform: 'uppercase',
                           border: `1px solid ${tone.bd}`,
                           background: tone.bg,
                           color: tone.fg,
+                          font: `600 10.5px/1 ${FONT}`,
+                          textTransform: 'capitalize',
                         }}
                       >
-                        {a.type || 'asset'}
+                        {a.type}
                       </span>
                       {noAlt ? (
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            padding: '3px 8px',
-                            borderRadius: 6,
-                            font: `600 10px/1 ${FONT}`,
-                            letterSpacing: '.05em',
-                            border: '1px solid var(--warn-bd)',
-                            background: 'var(--warn-soft)',
-                            color: 'var(--warn)',
-                          }}
-                        >
-                          NO ALT
+                        <span style={{ font: `600 10.5px/1 ${FONT}`, color: 'var(--warn)' }}>
+                          no alt
                         </span>
                       ) : null}
+                      <span style={{ flex: 1 }} />
+                      {a.productId ? (
+                        <button
+                          type="button"
+                          title="Open product"
+                          onClick={() => router.push(`/dashboard/products/${a.productId}/edit`)}
+                          style={{
+                            border: 0,
+                            background: 'transparent',
+                            color: 'var(--ink-3)',
+                            cursor: 'pointer',
+                            padding: 4,
+                          }}
+                        >
+                          <DcIcon name="icon-external-link" size={13} />
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        title="Delete"
+                        onClick={() => setDeleteTarget(a)}
+                        style={{
+                          border: 0,
+                          background: 'transparent',
+                          color: 'var(--bad)',
+                          cursor: 'pointer',
+                          padding: 4,
+                        }}
+                      >
+                        <DcIcon name="icon-trash-2" size={13} />
+                      </button>
                     </div>
 
                     <span
                       style={{
-                        font: `400 10.5px/1.4 ${MONO}`,
+                        font: `400 10.5px/1.35 ${MONO}`,
                         color: 'var(--ink-3)',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                       }}
+                      title={a.source}
                     >
-                      {a.url}
+                      {a.source}
                     </span>
-
-                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', paddingTop: 2 }}>
-                      {a.productId ? (
-                        <button
-                          type="button"
-                          onClick={() => router.push(`/dashboard/products/${a.productId}/edit`)}
-                          className="dc-hover-ink"
-                          style={{
-                            height: 28,
-                            padding: '0 10px',
-                            borderRadius: 8,
-                            border: '1px solid var(--line)',
-                            background: 'var(--surface-2)',
-                            color: 'var(--ink-2)',
-                            cursor: 'pointer',
-                            font: `600 11.5px/1 ${FONT}`,
-                          }}
-                        >
-                          Open product
-                        </button>
-                      ) : null}
-                      {url ? (
-                        <button
-                          type="button"
-                          onClick={() => window.open(url, '_blank', 'noopener')}
-                          className="dc-hover-ink"
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            height: 28,
-                            padding: '0 10px',
-                            borderRadius: 8,
-                            border: '1px solid var(--line)',
-                            background: 'var(--surface-2)',
-                            color: 'var(--ink-2)',
-                            cursor: 'pointer',
-                            font: `600 11.5px/1 ${FONT}`,
-                          }}
-                        >
-                          <DcIcon name="icon-external-link" size={12} />
-                          <span>Full size</span>
-                        </button>
-                      ) : null}
-                    </div>
                   </div>
                 )
               })}
             </div>
           )}
 
-          {/* The design shows drop slots here. There is no standalone upload
-              endpoint — images attach where they are used — so the screen says
-              that rather than offering a drop target that writes nowhere. */}
           <div
             style={{
               display: 'flex',
-              alignItems: 'center',
-              gap: 11,
+              alignItems: 'flex-start',
+              gap: 10,
+              marginTop: 4,
               padding: '11px 14px',
               borderRadius: 11,
               border: '1px solid var(--line)',
@@ -422,13 +548,134 @@ function DcMediaLibraryBody() {
                 textWrap: 'pretty',
               }}
             >
-              This screen is an index, not an uploader. Images enter the library from the product
-              editor, Hero Slider or a category — there is no{' '}
-              <span style={{ fontFamily: 'var(--mono)' }}>POST /admin/media</span> to drop onto.
+              Upload attaches to a product or saves as a library banner. Delete removes product
+              images, library banners, or clears a category image — hero slides stay under Hero
+              Slider.
             </span>
           </div>
         </>
       )}
+
+      <DcModal
+        open={Boolean(pendingFile)}
+        title="Upload image"
+        subtitle={
+          pendingFile
+            ? `${pendingFile.name} · pick menu folder and a display name`
+            : undefined
+        }
+        confirmLabel={attachProductId ? 'Attach to product' : 'Save to library'}
+        busy={uploadMut.isPending}
+        busyLabel="Uploading…"
+        onClose={() => {
+          if (uploadMut.isPending) return
+          resetUploadModal()
+        }}
+        onConfirm={() => {
+          if (!pendingFile) return
+          uploadMut.mutate({
+            file: pendingFile,
+            productId: attachProductId || null,
+            folder: uploadFolder,
+            name: uploadName,
+          })
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ font: `600 11px/1 ${FONT}`, color: 'var(--ink-3)', letterSpacing: '.06em' }}>
+              MENU
+            </span>
+            <select
+              value={uploadFolder}
+              onChange={(e) => setUploadFolder(e.target.value as MediaDeptFolder)}
+              style={{
+                height: 38,
+                borderRadius: 9,
+                border: '1px solid var(--line)',
+                background: 'var(--surface-2)',
+                color: 'var(--ink)',
+                padding: '0 10px',
+                font: `500 13px/1 ${FONT}`,
+              }}
+            >
+              {MEDIA_DEPT_FOLDERS.map((f) => (
+                <option key={f.key} value={f.folder}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ font: `600 11px/1 ${FONT}`, color: 'var(--ink-3)', letterSpacing: '.06em' }}>
+              NAME
+            </span>
+            <input
+              value={uploadName}
+              onChange={(e) => setUploadName(e.target.value)}
+              placeholder="e.g. Navy Loafer Front"
+              style={{
+                height: 38,
+                borderRadius: 9,
+                border: '1px solid var(--line)',
+                background: 'var(--surface-2)',
+                color: 'var(--ink)',
+                padding: '0 10px',
+                font: `500 13px/1 ${FONT}`,
+              }}
+            />
+          </label>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ font: `600 11px/1 ${FONT}`, color: 'var(--ink-3)', letterSpacing: '.06em' }}>
+              PRODUCT (OPTIONAL)
+            </span>
+            <select
+              value={attachProductId}
+              onChange={(e) => setAttachProductId(e.target.value)}
+              style={{
+                height: 38,
+                borderRadius: 9,
+                border: '1px solid var(--line)',
+                background: 'var(--surface-2)',
+                color: 'var(--ink)',
+                padding: '0 10px',
+                font: `500 13px/1 ${FONT}`,
+              }}
+            >
+              <option value="">Library only — not on a product yet</option>
+              {productOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </DcModal>
+
+      <DcModal
+        open={Boolean(deleteTarget)}
+        title="Delete this asset?"
+        subtitle={
+          deleteTarget
+            ? `${deleteTarget.name} · ${deleteTarget.type} — this cannot be undone from trash`
+            : undefined
+        }
+        confirmLabel="Delete"
+        danger
+        busy={deleteMut.isPending}
+        busyLabel="Deleting…"
+        onClose={() => {
+          if (deleteMut.isPending) return
+          setDeleteTarget(null)
+        }}
+        onConfirm={() => {
+          if (!deleteTarget) return
+          deleteMut.mutate(deleteTarget)
+        }}
+      />
     </>
   )
 }

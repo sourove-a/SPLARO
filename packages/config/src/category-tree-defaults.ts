@@ -99,5 +99,7 @@ export const DEPARTMENT_SLUGS = ['women', 'men', 'kids', 'footwear', 'accessorie
 export type DepartmentSlug = (typeof DEPARTMENT_SLUGS)[number]
 
 export function departmentHref(slug: string): string {
+  // Canonical accessories storefront route (middleware also redirects /c/accessories).
+  if (slug === 'accessories') return '/accessories'
   return `/c/${slug}`
 }

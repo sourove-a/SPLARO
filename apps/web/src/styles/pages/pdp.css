@@ -781,11 +781,23 @@
   margin-top: 0;
   margin-bottom: 0;
   font-family: var(--font-inter), Inter, system-ui, sans-serif;
-  font-size: 0.9375rem;
-  font-weight: 450;
-  line-height: 1.72;
+  font-size: 1rem; /* 16px minimum font size for mobile readability */
+  font-weight: 400;
+  line-height: 1.72; /* Spacious line height for effortless mobile reading */
   letter-spacing: 0.005em;
-  color: rgba(16, 17, 20, 0.68);
+  color: rgba(16, 17, 20, 0.58);
+}
+
+.pp-desc-bullets {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.5rem 0;
+}
+
+.pp-desc-bullets li {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: #101114;
 }
 
 .pp-info__options {
@@ -1199,7 +1211,7 @@ del.pdp-compare {
   border-color: transparent;
 }
 
-/* ── Size pills — ILYN fresh white liquid glass (neumorphic soft-UI) ── */
+/* ── Size pills — liquid glass + morphing black bubble ── */
 .pp-size-row,
 .pp-view .pp-size-row {
   background: transparent !important;
@@ -1215,22 +1227,24 @@ del.pdp-compare {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 4rem;
-  height: 2.5rem;
-  padding: 0.5rem 1.25rem;
+  min-width: 2.75rem;
+  min-height: 2.25rem;
+  height: 2.25rem;
+  padding: 0.4rem 0.85rem;
   border: 0;
   border-radius: 100px;
   background: transparent;
   font-family: 'GeneralSans', sans-serif;
-  font-size: 1rem;
-  font-weight: 500;
-  line-height: 1.5rem;
-  letter-spacing: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
   color: #121212;
   cursor: pointer;
   overflow: visible;
   transform: none;
+  isolation: isolate;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   box-shadow:
@@ -1239,8 +1253,6 @@ del.pdp-compare {
     6px 6px 10px rgba(235, 235, 235, 0.5);
   transition:
     color 220ms ease,
-    background-color 220ms ease,
-    border-color 220ms ease,
     box-shadow 220ms ease;
   -webkit-tap-highlight-color: transparent;
 }
@@ -1284,13 +1296,42 @@ del.pdp-compare {
   transform: none;
 }
 
-/* ILYN selected state: primary fill with white text. */
+/* Liquid selected bubble — morphs via layoutId */
+.pp-size-btn__bubble {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 100px;
+  background:
+    radial-gradient(120% 90% at 22% 12%, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 42%),
+    linear-gradient(165deg, #2a2b2e 0%, #121212 48%, #0a0a0b 100%);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -10px 18px rgba(0, 0, 0, 0.45),
+    0 10px 22px rgba(16, 17, 20, 0.28),
+    0 2px 4px rgba(16, 17, 20, 0.12);
+  pointer-events: none;
+}
+
+.pp-size-btn__bubble::after {
+  content: '';
+  position: absolute;
+  left: 14%;
+  right: 28%;
+  top: 10%;
+  height: 38%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0));
+  opacity: 0.85;
+  pointer-events: none;
+}
+
 .pp-size-btn--active,
 .pp-size-btn--active:hover,
 .pp-size-btn--active:active {
-  background: #121212;
+  background: transparent;
   color: #ffffff;
-  font-weight: 500;
+  font-weight: 650;
   border: 0;
   box-shadow: none;
   transform: none;
@@ -1300,32 +1341,44 @@ del.pdp-compare {
   display: none;
 }
 
+/* Fallback when bubble span absent (reduced motion still paints solid) */
+.pp-size-btn--active:not(:has(.pp-size-btn__bubble)) {
+  background: #121212;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.22),
+    0 10px 22px rgba(16, 17, 20, 0.22);
+}
+
 .pp-size-btn__label {
   position: relative;
   z-index: 1;
   color: inherit;
   text-shadow: none;
+  white-space: nowrap;
 }
 
 .pp-size-btn--active .pp-size-btn__label {
   color: #ffffff !important;
-  text-shadow: none;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  font-weight: 650;
+  letter-spacing: 0.02em;
 }
 
 .pp-size-btn--unavailable {
-  color: rgba(18, 18, 18, 0.8);
+  color: rgba(18, 18, 18, 0.55);
   cursor: not-allowed;
   background: transparent;
   border: 0;
-  text-decoration: line-through;
+  opacity: 0.72;
   box-shadow:
-    inset 6px 6px 8px rgba(217, 218, 222, 0.3),
-    inset -6px -6px 8px #ffffff,
-    6px 6px 10px rgba(235, 235, 235, 0.5);
+    inset 6px 6px 8px rgba(217, 218, 222, 0.22),
+    inset -6px -6px 8px rgba(255, 255, 255, 0.85),
+    4px 4px 8px rgba(235, 235, 235, 0.4);
 }
 
 .pp-size-btn--unavailable::before {
   display: block;
+  opacity: 0.55;
 }
 
 .pp-size-btn--unavailable::after {
@@ -1334,13 +1387,67 @@ del.pdp-compare {
 
 .pp-size-btn--unavailable:hover {
   box-shadow:
-    inset 6px 6px 8px rgba(217, 218, 222, 0.3),
-    inset -6px -6px 8px #ffffff,
-    6px 6px 10px rgba(235, 235, 235, 0.5);
+    inset 6px 6px 8px rgba(217, 218, 222, 0.22),
+    inset -6px -6px 8px rgba(255, 255, 255, 0.85),
+    4px 4px 8px rgba(235, 235, 235, 0.4);
 }
 
 .pp-size-btn--unavailable .pp-size-btn__label {
   color: inherit;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0;
+}
+
+/* Sticky bar bag glyph — no grey tile disk on glass CTAs */
+.pp-mobile-sticky-bar__btn--add .splaro-bag-icon-wrap,
+.pp-desktop-sticky-bar__add .splaro-bag-icon-wrap {
+  width: auto;
+  height: auto;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Psychological stock pill — under size row */
+.pp-size-stock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  margin: 1rem auto 0;
+  padding: 0.55rem 1.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow:
+    inset 4px 4px 8px rgba(217, 218, 222, 0.28),
+    inset -4px -4px 8px #ffffff,
+    4px 6px 14px rgba(235, 235, 235, 0.55);
+  font-family: 'GeneralSans', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.pp-size-stock--ok {
+  color: #128a45;
+}
+
+.pp-size-stock--low {
+  color: #b45309;
+}
+
+.pp-size-stock--urgent {
+  color: #dc2626;
+}
+
+.pp-size-stock--out {
+  color: #9f1239;
 }
 
 /* CTA buttons */
@@ -2320,14 +2427,14 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   pointer-events: none;
 }
 
-/* Shipping story panel — CSS grid expand (no Framer height lock / clipped lines).
-   Must follow the generic collapsed rule so height:auto wins over height:0. */
+/* Accordion panel — CSS grid expand (smooth, no Framer height lock / page jump). */
 .pp-accordion__panel--story {
   display: grid;
   grid-template-rows: 1fr;
   opacity: 1;
   height: auto;
   transition:
+    grid-template-rows 360ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -2336,6 +2443,12 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   height: auto;
   opacity: 0;
   pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-accordion__panel--story {
+    transition: none;
+  }
 }
 
 .pp-accordion__panel--story > .pp-accordion__panel-inner {
@@ -3619,18 +3732,18 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 .pp-view .pp-info__name {
   margin: 0;
   font-family: var(--font-cormorant), Georgia, serif;
-  color: #101114;
-  font-size: clamp(1.55rem, 2.4vw, 1.95rem);
-  font-weight: 500;
-  line-height: 1.15;
-  letter-spacing: 0.01em;
+  color: #0a0a0c;
+  font-size: clamp(1.65rem, 2.6vw, 2.1rem);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: 0.005em;
 }
 
 .pp-view .pp-info__code {
   margin-top: 0.45rem;
-  color: rgba(17, 17, 17, 0.42);
+  color: rgba(17, 17, 17, 0.38);
   font-size: 0.72rem;
-  font-weight: 550;
+  font-weight: 500;
   letter-spacing: 0.04em;
 }
 
@@ -3640,9 +3753,9 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 
 .pp-view .pp-info__price {
   color: #101114;
-  font-size: 1.28rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  font-size: 1.4rem;
+  font-weight: 750;
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -3730,9 +3843,9 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   width: 4.75rem;
   height: 5.65rem;
   display: block;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
-  background: #fafafa;
+  background: #f5f5f5;
 }
 
 .pp-view .pp-info__option-head {
@@ -3818,10 +3931,12 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 
 .pp-view .pp-size-btn {
   flex: 0 0 auto;
-  min-width: 4rem;
-  height: 2.5rem;
-  padding: 0.5rem 1.25rem;
-  font-size: 1rem;
+  min-width: 2.75rem;
+  min-height: 2.25rem;
+  height: 2.25rem;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 
 .pp-view .pp-info__ctas {
@@ -3829,28 +3944,19 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
-  margin-top: 1.75rem;
-  padding: 0.95rem;
-  overflow: hidden;
-  border: 1px solid rgba(16, 17, 20, 0.06);
-  border-radius: 22px;
-  background:
-    linear-gradient(165deg, rgba(255, 255, 255, 0.96) 0%, rgba(250, 250, 251, 0.9) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 14px 36px rgba(16, 17, 20, 0.05);
+  margin-top: 1.5rem;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
 .pp-view .pp-info__ctas::before {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  pointer-events: none;
-  border-radius: 21px;
-  background: radial-gradient(circle at 16% 0%, rgba(255, 255, 255, 0.9), transparent 36%);
-  opacity: 0.7;
+  display: none;
 }
 
 .pp-view .pp-btn-add,
@@ -3862,11 +3968,11 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.55rem;
+  gap: 0.6rem;
   border-radius: 999px;
   font-size: 0.78rem;
-  font-weight: 680;
-  letter-spacing: 0.14em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   /* No transform scale — opacity + shadow only (jump-free).
      !important beats MotionPressable inline transition:none so hover bg/shadow ease. */
@@ -3879,59 +3985,60 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 }
 
 .pp-view .pp-btn-add {
-  border: 1px solid rgba(16, 17, 20, 0.92);
-  background:
-    linear-gradient(180deg, rgba(36, 36, 40, 0.98), rgba(10, 10, 12, 0.99)),
-    #101114;
-  color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.85);
+  color: #101114;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 12px 28px rgba(16, 17, 20, 0.18);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 10px 30px -10px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(12px) saturate(1.45);
+  -webkit-backdrop-filter: blur(12px) saturate(1.45);
 }
 
 .pp-view .pp-btn-add:hover:not(:disabled) {
-  background:
-    linear-gradient(180deg, rgba(52, 52, 56, 0.99), rgba(16, 16, 18, 0.99)),
-    #1a1a1e;
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.95);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 16px 34px rgba(16, 17, 20, 0.22);
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 14px 36px -10px rgba(0, 0, 0, 0.14);
 }
 
 .pp-view .pp-btn-add:active:not(:disabled) {
   transform: none;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 8px 18px rgba(16, 17, 20, 0.16);
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 6px 16px -8px rgba(0, 0, 0, 0.1);
 }
 
 .pp-view .pp-btn-store {
-  border: 1px solid rgba(16, 17, 20, 0.14);
+  border: 1px solid rgba(16, 17, 20, 0.92);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 248, 250, 0.94));
-  color: #101114;
+    linear-gradient(180deg, rgba(48, 48, 52, 0.98) 0%, rgba(12, 12, 14, 0.99) 100%),
+    #101114;
+  color: #fff;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 8px 20px rgba(16, 17, 20, 0.05);
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 12px 32px -8px rgba(0, 0, 0, 0.28);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   cursor: pointer;
 }
 
 .pp-view .pp-btn-store:hover:not(:disabled) {
-  border-color: rgba(17, 17, 17, 0.34);
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(241, 244, 248, 0.62)),
-    rgba(255, 255, 255, 0.72);
+    linear-gradient(180deg, rgba(58, 58, 62, 0.99) 0%, rgba(18, 18, 20, 0.99) 100%),
+    #1a1a1e;
+  border-color: rgba(16, 17, 20, 0.92);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 16px 34px rgba(16, 17, 20, 0.1);
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 16px 40px -8px rgba(0, 0, 0, 0.34);
 }
 
 .pp-view .pp-btn-store:active:not(:disabled) {
   transform: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 8px 20px -6px rgba(0, 0, 0, 0.24);
 }
 
 .pp-view .pp-btn-wish {
@@ -3966,43 +4073,49 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   width: fit-content;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  margin: 0.1rem auto 0;
-  padding: 0.3rem 0.45rem;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  border-radius: 999px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(244, 246, 249, 0.48)),
-    rgba(255, 255, 255, 0.58);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.82),
-    0 10px 22px rgba(16, 17, 20, 0.05);
-  backdrop-filter: blur(16px) saturate(145%);
-  -webkit-backdrop-filter: blur(16px) saturate(145%);
+  justify-content: flex-start;
+  gap: 0.45rem;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.pp-view .pp-share--inline .pp-share__label {
+  margin-right: 0.15rem;
+  font-family: 'GeneralSans', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(16, 17, 20, 0.45);
 }
 
 .pp-view .pp-share__btn {
-  width: 2.05rem;
-  height: 2.05rem;
+  width: 2rem;
+  height: 2rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.6);
+  background: transparent;
   color: #111;
-  transition: background 0.18s ease, opacity 0.18s ease, transform 0.18s ease;
+  transition: background 0.18s ease, opacity 0.18s ease;
 }
 
 .pp-view .pp-share__btn:hover {
-  background: #fff;
+  background: rgba(16, 17, 20, 0.06);
   opacity: 1;
 }
 
 .pp-view .pp-share__icon {
-  width: 1.08rem;
-  height: 1.08rem;
+  width: 1.05rem;
+  height: 1.05rem;
   display: block;
 }
 
@@ -4184,25 +4297,33 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   }
 
   .pp-view .pp-size-btn {
-    min-width: 4rem;
-    height: 2.5rem;
-    padding: 0.5rem 1.25rem;
-    font-size: 1rem;
+    min-width: 2.75rem;
+    min-height: 2.25rem;
+    height: 2.25rem;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.8125rem;
   }
 }
 
 @media (max-width: 639px) {
   .pp-view .pp-size-row {
     padding: 0;
-    gap: 0.75rem;
+    gap: 0.55rem;
     flex-wrap: wrap;
   }
 
   .pp-view .pp-size-btn {
-    min-width: 4rem;
-    height: 2.5rem;
-    padding: 0.5rem 1.25rem;
-    font-size: 1rem;
+    min-width: 2.75rem;
+    min-height: 2.25rem;
+    height: 2.25rem;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.8125rem;
+  }
+
+  .pp-view .pp-size-stock {
+    margin-top: 0.9rem;
+    padding: 0.5rem 1.2rem;
+    font-size: 0.8125rem;
   }
 }
 
@@ -4590,21 +4711,22 @@ html[data-scrolling='1'] .pp-care-story__breeze {
     position: fixed;
     left: 0;
     right: 0;
-    /* Sit flush above the edge dock — nav already owns safe-area */
+    /* Above edge dock; dock already owns home-indicator safe-area */
     bottom: var(--mobile-nav-total);
     z-index: 45;
-    gap: 0.75rem;
-    padding: 0.7rem 1rem;
+    gap: 0.65rem;
+    /* Slimmer bar — dock below already owns home-indicator safe-area */
+    padding: 0.5rem 0.85rem;
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.96)),
-      rgba(255, 255, 255, 0.9);
+      linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.97)),
+      rgba(255, 255, 255, 0.92);
     border-top: 1px solid rgba(16, 17, 20, 0.07);
-    border-radius: 1rem 1rem 0 0;
+    border-radius: 0.85rem 0.85rem 0 0;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      0 -12px 30px rgba(16, 17, 20, 0.1);
-    backdrop-filter: blur(20px) saturate(160%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
+      0 -8px 22px rgba(16, 17, 20, 0.08);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
     transition:
       opacity 260ms ease,
       transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -4622,13 +4744,13 @@ html[data-scrolling='1'] .pp-care-story__breeze {
     flex-direction: column;
     justify-content: center;
     flex: 0 0 auto;
-    min-width: 5.25rem;
-    max-width: 7.5rem;
-    padding-right: 0.15rem;
+    min-width: 5rem;
+    max-width: 7rem;
+    padding-right: 0.1rem;
   }
 
   .pp-mobile-sticky-bar__price-value {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 800;
     color: #101114;
     line-height: 1.05;
@@ -4636,7 +4758,7 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   }
 
   .pp-mobile-sticky-bar__price-label {
-    font-size: 0.58rem;
+    font-size: 0.55rem;
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -4647,38 +4769,61 @@ html[data-scrolling='1'] .pp-care-story__breeze {
     display: flex;
     flex: 1;
     min-width: 0;
-    gap: 0.5rem;
+    gap: 0.45rem;
   }
 
   .pp-mobile-sticky-bar__btn {
     flex: 1;
-    min-height: 3rem;
-    border-radius: 12px;
-    font-size: 0.82rem;
+    min-height: 2.65rem;
+    border-radius: 11px;
+    font-size: 0.78rem;
     font-weight: 600;
     letter-spacing: 0;
     text-transform: none;
+    transition:
+      background 0.28s ease,
+      border-color 0.28s ease,
+      box-shadow 0.28s ease,
+      color 0.28s ease;
   }
 
+  /* Add to bag — outline secondary */
   .pp-mobile-sticky-bar__btn--add {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.9);
+    color: #101114;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      0 8px 20px -8px rgba(0, 0, 0, 0.1);
+  }
+
+  .pp-mobile-sticky-bar__btn--add:hover:not(:disabled) {
+    border-color: rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 1),
+      0 10px 24px -8px rgba(0, 0, 0, 0.12);
+  }
+
+  /* Buy now — solid primary (hierarchy) */
+  .pp-mobile-sticky-bar__btn--buy {
+    flex: 0 0 auto;
+    min-width: 5.75rem;
+    padding-inline: 0.9rem;
     border: 1px solid rgba(17, 17, 17, 0.88);
     background:
-      linear-gradient(180deg, rgba(45, 45, 48, 0.96), rgba(12, 12, 14, 0.98)),
+      linear-gradient(180deg, rgba(48, 48, 52, 0.98), rgba(12, 12, 14, 0.99)),
       #111;
     color: #fff;
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.14),
-      0 10px 24px rgba(16, 17, 20, 0.14);
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 10px 24px -6px rgba(0, 0, 0, 0.28);
   }
 
-  .pp-mobile-sticky-bar__btn--buy {
-    flex: 0 0 auto;
-    min-width: 5.5rem;
-    padding-inline: 0.85rem;
-    border: 1px solid rgba(16, 17, 20, 0.12);
-    background: #fff;
-    color: #101114;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  .pp-mobile-sticky-bar__btn--buy:hover:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      0 14px 28px -6px rgba(0, 0, 0, 0.32);
   }
 
   .pp-mobile-sticky-bar__btn:disabled {
@@ -4738,9 +4883,9 @@ html[data-scrolling='1'] .pp-care-story__breeze {
     display: block;
     position: fixed;
     left: 50%;
-    bottom: 1.35rem;
+    bottom: 1.1rem;
     z-index: 46;
-    width: min(920px, calc(100vw - 2.5rem));
+    width: min(860px, calc(100vw - 2.5rem));
     transform: translateX(-50%);
     pointer-events: none;
   }
@@ -4750,13 +4895,13 @@ html[data-scrolling='1'] .pp-care-story__breeze {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
-    padding: 0.75rem 0.85rem 0.75rem 1.1rem;
+    gap: 0.85rem;
+    padding: 0.45rem 0.55rem 0.45rem 0.95rem;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.82);
     background: rgba(255, 255, 255, 0.94);
     box-shadow:
-      0 18px 50px rgba(17, 17, 17, 0.12),
+      0 14px 40px rgba(17, 17, 17, 0.1),
       inset 0 1px 0 rgba(255, 255, 255, 1);
     backdrop-filter: blur(18px) saturate(1.25);
     -webkit-backdrop-filter: blur(18px) saturate(1.25);
@@ -4765,19 +4910,19 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   .pp-desktop-sticky-bar__copy {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.1rem;
     min-width: 0;
   }
 
   .pp-desktop-sticky-bar__price {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 800;
     color: #101114;
     line-height: 1.1;
   }
 
   .pp-desktop-sticky-bar__meta {
-    font-size: 0.68rem;
+    font-size: 0.64rem;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -4790,7 +4935,7 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   .pp-desktop-sticky-bar__actions {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
     flex-shrink: 0;
   }
 
@@ -4799,26 +4944,59 @@ html[data-scrolling='1'] .pp-care-story__breeze {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.45rem;
-    min-height: 2.65rem;
-    padding: 0 1rem;
+    gap: 0.4rem;
+    min-height: 2.35rem;
+    padding: 0 0.95rem;
     border-radius: 999px;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     white-space: nowrap;
+    transition:
+      background 0.28s ease,
+      border-color 0.28s ease,
+      box-shadow 0.28s ease,
+      color 0.28s ease;
   }
 
+  /* Add to bag — frost outline */
   .pp-desktop-sticky-bar__add {
-    background: #111;
-    color: #fff;
+    background: rgba(255, 255, 255, 0.92);
+    color: #111;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      0 8px 20px -8px rgba(0, 0, 0, 0.1);
   }
 
+  .pp-desktop-sticky-bar__add:hover:not(:disabled) {
+    border-color: rgba(0, 0, 0, 0.1);
+    background: #fff;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 1),
+      0 10px 24px -8px rgba(0, 0, 0, 0.12);
+  }
+
+  /* Buy Now — liquid primary */
   .pp-desktop-sticky-bar__buy {
-    background: rgba(16, 17, 20, 0.16);
-    color: #111;
-    border: 1px solid rgba(16, 17, 20, 0.35);
+    background:
+      linear-gradient(180deg, rgba(48, 48, 52, 0.98), rgba(12, 12, 14, 0.99)),
+      #111;
+    color: #fff;
+    border: 1px solid #111;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 10px 24px -6px rgba(0, 0, 0, 0.28);
+  }
+
+  .pp-desktop-sticky-bar__buy:hover:not(:disabled) {
+    background:
+      linear-gradient(180deg, rgba(58, 58, 62, 0.99), rgba(18, 18, 20, 0.99)),
+      #1a1a1e;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      0 14px 28px -6px rgba(0, 0, 0, 0.32);
   }
 }
 
@@ -5390,7 +5568,7 @@ html[data-perf='lite'] .size-premium__mesh {
   animation: none !important;
 }
 
-/* ─── PDP Size Guide modal (ILLIYEEN-style clean sheet) ─── */
+/* ─── PDP Size Guide modal — liquid bubble theme ─── */
 
 .sg-modal {
   position: fixed;
@@ -5407,9 +5585,9 @@ html[data-perf='lite'] .size-premium__mesh {
   border: 0;
   margin: 0;
   padding: 0;
-  background: rgba(10, 12, 14, 0.48);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(10, 12, 14, 0.42);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   cursor: pointer;
 }
 
@@ -5419,16 +5597,20 @@ html[data-perf='lite'] .size-premium__mesh {
   width: min(calc(100vw - 1.5rem), 560px);
   max-height: min(90vh, 720px);
   overflow: auto;
-  padding: 1.25rem 1.2rem 1.35rem;
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22);
+  padding: 1.35rem 1.25rem 1.45rem;
+  border-radius: 28px;
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 248, 250, 0.96) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 28px 64px rgba(16, 17, 20, 0.18),
+    0 8px 20px rgba(16, 17, 20, 0.08);
 }
 
 @media (min-width: 768px) {
   .sg-modal__panel {
-    padding: 1.5rem 1.55rem 1.6rem;
-    border-radius: 20px;
+    padding: 1.6rem 1.6rem 1.7rem;
+    border-radius: 32px;
   }
 }
 
@@ -5437,8 +5619,8 @@ html[data-perf='lite'] .size-premium__mesh {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  padding-bottom: 0.95rem;
-  border-bottom: 1px solid rgba(16, 17, 20, 0.08);
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(16, 17, 20, 0.06);
 }
 
 .sg-modal__brand {
@@ -5470,18 +5652,26 @@ html[data-perf='lite'] .size-premium__mesh {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.1rem;
-  height: 2.1rem;
+  width: 2.35rem;
+  height: 2.35rem;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: #101114;
   cursor: pointer;
-  transition: background 160ms ease;
+  box-shadow:
+    inset 4px 4px 8px rgba(217, 218, 222, 0.35),
+    inset -4px -4px 8px #ffffff,
+    4px 4px 10px rgba(235, 235, 235, 0.55);
+  transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
 .sg-modal__close:hover {
-  background: rgba(16, 17, 20, 0.05);
+  background: transparent;
+  box-shadow:
+    inset 5px 5px 10px rgba(217, 218, 222, 0.4),
+    inset -5px -5px 10px #ffffff,
+    5px 5px 12px rgba(235, 235, 235, 0.6);
 }
 
 .sg-modal__toolbar {
@@ -5501,28 +5691,41 @@ html[data-perf='lite'] .size-premium__mesh {
 
 .sg-modal__units {
   display: inline-flex;
-  gap: 0.35rem;
+  gap: 0.4rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 3px 3px 6px rgba(217, 218, 222, 0.35),
+    inset -3px -3px 6px #ffffff;
 }
 
 .sg-modal__unit {
+  position: relative;
   appearance: none;
-  min-width: 2.55rem;
-  height: 1.95rem;
-  padding: 0 0.7rem;
-  border: 1px solid rgba(16, 17, 20, 0.18);
-  border-radius: 4px;
-  background: #fff;
+  min-width: 2.7rem;
+  height: 2rem;
+  padding: 0 0.85rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
   color: #101114;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   cursor: pointer;
+  transition: color 180ms ease, background 180ms ease, box-shadow 180ms ease;
 }
 
 .sg-modal__unit--active {
-  border-color: #101114;
-  background: #101114;
+  border: 0;
+  background:
+    radial-gradient(120% 90% at 22% 12%, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 42%),
+    linear-gradient(165deg, #2a2b2e 0%, #121212 48%, #0a0a0b 100%);
   color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 6px 14px rgba(16, 17, 20, 0.2);
 }
 
 .sg-modal__table-wrap {
@@ -5757,27 +5960,28 @@ html[data-perf='lite'] .sg-modal__backdrop {
     border-radius: 14px;
   }
 
-  /* Size chips — quiet luxury soft pills */
+  /* Size chips — liquid bubble (keep transparent shell; bubble paints fill) */
   .pp-view .pp-size-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 0.7rem;
     margin-top: 0.65rem;
   }
 
   .pp-view .pp-size-btn,
   .pp-view .pp-size-btn:hover:not(:disabled):not(.pp-size-btn--active),
   .pp-view .pp-size-btn:active:not(:disabled):not(.pp-size-btn--unavailable) {
-    min-width: 4rem !important;
-    height: 2.5rem !important;
-    padding: 0.5rem 1.25rem !important;
+    min-width: 2.75rem !important;
+    min-height: 2.25rem !important;
+    height: 2.25rem !important;
+    padding: 0.4rem 0.85rem !important;
     border: 0 !important;
     border-radius: 100px !important;
     background: transparent !important;
     color: #121212 !important;
-    font-size: 1rem !important;
-    font-weight: 500 !important;
-    letter-spacing: 0 !important;
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.01em !important;
     box-shadow:
       inset 6px 6px 8px rgba(217, 218, 222, 0.3),
       inset -6px -6px 8px #ffffff,
@@ -5791,9 +5995,9 @@ html[data-perf='lite'] .sg-modal__backdrop {
   .pp-view .pp-size-btn--active:hover,
   .pp-view .pp-size-btn--active:active {
     border: 0 !important;
-    background: #121212 !important;
+    background: transparent !important;
     color: #ffffff !important;
-    font-weight: 500 !important;
+    font-weight: 650 !important;
     box-shadow: none !important;
   }
 
@@ -5801,15 +6005,21 @@ html[data-perf='lite'] .sg-modal__backdrop {
   .pp-view .pp-size-btn--unavailable:hover {
     border: 0 !important;
     background: transparent !important;
-    color: rgba(18, 18, 18, 0.8) !important;
+    color: rgba(18, 18, 18, 0.55) !important;
+    opacity: 0.72;
     box-shadow:
-      inset 6px 6px 8px rgba(217, 218, 222, 0.3),
-      inset -6px -6px 8px #ffffff,
-      6px 6px 10px rgba(235, 235, 235, 0.5) !important;
+      inset 6px 6px 8px rgba(217, 218, 222, 0.22),
+      inset -6px -6px 8px rgba(255, 255, 255, 0.85),
+      4px 4px 8px rgba(235, 235, 235, 0.4) !important;
   }
 
   .pp-view .pp-size-btn--unavailable::after {
     display: none;
+  }
+
+  .pp-view .pp-size-btn--unavailable .pp-size-btn__label {
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
   }
 
   .pp-view .pp-qty {
@@ -5818,14 +6028,13 @@ html[data-perf='lite'] .sg-modal__backdrop {
 
   .pp-view .pp-info__ctas {
     margin-top: 1.35rem;
-    padding: 0.85rem;
-    border: 1px solid rgba(16, 17, 20, 0.06);
+    padding: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.45);
     border-radius: 22px;
-    background:
-      linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 250, 251, 0.94) 100%);
+    background: rgba(255, 255, 255, 0.9);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 1),
-      0 12px 28px rgba(16, 17, 20, 0.05);
+      0 12px 28px -10px rgba(0, 0, 0, 0.1);
   }
 
   .pp-view .pp-info__ctas::before {
@@ -5838,13 +6047,19 @@ html[data-perf='lite'] .sg-modal__backdrop {
     border-radius: 999px;
     font-size: 0.74rem;
     font-weight: 700;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
   }
 
   .pp-view .pp-btn-add {
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.14),
-      0 12px 28px rgba(16, 17, 20, 0.18);
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      0 10px 28px -10px rgba(0, 0, 0, 0.1);
+  }
+
+  .pp-view .pp-btn-store {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 12px 30px -8px rgba(0, 0, 0, 0.28);
   }
 }

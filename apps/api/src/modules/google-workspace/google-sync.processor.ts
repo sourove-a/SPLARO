@@ -2,6 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq'
 import { Logger } from '@nestjs/common'
 import { Job } from 'bullmq'
 import { PrismaService } from '../../common/prisma.service'
+import { GoogleSheetsFinanceService } from '../finance/finance-support.service'
 import { TelegramIntegrationService } from '../integrations/telegram-integration.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { GOOGLE_SYNC_JOB_TYPES } from './google.constants'
@@ -17,6 +18,7 @@ export class GoogleSyncProcessor extends WorkerHost {
     private readonly sheets: GoogleSheetsSyncService,
     private readonly telegram: TelegramIntegrationService,
     private readonly notifications: NotificationsService,
+    private readonly financeSheets: GoogleSheetsFinanceService,
   ) {
     super()
   }
@@ -46,6 +48,11 @@ export class GoogleSyncProcessor extends WorkerHost {
             data: { status: 'completed', completedAt: new Date(), errorMsg: null },
           })
         }
+        await this.financeSheets.markWorkspaceSyncComplete(storeId, triggeredBy).catch((err) => {
+          this.logger.warn(
+            `finance sync log refresh failed: ${err instanceof Error ? err.message : String(err)}`,
+          )
+        })
         return result
       }
 
@@ -81,6 +88,19 @@ export class GoogleSyncProcessor extends WorkerHost {
           data: { status: 'completed', completedAt: new Date(), errorMsg: null },
         })
       }
+
+      if (
+        jobType === GOOGLE_SYNC_JOB_TYPES.FINANCE ||
+        jobType === GOOGLE_SYNC_JOB_TYPES.DAILY_SUMMARY ||
+        jobType === GOOGLE_SYNC_JOB_TYPES.FULL_BACKUP
+      ) {
+        await this.financeSheets.markWorkspaceSyncComplete(storeId, triggeredBy).catch((err) => {
+          this.logger.warn(
+            `finance sync log refresh failed: ${err instanceof Error ? err.message : String(err)}`,
+          )
+        })
+      }
+
       return result
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Sync failed'

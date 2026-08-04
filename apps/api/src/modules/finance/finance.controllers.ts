@@ -1,13 +1,37 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Param,
-  Query,
   Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
 } from '@nestjs/common'
+import { Throttle } from '@nestjs/throttler'
+import type { Request } from 'express'
+import { Public } from '../../common/auth/public.decorator'
+import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
+import {
+  canManagePartnerEquity,
+  canManagePartnerRoster,
+} from '../security/security-permissions.util'
 import { PartnersService, PartnerTransactionsService } from './partners.service'
+
+type AdminRequest = Request & { adminUser?: AdminSessionPayload }
+
+function assertPartnerRoster(req: AdminRequest) {
+  if (!canManagePartnerRoster(req.adminUser?.role)) {
+    throw new ForbiddenException('Only Owner or Admin can manage the partner roster')
+  }
+}
+
+function assertPartnerEquity(req: AdminRequest) {
+  if (!canManagePartnerEquity(req.adminUser?.role)) {
+    throw new ForbiddenException('Only Owner can change equity share percentages')
+  }
+}
 
 @Controller('partners')
 export class PartnersController {
@@ -20,25 +44,38 @@ export class PartnersController {
 
   @Post()
   create(
+    @Req() req: AdminRequest,
     @Query('storeId') storeId: string,
     @Body()
     body: {
       name: string
       slug?: string
-      email?: string
+      email: string
       phone?: string
       sharePercent: number
       notes?: string
       createdBy?: string
     },
   ) {
+    assertPartnerRoster(req)
     return this.partners.create(storeId, body)
   }
 
   /** @deprecated Use POST /partners — partners are added manually in admin */
   @Post('seed')
-  seed(@Query('storeId') storeId: string) {
+  seed(@Req() req: AdminRequest, @Query('storeId') storeId: string) {
+    assertPartnerRoster(req)
     return this.partners.list(storeId)
+  }
+
+  @Post(':slug/resend-invite')
+  resendInvite(
+    @Req() req: AdminRequest,
+    @Query('storeId') storeId: string,
+    @Param('slug') slug: string,
+  ) {
+    assertPartnerRoster(req)
+    return this.partners.resendInvite(storeId, slug)
   }
 
   @Get(':slug')
@@ -60,9 +97,11 @@ export class PartnersController {
 
   @Patch('share-settings')
   updateShares(
+    @Req() req: AdminRequest,
     @Query('storeId') storeId: string,
     @Body() body: { shares: { partnerId: string; sharePercent: number }[]; createdBy?: string },
   ) {
+    assertPartnerEquity(req)
     return this.partners.updateSharePercentages(storeId, body.shares, body.createdBy)
   }
 
@@ -80,6 +119,26 @@ export class PartnersController {
     },
   ) {
     return this.partners.updateProfile(storeId, slug, body)
+  }
+}
+
+/** Public invite preview + confirm — no admin session. */
+@Controller('partner-invites')
+export class PartnerInvitesController {
+  constructor(private readonly partners: PartnersService) {}
+
+  @Public()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Get(':token')
+  preview(@Param('token') token: string) {
+    return this.partners.previewInvite(token)
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Post(':token/confirm')
+  confirm(@Param('token') token: string) {
+    return this.partners.confirmInvite(token)
   }
 }
 

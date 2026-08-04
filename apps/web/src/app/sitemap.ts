@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next'
 import { isFeatureEnabled } from '@splaro/config'
 import { getStorefrontCatalog } from '@/lib/catalog/server'
 import { productSlug } from '@/lib/catalog/index'
+import { collectionHref } from '@/lib/storefront/collection-paths'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
 
@@ -16,10 +17,37 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
+function resolveProductLastMod(product: Record<string, unknown>): Date {
+  const rawDate = product.updatedAt ?? product.createdAt ?? product.updated_at ?? product.created_at
+  if (rawDate) {
+    const d = new Date(String(rawDate))
+    if (!isNaN(d.getTime())) return d
+  }
+  return new Date()
+}
+
+/** Canonical storefront path for a category slug — never /collections/* (307 → /c/*). */
+function categoryCanonicalPath(category: string): string {
+  if (category === 'accessories') return '/accessories'
+  if (category === 'footwear') return '/footwear'
+  return collectionHref(category)
+}
+
+function dedupeByUrl(entries: MetadataRoute.Sitemap): MetadataRoute.Sitemap {
+  const seen = new Set<string>()
+  const out: MetadataRoute.Sitemap = []
+  for (const entry of entries) {
+    if (seen.has(entry.url)) continue
+    seen.add(entry.url)
+    out.push(entry)
+  }
+  return out
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl.replace(/\/$/, '')
-  const now = new Date()
 
+  // Omit lastmod on static pages — Google ignores inaccurate fixed dates.
   const staticRoutes: MetadataRoute.Sitemap = [
     '',
     '/shop',
@@ -40,36 +68,42 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/payment-policy',
     '/gift-card-policy',
     '/editorial',
-    '/llms.txt',
-    '/feed.xml',
-    '/feeds/google-merchant.xml',
-    '/sitemap-images.xml',
     ...(isFeatureEnabled('loyalty') ? ['/loyalty'] : []),
   ].map((path) => ({
     url: `${base}${path}`,
-    lastModified: now,
-    changeFrequency: path === '' || path === '/shop' ? 'daily' : 'weekly',
+    changeFrequency: path === '' || path === '/shop' ? ('daily' as const) : ('weekly' as const),
     priority:
       path === ''
         ? 1
-        : path === '/shop' || path === '/llms.txt'
+        : path === '/shop'
           ? 0.9
-          : path === '/faq' || path === '/feeds/google-merchant.xml'
+          : path === '/faq'
             ? 0.75
             : 0.7,
   }))
 
   let productRoutes: MetadataRoute.Sitemap = []
   const categorySet = new Set<string>()
+  const categoryLastModMap = new Map<string, Date>()
 
   try {
     const { products } = await getStorefrontCatalog()
     productRoutes = products.map((product) => {
       const slug = product.slug ?? productSlug(product)
-      if (product.category) categorySet.add(slugify(String(product.category)))
+      const lastMod = resolveProductLastMod(product as unknown as Record<string, unknown>)
+
+      if (product.category) {
+        const catKey = slugify(String(product.category))
+        categorySet.add(catKey)
+        const currentMax = categoryLastModMap.get(catKey)
+        if (!currentMax || lastMod > currentMax) {
+          categoryLastModMap.set(catKey, lastMod)
+        }
+      }
+
       return {
         url: `${base}/products/${slug}`,
-        lastModified: now,
+        lastModified: lastMod,
         changeFrequency: 'weekly' as const,
         priority: 0.8,
       }
@@ -78,12 +112,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Catalog/API unavailable — ship static routes so the sitemap never 500s.
   }
 
-  const categoryRoutes: MetadataRoute.Sitemap = [...categorySet].map((category) => ({
-    url: `${base}/c/${category}`,
-    lastModified: now,
-    changeFrequency: 'weekly',
-    priority: 0.6,
-  }))
+  const categoryRoutes: MetadataRoute.Sitemap = [...categorySet].map((category) => {
+    const routePath = categoryCanonicalPath(category)
+    return {
+      url: `${base}${routePath}`,
+      lastModified: categoryLastModMap.get(category) ?? new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.6,
+    }
+  })
 
-  return [...staticRoutes, ...productRoutes, ...categoryRoutes]
+  return dedupeByUrl([...staticRoutes, ...productRoutes, ...categoryRoutes])
 }

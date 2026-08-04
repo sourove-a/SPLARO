@@ -5,6 +5,10 @@ import { seedDemoCatalogCore, type SeedDemoCatalogResult } from './seed-demo-cat
 
 export type { SeedDemoCatalogResult }
 
+function allowDemoCatalogSeed(): boolean {
+  return process.env['ALLOW_DEMO_CATALOG_SEED'] === 'true'
+}
+
 @Injectable()
 export class SeedDemoCatalogService implements OnModuleInit {
   private readonly logger = new Logger(SeedDemoCatalogService.name)
@@ -12,6 +16,8 @@ export class SeedDemoCatalogService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
+    // Never auto-fill Unsplash demos on boot. Opt-in only via ALLOW_DEMO_CATALOG_SEED=true.
+    if (!allowDemoCatalogSeed()) return
     if (process.env.NODE_ENV !== 'production') return
     const store = (process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro').trim()
     try {

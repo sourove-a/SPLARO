@@ -61,7 +61,7 @@ function mergeCartLine(existing: CartItem, incoming: CartItem): CartItem {
   const color = preferColorLabel(existing.color, incoming.color)
   return {
     ...existing,
-    quantity: existing.quantity + incoming.quantity,
+    quantity: Math.min(99, Math.max(1, existing.quantity + incoming.quantity)),
     ...(incoming.variantId && !existing.variantId ? { variantId: incoming.variantId } : {}),
     ...(incoming.size && !existing.size ? { size: incoming.size } : {}),
     ...(color ? { color } : {}),

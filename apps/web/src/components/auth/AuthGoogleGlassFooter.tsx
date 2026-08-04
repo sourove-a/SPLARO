@@ -57,8 +57,12 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
   // Hide ONLY when config confirms disabled AND no client id exists (baked or runtime).
   // Never unmount a visible button — flash-then-vanish is worse than a brief loading state.
   if (configLoaded && !googleSignInEnabled && !googleClientId) return null
-  // Local GIS stays fully unmounted until its origin is registered and explicitly enabled.
-  if (configured && originEligible !== true) return null
+
+  // Loopback without LOCAL_ENABLED: honest hint (no GIS mount / no fake button / no console spam).
+  const localBlocked = configured && originEligible === false
+  // Still resolving hostname — keep layout stable with measuring shell, no GIS yet.
+  const awaitingOrigin = configured && originEligible === null
+  const showGoogle = configured && originEligible === true
 
   return (
     <div
@@ -75,7 +79,18 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
 
       {googleError ? <p className="auth-google-glass__error">{googleError}</p> : null}
 
-      {configured ? (
+      {localBlocked ? (
+        <p className="auth-google-glass__hint">
+          Google sign-in is available on{' '}
+          <a href="https://splaro.co/login" className="auth-google-glass__hint-link">
+            splaro.co
+          </a>
+          . For local GIS, register localhost + 127.0.0.1 origins, then set{' '}
+          <code className="auth-google-glass__hint-code">NEXT_PUBLIC_GOOGLE_OAUTH_LOCAL_ENABLED=true</code>.
+        </p>
+      ) : null}
+
+      {showGoogle ? (
         <div
           ref={googleHostRef}
           className={cn(
@@ -108,9 +123,17 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
             </span>
           ) : null}
         </div>
-      ) : (
+      ) : null}
+
+      {awaitingOrigin ? (
+        <p className="auth-google-glass__hint auth-google-glass__hint--quiet" aria-live="polite">
+          Preparing Google sign-in…
+        </p>
+      ) : null}
+
+      {!configured ? (
         <p className="auth-google-glass__error">Google sign-in is not configured yet.</p>
-      )}
+      ) : null}
     </div>
   )
 }

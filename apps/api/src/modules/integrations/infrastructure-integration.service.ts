@@ -1,12 +1,20 @@
 import { BadRequestException, Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { resolveCustomerFacingApiBase } from '@splaro/config'
 import axios from 'axios'
 import { IntegrationsService } from './integrations.service'
 import { EncryptionService } from './encryption.service'
 
 export type InfraProvider = 'cloudflare_r2' | 'steadfast' | 'pathao' | 'redx'
 
-const SECRET_KEYS = new Set(['accessKey', 'secretKey', 'apiKey', 'clientSecret', 'password'])
+const SECRET_KEYS = new Set([
+  'accessKey',
+  'secretKey',
+  'apiKey',
+  'clientSecret',
+  'password',
+  'webhookBearerToken',
+])
 
 /** Documented placeholders / local stubs — never treat as real credentials in UI. */
 const PLACEHOLDER_VALUES = new Set([
@@ -63,6 +71,7 @@ export class InfrastructureIntegrationService {
       baseUrl:
         this.config.get<string>('STEADFAST_BASE_URL') ??
         'https://portal.steadfast.com.bd/public/api/v1',
+      webhookBearerToken: this.config.get<string>('STEADFAST_WEBHOOK_BEARER_TOKEN') ?? '',
     }
   }
 
@@ -139,6 +148,11 @@ export class InfrastructureIntegrationService {
     const fields = this.fieldsForAdminUi(provider, runtime)
     const meta = await this.integrations.getProviderMeta(storeId, provider)
 
+    const webhookBearer =
+      provider === 'steadfast' ? (runtime.webhookBearerToken ?? '').trim() : ''
+    const webhookConfigured =
+      provider === 'steadfast' && Boolean(webhookBearer) && !this.isPlaceholder(webhookBearer)
+
     return {
       provider,
       configured,
@@ -147,7 +161,33 @@ export class InfrastructureIntegrationService {
       fields,
       lastTestedAt: meta.lastTestedAt,
       lastTestStatus: meta.lastTestStatus,
+      ...(provider === 'steadfast'
+        ? {
+            callbackUrl: this.buildSteadfastCallbackUrl(),
+            webhookConfigured,
+          }
+        : {}),
     }
+  }
+
+  /**
+   * Public Callback Url for Steadfast portal Webhook Integration.
+   * Always customer-facing (https://splaro.co/api/v1/…) — never localhost / INTERNAL_API_URL.
+   * Steadfast’s servers cannot POST to loopback even when admin runs in local dev.
+   */
+  buildSteadfastCallbackUrl(): string {
+    const base = resolveCustomerFacingApiBase().replace(/\/+$/, '')
+    return `${base}/webhooks/steadfast`
+  }
+
+  async resolveWebhookBearerToken(storeIdRaw?: string): Promise<string | null> {
+    const storeId = await this.integrations.resolveStore(storeIdRaw ?? '')
+    const runtime = (await this.resolveRuntimeCredentials(storeId, 'steadfast')) as {
+      webhookBearerToken?: string
+    }
+    const token = (runtime.webhookBearerToken ?? '').trim()
+    if (!token || this.isPlaceholder(token)) return null
+    return token
   }
 
   async update(
@@ -304,6 +344,9 @@ export class InfrastructureIntegrationService {
         (await pick('baseUrl')) ||
         fallback.baseUrl ||
         'https://portal.steadfast.com.bd/public/api/v1',
+      // Webhook Bearer: DB first; env STEADFAST_WEBHOOK_BEARER_TOKEN still OK when admin has API keys only
+      webhookBearerToken:
+        (await pick('webhookBearerToken')) || (fallback.webhookBearerToken ?? ''),
     }
   }
 }

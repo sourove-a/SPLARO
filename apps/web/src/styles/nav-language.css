@@ -8,35 +8,27 @@
  */
 
 :root {
-  --nav-glass-fill: var(--pearl-fill);
-  --nav-glass-frost: var(--pearl-frost, rgba(255, 255, 255, 0.82));
-  --nav-glass-edge: var(--pearl-edge, rgba(255, 255, 255, 0.96));
-  --nav-glass-blur: var(--pearl-blur, blur(28px) saturate(1.45));
-  --nav-glass-blur-soft: var(--pearl-blur-soft, blur(16px) saturate(1.28));
+  --nav-glass-fill: rgba(255, 255, 255, 0.7);
+  --nav-glass-frost: rgba(255, 255, 255, 0.7);
+  --nav-glass-edge: rgba(255, 255, 255, 0.2);
+  --nav-glass-blur: blur(12px) saturate(1.8);
+  --nav-glass-blur-soft: blur(12px) saturate(1.8);
   --nav-glass-ink: var(--pearl-ink, #101114);
-  --nav-glass-shadow: var(
-    --pearl-shadow,
-    0 0 0 1px rgba(255, 255, 255, 0.55),
-    0 18px 48px rgba(16, 22, 36, 0.08),
-    0 4px 14px rgba(16, 22, 36, 0.04),
-    inset 0 1.5px 0 rgba(255, 255, 255, 1),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.45)
-  );
+  --nav-glass-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 8px 28px rgba(16, 22, 36, 0.06),
+    0 1px 0 rgba(16, 17, 20, 0.03);
   --nav-glass-shadow-float:
-    0 0 0 1px rgba(255, 255, 255, 0.55),
-    0 22px 56px rgba(16, 22, 36, 0.1),
-    0 8px 20px rgba(16, 22, 36, 0.05),
-    0 0 40px rgba(186, 196, 210, 0.16),
-    inset 0 1.5px 0 rgba(255, 255, 255, 1),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 12px 36px rgba(16, 22, 36, 0.08),
+    0 4px 14px rgba(16, 22, 36, 0.04),
+    0 0 28px rgba(186, 196, 210, 0.12);
   --nav-glass-radius: 28px;
   --nav-glass-radius-pill: 999px;
 }
 
-/* Shared Pearl glass surface recipe */
+/* Shared Pearl glass surface recipe — drawers/filters keep float depth */
 .nav-glass,
-.site-header-glass:not(.site-header-glass--over-hero),
-.site-header-glass.site-header-glass--scrolled,
 .mobile-bottom-nav__inner,
 .shop-filter-dropdown__panel--glass,
 .shop-filter-dropdown__trigger--glass,
@@ -44,21 +36,29 @@
 .mobile-filter-drawer__surface,
 .mm-drawer,
 .cart-drawer__panel {
-  background: var(--nav-glass-fill) !important;
-  border-color: var(--nav-glass-edge) !important;
+  background: var(--pearl-fill, var(--nav-glass-fill)) !important;
+  border-color: var(--pearl-edge, var(--nav-glass-edge)) !important;
   color: var(--nav-glass-ink);
-  backdrop-filter: var(--nav-glass-blur) !important;
-  -webkit-backdrop-filter: var(--nav-glass-blur) !important;
+  backdrop-filter: var(--pearl-blur, var(--nav-glass-blur)) !important;
+  -webkit-backdrop-filter: var(--pearl-blur, var(--nav-glass-blur)) !important;
   box-shadow: var(--nav-glass-shadow-float) !important;
 }
 
-/* ── Navbar — floating Pearl bar ── */
+/* Header — ILYN frosted glass (only when scrolled / non-hero chrome) */
 .site-header-glass:not(.site-header-glass--over-hero),
 .site-header-glass.site-header-glass--scrolled {
-  border-bottom: 1px solid var(--nav-glass-edge);
-  box-shadow:
-    var(--nav-glass-shadow-float),
-    0 1px 0 rgba(16, 17, 20, 0.03) !important;
+  background: var(--header-glass-bg-scrolled, var(--nav-glass-frost)) !important;
+  border-bottom: 1px solid var(--header-glass-border, var(--nav-glass-edge)) !important;
+  color: var(--nav-glass-ink);
+  backdrop-filter: var(--header-glass-blur-scrolled, var(--nav-glass-blur)) !important;
+  -webkit-backdrop-filter: var(--header-glass-blur-scrolled, var(--nav-glass-blur)) !important;
+  box-shadow: var(--nav-glass-shadow-float) !important;
+  transition:
+    background var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1)),
+    box-shadow var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1)),
+    border-color var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1)),
+    backdrop-filter var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1)),
+    -webkit-backdrop-filter var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1));
 }
 
 /* Keep over-hero transparent (do not force glass disk) */
@@ -99,13 +99,24 @@
 
 /* ── Filter — dropdown + sheet + drawer ── */
 .shop-filter-dropdown__panel--glass {
-  border-radius: 18px !important;
+  border-radius: 14px !important;
   overflow: hidden;
+  background: rgba(255, 255, 255, 0.8) !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  backdrop-filter: blur(12px) saturate(1.5) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.5) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08) !important;
 }
 
 .shop-filter-dropdown__trigger--glass {
   border-radius: var(--nav-glass-radius-pill) !important;
-  box-shadow: var(--nav-glass-shadow) !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(12px) saturate(1.6) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.6) !important;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85) !important;
 }
 
 .shop-filter-sheet {
@@ -167,6 +178,8 @@ html[data-perf='lite'] .shop-filter-sheet,
 html[data-perf='lite'] .mobile-filter-drawer__surface,
 html[data-perf='lite'] .mm-drawer,
 html[data-perf='lite'] .cart-drawer__panel,
+html[data-os='windows'] .site-header-glass:not(.site-header-glass--over-hero),
+html[data-os='windows'] .site-header-glass.site-header-glass--scrolled,
 html[data-os='windows'] .mobile-bottom-nav__inner,
 html[data-os='windows'] .shop-filter-dropdown__panel--glass,
 html[data-os='windows'] .shop-filter-sheet,

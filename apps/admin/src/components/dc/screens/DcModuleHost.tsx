@@ -47,14 +47,19 @@ export function DcModuleHost({
   const back = showBack ?? Boolean(action)
 
   const conn = dcConnectionChip(api.pulse)
+  // Soft-locked body talks to no API — never claim LIVE (maturity may still say live for legacy hrefs).
+  const softLocked = !children
   const status =
     conn ??
-    (maturity === 'live'
-      ? { label: 'LIVE' as const, tone: 'ok' as const }
-      : maturity === 'beta'
-        ? { label: 'BETA' as const, tone: 'warn' as const }
-        : { label: 'PREVIEW' as const, tone: 'mute' as const })
+    (softLocked
+      ? { label: 'SOFT' as const, tone: 'mute' as const }
+      : maturity === 'live'
+        ? { label: 'LIVE' as const, tone: 'ok' as const }
+        : maturity === 'beta'
+          ? { label: 'BETA' as const, tone: 'warn' as const }
+          : { label: 'PREVIEW' as const, tone: 'mute' as const })
 
+  // A soft-locked body talks to no API, so never claim a verified panel there.
   const syncLabel = children
     ? api.pulse === 'offline'
       ? 'API offline — panel may be empty'

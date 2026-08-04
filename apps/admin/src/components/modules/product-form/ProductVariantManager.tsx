@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Archive, Loader2, Plus } from 'lucide-react'
 import { useCreateProductVariant, useUpdateProductVariant, useArchiveProductVariant } from '@/lib/api/hooks'
-import { toastFail, toastApiSaved, toastOk } from '@/lib/admin/feedback'
+import { toastFail, toastApiSaved, toastOk, toastWarn } from '@/lib/admin/feedback'
 import {
   confirmVariantArchived,
   confirmVariantCreated,
@@ -16,6 +16,14 @@ import {
 } from '@/lib/admin/catalog-mutation-verify'
 import { cn } from '@/lib/utils/cn'
 import type { ApiProduct } from '@/lib/api/products'
+import {
+  colourInputValue,
+  DEFAULT_COLOUR_HEX,
+  eyeDropperSupported,
+  nearestColourName,
+  pickColourWithEyeDropper,
+} from '@/lib/admin/colour-names'
+import { sizeChipsForDept, sizeDeptFromSlugOrName } from '@/lib/admin/size-presets'
 
 type Variant = NonNullable<ApiProduct['variants']>[number]
 
@@ -23,6 +31,8 @@ interface ProductVariantManagerProps {
   productId: string
   variants: Variant[]
   productImages: string[]
+  /** Menu slug/name so size chips switch (footwear ≠ M/L/XL). */
+  departmentHint?: string
 }
 
 interface RowDraft {
@@ -76,7 +86,7 @@ const EMPTY_DRAFT: RowDraft = {
   size: '',
   color: '',
   colorName: 'Default',
-  colorHex: 'var(--admin-color-ink-near)',
+  colorHex: DEFAULT_COLOUR_HEX,
   image: '',
   sku: '',
   price: '',
@@ -101,10 +111,21 @@ function existingSizeKey(size: string, colorHex: string) {
   return `${size.trim().toLowerCase()}::${colorHex.trim().toLowerCase() || 'default'}`
 }
 
-export function ProductVariantManager({ productId, variants, productImages }: ProductVariantManagerProps) {
+export function ProductVariantManager({
+  productId,
+  variants,
+  productImages,
+  departmentHint,
+}: ProductVariantManagerProps) {
   const updateVariant = useUpdateProductVariant()
   const createVariant = useCreateProductVariant()
   const archiveVariant = useArchiveProductVariant()
+
+  const sizeChips = useMemo(() => {
+    const dept = sizeDeptFromSlugOrName(departmentHint)
+    if (dept === 'default') return [...SIZE_CHIPS]
+    return sizeChipsForDept(dept)
+  }, [departmentHint])
 
   const [drafts, setDrafts] = useState<Record<string, RowDraft>>(() => {
     const map: Record<string, RowDraft> = {}
@@ -117,7 +138,7 @@ export function ProductVariantManager({ productId, variants, productImages }: Pr
     price: '',
     stock: '10',
     colorName: 'Default',
-    colorHex: 'var(--admin-color-ink-near)',
+    colorHex: DEFAULT_COLOUR_HEX,
     image: '',
   })
   const [bulkBusy, setBulkBusy] = useState(false)
@@ -500,7 +521,7 @@ export function ProductVariantManager({ productId, variants, productImages }: Pr
           </div>
 
           <div className="sf-variants__chips">
-            {SIZE_CHIPS.map((size) => {
+            {sizeChips.map((size) => {
               const taken = existingKeys.has(existingSizeKey(size, bulk.colorHex))
               const active = selectedSizes.includes(size)
               return (
@@ -576,13 +597,45 @@ export function ProductVariantManager({ productId, variants, productImages }: Pr
           <label className="sf-variants__field">
             <span>Swatch</span>
             <div className="sf-variants__swatch-row">
-              <span className="sf-variants__swatch" style={{ background: bulk.colorHex || 'var(--admin-c-cccccc)' }} />
+              <span className="sf-variants__swatch" style={{ background: colourInputValue(bulk.colorHex) }} />
               <input
                 type="color"
                 className="sf-variants__color"
-                value={bulk.colorHex || 'var(--admin-color-ink-near)'}
-                onChange={(e) => setBulk((p) => ({ ...p, colorHex: e.target.value }))}
+                value={colourInputValue(bulk.colorHex)}
+                onChange={(e) =>
+                  setBulk((p) => ({
+                    ...p,
+                    colorHex: e.target.value,
+                    colorName:
+                      !p.colorName.trim() || p.colorName === 'Default' || p.colorName === nearestColourName(p.colorHex)
+                        ? nearestColourName(e.target.value)
+                        : p.colorName,
+                  }))
+                }
               />
+              <button
+                type="button"
+                className="sf-variants__link"
+                title="Eyedropper — pick colour from product photo"
+                onClick={() => {
+                  void (async () => {
+                    if (!eyeDropperSupported()) {
+                      toastWarn('Eyedropper needs Chrome or Edge')
+                      return
+                    }
+                    const picked = await pickColourWithEyeDropper()
+                    if (!picked) return
+                    setBulk((p) => ({
+                      ...p,
+                      colorHex: picked.hex,
+                      colorName: picked.name,
+                    }))
+                    toastOk(`${picked.name} · ${picked.hex}`)
+                  })()
+                }}
+              >
+                Pen
+              </button>
             </div>
           </label>
           <label className="sf-variants__field">

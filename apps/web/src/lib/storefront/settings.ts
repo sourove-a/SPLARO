@@ -187,6 +187,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
     footerCopyright: '',
     storeLabel: DEFAULT_STORE_LABEL,
     headerNav: [
+      { label: 'Home', href: '/' },
       { label: 'Shop', href: '/shop' },
       {
         label: 'Men',
@@ -506,12 +507,80 @@ function ensureFallbackFooterShopLinks(groups: FooterGroup[]): FooterGroup[] {
   })
 }
 
+function ensureHomeNavLink(nav: NavLink[]): NavLink[] {
+  const hasHome = nav.some((item) => {
+    const href = (item.href ?? '').split('?')[0]?.replace(/\/$/, '') || '/'
+    return href === '/' || item.label.trim().toLowerCase() === 'home'
+  })
+  if (hasHome) return nav
+  return [{ label: 'Home', href: '/' }, ...nav]
+}
+
+/** Belt-and-suspenders: API NavBuilder also heals; keep Accessories if nav cache is stale. */
+function ensureAccessoriesHeaderLink(nav: NavLink[]): NavLink[] {
+  const pathOf = (href: string) => href.split(/[?#]/, 1)[0]?.replace(/\/$/, '') || '/'
+  const isAccessories = (item: NavLink) => {
+    const href = pathOf(item.href ?? '')
+    const label = item.label?.trim().toLowerCase() ?? ''
+    return (
+      href === '/accessories' ||
+      href === '/c/accessories' ||
+      href === '/collections/accessories' ||
+      label === 'accessories'
+    )
+  }
+
+  const idx = nav.findIndex(isAccessories)
+  if (idx >= 0) {
+    const item = nav[idx]!
+    const needsHref = pathOf(item.href) !== '/accessories'
+    const needsShow = Boolean(item.hidden)
+    const needsMega = !item.megaMenu?.categories?.length
+    if (!needsHref && !needsShow && !needsMega) return nav
+    const next = [...nav]
+    next[idx] = {
+      label: item.label?.trim() || 'Accessories',
+      href: '/accessories',
+      megaMenu: item.megaMenu?.categories?.length
+        ? item.megaMenu
+        : {
+            categories: [...ACCESSORIES_MEGA_CATEGORIES],
+            heroes: [...ACCESSORIES_MEGA_HEROES],
+          },
+    }
+    return next
+  }
+
+  const footwearIdx = nav.findIndex((item) => {
+    const href = pathOf(item.href ?? '')
+    return (
+      href === '/c/footwear' ||
+      href === '/collections/footwear' ||
+      item.label?.trim().toLowerCase() === 'footwear'
+    )
+  })
+  const link: NavLink = {
+    label: 'Accessories',
+    href: '/accessories',
+    megaMenu: {
+      categories: [...ACCESSORIES_MEGA_CATEGORIES],
+      heroes: [...ACCESSORIES_MEGA_HEROES],
+    },
+  }
+  if (footwearIdx >= 0) {
+    const next = [...nav]
+    next.splice(footwearIdx + 1, 0, link)
+    return next
+  }
+  return [...nav, link]
+}
+
 function applyStoreDefaults(settings: StorefrontSettings): StorefrontSettings {
   const fallbackGroups = FALLBACK_SETTINGS.config.footerGroups ?? []
   const headerNav = settings.config.headerNav?.length
     ? settings.config.headerNav
     : FALLBACK_SETTINGS.config.headerNav
-  const normalizedHeaderNav = headerNav ?? []
+  const normalizedHeaderNav = ensureAccessoriesHeaderLink(ensureHomeNavLink(headerNav ?? []))
 
   const catalogChannels = mergeCatalogChannels(
     settings.config.catalogChannels ?? FALLBACK_SETTINGS.config.catalogChannels,

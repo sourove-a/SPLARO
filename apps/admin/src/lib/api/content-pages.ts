@@ -13,14 +13,26 @@ export interface SitePageRow {
   updatedAt: string
 }
 
-export function fetchSitePages() {
+/** Landing = campaign pages (excludes homepage + legal slugs server-side). */
+export function fetchLandingPages() {
   return apiFetch<SitePageRow[]>('/admin/content/pages?kind=landing')
+}
+
+/** All site pages — caller filters legal slugs for CMS. */
+export function fetchAllSitePages() {
+  return apiFetch<SitePageRow[]>('/admin/content/pages')
+}
+
+/** @deprecated Prefer fetchLandingPages — kept for existing hooks. */
+export function fetchSitePages() {
+  return fetchLandingPages()
 }
 
 export function createSitePage(input: {
   title: string
   content?: string
   isPublished?: boolean
+  isHomepage?: boolean
   metaTitle?: string
   metaDesc?: string
 }) {
@@ -34,6 +46,7 @@ export function updateSitePage(
   id: string,
   input: Partial<{
     title: string
+    slug: string
     content: string
     isPublished: boolean
     metaTitle: string

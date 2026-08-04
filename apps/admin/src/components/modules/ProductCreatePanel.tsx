@@ -20,6 +20,21 @@ import { toastOk, toastFail, toastWarn } from '@/lib/admin/feedback'
 import { confirmProductCreated } from '@/lib/admin/catalog-save'
 import { buildCategoryPicker } from '@/lib/admin/category-picker'
 import {
+  colourInputValue,
+  DEFAULT_COLOUR_HEX,
+  eyeDropperSupported,
+  nearestColourName,
+  normalizeHex,
+  pickColourWithEyeDropper,
+} from '@/lib/admin/colour-names'
+import {
+  mediaFolderForDept,
+  SIZE_PRESETS,
+  sizeChipsForDept,
+  sizeDeptFromSlugOrName,
+  type SizeDeptKey,
+} from '@/lib/admin/size-presets'
+import {
   mergeFitAndProductType,
   parseTagsInput,
   resolveSellingPrices,
@@ -43,16 +58,6 @@ interface ProductCreatePanelProps {
   moduleHref: string
 }
 
-const SIZE_PRESETS: Record<string, string> = {
-  kids: '0-3M, 3-6M, 6-9M, 9-12M, 12-18M, 18-24M, 2/3, 4/5, 6/7, 8/9, 10/11, 12/13',
-  women: 'XS, S, M, L, XL, XXL',
-  men: 'S, M, L, XL, XXL, 3XL',
-  footwear: '36, 37, 38, 39, 40, 41, 42',
-}
-
-const KIDS_SIZES = (SIZE_PRESETS.kids ?? '').split(', ').filter(Boolean)
-const ALL_SIZE_CHIPS = [...KIDS_SIZES, 'XS', 'S', 'M', 'L', 'XL'].filter((v, i, a) => a.indexOf(v) === i)
-
 const DESCRIPTION_PLACEHOLDER_EN = 'Write your product story in English…'
 
 const DESCRIPTION_PLACEHOLDER_BN = 'বাংলায় বিবরণ লিখুন…'
@@ -60,12 +65,9 @@ const DESCRIPTION_PLACEHOLDER_BN = 'বাংলায় বিবরণ লি
 const DESCRIPTION_HINT_BN = 'কাপড়, ফিট, কখন পরবেন — সংক্ষেপে বাংলায় লিখুন।'
 
 function sizesForCategory(name: string, slug?: string | null): string | null {
-  const key = `${name} ${slug ?? ''}`.toLowerCase()
-  if (key.includes('kid') || key.includes('baby') || key.includes('child')) return SIZE_PRESETS.kids ?? null
-  if (key.includes('women') || key.includes('woman')) return SIZE_PRESETS.women ?? null
-  if (key.includes('foot') || key.includes('shoe')) return SIZE_PRESETS.footwear ?? null
-  if (key.includes('men') || key.includes('panjabi')) return SIZE_PRESETS.men ?? null
-  return null
+  const key = sizeDeptFromSlugOrName(`${name} ${slug ?? ''}`)
+  if (key === 'default') return null
+  return SIZE_PRESETS[key]
 }
 
 type ColorRow = { id: string; name: string; hex: string; imageUrl: string }
@@ -93,7 +95,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const [activeJump, setActiveJump] = useState('np-menu')
   const [altText, setAltText] = useState('')
   const [colorRows, setColorRows] = useState<ColorRow[]>([
-    { id: newColorId(), name: '', hex: 'var(--admin-color-ink-near)', imageUrl: '' },
+    { id: newColorId(), name: '', hex: DEFAULT_COLOUR_HEX, imageUrl: '' },
   ])
   const [activeColorId, setActiveColorId] = useState('')
   const [departmentId, setDepartmentId] = useState('')
@@ -177,16 +179,31 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     () => form.sizes.split(',').map((s) => s.trim()).filter(Boolean),
     [form.sizes],
   )
-  const activeColors = useMemo(
-    () => colorRows.filter((row) => row.name.trim()),
-    [colorRows],
-  )
-  const variantCount = Math.max(1, sizeList.length) * Math.max(1, activeColors.length || 1)
 
   const selectedCategory = useMemo(
     () => categories.find((c) => c.id === form.categoryId),
     [categories, form.categoryId],
   )
+
+  const sizeDeptKey: SizeDeptKey = useMemo(() => {
+    const dept = categories.find((c) => c.id === departmentId)
+    if (dept) return sizeDeptFromSlugOrName(`${dept.name} ${dept.slug}`)
+    if (selectedCategory) return sizeDeptFromSlugOrName(`${selectedCategory.name} ${selectedCategory.slug}`)
+    return 'default'
+  }, [categories, departmentId, selectedCategory])
+
+  const sizeChips = useMemo(() => sizeChipsForDept(sizeDeptKey), [sizeDeptKey])
+
+  const mediaUploadFolder = useMemo(() => {
+    const dept = categories.find((c) => c.id === departmentId)
+    return mediaFolderForDept(dept ? `${dept.name} ${dept.slug}` : selectedCategory?.slug)
+  }, [categories, departmentId, selectedCategory])
+
+  const activeColors = useMemo(
+    () => colorRows.filter((row) => row.name.trim()),
+    [colorRows],
+  )
+  const variantCount = Math.max(1, sizeList.length) * Math.max(1, activeColors.length || 1)
 
   const categoryPicker = useMemo(
     () => buildCategoryPicker(categories, categoryTreeData?.tree),
@@ -251,8 +268,36 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const addColorRow = () => {
     setColorRows((rows) => [
       ...rows,
-      { id: newColorId(), name: '', hex: 'var(--admin-color-ink-near)', imageUrl: form.imageUrls[rows.length] ?? '' },
+      { id: newColorId(), name: '', hex: DEFAULT_COLOUR_HEX, imageUrl: form.imageUrls[rows.length] ?? '' },
     ])
+  }
+
+  const applyHexToColour = (id: string, rawHex: string, opts?: { fillName?: boolean }) => {
+    const hex = normalizeHex(rawHex) ?? rawHex
+    const name = nearestColourName(hex)
+    setColorRows((rows) =>
+      rows.map((row) => {
+        if (row.id !== id) return row
+        const nextName =
+          opts?.fillName !== false && (!row.name.trim() || row.name === nearestColourName(row.hex))
+            ? name
+            : row.name
+        return { ...row, hex, name: nextName }
+      }),
+    )
+  }
+
+  const eyeDropColour = async (id: string) => {
+    if (!eyeDropperSupported()) {
+      toastWarn('Eyedropper needs Chrome or Edge — use the colour wheel instead.')
+      return
+    }
+    const picked = await pickColourWithEyeDropper()
+    if (!picked) return
+    setColorRows((rows) =>
+      rows.map((row) => (row.id === id ? { ...row, hex: picked.hex, name: picked.name } : row)),
+    )
+    toastOk(`${picked.name} · ${picked.hex}`, 'colour-pick')
   }
 
   const updateColorRow = (id: string, patch: Partial<ColorRow>) => {
@@ -958,17 +1003,18 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             id="np-media"
             num="02"
             title="Media"
-            hint="First image is the card thumbnail. Drag your own photos onto any slot."
+            hint="Upload, paste a link, or pick from the media library. Photos save under the selected menu folder (Men/Women/Kids/…)."
             badge={<DcPill>{`${form.imageUrls.filter(Boolean).length} of 6 filled`}</DcPill>}
           >
             <DcProductMediaSlots
-          imageUrls={form.imageUrls}
-          videoUrl={form.videoUrl}
+              imageUrls={form.imageUrls}
+              videoUrl={form.videoUrl}
               altText={altText}
-          onImageUrlsChange={(urls) => setForm((prev) => ({ ...prev, imageUrls: urls }))}
-          onVideoUrlChange={(url) => setForm((prev) => ({ ...prev, videoUrl: url }))}
+              onImageUrlsChange={(urls) => setForm((prev) => ({ ...prev, imageUrls: urls }))}
+              onVideoUrlChange={(url) => setForm((prev) => ({ ...prev, videoUrl: url }))}
               onAltChange={setAltText}
-          disabled={aiLoading}
+              disabled={aiLoading}
+              uploadFolder={mediaUploadFolder}
             />
           </DcSectionCard>
 
@@ -976,7 +1022,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             id="np-colours"
             num="03"
             title="Colours"
-            hint="Assign photos in Media; stock per size in Variants."
+            hint="Full colour wheel + pen (eyedropper) on the product photo — name fills automatically."
             badge={<DcPill>{activeColors.length || colorRows.length} colours</DcPill>}
           >
             {colorRows.map((row) => {
@@ -1001,21 +1047,61 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                       flexWrap: 'wrap',
                     }}
                   >
-                    <button
-                      type="button"
-                      onClick={() => setActiveColorId(row.id)}
-                      title={row.name || 'Colour'}
+                    <label
+                      title="Pick colour"
                       style={{
                         width: 34,
                         height: 34,
                         flex: 'none',
                         borderRadius: 9,
                         border: '1px solid var(--line-2)',
-                        background: row.hex,
+                        background: colourInputValue(row.hex),
                         cursor: 'pointer',
                         padding: 0,
+                        overflow: 'hidden',
+                        position: 'relative',
                       }}
-                    />
+                    >
+                      <input
+                        type="color"
+                        value={colourInputValue(row.hex)}
+                        onChange={(e) => {
+                          setActiveColorId(row.id)
+                          applyHexToColour(row.id, e.target.value, { fillName: true })
+                        }}
+                        onFocus={() => setActiveColorId(row.id)}
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          opacity: 0,
+                          width: '100%',
+                          height: '100%',
+                          cursor: 'pointer',
+                          border: 0,
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveColorId(row.id)
+                        void eyeDropColour(row.id)
+                      }}
+                      title="Eyedropper — click product photo colour"
+                      style={{
+                        display: 'grid',
+                        placeItems: 'center',
+                        width: 34,
+                        height: 34,
+                        borderRadius: 9,
+                        border: '1px solid var(--line-2)',
+                        background: 'var(--surface)',
+                        color: 'var(--ink-2)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <DcIcon name="icon-pipette" size={14} />
+                    </button>
                     <span style={{ flex: 1, minWidth: 130, font: `600 13px/1 ${FONT}`, color: 'var(--ink)' }}>
                       {row.name.trim() || 'Unnamed colour'}
                     </span>
@@ -1054,12 +1140,35 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                       />
                     </DcField>
                     <DcField label="Hex">
-                      <DcInput
-                        mono
-                        value={row.hex}
-                        onChange={(e) => updateColorRow(row.id, { hex: e.target.value })}
-                        onFocus={() => setActiveColorId(row.id)}
-                      />
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input
+                          type="color"
+                          value={colourInputValue(row.hex)}
+                          onChange={(e) => applyHexToColour(row.id, e.target.value, { fillName: true })}
+                          style={{
+                            width: 42,
+                            height: 36,
+                            borderRadius: 8,
+                            border: '1px solid var(--line)',
+                            background: 'transparent',
+                            padding: 2,
+                            cursor: 'pointer',
+                            flex: 'none',
+                          }}
+                        />
+                        <DcInput
+                          mono
+                          value={row.hex}
+                          onChange={(e) => {
+                            const raw = e.target.value
+                            updateColorRow(row.id, { hex: raw })
+                            const n = normalizeHex(raw)
+                            if (n) applyHexToColour(row.id, n, { fillName: true })
+                          }}
+                          onFocus={() => setActiveColorId(row.id)}
+                          placeholder={DEFAULT_COLOUR_HEX}
+                        />
+                      </div>
                     </DcField>
                   </div>
                 </div>
@@ -1092,7 +1201,15 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             id="np-matrix"
             num="04"
             title="Variants"
-            hint="Size run × colours. Stock defaults apply on create."
+            hint={
+              sizeDeptKey === 'footwear'
+                ? 'Footwear size run (EU) — switches automatically when you pick Footwear menu.'
+                : sizeDeptKey === 'kids'
+                  ? 'Kids size run — switches when you pick Kids menu.'
+                  : sizeDeptKey === 'accessories'
+                    ? 'Accessories default to One Size — add custom if needed.'
+                    : 'Size run follows Men / Women / Kids / Footwear menu.'
+            }
             badge={<DcPill>{matrixRows.length} variants</DcPill>}
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1105,9 +1222,10 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                 }}
               >
                 Size run
+                {sizeDeptKey !== 'default' ? ` · ${sizeDeptKey}` : ''}
               </span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {ALL_SIZE_CHIPS.map((sz) => {
+                {sizeChips.map((sz) => {
                   const on = sizeList.includes(sz)
                   return (
                     <DcChip

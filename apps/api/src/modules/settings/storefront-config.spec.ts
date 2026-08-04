@@ -1,4 +1,8 @@
-import { mergeHeaderNav, mergeStorefrontConfig } from './storefront-config'
+import {
+  ensureEssentialHeaderDepartments,
+  mergeHeaderNav,
+  mergeStorefrontConfig,
+} from './storefront-config'
 
 describe('storefront header navigation', () => {
   it('keeps admin order, removals, and visibility exactly', () => {
@@ -24,5 +28,28 @@ describe('storefront header navigation', () => {
     })
 
     expect(config.headerNav).toEqual([{ label: 'Only shop', href: '/shop' }])
+  })
+
+  it('heal-on-read re-injects Accessories after Footwear', () => {
+    const healed = ensureEssentialHeaderDepartments([
+      { label: 'Shop', href: '/shop' },
+      { label: 'Men', href: '/collections/men' },
+      { label: 'Footwear', href: '/collections/footwear' },
+    ])
+    const accessoriesIdx = healed.findIndex((l) => l.href === '/accessories')
+    const footwearIdx = healed.findIndex((l) => /footwear/i.test(l.href) || l.label === 'Footwear')
+    expect(accessoriesIdx).toBeGreaterThan(-1)
+    expect(accessoriesIdx).toBe(footwearIdx + 1)
+    expect(healed[accessoriesIdx]?.label).toBe('Accessories')
+  })
+
+  it('heal-on-read unhides Accessories and accepts /c/accessories alias', () => {
+    const healed = ensureEssentialHeaderDepartments([
+      { label: 'Shop', href: '/shop' },
+      { label: 'Accessories', href: '/c/accessories', hidden: true },
+    ])
+    const acc = healed.find((l) => l.label === 'Accessories')
+    expect(acc?.hidden).toBeUndefined()
+    expect(acc?.href).toBe('/accessories')
   })
 })

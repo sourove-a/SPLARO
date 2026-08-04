@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
-import { DcSoftLockPanel } from '@/components/dc/DcSoftLockPanel'
 import { DcOrders } from '@/components/orders/DcOrders'
 import { DcProducts } from '@/components/products/DcProducts'
 import { DcCustomers } from '@/components/customers/DcCustomers'
@@ -9,7 +8,6 @@ import { DcProductEdit } from '@/components/dc/screens/DcProductEdit'
 import { DcProductNew } from '@/components/dc/screens/DcProductNew'
 import { DcOrderNew } from '@/components/dc/screens/DcOrderNew'
 import { DcOrderDetail } from '@/components/dc/screens/DcOrderDetail'
-import { DcModuleHost } from '@/components/dc/screens/DcModuleHost'
 import { DcPackingStation } from '@/components/operations/DcPackingStation'
 import { DcCourierHub } from '@/components/courier/DcCourierHub'
 import { DcPartnerHub } from '@/components/finance/DcPartnerHub'
@@ -45,8 +43,24 @@ import { DcSmsCenter } from '@/components/dc/screens/DcSmsCenter'
 import { DcGoogleSheets } from '@/components/dc/screens/DcGoogleSheets'
 import { DcBulkCsv } from '@/components/dc/screens/DcBulkCsv'
 import { DcAnalytics } from '@/components/dc/screens/DcAnalytics'
-import { DcLiveModuleScreen } from '@/components/dc/screens/DcLiveModuleScreen'
-import { screenKeyForHref } from '@/components/dc/screens'
+import { DcBlog } from '@/components/dc/screens/DcBlog'
+import { DcCmsPages, DcLandingPages } from '@/components/dc/screens/DcSitePages'
+import { DcLookbooks } from '@/components/dc/screens/DcLookbooks'
+import { DcReels } from '@/components/dc/screens/DcReels'
+import { DcThemeBuilder } from '@/components/dc/screens/DcThemeBuilder'
+import { DcFootwearPage } from '@/components/dc/screens/DcFootwearPage'
+import { DcCommerceExtras } from '@/components/dc/screens/DcCommerceExtras'
+import { DcBrands } from '@/components/dc/screens/DcBrands'
+import { DcWebhooks } from '@/components/dc/screens/DcWebhooks'
+import { DcHelpdesk } from '@/components/dc/screens/DcHelpdesk'
+import { DcDeliveryOps } from '@/components/dc/screens/DcDeliveryOps'
+import { DcCompanyOs } from '@/components/dc/screens/DcCompanyOs'
+import { DcProduction } from '@/components/dc/screens/DcProduction'
+import { DcGoogleWorkspaceExtras } from '@/components/dc/screens/DcGoogleWorkspaceExtras'
+import { DcSystemLogs } from '@/components/dc/screens/DcSystemLogs'
+import { DcPlatformDev } from '@/components/dc/screens/DcPlatformDev'
+import { DcNotificationCenter } from '@/components/dc/screens/DcNotificationCenter'
+import { resolveAliasRedirect } from '@/lib/navigation/alias-redirects'
 import { resolveNavRoute, getRecordIdFromSubPath } from '@/lib/navigation/admin-nav'
 
 /**
@@ -64,6 +78,7 @@ const DC_BESPOKE: Record<string, () => React.ReactElement> = {
   '/dashboard/settings': () => <DcSettings />,
   '/dashboard/mobile-screens': () => <DcMobileScreens />,
   '/dashboard/executive/export-center': () => <DcExports />,
+  '/dashboard/executive/notification-center': () => <DcNotificationCenter />,
   '/dashboard/legal-pages': () => <DcLegalPages />,
   '/dashboard/hero-slider': () => <DcHeroSlider />,
   '/dashboard/menu-control': () => <DcMenuControl />,
@@ -89,30 +104,38 @@ const DC_BESPOKE: Record<string, () => React.ReactElement> = {
   '/dashboard/operations': () => <DcOperationsHub />,
   '/dashboard/finance/finance-reports': () => <DcFinanceOverview />,
   '/dashboard/finance/profit-loss': () => <DcProfitLoss />,
-  '/dashboard/finance/google-sheets-finance': () => <DcGoogleSheets />,
   '/dashboard/coupons': () => <DcCoupons />,
   '/dashboard/campaigns': () => <DcCampaigns />,
   '/dashboard/sms': () => <DcSmsCenter />,
   '/dashboard/automation/google-sheets-sync': () => <DcGoogleSheets />,
   '/dashboard/bulk': () => <DcBulkCsv />,
   '/dashboard/analytics': () => <DcAnalytics />,
-}
-
-/** Legacy deep URLs → primary DC screens. */
-const ALIAS_REDIRECTS: Record<string, string> = {
-  '/dashboard/email-sms': '/dashboard/sms',
-  '/dashboard/system-health': '/dashboard/api-health',
-  '/dashboard/google-workspace/sheets-sync': '/dashboard/automation/google-sheets-sync',
-  '/dashboard/roles': '/dashboard/admin-users',
-  '/dashboard/permissions': '/dashboard/admin-users',
-  '/dashboard/audit-logs': '/dashboard/security-center',
-  '/dashboard/system/telegram-logs': '/dashboard/telegram-bot',
-  '/dashboard/warehouse': '/dashboard/wms/overview',
-  '/dashboard/wms/warehouses': '/dashboard/wms/overview',
-  '/dashboard/wms/transfers': '/dashboard/wms/overview',
-  '/dashboard/wms/stock-movements': '/dashboard/inventory',
-  '/dashboard/supplier-management': '/dashboard/procurement/suppliers',
-  '/dashboard/finance/google-sheets-finance': '/dashboard/automation/google-sheets-sync',
+  '/dashboard/footwear-page': () => <DcFootwearPage />,
+  '/dashboard/theme-builder': () => <DcThemeBuilder />,
+  '/dashboard/lookbooks': () => <DcLookbooks />,
+  '/dashboard/reels': () => <DcReels />,
+  '/dashboard/blog': () => <DcBlog />,
+  '/dashboard/cms': () => <DcCmsPages />,
+  '/dashboard/landing-pages': () => <DcLandingPages />,
+  // Thin API hubs (all-nav-live)
+  '/dashboard/pos': () => <DcCommerceExtras tab="pos" />,
+  '/dashboard/invoices': () => <DcCommerceExtras tab="invoices" />,
+  '/dashboard/transactions': () => <DcCommerceExtras tab="transactions" />,
+  '/dashboard/subscriptions': () => <DcCommerceExtras tab="subscriptions" />,
+  '/dashboard/brands': () => <DcBrands />,
+  '/dashboard/webhooks': () => <DcWebhooks />,
+  '/dashboard/support/helpdesk': () => <DcHelpdesk />,
+  '/dashboard/delivery/agents': () => <DcDeliveryOps />,
+  '/dashboard/company/dashboard': () => <DcCompanyOs />,
+  '/dashboard/production/overview': () => <DcProduction />,
+  '/dashboard/google-workspace/connect': () => <DcGoogleWorkspaceExtras tab="connect" />,
+  '/dashboard/google-workspace/gmail': () => <DcGoogleWorkspaceExtras tab="gmail" />,
+  '/dashboard/google-workspace/drive': () => <DcGoogleWorkspaceExtras tab="drive" />,
+  '/dashboard/google-workspace/oauth-settings': () => <DcGoogleWorkspaceExtras tab="oauth" />,
+  '/dashboard/google-workspace/sync-logs': () => <DcGoogleWorkspaceExtras tab="logs" />,
+  '/dashboard/logs': () => <DcSystemLogs />,
+  '/dashboard/developer/api-center': () => <DcPlatformDev tab="developer" />,
+  '/dashboard/observability/center': () => <DcPlatformDev tab="observability" />,
 }
 
 interface DashboardModulePageProps {
@@ -121,6 +144,10 @@ interface DashboardModulePageProps {
 
 export async function generateMetadata({ params }: DashboardModulePageProps): Promise<Metadata> {
   const { slug } = await params
+  const alias = resolveAliasRedirect(slug)
+  if (alias) {
+    return { title: 'Redirect — SPLARO Admin' }
+  }
   const resolved = resolveNavRoute(slug)
 
   if (!resolved) {
@@ -135,18 +162,20 @@ export async function generateMetadata({ params }: DashboardModulePageProps): Pr
 
 export default async function DashboardModulePage({ params }: DashboardModulePageProps) {
   const { slug } = await params
+
+  // Alias before nav resolve — bookmarks work after REMOVE from adminNavGroups.
+  const aliasEarly = resolveAliasRedirect(slug)
+  if (aliasEarly) {
+    redirect(aliasEarly)
+  }
+
   const resolved = resolveNavRoute(slug)
 
   if (!resolved) {
     notFound()
   }
 
-  const { navItem, moduleHref, action, pageTitle } = resolved
-
-  const alias = ALIAS_REDIRECTS[moduleHref]
-  if (alias && !action) {
-    redirect(alias)
-  }
+  const { moduleHref, action } = resolved
 
   if (action === 'create') {
     if (moduleHref === '/dashboard/products') {
@@ -155,21 +184,8 @@ export default async function DashboardModulePage({ params }: DashboardModulePag
     if (moduleHref === '/dashboard/orders') {
       return <DcOrderNew moduleHref={moduleHref} />
     }
-    return (
-      <DcModuleHost
-        navItem={navItem}
-        moduleHref={moduleHref}
-        action="create"
-        title={pageTitle}
-        screen="create"
-      >
-        <DcSoftLockPanel
-          title={pageTitle}
-          href={moduleHref}
-          hint={`Create is handled inside the ${navItem.label} sidebar screen. Legacy create panels are retired.`}
-        />
-      </DcModuleHost>
-    )
+    // Never soft-lock create shells — send operators to the list hub.
+    redirect(moduleHref)
   }
 
   if (action === 'edit' || action === 'detail') {
@@ -188,42 +204,13 @@ export default async function DashboardModulePage({ params }: DashboardModulePag
       return <DcOrderDetail recordId={recordId} moduleHref={moduleHref} />
     }
 
-    const recordId = getRecordIdFromSubPath(resolved.subPath, action) ?? 'record'
-    const mode = action === 'edit' ? 'edit' : 'detail'
-    return (
-      <DcModuleHost
-        navItem={navItem}
-        moduleHref={moduleHref}
-        action={action}
-        title={pageTitle}
-        screen={mode}
-      >
-        <DcSoftLockPanel
-          title={pageTitle}
-          href={moduleHref}
-          hint={`Record ${recordId} — open the matching sidebar screen. Legacy ${mode} panels are retired.`}
-        />
-      </DcModuleHost>
-    )
+    // Never soft-lock legacy detail/edit shells.
+    redirect(moduleHref)
   }
 
-  // List screens — bespoke DC first, then designed live host, else universal host.
   const bespoke = DC_BESPOKE[moduleHref]
   if (bespoke) return bespoke()
 
-  const dcScreen = screenKeyForHref(moduleHref)
-  if (dcScreen) {
-    return (
-      <DcLiveModuleScreen
-        screen={dcScreen}
-        moduleHref={moduleHref}
-        navItem={navItem}
-        fallbackTitle={pageTitle}
-      />
-    )
-  }
-
-  return (
-    <DcModuleHost navItem={navItem} moduleHref={moduleHref} title={pageTitle} screen="module" />
-  )
+  // Catch-all: no soft-lock shells — unknown list routes 404.
+  notFound()
 }

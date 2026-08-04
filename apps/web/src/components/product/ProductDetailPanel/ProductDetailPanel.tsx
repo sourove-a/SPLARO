@@ -47,8 +47,8 @@ export interface ProductDetailItem {
   image: string
   hoverImage: string
   media?: { type: 'image' | 'video'; url: string; alt?: string }[]
-  fit: string
-  material: string
+  fit?: string
+  material?: string
   description?: string
 }
 
@@ -233,9 +233,8 @@ export function ProductDetailPanel({
   const prevImage = () => setActiveImage((i) => (i - 1 + media.length) % media.length)
   const nextImage = () => setActiveImage((i) => (i + 1) % media.length)
 
-  const productDescription =
-    product.description?.trim() ||
-    `${product.name} is crafted from ${product.material.toLowerCase()} with a ${product.fit.toLowerCase()} fit for polished everyday wear.`
+  // Never invent fabric/fit prose — only merchant description or the product name.
+  const productDescription = product.description?.trim() || product.name
 
   const handleShare = async () => {
     if (!navigator.share) return
@@ -471,7 +470,7 @@ export function ProductDetailPanel({
                           alt={opt.name}
                           fill
                           sizes="72px"
-                          className="object-contain object-center"
+                          className="object-cover object-center"
                         />
                       </MotionPressable>
                     ))}
@@ -570,7 +569,7 @@ export function ProductDetailPanel({
                 onClick={handleAddToBag}
                 variant="cta"
               >
-                <AddToBagIconBadge size={17} tone="dark" pulse={addedPulse} />
+                <AddToBagIconBadge size={17} tone="dark" strokeWidth={1.75} pulse={addedPulse} />
                 <MotionSwapLabel id={addedPulse ? 'added' : 'default'}>
                   {addedPulse ? 'Added to Bag!' : 'Add to Bag'}
                 </MotionSwapLabel>

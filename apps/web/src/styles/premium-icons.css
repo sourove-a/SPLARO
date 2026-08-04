@@ -241,72 +241,38 @@ html[data-perf='lite'] .premium-icon__sheen::after {
   content: none !important;
 }
 
-/* Header icon buttons — same layered language on the hit target itself */
+/* Header icon buttons — ILYN linear: bare hit target, no glass disk */
 .site-header-glass__icon-btn {
   /* visible: cart count badge sits on the rim.
      Also kill backdrop-filter — browsers clip to border-radius when
-     backdrop-filter is set, even with overflow:visible (ruined bag disk). */
+     backdrop-filter is set, even with overflow:visible. */
   overflow: visible;
   isolation: isolate;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  background:
-    radial-gradient(ellipse 90% 70% at 50% -20%, rgba(255, 255, 255, 0.98), transparent 55%),
-    linear-gradient(
-      148deg,
-      rgba(255, 255, 255, 0.94) 0%,
-      rgba(248, 250, 253, 0.82) 55%,
-      rgba(255, 255, 255, 0.88) 100%
-    ) !important;
-  border-color: var(--premium-icon-edge) !important;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.4),
-    0 12px 28px rgba(16, 22, 36, 0.1),
-    0 3px 8px rgba(16, 22, 36, 0.05),
-    inset 0 1.5px 0 rgba(255, 255, 255, 1),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.35) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 .site-header-glass__icon-btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border-radius: inherit;
-  overflow: hidden;
-  background:
-    linear-gradient(
-      118deg,
-      rgba(255, 255, 255, 0.8) 0%,
-      rgba(255, 255, 255, 0.2) 28%,
-      transparent 52%
-    ),
-    radial-gradient(ellipse 60% 45% at 80% 10%, rgba(255, 255, 255, 0.55), transparent 50%);
-  mix-blend-mode: soft-light;
-  pointer-events: none;
+  content: none !important;
+  display: none !important;
 }
 
-/* Raise glyphs above ::before sheen — never the cart count badge
-   (position:relative was overriding badge absolute and dumping a black
-   disc beside the bag when cart had items). */
+/* Raise glyphs above any residual layers — never the cart count badge */
 .site-header-glass__icon-btn > *:not(.site-header-glass__count-badge) {
   position: relative;
   z-index: 1;
 }
 
 .site-header-glass__icon-btn:hover {
-  background:
-    radial-gradient(ellipse 90% 70% at 50% -20%, #ffffff, transparent 55%),
-    linear-gradient(148deg, #ffffff 0%, rgba(250, 251, 253, 0.95) 100%) !important;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.65),
-    0 16px 32px rgba(16, 22, 36, 0.12),
-    0 4px 10px rgba(16, 22, 36, 0.06),
-    inset 0 1.5px 0 rgba(255, 255, 255, 1),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.4) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
-/* Over-hero home: search / bag / account — transparent (no glass disk) */
+/* Over-hero home: search / bag / account — white linear glyphs */
 .site-header-glass.site-header-glass--over-hero:not(.site-header-glass--scrolled)
   .site-header-glass__icon-btn {
   background: transparent !important;
@@ -325,7 +291,7 @@ html[data-perf='lite'] .premium-icon__sheen::after {
 
 .site-header-glass.site-header-glass--over-hero:not(.site-header-glass--scrolled)
   .site-header-glass__icon-btn:hover {
-  background: rgba(255, 255, 255, 0.1) !important;
+  background: transparent !important;
   border-color: transparent !important;
   box-shadow: none !important;
   color: #ffffff;
@@ -333,7 +299,7 @@ html[data-perf='lite'] .premium-icon__sheen::after {
 
 .site-header-glass.site-header-glass--over-hero:not(.site-header-glass--scrolled)
   .site-header-glass__icon-btn:active {
-  background: rgba(255, 255, 255, 0.16) !important;
+  background: transparent !important;
   box-shadow: none !important;
 }
 
@@ -341,7 +307,14 @@ html[data-perf='lite'] .premium-icon__sheen::after {
   .site-header-glass__icon-btn svg {
   color: #ffffff;
   stroke: #ffffff;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.42));
+  opacity: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+
+.site-header-glass.site-header-glass--over-hero:not(.site-header-glass--scrolled)
+  .site-header-glass__icon-btn:hover svg {
+  opacity: 1;
+  transform: scale(1.1);
 }
 
 /* Mobile menu glass icons → Premium disk */

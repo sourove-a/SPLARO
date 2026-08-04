@@ -49,7 +49,11 @@ async function HomeCatalog() {
     <GlassStorefront
       departmentRows={departmentRows}
       showHero={false}
-      storySlot={showStory ? <BrandStorySection story={story} reviews={reviews} /> : null}
+      storySlot={
+        showStory ? (
+          <BrandStorySection key="home-brand-story" story={story} reviews={reviews} />
+        ) : null
+      }
     />
   )
 }

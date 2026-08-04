@@ -68,7 +68,12 @@ export class GoogleSheetsService {
     return this.sheets.syncAll(storeId, triggeredBy)
   }
 
-  retryFailed(storeId: string) {
+  async retryFailed(storeId: string) {
+    if (await this.canUseWorkspaceSync(storeId)) {
+      // Old googleSheetSyncLog retry does not drive workspace jobs — re-run full push.
+      return this.syncQueue.manualFullSync(storeId, 'admin-retry-failed')
+    }
+
     return this.sheets.retryFailed(storeId)
   }
 }

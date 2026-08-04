@@ -12,6 +12,7 @@ import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { downloadCsv } from '@/lib/admin/admin-actions'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
+import { verifyCustomerCreated } from '@/lib/admin/customer-mutation-verify'
 import { bulkDeleteCustomers, createCustomer } from '@/lib/api/customers'
 import { useCustomers } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
@@ -770,12 +771,20 @@ function DcCustomersBody() {
                     }
                     setCreating(true)
                     try {
-                      await createCustomer({
+                      const created = await createCustomer({
                         firstName: createFirst.trim(),
                         phone: createPhone.trim(),
                         ...(createLast.trim() ? { lastName: createLast.trim() } : {}),
                         ...(createEmail.trim() ? { email: createEmail.trim() } : {}),
                       })
+                      if (
+                        !(await verifyCustomerCreated(created, {
+                          firstName: createFirst.trim(),
+                          phone: createPhone.trim(),
+                        }))
+                      ) {
+                        return
+                      }
                       toastOk('Customer created.')
                       setCreateOpen(false)
                       setCreateFirst('')

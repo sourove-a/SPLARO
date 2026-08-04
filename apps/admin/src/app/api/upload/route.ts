@@ -17,7 +17,22 @@ export const maxDuration = 90
 const MAX_BYTES = 8 * 1024 * 1024
 const MAX_PRODUCT_PIPELINE_BYTES = 12 * 1024 * 1024
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
-const ALLOWED_FOLDERS = new Set(['general', 'products', 'partners', 'banners', 'media'])
+const ALLOWED_FOLDERS = new Set([
+  'general',
+  'products',
+  'products-men',
+  'products-women',
+  'products-kids',
+  'products-footwear',
+  'products-accessories',
+  'partners',
+  'banners',
+  'media',
+])
+
+function isProductFolder(folder: string): boolean {
+  return folder === 'products' || folder.startsWith('products-')
+}
 const PRODUCT_VARIANT_WIDTHS = [160, 480, 828, 1200, 1600] as const
 const DISPLAY_WIDTH = 1200
 const QUALITY_WARN_BELOW = 1200
@@ -91,6 +106,7 @@ async function runProductPipeline(
   dir: string,
   id: string,
   variantSource?: Buffer,
+  urlFolder = 'products',
 ): Promise<PipelineResult> {
   const sharp = (await import('sharp')).default
   const meta = await sharp(bytes).metadata()
@@ -98,6 +114,7 @@ async function runProductPipeline(
   const sourceForVariants = variantSource ?? bytes
   const variantMeta = await sharp(sourceForVariants).metadata()
   const variantWidth = variantMeta.width ?? 0
+  const urlBase = `/uploads/${urlFolder}`
 
   if (!variantSource && width < MIN_PRODUCT_WIDTH) {
     throw new Error(
@@ -113,7 +130,7 @@ async function runProductPipeline(
   const originalName = `${id}.original.${ext}`
   const originalPath = path.join(dir, originalName)
   await writeFile(originalPath, bytes)
-  const originalUrl = `/uploads/products/${originalName}`
+  const originalUrl = `${urlBase}/${originalName}`
 
   const qualityNote =
     width < QUALITY_WARN_BELOW && !variantSource
@@ -153,7 +170,7 @@ async function runProductPipeline(
       await writeFile(webpTmp, webpBuf)
       tmpPaths.push(webpTmp)
       pendingRenames.push({ tmp: webpTmp, final: webpFinal })
-      variants[String(w)] = `/uploads/products/${id}.w${w}.webp`
+      variants[String(w)] = `${urlBase}/${id}.w${w}.webp`
 
       try {
         const avifTmp = path.join(dir, `${id}.w${w}.tmp.avif`)
@@ -165,7 +182,7 @@ async function runProductPipeline(
         await writeFile(avifTmp, avifBuf)
         tmpPaths.push(avifTmp)
         pendingRenames.push({ tmp: avifTmp, final: avifFinal })
-        avifVariants[String(w)] = `/uploads/products/${id}.w${w}.avif`
+        avifVariants[String(w)] = `${urlBase}/${id}.w${w}.avif`
       } catch {
         // AVIF optional — WebP tmp already queued for this width.
       }
@@ -230,7 +247,7 @@ export async function POST(request: Request) {
   const pipelineRequested = form.get('pipeline') !== '0' && form.get('pipeline') !== 'false'
   const upscalePreviewId = String(form.get('upscalePreviewId') ?? '').trim()
   const useProductPipeline =
-    folder === 'products' &&
+    isProductFolder(folder) &&
     envPipelineEnabled() &&
     pipelineRequested &&
     file instanceof File &&
@@ -273,7 +290,7 @@ export async function POST(request: Request) {
           }
           variantSource = preview.buffer
         }
-        return runProductPipeline(bytes, ext, dir, id, variantSource)
+        return runProductPipeline(bytes, ext, dir, id, variantSource, folder)
       })
       if (upscalePreviewId) await clearUpscalePreview(upscalePreviewId)
       return NextResponse.json({

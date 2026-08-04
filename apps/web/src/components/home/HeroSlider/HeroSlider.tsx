@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
-import { ArrowRight } from 'lucide-react'
 import { useReducedMotion } from '@/lib/motion/react'
 import Link from 'next/link'
 import type { HeroBanner } from '@/lib/api/banners'
@@ -186,9 +185,9 @@ function mapBannerToSlide(banner: HeroBanner, index: number): HeroSlide {
     title,
     subtitle,
     primaryHref: href,
-    primaryLabel: 'Shop women',
-    secondaryHref: '/c/women',
-    secondaryLabel: 'Women\'s edit',
+    primaryLabel: '',
+    secondaryHref: href,
+    secondaryLabel: '',
   }
 }
 
@@ -820,20 +819,9 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
                     </p>
                   )}
                   <p className="hero-subtitle">{item.subtitle}</p>
-                  {/* The slide has carried a `primaryLabel` all along and never
-                      showed it, so the hero had no visible call to action —
-                      the whole panel was clickable but nothing said so. Drawn
-                      as a span, not a button: this sits inside the slide's
-                      own <Link>, and nesting a control inside an anchor is
-                      invalid and breaks keyboard order. */}
-                  {item.primaryLabel ? (
-                    <span className="hero-actions" aria-hidden>
-                      <span className="hero-cta">
-                        {item.primaryLabel}
-                        <ArrowRight className="hero-cta__arrow" size={16} strokeWidth={2} />
-                      </span>
-                    </span>
-                  ) : null}
+                  {/* No separate Shop CTA — the whole image/video is the hit target
+                      (outer <Link>). Visible button competed with the hero and
+                      looked like a second control. */}
                 </div>
               </Link>
             </article>

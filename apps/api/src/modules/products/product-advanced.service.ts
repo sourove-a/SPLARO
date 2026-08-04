@@ -14,18 +14,23 @@ export class ProductAdvancedService {
 
   async generateSKU(data: {
     categoryCode: string
-    productId: string
+    /** Prefer slug / product SKU — never embed random cuid tails in merchant-facing codes. */
+    productCode: string
     size?: string
     color?: string
     variantIndex: number
   }): Promise<string> {
-    const cat = data.categoryCode.slice(0, 3).toUpperCase()
-    const pid = data.productId.slice(-4).toUpperCase()
-    const size = (data.size ?? 'XX').slice(0, 2).toUpperCase()
-    const color = (data.color ?? 'XX').slice(0, 2).toUpperCase()
+    const cat = data.categoryCode.replace(/[^a-z0-9]/gi, '').slice(0, 3).toUpperCase() || 'GEN'
+    const code =
+      data.productCode
+        .replace(/[^a-z0-9]+/gi, '')
+        .slice(0, 8)
+        .toUpperCase() || 'ITEM'
+    const size = (data.size ?? 'XX').replace(/[^a-z0-9]/gi, '').slice(0, 3).toUpperCase() || 'XX'
+    const color = (data.color ?? 'XX').replace(/[^a-z0-9]/gi, '').slice(0, 3).toUpperCase() || 'XX'
     const idx = String(data.variantIndex).padStart(2, '0')
 
-    return `${cat}-${pid}-${size}${color}-${idx}`
+    return `${cat}-${code}-${size}${color}-${idx}`
   }
 
   async ensureVariantSKUs(productId: string): Promise<number> {
@@ -40,15 +45,16 @@ export class ProductAdvancedService {
     if (!product || product.variants.length === 0) return 0
 
     const categoryCode = product.category?.name ?? 'GEN'
+    const productCode = product.sku?.trim() || product.slug || product.name
     let updated = 0
 
     for (let i = 0; i < product.variants.length; i++) {
       const variant = product.variants[i]!
       const sku = await this.generateSKU({
         categoryCode,
-        productId,
+        productCode,
         size: variant.size ?? undefined,
-        color: variant.color ?? undefined,
+        color: variant.colorName ?? variant.color ?? undefined,
         variantIndex: i + 1,
       })
 

@@ -55,14 +55,16 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionRow[]> = {
   ADMIN: [
     defaultRow('Orders', { view: true, create: true, edit: true }),
     defaultRow('Products', { view: true, create: true, edit: true, delete: true }),
-    defaultRow('Finance', { view: true }),
+    // Partner Hub: roster + ledger ops + approve; no delete; equity % is Super Admin only (API).
+    defaultRow('Finance', { view: true, create: true, edit: true }),
     defaultRow('Admin Users', { view: true }),
     defaultRow('Settings', { view: true, create: true, edit: true }),
   ],
   MANAGER: [
     defaultRow('Orders', { view: true, create: true, edit: true }),
     defaultRow('Products', { view: true, edit: true }),
-    defaultRow('Finance', { view: true }),
+    // View + record invest/expense/withdraw request — cannot approve or change equity.
+    defaultRow('Finance', { view: true, create: true }),
     defaultRow('Admin Users', { view: false }),
     defaultRow('Settings', { view: true }),
   ],
@@ -73,6 +75,17 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionRow[]> = {
     defaultRow('Admin Users', { view: false }),
     defaultRow('Settings', { view: true }),
   ],
+}
+
+/** Owner / Admin — add partners & invite (not Manager/Editor). */
+export function canManagePartnerRoster(role: string | undefined): boolean {
+  const key = normalizeRoleKey(role)
+  return key === 'SUPER_ADMIN' || key === 'ADMIN'
+}
+
+/** Owner only — equity share % rebalance. */
+export function canManagePartnerEquity(role: string | undefined): boolean {
+  return normalizeRoleKey(role) === 'SUPER_ADMIN'
 }
 
 function encodePermissionTokens(rows: PermissionRow[]): string[] {

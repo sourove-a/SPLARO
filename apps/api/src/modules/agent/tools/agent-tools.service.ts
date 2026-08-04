@@ -284,11 +284,21 @@ export class AgentToolsService {
     if (!name) throw new Error('Product name is required')
 
     const slug = String(args.slug ?? this.slugify(name))
+    const sku =
+      String(args.sku ?? '')
+        .trim()
+        .toUpperCase() ||
+      `SPL-${slug
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')}`.slice(0, 48)
+
     const product = await this.prisma.product.create({
       data: {
         storeId,
         name,
         slug,
+        sku,
         description: args.description ? String(args.description) : null,
         metaTitle: args.metaTitle ? String(args.metaTitle) : null,
         metaDescription: args.metaDescription ? String(args.metaDescription) : null,
@@ -302,11 +312,20 @@ export class AgentToolsService {
             stock: 0,
             size: 'M',
             color: 'Default',
+            sku: `${sku}-M`,
           },
         },
       },
     })
-    return { id: product.id, slug: product.slug, name: product.name }
+    // Lead with human handles — cuid is internal (admin edit URLs still use dbId).
+    return {
+      name: product.name,
+      slug: product.slug,
+      sku: product.sku,
+      status: product.status,
+      dbId: product.id,
+      adminPath: `/dashboard/products/${product.id}/edit`,
+    }
   }
 
   private async updateProduct(storeId: string, args: Record<string, unknown>) {

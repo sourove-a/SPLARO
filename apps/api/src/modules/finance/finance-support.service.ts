@@ -177,6 +177,32 @@ export class GoogleSheetsFinanceService {
     }
   }
 
+  /**
+   * Destination spreadsheet for a tab: dedicated env ID, then per-tab config,
+   * then the linked workspace hub. Env-only checks caused false "Missing env"
+   * when the workspace spreadsheet was already linked.
+   */
+  async resolveSheetDestination(storeId: string, sheetType: GoogleSheetType) {
+    const envKey = this.sheetEnvMap[sheetType]
+    const envId = process.env[envKey]?.trim() || null
+    if (envId) {
+      return { sheetId: envId, via: 'env' as const, envKey }
+    }
+
+    const workspace = await this.getWorkspaceContext(storeId)
+    const tab = SHEET_TYPE_TO_TAB[sheetType]
+    const wsConfig = tab ? workspace.configByTab.get(tab) : undefined
+    const tabId = wsConfig?.spreadsheetId?.trim() || null
+    if (tabId) {
+      return { sheetId: tabId, via: 'workspace' as const, envKey }
+    }
+    if (workspace.spreadsheetId) {
+      return { sheetId: workspace.spreadsheetId, via: 'workspace' as const, envKey }
+    }
+
+    return { sheetId: null, via: null, envKey }
+  }
+
   async getDashboard(storeIdOrSlug: string) {
     const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
     const [logs, workspace] = await Promise.all([
@@ -195,7 +221,7 @@ export class GoogleSheetsFinanceService {
       const tab = SHEET_TYPE_TO_TAB[sheetType]
       const wsConfig = tab ? configByTab.get(tab) : undefined
       const envKey = this.sheetEnvMap[sheetType]
-      const envConfigured = Boolean(process.env[envKey])
+      const envConfigured = Boolean(process.env[envKey]?.trim())
       const wsConfigured = Boolean(
         spreadsheetId &&
           (wsConfig?.enabled ||
@@ -212,21 +238,34 @@ export class GoogleSheetsFinanceService {
       // bad job made the whole screen read as broken.
       const wsLastError = wsConfig?.lastError ?? null
 
-      let lastStatus = last?.status ?? null
+      // Stale finance-log failures from before workspace linking ("Missing env …")
+      // must not paint a configured workspace tab red forever.
+      const staleMissingEnv =
+        Boolean(last?.errorMsg?.startsWith('Missing env ')) && configured && wsConfigured
+
+      let lastStatus = staleMissingEnv ? null : (last?.status ?? null)
+      let lastError = staleMissingEnv ? null : (last?.errorMsg ?? null)
       if (!lastStatus && configured) {
         if (wsLastError) lastStatus = 'FAILED' as SyncStatus
         else if (wsLastSync) lastStatus = 'COMPLETED' as SyncStatus
         else lastStatus = 'PENDING' as SyncStatus
       }
+      if (!lastError && !staleMissingEnv) {
+        lastError = wsLastError
+      } else if (staleMissingEnv) {
+        lastError = wsLastError
+      }
 
       return {
         sheetType,
-        sheetId: process.env[envKey] ?? wsConfig?.spreadsheetId ?? spreadsheetId ?? null,
+        sheetId: process.env[envKey]?.trim() || wsConfig?.spreadsheetId || spreadsheetId || null,
         configured,
         configuredVia: envConfigured ? 'env' : wsConfigured ? 'workspace' : null,
-        lastSync: last?.syncedAt ?? last?.createdAt ?? wsLastSync ?? null,
+        lastSync: staleMissingEnv
+          ? wsLastSync
+          : last?.syncedAt ?? last?.createdAt ?? wsLastSync ?? null,
         lastStatus,
-        lastError: last?.errorMsg ?? wsLastError ?? null,
+        lastError,
       }
     })
 
@@ -264,8 +303,11 @@ export class GoogleSheetsFinanceService {
     payload?: unknown,
     triggeredBy?: string,
   ) {
-    const envKey = this.sheetEnvMap[sheetType]
-    const sheetId = process.env[envKey]
+    const resolved = await this.resolveSheetDestination(storeId, sheetType)
+    const sheetId = resolved.sheetId
+    const failMsg = resolved.envKey
+      ? `No spreadsheet linked — set ${resolved.envKey} or link a Google Sheets workspace spreadsheet.`
+      : 'No spreadsheet linked'
 
     const log = await this.prisma.googleSheetSyncLog.create({
       data: {
@@ -276,7 +318,7 @@ export class GoogleSheetsFinanceService {
         resourceType,
         payload: payload as object | undefined,
         status: sheetId ? 'PENDING' : 'FAILED',
-        errorMsg: sheetId ? undefined : `Missing env ${envKey}`,
+        errorMsg: sheetId ? undefined : failMsg,
         triggeredBy,
       },
     })
@@ -286,6 +328,30 @@ export class GoogleSheetsFinanceService {
     }
 
     return log
+  }
+
+  /** Mark finance dashboard logs COMPLETED after a real workspace hub push. */
+  async markWorkspaceSyncComplete(storeId: string, triggeredBy?: string) {
+    const workspace = await this.getWorkspaceContext(storeId)
+    const sheetId = workspace.spreadsheetId
+    if (!sheetId) return []
+
+    const types = Object.keys(this.sheetEnvMap) as GoogleSheetType[]
+    return Promise.all(
+      types.map((sheetType) =>
+        this.prisma.googleSheetSyncLog.create({
+          data: {
+            storeId,
+            sheetType,
+            sheetId,
+            status: 'COMPLETED',
+            syncedAt: new Date(),
+            triggeredBy: triggeredBy ?? 'workspace',
+            resourceType: 'WORKSPACE',
+          },
+        }),
+      ),
+    )
   }
 
   async processSync(logId: string) {
@@ -478,6 +544,9 @@ export class FinanceReportsService {
       totalExpenseShare: Number(p.totalExpenseShare),
       totalProfitShare: Number(p.totalProfitShare),
       currentBalance: Number(p.currentBalance),
+      inviteStatus: p.inviteStatus,
+      inviteSentAt: p.inviteSentAt,
+      inviteConfirmedAt: p.inviteConfirmedAt,
     }))
 
     return {

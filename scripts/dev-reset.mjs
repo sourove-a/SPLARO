@@ -3,7 +3,7 @@
  * Fix corrupt Next dev (webpack "reading 'call'", fallback/_app errors):
  * kill stale :3000/:3001/:4000, clear .next cache, restart dev:stack.
  */
-import { existsSync, rmSync } from 'node:fs'
+import { existsSync, rmSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { reclaimNextDevPorts, reclaimPort } from './api-port.mjs'
@@ -12,9 +12,18 @@ import { IS_WIN, killProcessTree, spawnCli } from './spawn-utils.mjs'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PORTS = [3000, 3001, 4000]
 
+function ensureNextTypesStub(appPath) {
+  const typesDir = join(appPath, '.next/types')
+  const validatorFile = join(typesDir, 'validator.ts')
+  if (!existsSync(validatorFile)) {
+    mkdirSync(typesDir, { recursive: true })
+    writeFileSync(validatorFile, '// Next.js auto-generated type stub\nexport {}\n', 'utf8')
+  }
+}
+
 function rm(path) {
   if (existsSync(path)) {
-    rmSync(path, { recursive: true, force: true })
+    rmSync(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
     console.log(`  removed ${relative(ROOT, path)}`)
   }
 }
@@ -31,8 +40,10 @@ if (apiResult.reclaimed) {
 console.log('\nClearing Next.js cache…')
 rm(join(ROOT, 'apps/web/.next'))
 rm(join(ROOT, 'apps/web/tsconfig.tsbuildinfo'))
+ensureNextTypesStub(join(ROOT, 'apps/web'))
 rm(join(ROOT, 'apps/admin/.next'))
 rm(join(ROOT, 'apps/admin/tsconfig.tsbuildinfo'))
+ensureNextTypesStub(join(ROOT, 'apps/admin'))
 
 console.log('\nStarting pnpm dev:stack …')
 const refreshHint = IS_WIN ? 'Ctrl+Shift+R' : 'Cmd+Shift+R'

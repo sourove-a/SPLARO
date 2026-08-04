@@ -14,7 +14,7 @@ import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, toneStyle } from '@/components/dc/tokens'
 import type { CategoryTreeNode } from '@/lib/api/categories'
-import { useCategoryTree, useSettings, useUpdateSettings } from '@/lib/api/hooks'
+import { useCategoryTree, useSeedDefaultCategories, useSettings, useUpdateSettings } from '@/lib/api/hooks'
 import type { DepartmentMenuOverride, NavLink } from '@/lib/api/settings'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { verifySettingsApplied } from '@/lib/admin/settings-save'
@@ -26,6 +26,76 @@ const card = {
   backgroundImage: 'var(--card-sheen)',
 } as const
 
+/** Matches API `DEFAULT_HEADER_NAV` — merge-missing only, never wipe custom links. */
+const DEFAULT_HEADER_LINKS: NavLink[] = [
+  { label: 'Shop', href: '/shop' },
+  { label: 'Men', href: '/c/men' },
+  { label: 'Women', href: '/c/women' },
+  { label: 'Kids', href: '/c/kids' },
+  { label: 'Footwear', href: '/c/footwear' },
+  { label: 'Accessories', href: '/accessories' },
+]
+
+function headerPath(href: string): string {
+  return (href ?? '').split(/[?#]/, 1)[0]?.replace(/\/$/, '') || '/'
+}
+
+function headerDeptSlug(href: string): string | null {
+  const path = headerPath(href)
+  const match = path.match(/^\/(?:c|collections)\/([^/]+)$/)
+  if (match?.[1]) return match[1]
+  if (path === '/accessories') return 'accessories'
+  return null
+}
+
+function headerLinkMatches(item: NavLink, def: NavLink): boolean {
+  const href = headerPath(item.href)
+  const defHref = headerPath(def.href)
+  if (href === defHref) return true
+  const a = headerDeptSlug(item.href)
+  const b = headerDeptSlug(def.href)
+  if (a && b && a === b) return true
+  if (
+    defHref === '/accessories' &&
+    (item.label?.trim().toLowerCase() === 'accessories' || a === 'accessories')
+  ) {
+    return true
+  }
+  return false
+}
+
+function mergeMissingHeaderDefaults(current: NavLink[]): { next: NavLink[]; added: string[] } {
+  const added: string[] = []
+  const next = [...current]
+  for (const def of DEFAULT_HEADER_LINKS) {
+    const idx = next.findIndex((l) => headerLinkMatches(l, def))
+    const isAccessories = headerPath(def.href) === '/accessories'
+    if (idx < 0) {
+      if (isAccessories) {
+        const footwearIdx = next.findIndex((l) =>
+          headerLinkMatches(l, { label: 'Footwear', href: '/c/footwear' }),
+        )
+        const link = { ...def }
+        if (footwearIdx >= 0) next.splice(footwearIdx + 1, 0, link)
+        else next.push(link)
+      } else {
+        next.push({ ...def })
+      }
+      added.push(def.label)
+      continue
+    }
+    // Accessories (and other defaults) that were only hidden — surface again.
+    if (isAccessories && next[idx]?.hidden) {
+      next[idx] = {
+        label: next[idx]!.label?.trim() || 'Accessories',
+        href: '/accessories',
+      }
+      added.push(`${def.label} (shown)`)
+    }
+  }
+  return { next, added }
+}
+
 interface Draft {
   headerNav: NavLink[]
   autoSync: boolean
@@ -33,6 +103,10 @@ interface Draft {
 }
 
 const same = (a: Draft, b: Draft) => JSON.stringify(a) === JSON.stringify(b)
+
+function overrideForSlug(draft: Draft | null, slug: string) {
+  return draft?.departments.find((x) => x.departmentSlug === slug)
+}
 
 export function DcMenuControl() {
   const router = useRouter()
@@ -44,10 +118,12 @@ export function DcMenuControl() {
 }
 
 function DcMenuControlBody() {
+  const router = useRouter()
   const { toast } = useDcScreen()
   const settings = useSettings()
   const tree = useCategoryTree()
   const update = useUpdateSettings()
+  const seedDefaults = useSeedDefaultCategories()
   const { api } = useAdminConnection(25_000)
 
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -69,10 +145,21 @@ function DcMenuControlBody() {
   }, [baseline])
 
   const roots: CategoryTreeNode[] = useMemo(() => {
-    const d = tree.data as { categories?: CategoryTreeNode[] } | CategoryTreeNode[] | undefined
+    const d = tree.data as
+      | { categories?: CategoryTreeNode[]; tree?: CategoryTreeNode[] }
+      | CategoryTreeNode[]
+      | undefined
     if (Array.isArray(d)) return d
-    return d?.categories ?? []
+    return d?.tree ?? d?.categories ?? []
   }, [tree.data])
+
+  const accessoriesRoot = roots.find((r) => r.slug === 'accessories')
+  const accessoriesHeader = draft?.headerNav.find(
+    (l) => l.href === '/accessories' || l.href === '/c/accessories',
+  )
+  const accessoriesMissingFromHeader = Boolean(draft && !accessoriesHeader)
+  const accessoriesHiddenOnSite = Boolean(accessoriesHeader?.hidden)
+  const accessoriesDeptHidden = overrideForSlug(draft, 'accessories')?.hidden === true
 
   const dirty = !!draft && !!baseline && !same(draft, baseline)
   const pageStatus = dcPageStatus([settings, tree], api.pulse)
@@ -108,6 +195,54 @@ function DcMenuControlBody() {
     if (hidden.has(categoryId)) hidden.delete(categoryId)
     else hidden.add(categoryId)
     setDepartment(slug, { hiddenCategoryIds: [...hidden] })
+  }
+
+  const restoreDefaultHeaderLinks = () => {
+    if (!draft) return
+    const { next, added } = mergeMissingHeaderDefaults(draft.headerNav)
+    // Clear Accessories department hide + force visible so mega can show.
+    const departments = [...draft.departments]
+    const accIdx = departments.findIndex((d) => d.departmentSlug === 'accessories')
+    if (accIdx >= 0) {
+      departments[accIdx] = {
+        ...departments[accIdx]!,
+        hidden: false,
+        forceVisible: true,
+      }
+    } else {
+      departments.push({ departmentSlug: 'accessories', hidden: false, forceVisible: true })
+    }
+    patch({ headerNav: next, departments })
+    if (added.length === 0 && !accessoriesDeptHidden) {
+      toast('warn', 'Defaults already present', 'Accessories and other defaults are already in the list.')
+      return
+    }
+    toast(
+      'warn',
+      'Defaults restored in draft',
+      added.length
+        ? `Added/shown: ${added.join(', ')}. Click Save to publish.`
+        : 'Accessories department un-hidden in draft. Click Save to publish.',
+    )
+  }
+
+  const ensureCategoryTree = () => {
+    seedDefaults.mutate(undefined, {
+      onSuccess: (res) => {
+        void tree.refetch()
+        toast(
+          'ok',
+          'Category defaults seeded',
+          `Departments ${res.departments} · subcategories ${res.subcategories}. Accessories should appear below.`,
+        )
+      },
+      onError: (err) =>
+        toast(
+          'bad',
+          'Seed failed',
+          err instanceof Error ? err.message : 'POST /admin/categories/seed-defaults failed',
+        ),
+    })
   }
 
   const runSave = () => {
@@ -149,6 +284,11 @@ function DcMenuControlBody() {
 
   const visibleCount = draft?.headerNav.filter((l) => !l.hidden).length ?? 0
   const hiddenCount = (draft?.headerNav.length ?? 0) - visibleCount
+  const accessoriesAlert =
+    accessoriesMissingFromHeader ||
+    accessoriesHiddenOnSite ||
+    accessoriesDeptHidden ||
+    !accessoriesRoot
 
   return (
     <>
@@ -167,10 +307,34 @@ function DcMenuControlBody() {
           void settings.refetch()
           void tree.refetch()
         }}
+        actions={[
+          {
+            label: 'Footer links → Settings',
+            icon: 'icon-panel-bottom',
+            variant: 'ghost',
+            onClick: () => router.push('/dashboard/settings?section=navigation'),
+          },
+          {
+            label: 'Restore default links',
+            icon: 'icon-rotate-ccw',
+            variant: 'ghost',
+            onClick: restoreDefaultHeaderLinks,
+          },
+        ]}
       />
 
       <DcContentNav active="menu" />
 
+      <p
+        style={{
+          margin: '0 0 12px',
+          font: `400 12.5px/1.45 ${FONT}`,
+          color: 'var(--ink-3)',
+        }}
+      >
+        This screen owns <strong style={{ color: 'var(--ink-2)' }}>header</strong> + department mega-menu.
+        Footer columns live in Settings → Navigation.
+      </p>
       {settings.isLoading ? (
         <DcLoadingState blocks={skeleton} />
       ) : settings.error ? (
@@ -195,6 +359,75 @@ function DcMenuControlBody() {
             onReset={() => baseline && setDraft(baseline)}
             onSave={runSave}
           />
+
+          {accessoriesAlert ? (
+            <div
+              style={{
+                ...card,
+                marginBottom: 14,
+                padding: '14px 16px',
+                borderColor: 'var(--warn)',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 12,
+                alignItems: 'flex-start',
+              }}
+            >
+              <div style={{ flex: '1 1 280px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ font: `600 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+                  Accessories menu needs attention
+                </span>
+                <span style={{ font: `400 12.5px/1.5 ${FONT}`, color: 'var(--ink-3)' }}>
+                  {[
+                    accessoriesMissingFromHeader ? 'missing from header links' : null,
+                    accessoriesHiddenOnSite ? 'header link is hidden' : null,
+                    accessoriesDeptHidden ? 'department override is hidden' : null,
+                    !accessoriesRoot ? 'no Accessories department in the category tree' : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  . Restore defaults, then Save. Seed the category tree if the department is missing.
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={restoreDefaultHeaderLinks}
+                  style={{
+                    height: 32,
+                    padding: '0 12px',
+                    borderRadius: 9,
+                    border: '1px solid var(--violet-solid)',
+                    background: 'var(--violet-solid)',
+                    color: 'var(--on-violet)',
+                    font: `600 12px/1 ${FONT}`,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Restore Accessories
+                </button>
+                {!accessoriesRoot ? (
+                  <button
+                    type="button"
+                    disabled={seedDefaults.isPending}
+                    onClick={ensureCategoryTree}
+                    style={{
+                      height: 32,
+                      padding: '0 12px',
+                      borderRadius: 9,
+                      border: '1px solid var(--line-2)',
+                      background: 'var(--surface-2)',
+                      color: 'var(--ink-2)',
+                      font: `600 12px/1 ${FONT}`,
+                      cursor: seedDefaults.isPending ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {seedDefaults.isPending ? 'Seeding…' : 'Seed category defaults'}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
 
           <div
             style={{
@@ -221,7 +454,7 @@ function DcMenuControlBody() {
                   }}
                 >
                   Each row is one link in the storefront header. Arrows set the order the storefront
-                  reads.
+                  reads. Use Restore default links if Accessories (or Shop/Men/…) disappeared.
                 </p>
 
                 {draft.headerNav.length === 0 ? (

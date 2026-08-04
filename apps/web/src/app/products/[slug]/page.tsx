@@ -12,6 +12,7 @@ import {
   sanitizeStorefrontShortDescription,
 } from '@/lib/catalog/storefront-sanitize'
 import { buildProductDescriptionFallback } from '@/lib/catalog/product-copy'
+import { getCheckoutShippingSettings } from '@/lib/storefront/settings'
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>
@@ -53,9 +54,11 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const safeOgDescription =
     sanitizeStorefrontShortDescription(product.shortDescription, safeDescription) ??
     safeDescription
-  const ogImage = product.images[0]
-    ? [{ url: product.images[0], alt: product.name }]
-    : [{ url: `${siteUrl}/og-image.jpg`, alt: product.name }]
+  const rawImage = product.images[0]
+  const absoluteImageUrl = rawImage
+    ? (rawImage.startsWith('http') ? rawImage : `${siteUrl}${rawImage.startsWith('/') ? '' : '/'}${rawImage}`)
+    : `${siteUrl}/og-image.jpg`
+  const ogImage = [{ url: absoluteImageUrl, alt: product.name }]
 
   return {
     title: pageTitleSegment(product.metaTitle) || product.name,
@@ -86,7 +89,10 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params
-  const result = await getProductDetailBySlug(slug)
+  const [result, shipping] = await Promise.all([
+    getProductDetailBySlug(slug),
+    getCheckoutShippingSettings(),
+  ])
 
   if (!result) notFound()
 
@@ -120,6 +126,41 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const priceValidUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   const inStock = product.variants.some((variant) => variant.stock > 0)
 
+  const activeVariants = product.variants.filter((variant) => variant.isActive)
+  const variantColors = [...new Set(activeVariants.map((v) => v.color).filter(Boolean) as string[])]
+  const variantSizes = [...new Set(activeVariants.map((v) => v.size).filter(Boolean) as string[])]
+
+  const hasVariantSchema = activeVariants.map((variant) => {
+    const params = new URLSearchParams({ v: variant.id })
+    if (variant.size) params.set('size', variant.size)
+    if (variant.color) params.set('color', variant.color)
+
+    return {
+      '@type': 'Product',
+      '@id': `${siteUrl}/products/${product.slug}#variant-${variant.id}`,
+      name: `${product.name}${variant.color ? ` - ${variant.color}` : ''}${variant.size ? ` (${variant.size})` : ''}`,
+      sku: variant.id,
+      image: variant.image || product.images[0],
+      ...(variant.color ? { color: variant.color } : {}),
+      ...(variant.size ? { size: variant.size } : {}),
+      offers: {
+        '@type': 'Offer',
+        url: `${siteUrl}/products/${product.slug}?${params.toString()}`,
+        priceCurrency: 'BDT',
+        price: String(variant.price ?? product.price),
+        priceValidUntil,
+        itemCondition: 'https://schema.org/NewCondition',
+        availability: (variant.stock ?? 0) > 0
+          ? 'https://schema.org/InStock'
+          : 'https://schema.org/OutOfStock',
+        seller: {
+          '@type': 'Organization',
+          name: 'SPLARO',
+        },
+      },
+    }
+  })
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -151,6 +192,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
           '@type': 'Brand',
           name: 'SPLARO',
         },
+        ...(variantColors.length > 0 ? { color: variantColors.length === 1 ? variantColors[0] : variantColors } : {}),
+        ...(variantSizes.length > 0 ? { size: variantSizes.length === 1 ? variantSizes[0] : variantSizes } : {}),
+        ...(product.fabricContent ? { material: product.fabricContent } : {}),
+        ...(product.category ? { category: product.category } : {}),
+        ...(hasVariantSchema.length > 0 ? { hasVariant: hasVariantSchema } : {}),
         offers: {
           '@type': 'Offer',
           url: `${siteUrl}/products/${product.slug}`,
@@ -164,6 +210,27 @@ export default async function ProductPage({ params }: ProductPageProps) {
           seller: {
             '@type': 'Organization',
             name: 'SPLARO',
+          },
+          shippingDetails: {
+            '@type': 'OfferShippingDetails',
+            shippingRate: {
+              '@type': 'MonetaryAmount',
+              value: Number.isFinite(shipping.outsideDhakaCharge)
+                ? shipping.outsideDhakaCharge.toFixed(2)
+                : '120.00',
+              currency: 'BDT',
+            },
+            shippingDestination: {
+              '@type': 'DefinedRegion',
+              addressCountry: 'BD',
+            },
+          },
+          hasMerchantReturnPolicy: {
+            '@type': 'MerchantReturnPolicy',
+            applicableCountry: 'BD',
+            returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+            merchantReturnDays: 7,
+            returnMethod: 'https://schema.org/ReturnByMail',
           },
           ...(product.compareAtPrice != null &&
           Number(product.compareAtPrice) > Number(product.price)

@@ -12,7 +12,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 function rm(path) {
   if (existsSync(path)) {
-    rmSync(path, { recursive: true, force: true })
+    rmSync(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
     console.log(`  removed ${path}`)
   }
 }

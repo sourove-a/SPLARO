@@ -26,7 +26,7 @@ import {
 } from 'lucide-react'
 import { subscribeScroll } from '@/hooks/useScrollY'
 import { snapDocumentScrollToTop } from '@/lib/navigation/snap-scroll-top'
-import { AddToBagIconBadge } from '@/components/product/AddToBagIcon'
+import { AddToBagIcon } from '@/components/product/AddToBagIcon'
 import { MotionAnchor, MotionPressable } from '@/components/ui/MotionPressable'
 import { MotionSwapLabel } from '@/components/ui/MotionSwapLabel/MotionSwapLabel'
 import {
@@ -60,10 +60,10 @@ import type { ProductReview } from '@/lib/catalog/live'
 import { sortSizes } from '@/lib/catalog/live'
 import { resolveDetailsCategoryIcon } from '@/lib/catalog/details-category-icon'
 import { resolveSizeOptionUi } from '@/lib/catalog/size-option-ui'
+import { resolveStockStatus } from '@/lib/catalog/stock-status'
 import { ProductReviews } from '@/components/product/ProductReviews/ProductReviews'
 import { ProductLightbox } from '@/components/product/ProductLightbox/ProductLightbox'
 import { ProductPurchaseExtras } from '@/components/product/ProductPurchaseExtras/ProductPurchaseExtras'
-import { ProductTrustStrip } from '@/components/product/ProductTrustStrip/ProductTrustStrip'
 import { ProductPurchaseSticky } from '@/components/product/ProductPurchaseSticky/ProductPurchaseSticky'
 import { SizeGuideModal } from '@/components/product/SizeGuideModal/SizeGuideModal'
 import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
@@ -78,6 +78,8 @@ interface ProductPageClientProps {
 }
 
 const PANEL_EASE = [0.22, 1, 0.36, 1] as const
+/** Liquid size bubble — controlled spring (tiny settle, no cartoon bounce). */
+const SIZE_LIQUID_SPRING = { type: 'spring' as const, stiffness: 460, damping: 34, mass: 0.72 }
 const PANEL_MS = 0.3
 
 function FacebookIcon(props: SVGProps<SVGSVGElement>) {
@@ -119,6 +121,29 @@ const DETAIL_SECTION_SUMMARY: Record<string, string> = {
   Care: 'Keep it looking new',
 }
 const DETAIL_SECTION_SUMMARY_FALLBACK = 'Product information'
+
+function renderFormattedDescription(text: string) {
+  if (!text) return null
+  const bulletItems = text
+    .split(/\n+|•|\b(?<=\.\s)/)
+    .map((s) => s.trim().replace(/^[-•*]\s*/, ''))
+    .filter((s) => s.length > 2)
+
+  if (bulletItems.length > 1) {
+    return (
+      <ul className="pp-desc-bullets">
+        {bulletItems.map((item, idx) => (
+          <li key={idx} className="flex items-start gap-2.5 text-base text-stone-800 leading-relaxed font-normal my-1">
+            <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-stone-800" aria-hidden />
+            <span className="flex-1">{item}</span>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  return <p className="text-base text-stone-800 leading-relaxed font-normal">{text}</p>
+}
 
 export default function ProductPageClient({
   product,
@@ -334,6 +359,10 @@ export default function ProductPageClient({
   const sellableSelection = selectionInStock || allowOversell
   const inStock = sellableSelection
   const lowStock = inStock && stock <= 5
+  // Per-size pill: only after a size is chosen (never show colour-total before select).
+  const selectedSizeUnits = selectedSize ? (sizeStock.get(selectedSize) ?? 0) : null
+  const sizeStockStatus =
+    selectedSizeUnits == null ? null : resolveStockStatus(selectedSizeUnits)
   const unitPrice = activeVariant?.price ?? product.price
   const compareAtPrice = activeVariant?.compareAtPrice ?? product.compareAtPrice
 
@@ -521,17 +550,40 @@ export default function ProductPageClient({
       quantity: 1,
       brand: 'SPLARO',
     })
-    // Deliberately unselected. Pre-picking the smallest size makes a decision
-    // the shopper has to notice and undo, and an unnoticed one ships the wrong
-    // fit — the costliest kind of return on COD. Add to Bag already blocks and
-    // points at this row when nothing is chosen.
+    // Deliberately unselected by default. Pre-picking the smallest size makes a
+    // decision the shopper has to notice and undo. Merchant/Meta deep-links (?v=)
+    // are the exception — apply after defaults so feed landing pages preselect.
     setSelectedSize(null)
     setSelectedColor(colorOptions[0]?.hex ?? null)
     setActiveImage(0)
     setQuantity(1)
     setDescExpanded(false)
     setOpenSection(null)
-  }, [product.id, product.name, product.price, sizes, colorOptions])
+
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const deepVariantId = params.get('v')?.trim()
+    const deepSize = params.get('size')?.trim()
+    const deepColor = params.get('color')?.trim()?.toLowerCase()
+
+    if (deepVariantId) {
+      const match = product.variants.find((v) => v.id === deepVariantId)
+      if (match) {
+        if (match.size) setSelectedSize(match.size)
+        if (match.colorHex) setSelectedColor(match.colorHex.toLowerCase())
+        return
+      }
+    }
+    if (deepSize && sizes.includes(deepSize)) {
+      setSelectedSize(deepSize)
+    }
+    if (deepColor) {
+      const byHex = colorOptions.find((o) => o.hex.toLowerCase() === deepColor)
+      const byName = colorOptions.find((o) => o.name.toLowerCase() === deepColor)
+      const next = byHex ?? byName
+      if (next) setSelectedColor(next.hex)
+    }
+  }, [product.id, product.name, product.price, product.variants, sizes, colorOptions])
 
   useEffect(() => {
     setActiveImage(0)
@@ -1170,7 +1222,8 @@ export default function ProductPageClient({
             </ProductReveal>
 
             <AnimatePresence mode="wait">
-              {lowStock && (
+              {/* Low-stock urgency lives in the size-row stock pill when sizes show */}
+              {lowStock && !sizeOptionUi.showSelector ? (
                 <motion.p
                   key="low-stock"
                   className="pp-info__lowstock"
@@ -1181,7 +1234,7 @@ export default function ProductPageClient({
                 >
                   Only {stock} left — order soon
                 </motion.p>
-              )}
+              ) : null}
               {product.inventoryPolicy === 'PREORDER' ? (
                 <motion.p
                   key="preorder"
@@ -1269,6 +1322,7 @@ export default function ProductPageClient({
                           profile="thumb"
                           width={76}
                           height={90}
+                          fit="cover"
                           className="pp-color-thumb__img"
                         />
                       </MotionPressable>
@@ -1325,11 +1379,46 @@ export default function ProductPageClient({
                             disabled && 'pp-size-btn--unavailable',
                           )}
                         >
+                          {active ? (
+                            showMotion ? (
+                              <motion.span
+                                layoutId={`pp-size-liquid-${product.id}`}
+                                className="pp-size-btn__bubble"
+                                transition={SIZE_LIQUID_SPRING}
+                                aria-hidden
+                              />
+                            ) : (
+                              <span className="pp-size-btn__bubble" aria-hidden />
+                            )
+                          ) : null}
                           <span className="pp-size-btn__label">{size}</span>
                         </button>
                       )
                     })}
                   </motion.div>
+                  {selectedSize && sizeStockStatus ? (
+                    <AnimatePresence mode="wait">
+                      <motion.p
+                        key={`${selectedSize}-${sizeStockStatus.kind}-${sizeStockStatus.units}`}
+                        className={cn(
+                          'pp-size-stock',
+                          sizeStockStatus.kind === 'in_stock' && 'pp-size-stock--ok',
+                          sizeStockStatus.kind === 'low_stock' && 'pp-size-stock--low',
+                          sizeStockStatus.kind === 'only_left' && 'pp-size-stock--urgent',
+                          sizeStockStatus.kind === 'sold_out' && 'pp-size-stock--out',
+                        )}
+                        initial={showMotion ? { opacity: 0, y: 6, scale: 0.96 } : false}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        {...(showMotion
+                          ? { exit: { opacity: 0, y: -4, scale: 0.98 } }
+                          : {})}
+                        transition={SIZE_LIQUID_SPRING}
+                        aria-live="polite"
+                      >
+                        {selectedSize} · {sizeStockStatus.label}
+                      </motion.p>
+                    </AnimatePresence>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -1383,7 +1472,7 @@ export default function ProductPageClient({
                 disabled={!sellableProduct || !sellableSelection || addingToCart}
                 variant="cta"
               >
-                <AddToBagIconBadge size={17} tone="dark" pulse={addedPulse} />
+                <AddToBagIcon size={17} strokeWidth={1.75} className="pp-btn-add__icon" />
                 <MotionSwapLabel
                   id={
                     addingToCart && !addedPulse
@@ -1411,50 +1500,47 @@ export default function ProductPageClient({
               >
                 Buy Now
               </MotionPressable>
-
-              {shareUrl ? (
-                <div className="pp-share" aria-label="Share product">
-                  <MotionAnchor
-                    href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="pp-share__btn"
-                    aria-label="Share on Facebook"
-                    variant="icon"
-                  >
-                    <FacebookIcon className="pp-share__icon" />
-                  </MotionAnchor>
-                  <MotionAnchor
-                    href={`https://wa.me/?text=${encodeURIComponent(`${product.name} ${shareUrl}`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="pp-share__btn"
-                    aria-label="Share on WhatsApp"
-                    variant="icon"
-                  >
-                    <WhatsAppIcon className="pp-share__icon" />
-                  </MotionAnchor>
-                  <MotionAnchor
-                    href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(product.name)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="pp-share__btn"
-                    aria-label="Share on X"
-                    variant="icon"
-                  >
-                    <XSocialIcon className="pp-share__icon" />
-                  </MotionAnchor>
-                </div>
-              ) : null}
             </motion.div>
             </ProductReveal>
 
-            <ProductReveal>
-              <ProductPurchaseExtras product={product} price={unitPrice} variant="payments" />
-            </ProductReveal>
+            {shareUrl ? (
+              <div className="pp-share pp-share--inline" aria-label="Share product">
+                <span className="pp-share__label">Share</span>
+                <MotionAnchor
+                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="pp-share__btn"
+                  aria-label="Share on Facebook"
+                  variant="icon"
+                >
+                  <FacebookIcon className="pp-share__icon" />
+                </MotionAnchor>
+                <MotionAnchor
+                  href={`https://wa.me/?text=${encodeURIComponent(`${product.name} ${shareUrl}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="pp-share__btn"
+                  aria-label="Share on WhatsApp"
+                  variant="icon"
+                >
+                  <WhatsAppIcon className="pp-share__icon" />
+                </MotionAnchor>
+                <MotionAnchor
+                  href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(product.name)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="pp-share__btn"
+                  aria-label="Share on X"
+                  variant="icon"
+                >
+                  <XSocialIcon className="pp-share__icon" />
+                </MotionAnchor>
+              </div>
+            ) : null}
 
             <ProductReveal>
-              <ProductTrustStrip compact />
+              <ProductPurchaseExtras product={product} price={unitPrice} variant="payments" />
             </ProductReveal>
             </div>
             </ProductStagger>
@@ -1464,15 +1550,17 @@ export default function ProductPageClient({
                 {shortDesc && (
                   <div className="pp-info__desc-block">
                     <span className="pp-info__desc-eyebrow">The piece</span>
-                    <p
+                    <div
                       id="pp-product-description"
                       className={cn(
                         'pp-info__desc',
                         descExpanded && 'pp-info__desc--expanded',
                       )}
                     >
-                      {descExpanded || !showReadMore ? fullDescription || shortDesc : shortDesc}
-                    </p>
+                      {renderFormattedDescription(
+                        descExpanded || !showReadMore ? fullDescription || shortDesc : shortDesc,
+                      )}
+                    </div>
                     {showReadMore && (
                       <MotionPressable
                         type="button"
@@ -1543,51 +1631,25 @@ export default function ProductPageClient({
                               <Plus className="h-3 w-3" strokeWidth={2} />
                             </motion.span>
                           </MotionPressable>
-                          {/* Panel always in DOM for SSR/SEO/AT — collapse visually when closed.
-                              Shipping/Care use CSS grid expand so story scenes never clip lines. */}
-                          {section.id === 'Shipping' || section.id === 'Care' ? (
-                            <div
-                              id={panelId}
-                              role="region"
-                              aria-labelledby={triggerId}
-                              aria-hidden={!open}
-                              {...(!open ? { inert: true as const } : {})}
-                              className={cn(
-                                'pp-accordion__panel',
-                                'pp-accordion__panel--story',
-                                !open && 'pp-accordion__panel--collapsed',
-                              )}
-                            >
-                              <div className="pp-accordion__panel-inner">
-                                {section.id === 'Shipping' ? (
-                                  <PdpShippingStory active={open} lines={section.lines} />
-                                ) : (
-                                  <PdpCareStory active={open} lines={section.lines} />
-                                )}
-                              </div>
-                            </div>
-                          ) : (
-                          <motion.div
+                          {/* All panels use CSS grid expand — Framer height:auto caused layout jump. */}
+                          <div
                             id={panelId}
                             role="region"
                             aria-labelledby={triggerId}
                             aria-hidden={!open}
                             {...(!open ? { inert: true as const } : {})}
-                            initial={false}
-                            {...(reducedMotion
-                              ? {}
-                              : {
-                                  animate: open
-                                    ? { height: 'auto', opacity: 1 }
-                                    : { height: 0, opacity: 0 },
-                                })}
-                            transition={{ duration: PANEL_MS, ease: PANEL_EASE }}
                             className={cn(
                               'pp-accordion__panel',
+                              'pp-accordion__panel--story',
                               !open && 'pp-accordion__panel--collapsed',
                             )}
                           >
                             <div className="pp-accordion__panel-inner">
+                              {section.id === 'Shipping' ? (
+                                <PdpShippingStory active={open} lines={section.lines} />
+                              ) : section.id === 'Care' ? (
+                                <PdpCareStory active={open} lines={section.lines} />
+                              ) : (
                                 <ul className="pp-accordion__list">
                                   {section.lines.map((line) => {
                                     const LineIcon = line.icon
@@ -1603,9 +1665,9 @@ export default function ProductPageClient({
                                     )
                                   })}
                                 </ul>
+                              )}
                             </div>
-                          </motion.div>
-                          )}
+                          </div>
                         </div>
                       )
                     })}

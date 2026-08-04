@@ -109,6 +109,10 @@ interface LiveProduct {
   images?: { url: string; altText?: string | null; position?: number | null }[]
   variants?: LiveVariant[]
   reviews?: LiveReview[]
+  updatedAt?: string | null
+  createdAt?: string | null
+  updated_at?: string | null
+  created_at?: string | null
 }
 
 function isVideoMedia(image?: { url?: string | null; altText?: string | null }) {
@@ -282,13 +286,22 @@ export function mapLiveProduct(
 
   const variantRefs = variants
     .filter((v): v is LiveVariant & { id: string } => Boolean(v.id))
-    .map((v) => ({
-      id: v.id,
-      ...(v.size ? { size: v.size } : {}),
-      ...(v.colorHex ? { colorHex: v.colorHex.toLowerCase() } : {}),
-      stock: Number(v.stock ?? 0),
-      isActive: v.isActive !== false,
-    }))
+    .map((v) => {
+      const colorName =
+        v.colorName?.trim() ||
+        (v.color && !String(v.color).startsWith('#') ? String(v.color).trim() : '') ||
+        undefined
+      const image = v.image ? sanitizeRemoteImageUrl(v.image) : undefined
+      return {
+        id: v.id,
+        ...(v.size ? { size: v.size } : {}),
+        ...(v.colorHex ? { colorHex: v.colorHex.toLowerCase() } : {}),
+        ...(colorName ? { colorName } : {}),
+        ...(image ? { image } : {}),
+        stock: Number(v.stock ?? 0),
+        isActive: v.isActive !== false,
+      }
+    })
 
   const mappedReviews = mapReviews(p.reviews)
   const apiRating = Number(p.rating ?? 0)
@@ -332,8 +345,10 @@ export function mapLiveProduct(
     image: img,
     hoverImage: hover,
     ...(media.length ? { media } : {}),
-    fit: p.fitType ?? 'Regular',
-    material: p.fabricContent ?? 'Premium fabric',
+    ...(p.fitType?.trim() ? { fit: p.fitType.trim() } : {}),
+    ...(p.fabricContent?.trim() ? { material: p.fabricContent.trim() } : {}),
+    ...(p.updatedAt || p.updated_at ? { updatedAt: (p.updatedAt || p.updated_at)! } : {}),
+    ...(p.createdAt || p.created_at ? { createdAt: (p.createdAt || p.created_at)! } : {}),
     ...(variantRefs.length ? { variantRefs } : {}),
     ...(rating > 0 && reviewCount > 0 ? { rating, reviewCount } : {}),
   }

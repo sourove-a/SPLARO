@@ -5,7 +5,7 @@
  *   Cannot find module './vendor-chunks/@tanstack+query-core@…'
  *   Cannot find module './76.js'
  */
-import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'fs'
+import { existsSync, readFileSync, readdirSync, rmSync, statSync, mkdirSync, writeFileSync } from 'fs'
 import { dirname, join, resolve } from 'path'
 import { fileURLToPath } from 'url'
 import { getListeningPids, getNextDevPorts } from './api-port.mjs'
@@ -35,11 +35,21 @@ function refuseFreshPurgeWithLiveNextDev() {
   process.exit(1)
 }
 
+function ensureNextTypesStub(appDir) {
+  const typesDir = resolve(ROOT, appDir, '.next/types')
+  const validatorFile = resolve(typesDir, 'validator.ts')
+  if (!existsSync(validatorFile)) {
+    mkdirSync(typesDir, { recursive: true })
+    writeFileSync(validatorFile, '// Next.js auto-generated type stub\nexport {}\n', 'utf8')
+  }
+}
+
 function purge(appDir, reason) {
   const nextDir = resolve(ROOT, appDir, '.next')
   const tsbuild = resolve(ROOT, appDir, 'tsconfig.tsbuildinfo')
-  if (existsSync(nextDir)) rmSync(nextDir, { recursive: true, force: true })
-  if (existsSync(tsbuild)) rmSync(tsbuild, { force: true })
+  if (existsSync(nextDir)) rmSync(nextDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+  if (existsSync(tsbuild)) rmSync(tsbuild, { force: true, maxRetries: 5, retryDelay: 100 })
+  ensureNextTypesStub(appDir)
   console.log(`  🧹 ${appDir}: cleared .next — ${reason}`)
 }
 

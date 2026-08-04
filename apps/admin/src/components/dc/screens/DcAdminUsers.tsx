@@ -68,9 +68,9 @@ function roleValue(row: StaffRow): string {
 
 function roleScope(role: string): string {
   const value = role.toUpperCase().replace(/ /g, '_')
-  if (value === 'CEO' || value === 'SUPER_ADMIN') return 'Full platform'
-  if (value === 'ADMIN') return 'Operations & settings'
-  if (value === 'MANAGER') return 'Orders & catalog'
+  if (value === 'CEO' || value === 'SUPER_ADMIN') return 'Full platform · Partner Hub owner'
+  if (value === 'ADMIN') return 'Ops, settings & partner ledger'
+  if (value === 'MANAGER') return 'Orders, catalog & finance entry'
   if (value === 'EDITOR' || value === 'STAFF') return 'Catalog content'
   if (value === 'VIEWER') return 'Read only'
   return 'Assigned modules'

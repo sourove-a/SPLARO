@@ -62,7 +62,7 @@ export const headerMobileMotionTransition = {
   ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
 }
 
-export const headerGlassCssEase = '520ms cubic-bezier(0.22, 1, 0.36, 1)'
+export const headerGlassCssEase = '400ms cubic-bezier(0.4, 0, 0.2, 1)'
 
 export function useHeaderScroll(
   threshold = 24,

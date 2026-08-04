@@ -28,7 +28,15 @@ export class GoogleSyncQueueService {
 
   async enqueue(payload: GoogleSyncJobPayload) {
     const storeId = await resolveStoreId(this.prisma, payload.storeId)
-    if (!(await this.isAutoSyncEnabled(storeId)) && payload.jobType !== GOOGLE_SYNC_JOB_TYPES.FULL_BACKUP) {
+    const triggered = payload.triggeredBy ?? ''
+    // Event-driven jobs respect auto-sync. Manual/admin pushes always queue.
+    const isEventTrigger =
+      triggered.endsWith('_event') || triggered === 'cron' || triggered === 'live_cron'
+    if (
+      isEventTrigger &&
+      !(await this.isAutoSyncEnabled(storeId)) &&
+      payload.jobType !== GOOGLE_SYNC_JOB_TYPES.FULL_BACKUP
+    ) {
       return { queued: false, reason: 'auto_sync_disabled' }
     }
 

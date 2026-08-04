@@ -7,6 +7,8 @@ export interface ProductCardVariantRef {
   id: string
   size?: string
   colorHex?: string
+  colorName?: string
+  image?: string
   stock: number
   isActive: boolean
 }

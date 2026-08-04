@@ -8,7 +8,7 @@ import { Check, ChevronDown } from 'lucide-react'
 import { AnimatePresence, m, useReducedMotion } from '@/lib/motion/react'
 import { cn } from '@/lib/utils/cn'
 
-import { DURATION, EASE_EXPO_OUT, MICRO, SETTLE } from '@/lib/motion/config'
+import { SETTLE } from '@/lib/motion/config'
 
 interface ShopFilterDropdownProps {
   label: string
@@ -37,6 +37,11 @@ function measureAnchor(anchor: HTMLElement | null): PanelPosition | null {
   }
 }
 
+function samePosition(a: PanelPosition | null, b: PanelPosition | null): boolean {
+  if (!a || !b) return a === b
+  return a.top === b.top && a.left === b.left && a.width === b.width
+}
+
 export function ShopFilterDropdown({
   label,
   panelTitle,
@@ -53,6 +58,7 @@ export function ShopFilterDropdown({
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const openedAtRef = useRef(0)
   const panelId = useId()
   const isSort = labelVariant === 'sort'
   const resolvedSort = sortDisplay ?? (value === 'Default' ? 'Default' : value)
@@ -71,20 +77,20 @@ export function ShopFilterDropdown({
     if (!open) return
 
     const update = () => {
+      // Ignore Lenis/micro-scroll while the slide-in is settling — avoids jitter
+      if (performance.now() - openedAtRef.current < 340) return
       const next = measureAnchor(triggerRef.current)
-      if (next) setPosition(next)
+      if (!next) return
+      setPosition((prev) => (samePosition(prev, next) ? prev : next))
     }
-
-    // Re-sync if click-time measure missed (rare)
-    if (!position) update()
 
     window.addEventListener('resize', update)
-    window.addEventListener('scroll', update, true)
+    window.addEventListener('scroll', update, { capture: true, passive: true })
     return () => {
-      window.removeEventListener('resize', update)
+      window.removeEventListener('resize', update, true)
       window.removeEventListener('scroll', update, true)
     }
-  }, [open, position])
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -117,44 +123,36 @@ export function ShopFilterDropdown({
       onClose()
       return
     }
+    openedAtRef.current = performance.now()
     // Measure first, then open — React batches → no empty/jump frame
     lockPosition()
     onToggle()
   }
+
+  /**
+   * Soft slide (no scale) — scale + blur was the “kapa” / shake.
+   * Over-damped spring ≈ liquid drop without overshoot.
+   */
+  const slideTransition = reducedMotion
+    ? { duration: 0.12 }
+    : {
+        type: 'spring' as const,
+        stiffness: 420,
+        damping: 38,
+        mass: 0.7,
+      }
 
   const panelMotion = reducedMotion
     ? {
         initial: { opacity: 0 },
         animate: { opacity: 1 },
         exit: { opacity: 0 },
-        transition: { duration: DURATION.press },
       }
     : {
-        // Unfolds from the trigger — soft settle, no teleport / spring thud
-        initial: {
-          opacity: 0,
-          y: -12,
-          scaleY: 0.88,
-        },
-        animate: {
-          opacity: 1,
-          y: 0,
-          scaleY: 1,
-        },
-        exit: {
-          opacity: 0,
-          y: -8,
-          scaleY: 0.94,
-        },
-        transition: {
-          ...SETTLE,
-          opacity: { duration: DURATION.base, ease: EASE_EXPO_OUT },
-        },
+        initial: { opacity: 0, y: -12 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: -8 },
       }
-
-  const exitTransition = reducedMotion
-    ? { duration: DURATION.press }
-    : MICRO
 
   return (
     <div ref={rootRef} className={cn('shop-filter-dropdown', open && 'shop-filter-dropdown--open')}>
@@ -219,8 +217,8 @@ export function ShopFilterDropdown({
                   }}
                   initial={panelMotion.initial}
                   animate={panelMotion.animate}
-                  exit={{ ...panelMotion.exit, transition: exitTransition }}
-                  transition={panelMotion.transition}
+                  exit={panelMotion.exit}
+                  transition={slideTransition}
                 >
                   <div className="shop-filter-dropdown__panel-head">{panelTitle}</div>
                   <ul className="shop-filter-dropdown__list" role="listbox" aria-label={panelTitle}>

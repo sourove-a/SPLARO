@@ -5,7 +5,14 @@ import { EmailService } from '../email/email.service'
 import { OrderNotificationsService } from '../notifications/order-notifications.service'
 import { resolvePublicSiteUrl } from '@splaro/config'
 import { DEFAULT_CATALOG_CHANNELS, mergeShopFilters } from '@splaro/types'
-import { emptyStorefrontConfig, mergeStorefrontConfig, mergeHeaderNav, mergeCatalogChannels, type StorefrontConfig } from './storefront-config'
+import {
+  emptyStorefrontConfig,
+  ensureEssentialHeaderDepartments,
+  mergeStorefrontConfig,
+  mergeHeaderNav,
+  mergeCatalogChannels,
+  type StorefrontConfig,
+} from './storefront-config'
 import { mergeStoryDeckCards } from './story-deck-defaults'
 
 function isSafeMenuHref(value: string): boolean {
@@ -102,7 +109,7 @@ export class SettingsController {
         youtube: settings?.youtubeUrl ?? '',
       },
       navigation: {
-        headerNav: config.headerNav ?? [],
+        headerNav: ensureEssentialHeaderDepartments(config.headerNav),
         footerGroups: config.footerGroups ?? [],
       },
       menuOverrides: config.menuOverrides ?? { autoSync: true, departments: [] },

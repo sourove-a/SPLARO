@@ -75,7 +75,7 @@ export function ProductPurchaseSticky({
             disabled={addingToCart}
             variant="cta"
           >
-            <AddToBagIconBadge size={16} tone="light" pulse={addedPulse} />
+            <AddToBagIconBadge size={16} tone="dark" strokeWidth={1.75} pulse={addedPulse} />
             <MotionSwapLabel id={addLabelId}>{addLabelText}</MotionSwapLabel>
           </MotionPressable>
           <MotionPressable
@@ -117,7 +117,7 @@ export function ProductPurchaseSticky({
               disabled={addingToCart}
               variant="cta"
             >
-              <AddToBagIconBadge size={16} tone="dark" pulse={addedPulse} />
+              <AddToBagIconBadge size={16} tone="dark" strokeWidth={1.75} pulse={addedPulse} />
               <MotionSwapLabel id={`desktop-${addLabelId}`}>{addLabelText}</MotionSwapLabel>
             </MotionPressable>
             <MotionPressable

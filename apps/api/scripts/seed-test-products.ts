@@ -651,6 +651,29 @@ async function ensureCategoryTree(storeId: string) {
   return categories
 }
 
+/** Per-size demo inventory — never flat-identical across sizes (PDP stock pill QA). */
+const SIZE_STOCK: Record<string, number> = {
+  XS: 4,
+  S: 7,
+  M: 6,
+  L: 11,
+  XL: 4,
+  XXL: 2,
+  '2XL': 2,
+  '3XL': 1,
+  'Free Size': 9,
+  OS: 9,
+  ONE: 9,
+  'One Size': 9,
+}
+const SIZE_STOCK_CURVE = [8, 14, 10, 5, 3, 2] as const
+
+function stockForSize(size: string, sizeIndex: number): number {
+  const known = SIZE_STOCK[size.trim()]
+  if (known != null) return known
+  return SIZE_STOCK_CURVE[sizeIndex % SIZE_STOCK_CURVE.length] ?? 5
+}
+
 async function invalidateCatalogCache(storeId: string) {
   if (process.env['REDIS_ENABLED'] === 'false') return
   const redis = new Redis(process.env['REDIS_URL'] ?? 'redis://localhost:6379', {
@@ -780,7 +803,7 @@ async function main() {
 
     await prisma.productVariant.createMany({
       data: seed.colors.flatMap((color) =>
-        color.sizes.map((size) => ({
+        color.sizes.map((size, sizeIndex) => ({
           productId: product.id,
           sku: `${sku}-${size}-${color.name}`.replace(/\s+/g, '-').slice(0, 80),
           size,
@@ -789,7 +812,7 @@ async function main() {
           colorHex: color.hex,
           price: seed.price,
           compareAtPrice: seed.compareAtPrice ?? null,
-          stock: 18,
+          stock: stockForSize(size, sizeIndex),
           image: color.image ?? seed.image,
           isActive: true,
         })),

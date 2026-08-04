@@ -314,7 +314,16 @@ export async function confirmProductCreated(
     if (!verifyProductResponse(saved, expected)) return null
     const id = saved && typeof saved === 'object' && 'id' in saved ? String((saved as { id: string }).id) : ''
     if (!id || !(await verifyProductPersisted(id, expected))) return null
-    toastApiSaved('Product')
+    const slug =
+      saved && typeof saved === 'object' && 'slug' in saved && typeof (saved as { slug: unknown }).slug === 'string'
+        ? (saved as { slug: string }).slug
+        : ''
+    const sku =
+      saved && typeof saved === 'object' && 'sku' in saved && typeof (saved as { sku: unknown }).sku === 'string'
+        ? (saved as { sku: string }).sku
+        : ''
+    const label = [slug, sku].filter(Boolean).join(' · ') || expected.name
+    toastApiSaved(`Product · ${label}`)
     return id
   } catch (err) {
     toastFail(err instanceof Error ? err.message : 'Failed to create product.')
