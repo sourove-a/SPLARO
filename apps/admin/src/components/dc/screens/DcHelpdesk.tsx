@@ -69,6 +69,12 @@ function DcHelpdeskBody() {
         title="Helpdesk"
         queries={[helpdesk]}
         empty={rows.length === 0}
+        emptyState={{
+          icon: 'icon-life-buoy',
+          title: 'No support tickets',
+          body:
+            "Tickets raised from the storefront contact form and from Telegram land here. An empty queue means every customer message has been answered.",
+        }}
       >
         <HubKpis
           items={[

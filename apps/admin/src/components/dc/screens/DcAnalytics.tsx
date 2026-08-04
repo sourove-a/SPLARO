@@ -882,7 +882,7 @@ function DcAnalyticsBody() {
                         borderRadius: 6,
                         border: '1px solid var(--line-2)',
                         color: 'var(--ink-3)',
-                        font: '700 9px/1.4 Inter, sans-serif',
+                        font: `700 9px/1.4 ${FONT}`,
                         letterSpacing: '.08em',
                         whiteSpace: 'nowrap',
                       }}

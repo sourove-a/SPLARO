@@ -469,7 +469,7 @@ function DcHeroSliderBody() {
                     <span
                       style={{ width: 5, height: 5, borderRadius: 99, background: 'currentColor' }}
                     />
-                    {b.isActive ? 'LIVE' : 'HIDDEN'}
+                    {b.isActive ? 'VISIBLE' : 'HIDDEN'}
                   </span>
 
                   <span style={{ flex: 'none', display: 'flex', gap: 7, flexWrap: 'wrap' }}>

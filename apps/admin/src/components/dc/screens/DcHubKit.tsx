@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
+import type { DcEmptyStateProps } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
@@ -36,6 +37,22 @@ export const hubTh = {
 
 type QueryLike = { error?: unknown; isError?: boolean; isLoading?: boolean; isFetching?: boolean; refetch: () => unknown }
 
+/** Never swallow a thrown value — surface whatever the API actually returned. */
+function describeError(error: unknown, title: string): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string' && error.trim()) return error
+  if (error && typeof error === 'object') {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim()) return message
+    try {
+      return JSON.stringify(error)
+    } catch {
+      /* fall through */
+    }
+  }
+  return `${title} request failed with no error message`
+}
+
 const SKELETON: DcBlock[] = [
   { t: 'kpis' } as DcBlock,
   { t: 'table', w: 'main', title: '', cols: [], rows: [] } as DcBlock,
@@ -49,6 +66,7 @@ export function DcHubFrame({
   actions,
   children,
   empty,
+  emptyState,
   errorHint,
 }: {
   crumbGroup: string
@@ -58,6 +76,11 @@ export function DcHubFrame({
   actions?: { label: string; icon: string; variant?: 'primary' | 'ghost'; onClick?: () => void }[]
   children: ReactNode
   empty?: boolean
+  /**
+   * Module-specific empty copy. Required whenever `empty` can be true — the
+   * design has no generic "nothing to show" fallback.
+   */
+  emptyState?: DcEmptyStateProps
   errorHint?: string
 }) {
   const { api } = useAdminConnection(25_000)
@@ -85,20 +108,16 @@ export function DcHubFrame({
       {loading && !errored ? <DcLoadingState blocks={SKELETON} /> : null}
       {errored ? (
         <DcErrorState
-          error={
-            firstError instanceof Error
-              ? firstError.message
-              : errorHint ?? `${title} unavailable`
-          }
+          // Every error shows the real thing, including non-Error throws — a
+          // generic "<title> unavailable" tells the operator nothing.
+          error={describeError(firstError, title)}
           {...(errorHint ? { hint: errorHint } : {})}
           onRetry={() => {
             for (const q of queries) void q.refetch()
           }}
         />
       ) : null}
-      {!loading && !errored && empty ? (
-        <DcEmptyState icon="icon-inbox" title={`No ${title.toLowerCase()} data`} body="Nothing to show yet from the API." />
-      ) : null}
+      {!loading && !errored && empty && emptyState ? <DcEmptyState {...emptyState} /> : null}
       {!loading && !errored && !empty ? children : null}
     </div>
   )

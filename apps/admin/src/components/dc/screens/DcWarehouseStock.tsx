@@ -297,7 +297,7 @@ function DcWarehouseStockBody() {
                           border: `1px solid ${tone.bd}`,
                           background: tone.bg,
                           color: tone.fg,
-                          font: '700 9.5px/1.3 Inter, sans-serif',
+                          font: `700 9.5px/1.3 ${FONT}`,
                           letterSpacing: '.07em',
                           textTransform: 'uppercase',
                         }}
@@ -829,7 +829,7 @@ function Stat({ k, v }: { k: string; v: string }) {
     <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
       <span
         style={{
-          font: '600 9px/1.3 Inter, sans-serif',
+          font: `600 9px/1.3 ${FONT}`,
           letterSpacing: '.08em',
           textTransform: 'uppercase',
           color: 'var(--ink-3)',

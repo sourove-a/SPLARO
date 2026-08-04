@@ -378,7 +378,7 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                           border: `1px solid ${tone.bd}`,
                           background: tone.bg,
                           color: tone.fg,
-                          font: '700 9.5px/1.3 Inter, sans-serif',
+                          font: `700 9.5px/1.3 ${FONT}`,
                           letterSpacing: '.07em',
                           textTransform: 'uppercase',
                         }}

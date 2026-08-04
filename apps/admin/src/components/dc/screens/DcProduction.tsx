@@ -36,7 +36,17 @@ function DcProductionBody() {
   }, [tab, production.data])
 
   return (
-    <DcHubFrame crumbGroup="Production" title="Production" queries={[production]} empty={rows.length === 0}>
+    <DcHubFrame
+      crumbGroup="Production"
+      title="Production"
+      queries={[production]}
+      empty={rows.length === 0}
+      emptyState={{
+        icon: 'icon-scissors',
+        title: 'No production batches yet',
+        body: 'Production tracks fabric inventory through cutting, sewing and QC. Create a batch to begin following it through the line.',
+      }}
+    >
       <HubTabs
         tabs={[
           { id: 'batches', label: 'Batches' },

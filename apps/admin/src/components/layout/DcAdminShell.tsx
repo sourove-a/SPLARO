@@ -19,24 +19,26 @@ import { formatAdminDisplayName, formatAdminRoleLabel } from '@/lib/auth/role-la
 import { useAdminUiStore } from '@/store/uiStore'
 
 /** Quick actions in the right rail — the six the design pins there. */
+// Violet is reserved for active nav and primary buttons, so these icons use the
+// neutral ink ramp rather than the brand colour.
 const QUICK_ACTIONS: Array<Omit<DcQuickAction, 'onClick'> & { href: string }> = [
-  { label: 'New order', icon: 'icon-plus', color: 'var(--violet)', href: '/dashboard/orders/new' },
-  { label: 'Add product', icon: 'icon-package', color: 'var(--violet)', href: '/dashboard/products/new' },
+  { label: 'New order', icon: 'icon-plus', color: 'var(--ink-2)', href: '/dashboard/orders/new' },
+  { label: 'Add product', icon: 'icon-package', color: 'var(--ink-2)', href: '/dashboard/products/new' },
   { label: 'Upload CSV', icon: 'icon-upload', color: 'var(--ink-3)', href: '/dashboard/bulk' },
-  { label: 'Partner Tx', icon: 'icon-handshake', color: 'var(--violet)', href: '/dashboard/finance/partner-accounts' },
-  { label: 'Daily close', icon: 'icon-calendar-check', color: 'var(--violet)', href: '/dashboard/finance/daily-closing' },
+  { label: 'Partner Tx', icon: 'icon-handshake', color: 'var(--ink-2)', href: '/dashboard/finance/partner-accounts' },
+  { label: 'Daily close', icon: 'icon-calendar-check', color: 'var(--ink-2)', href: '/dashboard/finance/daily-closing' },
   {
     label: 'AI generator',
     icon: 'icon-sparkles',
-    color: 'var(--violet)',
+    color: 'var(--ink-2)',
     href: '/dashboard/ai-agent',
     accent: true,
   },
 ]
 
-/** Activity type → timeline dot colour. */
+/** Activity type → timeline dot colour. Status palette only, never violet. */
 const ACTIVITY_DOT: Record<string, string> = {
-  order: 'var(--violet)',
+  order: 'var(--ok)',
   customer: 'var(--info)',
   payment: 'var(--ok)',
   shipping: 'var(--info)',

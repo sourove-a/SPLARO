@@ -136,6 +136,12 @@ function DcCommerceExtrasBody({ initial }: { initial: CommerceExtrasTab }) {
       title="Commerce extras"
       queries={[activeQuery, ...(tab === 'invoices' ? [invoiceStats] : [])]}
       empty={rows.length === 0}
+      emptyState={{
+        icon: 'icon-receipt',
+        title: 'No POS or invoice activity yet',
+        body:
+          "This screen reads POS sessions, invoices and payment splits. Nothing has been recorded for the selected period — take a POS sale or issue an invoice and it will appear here.",
+      }}
     >
       <HubTabs
         tabs={TABS}

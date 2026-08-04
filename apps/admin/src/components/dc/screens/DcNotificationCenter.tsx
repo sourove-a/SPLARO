@@ -33,7 +33,17 @@ function DcNotificationCenterBody() {
   )
 
   return (
-    <DcHubFrame crumbGroup="Executive" title="Notification Center" queries={[notifications]} empty={rows.length === 0}>
+    <DcHubFrame
+      crumbGroup="Executive"
+      title="Notification Center"
+      queries={[notifications]}
+      empty={rows.length === 0}
+      emptyState={{
+        icon: 'icon-bell',
+        title: 'No notifications',
+        body: 'Order, stock and system alerts collect here. Nothing needs your attention right now.',
+      }}
+    >
       <HubKpis
         items={[
           { label: 'Total', value: summary?.total ?? 0 },

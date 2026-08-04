@@ -117,7 +117,9 @@ export function DcCommandPalette({ open, onClose, items }: DcCommandPaletteProps
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search orders, products, customers…"
+            // The palette indexes nav routes and actions, not entities — don't
+            // promise order/product/customer search it can't do.
+            placeholder="Search screens and actions…"
             aria-label="Search admin"
             style={{
               flex: 1,

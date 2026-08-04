@@ -81,7 +81,7 @@ export function DcHeader({
       >
         <DcIcon name="icon-search" size={14} />
         <span className="dc-header__search-label" style={{ flex: 1, textAlign: 'left' }}>
-          Search orders, products, customers…
+          Search screens and actions…
         </span>
         <span
           className="dc-header__shortcut"
@@ -212,9 +212,10 @@ export function DcHeader({
         className="dc-header__rail-toggle"
         style={{
           ...iconButton,
-          border: `1px solid ${railOpen ? 'var(--violet-bd)' : 'var(--line)'}`,
-          background: railOpen ? 'var(--violet-soft)' : 'var(--surface-2)',
-          color: railOpen ? 'var(--violet)' : 'var(--ink-2)',
+          // Toggled state is carried by the neutral ramp — violet is nav-only.
+          border: `1px solid ${railOpen ? 'var(--line-2)' : 'var(--line)'}`,
+          background: railOpen ? 'var(--surface-3)' : 'var(--surface-2)',
+          color: railOpen ? 'var(--ink)' : 'var(--ink-2)',
         }}
       >
         <DcIcon name="icon-panel-right" size={15} />

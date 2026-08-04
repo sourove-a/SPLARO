@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { formatBDT } from '@/lib/utils/currency'
+import { formatBdPhone, telHref } from '@/lib/format/bd-phone'
 import { cn } from '@/lib/utils/cn'
 import type { CustomerFraudSignals } from '@/lib/api/customers'
 
@@ -146,7 +147,9 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[var(--ink-2)]">
               <span className="flex items-center gap-1.5">
                 <Phone className="h-3.5 w-3.5 shrink-0" />
-                {customer.phone}
+                <a className="hover:underline" href={telHref(customer.phone)}>
+                  {formatBdPhone(customer.phone)}
+                </a>
               </span>
               {customer.email && (
                 <span className="flex min-w-0 items-center gap-1.5">

@@ -44,6 +44,12 @@ function DcBrandsBody() {
         title="Brands"
         queries={[brands]}
         empty={rows.length === 0}
+        emptyState={{
+          icon: 'icon-tag',
+          title: 'No brands yet',
+          body:
+            "Brands group products under a manufacturer or label and drive the /brands storefront pages. Add your first one to start tagging products.",
+        }}
         actions={[
           {
             label: 'Add brand',

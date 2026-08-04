@@ -53,6 +53,12 @@ function DcCompanyOsBody() {
       title="Company OS"
       queries={[company, payroll]}
       empty={rows.length === 0 && tab !== 'overview'}
+      emptyState={{
+        icon: 'icon-users',
+        title: 'No employees or payroll runs yet',
+        body:
+          "Company OS tracks staff records, payroll runs and internal tasks. Add an employee before running your first payroll.",
+      }}
     >
       <HubTabs
         tabs={[

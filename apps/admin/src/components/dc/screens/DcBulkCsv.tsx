@@ -490,7 +490,7 @@ function DcBulkCsvBody() {
                       border: '1px solid var(--ok-bd)',
                       background: 'var(--ok-soft)',
                       color: 'var(--ok)',
-                      font: '700 9px/1.3 Inter, sans-serif',
+                      font: `700 9px/1.3 ${FONT}`,
                       letterSpacing: '.08em',
                     }}
                   >
@@ -1007,7 +1007,7 @@ function DcBulkCsvBody() {
                       border: '1px solid var(--warn-bd)',
                       background: 'var(--warn-soft)',
                       color: 'var(--warn)',
-                      font: '700 9px/1.4 Inter, sans-serif',
+                      font: `700 9px/1.4 ${FONT}`,
                       letterSpacing: '.08em',
                     }}
                   >
@@ -1096,7 +1096,7 @@ function DcBulkCsvBody() {
                     border: '1px solid var(--ok-bd)',
                     background: 'var(--ok-soft)',
                     color: 'var(--ok)',
-                    font: '700 9px/1.4 Inter, sans-serif',
+                    font: `700 9px/1.4 ${FONT}`,
                     letterSpacing: '.08em',
                   }}
                 >

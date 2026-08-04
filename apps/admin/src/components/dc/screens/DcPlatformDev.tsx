@@ -38,6 +38,12 @@ function DcPlatformDevBody({ initial }: { initial: PlatformDevTab }) {
       title={tab === 'developer' ? 'API Developer Center' : 'Observability'}
       queries={[active]}
       empty={rows.length === 0}
+      emptyState={{
+        icon: 'icon-terminal',
+        title: 'No platform activity recorded',
+        body:
+          "Deploys, migrations and background job runs are logged here. Nothing has run since the last reset.",
+      }}
     >
       <HubTabs
         tabs={[
