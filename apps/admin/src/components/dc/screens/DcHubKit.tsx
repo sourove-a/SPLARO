@@ -146,9 +146,12 @@ export function HubKpis({
 export function HubTable({
   columns,
   rows,
+  onRowClick,
 }: {
   columns: string[]
   rows: (string | number | ReactNode)[][]
+  /** Makes rows keyboard-activatable as well as clickable. */
+  onRowClick?: (index: number) => void
 }) {
   return (
     <div style={{ ...hubCard, overflow: 'auto' }}>
@@ -164,7 +167,23 @@ export function HubTable({
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={i}>
+            <tr
+              key={i}
+              {...(onRowClick
+                ? {
+                    tabIndex: 0,
+                    role: 'button' as const,
+                    style: { cursor: 'pointer' },
+                    onClick: () => onRowClick(i),
+                    onKeyDown: (e: React.KeyboardEvent<HTMLTableRowElement>) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onRowClick(i)
+                      }
+                    },
+                  }
+                : {})}
+            >
               {row.map((cell, j) => (
                 <td
                   key={j}

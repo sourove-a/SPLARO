@@ -28,6 +28,7 @@ export const REGISTERED_MODULE_HREFS: string[] = [
   '/dashboard/admin-users',
   '/dashboard/security-center',
   '/dashboard/ai-agent',
+  '/dashboard/manus',
   '/dashboard/seo-health',
   '/dashboard/automation-rules',
   '/dashboard/all-integrations',

@@ -156,6 +156,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     group: 'AI Center',
     items: [
       item('AI Command Brain', 'ai-agent', 'MessageSquare', 'Model, keys & AI instructions — one place'),
+      item('Manus Tasks', 'manus', 'Bot', 'Delegate long autonomous jobs — research, scraping, docs'),
     ],
   },
   {
