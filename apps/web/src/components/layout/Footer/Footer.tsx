@@ -243,13 +243,9 @@ export function Footer() {
                     </span>
                     <span className="footer-lux__store-copy-text">
                       <span className="footer-lux__store-label">Visit store</span>
-                      {' '}
                       <span className="footer-lux__store-place">{place}</span>
                       {localityLine ? (
-                        <>
-                          {', '}
-                          <span className="footer-lux__store-locality">{localityLine}</span>
-                        </>
+                        <span className="footer-lux__store-locality">{localityLine}</span>
                       ) : null}
                     </span>
                   </Link>

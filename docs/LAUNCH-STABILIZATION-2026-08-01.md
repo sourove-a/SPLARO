@@ -20,8 +20,9 @@ performed. Footer and locked Google-auth components were not changed.
 - Hero mounts only active video, uses lightweight-first source order on Windows, and avoids
   reduced-motion autoplay/video warm-up.
 - Reduced-motion stops hero autoplay, progress animation, slide/media transitions.
-  Brand ribbon under the hero (`.home-flow-strip`) keeps flowing as intentional
-  decorative motion — Windows Animation effects OFF must not freeze that ticker.
+  Brand ribbon under the hero (`.home-flow-strip`) keeps flowing on Windows when
+  Animation effects are OFF (`prefers-reduced-motion: reduce`). Mac/Linux reduce
+  stays still so Lenis scroll isn’t fighting a GPU marquee.
   `scripts/check-web-interactions.mjs` verifies this contract.
 - Storefront presence no longer collapses under normal BFF concurrency: BFF forwards resolved
   client address, API heartbeat limit allows concurrent storefront traffic, and BFF preserves

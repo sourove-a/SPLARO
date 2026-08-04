@@ -104,6 +104,7 @@ async function inspectHomepage(page) {
 
     return {
       reducedMotion: reduced,
+      dataOs: document.documentElement.getAttribute('data-os'),
       heroDotChanged: dot0Before !== dot0After,
       heroProgressAnim: progressAnim,
       marqueeMoved: marqueeT1 !== marqueeT2,
@@ -153,10 +154,14 @@ async function main() {
       heroProgressStopped:
         state.heroProgressAnim?.name === 'none' ||
         parseFloat(state.heroProgressAnim?.duration ?? '0') <= 0.1,
-      // Decorative ribbon under hero — must keep flowing on Windows reduce.
+      // Windows reduce: keep decorative ribbon. Mac/Linux reduce: stay still (scroll GPU budget).
       marqueeFlows:
-        state.marqueeAnim?.name === 'home-flow-marquee' || state.marqueeMoved === true,
-      marqueeNoWrap: state.marqueeWrap === 'nowrap',
+        state.dataOs === 'windows'
+          ? state.marqueeAnim?.name === 'home-flow-marquee' || state.marqueeMoved === true
+          : state.marqueeAnim?.name === 'none' ||
+            parseFloat(state.marqueeAnim?.duration ?? '0') <= 0.1 ||
+            state.marqueeAnim?.playState === 'paused',
+      marqueeNoWrap: state.marqueeWrap === 'nowrap' || state.dataOs !== 'windows',
       noConsoleErrors: consoleErrors.length === 0,
     }
 

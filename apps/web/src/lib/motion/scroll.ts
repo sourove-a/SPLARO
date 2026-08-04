@@ -93,10 +93,10 @@ const LENIS_SHARED = {
  */
 const LENIS_DESKTOP: LenisOptions = {
   ...LENIS_SHARED,
-  /** Snappier than 0.085 — premium glide without sticky / laggy scroll feel. */
-  lerp: 0.1,
+  /** Slightly snappier trackpad handoff — less “rubber lag” after paint fixes. */
+  lerp: 0.12,
   smoothWheel: true,
-  wheelMultiplier: 0.95,
+  wheelMultiplier: 1,
   syncTouch: false,
   touchMultiplier: 1,
   autoToggle: false,

@@ -2312,14 +2312,12 @@ html[data-os='windows'] .home-dept-tile:hover .home-dept-tile__img {
   -webkit-backdrop-filter: none;
   border-bottom: none;
   box-shadow: none;
-  will-change: transform, background;
+  will-change: auto;
   transition:
     background var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1)),
     color var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1)),
     box-shadow var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1)),
-    border-color var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1)),
-    backdrop-filter var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1)),
-    -webkit-backdrop-filter var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1));
+    border-color var(--header-glass-duration, 0.4s) var(--header-glass-ease, cubic-bezier(0.4, 0, 0.2, 1));
 }
 
 /* Mid-hero: hero copy under nav — fade copy + dark frosted bar (not solid white). */
@@ -2671,10 +2669,17 @@ html[data-home-hero='top'] .home-hero-slider .hero-content {
   max-width: min(920px, calc(100% - 2.5rem));
   border-radius: 999px;
   border: 1px solid rgba(16, 17, 20, 0.06);
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.92);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  /* Blur only when idle — live blur + marquee translate fights Lenis RAF */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) .home-flow-strip {
+  backdrop-filter: blur(12px) saturate(1.15);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .home-flow-strip--slim .home-flow-strip__viewport {
@@ -4535,95 +4540,94 @@ html[data-os='windows'] .home-story-deck[data-story-visible='true'] .home-story-
   will-change: transform, opacity;
 }
 
-/* ── Decorative ambient motion — keep slow brand loops when OS reduces motion ──
+/* ── Decorative ambient motion — Windows reduce only ──
    Windows "Animation effects OFF" → prefers-reduced-motion: reduce.
-   Global 0.01ms rule still applies to nav/cart/forms; these homepage signatures
-   are intentional decorative motion (earth, hero, marquee, chat FAB). */
+   Mac reduce stays native + still; do not keep GPU loops hot on Mac. */
 @media (prefers-reduced-motion: reduce) {
-  .story-earth-panel__placeholder--flow .story-earth-panel__globe-map {
+  html[data-os='windows'] .story-earth-panel__placeholder--flow .story-earth-panel__globe-map {
     animation: story-earth-map-scroll 24s linear infinite !important;
   }
 
-  .story-earth-panel__placeholder-glow {
+  html[data-os='windows'] .story-earth-panel__placeholder-glow {
     animation: story-earth-glow-pulse 6s ease-in-out infinite !important;
   }
 
-  .site-footer__earth:has([data-earth-ready='true']) .site-footer__earth-stars--twinkle {
+  html[data-os='windows'] .site-footer__earth:has([data-earth-ready='true']) .site-footer__earth-stars--twinkle {
     animation: footer-star-twinkle 3.8s ease-in-out infinite alternate !important;
   }
 
-  .site-footer__earth:has([data-earth-ready='true']) .site-footer__earth-stars--twinkle::before {
+  html[data-os='windows'] .site-footer__earth:has([data-earth-ready='true']) .site-footer__earth-stars--twinkle::before {
     animation: footer-star-sparkle 2.4s ease-in-out infinite alternate !important;
   }
 
-  .site-footer__earth:has([data-earth-ready='true']) .site-footer__earth-stars--twinkle::after {
+  html[data-os='windows'] .site-footer__earth:has([data-earth-ready='true']) .site-footer__earth-stars--twinkle::after {
     animation: footer-star-sparkle 3.1s ease-in-out 0.8s infinite alternate !important;
   }
 
-  .site-footer__earth:has([data-earth-ready='true']) .site-footer__earth-glass {
+  html[data-os='windows'] .site-footer__earth:has([data-earth-ready='true']) .site-footer__earth-glass {
     animation: footer-glass-shimmer 9s ease-in-out infinite alternate !important;
   }
 
-  .site-footer__earth-fallback-spin:not(.site-footer__earth-fallback-spin--static),
-  .site-footer__earth-fallback-cloud-spin:not(.site-footer__earth-fallback-spin--static) {
+  html[data-os='windows'] .site-footer__earth-fallback-spin:not(.site-footer__earth-fallback-spin--static),
+  html[data-os='windows'] .site-footer__earth-fallback-cloud-spin:not(.site-footer__earth-fallback-spin--static) {
     animation: footer-earth-map-scroll var(--footer-earth-spin, 72s) linear infinite !important;
   }
 
-  .site-footer__earth-fallback-glow {
+  html[data-os='windows'] .site-footer__earth-fallback-glow {
     animation: story-earth-glow-pulse 6s ease-in-out infinite !important;
   }
 
-  .home-hero-slider .hero-progress-fill:not(.hero-progress-fill--paused) {
+  html[data-os='windows'] .home-hero-slider .hero-progress-fill:not(.hero-progress-fill--paused) {
     animation: hero-progress-fill var(--hero-slide-duration) linear forwards !important;
   }
 
-  .home-hero-slider[data-transitioning='true'][data-direction='forward'] .hero-slide[data-active='true'] {
+  html[data-os='windows'] .home-hero-slider[data-transitioning='true'][data-direction='forward'] .hero-slide[data-active='true'] {
     animation: hero-swipe-enter-forward var(--hero-swipe) var(--hero-ease-luxury) forwards !important;
   }
 
-  .home-hero-slider[data-transitioning='true'][data-direction='forward'] .hero-slide[data-exiting='true'] {
+  html[data-os='windows'] .home-hero-slider[data-transitioning='true'][data-direction='forward'] .hero-slide[data-exiting='true'] {
     animation: hero-swipe-exit-forward var(--hero-swipe) var(--hero-ease-luxury) forwards !important;
   }
 
-  .home-hero-slider[data-transitioning='true'][data-direction='backward'] .hero-slide[data-active='true'] {
+  html[data-os='windows'] .home-hero-slider[data-transitioning='true'][data-direction='backward'] .hero-slide[data-active='true'] {
     animation: hero-swipe-enter-backward var(--hero-swipe) var(--hero-ease-luxury) forwards !important;
   }
 
-  .home-hero-slider[data-transitioning='true'][data-direction='backward'] .hero-slide[data-exiting='true'] {
+  html[data-os='windows'] .home-hero-slider[data-transitioning='true'][data-direction='backward'] .hero-slide[data-exiting='true'] {
     animation: hero-swipe-exit-backward var(--hero-swipe) var(--hero-ease-luxury) forwards !important;
   }
 
-  .home-hero-slider .hero-bg-video,
-  .home-hero-slider .hero-bg-image,
-  .home-hero-slider .hero-slide__media img.hero-bg-image,
-  .home-hero-slider .hero-slide__media video.hero-bg-video {
+  html[data-os='windows'] .home-hero-slider .hero-bg-video,
+  html[data-os='windows'] .home-hero-slider .hero-bg-image,
+  html[data-os='windows'] .home-hero-slider .hero-slide__media img.hero-bg-image,
+  html[data-os='windows'] .home-hero-slider .hero-slide__media video.hero-bg-video {
     transition: transform var(--hero-slide-duration) var(--hero-ease-luxury) !important;
   }
 
-  .home-flow-strip__track {
+  html[data-os='windows'] .home-flow-strip__track {
     display: flex !important;
     flex-wrap: nowrap !important;
     width: max-content !important;
     animation: home-flow-marquee 36s linear infinite !important;
   }
 
-  .support-live-bubble__dot {
+  html[data-os='windows'] .support-live-bubble__dot {
     animation: supportBlink 3s ease infinite !important;
   }
 
-  .support-live-bubble__dot:nth-child(1) {
+  html[data-os='windows'] .support-live-bubble__dot:nth-child(1) {
     animation-delay: 0s !important;
   }
 
-  .support-live-bubble__dot:nth-child(2) {
+  html[data-os='windows'] .support-live-bubble__dot:nth-child(2) {
     animation-delay: 0.4s !important;
   }
 
-  .support-live-bubble__dot:nth-child(3) {
+  html[data-os='windows'] .support-live-bubble__dot:nth-child(3) {
     animation-delay: 0.8s !important;
   }
 
-  .auth-shell__earth-canvas {
+  html[data-os='windows'] .auth-shell__earth-canvas {
     animation: auth-earth-float 24s ease-in-out infinite !important;
   }
 }

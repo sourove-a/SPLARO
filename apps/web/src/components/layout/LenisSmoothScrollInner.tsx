@@ -192,14 +192,14 @@ function LenisHeightSync() {
 
     let raf = 0
     let timer = 0
+    let scrollSyncRaf = 0
     let lastHeight = 0
+    let lastScrollSync = 0
 
     const runResize = () => {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
         const next = document.documentElement.scrollHeight
-        // Always refresh limit — deferring during scroll left mid-page freezes
-        // when images/rails change document height under the cursor.
         lenis.resize()
         if (Math.abs(next - lastHeight) > 8) {
           lastHeight = next
@@ -215,11 +215,20 @@ function LenisHeightSync() {
       timer = window.setTimeout(runResize, 80)
     }
 
+    // Throttle limit sync — every-scroll resize caused mid-page jank when
+    // images/rails changed height under Lenis.
     const syncLimitOnScroll = () => {
-      const nativeMax = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
-      if (Math.abs(nativeMax - lenis.limit) > 12) {
-        lenis.resize()
-      }
+      const now = performance.now()
+      if (now - lastScrollSync < 120) return
+      if (scrollSyncRaf) return
+      scrollSyncRaf = requestAnimationFrame(() => {
+        scrollSyncRaf = 0
+        lastScrollSync = performance.now()
+        const nativeMax = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
+        if (Math.abs(nativeMax - lenis.limit) > 24) {
+          lenis.resize()
+        }
+      })
     }
 
     const target = document.getElementById('main-content') ?? document.body
@@ -233,7 +242,7 @@ function LenisHeightSync() {
     window.visualViewport?.addEventListener('resize', scheduleResize)
     lenis.on('scroll', syncLimitOnScroll)
 
-    const bootPasses = [120, 400, 900, 1800, 3500].map((ms) => window.setTimeout(runResize, ms))
+    const bootPasses = [120, 500, 1400].map((ms) => window.setTimeout(runResize, ms))
 
     runResize()
 
@@ -241,6 +250,7 @@ function LenisHeightSync() {
       window.clearTimeout(timer)
       bootPasses.forEach((id) => window.clearTimeout(id))
       cancelAnimationFrame(raf)
+      cancelAnimationFrame(scrollSyncRaf)
       observer.disconnect()
       window.removeEventListener('resize', scheduleResize)
       window.removeEventListener('orientationchange', scheduleResize)

@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 
 const SCROLLING_ATTR = 'data-scrolling'
-const IDLE_MS = 140
+const IDLE_MS = 220
 
 /**
  * While the user scrolls, mark html[data-scrolling="1"] so CSS can pause

@@ -19,8 +19,37 @@ html[data-scrolling='1'] .home-story-deck__seal-ring--inner,
 html[data-scrolling='1'] .home-story-deck__medallion,
 html[data-scrolling='1'] .home-story-deck__seal-glow,
 html[data-scrolling='1'] .ed-newsletter__sweep,
-html[data-scrolling='1'] .story-scroll--light::before {
+html[data-scrolling='1'] .story-scroll--light::before,
+html[data-scrolling='1'] .home-flow-strip__track,
+html[data-scrolling='1'] .animate-marquee {
   animation-play-state: paused !important;
+}
+
+/* Strip blur + mask fight Lenis compositing — solidify while scrolling */
+html[data-scrolling='1'] .home-flow-strip {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+}
+
+/* Header: drop live blur / will-change during Lenis glide */
+html[data-scrolling='1'] .site-header-glass {
+  will-change: auto !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.97) !important;
+  transition: none !important;
+}
+
+html[data-scrolling='1'] .site-header-glass.site-header-glass--over-hero:not(.site-header-glass--scrolled) {
+  background: transparent !important;
+}
+
+html[data-scrolling='1']
+  .site-header-glass.site-header-glass--over-hero.site-header-glass--hero-copy-under:not(
+    .site-header-glass--scrolled
+  ) {
+  background: rgba(8, 10, 14, 0.72) !important;
 }
 
 /* During scroll: don't promote transform layers that fight Lenis */
