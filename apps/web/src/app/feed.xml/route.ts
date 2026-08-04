@@ -11,12 +11,12 @@ const POLICY_ITEMS: Array<{ path: string; title: string; description: string }> 
   {
     path: '/editorial',
     title: 'SPLARO Editorial — Style & Culture',
-    description: 'Journal notes on quiet luxury, Bangladesh fashion, and the SPLARO studio.',
+    description: 'Journal notes on Bangladesh fashion and the SPLARO studio.',
   },
   {
     path: '/about',
     title: 'About SPLARO',
-    description: 'Quiet luxury fashion for men, women & kids — Dhaka studio + nationwide delivery.',
+    description: 'Premium fashion for men, women & kids — Dhaka studio + nationwide delivery.',
   },
   {
     path: '/faq',
@@ -102,7 +102,7 @@ export async function GET() {
   <channel>
     <title>SPLARO</title>
     <link>${xmlEscape(SEO_SITE_URL)}</link>
-    <description>SPLARO — luxury fashion Bangladesh. Editorial, policies, and catalog highlights.</description>
+    <description>SPLARO — premium fashion for men, women and kids in Bangladesh. Editorial, policies, and catalog highlights.</description>
     <language>en-bd</language>
     <lastBuildDate>${lastBuildDate}</lastBuildDate>
 ${items}

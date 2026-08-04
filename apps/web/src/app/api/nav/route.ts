@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server'
-import { getStorefrontSettings, type NavLink } from '@/lib/storefront/settings'
+import { getStorefrontSettings } from '@/lib/storefront/settings'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Live header nav for client sync — every route must paint the same mega labels.
- * Avoids stale ISR layout props (old FALLBACK megas) sticking after soft-nav.
+ * Live storefront shell settings for client sync.
+ * Avoids stale ISR root-layout props leaving header/footer out of sync after soft-nav.
  */
 export async function GET() {
   try {
     const settings = await getStorefrontSettings()
-    const headerNav = (settings.config.headerNav ?? []) as NavLink[]
     return NextResponse.json(
-      { headerNav },
+      { settings },
       {
         headers: {
           'Cache-Control': 'private, no-store, max-age=0',
@@ -20,6 +19,6 @@ export async function GET() {
       },
     )
   } catch {
-    return NextResponse.json({ error: 'Nav unavailable' }, { status: 503 })
+    return NextResponse.json({ error: 'Storefront settings unavailable' }, { status: 503 })
   }
 }

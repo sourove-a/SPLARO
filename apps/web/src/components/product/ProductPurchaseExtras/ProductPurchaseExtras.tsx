@@ -5,6 +5,7 @@ import { useMemo } from 'react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { buildPaymentOptions } from '@/lib/checkout/payments'
 import { DIGITAL_PAYMENT_DISCOUNT_RATE } from '@/lib/utils/currency'
+import { sanitizeStorefrontMaterial } from '@/lib/catalog/storefront-sanitize'
 import type { ProductDetailData } from '@/types/product'
 
 interface ProductPurchaseExtrasProps {
@@ -15,7 +16,8 @@ interface ProductPurchaseExtrasProps {
 
 function materialLine(product: ProductDetailData): string | null {
   const parts: string[] = []
-  if (product.fabricContent?.trim()) parts.push(product.fabricContent.trim())
+  const material = sanitizeStorefrontMaterial(product.fabricContent)
+  if (material) parts.push(material)
   const fit = product.fitType?.trim()
   if (fit) {
     const isAccessory = /accessor|bag|wallet|watch|scarf|belt|tote|crossbody|footwear/i.test(

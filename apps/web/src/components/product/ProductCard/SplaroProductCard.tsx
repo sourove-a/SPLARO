@@ -114,8 +114,8 @@ export function SplaroProductCard({
     typeof stockUnits === 'number'
       ? stockStatus.label
       : inStock
-        ? 'In Stock'
-        : 'Sold Out'
+        ? 'In stock'
+        : 'Out of stock'
   const stockKind =
     typeof stockUnits === 'number' ? stockStatus.kind : inStock ? 'in_stock' : 'sold_out'
   const mediaTransition = productMediaTransitionStyle(id, reducedMotion)
@@ -365,7 +365,7 @@ export function SplaroProductCard({
         ) : null}
 
         {stockKind === 'sold_out' ? (
-          <span className="splaro-card__sold-badge">Sold Out</span>
+          <span className="splaro-card__sold-badge">Out of stock</span>
         ) : null}
 
         {inStock ? (
@@ -458,9 +458,9 @@ export function SplaroProductCard({
           className={cn(
             'splaro-card__stock',
             stockKind === 'in_stock' && 'splaro-card__stock--ok',
-            stockKind === 'low_stock' && 'splaro-card__stock--low',
             stockKind === 'only_left' && 'splaro-card__stock--urgent',
             stockKind === 'sold_out' && 'splaro-card__stock--out',
+            stockKind === 'preorder' && 'splaro-card__stock--ok',
           )}
         >
           {stockLabel}

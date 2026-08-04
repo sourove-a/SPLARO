@@ -136,7 +136,7 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
   return (
     <div ref={navLayerRef} className="site-header-glass__nav-layer">
       <div className="site-header-glass__nav-center">
-        <nav aria-label="Main navigation">
+        <nav aria-label="Primary navigation">
           <LayoutGroup id="site-header-nav">
             <ul className="site-header-glass__nav-list">
               <AnimatePresence initial={false} mode="popLayout">
@@ -212,6 +212,8 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
             'site-header-glass__mega',
             activeMegaMenu && openIndex !== null && 'site-header-glass__mega--open',
           )}
+          aria-hidden={!(activeMegaMenu && openIndex !== null)}
+          {...(!(activeMegaMenu && openIndex !== null) ? { inert: true } : {})}
           onMouseEnter={cancelClose}
           onMouseLeave={scheduleClose}
         >

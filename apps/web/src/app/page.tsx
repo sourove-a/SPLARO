@@ -8,6 +8,10 @@ import { fetchHeroBanners } from '@/lib/api/banners'
 import { resolveHeroBanners } from '@/lib/api/hero-banners'
 import { resolveLocalHeroVariants } from '@/lib/assets/hero-cdn'
 import { getHomepageDepartmentRows } from '@/lib/catalog/homepage-department-rows'
+import {
+  SPLARO_HOME_DESCRIPTION,
+  SPLARO_HOME_TITLE,
+} from '@/lib/seo/brand-positioning'
 import { createRouteMetadata } from '@/lib/seo/route-metadata'
 import {
   EMPTY_HOMEPAGE_REVIEWS,
@@ -16,12 +20,9 @@ import {
 import { resolveHomepageSections, resolveOurStory } from '@/lib/storefront/homepage-defaults'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
 
-const HOME_DESCRIPTION =
-  'Discover SPLARO — quiet luxury fashion for men, women, and kids in Bangladesh. Apparel, footwear, and accessories for everyday elegance.'
-
 export const metadata = createRouteMetadata({
-  title: 'SPLARO | Quiet Luxury Fashion',
-  description: HOME_DESCRIPTION,
+  title: SPLARO_HOME_TITLE,
+  description: SPLARO_HOME_DESCRIPTION,
   path: '/',
 })
 

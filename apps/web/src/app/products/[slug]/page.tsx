@@ -9,6 +9,7 @@ import { RelatedProducts } from './related-products'
 import { ProductRelatedSkeleton } from './product-related-section'
 import {
   sanitizeStorefrontDescription,
+  sanitizeStorefrontMaterial,
   sanitizeStorefrontShortDescription,
 } from '@/lib/catalog/storefront-sanitize'
 import { buildProductDescriptionFallback } from '@/lib/catalog/product-copy'
@@ -194,7 +195,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
         },
         ...(variantColors.length > 0 ? { color: variantColors.length === 1 ? variantColors[0] : variantColors } : {}),
         ...(variantSizes.length > 0 ? { size: variantSizes.length === 1 ? variantSizes[0] : variantSizes } : {}),
-        ...(product.fabricContent ? { material: product.fabricContent } : {}),
+        ...(() => {
+          const material = sanitizeStorefrontMaterial(product.fabricContent)
+          return material ? { material } : {}
+        })(),
         ...(product.category ? { category: product.category } : {}),
         ...(hasVariantSchema.length > 0 ? { hasVariant: hasVariantSchema } : {}),
         offers: {

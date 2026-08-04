@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useMemo } from 'react'
 import { ShopCatalog, type ShopCatalogPreset } from '@/components/shop/ShopCatalog'
 import { ShopCollectionsSection } from '@/components/shop/ShopCollectionsSection'
@@ -24,6 +25,8 @@ interface ShopExperienceProps {
   parentCategorySlug?: string
   categorySlug?: string
   listingMode?: 'full' | 'scoped' | 'paged'
+  categoryIntro?: string
+  thinCatalog?: boolean
 }
 
 export function ShopExperience({
@@ -38,6 +41,8 @@ export function ShopExperience({
   parentCategorySlug,
   categorySlug,
   listingMode = collectionSlug || categorySlug || parentCategorySlug ? 'scoped' : 'full',
+  categoryIntro,
+  thinCatalog,
 }: ShopExperienceProps) {
   const settings = useStorefrontSettings()
   const headerNav = settings.config.headerNav
@@ -54,6 +59,15 @@ export function ShopExperience({
           <ShopBreadcrumbs items={breadcrumbs} />
           {pageTitle ? <h1 className="sr-only">{pageTitle}</h1> : null}
         </div>
+        {categoryIntro ? (
+          <p className="shop-page-intro__copy">
+            {categoryIntro}{' '}
+            <Link href="/shop" className="shop-page-intro__link">
+              Shop all
+            </Link>
+            {thinCatalog ? ' — more styles are added regularly.' : '.'}
+          </p>
+        ) : null}
       </div>
 
       {showCollections ? <ShopCollectionsSection cards={collectionCards} /> : null}

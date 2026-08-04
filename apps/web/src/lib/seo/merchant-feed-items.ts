@@ -2,6 +2,7 @@ import { DELIVERY_ZONES } from '@splaro/config'
 import type { StorefrontProduct } from '@/data/storefront'
 import { productSlug } from '@/lib/catalog/index'
 import { absoluteUrl, stripHtml, xmlEscape } from '@/lib/seo/site-url'
+import { sanitizeStorefrontMaterial } from '@/lib/catalog/storefront-sanitize'
 
 const HEX_COLOR_NAMES: Record<string, string> = {
   '#f2f0e8': 'Ivory',
@@ -172,8 +173,9 @@ export function buildMerchantFeedItems(
     const price = Number(product.price)
     if (!Number.isFinite(price) || price <= 0) continue
 
+    const safeMaterial = sanitizeStorefrontMaterial(product.material)
     const description = stripHtml(
-      `${product.name}. Premium fashion from SPLARO Bangladesh. ${product.material || ''} ${product.fit || ''}`.trim(),
+      `${product.name}. Premium fashion from SPLARO Bangladesh. ${safeMaterial || ''} ${product.fit || ''}`.trim(),
     ).slice(0, 5000)
 
     const itemGroupId = merchantItemGroupId(product)
@@ -200,8 +202,8 @@ export function buildMerchantFeedItems(
           ? 'unisex'
           : 'female'
     const ageGroup = catLower.includes('kids') ? 'kids' : 'adult'
-    const materialXml = product.material
-      ? `\n      <g:material>${xmlEscape(product.material)}</g:material>`
+    const materialXml = safeMaterial
+      ? `\n      <g:material>${xmlEscape(safeMaterial)}</g:material>`
       : ''
 
     // Private-label catalog: no GTIN/MPN assigned — honest until catalog audit adds identifiers.

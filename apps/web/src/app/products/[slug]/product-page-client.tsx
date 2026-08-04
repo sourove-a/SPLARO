@@ -197,8 +197,9 @@ export default function ProductPageClient({
   const fullDescription = product.description?.trim() ?? ''
   const shortDesc =
     product.shortDescription?.trim() ||
-    (fullDescription.length > 160 ? `${fullDescription.slice(0, 157)}…` : fullDescription)
-  const showReadMore = fullDescription.length > 160 && !product.shortDescription
+    (fullDescription.length > 160 ? fullDescription : fullDescription)
+  /** Clamp visually when copy is long; full text always stays in the DOM for crawlers. */
+  const showReadMore = fullDescription.length > 160
 
   const colorOptions = useMemo(() => {
     const map = new Map<string, { hex: string; name: string; image: string }>()
@@ -358,11 +359,15 @@ export default function ProductPageClient({
   const sellableProduct = productHasStock || allowOversell
   const sellableSelection = selectionInStock || allowOversell
   const inStock = sellableSelection
-  const lowStock = inStock && stock <= 5
+  const lowStock = inStock && stock > 0 && stock <= 5 && product.inventoryPolicy !== 'PREORDER'
   // Per-size pill: only after a size is chosen (never show colour-total before select).
   const selectedSizeUnits = selectedSize ? (sizeStock.get(selectedSize) ?? 0) : null
   const sizeStockStatus =
-    selectedSizeUnits == null ? null : resolveStockStatus(selectedSizeUnits)
+    selectedSizeUnits == null
+      ? null
+      : resolveStockStatus(selectedSizeUnits, {
+          preorder: product.inventoryPolicy === 'PREORDER',
+        })
   const unitPrice = activeVariant?.price ?? product.price
   const compareAtPrice = activeVariant?.compareAtPrice ?? product.compareAtPrice
 
@@ -1232,7 +1237,7 @@ export default function ProductPageClient({
                   exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.24, ease: productGalleryEase }}
                 >
-                  Only {stock} left — order soon
+                  {resolveStockStatus(stock).label}
                 </motion.p>
               ) : null}
               {product.inventoryPolicy === 'PREORDER' ? (
@@ -1244,7 +1249,7 @@ export default function ProductPageClient({
                   exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.24, ease: productGalleryEase }}
                 >
-                  Preorder
+                  Pre-order
                   {product.preorderReleaseAt
                     ? ` · Expected ${new Date(product.preorderReleaseAt).toLocaleDateString('en-BD', { day: 'numeric', month: 'long', year: 'numeric' })}`
                     : ''}
@@ -1403,9 +1408,9 @@ export default function ProductPageClient({
                         className={cn(
                           'pp-size-stock',
                           sizeStockStatus.kind === 'in_stock' && 'pp-size-stock--ok',
-                          sizeStockStatus.kind === 'low_stock' && 'pp-size-stock--low',
                           sizeStockStatus.kind === 'only_left' && 'pp-size-stock--urgent',
                           sizeStockStatus.kind === 'sold_out' && 'pp-size-stock--out',
+                          sizeStockStatus.kind === 'preorder' && 'pp-size-stock--ok',
                         )}
                         initial={showMotion ? { opacity: 0, y: 6, scale: 0.96 } : false}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1545,21 +1550,20 @@ export default function ProductPageClient({
             </div>
             </ProductStagger>
 
-            {(shortDesc || detailSections.length > 0) && (
+            {(shortDesc || fullDescription || detailSections.length > 0) && (
               <section className="pp-info__details" aria-label="Product details">
-                {shortDesc && (
+                {(fullDescription || shortDesc) && (
                   <div className="pp-info__desc-block">
                     <span className="pp-info__desc-eyebrow">The piece</span>
                     <div
                       id="pp-product-description"
                       className={cn(
                         'pp-info__desc',
+                        showReadMore && !descExpanded && 'pp-info__desc--clamped',
                         descExpanded && 'pp-info__desc--expanded',
                       )}
                     >
-                      {renderFormattedDescription(
-                        descExpanded || !showReadMore ? fullDescription || shortDesc : shortDesc,
-                      )}
+                      {renderFormattedDescription(fullDescription || shortDesc)}
                     </div>
                     {showReadMore && (
                       <MotionPressable

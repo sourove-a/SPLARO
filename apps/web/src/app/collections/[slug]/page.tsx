@@ -1,6 +1,14 @@
 import type { Metadata } from 'next'
-import { CollectionPageContent, titleFromCollectionSlug } from '@/lib/storefront/collection-page'
+import { mergeCatalogChannels } from '@splaro/types'
+import {
+  buildCategoryMetaDescription,
+  CollectionPageContent,
+  titleFromCollectionSlug,
+} from '@/lib/storefront/collection-page'
+import { getStorefrontCatalogForCollection } from '@/lib/catalog/server'
+import { resolveCollectionContext } from '@/lib/storefront/collection-context'
 import { createRouteMetadata } from '@/lib/seo/route-metadata'
+import { getStorefrontSettings } from '@/lib/storefront/settings'
 
 interface CollectionPageProps {
   params: Promise<{
@@ -10,12 +18,24 @@ interface CollectionPageProps {
 
 export async function generateMetadata({ params }: CollectionPageProps): Promise<Metadata> {
   const { slug } = await params
-  const title = titleFromCollectionSlug(slug)
-  return createRouteMetadata({
+  const settings = await getStorefrontSettings()
+  const channels = mergeCatalogChannels(settings.config.catalogChannels ?? [])
+  const context = resolveCollectionContext(slug, channels)
+  const catalog = await getStorefrontCatalogForCollection(context)
+  const productCount = catalog.total ?? catalog.products.length
+  const title = context.title || titleFromCollectionSlug(slug)
+  const meta = createRouteMetadata({
     title: `${title} — Shop`,
-    description: `Shop SPLARO ${title} collection with filters, quick add, and bKash or Nagad checkout.`,
+    description: buildCategoryMetaDescription(title),
     path: `/collections/${slug}`,
   })
+  if (productCount <= 1) {
+    return {
+      ...meta,
+      robots: { index: false, follow: true, googleBot: { index: false, follow: true } },
+    }
+  }
+  return meta
 }
 
 export default async function CollectionPage({ params }: CollectionPageProps) {

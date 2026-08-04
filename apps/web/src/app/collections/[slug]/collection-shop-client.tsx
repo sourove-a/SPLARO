@@ -8,12 +8,16 @@ interface CollectionShopClientProps {
   slug: string
   context: CollectionShopContext
   initialCatalog?: CachedCatalog
+  categoryIntro?: string
+  thinCatalog?: boolean
 }
 
 export function CollectionShopClient({
   slug,
   context,
   initialCatalog,
+  categoryIntro,
+  thinCatalog,
 }: CollectionShopClientProps) {
   return (
     <ShopExperience
@@ -26,6 +30,8 @@ export function CollectionShopClient({
       {...(context.categorySlug ? { categorySlug: context.categorySlug } : {})}
       listingMode="scoped"
       {...(initialCatalog ? { initialCatalog } : {})}
+      {...(categoryIntro ? { categoryIntro } : {})}
+      {...(thinCatalog ? { thinCatalog: true } : {})}
     />
   )
 }

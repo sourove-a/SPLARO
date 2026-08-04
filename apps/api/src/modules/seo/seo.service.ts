@@ -310,7 +310,8 @@ export class SeoService {
   }
 
   async generateDynamicSitemap(storeId: string, siteUrl: string): Promise<string> {
-    const [products, collections, categories, blogPosts] = await Promise.all([
+    // Blog posts intentionally omitted — no storefront `/blog` route yet (would 404 crawlers).
+    const [products, collections, categories] = await Promise.all([
       this.prisma.product.findMany({
         where: { storeId, isPublished: true },
         select: { slug: true, updatedAt: true },
@@ -321,10 +322,6 @@ export class SeoService {
       }),
       this.prisma.category.findMany({
         where: { storeId, isActive: true },
-        select: { slug: true, updatedAt: true },
-      }),
-      this.prisma.blogPost.findMany({
-        where: { storeId, status: 'PUBLISHED' },
         select: { slug: true, updatedAt: true },
       }),
     ])
@@ -347,9 +344,9 @@ export class SeoService {
     const urls = [
       ...staticPages.map(p => toUrl(p.loc, now, p.priority, p.changefreq)),
       ...products.map(p => toUrl(`/products/${p.slug}`, p.updatedAt, '0.8', 'weekly')),
-      ...collections.map(c => toUrl(`/collections/${c.slug}`, c.updatedAt, '0.8', 'weekly')),
-      ...categories.map(c => toUrl(`/category/${c.slug}`, c.updatedAt, '0.7', 'weekly')),
-      ...blogPosts.map(b => toUrl(`/blog/${b.slug}`, b.updatedAt, '0.6', 'monthly')),
+      // Canonical short collection + category paths (`/c/{slug}`); middleware maps legacy `/collections/{slug}`.
+      ...collections.map(c => toUrl(`/c/${c.slug}`, c.updatedAt, '0.8', 'weekly')),
+      ...categories.map(c => toUrl(`/c/${c.slug}`, c.updatedAt, '0.7', 'weekly')),
     ]
 
     return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`

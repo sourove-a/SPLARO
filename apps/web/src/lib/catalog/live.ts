@@ -11,6 +11,7 @@ import {
 } from '@/lib/catalog/product-copy'
 import {
   sanitizeStorefrontDescription,
+  sanitizeStorefrontMaterial,
   sanitizeStorefrontProductCode,
   sanitizeStorefrontShortDescription,
 } from '@/lib/catalog/storefront-sanitize'
@@ -346,7 +347,10 @@ export function mapLiveProduct(
     hoverImage: hover,
     ...(media.length ? { media } : {}),
     ...(p.fitType?.trim() ? { fit: p.fitType.trim() } : {}),
-    ...(p.fabricContent?.trim() ? { material: p.fabricContent.trim() } : {}),
+    ...(() => {
+      const material = sanitizeStorefrontMaterial(p.fabricContent)
+      return material ? { material } : {}
+    })(),
     ...(p.updatedAt || p.updated_at ? { updatedAt: (p.updatedAt || p.updated_at)! } : {}),
     ...(p.createdAt || p.created_at ? { createdAt: (p.createdAt || p.created_at)! } : {}),
     ...(variantRefs.length ? { variantRefs } : {}),

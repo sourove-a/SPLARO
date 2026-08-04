@@ -30,7 +30,7 @@ export async function GET() {
   <channel>
     <title>SPLARO Product Feed</title>
     <link>${xmlEscape(base)}</link>
-    <description>SPLARO — luxury fashion Bangladesh (BDT). Google Merchant Center feed.</description>
+    <description>SPLARO — premium fashion for men, women and kids in Bangladesh (BDT). Google Merchant Center feed.</description>
 ${items.join('\n')}
   </channel>
 </rss>`

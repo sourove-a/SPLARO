@@ -16,8 +16,8 @@ import { PremiumIcon } from '@/components/ui/PremiumIcon'
 const items = [
   {
     icon: ShieldCheck,
-    label: 'Authentic',
-    text: '100% authentic — every piece',
+    label: 'Checked',
+    text: 'Quality checked before dispatch',
     href: '/about',
   },
   {

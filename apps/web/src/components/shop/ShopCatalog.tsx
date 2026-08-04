@@ -143,6 +143,7 @@ export function ShopCatalog({
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [apiPage, setApiPage] = useState(initialCatalog?.page ?? 1)
   const [apiTotalPages, setApiTotalPages] = useState(initialCatalog?.totalPages ?? 1)
+  const [apiTotal, setApiTotal] = useState(initialCatalog?.total ?? initialCatalog?.products?.length ?? 0)
   const [loadingMore, setLoadingMore] = useState(false)
   const [isCatalogLoading, setIsCatalogLoading] = useState(() => {
     const hasProducts = (initialCatalog?.products?.length ?? 0) > 0
@@ -213,6 +214,11 @@ export function ShopCatalog({
           if (useApiListing) {
             setApiPage(data.page ?? 1)
             setApiTotalPages(data.totalPages ?? 1)
+            if (typeof (data as { total?: number }).total === 'number') {
+              setApiTotal((data as { total: number }).total)
+            } else if (data.products?.length) {
+              setApiTotal(data.products.length)
+            }
           }
           return
         }
@@ -281,6 +287,7 @@ export function ShopCatalog({
     setCatalogProducts(initialCatalog.products.map(sanitizeStorefrontProduct))
     setApiPage(initialCatalog.page ?? 1)
     setApiTotalPages(initialCatalog.totalPages ?? 1)
+    setApiTotal(initialCatalog.total ?? initialCatalog.products.length)
     setVisibleCount(PAGE_SIZE)
   }, [initialCatalog])
 
@@ -483,10 +490,14 @@ export function ShopCatalog({
       const data = (await res.json()) as {
         products?: ShopProduct[]
         totalPages?: number
+        total?: number
         page?: number
       }
       const incoming = (data.products ?? []).map(sanitizeStorefrontProduct)
-      if (!incoming.length) return false
+      if (!incoming.length) {
+        setApiTotalPages(apiPage)
+        return false
+      }
 
       setCatalogProducts((current) => {
         const seen = new Set(current.map((product) => product.id))
@@ -498,6 +509,10 @@ export function ShopCatalog({
       })
       setApiPage(data.page ?? nextPage)
       setApiTotalPages(data.totalPages ?? apiTotalPages)
+      if (typeof data.total === 'number') setApiTotal(data.total)
+      if (incoming.length < PAGE_SIZE) {
+        setApiTotalPages(data.page ?? nextPage)
+      }
       return true
     } catch {
       return false
@@ -524,12 +539,6 @@ export function ShopCatalog({
     setVisibleCount((count) => count + PAGE_SIZE)
   }
 
-  const canLoadMore = isHomepage
-    ? false
-    : useApiListing
-      ? filteredProducts.length > visibleCount || apiPage < apiTotalPages
-      : filteredProducts.length > visibleCount
-
   const hasActiveFilters =
     currentCategory !== 'All' ||
     selectedColor !== 'All' ||
@@ -537,6 +546,13 @@ export function ShopCatalog({
     selectedPrice !== defaultPriceLabel ||
     mobilePriceRangeActive ||
     !isDefaultSort(sortBy, shopFilters)
+
+  const totalKnown =
+    useApiListing && !hasActiveFilters
+      ? Math.max(filteredProducts.length, apiTotal)
+      : filteredProducts.length
+
+  const canLoadMore = isHomepage ? false : visibleProducts.length < totalKnown
 
   const catalogIsEmpty = catalogProducts.length === 0 && catalogSource === 'empty'
 
@@ -774,7 +790,7 @@ export function ShopCatalog({
               exit={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.28, ease: GRID_EASE }}
             >
-              {formatItemRange(visibleProducts.length, filteredProducts.length)}
+              {formatItemRange(visibleProducts.length, totalKnown)}
             </motion.p>
           ) : null}
         </AnimatePresence>

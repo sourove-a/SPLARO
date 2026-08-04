@@ -40,9 +40,13 @@ function splitStoreAddress(address: string) {
     .split(',')
     .map((part) => part.trim())
     .filter(Boolean)
-  if (parts.length < 2) return { place: address, country: '' }
+  if (parts.length < 2) return { place: address, locality: '', country: '' }
+  if (parts.length === 2) {
+    return { place: parts[0] ?? address, locality: '', country: parts[1] ?? '' }
+  }
   return {
-    place: parts.slice(0, -1).join(', '),
+    place: parts.slice(0, -2).join(', '),
+    locality: parts[parts.length - 2] ?? '',
     country: parts[parts.length - 1] ?? '',
   }
 }
@@ -55,7 +59,7 @@ function FooterColumn({
   links: { label: string; href: string; external?: boolean }[]
 }) {
   return (
-    <div className="footer-lux__column">
+    <nav className="footer-lux__column" aria-label="Footer navigation">
       <h3 className="footer-lux__heading">{title}</h3>
       <ul className="footer-lux__links">
         {links.map((link) => (
@@ -72,7 +76,7 @@ function FooterColumn({
           </li>
         ))}
       </ul>
-    </div>
+    </nav>
   )
 }
 
@@ -201,10 +205,11 @@ export function Footer() {
     .replace(/\s+/g, ' ')
     .replace(/^SPLARO,?\s*/i, '')
     .trim()
-  const { place, country } = splitStoreAddress(address)
+  const { place, locality, country } = splitStoreAddress(address)
 
   const socialLinks = getStorefrontSocialLinks(settings)
   const visitStoreLabel = `Visit store — ${address}`
+  const localityLine = [locality, country].filter(Boolean).join(', ')
 
   return (
     <footer data-site-chrome className="site-footer site-footer--luxury" aria-label="Site footer">
@@ -226,35 +231,29 @@ export function Footer() {
                   </div>
                   {tagline ? <p className="footer-lux__tagline">{tagline}</p> : null}
 
+                  {/* Single Visit store link — CSS switches mobile/desktop layout; no duplicate a11y tree. */}
                   <Link
                     href="/stores"
-                    className="footer-lux__address-mobile"
+                    className="footer-lux__store-link"
+                    title={address}
                     aria-label={visitStoreLabel}
                   >
                     <span className="footer-lux__address-mobile-seal" aria-hidden>
                       <MapPin className="footer-lux__address-mobile-icon" strokeWidth={1.5} />
                     </span>
-                    <span className="footer-lux__address-mobile-copy">
-                      <span className="footer-lux__address-mobile-label">Visit store</span>
-                      <span className="footer-lux__address-mobile-place">{place}</span>
-                      {country ? (
-                        <span className="footer-lux__address-mobile-country">{country}</span>
+                    <span className="footer-lux__store-copy-text">
+                      <span className="footer-lux__store-label">Visit store</span>
+                      {' '}
+                      <span className="footer-lux__store-place">{place}</span>
+                      {localityLine ? (
+                        <>
+                          {', '}
+                          <span className="footer-lux__store-locality">{localityLine}</span>
+                        </>
                       ) : null}
                     </span>
                   </Link>
                 </div>
-
-                <Link
-                  href="/stores"
-                  className="footer-lux__store-card"
-                  title={address}
-                  aria-label={visitStoreLabel}
-                >
-                  <span className="footer-lux__store-copy-text">
-                    <span className="footer-lux__store-label">Visit store</span>
-                    <span className="footer-lux__store-address">{address}</span>
-                  </span>
-                </Link>
               </div>
 
               {linkGroups.length > 0 ? (

@@ -214,7 +214,7 @@ export function ContentPremiumAbout({
             <p className="about-premium__description">{description}</p>
 
             <div className="about-premium__hero-pills" aria-label="Store promises">
-              <span className="about-premium__hero-pill">Authentic products</span>
+              <span className="about-premium__hero-pill">Quality checked</span>
               <span className="about-premium__hero-pill">COD nationwide</span>
               <span className="about-premium__hero-pill">7-day returns</span>
             </div>

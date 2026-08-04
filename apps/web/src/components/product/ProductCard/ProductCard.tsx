@@ -31,7 +31,7 @@ function cardStock(product: ProductCardData) {
     return resolveStockStatus(units)
   }
   // Bundled/static cards without inventory — don't fake Sold Out.
-  return { kind: 'in_stock' as const, units: 0, label: 'In Stock' }
+  return { kind: 'in_stock' as const, units: 0, label: 'In stock' }
 }
 
 function productImages(product: ProductCardData): string[] {

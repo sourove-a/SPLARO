@@ -126,7 +126,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             ref={drawerRef}
             role="dialog"
             aria-modal="true"
-            aria-label="Navigation menu"
+            aria-label="Mobile menu"
             tabIndex={-1}
             initial={reduceMotion ? { x: 0 } : { x: '-100%' }}
             animate={{ x: 0 }}

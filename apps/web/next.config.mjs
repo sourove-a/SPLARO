@@ -149,6 +149,8 @@ const nextConfig = {
               // blocked every reel video with no visible error, just a dead player.
               // accounts.google.com: Google Identity Services button iframe (login/signup).
               "frame-src 'self' https://www.youtube-nocookie.com https://accounts.google.com",
+              // Belt-and-suspenders: auto-upgrade accidental http:// subresources on HTTPS pages.
+              'upgrade-insecure-requests',
             ].join('; '),
           },
         ],
@@ -207,6 +209,12 @@ const nextConfig = {
     return [
       { source: '/wishlist', destination: '/account?tab=wishlist', permanent: false },
       { source: '/account/wishlist', destination: '/account?tab=wishlist', permanent: false },
+      // Legacy / broken internal paths → live routes (301)
+      { source: '/delivery-information', destination: '/shipping', permanent: true },
+      { source: '/returns-exchange', destination: '/returns', permanent: true },
+      { source: '/footwear/men', destination: '/c/men-footwear', permanent: true },
+      { source: '/footwear/women', destination: '/c/women-footwear', permanent: true },
+      { source: '/footwear/kids', destination: '/c/kids-footwear', permanent: true },
     ]
   },
 }

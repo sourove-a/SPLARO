@@ -19,8 +19,8 @@ module.exports = {
     { loc: '/about', changefreq: 'monthly', priority: 0.6 },
     { loc: '/contact', changefreq: 'monthly', priority: 0.6 },
     { loc: '/size-guide', changefreq: 'monthly', priority: 0.5 },
-    { loc: '/delivery-information', changefreq: 'monthly', priority: 0.5 },
-    { loc: '/returns-exchange', changefreq: 'monthly', priority: 0.5 },
+    { loc: '/shipping', changefreq: 'monthly', priority: 0.5 },
+    { loc: '/returns', changefreq: 'monthly', priority: 0.5 },
     { loc: '/faq', changefreq: 'monthly', priority: 0.5 },
   ],
 }

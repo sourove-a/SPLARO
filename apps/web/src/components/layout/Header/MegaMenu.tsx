@@ -202,7 +202,9 @@ export function MegaMenu({ config, isOpen, menuKey, onClose }: MegaMenuProps) {
       <div
         className="mega-menu-panel"
         role="region"
-        aria-label="Category menu"
+        aria-label="Category navigation"
+        aria-hidden={!isOpen}
+        {...(!isOpen ? { inert: true } : {})}
         tabIndex={-1}
         {...(isOpen ? { 'data-lenis-prevent': true } : {})}
       >

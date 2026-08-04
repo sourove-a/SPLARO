@@ -30,7 +30,7 @@ export async function GET() {
   <channel>
     <title>SPLARO Meta Catalog</title>
     <link>${xmlEscape(base)}</link>
-    <description>SPLARO — luxury fashion Bangladesh (BDT). Meta catalog feed.</description>
+    <description>SPLARO — premium fashion for men, women and kids in Bangladesh (BDT). Meta catalog feed.</description>
 ${items.join('\n')}
   </channel>
 </rss>`

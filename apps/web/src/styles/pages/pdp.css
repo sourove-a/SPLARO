@@ -788,6 +788,22 @@
   color: rgba(16, 17, 20, 0.58);
 }
 
+/* Visual clamp only — full description remains in the DOM for crawlers / SEO. */
+.pp-info__desc--clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+}
+
+.pp-info__desc--expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: visible;
+}
+
 .pp-desc-bullets {
   list-style: none;
   padding-left: 0;

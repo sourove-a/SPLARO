@@ -5,6 +5,7 @@
  */
 
 const BROKEN_CDN_HOSTS = new Set(['cdn.splaro.co', 'cdn.splaro.com.bd'])
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1'])
 
 function isUsableOrigin(raw: string): boolean {
   try {
@@ -12,6 +13,19 @@ function isUsableOrigin(raw: string): boolean {
     return !BROKEN_CDN_HOSTS.has(host)
   } catch {
     return false
+  }
+}
+
+/** Upgrade http→https for non-loopback absolute URLs (mixed-content hardening). */
+export function upgradeInsecureAbsoluteUrl(value: string): string {
+  if (!value.startsWith('http://')) return value
+  try {
+    const parsed = new URL(value)
+    if (LOOPBACK_HOSTS.has(parsed.hostname.toLowerCase())) return value
+    parsed.protocol = 'https:'
+    return parsed.toString()
+  } catch {
+    return value
   }
 }
 
@@ -27,7 +41,7 @@ export function getPublicAssetOrigin(): string {
     if (!value) continue
     const origin = value.replace(/\/$/, '')
     if (!isUsableOrigin(origin)) continue
-    return origin
+    return upgradeInsecureAbsoluteUrl(origin)
   }
   return 'https://splaro.co'
 }
@@ -40,12 +54,9 @@ function uploadAssetBaseUrl(): string {
 export function resolveStorefrontAssetUrl(value?: string | null): string {
   const trimmed = value?.trim() ?? ''
   if (!trimmed) return ''
-  if (
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://') ||
-    trimmed.startsWith('data:')
-  ) {
-    return trimmed
+  if (trimmed.startsWith('data:')) return trimmed
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return upgradeInsecureAbsoluteUrl(trimmed)
   }
   if (!trimmed.startsWith('/')) return trimmed
 

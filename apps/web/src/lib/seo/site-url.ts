@@ -1,5 +1,7 @@
 /** Shared SEO helpers for sitemaps, feeds, and absolute asset URLs. */
 
+import { upgradeInsecureAbsoluteUrl } from '@/lib/assets/resolve-asset-url'
+
 export const SEO_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co').replace(
   /\/+$/,
   '',
@@ -16,7 +18,9 @@ export function xmlEscape(value: string): string {
 
 export function absoluteUrl(pathOrUrl: string): string {
   if (!pathOrUrl) return SEO_SITE_URL
-  if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) return pathOrUrl
+  if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+    return upgradeInsecureAbsoluteUrl(pathOrUrl)
+  }
   return `${SEO_SITE_URL}${pathOrUrl.startsWith('/') ? '' : '/'}${pathOrUrl}`
 }
 

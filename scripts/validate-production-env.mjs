@@ -6,6 +6,7 @@
  * Usage:
  *   node scripts/validate-production-env.mjs           # strict when production detected
  *   FORCE_PRODUCTION_ENV_CHECK=1 node scripts/...      # force strict mode locally
+ *   SPLARO_ENV_FILE=/path/to/.env FORCE_PRODUCTION_ENV_CHECK=1 node scripts/...
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -45,6 +46,9 @@ const isProduction =
   process.env.SPLARO_HOSTINGER === '1' ||
   ROOT.includes('.builds/source/repository')
 
+/** Contabo same-box deploy — local Postgres is intentional. */
+const isVps = process.env.SPLARO_VPS === '1'
+
 const REQUIRED = [
   'DATABASE_URL',
   'JWT_SECRET',
@@ -65,6 +69,9 @@ const OPTIONAL_GROUPS = {
   'Payment (bKash)': ['BKASH_APP_KEY', 'BKASH_APP_SECRET'],
 }
 
+/** Planned CDN hosts with no DNS — must not be used as NEXT_PUBLIC_CDN_URL. */
+const DEAD_CDN_HOSTS = new Set(['cdn.splaro.co', 'cdn.splaro.com.bd'])
+
 // Known unsafe placeholder fragments — never allowed in production values.
 const PLACEHOLDER_PATTERNS = [
   /change[-_]?me/i,
@@ -78,7 +85,15 @@ const PLACEHOLDER_PATTERNS = [
   /example\.com/i,
 ]
 
-const PUBLIC_URL_KEYS = ['NEXT_PUBLIC_SITE_URL', 'NEXT_PUBLIC_ADMIN_URL', 'NEXT_PUBLIC_API_URL', 'WEB_URL', 'ADMIN_URL', 'API_URL']
+const PUBLIC_URL_KEYS = [
+  'NEXT_PUBLIC_SITE_URL',
+  'NEXT_PUBLIC_ADMIN_URL',
+  'NEXT_PUBLIC_API_URL',
+  'WEB_URL',
+  'ADMIN_URL',
+  'API_URL',
+  'NEXT_PUBLIC_CDN_URL',
+]
 
 const errors = []
 const warnings = []
@@ -86,6 +101,14 @@ const ok = []
 
 function isPlaceholder(value) {
   return PLACEHOLDER_PATTERNS.some((re) => re.test(value))
+}
+
+function hostnameFromUrl(raw) {
+  try {
+    return new URL(raw).hostname.toLowerCase()
+  } catch {
+    return ''
+  }
 }
 
 for (const key of REQUIRED) {
@@ -105,11 +128,49 @@ for (const key of REQUIRED) {
   ok.push(key)
 }
 
+const encryptionKey = process.env.ENCRYPTION_KEY?.trim()
+if (encryptionKey && encryptionKey.length < 32 && !errors.some((e) => e.startsWith('ENCRYPTION_KEY'))) {
+  errors.push('ENCRYPTION_KEY is too short (<32 chars) — integrations encryption needs a full key')
+}
+
 for (const key of PUBLIC_URL_KEYS) {
   const value = process.env[key]?.trim()
   if (!value) continue
   if (/localhost|127\.0\.0\.1/.test(value)) {
-    errors.push(`${key} points at localhost (${value.replace(/:[^@/]*@/, ':***@')}) — must be the public production URL`)
+    errors.push(
+      `${key} points at localhost (${value.replace(/:[^@/]*@/, ':***@')}) — must be the public production URL`,
+    )
+  } else if (isProduction && /^http:\/\//i.test(value)) {
+    errors.push(`${key} must use https:// in production (got http:// — mixed-content / insecure origin)`)
+  }
+  if (value.endsWith('/')) {
+    warnings.push(`${key} has a trailing slash — prefer no trailing slash for CORS/origin parity`)
+  }
+}
+
+const cdnUrl = process.env.NEXT_PUBLIC_CDN_URL?.trim()
+if (cdnUrl) {
+  const host = hostnameFromUrl(cdnUrl)
+  if (DEAD_CDN_HOSTS.has(host)) {
+    errors.push(
+      `NEXT_PUBLIC_CDN_URL points at dead CDN host ${host} (no DNS) — use https://splaro.co until CDN DNS exists`,
+    )
+  } else if (/localhost|127\.0\.0\.1/.test(cdnUrl)) {
+    errors.push('NEXT_PUBLIC_CDN_URL points at localhost — must be a public origin')
+  } else {
+    ok.push('NEXT_PUBLIC_CDN_URL')
+  }
+}
+
+// CORS: no trailing slash on origins (common silent cookie/CORS mismatch)
+const corsRaw = process.env.CORS_ORIGINS?.trim()
+if (corsRaw) {
+  const origins = corsRaw.split(',').map((s) => s.trim()).filter(Boolean)
+  const trailed = origins.filter((o) => o.endsWith('/'))
+  if (trailed.length) {
+    errors.push(
+      `CORS_ORIGINS has trailing slash on ${trailed.length} origin(s) — strip trailing / (e.g. https://splaro.co)`,
+    )
   }
 }
 
@@ -119,7 +180,13 @@ if (dbUrl) {
   if (!/^postgres(ql)?:\/\//.test(dbUrl)) {
     errors.push('DATABASE_URL is not a postgresql:// URL')
   } else if (/localhost|127\.0\.0\.1/.test(dbUrl)) {
-    warnings.push('DATABASE_URL points at localhost — external managed PostgreSQL (Neon/Supabase) is strongly recommended on shared hosting')
+    if (isVps) {
+      ok.push('DATABASE_URL (VPS same-box Postgres)')
+    } else {
+      warnings.push(
+        'DATABASE_URL points at localhost — external managed PostgreSQL (Neon/Supabase) is strongly recommended on shared hosting',
+      )
+    }
   }
 }
 
@@ -127,6 +194,8 @@ if (dbUrl) {
 for (const flag of ['PAYMENT_DEV_STUB', 'COURIER_DEV_STUB']) {
   if (process.env[flag]?.trim() === 'true') {
     errors.push(`${flag}=true — dev stubs are forbidden in production (fake success on real orders)`)
+  } else if (process.env[flag]?.trim() === 'false') {
+    ok.push(flag)
   }
 }
 
@@ -145,6 +214,8 @@ if (process.env.REDIS_ENABLED?.trim() === 'false') {
   errors.push(
     'REDIS_URL is missing — production needs Redis (OTP limits, courier locks). Set REDIS_URL and REDIS_ENABLED=true',
   )
+} else if (process.env.REDIS_ENABLED?.trim() === 'true') {
+  ok.push('REDIS_ENABLED')
 }
 
 // Live store must not hit payment sandboxes
@@ -169,30 +240,53 @@ for (const [envKey, label] of [
   }
 }
 
-// Optional integrations — warn only
+// Optional integrations — warn only (empty KEY= counts as not configured)
+let courierConfigured = false
+let bkashConfigured = false
 for (const [label, keys] of Object.entries(OPTIONAL_GROUPS)) {
   const present = keys.filter((k) => process.env[k]?.trim())
+  const emptyDeclared = keys.filter(
+    (k) => Object.prototype.hasOwnProperty.call(process.env, k) && !process.env[k]?.trim(),
+  )
   const placeholders = present.filter((k) => isPlaceholder(process.env[k].trim()))
   if (placeholders.length) {
-    errors.push(`${label}: ${placeholders.join(', ')} contain placeholder values — set real keys or remove them`)
+    errors.push(
+      `${label}: ${placeholders.join(', ')} contain placeholder values — set real keys or remove them`,
+    )
   } else if (!present.length) {
-    warnings.push(`${label} not configured (optional — feature disabled)`)
+    if (emptyDeclared.length) {
+      warnings.push(
+        `${label}: ${emptyDeclared.join(', ')} are empty — set real values in .env or Admin → Settings, or delete the blank keys`,
+      )
+    } else {
+      warnings.push(`${label} not configured (optional — feature disabled)`)
+    }
   } else if (present.length < keys.length) {
     warnings.push(`${label} partially configured (${present.length}/${keys.length} vars) — double-check`)
   } else {
     ok.push(`${label} configured`)
+    if (label === 'Courier (Steadfast)') courierConfigured = true
+    if (label === 'Payment (bKash)') bkashConfigured = true
   }
 }
 
+if (isProduction && !courierConfigured && !bkashConfigured) {
+  warnings.push(
+    'Launch mode is COD-honest: Steadfast + bKash env keys are empty — courier booking and digital pay stay disabled until real credentials are saved',
+  )
+}
+
 console.log('═══ SPLARO production env check ═══')
-console.log(`mode: ${isProduction ? 'PRODUCTION (strict)' : 'local (advisory)'}\n`)
+console.log(
+  `mode: ${isProduction ? 'PRODUCTION (strict)' : 'local (advisory)'}${isVps ? ' · SPLARO_VPS=1' : ''}\n`,
+)
 for (const item of ok) console.log(`  ✅ ${item}`)
 for (const item of warnings) console.log(`  ⚠️  ${item}`)
 for (const item of errors) console.log(`  ❌ ${item}`)
 console.log('')
 
 if (errors.length && isProduction) {
-  console.error(`❌ ${errors.length} blocking problem(s) — fix env in hPanel, then redeploy.`)
+  console.error(`❌ ${errors.length} blocking problem(s) — fix env on the VPS (.env), then redeploy.`)
   process.exit(1)
 }
 if (errors.length) {

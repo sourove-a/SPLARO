@@ -1,33 +1,39 @@
-export type StockStatusKind = 'in_stock' | 'low_stock' | 'only_left' | 'sold_out'
+export type StockStatusKind = 'in_stock' | 'only_left' | 'sold_out' | 'preorder'
 
 export interface StockStatus {
   kind: StockStatusKind
-  /** Units remaining across active variants (0 when sold out). */
+  /** Units remaining across active variants (0 when sold out). Exact qty is for logic only. */
   units: number
+  /** Customer-facing label — never exposes exact qty above LOW_STOCK_THRESHOLD. */
   label: string
 }
 
-/** Aligns with admin default low-stock threshold (5). */
+/** Show exact count only in this urgency band (admin ops still see full qty). */
 export const LOW_STOCK_THRESHOLD = 5
-/** Show exact count when urgency is high. */
-export const ONLY_LEFT_THRESHOLD = 3
 
-export function resolveStockStatus(units: number | null | undefined): StockStatus {
+/**
+ * Public stock labels for cards/PDP.
+ * Exact quantities above 5 stay admin-only — never "In Stock · 126".
+ */
+export function resolveStockStatus(
+  units: number | null | undefined,
+  options?: { preorder?: boolean },
+): StockStatus {
+  if (options?.preorder) {
+    return { kind: 'preorder', units: Math.max(0, Math.floor(Number(units) || 0)), label: 'Pre-order' }
+  }
   const safe = Math.max(0, Math.floor(Number(units) || 0))
   if (safe <= 0) {
-    return { kind: 'sold_out', units: 0, label: 'Sold Out' }
+    return { kind: 'sold_out', units: 0, label: 'Out of stock' }
   }
-  if (safe <= ONLY_LEFT_THRESHOLD) {
+  if (safe <= LOW_STOCK_THRESHOLD) {
     return {
       kind: 'only_left',
       units: safe,
-      label: safe === 1 ? 'Only 1 Left' : `Only ${safe} Left`,
+      label: safe === 1 ? 'Only 1 left' : `Only ${safe} left`,
     }
   }
-  if (safe <= LOW_STOCK_THRESHOLD) {
-    return { kind: 'low_stock', units: safe, label: `Low Stock · ${safe}` }
-  }
-  return { kind: 'in_stock', units: safe, label: `In Stock · ${safe}` }
+  return { kind: 'in_stock', units: safe, label: 'In stock' }
 }
 
 export function stockUnitsFromVariantRefs(

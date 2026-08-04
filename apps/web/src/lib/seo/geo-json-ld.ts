@@ -45,7 +45,7 @@ export function buildLocalBusinessJsonLd({
     url: `${SITE_URL}/stores`,
     image: `${SITE_URL}/images/logo/splaro-logo-black-premium.png`,
     description:
-      'SPLARO studio in Uttara, Dhaka — quiet luxury fashion for men, women, and kids with nationwide online delivery across Bangladesh.',
+      'SPLARO studio in Uttara, Dhaka — premium fashion for men, women, and kids with nationwide online delivery across Bangladesh.',
     address: {
       '@type': 'PostalAddress',
       streetAddress: address,

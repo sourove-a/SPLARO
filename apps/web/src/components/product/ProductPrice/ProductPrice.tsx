@@ -62,10 +62,10 @@ export function ProductPrice({
 
       {hasDiscount && showBadge && discountPct > 0 ? (
         <span className={cn(badgeClassName)} data-price="discount">
-          <span className="sr-only">{discountPct}% OFF</span>
           <span aria-hidden="true">
             {badgeLabelStyle === 'off' ? `${discountPct}% OFF` : `-${discountPct}%`}
           </span>
+          <span className="sr-only">Save {discountPct} percent</span>
         </span>
       ) : null}
 
@@ -90,10 +90,11 @@ export function ProductDiscountBadge({
   if (discountPct <= 0) return null
 
   return (
-    <span className={cn(className)} aria-label={`${discountPct}% off`}>
+    <span className={cn(className)}>
       <span aria-hidden="true">
         {labelStyle === 'off' ? `${discountPct}% OFF` : `-${discountPct}%`}
       </span>
+      <span className="sr-only">Save {discountPct} percent</span>
     </span>
   )
 }

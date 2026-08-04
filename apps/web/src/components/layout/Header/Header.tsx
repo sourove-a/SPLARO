@@ -350,6 +350,8 @@ export function Header() {
                 'site-header-glass__nav hidden lg:block',
                 mobileSearchActive && 'site-header-glass__chrome-hide',
               )}
+              aria-hidden={!isDesktop}
+              {...(!isDesktop ? { inert: true } : {})}
             >
               <Navigation onMegaMenuChange={setIsMegaMenuOpen} />
             </div>
