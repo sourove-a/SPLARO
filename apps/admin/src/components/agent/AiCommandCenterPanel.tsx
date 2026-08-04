@@ -24,6 +24,9 @@ import {
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AgentChatLauncher } from '@/components/agent/AgentChatLauncher'
 import { DcKpiStrip } from '@/components/dc/DcKpiStrip'
+import { DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
+import type { DcBlock } from '@/components/dc/blocks/types'
+import { FONT } from '@/components/dc/tokens'
 import { AGENT_TOOL_CATALOG, AGENT_TOOL_TIERS } from '@/lib/agent/tool-catalog'
 import { AGENT_QUICK_COMMANDS } from '@/lib/agent/quick-commands'
 import {
@@ -292,10 +295,34 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
     }
   }
 
+  // Skeletons shaped like this screen's own blocks, not a bare spinner.
   if (loading) {
     return (
-      <div className="flex min-h-[320px] items-center justify-center">
-        <Loader2 className="h-7 w-7 animate-spin text-[var(--admin-color-accent-blue)]" />
+      <div className="ai-command ai-command-page ai-command-page--dc mx-auto max-w-6xl space-y-5 pb-28">
+        <DcLoadingState
+          blocks={[
+            { t: 'kpis' } as DcBlock,
+            { t: 'hero', w: 'main' } as DcBlock,
+            { t: 'form', w: 'main' } as DcBlock,
+            { t: 'table', w: 'main', title: '', cols: [], rows: [] } as DcBlock,
+          ]}
+        />
+      </div>
+    )
+  }
+
+  // The agent backend being unreachable is a hard error, not a "0%" KPI.
+  if (apiOffline) {
+    return (
+      <div className="ai-command ai-command-page ai-command-page--dc mx-auto max-w-6xl space-y-5 pb-28">
+        <DcErrorState
+          error={`GET /agent/config, GET /agent/status → ${apiOffline}`}
+          hint="Model keys, budget and run history all come from the agent API. Start it with `pnpm dev:api` locally, or check the API host is up."
+          onRetry={() => {
+            setLoading(true)
+            void reload()
+          }}
+        />
       </div>
     )
   }
@@ -308,11 +335,86 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
   const budgetWarn = (budget?.pct ?? 0) >= 0.8
   const activeModelLabel = MODELS.find((m) => m.id === activeModel)?.label ?? activeModel
 
+  // Never show a bare number where a decision belongs: name the one thing
+  // standing between the operator and a working agent, and how to clear it.
+  const decision: {
+    tone: 'bad' | 'warn'
+    title: string
+    body: string
+    action?: { label: string; onClick: () => void }
+  } | null = (() => {
+    if (budget && budget.pct >= 1) {
+      return {
+        tone: 'bad',
+        title: `Daily AI budget spent — $${budget.spentUsd.toFixed(3)} of $${budget.limitUsd.toFixed(2)}`,
+        body: 'Every chat and Telegram request is refused until the budget resets at midnight. Raise AGENT_DAILY_COST_LIMIT_USD on the API to keep going today, or switch the active model to a cheaper one.',
+      }
+    }
+    if (!chatReady) {
+      const label = MODELS.find((m) => m.id === activeModel)?.keyLabel ?? 'API key'
+      const envHint = MODELS.find((m) => m.id === activeModel)?.envHint ?? ''
+      const alternative = MODELS.find((m) => m.id !== activeModel && status?.models[m.id]?.configured)
+      return {
+        tone: 'bad',
+        title: `${activeModelLabel} has no usable key — the agent cannot answer`,
+        body: alternative
+          ? `Ask SPLARO, the Telegram bridge and every automation using SEND_AI will fail. ${alternative.label} is already configured — switch to it, or add the ${label} below (env: ${envHint}).`
+          : `Ask SPLARO, the Telegram bridge and every automation using SEND_AI will fail until you add the ${label} below (env: ${envHint}).`,
+        ...(alternative
+          ? { action: { label: `Switch to ${alternative.label}`, onClick: () => void handleSwitchModel(alternative.id) } }
+          : {}),
+      }
+    }
+    if (budgetWarn) {
+      return {
+        tone: 'warn',
+        title: `AI budget ${budgetPct}% used — $${budget!.spentUsd.toFixed(3)} of $${budget!.limitUsd.toFixed(2)}`,
+        body: 'Requests are still going through, but they will be refused outright at 100%. Consider switching the active model to a cheaper tier for the rest of today.',
+      }
+    }
+    return null
+  })()
+
   return (
     <div className="ai-command ai-command-page ai-command-page--dc mx-auto max-w-6xl space-y-5 pb-28">
       <p className="ai-command-confirm-note" role="note">
         Confirm-gated writes — nothing touches orders, stock, or payouts without one explicit apply click.
       </p>
+
+      {decision ? (
+        <section
+          style={{
+            display: 'flex',
+            gap: 13,
+            padding: '15px 16px',
+            border: `1px solid var(--${decision.tone}-bd)`,
+            borderRadius: 12,
+            background: `var(--${decision.tone}-soft)`,
+          }}
+        >
+          <span
+            aria-hidden
+            style={{ flex: 'none', width: 3, borderRadius: 99, background: `var(--${decision.tone})` }}
+          />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p style={{ margin: 0, font: `700 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+              {decision.title}
+            </p>
+            <p style={{ margin: '6px 0 0', font: `400 12.5px/1.55 ${FONT}`, color: 'var(--ink-2)' }}>
+              {decision.body}
+            </p>
+            {decision.action ? (
+              <AdminButton
+                variant="accent"
+                className="mt-3"
+                onClick={decision.action.onClick}
+              >
+                {decision.action.label}
+              </AdminButton>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       <div className="dc-ai-kpi-host">
       <DcKpiStrip
