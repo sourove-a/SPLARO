@@ -1,4 +1,10 @@
-const AUTH_PATH_PREFIXES = ['/login', '/signup', '/forgot-password', '/reset-password']
+const AUTH_PATH_PREFIXES = [
+  '/login',
+  '/signup',
+  '/forgot-password',
+  '/reset-password',
+  '/verify-email',
+]
 const AUTH_REQUIRED_PREFIXES = ['/account', '/checkout']
 
 const STORAGE_KEY = 'splaro-auth-return'

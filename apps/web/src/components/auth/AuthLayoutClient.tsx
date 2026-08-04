@@ -3,7 +3,6 @@
 import { Suspense, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { AuthExperience } from '@/components/auth/AuthExperience'
-import { AuthGoogleProvider } from '@/components/auth/AuthGoogleProvider'
 import { AuthShell } from '@/components/auth/AuthShell'
 
 function AuthExperienceFallback() {
@@ -23,17 +22,17 @@ export function AuthLayoutClient({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const passwordFlow = isPasswordResetPath(pathname)
 
+  // GoogleOAuthProvider lives in root Providers (AuthGoogleProvider) —
+  // do not nest a second GIS instance here (One Tap + login button share one).
   return (
-    <AuthGoogleProvider>
-      <AuthShell>
-        {passwordFlow ? (
-          children
-        ) : (
-          <Suspense fallback={<AuthExperienceFallback />}>
-            <AuthExperience />
-          </Suspense>
-        )}
-      </AuthShell>
-    </AuthGoogleProvider>
+    <AuthShell>
+      {passwordFlow ? (
+        children
+      ) : (
+        <Suspense fallback={<AuthExperienceFallback />}>
+          <AuthExperience />
+        </Suspense>
+      )}
+    </AuthShell>
   )
 }
