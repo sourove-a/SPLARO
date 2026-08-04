@@ -20,7 +20,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <>
       <AdminTokenHydrator token={token} />
-      <DcAdminShell banner={<TelegramLinkBanner />}>{children}</DcAdminShell>
+      <DcAdminShell banner={<TelegramLinkBanner />}>
+        {/*
+          Server-owned page canvas. Next wraps page segments in Suspense for
+          loading.tsx — wrapping that slot in a Client Component div made
+          hydration see Suspense on the server and div on the client.
+        */}
+        <div className="dc-page-body">{children}</div>
+      </DcAdminShell>
       {/* The DC shell renders its own "Ask SPLARO" launcher. */}
       <AgentShell hideFab />
     </>

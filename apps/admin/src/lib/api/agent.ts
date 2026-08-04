@@ -18,6 +18,7 @@ export interface AgentConfigResponse {
   geminiKey: string | null
   claudeKey: string | null
   grokKey: string | null
+  manusKey: string | null
   claudeAuthMode?: 'api_key' | 'antigravity_proxy'
   claudeBaseUrl?: string
   claudeAuthToken?: string | null
@@ -50,6 +51,7 @@ export interface AgentStatusResponse {
   activeModel: AgentModelId
   activeModelReady: boolean
   models: Record<AgentModelId, { configured: boolean }>
+  manusConfigured?: boolean
   telegram: { configured: boolean; isActive?: boolean; chatId: string | null }
   budget?: { spentUsd: number; limitUsd: number; pct: number }
 }

@@ -2,15 +2,17 @@ import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../../../common/prisma.service'
 import { DEFAULT_AGENT_SYSTEM_PROMPT } from './system.prompt'
 import { PLATFORM_KNOWLEDGE_PROMPT } from './platform-knowledge.prompt'
+import { PLATFORM_KNOWLEDGE_COMPACT } from './platform-knowledge-compact.prompt'
 
 @Injectable()
 export class PromptManager {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getSystemPrompt(storeId: string): Promise<string> {
+  async getSystemPrompt(storeId: string, opts?: { compact?: boolean }): Promise<string> {
     const config = await this.prisma.agentConfig.findUnique({ where: { storeId } })
     const custom = config?.systemPrompt?.trim() || DEFAULT_AGENT_SYSTEM_PROMPT
-    return `${custom}\n\n---\n${PLATFORM_KNOWLEDGE_PROMPT}`
+    const knowledge = opts?.compact ? PLATFORM_KNOWLEDGE_COMPACT : PLATFORM_KNOWLEDGE_PROMPT
+    return `${custom}\n\n---\n${knowledge}`
   }
 
   async updateSystemPrompt(

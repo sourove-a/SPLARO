@@ -24,6 +24,7 @@ const MODEL_LABELS: Record<AgentModelId, string> = {
   openai: 'OpenAI GPT',
   gemini: 'Gemini',
   grok: 'Grok',
+  manus: 'Manus',
 }
 
 interface ChatMessage {
@@ -352,7 +353,9 @@ export function AgentChatPanel({
             {!apiOnline
               ? 'API offline'
               : ready
-                ? `Live · ${MODEL_LABELS[model]} · real tools`
+                ? model === 'manus'
+                  ? `Live · Manus · async (15–60s) · pre-reads only`
+                  : `Live · ${MODEL_LABELS[model]} · SPLARO tools`
                 : 'AI Command Brain এ API key দিন'}
           </p>
         </div>
@@ -461,11 +464,31 @@ export function AgentChatPanel({
         )}
       >
         {messages.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-            <AgentChatLauncher online={ready} size="inline" />
-            <p className="max-w-[280px] text-xs font-semibold leading-relaxed text-[var(--admin-text-secondary)]">
-              Order, finance, courier, SEO — live database। Quick commands খুলে chip চাপুন।
-            </p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-2 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(113,46,255,0.1)] ring-1 ring-[rgba(113,46,255,0.2)]">
+              <AgentChatLauncher online={ready} size="inline" />
+            </div>
+            <div className="max-w-[300px]">
+              <p className="text-[13px] font-black text-[var(--admin-text)]">Ask SPLARO</p>
+              <p className="mt-1 text-[11px] font-semibold leading-relaxed text-[var(--admin-text-secondary)]">
+                Order count, low stock, courier, SEO — live DB. Model:{' '}
+                <span className="text-[var(--admin-color-accent-blue)]">{MODEL_LABELS[model]}</span>
+                {model === 'manus' ? ' (slower async).' : '.'}
+              </p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-1.5">
+              {['আজকের order কয়টা?', 'Low stock?', 'SEO missing?'].map((hint) => (
+                <button
+                  key={hint}
+                  type="button"
+                  disabled={streaming || !ready}
+                  onClick={() => void sendMessage(hint)}
+                  className="rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-2,var(--admin-surface))] px-2.5 py-1 text-[10px] font-bold text-[var(--admin-text-secondary)] hover:border-[var(--admin-color-accent-blue)] hover:text-[var(--admin-color-accent-blue)] disabled:opacity-40"
+                >
+                  {hint}
+                </button>
+              ))}
+            </div>
           </div>
         ) : null}
 

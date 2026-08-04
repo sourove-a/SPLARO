@@ -373,3 +373,133 @@ export class GrokProvider implements ModelProvider {
     if (result.content) yield result.content
   }
 }
+
+const MANUS_BASE = 'https://api.manus.ai/v2'
+const MANUS_POLL_MS = 2_500
+const MANUS_TIMEOUT_MS = 180_000
+
+/**
+ * Manus has no sync chat/completions API — it runs async tasks.
+ * We create a task, poll assistant messages, and return text only
+ * (no SPLARO tool_calls; mandatory pre-reads still inject live data into messages).
+ */
+export class ManusProvider implements ModelProvider {
+  readonly id = 'manus'
+
+  private flattenPrompt(messages: AgentMessage[]): string {
+    const parts: string[] = [
+      'You are answering inside SPLARO Command (Bangladesh fashion eCommerce admin).',
+      'Reply in clear Bangla/Banglish/English matching the user. Be concrete.',
+      'If VERIFIED LIVE DATA appears below, use only that for counts/status — do not invent.',
+      'You cannot call SPLARO order/courier tools yourself; answer from the prompt context.',
+      '',
+    ]
+    for (const m of messages) {
+      if (!m.content?.trim()) continue
+      const role = m.role === 'assistant' ? 'Assistant' : m.role === 'system' ? 'System' : m.role === 'tool' ? 'Tool' : 'User'
+      parts.push(`${role}:\n${m.content.trim()}`)
+    }
+    return parts.join('\n\n').slice(0, 48_000)
+  }
+
+  private async manusFetch(
+    apiKey: string,
+    endpoint: string,
+    init: { method: 'GET' | 'POST'; query?: Record<string, string | number>; body?: unknown },
+  ): Promise<Record<string, unknown>> {
+    const url = new URL(`${MANUS_BASE}/${endpoint}`)
+    for (const [k, v] of Object.entries(init.query ?? {})) {
+      url.searchParams.set(k, String(v))
+    }
+    const res = await fetch(url, {
+      method: init.method,
+      headers: {
+        'x-manus-api-key': apiKey,
+        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      signal: AbortSignal.timeout(30_000),
+      ...(init.body ? { body: JSON.stringify(init.body) } : {}),
+    })
+    const payload = (await res.json().catch(() => ({}))) as {
+      ok?: boolean
+      error?: { code?: string; message?: string }
+    } & Record<string, unknown>
+    if (!res.ok || payload.ok === false) {
+      const code = payload.error?.code ?? String(res.status)
+      const message = payload.error?.message ?? res.statusText
+      throw new Error(`Manus ${endpoint} → ${code}: ${message}`)
+    }
+    return payload
+  }
+
+  private extractAssistantText(messages: Array<Record<string, unknown>>): {
+    text: string
+    status: string | null
+  } {
+    const texts: string[] = []
+    let status: string | null = null
+    for (const event of messages) {
+      const type = String(event['type'] ?? '')
+      const payload = (event[type] ?? {}) as Record<string, unknown>
+      if (type === 'assistant_message') {
+        const content = payload['content']
+        if (typeof content === 'string' && content.trim()) texts.push(content.trim())
+      }
+      if (type === 'status_update') {
+        const agentStatus = payload['agent_status']
+        if (typeof agentStatus === 'string') status = agentStatus
+      }
+    }
+    return { text: texts.join('\n\n').trim(), status }
+  }
+
+  async chat(
+    messages: AgentMessage[],
+    _tools: AgentToolDefinition[],
+    apiKey: string,
+    options?: ModelProviderOptions,
+  ): Promise<ModelChatResult> {
+    const profile = options?.model ?? process.env['MANUS_AGENT_PROFILE'] ?? 'manus-1.6-lite'
+    const prompt = this.flattenPrompt(messages)
+    const created = await this.manusFetch(apiKey, 'task.create', {
+      method: 'POST',
+      body: {
+        message: { content: prompt },
+        agent_profile: profile,
+      },
+    })
+    const taskId = String(created['task_id'] ?? '')
+    if (!taskId) throw new Error('Manus task.create returned no task_id')
+
+    const deadline = Date.now() + MANUS_TIMEOUT_MS
+    let lastText = ''
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, MANUS_POLL_MS))
+      const listed = await this.manusFetch(apiKey, 'task.listMessages', {
+        method: 'GET',
+        query: { task_id: taskId, limit: 100, order: 'asc' },
+      })
+      const events = (listed['messages'] as Array<Record<string, unknown>>) ?? []
+      const { text, status } = this.extractAssistantText(events)
+      if (text) lastText = text
+      if (status === 'stopped' || status === 'error') {
+        if (status === 'error' && !lastText) {
+          throw new Error(`Manus task ${taskId} ended in error`)
+        }
+        return { content: lastText || 'Manus finished with no text reply.', toolCalls: [] }
+      }
+    }
+
+    if (lastText) return { content: `${lastText}\n\n(Manus still running — partial reply.)`, toolCalls: [] }
+    throw new Error(`Manus task ${taskId} timed out after ${MANUS_TIMEOUT_MS / 1000}s — try again or use Claude/OpenAI for fast ops.`)
+  }
+
+  async *streamText(
+    messages: AgentMessage[],
+    apiKey: string,
+    options?: ModelProviderOptions,
+  ): AsyncGenerator<string> {
+    const result = await this.chat(messages, [], apiKey, options)
+    if (result.content) yield result.content
+  }
+}

@@ -31,11 +31,11 @@ export class AgentCostService {
   ) {}
 
   maxToolIterations(): number {
-    return Number(this.config.get('AGENT_MAX_TOOL_ITERATIONS') ?? 10)
+    return Number(this.config.get('AGENT_MAX_TOOL_ITERATIONS') ?? 6)
   }
 
   maxTokensPerRun(): number {
-    return Number(this.config.get('AGENT_MAX_TOKENS_PER_RUN') ?? 8000)
+    return Number(this.config.get('AGENT_MAX_TOKENS_PER_RUN') ?? 5000)
   }
 
   dailyCostLimitUsd(): number {

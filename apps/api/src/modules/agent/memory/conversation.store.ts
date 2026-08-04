@@ -3,7 +3,7 @@ import { PrismaService } from '../../../common/prisma.service'
 import { RedisService } from '../../../common/redis.service'
 import type { AgentMessage } from '../agent.types'
 
-const HISTORY_LIMIT = 20
+const HISTORY_LIMIT = 12
 const REDIS_TTL_SEC = 86_400
 
 @Injectable()

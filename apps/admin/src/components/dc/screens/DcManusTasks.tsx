@@ -134,7 +134,7 @@ function DcManusTasksBody() {
         <DcEmptyState
           icon="icon-key-round"
           title="Manus is not connected"
-          body="Set MANUS_API_KEY in the API .env and restart it. Generate a key in the Manus web app under Settings → Integrations → Build with Manus API. The key is read on the server only — it is never sent to the browser."
+          body="AI Command Brain → API keys → Manus e key paste kore Save AI settings dao. Key Manus web app → Settings → API keys theke nao. Browser e key jay na — server DB te encrypt hoye save hoy."
         />
       </DcHubFrame>
     )
@@ -154,7 +154,7 @@ function DcManusTasksBody() {
         title: 'No Manus tasks yet',
         body: 'Manus runs long autonomous jobs in its own sandbox — deep research, competitor scraping, document generation. Describe one below to start it. It cannot read SPLARO orders or stock; use Ask SPLARO for that.',
       }}
-      errorHint="GET /manus/tasks failed. The key is read from MANUS_API_KEY on the API."
+      errorHint="GET /manus/tasks failed. Save a valid Manus key in AI Command Brain (API keys → Manus), or check MANUS_API_KEY on the API."
     >
       <HubKpis
         items={[

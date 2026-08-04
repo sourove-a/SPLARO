@@ -10,6 +10,7 @@ import {
   ClaudeProvider,
   GeminiProvider,
   GrokProvider,
+  ManusProvider,
   OpenAiProvider,
   type ModelProvider,
   type ModelProviderOptions,
@@ -36,6 +37,7 @@ export class ModelRouter {
     claude: new ClaudeProvider(),
     gemini: new GeminiProvider(),
     grok: new GrokProvider(),
+    manus: new ManusProvider(),
   }
 
   constructor(
@@ -57,13 +59,25 @@ export class ModelRouter {
     const apiKey = cfg.keys[model]
 
     if (!apiKey) {
-      const configured = (['openai', 'claude', 'gemini', 'grok'] as AgentModelId[]).filter((m) => cfg.keys[m])
+      const configured = (['claude', 'gemini', 'grok', 'openai', 'manus'] as AgentModelId[]).filter(
+        (m) => cfg.keys[m],
+      )
       const hint =
         configured.length > 0
-          ? ` Configured models: ${configured.join(', ')} — switch active model in AI Command Brain.`
-          : ''
+          ? ` Configured: ${configured.join(', ')} — AI Command Brain e active model switch koro.`
+          : ' AI Command Brain e oi model er API key save koro.'
+      const envName =
+        model === 'claude'
+          ? 'ANTHROPIC'
+          : model === 'openai'
+            ? 'OPENAI'
+            : model === 'gemini'
+              ? 'GEMINI'
+              : model === 'manus'
+                ? 'MANUS'
+                : 'GROK'
       throw new Error(
-        `No API key for ${model}. Add it in AI Command Brain (/dashboard/ai-agent) or set ${model === 'claude' ? 'ANTHROPIC' : model === 'openai' ? 'OPENAI' : model === 'gemini' ? 'GEMINI' : 'GROK'}_API_KEY in .env.${hint}`,
+        `Active model "${model}" er API key nai.${hint} (env: ${envName}_API_KEY)`,
       )
     }
 
@@ -78,6 +92,10 @@ export class ModelRouter {
   ): Promise<ModelProviderOptions | undefined> {
     if (model === 'openai') return { model: await this.resolveOpenAiModel(storeId) }
     if (model === 'claude') return { claude: await this.resolveClaudeOptions(storeId) }
+    if (model === 'manus') {
+      const explicit = await this.resolveExplicitModel(storeId, 'manus')
+      return { model: explicit ?? process.env['MANUS_AGENT_PROFILE'] ?? 'manus-1.6-lite' }
+    }
     return undefined
   }
 
@@ -125,6 +143,7 @@ export class ModelRouter {
       claude: { configured: Boolean(cfg.keys.claude) },
       gemini: { configured: Boolean(cfg.keys.gemini) },
       grok: { configured: Boolean(cfg.keys.grok) },
+      manus: { configured: Boolean(cfg.keys.manus) },
     }
     return {
       activeModel: cfg.activeModel,
@@ -173,6 +192,11 @@ export class ModelRouter {
         return this.config.get<string>('GEMINI_API_KEY') ?? null
       case 'grok':
         return this.config.get<string>('GROK_API_KEY') ?? null
+      case 'manus': {
+        const key = this.config.get<string>('MANUS_API_KEY')?.trim()
+        if (!key || /paste|your-|example|changeme|todo|replace/i.test(key) || key.length < 20) return null
+        return key
+      }
       default:
         return null
     }
@@ -197,7 +221,9 @@ export class ModelRouter {
           ? 'ANTHROPIC_MODEL'
           : model === 'gemini'
             ? 'GEMINI_MODEL'
-            : 'GROK_MODEL'
+            : model === 'manus'
+              ? 'MANUS_AGENT_PROFILE'
+              : 'GROK_MODEL'
     return this.config.get<string>(envVar)?.trim() || null
   }
 
@@ -206,7 +232,8 @@ export class ModelRouter {
     try {
       return this.crypto.decrypt(stored)
     } catch {
-      return stored
+      // Never treat ciphertext as a usable API key.
+      return stored.startsWith('enc:') ? null : stored
     }
   }
 
@@ -232,20 +259,12 @@ export class ModelRouter {
       claude: await this.resolveClaudeKey(storeId, row.claudeKey),
       gemini: await this.resolveKey(storeId, 'gemini', row.geminiKey),
       grok: await this.resolveKey(storeId, 'grok', row.grokKey),
+      manus: await this.resolveKey(storeId, 'manus', row.manusKey),
     }
 
-    const activeModelRaw = (row.activeModel as AgentModelId) || 'claude'
-    let activeModel = activeModelRaw
-    if (!keys[activeModel]) {
-      const fallback = (['openai', 'claude', 'gemini', 'grok'] as AgentModelId[]).find((m) => keys[m])
-      if (fallback) {
-        this.logger.warn(`Active model ${activeModel} has no key; using ${fallback}`)
-        activeModel = fallback
-        void this.prisma.agentConfig
-          .update({ where: { storeId }, data: { activeModel: fallback } })
-          .catch((err) => this.logger.warn(`Could not persist activeModel fallback: ${err}`))
-      }
-    }
+    const activeModel = (row.activeModel as AgentModelId) || 'claude'
+    // Never silently switch providers — Telegram + admin must match AI Command Brain.
+    // Missing key is handled in getProvider() with a clear error.
 
     this.cache = { at: now, storeId, activeModel, keys }
     return this.cache

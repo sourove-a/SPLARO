@@ -74,6 +74,17 @@ export class AgentController {
     // the response with flush(); call it so each event leaves immediately.
     const flush = () => (res as Response & { flush?: () => void }).flush?.()
 
+    // Manus (and slow tool loops) can sit silent for minutes — without SSE
+    // comments, admin proxy / browser fetch dies with "fetch failed".
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(`: keepalive ${Date.now()}\n\n`)
+        flush()
+      } catch {
+        /* client gone */
+      }
+    }, 12_000)
+
     try {
       for await (const event of this.agent.chatStream(
         resolvedStore,
@@ -88,6 +99,8 @@ export class AgentController {
     } catch (err) {
       const errMessage = err instanceof Error ? err.message : 'Chat failed'
       res.write(`data: ${JSON.stringify({ type: 'error', content: errMessage })}\n\n`)
+    } finally {
+      clearInterval(heartbeat)
     }
 
     res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`)

@@ -49,13 +49,15 @@ const MODELS: { id: AgentModelId; label: string; keyLabel: string; placeholder: 
   { id: 'openai', label: 'OpenAI (GPT)', keyLabel: 'OpenAI API Key', placeholder: 'sk-...', envHint: 'OPENAI_API_KEY' },
   { id: 'gemini', label: 'Gemini (Google)', keyLabel: 'Gemini API Key', placeholder: 'AIza...', envHint: 'GEMINI_API_KEY' },
   { id: 'grok', label: 'Grok (xAI)', keyLabel: 'Grok API Key', placeholder: 'xai-...', envHint: 'GROK_API_KEY' },
+  { id: 'manus', label: 'Manus', keyLabel: 'Manus API Key', placeholder: 'sk-… (manus.im)', envHint: 'MANUS_API_KEY' },
 ]
 
-const KEY_FIELD: Record<AgentModelId, 'claudeKey' | 'openaiKey' | 'geminiKey' | 'grokKey'> = {
+const KEY_FIELD: Record<AgentModelId, 'claudeKey' | 'openaiKey' | 'geminiKey' | 'grokKey' | 'manusKey'> = {
   claude: 'claudeKey',
   openai: 'openaiKey',
   gemini: 'geminiKey',
   grok: 'grokKey',
+  manus: 'manusKey',
 }
 
 function isMasked(v: string | null) {
@@ -106,13 +108,13 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
   const [activeModel, setActiveModel] = useState<AgentModelId>('claude')
   const [systemPrompt, setSystemPrompt] = useState('')
   const [keyInputs, setKeyInputs] = useState<Record<AgentModelId, string>>({
-    claude: '', openai: '', gemini: '', grok: '',
+    claude: '', openai: '', gemini: '', grok: '', manus: '',
   })
   const [savedKeys, setSavedKeys] = useState<Record<AgentModelId, string | null>>({
-    claude: null, openai: null, gemini: null, grok: null,
+    claude: null, openai: null, gemini: null, grok: null, manus: null,
   })
   const [showKey, setShowKey] = useState<Record<AgentModelId, boolean>>({
-    claude: false, openai: false, gemini: false, grok: false,
+    claude: false, openai: false, gemini: false, grok: false, manus: false,
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -121,6 +123,8 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
   const [openaiModel, setOpenaiModel] = useState('gpt-4o-mini')
   const [claudeAuthMode, setClaudeAuthMode] = useState<'api_key' | 'antigravity_proxy'>('api_key')
   const [claudeBaseUrl, setClaudeBaseUrl] = useState('http://localhost:8080')
+  // SSR-stable — resolve host after mount so local vs production pill matches.
+  const [saveTarget, setSaveTarget] = useState(() => ({ label: 'server', isLocal: false }))
   const [claudeAuthTokenInput, setClaudeAuthTokenInput] = useState('')
   const [savedClaudeAuthToken, setSavedClaudeAuthToken] = useState<string | null>(null)
   const [activity, setActivity] = useState<AgentActivityRun[]>([])
@@ -136,6 +140,7 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
         openai: cfg.openaiKey,
         gemini: cfg.geminiKey,
         grok: cfg.grokKey,
+        manus: cfg.manusKey,
       })
       setClaudeAuthMode(cfg.claudeAuthMode === 'antigravity_proxy' ? 'antigravity_proxy' : 'api_key')
       setClaudeBaseUrl(cfg.claudeBaseUrl || 'http://localhost:8080')
@@ -150,6 +155,10 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
   }
 
   useEffect(() => { void reload() }, [])
+
+  useEffect(() => {
+    setSaveTarget(resolveSaveTargetLabel())
+  }, [])
 
   const loadActivity = async () => {
     setActivityLoading(true)
@@ -188,8 +197,7 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
 
       const hasClaudeProxy = claudeAuthMode === 'antigravity_proxy' && Boolean(claudeBaseUrl.trim())
       const hasAnyKey =
-        hasClaudeProxy ||
-        MODELS.some((m) => keyInputs[m.id].trim() || isMasked(savedKeys[m.id]))
+        hasClaudeProxy || MODELS.some((m) => keyInputs[m.id].trim() || isMasked(savedKeys[m.id]))
       if (!hasAnyKey) {
         toastFail('Add at least one API key or Antigravity proxy URL.', 'ai-no-key')
         return
@@ -207,7 +215,7 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
       if (activeModel === 'openai' && openaiModel) {
         await updateAiIntegration.mutateAsync({ defaultModel: openaiModel })
       }
-      setKeyInputs({ claude: '', openai: '', gemini: '', grok: '' })
+      setKeyInputs({ claude: '', openai: '', gemini: '', grok: '', manus: '' })
       setClaudeAuthTokenInput('')
       const [cfg, st] = await Promise.all([fetchAgentConfig(), fetchAgentStatus()])
       setActiveModel((cfg.activeModel as AgentModelId) || 'claude')
@@ -217,6 +225,7 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
         openai: cfg.openaiKey,
         gemini: cfg.geminiKey,
         grok: cfg.grokKey,
+        manus: cfg.manusKey,
       })
       setClaudeAuthMode(cfg.claudeAuthMode === 'antigravity_proxy' ? 'antigravity_proxy' : 'api_key')
       setClaudeBaseUrl(cfg.claudeBaseUrl || 'http://localhost:8080')
@@ -329,7 +338,6 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
 
   const chatReady = !apiOffline && (status?.activeModelReady ?? false)
   const telegramReady = Boolean(status?.telegram.configured && status.telegram.isActive)
-  const saveTarget = resolveSaveTargetLabel()
   const budget = status?.budget
   const budgetPct = Math.round((budget?.pct ?? 0) * 100)
   const budgetWarn = (budget?.pct ?? 0) >= 0.8
@@ -433,16 +441,18 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
               tone: apiOffline ? 'danger' : 'success',
             },
             {
+              label: 'Keys',
+              value: String(MODELS.filter((m) => modelIsConfigured(m.id, status, savedKeys, claudeAuthMode, claudeBaseUrl)).length),
+              sub: `${MODELS.length} providers`,
+              tone: MODELS.some((m) => modelIsConfigured(m.id, status, savedKeys, claudeAuthMode, claudeBaseUrl))
+                ? 'success'
+                : 'warning',
+            },
+            {
               label: 'Telegram',
               value: telegramReady ? 'Online' : 'Setup',
               sub: telegramReady ? 'bridge active' : tgData?.tokenConfigured ? 'chat ID লাগবে' : 'not linked',
               tone: telegramReady ? 'success' : 'warning',
-            },
-            {
-              label: 'Budget',
-              value: budget ? `${budgetPct}%` : '—',
-              sub: budget ? `$${budget.spentUsd.toFixed(3)} / $${budget.limitUsd.toFixed(2)}` : 'no budget data',
-              tone: budgetWarn ? 'warning' : 'default',
             },
           ]}
         />
@@ -764,6 +774,12 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
                       </button>
                     </div>
                     <p className="text-[10px] text-[var(--admin-c-9b9b9b)]">Env: <code>{m.envHint}</code></p>
+                    {m.id === 'manus' ? (
+                      <p className="mt-1 text-[10px] leading-relaxed text-[var(--admin-text-secondary)]">
+                        Active model select → Admin chat + Telegram bot both use that model. Manus replies
+                        async (slower).
+                      </p>
+                    ) : null}
                   </label>
                 )
               })}

@@ -20,8 +20,8 @@ export class ManusController {
   }
 
   @Get('status')
-  status() {
-    return { configured: this.manus.isConfigured(), agentProfiles: MANUS_AGENT_PROFILES }
+  async status() {
+    return { configured: await this.manus.isConfigured(), agentProfiles: MANUS_AGENT_PROFILES }
   }
 
   @Get('tasks')

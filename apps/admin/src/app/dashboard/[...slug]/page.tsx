@@ -25,7 +25,6 @@ import { DcInventory } from '@/components/dc/screens/DcInventory'
 import { DcAdminUsers } from '@/components/dc/screens/DcAdminUsers'
 import { DcSecurityCenter } from '@/components/dc/screens/DcSecurityCenter'
 import { DcAiCommandBrain } from '@/components/dc/screens/DcAiCommandBrain'
-import { DcManusTasks } from '@/components/dc/screens/DcManusTasks'
 import { DcSeoHealth } from '@/components/dc/screens/DcSeoHealth'
 import { DcAutomationRules } from '@/components/dc/screens/DcAutomationRules'
 import { DcAllIntegrations } from '@/components/dc/screens/DcAllIntegrations'
@@ -90,7 +89,6 @@ const DC_BESPOKE: Record<string, () => React.ReactElement> = {
   '/dashboard/admin-users': () => <DcAdminUsers />,
   '/dashboard/security-center': () => <DcSecurityCenter />,
   '/dashboard/ai-agent': () => <DcAiCommandBrain />,
-  '/dashboard/manus': () => <DcManusTasks />,
   '/dashboard/seo-health': () => <DcSeoHealth />,
   '/dashboard/automation-rules': () => <DcAutomationRules />,
   '/dashboard/all-integrations': () => <DcAllIntegrations />,

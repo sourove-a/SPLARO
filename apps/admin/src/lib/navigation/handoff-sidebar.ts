@@ -102,7 +102,11 @@ export const HANDOFF_SIDEBAR_GROUPS: ReadonlyArray<{ group: string; hrefs: reado
   },
   {
     group: 'Intelligence',
-    hrefs: ['/dashboard/ai-agent', '/dashboard/seo-health', '/dashboard/automation-rules'],
+    hrefs: [
+      '/dashboard/ai-agent',
+      '/dashboard/seo-health',
+      '/dashboard/automation-rules',
+    ],
   },
   {
     group: 'Security',

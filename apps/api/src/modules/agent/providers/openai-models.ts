@@ -95,6 +95,11 @@ export async function callOpenAiChat(
     if (res.ok) return { response: res, modelUsed: model }
 
     const errText = await res.text()
+    if (res.status === 401) {
+      throw new Error(
+        'OpenAI API key invalid (401). AI Command Brain e: (1) notun OpenAI key save koro, OR (2) Claude/Gemini/Manus select kore Save — Telegram o shei active model follow korbe.',
+      )
+    }
     lastError = `OpenAI error ${res.status}: ${errText.slice(0, 300)}`
     if (!isOpenAiModelAccessError(res.status, errText)) {
       throw new Error(lastError)

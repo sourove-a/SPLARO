@@ -177,20 +177,12 @@ export function DcShell({
         <div className="dc-main-row" style={{ flex: 1, display: 'flex', minWidth: 0 }}>
           <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
             {pageHead}
-            <div
-              className="dc-page-body"
-              style={{
-                flex: 1,
-                padding: '20px 24px 60px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 16,
-                maxWidth: 1560,
-                width: '100%',
-              }}
-            >
-              {children}
-            </div>
+            {/*
+              Do not wrap {children} in an extra Client div. Dashboard layout
+              (Server) owns `.dc-page-body` around the loading Suspense slot —
+              wrapping here caused hydration: server Suspense vs client div.
+            */}
+            {children}
           </main>
 
           {!compactViewport && railOpen && rail ? <DcRail {...rail} /> : null}

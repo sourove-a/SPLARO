@@ -137,6 +137,17 @@ export class AgentLoopService {
       return { finalText, tokenInEst, tokenOutEst, costEstUsd }
     }
 
+    // Cheap path — greetings must not burn a full model+tools turn.
+    if (/^(hi|hello|hey|hlw|koi|salam|assalamu?\s*alaikum|হ্যালো|হাই)\s*[!.]*$/i.test(trimmed)) {
+      finalText =
+        channel === 'telegram'
+          ? 'হ্যালো — SPLARO bot ready. Order / stock / SEO / courier জিজ্ঞাসা করুন।'
+          : 'হ্যালো — SPLARO Command ready. Order, stock, finance বা SEO জিজ্ঞাসা করুন।'
+      for (const char of finalText) yield { type: 'token', content: char }
+      yield { type: 'done' }
+      return { finalText, tokenInEst: 0, tokenOutEst: 0, costEstUsd: 0 }
+    }
+
     const difficulty = routeByDifficulty(trimmed)
     const mandatoryTool = mandatoryReadToolForMessage(trimmed)
     const toolDefs = filterToolsToDefinitions(trimmed).filter((tool) => tool.name !== mandatoryTool)
@@ -147,6 +158,7 @@ export class AgentLoopService {
     let providerOptions: Awaited<ReturnType<ModelRouter['getProviderForDifficulty']>>['providerOptions']
 
     try {
+      // Admin chat + Telegram both follow AI Command Brain activeModel — no separate path.
       ;({ provider, apiKey, model, providerOptions } = await this.router.getProviderForDifficulty(
         storeId,
         difficulty,
@@ -158,6 +170,13 @@ export class AgentLoopService {
     }
 
     const modelId = providerOptions?.model ?? model
+
+    if (model === 'manus') {
+      yield {
+        type: 'token',
+        content: 'Manus e pathano hocche — reply ashte 15–60s lagte pare…\n\n',
+      }
+    }
 
     const run = await this.audit.startRun({
       storeId,

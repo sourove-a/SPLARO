@@ -1,5 +1,8 @@
 import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { PrismaService } from '../../common/prisma.service'
+import { resolveStoreId } from '../../common/store.util'
+import { EncryptionService } from '../integrations/encryption.service'
 
 const MANUS_BASE_URL = 'https://api.manus.ai/v2'
 const REQUEST_TIMEOUT_MS = 30_000
@@ -35,35 +38,75 @@ interface ManusEnvelope {
   error?: { code?: string; message?: string }
 }
 
+function looksLikePlaceholder(key: string): boolean {
+  return /paste|your-|example|changeme|todo|replace/i.test(key) || key.length < 20
+}
+
 @Injectable()
 export class ManusService {
   private readonly logger = new Logger(ManusService.name)
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly crypto: EncryptionService,
+  ) {}
 
   /**
    * Manus is an autonomous agent API, not a chat model — it cannot be used as an
    * agent-brain provider, because it runs its own tools rather than SPLARO's.
-   * It lives here as a separate "delegate a long job" integration.
+   * Key is saved from AI Command Brain (AgentConfig.manusKey), with env fallback.
    */
-  private apiKey(): string {
-    const key = this.config.get<string>('MANUS_API_KEY')?.trim()
-    if (!key) {
-      throw new BadRequestException(
-        'MANUS_API_KEY is not set on the API. Add it to the API .env and restart — see .env.example.',
-      )
+  private decryptStored(stored: string | null | undefined): string | null {
+    if (!stored?.trim()) return null
+    try {
+      return this.crypto.decrypt(stored)
+    } catch {
+      // Never treat enc:… ciphertext as a usable key — Manus would return invalid api key.
+      return null
     }
+  }
+
+  private envFallbackKey(): string | null {
+    const key = this.config.get<string>('MANUS_API_KEY')?.trim()
+    if (!key || looksLikePlaceholder(key)) return null
     return key
   }
 
-  isConfigured(): boolean {
-    return Boolean(this.config.get<string>('MANUS_API_KEY')?.trim())
+  async resolveApiKey(storeIdRaw?: string): Promise<string | null> {
+    try {
+      const storeId = await resolveStoreId(this.prisma, storeIdRaw ?? 'splaro')
+      const row = await this.prisma.agentConfig.findUnique({
+        where: { storeId },
+        select: { manusKey: true },
+      })
+      const fromDb = this.decryptStored(row?.manusKey)?.trim()
+      if (fromDb && !looksLikePlaceholder(fromDb)) return fromDb
+    } catch (err) {
+      this.logger.warn(`Manus DB key resolve failed: ${err instanceof Error ? err.message : 'error'}`)
+    }
+    return this.envFallbackKey()
+  }
+
+  async isConfigured(storeIdRaw?: string): Promise<boolean> {
+    return Boolean(await this.resolveApiKey(storeIdRaw))
+  }
+
+  private async requireApiKey(storeIdRaw?: string): Promise<string> {
+    const key = await this.resolveApiKey(storeIdRaw)
+    if (!key) {
+      throw new BadRequestException(
+        'Manus API key missing. Open AI Command Brain → API keys → Manus, paste your key, Save. Or set MANUS_API_KEY in API .env and restart.',
+      )
+    }
+    return key
   }
 
   private async call<T>(
     endpoint: string,
     init: { method: 'GET' | 'POST'; query?: Record<string, string | number | undefined>; body?: unknown },
   ): Promise<T> {
+    const apiKey = await this.requireApiKey()
     const url = new URL(`${MANUS_BASE_URL}/${endpoint}`)
     for (const [key, value] of Object.entries(init.query ?? {})) {
       if (value !== undefined && value !== '') url.searchParams.set(key, String(value))
@@ -74,7 +117,7 @@ export class ManusService {
       res = await fetch(url, {
         method: init.method,
         headers: {
-          'x-manus-api-key': this.apiKey(),
+          'x-manus-api-key': apiKey,
           ...(init.body ? { 'Content-Type': 'application/json' } : {}),
         },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -82,7 +125,7 @@ export class ManusService {
       })
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'network error'
-      throw new ServiceUnavailableException(`POST ${MANUS_BASE_URL}/${endpoint} → ${reason}`)
+      throw new ServiceUnavailableException(`${init.method} ${MANUS_BASE_URL}/${endpoint} → ${reason}`)
     }
 
     const payload = (await res.json().catch(() => ({}))) as ManusEnvelope & Record<string, unknown>
@@ -110,7 +153,8 @@ export class ManusService {
     const res = await this.call<{ task_id: string; task_title: string; task_url: string }>('task.create', {
       method: 'POST',
       body: {
-        message: { prompt },
+        // Manus v2 requires message.content (string or text parts) — not message.prompt.
+        message: { content: prompt },
         ...(input.agentProfile ? { agent_profile: input.agentProfile } : {}),
         ...(input.locale ? { locale: input.locale } : {}),
         ...(input.title?.trim() ? { title: input.title.trim() } : {}),

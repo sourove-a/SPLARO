@@ -27,6 +27,8 @@ export function cheapModelForProvider(provider: string): string | undefined {
       return 'gemini-2.5-flash'
     case 'grok':
       return 'grok-4-fast'
+    case 'manus':
+      return 'manus-1.6-lite'
     default:
       return undefined
   }
