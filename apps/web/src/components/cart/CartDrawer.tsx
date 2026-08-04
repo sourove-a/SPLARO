@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence, useReducedMotion } from '@/lib/motion/react'
 import { X } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { BagIcon } from '@/components/product/AddToBagIcon'
 import { useCartStore, cartLineKey, toCartLineRef } from '@/store/cartStore'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
@@ -25,7 +26,7 @@ interface CartDrawerProps {
 }
 
 export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
-  const { items, subtotal, removeItem, updateQuantity, clearCart } = useCartStore()
+  const { items, subtotal, addItem, removeItem, updateQuantity, clearCart } = useCartStore()
   const { shipping } = useStorefrontSettings()
   const reducedMotion = useReducedMotion()
   const drawerRef = useRef<HTMLDivElement>(null)
@@ -145,7 +146,29 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                           item={item}
                           onDecrease={() => updateQuantity(toCartLineRef(item), item.quantity - 1)}
                           onIncrease={() => updateQuantity(toCartLineRef(item), item.quantity + 1)}
-                          onRemove={() => removeItem(toCartLineRef(item))}
+                          onRemove={() => {
+                            const removedLine = toCartLineRef(item)
+                            const toastId = `cart-remove-${cartLineKey(removedLine)}-${Date.now()}`
+                            removeItem(removedLine)
+                            toast(
+                              (t) => (
+                                <span className="cart-drawer__undo-toast">
+                                  Removed {item.name}
+                                  <button
+                                    type="button"
+                                    className="cart-drawer__undo-btn"
+                                    onClick={() => {
+                                      addItem(item)
+                                      toast.dismiss(t.id)
+                                    }}
+                                  >
+                                    Undo
+                                  </button>
+                                </span>
+                              ),
+                              { id: toastId, duration: 5000 },
+                            )
+                          }}
                         />
                       </motion.li>
                     ))}

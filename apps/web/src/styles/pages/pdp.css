@@ -1298,6 +1298,30 @@ del.pdp-compare {
   display: none;
 }
 
+/* Touch target floor — strike-through is text-decoration on the label, not
+   this pseudo-element, so it's free to grow the hit area without touching
+   the visible chip size. See styles/touch-targets.css for the pattern. */
+@media (pointer: coarse), (max-width: 768px) {
+  .pp-size-btn {
+    position: relative;
+  }
+
+  .pp-size-btn::after {
+    content: '';
+    display: block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-width: 44px;
+    min-height: 44px;
+    width: 100%;
+    height: 100%;
+    transform: translate(-50%, -50%);
+    background: transparent;
+    pointer-events: auto;
+  }
+}
+
 .pp-size-btn:hover:not(:disabled):not(.pp-size-btn--active) {
   background: transparent;
   color: #121212;
@@ -4086,11 +4110,11 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 .pp-view .pp-share {
   position: relative;
   z-index: 1;
-  width: fit-content;
-  display: inline-flex;
+  width: 100%;
+  display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 0.45rem;
+  justify-content: center;
+  gap: 0.6rem;
   margin: 0.85rem 0 0;
   padding: 0;
   border: 0;
@@ -4099,16 +4123,6 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-}
-
-.pp-view .pp-share--inline .pp-share__label {
-  margin-right: 0.15rem;
-  font-family: 'GeneralSans', sans-serif;
-  font-size: 0.68rem;
-  font-weight: 650;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(16, 17, 20, 0.45);
 }
 
 .pp-view .pp-share__btn {

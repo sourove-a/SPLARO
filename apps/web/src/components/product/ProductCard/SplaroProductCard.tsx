@@ -63,7 +63,6 @@ export function SplaroProductCard({
   galleryImages = [],
   category,
   collection,
-  productCode,
   colorHexes = [],
   status = 'Ready',
   meta,
@@ -428,9 +427,6 @@ export function SplaroProductCard({
         >
         <div className="splaro-card__title-row">
           <h3 className="splaro-card__name">{name}</h3>
-          {productCode ? (
-            <span className="splaro-card__code">{productCode}</span>
-          ) : null}
         </div>
 
         {colorHexes.length > 0 ? (

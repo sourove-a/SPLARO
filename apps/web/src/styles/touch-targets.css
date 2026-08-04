@@ -55,11 +55,9 @@
     pointer-events: none;
   }
 
-  /* Size chips are deliberately left out. They already own ::after for the
-     sold-out strike-through, and they clip it with overflow:hidden — a pad
-     here would either be invisible or would replace that strike. They sit in
-     a gapped row at a size the design asks for, so separation does the work
-     the pad would. */
+  /* Size chips (.pp-size-btn) get the same treatment, defined in
+     styles/pages/pdp.css next to their own ::after rule so cascade order
+     (pdp.css loads after this file) doesn't get fought. */
 
   /* Hero dots are 26px and only ~8px apart. Padding both to a full 44
      would overlap; 40 clears the gap while still being a real target. */

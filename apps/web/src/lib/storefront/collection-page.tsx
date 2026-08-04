@@ -34,7 +34,7 @@ export async function CollectionPageContent({ slug }: { slug: string }) {
       context={context}
       initialCatalog={catalog}
       categoryIntro={buildCategoryIntro(context.title)}
-      thinCatalog={productCount <= 1}
+      thinCatalog={productCount <= 8}
     />
   )
 }

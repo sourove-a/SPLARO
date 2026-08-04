@@ -6,6 +6,7 @@ import { pageTitleSegment } from '@/lib/seo/page-title'
 import { serializeJsonLd } from '@/lib/seo/json-ld'
 import ProductPageClient from './product-page-client'
 import { RelatedProducts } from './related-products'
+import { RecentlyViewedSection } from './recently-viewed-section'
 import { ProductRelatedSkeleton } from './product-related-section'
 import {
   sanitizeStorefrontDescription,
@@ -284,6 +285,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <Suspense fallback={<ProductRelatedSkeleton />}>
         <RelatedProducts product={product} />
       </Suspense>
+      <RecentlyViewedSection excludeId={product.id} />
     </>
   )
 }

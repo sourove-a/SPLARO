@@ -880,10 +880,6 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
           />
         </div>
       </div>
-
-      <span className="sr-only" aria-live="polite">
-        {slide.title}
-      </span>
     </section>
   )
 }

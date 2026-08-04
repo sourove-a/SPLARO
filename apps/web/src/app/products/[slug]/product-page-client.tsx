@@ -115,6 +115,17 @@ function XSocialIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+function MessengerIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
+      <path
+        fill="currentColor"
+        d="M12 2.2C6.4 2.2 2 6.3 2 11.6c0 2.9 1.3 5.5 3.5 7.2v3l3.2-1.8c.9.2 1.8.4 2.3.4 5.6 0 10-4.1 10-9.4S17.6 2.2 12 2.2Zm1 12.6-2.6-2.7-5 2.7 5.5-5.8 2.6 2.7 5-2.7-5.5 5.8Z"
+      />
+    </svg>
+  )
+}
+
 const DETAIL_SECTION_SUMMARY: Record<string, string> = {
   Details: 'Fabric, fit & finish',
   Shipping: 'Delivery & returns',
@@ -1510,7 +1521,6 @@ export default function ProductPageClient({
 
             {shareUrl ? (
               <div className="pp-share pp-share--inline" aria-label="Share product">
-                <span className="pp-share__label">Share</span>
                 <MotionAnchor
                   href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
                   target="_blank"
@@ -1530,6 +1540,16 @@ export default function ProductPageClient({
                   variant="icon"
                 >
                   <WhatsAppIcon className="pp-share__icon" />
+                </MotionAnchor>
+                <MotionAnchor
+                  href={`https://www.facebook.com/dialog/send?link=${encodeURIComponent(shareUrl)}&app_id=966242223397117&redirect_uri=${encodeURIComponent(shareUrl)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="pp-share__btn"
+                  aria-label="Share on Messenger"
+                  variant="icon"
+                >
+                  <MessengerIcon className="pp-share__icon" />
                 </MotionAnchor>
                 <MotionAnchor
                   href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(product.name)}`}

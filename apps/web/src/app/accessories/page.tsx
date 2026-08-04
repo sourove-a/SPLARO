@@ -79,6 +79,7 @@ export default async function AccessoriesPage({ searchParams }: AccessoriesPageP
         listingMode="scoped"
         initialCatalog={catalog}
         categoryIntro={buildCategoryIntro(pageTitle)}
+        thinCatalog={(catalog.total ?? catalog.products.length) <= 8}
         {...(preset ? { catalogPreset: preset } : {})}
       />
     </Suspense>

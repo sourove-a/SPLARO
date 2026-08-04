@@ -302,7 +302,6 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
 function ProductCardShop({
   product,
   priority,
-  productCode,
   productStatus,
   sizes,
   colorHexes,
@@ -413,7 +412,6 @@ function ProductCardShop({
 
           <div className="shop-product-card__info">
             <h3 className="shop-product-card__title">{product.name}</h3>
-            {productCode ? <span className="shop-product-card__code">{productCode}</span> : null}
             {colorHexes.length > 0 ? (
               <div className="shop-product-card__colors">
                 <span className="shop-product-card__colors-text">

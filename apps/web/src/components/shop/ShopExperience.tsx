@@ -59,13 +59,13 @@ export function ShopExperience({
           <ShopBreadcrumbs items={breadcrumbs} />
           {pageTitle ? <h1 className="sr-only">{pageTitle}</h1> : null}
         </div>
-        {categoryIntro ? (
+        {categoryIntro && thinCatalog ? (
           <p className="shop-page-intro__copy">
             {categoryIntro}{' '}
             <Link href="/shop" className="shop-page-intro__link">
               Shop all
             </Link>
-            {thinCatalog ? ' — more styles are added regularly.' : '.'}
+            {' '}— more styles are added regularly.
           </p>
         ) : null}
       </div>
