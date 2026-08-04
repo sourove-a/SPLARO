@@ -92,7 +92,7 @@ export function DcAdminProfilePopover({
           inset: 0,
           zIndex: 80,
           border: 0,
-          background: 'rgba(0,0,0,.35)',
+          background: 'var(--overlay)',
           cursor: 'default',
         }}
       />
@@ -106,10 +106,10 @@ export function DcAdminProfilePopover({
           zIndex: 90,
           width: 'min(360px, calc(100vw - 32px))',
           borderRadius: 14,
-          border: '1px solid var(--line)',
+          // No shadows in this design — depth is the border plus the card sheen.
+          border: '1px solid var(--line-2)',
           background: 'var(--surface)',
           backgroundImage: 'var(--card-sheen)',
-          boxShadow: '0 18px 48px rgba(0,0,0,.35)',
           overflow: 'hidden',
         }}
       >

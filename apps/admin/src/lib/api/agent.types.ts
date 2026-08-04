@@ -1,1 +1,1 @@
-export type AgentModelId = 'openai' | 'gemini' | 'claude' | 'grok'
+export type AgentModelId = 'openai' | 'gemini' | 'claude' | 'grok' | 'manus'

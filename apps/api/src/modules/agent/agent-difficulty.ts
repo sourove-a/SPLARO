@@ -22,11 +22,13 @@ export function cheapModelForProvider(provider: string): string | undefined {
     case 'openai':
       return 'gpt-4o-mini'
     case 'claude':
-      return 'claude-3-5-haiku-20241022'
+      return 'claude-haiku-4-5'
     case 'gemini':
-      return 'gemini-2.0-flash'
+      return 'gemini-2.5-flash'
     case 'grok':
-      return 'grok-2-1212'
+      return 'grok-4-fast'
+    case 'manus':
+      return 'manus-1.6-lite'
     default:
       return undefined
   }

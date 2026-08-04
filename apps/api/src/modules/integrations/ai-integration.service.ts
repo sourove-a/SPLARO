@@ -109,8 +109,8 @@ export class AiIntegrationService {
         activeModel: 'openai',
         openaiKey: encryptedKey,
       },
+      // Never stomp activeModel — operator may have Claude/Gemini/Manus selected.
       update: {
-        activeModel: 'openai',
         openaiKey: encryptedKey,
       },
     })

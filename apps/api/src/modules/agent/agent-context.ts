@@ -90,8 +90,9 @@ export function filterToolsForMessage(message: string): ToolRegistryEntry[] {
 
   let filtered: ToolRegistryEntry[]
   if (matched.size === 0) {
+    // Do not dump every READ tool on vague messages — burns tokens on greetings/small talk.
     filtered = AGENT_TOOL_REGISTRY.filter(
-      (t) => t.tier === 'READ' || t.category === 'diagnostics' || t.category === 'meta',
+      (t) => ALWAYS_INCLUDE.has(t.name) || t.category === 'meta',
     )
   } else {
     filtered = AGENT_TOOL_REGISTRY.filter(
@@ -99,10 +100,10 @@ export function filterToolsForMessage(message: string): ToolRegistryEntry[] {
     )
   }
 
-  if (filtered.length < 4) {
+  if (filtered.length < 3 && matched.size > 0) {
     const names = new Set(filtered.map((t) => t.name))
     for (const t of AGENT_TOOL_REGISTRY) {
-      if (t.tier === 'READ' && !names.has(t.name)) {
+      if (t.tier === 'READ' && matched.has(t.category) && !names.has(t.name)) {
         filtered.push(t)
         names.add(t.name)
       }
@@ -110,7 +111,7 @@ export function filterToolsForMessage(message: string): ToolRegistryEntry[] {
     }
   }
 
-  return filtered.slice(0, 14)
+  return filtered.slice(0, 10)
 }
 
 export function filterToolsToDefinitions(message: string) {
@@ -157,14 +158,14 @@ function summarizeValue(value: unknown, depth = 0): unknown {
   return out
 }
 
-export function trimHistory(messages: AgentMessage[], maxTurns = 12): AgentMessage[] {
+export function trimHistory(messages: AgentMessage[], maxTurns = 6): AgentMessage[] {
   const nonSystem = messages.filter((m) => m.role !== 'system')
   if (nonSystem.length <= maxTurns * 2) return nonSystem
 
   const recent = nonSystem.slice(-maxTurns * 2)
   return recent.map((m) => {
-    if (m.role === 'tool' && m.content.length > 512) {
-      return { ...m, content: m.content.slice(0, 512) + '…[trimmed]' }
+    if (m.role === 'tool' && m.content.length > 400) {
+      return { ...m, content: m.content.slice(0, 400) + '…[trimmed]' }
     }
     return m
   })

@@ -1591,10 +1591,16 @@ ${items}
     try {
       await this.bot?.sendChatAction(chatId, 'typing')
       const agent = this.moduleRef.get(AgentService, { strict: false })
-      const { reply, confirmRequired } = await agent.handleTelegramMessage(storeId, chatId, text)
+      const { reply, confirmRequired } = await agent.handleTelegramMessage(
+        storeId,
+        chatId,
+        text,
+        telegramUserId,
+      )
+      // Plain text — agent replies often include Markdown/** that break Telegram HTML.
+      const safe = reply.slice(0, 3900)
       if (confirmRequired) {
-        await this.bot?.sendMessage(chatId, reply.slice(0, 3900), {
-          parse_mode: 'HTML',
+        await this.bot?.sendMessage(chatId, safe, {
           reply_markup: {
             inline_keyboard: [
               [
@@ -1605,7 +1611,7 @@ ${items}
           },
         })
       } else {
-        await this.bot?.sendMessage(chatId, reply.slice(0, 3900), { parse_mode: 'HTML' })
+        await this.bot?.sendMessage(chatId, safe)
       }
       await this.logCommand(chatId, `AI: ${text.slice(0, 180)}`, telegramUserId)
     } catch (err) {

@@ -34,6 +34,7 @@ export const ALIAS_REDIRECTS: Record<string, string> = {
   '/dashboard/ai-sales': '/dashboard/ai-agent',
   '/dashboard/ai-customer-insights': '/dashboard/ai-agent',
   '/dashboard/ai-product-generator': '/dashboard/ai-agent',
+  '/dashboard/manus': '/dashboard/ai-agent',
 
   // Media shells
   '/dashboard/video-library': '/dashboard/media-library',

@@ -3,13 +3,7 @@ import type { AgentMessage } from '../agent.types'
 export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
 
 /** Models tried in order when the preferred model is unavailable on the OpenAI project. */
-export const OPENAI_MODELS = [
-  'gpt-4o-mini',
-  'gpt-4o',
-  'gpt-4-turbo',
-  'gpt-4',
-  'gpt-3.5-turbo',
-] as const
+export const OPENAI_MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo'] as const
 
 export type OpenAiModelId = (typeof OPENAI_MODELS)[number]
 
@@ -101,6 +95,11 @@ export async function callOpenAiChat(
     if (res.ok) return { response: res, modelUsed: model }
 
     const errText = await res.text()
+    if (res.status === 401) {
+      throw new Error(
+        'OpenAI API key invalid (401). AI Command Brain e: (1) notun OpenAI key save koro, OR (2) Claude/Gemini/Manus select kore Save — Telegram o shei active model follow korbe.',
+      )
+    }
     lastError = `OpenAI error ${res.status}: ${errText.slice(0, 300)}`
     if (!isOpenAiModelAccessError(res.status, errText)) {
       throw new Error(lastError)

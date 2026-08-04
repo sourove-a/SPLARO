@@ -30,6 +30,12 @@ function DcWebhooksBody() {
       title="Webhooks"
       queries={[developer]}
       empty={rows.length === 0}
+      emptyState={{
+        icon: 'icon-webhook',
+        title: 'No webhooks configured',
+        body:
+          "Webhooks push order, payment and stock events to an external URL. Register an endpoint to start delivering events.",
+      }}
       errorHint="GET /admin/platform/developer failed."
     >
       <HubKpis

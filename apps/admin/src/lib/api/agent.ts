@@ -18,6 +18,7 @@ export interface AgentConfigResponse {
   geminiKey: string | null
   claudeKey: string | null
   grokKey: string | null
+  manusKey: string | null
   claudeAuthMode?: 'api_key' | 'antigravity_proxy'
   claudeBaseUrl?: string
   claudeAuthToken?: string | null
@@ -50,6 +51,7 @@ export interface AgentStatusResponse {
   activeModel: AgentModelId
   activeModelReady: boolean
   models: Record<AgentModelId, { configured: boolean }>
+  manusConfigured?: boolean
   telegram: { configured: boolean; isActive?: boolean; chatId: string | null }
   budget?: { spentUsd: number; limitUsd: number; pct: number }
 }
@@ -217,7 +219,8 @@ export async function streamAgentChat(
   const { sessionId, message, context, storeId, onEvent, signal } = params
   const res = await fetch(agentUrl('/agent/chat', storeId), {
     method: 'POST',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    // Accept drives the proxy's long/streaming timeout and its no-buffering headers.
+    headers: { ...authHeaders(), 'Content-Type': 'application/json', Accept: 'text/event-stream' },
     credentials: 'include',
     ...(signal ? { signal } : {}),
     body: JSON.stringify({ sessionId, message, stream: true, context }),

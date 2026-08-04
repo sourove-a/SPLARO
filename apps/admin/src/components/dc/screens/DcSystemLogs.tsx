@@ -47,6 +47,12 @@ function DcSystemLogsBody() {
       title="System logs"
       queries={[tab === 'app' ? system : finance]}
       empty={rows.length === 0}
+      emptyState={{
+        icon: 'icon-file-text',
+        title: 'No log entries',
+        body:
+          "API errors, failed jobs and security events are written here. An empty log means nothing has failed in the retained window.",
+      }}
     >
       <HubTabs
         tabs={[

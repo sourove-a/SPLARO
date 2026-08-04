@@ -67,7 +67,23 @@ export class AgentController {
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache, no-transform')
     res.setHeader('Connection', 'keep-alive')
+    res.setHeader('X-Accel-Buffering', 'no')
     res.flushHeaders?.()
+
+    // compression() is skipped for SSE, but express-compression still decorates
+    // the response with flush(); call it so each event leaves immediately.
+    const flush = () => (res as Response & { flush?: () => void }).flush?.()
+
+    // Manus (and slow tool loops) can sit silent for minutes — without SSE
+    // comments, admin proxy / browser fetch dies with "fetch failed".
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(`: keepalive ${Date.now()}\n\n`)
+        flush()
+      } catch {
+        /* client gone */
+      }
+    }, 12_000)
 
     try {
       for await (const event of this.agent.chatStream(
@@ -78,10 +94,13 @@ export class AgentController {
         body.context,
       )) {
         res.write(`data: ${JSON.stringify(event)}\n\n`)
+        flush()
       }
     } catch (err) {
       const errMessage = err instanceof Error ? err.message : 'Chat failed'
       res.write(`data: ${JSON.stringify({ type: 'error', content: errMessage })}\n\n`)
+    } finally {
+      clearInterval(heartbeat)
     }
 
     res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`)

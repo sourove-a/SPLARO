@@ -4,6 +4,19 @@
  * Theme switches on <html data-t="dark">. Light is the default.
  */
 
+/* Page canvas inside DcShell <main> — kept in CSS so the Server layout can
+   wrap the Next.js loading Suspense boundary without a Client Component
+   inserting a sibling that hydrates as Suspense vs div. */
+.dc-page-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 1560px;
+  padding: 20px 24px 60px;
+}
+
 :root {
   --bg: rgb(250, 248, 244);
   --surface: rgb(255, 255, 255);
@@ -36,6 +49,9 @@
   --sidebar: rgb(255, 252, 248);
   --headerbg: rgba(255, 252, 244, 0.9);
   --overlay: rgba(10, 10, 10, 0.42);
+  /* Single source for the focus outline. Must stay fully opaque — a soft tint
+     renders as an invisible ring. */
+  --focus-ring: var(--admin-c-8b5cff);
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --dc-font: var(--font-inter), var(--font-noto-bengali), Inter, 'Noto Sans Bengali', system-ui, sans-serif;
 }
@@ -103,7 +119,7 @@
 }
 
 .dc-root :focus-visible {
-  outline: 2px solid var(--admin-c-8b5cff);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -513,7 +529,8 @@
 
   .dc-root[data-mobile-nav-open='true'] .dc-sidebar {
     transform: translateX(0);
-    box-shadow: 18px 0 42px rgba(0, 0, 0, 0.32);
+    /* No shadows in this design — the drawer edge is carried by a border. */
+    border-right: 1px solid var(--line-2);
     pointer-events: auto;
     visibility: visible;
   }
@@ -610,7 +627,6 @@
     border-top: 1px solid var(--line);
     background: var(--headerbg);
     backdrop-filter: blur(20px) saturate(1.2);
-    box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.08);
   }
 
   .dc-mobile-bottom-nav__item {
@@ -1338,7 +1354,6 @@
 .dc-menu-tile--on {
   border-color: var(--violet-bd);
   background: var(--violet-soft);
-  box-shadow: 0 0 0 1px var(--violet-bd);
 }
 
 .dc-menu-tile__icon {
@@ -1624,7 +1639,8 @@
 .storefront-footer-editor__group-title .admin-input:focus,
 .storefront-footer-editor__link-row .admin-input:focus {
   border-color: var(--violet-bd);
-  outline: 2px solid var(--violet-soft);
+  /* --violet-soft is a 9% tint — as an outline it was effectively invisible. */
+  outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
 
@@ -2583,7 +2599,10 @@
   border-color: var(--violet-bd, var(--line)) !important;
   background: var(--surface) !important;
   color: var(--ink) !important;
-  box-shadow: 0 0 0 3px var(--violet-soft, rgba(124, 92, 255, 0.18)) !important;
+  /* Focus is an outline, not a shadow — and at the brand violet, not the
+     off-brand rgb(124,92,255) this used to hardcode. */
+  outline: 2px solid var(--focus-ring) !important;
+  outline-offset: 2px !important;
 }
 
 .dc-settings-host .settings-menu-input::placeholder {

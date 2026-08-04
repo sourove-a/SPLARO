@@ -40,16 +40,18 @@ export function AgentShell({ hideFab = false }: { hideFab?: boolean } = {}) {
       setOpen(false)
       return
     }
-    fetchAgentStatus()
-      .then((s) => setOnline(s.activeModelReady))
-      .catch(() => setOnline(false))
-    const timer = setInterval(() => {
+    const probe = () =>
       fetchAgentStatus()
         .then((s) => setOnline(s.activeModelReady))
         .catch(() => setOnline(false))
-    }, 30_000)
+
+    probe()
+    // Each status call runs ensureAgentConfigRow + SELECT 1 + a cost aggregate,
+    // so only keep the 30s poll alive while the panel is actually open.
+    if (!open) return
+    const timer = setInterval(probe, 30_000)
     return () => clearInterval(timer)
-  }, [aiEnabled, setOpen])
+  }, [aiEnabled, open, setOpen])
 
   if (!aiEnabled) return null
 

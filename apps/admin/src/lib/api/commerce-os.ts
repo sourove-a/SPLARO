@@ -426,10 +426,3 @@ export function replyHelpdeskTicket(ticketId: string, message: string) {
     body: JSON.stringify({ message }),
   })
 }
-
-export function askExecutiveAI(question: string) {
-  return apiFetch<{ answer: string }>('/ai/executive/chat', {
-    method: 'POST',
-    body: JSON.stringify({ question }),
-  })
-}

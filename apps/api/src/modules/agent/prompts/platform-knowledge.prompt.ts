@@ -65,7 +65,7 @@ Also: CANCELLED, RETURNED, REFUNDED
 - Admin login token: /login with copy button
 
 ### AI models (admin chooses in /dashboard/ai-agent)
-- openai (default gpt-4o-mini with fallback chain), claude (Anthropic / Antigravity proxy), gemini, grok
+- openai (default gpt-4o-mini with fallback chain), claude (Anthropic / Antigravity proxy), gemini, grok, manus (async Manus tasks — slower; no native SPLARO tool_calls)
 - Keys in .env or encrypted IntegrationSetting table
 - OpenAI tool-call format requires proper assistant/tool message pairs — already handled server-side
 

@@ -7,7 +7,7 @@ import {
   MinLength,
 } from 'class-validator'
 
-export const AGENT_MODEL_IDS = ['openai', 'gemini', 'claude', 'grok'] as const
+export const AGENT_MODEL_IDS = ['openai', 'gemini', 'claude', 'grok', 'manus'] as const
 export type AgentModelIdDto = (typeof AGENT_MODEL_IDS)[number]
 
 export class AgentChatDto {
@@ -60,6 +60,12 @@ export class AgentConfigDto {
   @IsString()
   @MaxLength(500)
   grokKey?: string
+
+  /** Manus task API — not selectable as active chat model. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  manusKey?: string
 
   @IsOptional()
   @IsIn(['api_key', 'antigravity_proxy'])

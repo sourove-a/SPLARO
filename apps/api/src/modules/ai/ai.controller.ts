@@ -1,16 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common'
 import { AiService } from './ai.service'
 
-@Controller('ai')
-export class AiExecutiveController {
-  constructor(private readonly ai: AiService) {}
-
-  @Post('executive/chat')
-  chat(@Body() body: { question: string; storeId?: string }) {
-    return this.ai.executiveChat(body.question)
-  }
-}
-
 @Controller('ai-product-agent')
 export class AiProductAgentController {
   constructor(private readonly ai: AiService) {}

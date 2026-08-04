@@ -295,7 +295,7 @@ function DcApiHealthBody() {
                           border: `1px solid ${t.bd}`,
                           background: t.bg,
                           color: t.fg,
-                          font: '700 9.5px/1.3 Inter, sans-serif',
+                          font: `700 9.5px/1.3 ${FONT}`,
                           letterSpacing: '.07em',
                           textTransform: 'uppercase',
                         }}

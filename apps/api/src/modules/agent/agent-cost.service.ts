@@ -6,10 +6,13 @@ import { PrismaService } from '../../common/prisma.service'
 const MODEL_RATES: Record<string, { in: number; out: number }> = {
   'gpt-4o-mini': { in: 0.15, out: 0.6 },
   'gpt-4o': { in: 2.5, out: 10 },
-  'claude-3-5-haiku-20241022': { in: 0.25, out: 1.25 },
-  'claude-3-5-sonnet-20241022': { in: 3, out: 15 },
-  'gemini-2.0-flash': { in: 0.1, out: 0.4 },
-  'grok-2-1212': { in: 2, out: 10 },
+  'claude-haiku-4-5': { in: 1, out: 5 },
+  'claude-sonnet-5': { in: 3, out: 15 },
+  'claude-opus-5': { in: 5, out: 25 },
+  'gemini-2.5-flash': { in: 0.3, out: 2.5 },
+  'gemini-2.5-pro': { in: 1.25, out: 10 },
+  'grok-4': { in: 3, out: 15 },
+  'grok-4-fast': { in: 0.2, out: 0.5 },
   default: { in: 1, out: 3 },
 }
 
@@ -28,11 +31,11 @@ export class AgentCostService {
   ) {}
 
   maxToolIterations(): number {
-    return Number(this.config.get('AGENT_MAX_TOOL_ITERATIONS') ?? 10)
+    return Number(this.config.get('AGENT_MAX_TOOL_ITERATIONS') ?? 6)
   }
 
   maxTokensPerRun(): number {
-    return Number(this.config.get('AGENT_MAX_TOKENS_PER_RUN') ?? 8000)
+    return Number(this.config.get('AGENT_MAX_TOKENS_PER_RUN') ?? 5000)
   }
 
   dailyCostLimitUsd(): number {

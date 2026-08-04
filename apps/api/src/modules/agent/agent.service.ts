@@ -55,12 +55,13 @@ export class AgentService {
       return
     }
 
-    await this.conversations.append(storeId, sessionId, 'user', trimmed)
-
-    this.router.invalidateCache()
-
+    // Read history BEFORE persisting this turn — the loop pushes `trimmed` itself,
+    // so appending first would send the user's message to the model twice.
     const history = sanitizeAgentHistory(await this.conversations.getHistory(storeId, sessionId))
-    const systemPrompt = await this.prompts.getSystemPrompt(storeId)
+    await this.conversations.append(storeId, sessionId, 'user', trimmed)
+    const systemPrompt = await this.prompts.getSystemPrompt(storeId, {
+      compact: channel === 'telegram',
+    })
     const fullSystem = context ? `${systemPrompt}\n\nCONTEXT:\n${context}` : systemPrompt
 
     const generator = this.loop.run({
@@ -106,6 +107,7 @@ export class AgentService {
       geminiKey: maskKey(row.geminiKey),
       claudeKey: maskKey(row.claudeKey),
       grokKey: maskKey(row.grokKey),
+      manusKey: maskKey(row.manusKey),
       claudeAuthMode: claudeMap.authMode === 'antigravity_proxy' ? 'antigravity_proxy' : 'api_key',
       claudeBaseUrl: String(claudeMap.baseUrl ?? ''),
       claudeAuthToken: claudeTokenSaved ? maskKey('token') : null,
@@ -126,18 +128,25 @@ export class AgentService {
     if (body.telegramChatId !== undefined) data.telegramChatId = body.telegramChatId ? String(body.telegramChatId) : null
     if (body.telegramAllowedIds !== undefined) data.telegramAllowedIds = body.telegramAllowedIds ? String(body.telegramAllowedIds) : null
 
-    const keyFields = ['openaiKey', 'geminiKey', 'claudeKey', 'grokKey', 'telegramBotToken'] as const
+    const keyFields = ['openaiKey', 'geminiKey', 'claudeKey', 'grokKey', 'manusKey', 'telegramBotToken'] as const
     const integrationKeyMap: Partial<Record<(typeof keyFields)[number], string>> = {
       openaiKey: 'openai',
       claudeKey: 'claude',
       geminiKey: 'gemini',
       grokKey: 'grok',
+      manusKey: 'manus',
     }
 
     for (const field of keyFields) {
       const raw = body[field]
       if (raw !== undefined && raw !== '' && !String(raw).includes('••••')) {
-        const plain = String(raw)
+        const plain = String(raw).trim()
+        if (field === 'openaiKey') {
+          await this.assertOpenAiKey(plain)
+        }
+        if (field === 'manusKey') {
+          await this.assertManusKey(plain)
+        }
         data[field] = this.crypto.encrypt(plain)
         const provider = integrationKeyMap[field]
         if (provider) {
@@ -153,6 +162,14 @@ export class AgentService {
               provider: 'openai',
               success: true,
               message: 'API key saved via AI Command Brain',
+            })
+          }
+          if (provider === 'manus') {
+            await this.integrations.recordTest({
+              storeId,
+              provider: 'manus',
+              success: true,
+              message: 'Manus API key saved via AI Command Brain',
             })
           }
         }
@@ -196,7 +213,7 @@ export class AgentService {
     const modelStatus = await this.router.getModelStatus(storeId)
     if (!modelStatus.activeModelReady) {
       throw new BadRequestException(
-        `Active model "${modelStatus.activeModel}" has no API key. Save a key for that model or pick another active model.`,
+        `Active model "${modelStatus.activeModel}" has no API key. Save the key for that model in AI Command Brain.`,
       )
     }
 
@@ -210,6 +227,50 @@ export class AgentService {
       throw new BadRequestException(`No API key configured for ${model}. Add it in AI Command Brain.`)
     }
     return this.updateConfig(storeIdRaw, { activeModel: model })
+  }
+
+  /** Reject dead keys at save-time — never show green "saved" for a 401 key. */
+  private async assertOpenAiKey(plain: string) {
+    let res: Response
+    try {
+      res = await fetch('https://api.openai.com/v1/models', {
+        headers: { Authorization: `Bearer ${plain}` },
+        signal: AbortSignal.timeout(12_000),
+      })
+    } catch (err) {
+      throw new BadRequestException(
+        `OpenAI key check failed (network): ${err instanceof Error ? err.message : 'error'}`,
+      )
+    }
+    if (res.status === 401) {
+      throw new BadRequestException(
+        'OpenAI rejected this key (401). Paste a fresh key from https://platform.openai.com/api-keys',
+      )
+    }
+    if (!res.ok) {
+      const body = (await res.text().catch(() => '')).slice(0, 180)
+      throw new BadRequestException(`OpenAI key check failed (${res.status}): ${body || res.statusText}`)
+    }
+  }
+
+  private async assertManusKey(plain: string) {
+    let res: Response
+    try {
+      res = await fetch('https://api.manus.ai/v2/task.list?limit=1', {
+        headers: { 'x-manus-api-key': plain },
+        signal: AbortSignal.timeout(12_000),
+      })
+    } catch (err) {
+      throw new BadRequestException(
+        `Manus key check failed (network): ${err instanceof Error ? err.message : 'error'}`,
+      )
+    }
+    if (!res.ok) {
+      const body = (await res.text().catch(() => '')).slice(0, 180)
+      throw new BadRequestException(
+        `Manus rejected this key (${res.status}). Get a new key in Manus → Settings → API keys. ${body}`,
+      )
+    }
   }
 
   private async resolveTelegram(storeId: string) {
@@ -252,6 +313,7 @@ export class AgentService {
       api: true,
       database,
       ...modelStatus,
+      manusConfigured: Boolean(modelStatus.models.manus?.configured),
       telegram: {
         configured: Boolean(telegram.token && telegram.chatId),
         isActive: telegram.isActive,
@@ -328,6 +390,7 @@ export class AgentService {
     storeIdRaw: string,
     chatId: string,
     text: string,
+    telegramUserId?: string,
   ): Promise<{ reply: string; confirmRequired: boolean }> {
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
 
@@ -335,9 +398,11 @@ export class AgentService {
       return { reply: 'Unauthorized — chat ID not in telegramAllowedIds', confirmRequired: false }
     }
 
+    // Auth by Telegram *user* id (DM chatId === userId; groups must use telegramUserId).
+    const lookupId = String(telegramUserId || chatId)
     const telegramUser = await this.prisma.telegramUser.findFirst({
       where: {
-        telegramId: String(chatId),
+        telegramId: lookupId,
         isActive: true,
         config: { storeId, isActive: true },
       },

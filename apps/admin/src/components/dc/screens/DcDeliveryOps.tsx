@@ -62,6 +62,12 @@ function DcDeliveryOpsBody() {
         title="Delivery ops"
         queries={[delivery]}
         empty={rows.length === 0}
+        emptyState={{
+          icon: 'icon-truck',
+          title: 'No delivery agents yet',
+          body:
+            "Delivery agents are the riders you assign parcels to, and their earnings roll up here. Register an agent to start assigning deliveries.",
+        }}
         actions={[
           {
             label: 'Add agent',
