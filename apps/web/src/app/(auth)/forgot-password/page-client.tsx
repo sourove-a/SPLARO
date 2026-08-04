@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from 'react'
 import Link from 'next/link'
-import { Mail } from 'lucide-react'
+import { Check, Mail } from 'lucide-react'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from '@/lib/motion/react'
 import { AuthField } from '@/components/auth/AuthField'
 import { AuthSubmitButton } from '@/components/auth/AuthSubmitButton'
@@ -23,6 +23,7 @@ export default function ForgotPasswordPageClient() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const sent = Boolean(message)
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -54,13 +55,15 @@ export default function ForgotPasswordPageClient() {
 
   return (
     <LayoutGroup id="auth-forgot">
-      <div className="auth-card">
+      <div className="auth-card auth-card--recover">
         <motion.div layout className="auth-card__heading" aria-live="polite">
-          <motion.div {...fadeSlide} transition={motionTransition}>
+          <motion.div {...fadeSlide} transition={motionTransition} className="auth-recover__intro">
+            <span className="auth-recover__seal" aria-hidden>
+              <Mail className="auth-recover__seal-icon" strokeWidth={1.55} />
+            </span>
             <h1 className="auth-card__title">Forgot your password?</h1>
             <p className="auth-card__subtitle">
-              Enter the email linked to your SPLARO account. We&apos;ll send a reset link — tap it,
-              then choose a new password. No code to type.
+              Enter your email and we&apos;ll send a reset link.
             </p>
           </motion.div>
         </motion.div>
@@ -69,7 +72,7 @@ export default function ForgotPasswordPageClient() {
           <motion.form
             layout
             onSubmit={handleSubmit}
-            className="auth-form"
+            className="auth-form auth-recover__form"
             {...formMotion}
             transition={formTransition}
           >
@@ -104,21 +107,25 @@ export default function ForgotPasswordPageClient() {
 
             <AnimatePresence mode="wait">
               {message ? (
-                <motion.p
+                <motion.div
                   key="success"
-                  className="auth-form__success"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: reduceMotion ? 0 : 0.18 }}
+                  className="auth-recover__sent"
+                  role="status"
+                  initial={{ opacity: 0, y: reduceMotion ? 0 : 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: reduceMotion ? 0 : -4 }}
+                  transition={{ duration: reduceMotion ? 0 : 0.22 }}
                 >
-                  {message}
-                </motion.p>
+                  <span className="auth-recover__sent-icon" aria-hidden>
+                    <Check className="h-4 w-4" strokeWidth={2.4} />
+                  </span>
+                  <p className="auth-recover__sent-text">{message}</p>
+                </motion.div>
               ) : null}
             </AnimatePresence>
 
             <AuthSubmitButton loading={loading} loadingLabel="Sending...">
-              Send reset link
+              {sent ? 'Resend link' : 'Send reset link'}
             </AuthSubmitButton>
           </motion.form>
         </div>
