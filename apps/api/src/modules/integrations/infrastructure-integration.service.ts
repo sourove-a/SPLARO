@@ -150,6 +150,31 @@ export class InfrastructureIntegrationService {
     return out
   }
 
+  /**
+   * Per-field provenance. The form prefills from the environment when nothing is
+   * saved, which made env stubs look like credentials the operator had entered —
+   * and saving then wrote those stubs into the database. The UI needs to be able
+   * to say "this came from .env, it is not saved" per field.
+   */
+  private async fieldSources(
+    storeId: string,
+    provider: InfraProvider,
+  ): Promise<Record<string, 'database' | 'env' | 'none'>> {
+    const fallback = this.envFallback(provider)
+    const out: Record<string, 'database' | 'env' | 'none'> = {}
+
+    for (const key of Object.keys(fallback)) {
+      const fromDb = await this.integrations.getPlain(storeId, provider, key)
+      if (fromDb && !this.isPlaceholder(fromDb)) {
+        out[key] = 'database'
+        continue
+      }
+      out[key] = this.isPlaceholder(fallback[key]) ? 'none' : 'env'
+    }
+
+    return out
+  }
+
   async getConfig(storeIdRaw: string, provider: InfraProvider) {
     const storeId = await this.integrations.resolveStore(storeIdRaw)
     const adminManaged = await this.integrations.hasProviderSettings(storeId, provider)
@@ -160,6 +185,7 @@ export class InfrastructureIntegrationService {
     const configured = this.isConfigured(provider, runtime)
     const source = adminManaged ? 'database' : configured ? 'env' : 'none'
     const fields = this.fieldsForAdminUi(provider, runtime)
+    const fieldSources = await this.fieldSources(storeId, provider)
     const meta = await this.integrations.getProviderMeta(storeId, provider)
 
     const webhookBearer =
@@ -173,6 +199,7 @@ export class InfrastructureIntegrationService {
       source,
       adminManaged,
       fields,
+      fieldSources,
       lastTestedAt: meta.lastTestedAt,
       lastTestStatus: meta.lastTestStatus,
       ...(provider === 'steadfast'
@@ -204,6 +231,12 @@ export class InfrastructureIntegrationService {
     return token
   }
 
+  /**
+   * Reports what it actually persisted. Previously every ignored field was
+   * skipped in silence, so a save that stored nothing still looked successful
+   * and the form then re-rendered the old value — the "save hoy, kintu onno ta
+   * dekhay" behaviour. Callers can now show exactly what landed and what did not.
+   */
   async update(
     storeIdRaw: string,
     provider: InfraProvider,
@@ -211,19 +244,44 @@ export class InfrastructureIntegrationService {
     userId?: string,
   ) {
     const storeId = await this.integrations.resolveStore(storeIdRaw)
+    const saved: string[] = []
+    const cleared: string[] = []
+    const skipped: { key: string; reason: string }[] = []
 
     for (const [key, raw] of Object.entries(body)) {
       if (raw === undefined) continue
       const value = String(raw).trim()
-      if (!value || this.crypto.isMaskedInput(value) || this.isPlaceholder(value)) continue
-      if (SECRET_KEYS.has(key)) {
-        await this.integrations.upsertSecret({ storeId, provider, key, plain: value, userId })
-      } else {
-        await this.integrations.upsertPlain({ storeId, provider, key, value, userId })
+
+      // An explicitly empty field means "remove this credential". It used to be
+      // indistinguishable from "not submitted", so clearing a key was impossible.
+      if (!value) {
+        const removed = await this.integrations.deleteSetting(storeId, provider, key)
+        if (removed) cleared.push(key)
+        continue
       }
+
+      if (this.crypto.isMaskedInput(value)) {
+        skipped.push({ key, reason: 'unchanged (masked value resubmitted)' })
+        continue
+      }
+      if (this.isPlaceholder(value)) {
+        skipped.push({ key, reason: `looks like a placeholder, not a real credential: "${value}"` })
+        continue
+      }
+
+      const normalized =
+        provider === 'steadfast' && key === 'baseUrl' ? normalizeSteadfastBaseUrl(value) : value
+
+      if (SECRET_KEYS.has(key)) {
+        await this.integrations.upsertSecret({ storeId, provider, key, plain: normalized, userId })
+      } else {
+        await this.integrations.upsertPlain({ storeId, provider, key, value: normalized, userId })
+      }
+      saved.push(key)
     }
 
-    return this.getConfig(storeIdRaw, provider)
+    const config = await this.getConfig(storeIdRaw, provider)
+    return { ...config, saved, cleared, skipped }
   }
 
   async test(storeIdRaw: string, provider: InfraProvider, userId?: string) {

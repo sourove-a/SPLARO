@@ -32,12 +32,15 @@ function Field({
   onChange,
   secret,
   placeholder,
+  source,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   secret?: boolean
   placeholder?: string
+  /** Where the prefilled value came from — 'env' is NOT saved. */
+  source?: 'database' | 'env' | 'none' | undefined
 }) {
   return (
     <label className="block">
@@ -52,6 +55,11 @@ function Field({
         autoComplete="off"
         placeholder={placeholder}
       />
+      {source === 'env' ? (
+        <span className="mt-1 block text-[10.5px] font-semibold text-[var(--warn)]">
+          Prefilled from the API .env — not saved in the database. Save to store it here.
+        </span>
+      ) : null}
     </label>
   )
 }
@@ -165,13 +173,37 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
         pathao: 'Pathao courier',
         redx: 'RedX courier',
       }
-      if (hasNewSecrets && result.data?.configured) {
-        toastApiSaved(labels[provider] ?? provider)
-      } else if (result.data?.configured) {
+      // The API now reports what it actually persisted. A save that stored
+      // nothing used to still show a green toast, which is why settings looked
+      // saved while the old values came straight back.
+      const saveResult = result.data as typeof result.data & {
+        saved?: string[]
+        cleared?: string[]
+        skipped?: { key: string; reason: string }[]
+      }
+      const savedCount = saveResult?.saved?.length ?? 0
+      const clearedCount = saveResult?.cleared?.length ?? 0
+      const skipped = saveResult?.skipped ?? []
+
+      if (skipped.length && savedCount === 0 && clearedCount === 0) {
+        toastFail(
+          `Nothing was saved — ${skipped.map((s) => `${s.key}: ${s.reason}`).join('; ')}`,
+          `infra-${provider}`,
+        )
+        return
+      }
+      if (skipped.length) {
+        toastWarn(
+          `Saved ${savedCount} field(s), ignored ${skipped.length}: ${skipped
+            .map((s) => `${s.key} (${s.reason})`)
+            .join('; ')}`,
+          `infra-${provider}`,
+        )
+      } else if (savedCount || clearedCount) {
         toastApiSaved(labels[provider] ?? provider)
       } else {
         toastInfo(
-          `Saved non-secret fields. Paste API Key + Secret Key to finish ${labels[provider] ?? provider} setup.`,
+          `No changes to save. Paste API Key + Secret Key to finish ${labels[provider] ?? provider} setup.`,
         )
       }
     } catch (e) {
@@ -256,6 +288,7 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
             label="API Key"
             value={sfDraft.apiKey ?? ''}
             onChange={(v) => setSfDraft((p) => ({ ...p, apiKey: v }))}
+            source={steadfast.data?.fieldSources?.apiKey}
             secret
             placeholder="Paste Steadfast API key"
           />
@@ -263,6 +296,7 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
             label="Secret Key"
             value={sfDraft.secretKey ?? ''}
             onChange={(v) => setSfDraft((p) => ({ ...p, secretKey: v }))}
+            source={steadfast.data?.fieldSources?.secretKey}
             secret
             placeholder="Paste Steadfast secret key"
           />
@@ -270,6 +304,7 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
             label="Base URL"
             value={sfDraft.baseUrl ?? 'https://portal.packzy.com/api/v1'}
             onChange={(v) => setSfDraft((p) => ({ ...p, baseUrl: v }))}
+            source={steadfast.data?.fieldSources?.baseUrl}
           />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">

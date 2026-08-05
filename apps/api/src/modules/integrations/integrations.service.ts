@@ -130,6 +130,14 @@ export class IntegrationsService {
   }
 
   /** True once any key for this provider was saved via admin (encrypted DB). */
+  /** Remove one saved key so an operator can genuinely clear a credential. */
+  async deleteSetting(storeId: string, provider: string, key: string): Promise<boolean> {
+    const { count } = await this.prisma.integrationSetting.deleteMany({
+      where: { storeId, provider, key },
+    })
+    return count > 0
+  }
+
   async hasProviderSettings(storeId: string, provider: string): Promise<boolean> {
     const count = await this.prisma.integrationSetting.count({
       where: { storeId, provider },

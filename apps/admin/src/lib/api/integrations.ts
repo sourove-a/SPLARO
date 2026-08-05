@@ -195,6 +195,8 @@ export interface InfrastructureConfig {
   source: string
   adminManaged?: boolean
   fields: Record<string, string>
+  /** Per-field provenance — 'env' means prefilled from .env, NOT saved. */
+  fieldSources?: Record<string, 'database' | 'env' | 'none'>
   lastTestedAt?: string | null
   lastTestStatus?: string | null
   /** Steadfast only — paste into portal Callback Url */
@@ -209,8 +211,15 @@ export function fetchInfrastructureConfig(provider: InfraProvider) {
   return apiFetch<InfrastructureConfig>(`/admin/integrations/infrastructure/${provider}`)
 }
 
+/** What the save actually persisted — a save can legitimately store nothing. */
+export interface InfrastructureSaveResult extends InfrastructureConfig {
+  saved?: string[]
+  cleared?: string[]
+  skipped?: { key: string; reason: string }[]
+}
+
 export function updateInfrastructureConfig(provider: InfraProvider, body: Record<string, string>) {
-  return apiFetch<InfrastructureConfig>(`/admin/integrations/infrastructure/${provider}`, {
+  return apiFetch<InfrastructureSaveResult>(`/admin/integrations/infrastructure/${provider}`, {
     method: 'PUT',
     body: JSON.stringify(body),
   })
