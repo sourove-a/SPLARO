@@ -30,6 +30,7 @@ import {
 } from '@/lib/checkout/customer-draft'
 import { BD_DISTRICTS } from '@/lib/checkout/bd-districts'
 import { getThanasForDistrict } from '@/lib/checkout/bd-thanas'
+import { composeDeliveryAddress, parseAutofilledAddress } from '@/lib/checkout/address'
 import {
   checkoutFormSchema,
   type CheckoutFormValues,
@@ -78,12 +79,6 @@ import {
   OrderDispatchCeremony,
   markDispatchPending,
 } from '@/components/order/OrderDispatchCeremony'
-
-function buildDeliveryAddress(address: string, thana: string, city: string): string {
-  const street = address.trim()
-  const parts = [street, thana.trim(), city.trim()].filter(Boolean)
-  return parts.join(', ')
-}
 
 function withPendingPayment(path: string): string {
   return `${path}${path.includes('?') ? '&' : '?'}payment=pending`
@@ -183,6 +178,7 @@ export default function CheckoutPageClient() {
     handleSubmit,
     watch,
     setValue,
+    getValues,
     reset,
     trigger,
     formState: { errors },
@@ -238,9 +234,42 @@ export default function CheckoutPageClient() {
   )
 
   const thanaOptions = useMemo(() => getThanasForDistrict(city), [city])
+  const [pendingThana, setPendingThana] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!pendingThana) return
+    if (!thanaOptions.includes(pendingThana)) return
+    setValue('thana', pendingThana, { shouldValidate: true, shouldDirty: true })
+    setPendingThana(null)
+  }, [pendingThana, thanaOptions, setValue])
 
   const clearSubmitError = () => {
     if (submitError) setSubmitError('')
+  }
+
+  /**
+   * Browser autofill puts the entire postal address into the street box. Lift the
+   * district and thana out into their own selects and leave the street clean, so
+   * the composed delivery address does not repeat the locality.
+   */
+  const absorbAutofilledAddress = () => {
+    const raw = getValues('address')
+    if (!raw?.includes(',')) return
+
+    const parsed = parseAutofilledAddress(raw)
+    if (!parsed.district && !parsed.thana) return
+
+    if (parsed.district && !getValues('city')) {
+      setValue('city', parsed.district, { shouldValidate: true, shouldDirty: true })
+    }
+    // The thana <option> list only exists once the district has rendered, so a
+    // same-tick setValue would be dropped. Queue it for the effect below.
+    if (parsed.thana && !getValues('thana')) {
+      setPendingThana(parsed.thana)
+    }
+    if (parsed.street && parsed.street !== raw.trim()) {
+      setValue('address', parsed.street, { shouldValidate: true, shouldDirty: true })
+    }
   }
 
   useEffect(() => {
@@ -504,7 +533,7 @@ export default function CheckoutPageClient() {
     }
 
     const normalizedPhone = normalizeBdPhone(form.phone)
-    const deliveryAddress = buildDeliveryAddress(form.address, form.thana, form.city)
+    const deliveryAddress = composeDeliveryAddress(form.address, form.thana, form.city)
 
     setSubmitting(true)
     setSubmitError('')
@@ -960,11 +989,14 @@ export default function CheckoutPageClient() {
                 >
                   <textarea
                     id="checkout-address"
-                    {...register('address', { onChange: clearSubmitError })}
+                    {...register('address', {
+                      onChange: clearSubmitError,
+                      onBlur: absorbAutofilledAddress,
+                    })}
                     data-checkout-field="address"
                     data-invalid={errors.address ? 'true' : undefined}
                     className={`checkout-input checkout-input--area ${errors.address ? 'checkout-input--invalid' : ''}`}
-                    placeholder="House, road, area"
+                    placeholder="House 42, Road 6"
                     autoComplete="street-address"
                     aria-invalid={Boolean(errors.address)}
                     aria-describedby={errors.address ? 'checkout-address-error' : undefined}
