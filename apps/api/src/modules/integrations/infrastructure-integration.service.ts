@@ -7,6 +7,23 @@ import { EncryptionService } from './encryption.service'
 
 export type InfraProvider = 'cloudflare_r2' | 'steadfast' | 'pathao' | 'redx'
 
+/**
+ * Steadfast's API is served from packzy.com, not steadfast.com.bd — the latter
+ * has no `portal` host at all, so requests failed with `getaddrinfo ENOTFOUND
+ * portal.steadfast.com.bd` before any credential was ever sent. The path is
+ * `/api/v1`; `/public/api/v1` 404s.
+ */
+export const STEADFAST_BASE_URL = 'https://portal.packzy.com/api/v1'
+
+/** Self-heal base URLs already saved to the DB or .env with the dead host/path. */
+export function normalizeSteadfastBaseUrl(value: string | undefined | null): string {
+  const raw = (value ?? '').trim().replace(/\/+$/, '')
+  if (!raw) return STEADFAST_BASE_URL
+  if (/portal\.steadfast\.com\.bd/i.test(raw)) return STEADFAST_BASE_URL
+  if (/packzy\.com\/public\/api\/v1$/i.test(raw)) return STEADFAST_BASE_URL
+  return raw
+}
+
 const SECRET_KEYS = new Set([
   'accessKey',
   'secretKey',
@@ -68,9 +85,7 @@ export class InfrastructureIntegrationService {
     return {
       apiKey: this.config.get<string>('STEADFAST_API_KEY') ?? '',
       secretKey: this.config.get<string>('STEADFAST_SECRET_KEY') ?? '',
-      baseUrl:
-        this.config.get<string>('STEADFAST_BASE_URL') ??
-        'https://portal.steadfast.com.bd/public/api/v1',
+      baseUrl: normalizeSteadfastBaseUrl(this.config.get<string>('STEADFAST_BASE_URL')),
       webhookBearerToken: this.config.get<string>('STEADFAST_WEBHOOK_BEARER_TOKEN') ?? '',
     }
   }
@@ -123,10 +138,9 @@ export class InfrastructureIntegrationService {
         continue
       }
       if (key === 'baseUrl') {
-        out[key] =
-          (raw.trim() && !this.isPlaceholder(raw) ? raw.trim() : '') ||
-          fallback.baseUrl ||
-          'https://portal.steadfast.com.bd/public/api/v1'
+        out[key] = normalizeSteadfastBaseUrl(
+          (raw.trim() && !this.isPlaceholder(raw) ? raw.trim() : '') || fallback.baseUrl,
+        )
         continue
       }
       out[key] = this.isPlaceholder(raw) ? '' : raw
@@ -340,10 +354,7 @@ export class InfrastructureIntegrationService {
     return {
       apiKey: await pick('apiKey'),
       secretKey: await pick('secretKey'),
-      baseUrl:
-        (await pick('baseUrl')) ||
-        fallback.baseUrl ||
-        'https://portal.steadfast.com.bd/public/api/v1',
+      baseUrl: normalizeSteadfastBaseUrl((await pick('baseUrl')) || fallback.baseUrl),
       // Webhook Bearer: DB first; env STEADFAST_WEBHOOK_BEARER_TOKEN still OK when admin has API keys only
       webhookBearerToken:
         (await pick('webhookBearerToken')) || (fallback.webhookBearerToken ?? ''),

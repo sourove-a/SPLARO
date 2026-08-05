@@ -268,7 +268,7 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
           />
           <Field
             label="Base URL"
-            value={sfDraft.baseUrl ?? 'https://portal.steadfast.com.bd/public/api/v1'}
+            value={sfDraft.baseUrl ?? 'https://portal.packzy.com/api/v1'}
             onChange={(v) => setSfDraft((p) => ({ ...p, baseUrl: v }))}
           />
         </div>
