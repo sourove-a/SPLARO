@@ -485,6 +485,16 @@ function AdminUsersTable({
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder="Search users…"
+            type="search"
+            name="dc-users-filter"
+            className="dc-nav-filter"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-1p-ignore
+            data-lpignore="true"
+            data-form-type="other"
             style={{
               width: '100%',
               border: 0,

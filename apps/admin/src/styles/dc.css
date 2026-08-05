@@ -123,6 +123,14 @@
   outline-offset: 2px;
 }
 
+/* type="search" keeps the password manager away, but WebKit then draws its own
+   clear button next to our custom one. */
+.dc-nav-filter::-webkit-search-cancel-button,
+.dc-nav-filter::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 .dc-root ::selection {
   background: rgba(113, 46, 255, 0.24);
 }

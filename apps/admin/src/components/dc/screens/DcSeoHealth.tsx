@@ -355,6 +355,16 @@ function IssueTable({
             value={query}
             onChange={(event) => onQuery(event.target.value)}
             placeholder="Search page or issue…"
+            type="search"
+            name="dc-seo-filter"
+            className="dc-nav-filter"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-1p-ignore
+            data-lpignore="true"
+            data-form-type="other"
             style={{
               width: '100%',
               border: 0,

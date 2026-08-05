@@ -234,6 +234,19 @@ export function DcSidebar({
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Filter menu…"
                 aria-label="Filter menu"
+                // Without these the browser's password manager treats this as a
+                // login field and drops the saved admin email into it on focus,
+                // so opening the menu looked like a search nobody typed.
+                type="search"
+                name="dc-nav-filter"
+                className="dc-nav-filter"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                data-1p-ignore
+                data-lpignore="true"
+                data-form-type="other"
                 style={{
                   flex: 1,
                   minWidth: 0,

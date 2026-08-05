@@ -121,6 +121,18 @@ export function DcCommandPalette({ open, onClose, items }: DcCommandPaletteProps
             // promise order/product/customer search it can't do.
             placeholder="Search screens and actions…"
             aria-label="Search admin"
+            // Same autofill guard as the sidebar filter — the password manager
+            // otherwise injects the saved admin email the moment this focuses.
+            type="search"
+            name="dc-command-query"
+            className="dc-nav-filter"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-1p-ignore
+            data-lpignore="true"
+            data-form-type="other"
             style={{
               flex: 1,
               border: 0,
