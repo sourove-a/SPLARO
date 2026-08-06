@@ -244,11 +244,82 @@ export class GoogleSheetsSyncService {
     }
   }
 
+  /**
+   * Sheets rejects an append to a tab that does not exist with
+   * `Unable to parse range: 'X'!A:Z` — a 400 that killed the whole sync run.
+   * Tabs are only created when the spreadsheet is first provisioned, so any
+   * spreadsheet made before a tab was added, or one where someone renamed or
+   * deleted a tab, failed forever. Create it on demand instead.
+   */
+  private async ensureTabExists(storeId: string, spreadsheetId: string, tab: string): Promise<void> {
+    const sheets = await this.client.sheets(storeId)
+    const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties' })
+    const existing = new Set(
+      (meta.data.sheets ?? []).map((s) => s.properties?.title).filter(Boolean) as string[],
+    )
+    if (existing.has(tab)) return
+
+    this.logger.warn(`Sheet tab "${tab}" missing on ${spreadsheetId} — creating it`)
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [{ addSheet: { properties: { title: tab, gridProperties: { frozenRowCount: 1 } } } }],
+      },
+    })
+
+    const headers = (SHEET_HEADERS as Record<string, string[] | undefined>)[tab]
+    if (headers?.length) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `'${tab}'!A1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [headers] },
+      })
+    }
+  }
+
+  /**
+   * Layout detection drives which tab names the sync writes to. It used to rely
+   * solely on a googleSheetConfig row, so a hub spreadsheet whose config rows
+   * were never backfilled fell through to the legacy path and tried to append to
+   * a 'Products' tab that does not exist there — the
+   * `Unable to parse range: 'Products'!A:Z` failure. Fall back to asking the
+   * spreadsheet itself what tabs it actually has.
+   */
   private async isBusinessHub(storeId: string) {
     const cfg = await this.prisma.googleSheetConfig.findFirst({
       where: { storeId, sheetTab: 'Products & Stock' },
     })
-    return Boolean(cfg)
+    if (cfg) return true
+
+    const spreadsheetId = await this.getSpreadsheetId(storeId)
+    if (!spreadsheetId) return false
+
+    try {
+      const sheets = await this.client.sheets(storeId)
+      const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties' })
+      const titles = new Set(
+        (meta.data.sheets ?? []).map((sheet) => sheet.properties?.title).filter(Boolean) as string[],
+      )
+      if (!titles.has('Products & Stock')) return false
+
+      // Detected a hub layout with no config rows — backfill so later syncs skip
+      // this lookup entirely.
+      this.logger.warn(`Store ${storeId} has a business hub sheet with no config rows — backfilling`)
+      for (const tab of BUSINESS_SHEET_TABS) {
+        await this.prisma.googleSheetConfig.upsert({
+          where: { storeId_sheetTab: { storeId, sheetTab: tab } },
+          create: { storeId, sheetTab: tab, spreadsheetId, enabled: true },
+          update: { spreadsheetId, enabled: true },
+        })
+      }
+      return true
+    } catch (err) {
+      this.logger.warn(
+        `Could not inspect spreadsheet layout for ${storeId}: ${err instanceof Error ? err.message : 'error'}`,
+      )
+      return false
+    }
   }
 
   private async populateBusinessSpreadsheet(
@@ -1041,6 +1112,8 @@ export class GoogleSheetsSyncService {
     const spreadsheetId = await this.getSpreadsheetId(storeId)
     if (!spreadsheetId) throw new Error('No spreadsheet configured. Create default spreadsheet first.')
 
+    await this.ensureTabExists(storeId, spreadsheetId, tab)
+
     const sheets = await this.client.sheets(storeId)
     const res = await sheets.spreadsheets.values.append({
       spreadsheetId,
@@ -1247,6 +1320,8 @@ export class GoogleSheetsSyncService {
   ) {
     const spreadsheetId = await this.getSpreadsheetId(storeId)
     if (!spreadsheetId) throw new Error('No spreadsheet configured. Create business hub spreadsheet first.')
+
+    await this.ensureTabExists(storeId, spreadsheetId, tab)
 
     const sheets = await this.client.sheets(storeId)
     const res = await sheets.spreadsheets.values.append({
