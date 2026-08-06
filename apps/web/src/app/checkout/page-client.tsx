@@ -532,6 +532,14 @@ export default function CheckoutPageClient() {
       return
     }
 
+    // A code typed but never applied was silently dropped: the order went
+    // through at full price and the coupon's redemption count never moved, so
+    // both the customer and the admin saw "no coupon used".
+    if (couponCode.trim() && !couponApplied) {
+      setSubmitError('Press Apply to use your promo code, or clear the field to order without it.')
+      return
+    }
+
     const normalizedPhone = normalizeBdPhone(form.phone)
     const deliveryAddress = composeDeliveryAddress(form.address, form.thana, form.city)
 

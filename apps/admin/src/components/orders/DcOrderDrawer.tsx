@@ -7,6 +7,7 @@ import { DcIcon } from '@/components/dc/DcIcon'
 import { DcModal } from '@/components/dc/DcModal'
 import { useDcScreen } from '@/components/dc/DcScreenContext'
 import { FONT, MONO, formatTaka, statusToneStyle } from '@/components/dc/tokens'
+import { downloadInvoice } from '@/lib/admin/admin-actions'
 import { formatBdPhone, operatorOf, telHref } from '@/lib/format/bd-phone'
 import { verifyDeleteSuccess } from '@/lib/admin/mutation-verify'
 import { useDeleteOrder, useOrder, usePermission, useUpdateOrderStatus } from '@/lib/api/hooks'
@@ -609,7 +610,7 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
             icon="icon-printer"
             label="Invoice"
             disabled={!d}
-            onClick={() => d && window.open(`/api/admin/invoice/${d.id}`, '_blank', 'noopener')}
+            onClick={() => void (d && downloadInvoice(d.invoiceNumber?.trim() || d.id))}
           />
           <FooterBtn
             icon="icon-send"
