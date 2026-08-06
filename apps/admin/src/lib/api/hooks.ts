@@ -119,6 +119,11 @@ export function useDashboardStats(periodLabel: string) {
     queryKey: ['dashboard-stats', period],
     queryFn: () => fetchDashboardStats(period),
     staleTime: 60_000,
+    // Ops screens are watched live — without a poll an open tab shows the
+    // numbers from whenever it was last focused. Background tabs stay idle so
+    // this does not multiply API load across every tab someone left open.
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   })
 }
 
@@ -128,6 +133,8 @@ export function useDashboardInsights(periodLabel: string) {
     queryKey: ['dashboard-insights', period],
     queryFn: () => fetchDashboardInsights(period),
     staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   })
 }
 
@@ -141,6 +148,9 @@ export function useOrders(params?: { status?: string; search?: string; limit?: n
         limit: params?.limit ?? 50,
       }),
     staleTime: 30_000,
+    // A new storefront order must surface without the operator refreshing.
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   })
 }
 
@@ -150,6 +160,9 @@ export function useOrder(id: string) {
     queryFn: () => fetchOrder(id),
     enabled: Boolean(id),
     staleTime: 15_000,
+    // Courier status and payment state move while this screen is open.
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   })
 }
 
