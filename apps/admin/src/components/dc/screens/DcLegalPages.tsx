@@ -7,7 +7,7 @@ import { DcContentNav } from '@/components/dc/DcContentNav'
 import { DcIcon } from '@/components/dc/DcIcon'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider, useDcScreen } from '@/components/dc/DcScreenContext'
-import { DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
+import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import { DcField } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
@@ -200,6 +200,12 @@ function DcLegalPagesBody() {
           error="GET /admin/content/legal-pages → 200 with an empty list"
           hint="The API returned no pages at all, which should not happen — the catalog is seeded from LEGAL_PAGE_CATALOG."
           onRetry={() => void pages.refetch()}
+        />
+      ) : rows.length === 0 ? (
+        <DcEmptyState
+          icon="icon-file-text"
+          title="No legal pages published"
+          body="Return policy, terms and privacy pages render on the storefront footer and are required by most payment gateways. Add the first one here."
         />
       ) : (
         <>

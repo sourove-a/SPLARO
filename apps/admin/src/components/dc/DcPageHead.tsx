@@ -3,6 +3,15 @@
 import { DcIcon } from './DcIcon'
 import { FONT, toneStyle, type DcTone } from './tokens'
 
+/**
+ * Dev-only preview toggle for a screen's four states.
+ *
+ * This is deliberately opt-in, not universal: production states are driven by
+ * the query (loading / error / empty), and wiring a manual override into all 58
+ * screens would put test-only branches inside shipping components. A screen that
+ * wants the preview passes `state` + `onStateChange` and honours the value
+ * itself — see DcAllIntegrations. It renders only when NODE_ENV is development.
+ */
 export type DcModuleState = 'live' | 'loading' | 'empty' | 'error'
 
 export const MODULE_STATES: Array<{ id: DcModuleState; icon: string; title: string }> = [

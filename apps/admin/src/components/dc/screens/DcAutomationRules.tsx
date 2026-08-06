@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 
-import { DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
+import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { DcIcon } from '@/components/dc/DcIcon'
 import { DcModal } from '@/components/dc/DcModal'
@@ -268,6 +268,12 @@ function DcAutomationRulesBody() {
           error={`GET /automation/rules → ${rules.error instanceof Error ? rules.error.message : 'Request failed'}`}
           hint="No rule state changed. Restore API connection, then retry."
           onRetry={refresh}
+        />
+      ) : rows.length === 0 ? (
+        <DcEmptyState
+          icon="icon-workflow"
+          title="No automation rules yet"
+          body="Rules fire on order, stock and payment events — send an SMS on delivery, flag a COD risk, notify Telegram. Create your first rule to start automating."
         />
       ) : (
         <>

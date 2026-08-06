@@ -131,6 +131,16 @@ function DcGoogleWorkspaceExtrasBody({ initial }: { initial: GoogleExtrasTab }) 
         crumbGroup="Google Workspace"
         title="Google Workspace"
         queries={[status, ...(tab === 'gmail' ? [gmail] : []), ...(tab === 'logs' ? [logs] : [])]}
+        // Every tab except Connect is meaningless until OAuth is linked — show
+        // the reason and the way out instead of empty tables.
+        empty={!connected && tab !== 'connect'}
+        emptyState={{
+          icon: 'icon-cloud',
+          title: 'Google Workspace is not connected',
+          body: 'Drive, Gmail and sync logs stay empty until the Workspace OAuth account is linked. Connect it once and this tab fills in.',
+          cta: 'Go to Connect',
+          onCta: () => setTab('connect'),
+        }}
         {...(tab === 'connect'
           ? {
               actions: [

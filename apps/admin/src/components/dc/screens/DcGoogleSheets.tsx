@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react'
 import { DcIcon } from '@/components/dc/DcIcon'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider, useDcScreen } from '@/components/dc/DcScreenContext'
-import { DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
+import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import { DcField, DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
@@ -294,6 +294,12 @@ function DcGoogleSheetsBody() {
           error={`GET /google-sheets/dashboard → ${dash.error instanceof Error ? dash.error.message : '500 Internal Server Error'}`}
           hint="Nothing was pushed or lost — the spreadsheet still holds whatever the last successful sync wrote."
           onRetry={() => void dash.refetch()}
+        />
+      ) : jobs.length === 0 ? (
+        <DcEmptyState
+          icon="icon-table"
+          title="No sync runs recorded yet"
+          body="Orders, Hisab, Partners and Stock tabs are written to Sheets on a 15-minute cron. Nothing has synced yet — check the connection below, or wait for the next run."
         />
       ) : (
         <>

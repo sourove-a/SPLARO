@@ -8,7 +8,7 @@ import { DcModal } from '@/components/dc/DcModal'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
-import { DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
+import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { toastFail } from '@/lib/admin/feedback'
@@ -253,6 +253,12 @@ function DcAdminUsersBody() {
           error={`GET /admin/security → ${security.error instanceof Error ? security.error.message : '500 Internal Server Error'}`}
           hint="Existing admin access is unchanged. This screen did not load staff data."
           onRetry={refresh}
+        />
+      ) : rows.length === 0 ? (
+        <DcEmptyState
+          icon="icon-users"
+          title="No admin users returned"
+          body="GET /admin/security answered with an empty staff list. You are signed in, so at least one account must exist — this usually means the request resolved a different store. Retry, and check the store scope if it persists."
         />
       ) : (
         <>
