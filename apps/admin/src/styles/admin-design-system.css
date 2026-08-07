@@ -430,14 +430,14 @@ html:not(.dark) .admin-module-card {
 }
 
 .admin-btn--secondary {
-  background: rgba(255, 255, 255, 0.72);
-  border-color: rgba(16, 17, 20, 0.12);
-  color: var(--admin-text-strong);
+  background: var(--admin-foundation-surface-2);
+  border-color: var(--admin-foundation-border-strong);
+  color: var(--admin-foundation-ink);
 }
 
 .admin-btn--secondary:hover:not(:disabled) {
-  background: var(--admin-color-white);
-  border-color: rgba(16, 17, 20, 0.2);
+  background: var(--admin-foundation-surface-3);
+  border-color: var(--admin-foundation-border-strong);
 }
 
 .admin-btn--loading {

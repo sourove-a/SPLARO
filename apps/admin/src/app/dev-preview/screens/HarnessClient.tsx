@@ -8,6 +8,7 @@ import { DcCustomers } from '@/components/customers/DcCustomers'
 import { DcDashboard } from '@/components/dashboard/DcDashboard'
 import { DcProducts } from '@/components/products/DcProducts'
 import { DcNotificationsPopover } from '@/components/dc/DcNotificationsPopover'
+import { DcAiCommandBrain } from '@/components/dc/screens/DcAiCommandBrain'
 import { DcAnalytics } from '@/components/dc/screens/DcAnalytics'
 import { DcBulkCsv } from '@/components/dc/screens/DcBulkCsv'
 import { DcCampaigns } from '@/components/dc/screens/DcCampaigns'
@@ -44,6 +45,7 @@ const SCREENS: Record<string, { label: string; render: () => React.ReactElement 
   sheets: { label: 'Google Sheets', render: () => <DcGoogleSheets /> },
   bulk: { label: 'Bulk & CSV', render: () => <DcBulkCsv /> },
   analytics: { label: 'Analytics', render: () => <DcAnalytics /> },
+  'ai-agent': { label: 'AI Command Brain', render: () => <DcAiCommandBrain /> },
 }
 
 export const HARNESS_SCREENS = Object.keys(SCREENS)

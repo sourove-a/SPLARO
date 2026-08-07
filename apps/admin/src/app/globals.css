@@ -1177,19 +1177,16 @@ body.admin-dashboard-active {
   gap: 0.4rem;
   min-height: 2.75rem;
   border-radius: 14px;
-  border: 1px solid rgba(16, 17, 20, 0.14);
-  background: linear-gradient(180deg, var(--admin-color-white) 0%, var(--admin-color-white) 100%);
-  backdrop-filter: blur(16px) saturate(1.08);
+  /* Foundation tokens — never hardcode white (dark mode made label ink light on white chips). */
+  border: 1px solid var(--admin-foundation-border-strong);
+  background: var(--admin-foundation-surface);
+  backdrop-filter: none;
   padding: 0.62rem 1rem;
   font-size: 0.8125rem;
   font-weight: 800;
   letter-spacing: -0.01em;
-  color: var(--admin-text-strong);
-  box-shadow:
-    0 1px 2px rgba(16, 17, 20, 0.08),
-    0 10px 24px rgba(16, 17, 20, 0.07),
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    inset 0 -1px 0 rgba(16, 17, 20, 0.05);
+  color: var(--admin-foundation-ink);
+  box-shadow: none;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition:
@@ -1202,10 +1199,10 @@ body.admin-dashboard-active {
 }
 
 .admin-btn:hover:not(:disabled) {
-  background: var(--admin-color-white);
-  border-color: rgba(16, 17, 20, 0.24);
-  box-shadow: 0 14px 30px rgba(16, 17, 20, 0.12), inset 0 1px 0 var(--admin-color-white);
-  transform: translateY(-2px);
+  background: var(--admin-foundation-canvas-raised);
+  border-color: var(--admin-foundation-border-strong);
+  box-shadow: none;
+  transform: translateY(-1px);
 }
 
 .admin-btn:focus-visible {
@@ -1290,14 +1287,14 @@ body.admin-dashboard-active {
 }
 
 .dark .admin-btn {
-  background: rgba(255,255,255,0.08);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: var(--admin-text);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  background: var(--admin-foundation-surface-2);
+  border-color: var(--admin-foundation-border-strong);
+  color: var(--admin-foundation-ink);
+  box-shadow: none;
 }
 
 .dark .admin-btn:hover:not(:disabled) {
-  background: rgba(255,255,255,0.12);
+  background: var(--admin-foundation-surface-3);
 }
 
 .dark .admin-btn--ghost {

@@ -3,30 +3,12 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { toastOk, toastFail, toastApiSaved, toastWarn } from '@/lib/admin/feedback'
-import {
-  Bot,
-  Activity,
-  CheckCircle2,
-  ChevronRight,
-  Eye,
-  EyeOff,
-  KeyRound,
-  Loader2,
-  MessageSquare,
-  Save,
-  Send,
-  ShieldCheck,
-  Sparkles,
-  WifiOff,
-  Workflow,
-  XCircle,
-} from 'lucide-react'
-import { AdminButton } from '@/components/ui/AdminButton'
 import { AgentChatLauncher } from '@/components/agent/AgentChatLauncher'
 import { DcKpiStrip } from '@/components/dc/DcKpiStrip'
 import { DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
-import { FONT } from '@/components/dc/tokens'
+import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { DcIcon } from '@/components/dc/DcIcon'
 import { AGENT_TOOL_CATALOG, AGENT_TOOL_TIERS } from '@/lib/agent/tool-catalog'
 import { AGENT_QUICK_COMMANDS } from '@/lib/agent/quick-commands'
 import {
@@ -42,7 +24,6 @@ import {
 } from '@/lib/api/agent'
 import { useAiIntegration, useTelegramIntegration, useUpdateAiIntegration } from '@/lib/api/integration-hooks'
 import { useAdminUiStore } from '@/store/uiStore'
-import { cn } from '@/lib/utils/cn'
 
 const MODELS: { id: AgentModelId; label: string; keyLabel: string; placeholder: string; envHint: string }[] = [
   { id: 'claude', label: 'Claude (Anthropic)', keyLabel: 'Anthropic API Key', placeholder: 'sk-ant-...', envHint: 'ANTHROPIC_API_KEY' },
@@ -96,6 +77,86 @@ function activeModelHasKey(
   if (model === 'claude' && claudeAuthMode === 'antigravity_proxy' && claudeBaseUrl.trim()) return true
   return Boolean(keyInputs[model].trim() || isMasked(savedKeys[model]) || savedKeys[model])
 }
+
+
+/* ── DC surface primitives ──────────────────────────────────────────
+   This screen used to render in the legacy admin language (--admin-* tokens,
+   Tailwind colour classes) under a DC page head. Everything below speaks the
+   DC token set so it matches the rest of the dashboard in both themes. */
+
+const dcCard = {
+  border: '1px solid var(--line)',
+  borderRadius: 14,
+  background: 'var(--surface)',
+  backgroundImage: 'var(--card-sheen)',
+} as const
+
+const dcCaps = {
+  display: 'block',
+  font: `600 10.5px/1.4 ${FONT}`,
+  letterSpacing: '.11em',
+  textTransform: 'uppercase' as const,
+  color: 'var(--ink-3)',
+}
+
+const dcInput = {
+  width: '100%',
+  marginTop: 6,
+  padding: '9px 11px',
+  borderRadius: 9,
+  border: '1px solid var(--line)',
+  background: 'var(--surface-2)',
+  color: 'var(--ink)',
+  font: `500 12.5px/1.4 ${MONO}`,
+} as const
+
+const dcTh = {
+  textAlign: 'left' as const,
+  padding: '8px 12px',
+  font: `600 10px/1 ${FONT}`,
+  letterSpacing: '.1em',
+  textTransform: 'uppercase' as const,
+  color: 'var(--ink-3)',
+  borderBottom: '1px solid var(--line)',
+  whiteSpace: 'nowrap' as const,
+}
+
+const dcTd = {
+  padding: '9px 12px',
+  borderBottom: '1px solid var(--line)',
+  color: 'var(--ink)',
+  verticalAlign: 'top' as const,
+}
+
+/** Primary = the one violet control per surface; everything else is neutral. */
+function dcBtn(primary: boolean) {
+  return {
+    height: 34,
+    padding: '0 15px',
+    borderRadius: 9,
+    cursor: 'pointer',
+    font: `600 12.5px/1 ${FONT}`,
+    border: `1px solid var(${primary ? '--violet' : '--line'})`,
+    background: primary ? 'var(--violet)' : 'var(--surface-2)',
+    color: primary ? 'var(--on-violet)' : 'var(--ink-2)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as const
+}
+
+function dcChip(tone: DcTone) {
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    borderRadius: 99,
+    font: `700 10px/1.6 ${FONT}`,
+    letterSpacing: '.06em',
+    ...toneStyle(tone),
+  } as const
+}
+
 
 export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean }) {
   void embedded
@@ -383,9 +444,18 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
     return null
   })()
 
+
+  const tierTone: Record<string, DcTone> = { DANGEROUS: 'bad', WRITE: 'warn', READ: 'mute' }
+  const runTone: Record<string, DcTone> = {
+    completed: 'ok',
+    failed: 'bad',
+    budget_refused: 'warn',
+    running: 'info',
+  }
+
   return (
-    <div className="ai-command ai-command-page ai-command-page--dc mx-auto max-w-6xl space-y-5 pb-28">
-      <p className="ai-command-confirm-note" role="note">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 96 }}>
+      <p style={{ margin: 0, font: `500 12px/1.5 ${FONT}`, color: 'var(--ink-3)' }} role="note">
         Confirm-gated writes — nothing touches orders, stock, or payouts without one explicit apply click.
       </p>
 
@@ -405,139 +475,139 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
             style={{ flex: 'none', width: 3, borderRadius: 99, background: `var(--${decision.tone})` }}
           />
           <div style={{ minWidth: 0, flex: 1 }}>
-            <p style={{ margin: 0, font: `700 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
-              {decision.title}
-            </p>
+            <p style={{ margin: 0, font: `700 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>{decision.title}</p>
             <p style={{ margin: '6px 0 0', font: `400 12.5px/1.55 ${FONT}`, color: 'var(--ink-2)' }}>
               {decision.body}
             </p>
             {decision.action ? (
-              <AdminButton
-                variant="accent"
-                className="mt-3"
-                onClick={decision.action.onClick}
-              >
+              <button type="button" style={{ ...dcBtn(true), marginTop: 12 }} onClick={decision.action.onClick}>
                 {decision.action.label}
-              </AdminButton>
+              </button>
             ) : null}
           </div>
         </section>
       ) : null}
 
-      <div className="dc-ai-kpi-host">
       <DcKpiStrip
-          columns={4}
-          items={[
-            {
-              label: 'Model',
-              value: activeModelLabel,
-              sub: chatReady ? 'ready' : 'needs setup',
-              tone: chatReady ? 'success' : 'warning',
-            },
-            {
-              label: 'API',
-              value: apiOffline ? 'Offline' : 'Live',
-              sub: apiOffline ?? 'agent backend reachable',
-              tone: apiOffline ? 'danger' : 'success',
-            },
-            {
-              label: 'Keys',
-              value: String(MODELS.filter((m) => modelIsConfigured(m.id, status, savedKeys, claudeAuthMode, claudeBaseUrl)).length),
-              sub: `${MODELS.length} providers`,
-              tone: MODELS.some((m) => modelIsConfigured(m.id, status, savedKeys, claudeAuthMode, claudeBaseUrl))
-                ? 'success'
-                : 'warning',
-            },
-            {
-              label: 'Telegram',
-              value: telegramReady ? 'Online' : 'Setup',
-              sub: telegramReady ? 'bridge active' : tgData?.tokenConfigured ? 'chat ID লাগবে' : 'not linked',
-              tone: telegramReady ? 'success' : 'warning',
-            },
-          ]}
-        />
-      </div>
+        columns={4}
+        items={[
+          {
+            label: 'Model',
+            value: activeModelLabel,
+            sub: chatReady ? 'ready' : 'needs setup',
+            tone: chatReady ? 'success' : 'warning',
+          },
+          {
+            label: 'API',
+            value: apiOffline ? 'Offline' : 'Live',
+            sub: apiOffline ?? 'agent backend reachable',
+            tone: apiOffline ? 'danger' : 'success',
+          },
+          {
+            label: 'Keys',
+            value: String(
+              MODELS.filter((m) => modelIsConfigured(m.id, status, savedKeys, claudeAuthMode, claudeBaseUrl)).length,
+            ),
+            sub: `${MODELS.length} providers`,
+            tone: MODELS.some((m) => modelIsConfigured(m.id, status, savedKeys, claudeAuthMode, claudeBaseUrl))
+              ? 'success'
+              : 'warning',
+          },
+          {
+            label: 'Telegram',
+            value: telegramReady ? 'Online' : 'Setup',
+            sub: telegramReady ? 'bridge active' : tgData?.tokenConfigured ? 'chat ID লাগবে' : 'not linked',
+            tone: telegramReady ? 'success' : 'warning',
+          },
+        ]}
+      />
 
-      <section className="ai-command-hero">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <AgentChatLauncher online={chatReady} size="inline" />
-            <div>
-              <p className="ai-command-sub mt-1 max-w-xl">
-                এখানে model + API key সেট করুন। Chat করবেন নিচের ডান পাশের <strong>CHAT</strong> বাটন দিয়ে — সেখানেই live brain (orders, finance, courier, SEO)।
-              </p>
-            </div>
-          </div>
-          <AdminButton variant="accent" className="shrink-0" disabled={!chatReady} onClick={() => openAgentChat()}>
-            <MessageSquare className="h-4 w-4" />
+      {/* Chat launcher + today's budget */}
+      <section style={{ ...dcCard, padding: 16 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 14 }}>
+          <AgentChatLauncher online={chatReady} size="inline" />
+          <p style={{ margin: 0, flex: 1, minWidth: 220, font: `400 12.5px/1.6 ${FONT}`, color: 'var(--ink-2)' }}>
+            এখানে model + API key সেট করুন। Chat করবেন <strong style={{ color: 'var(--ink)' }}>CHAT</strong> বাটন
+            দিয়ে — সেখানেই live brain (orders, finance, courier, SEO)।
+          </p>
+          <button type="button" style={dcBtn(true)} disabled={!chatReady} onClick={() => openAgentChat()}>
             Chat খুলুন
-          </AdminButton>
+          </button>
         </div>
 
         {budget ? (
           <div
-            className={cn(
-              'mt-4 rounded-xl border px-3 py-2.5',
-              budgetWarn
-                ? 'border-amber-300/60 bg-amber-50/90 dark:border-amber-800/40 dark:bg-amber-950/30'
-                : 'border-[rgba(17,17,17,0.08)] bg-white/50 dark:bg-white/5',
-            )}
+            style={{
+              marginTop: 14,
+              padding: '11px 13px',
+              borderRadius: 10,
+              border: `1px solid var(--${budgetWarn ? 'warn' : 'line'}${budgetWarn ? '-bd' : ''})`,
+              background: budgetWarn ? 'var(--warn-soft)' : 'var(--surface-2)',
+            }}
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--admin-text-muted)]">
-                Today&apos;s AI budget
-              </p>
-              <p
-                className={cn(
-                  'font-mono text-[11px] font-bold',
-                  budgetWarn ? 'text-amber-900 dark:text-amber-200' : 'text-[var(--admin-text)]',
-                )}
-              >
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 }}>
+              <span style={dcCaps}>Today&apos;s AI budget</span>
+              <span style={{ font: `700 11.5px/1 ${MONO}`, color: budgetWarn ? 'var(--warn)' : 'var(--ink)' }}>
                 ${budget.spentUsd.toFixed(3)} / ${budget.limitUsd.toFixed(2)} · {budgetPct}%
-              </p>
+              </span>
             </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+            <div
+              style={{
+                marginTop: 9,
+                height: 5,
+                borderRadius: 99,
+                background: 'var(--surface-3)',
+                overflow: 'hidden',
+              }}
+            >
               <div
-                className={cn('h-full rounded-full transition-all', budgetWarn ? 'bg-amber-500' : 'bg-[var(--admin-color-accent-blue)]')}
-                style={{ width: `${Math.min(100, budgetPct)}%` }}
+                style={{
+                  height: '100%',
+                  width: `${Math.min(100, budgetPct)}%`,
+                  borderRadius: 99,
+                  background: budgetWarn ? 'var(--warn)' : 'var(--ok)',
+                }}
               />
             </div>
             {budgetWarn ? (
-              <p className="mt-1.5 text-[10px] font-semibold text-amber-800 dark:text-amber-200">
+              <p style={{ margin: '8px 0 0', font: `600 10.5px/1.5 ${FONT}`, color: 'var(--warn)' }}>
                 Soft warn — 80%+ used. Hard refuse at 100% (AGENT_DAILY_COST_LIMIT_USD).
               </p>
             ) : null}
           </div>
         ) : null}
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {apiOffline ? (
-            <span className="ai-command-pill ai-command-pill--warn">
-              <WifiOff className="h-3 w-3" /> {apiOffline}
-            </span>
-          ) : (
-            <span className="ai-command-pill ai-command-pill--ok">
-              <CheckCircle2 className="h-3 w-3" /> API live
-            </span>
-          )}
-          {chatReady ? (
-            <span className="ai-command-pill ai-command-pill--ok">
-              {MODELS.find((m) => m.id === activeModel)?.label} ready
-            </span>
-          ) : (
-            <span className="ai-command-pill ai-command-pill--warn">নিচে API key দিন</span>
-          )}
-          <span className={cn('ai-command-pill', telegramReady ? 'ai-command-pill--ok' : 'ai-command-pill--warn')}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 14 }}>
+          <span style={dcChip(apiOffline ? 'bad' : 'ok')}>{apiOffline ?? 'API live'}</span>
+          <span style={dcChip(chatReady ? 'ok' : 'warn')}>
+            {chatReady ? `${activeModelLabel} ready` : 'নিচে API key দিন'}
+          </span>
+          <span style={dcChip(telegramReady ? 'ok' : 'warn')}>
             Telegram {telegramReady ? 'online' : tgData?.tokenConfigured ? 'chat ID লাগবে' : 'connect করুন'}
           </span>
-          <span className={cn('ai-command-pill', saveTarget.isLocal ? 'ai-command-pill--warn' : 'ai-command-pill--ok')}>
-            Save target: {saveTarget.label}
-          </span>
+          <span style={dcChip(saveTarget.isLocal ? 'warn' : 'mute')}>Save target: {saveTarget.label}</span>
         </div>
+
         {saveTarget.isLocal ? (
-          <p className="mt-3 rounded-xl border border-amber-300/50 bg-amber-50/80 px-3 py-2 text-[11px] font-semibold leading-relaxed text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
-            Local admin → local database। <strong>Telegram bot production</strong> (api.splaro.co) use করে — একই API key{' '}
-            <a href="https://admin.splaro.co/dashboard/ai-agent" className="underline" target="_blank" rel="noreferrer">
+          <p
+            style={{
+              margin: '12px 0 0',
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: '1px solid var(--warn-bd)',
+              background: 'var(--warn-soft)',
+              font: `500 11.5px/1.6 ${FONT}`,
+              color: 'var(--ink-2)',
+            }}
+          >
+            Local admin → local database। <strong>Telegram bot production</strong> (api.splaro.co) use করে — একই API
+            key{' '}
+            <a
+              href="https://admin.splaro.co/dashboard/ai-agent"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: 'var(--ink)', textDecoration: 'underline' }}
+            >
               admin.splaro.co
             </a>{' '}
             তে save করলে permanent হবে live bot-এর জন্য।
@@ -545,13 +615,214 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
         ) : null}
       </section>
 
-      <section className="ai-command-card">
-        <div className="ai-command-card__head">
-          <Sparkles className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
-          <h2>Ops quick commands</h2>
-        </div>
-        <p className="ai-command-hint mt-2">Chat-এ seed করে — Banglish chips for daily ops.</p>
-        <div className="mt-3 flex flex-wrap gap-1.5">
+      {/* Active model + API keys */}
+      <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))' }}>
+        <section style={{ ...dcCard, padding: 16 }}>
+          <p style={{ ...dcCaps, margin: 0 }}>Active model</p>
+          <div
+            style={{
+              display: 'grid',
+              gap: 8,
+              marginTop: 12,
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+            }}
+          >
+            {MODELS.map((m) => {
+              const configured = modelIsConfigured(m.id, status, savedKeys, claudeAuthMode, claudeBaseUrl)
+              const isActive = activeModel === m.id
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => void handleSwitchModel(m.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 9,
+                    padding: '11px 12px',
+                    borderRadius: 10,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    border: `1px solid var(${isActive ? '--violet-bd' : '--line'})`,
+                    background: isActive ? 'var(--violet-soft)' : 'var(--surface-2)',
+                  }}
+                >
+                  <span style={{ minWidth: 0 }}>
+                    <span
+                      style={{
+                        display: 'block',
+                        font: `700 12.5px/1.3 ${FONT}`,
+                        color: isActive ? 'var(--violet)' : 'var(--ink)',
+                      }}
+                    >
+                      {m.label}
+                    </span>
+                    <span style={{ display: 'block', font: `500 10.5px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
+                      {configured ? 'Key saved' : `Needs ${m.envHint}`}
+                    </span>
+                  </span>
+                  <DcIcon
+                    name={configured ? 'icon-circle-check' : 'icon-circle-x'}
+                    size={15}
+                    color={configured ? 'var(--ok)' : 'var(--ink-3)'}
+                  />
+                </button>
+              )
+            })}
+          </div>
+
+          {activeModel === 'claude' ? (
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
+              <p style={{ ...dcCaps, margin: 0 }}>Claude connection</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 10 }}>
+                {(
+                  [
+                    ['api_key', 'API Key (direct)'],
+                    ['antigravity_proxy', 'Antigravity / Proxy'],
+                  ] as const
+                ).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setClaudeAuthMode(mode)}
+                    style={{
+                      padding: '7px 12px',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      font: `700 11.5px/1 ${FONT}`,
+                      border: `1px solid var(${claudeAuthMode === mode ? '--violet-bd' : '--line'})`,
+                      background: claudeAuthMode === mode ? 'var(--violet-soft)' : 'var(--surface-2)',
+                      color: claudeAuthMode === mode ? 'var(--violet)' : 'var(--ink-2)',
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {claudeAuthMode === 'antigravity_proxy' ? (
+                <div style={{ display: 'grid', gap: 11, marginTop: 12 }}>
+                  <label style={{ display: 'block' }}>
+                    <span style={dcCaps}>Proxy base URL</span>
+                    <input
+                      value={claudeBaseUrl}
+                      onChange={(e) => setClaudeBaseUrl(e.target.value)}
+                      placeholder="http://localhost:8080"
+                      style={dcInput}
+                    />
+                  </label>
+                  <label style={{ display: 'block' }}>
+                    <span style={dcCaps}>
+                      Auth token{' '}
+                      {isMasked(savedClaudeAuthToken) ? (
+                        <span style={{ color: 'var(--ok)' }}>· Saved</span>
+                      ) : null}
+                    </span>
+                    <input
+                      value={claudeAuthTokenInput}
+                      onChange={(e) => setClaudeAuthTokenInput(e.target.value)}
+                      placeholder={isMasked(savedClaudeAuthToken) ? '•••• — blank = keep' : 'test'}
+                      style={dcInput}
+                    />
+                  </label>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {activeModel === 'openai' && status?.models.openai?.configured ? (
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
+              <label style={{ display: 'block' }}>
+                <span style={dcCaps}>OpenAI model</span>
+                <select value={openaiModel} onChange={(e) => setOpenaiModel(e.target.value)} style={dcInput}>
+                  {(aiIntegration?.supportedModels ?? ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo']).map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          ) : null}
+        </section>
+
+        <section style={{ ...dcCard, padding: 16 }}>
+          <p style={{ ...dcCaps, margin: 0 }}>API keys</p>
+          <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
+            {MODELS.map((m) => {
+              const saved = savedKeys[m.id]
+              const hasSaved = isMasked(saved) || Boolean(saved)
+              return (
+                <label key={m.id} style={{ display: 'block' }}>
+                  <span style={dcCaps}>
+                    {m.keyLabel}
+                    {hasSaved ? <span style={{ color: 'var(--ok)' }}> · Saved</span> : null}
+                  </span>
+                  <span style={{ position: 'relative', display: 'block' }}>
+                    <input
+                      type={showKey[m.id] ? 'text' : 'password'}
+                      value={keyInputs[m.id]}
+                      onChange={(e) => setKeyInputs((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                      placeholder={hasSaved ? 'Saved — leave blank to keep' : m.placeholder}
+                      style={{ ...dcInput, paddingRight: 38 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowKey((prev) => ({ ...prev, [m.id]: !prev[m.id] }))}
+                      aria-label={showKey[m.id] ? 'Hide key' : 'Show key'}
+                      style={{
+                        position: 'absolute',
+                        right: 10,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        border: 0,
+                        background: 'transparent',
+                        color: 'var(--ink-3)',
+                        cursor: 'pointer',
+                        lineHeight: 0,
+                      }}
+                    >
+                      <DcIcon name={showKey[m.id] ? 'icon-eye-off' : 'icon-eye'} size={14} />
+                    </button>
+                  </span>
+                  <span
+                    style={{ display: 'block', marginTop: 4, font: `500 10px/1.4 ${MONO}`, color: 'var(--ink-3)' }}
+                  >
+                    Env: {m.envHint}
+                  </span>
+                  {m.id === 'manus' ? (
+                    <span
+                      style={{ display: 'block', marginTop: 4, font: `400 10.5px/1.5 ${FONT}`, color: 'var(--ink-3)' }}
+                    >
+                      Manus runs its own agent — it replies async and cannot read SPLARO orders or stock.
+                    </span>
+                  ) : null}
+                </label>
+              )
+            })}
+          </div>
+        </section>
+      </div>
+
+      {/* System instructions */}
+      <section style={{ ...dcCard, padding: 16 }}>
+        <p style={{ ...dcCaps, margin: 0 }}>System instructions</p>
+        <textarea
+          value={systemPrompt}
+          onChange={(e) => setSystemPrompt(e.target.value)}
+          placeholder="You are SPLARO Command..."
+          rows={7}
+          style={{ ...dcInput, marginTop: 10, minHeight: 140, resize: 'vertical', fontFamily: MONO }}
+        />
+      </section>
+
+      {/* Ops quick commands */}
+      <section style={{ ...dcCard, padding: 16 }}>
+        <p style={{ ...dcCaps, margin: 0 }}>Ops quick commands</p>
+        <p style={{ margin: '8px 0 0', font: `400 12px/1.5 ${FONT}`, color: 'var(--ink-2)' }}>
+          Chat-এ seed করে — Banglish chips for daily ops.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 12 }}>
           {AGENT_QUICK_COMMANDS.filter((c) => c.category === 'ops' || c.category === 'health')
             .slice(0, 8)
             .map((cmd) => (
@@ -560,7 +831,15 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
                 type="button"
                 disabled={!chatReady}
                 onClick={() => openAgentChat(cmd.message)}
-                className="ai-command-quick__chip"
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: 99,
+                  border: '1px solid var(--line)',
+                  background: 'var(--surface-2)',
+                  color: chatReady ? 'var(--ink-2)' : 'var(--ink-3)',
+                  font: `600 11.5px/1 ${FONT}`,
+                  cursor: chatReady ? 'pointer' : 'not-allowed',
+                }}
               >
                 {cmd.label}
               </button>
@@ -568,335 +847,149 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
         </div>
       </section>
 
-      <section id="ai-guardrails" className="ai-command-card">
-        <div className="ai-command-card__head">
-          <ShieldCheck className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
-          <h2>Guardrails & tool tiers</h2>
-        </div>
-        <p className="ai-command-hint mt-2">
+      {/* Guardrails */}
+      <section id="ai-guardrails" style={{ ...dcCard, padding: 16 }}>
+        <p style={{ ...dcCaps, margin: 0 }}>Guardrails &amp; tool tiers</p>
+        <p style={{ margin: '8px 0 0', font: `400 12px/1.5 ${FONT}`, color: 'var(--ink-2)' }}>
           Live tools by tier — DANGEROUS needs Confirm. WRITE price/publish/stock also confirms.
         </p>
-        <div className="mt-3 space-y-4">
-          {AGENT_TOOL_TIERS.map((tier) => {
-            const tools = AGENT_TOOL_CATALOG.filter((t) => t.tier === tier)
-            return (
-              <div key={tier}>
-                <p
-                  className={cn(
-                    'mb-2 text-[10px] font-semibold uppercase tracking-[0.14em]',
-                    tier === 'DANGEROUS' && 'text-red-700',
-                    tier === 'WRITE' && 'text-amber-800',
-                    tier === 'READ' && 'text-[var(--admin-text-muted)]',
-                  )}
-                >
-                  {tier}
-                </p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {tools.map((tool) => (
-                    <div
-                      key={tool.name}
-                      className="rounded-xl border border-[rgba(17,17,17,0.06)] bg-white/40 px-3 py-2 dark:bg-white/5"
-                    >
-                      <p className="text-[12px] font-bold text-[var(--admin-text)]">
-                        {tool.label}{' '}
-                        <span className="font-medium text-[var(--admin-text-muted)]">· {tool.labelBn}</span>
-                      </p>
-                      <p className="mt-0.5 font-mono text-[9px] text-[var(--admin-text-muted)]">{tool.name}</p>
-                      <p className="mt-1 text-[10px] font-semibold text-[var(--admin-text-secondary)]">{tool.when}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </section>
-
-      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <div className="space-y-5">
-          <section className="ai-command-card ai-command-card--control">
-            <div className="ai-command-card__head">
-              <Bot className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
-              <h2>Active model</h2>
-            </div>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {MODELS.map((m) => {
-                const configured = modelIsConfigured(m.id, status, savedKeys, claudeAuthMode, claudeBaseUrl)
-                const isActive = activeModel === m.id
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => void handleSwitchModel(m.id)}
-                    className={cn('ai-command-model', isActive && 'ai-command-model--active')}
+        <div style={{ display: 'grid', gap: 14, marginTop: 14 }}>
+          {AGENT_TOOL_TIERS.map((tier) => (
+            <div key={tier}>
+              <span style={dcChip(tierTone[tier] ?? 'mute')}>{tier}</span>
+              <div
+                style={{
+                  display: 'grid',
+                  gap: 8,
+                  marginTop: 9,
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                }}
+              >
+                {AGENT_TOOL_CATALOG.filter((t) => t.tier === tier).map((tool) => (
+                  <div
+                    key={tool.name}
+                    style={{
+                      padding: '9px 11px',
+                      borderRadius: 9,
+                      border: '1px solid var(--line)',
+                      background: 'var(--surface-2)',
+                    }}
                   >
-                    <div>
-                      <p className="ai-command-model__name">{m.label}</p>
-                      <p className="ai-command-model__vendor">{configured ? 'Key saved' : `Needs ${m.envHint}`}</p>
-                    </div>
-                    {configured ? (
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-[var(--admin-c-cccccc)]" />
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-            {activeModel === 'claude' && (
-              <div className="mt-4 space-y-3 border-t border-[rgba(17,17,17,0.08)] pt-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--admin-color-neutral-500)]">Claude connection</p>
-                <div className="flex flex-wrap gap-2">
-                  {([
-                    ['api_key', 'API Key (direct)'],
-                    ['antigravity_proxy', 'Antigravity / Proxy'],
-                  ] as const).map(([mode, label]) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => setClaudeAuthMode(mode)}
-                      className={cn(
-                        'rounded-lg border px-3 py-2 text-xs font-bold',
-                        claudeAuthMode === mode
-                          ? 'border-[var(--admin-color-accent-blue)] bg-[var(--admin-color-accent-blue)]/10 text-[var(--admin-color-ink-near)]'
-                          : 'border-[rgba(17,17,17,0.12)] text-[var(--admin-color-neutral-500)]',
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {claudeAuthMode === 'antigravity_proxy' ? (
-                  <>
-                    <label className="admin-field block">
-                      <span className="admin-kpi__label">Proxy base URL</span>
-                      <input
-                        value={claudeBaseUrl}
-                        onChange={(e) => setClaudeBaseUrl(e.target.value)}
-                        placeholder="http://localhost:8080"
-                        className="admin-input w-full font-mono text-sm"
-                      />
-                    </label>
-                    <label className="admin-field block">
-                      <span className="admin-kpi__label">
-                        Auth token {isMasked(savedClaudeAuthToken) ? <span className="text-emerald-700">Saved</span> : null}
-                      </span>
-                      <input
-                        value={claudeAuthTokenInput}
-                        onChange={(e) => setClaudeAuthTokenInput(e.target.value)}
-                        placeholder={isMasked(savedClaudeAuthToken) ? '•••• — blank = keep' : 'test'}
-                        className="admin-input w-full font-mono text-sm"
-                      />
-                    </label>
-                  </>
-                ) : null}
-              </div>
-            )}
-            {activeModel === 'openai' && status?.models.openai?.configured ? (
-              <div className="mt-4 border-t border-[rgba(17,17,17,0.08)] pt-4">
-                <label className="admin-field block">
-                  <span className="admin-kpi__label">OpenAI model</span>
-                  <select
-                    value={openaiModel}
-                    onChange={(e) => setOpenaiModel(e.target.value)}
-                    className="admin-input w-full font-mono text-sm"
-                  >
-                    {(aiIntegration?.supportedModels ?? ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo']).map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            ) : null}
-          </section>
-
-          <section className="ai-command-card">
-            <div className="ai-command-card__head">
-              <ShieldCheck className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
-              <h2>Chatbot brain (live tools)</h2>
-            </div>
-            <p className="ai-command-hint mt-2">
-              Floating CHAT এ agent এগুলো করতে পারে — fake data নয়, API tool দিয়ে:
-            </p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {[
-                ['Orders & courier', 'list, status, Steadfast book'],
-                ['Partner finance', 'balance, withdrawal pending'],
-                ['Catalog & SEO', 'stock, meta fix batch'],
-                ['Diagnostics', 'health, integration, API routes'],
-              ].map(([label, desc]) => (
-                <div key={label} className="ai-command-duty">
-                  <Activity className="h-3.5 w-3.5" />
-                  <div>
-                    <p>{label}</p>
-                    <span>{desc}</span>
+                    <p style={{ margin: 0, font: `700 12px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+                      {tool.label}{' '}
+                      <span style={{ font: `500 12px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>· {tool.labelBn}</span>
+                    </p>
+                    <p style={{ margin: '3px 0 0', font: `500 9.5px/1.3 ${MONO}`, color: 'var(--ink-3)' }}>
+                      {tool.name}
+                    </p>
+                    <p style={{ margin: '5px 0 0', font: `500 10.5px/1.45 ${FONT}`, color: 'var(--ink-2)' }}>
+                      {tool.when}
+                    </p>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </section>
+          ))}
         </div>
-
-        <div className="space-y-5">
-          <section className="ai-command-card">
-            <div className="ai-command-card__head">
-              <KeyRound className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
-              <h2>API keys</h2>
-            </div>
-            <div className="mt-3 space-y-3">
-              {MODELS.map((m) => {
-                const saved = savedKeys[m.id]
-                const hasSaved = isMasked(saved) || Boolean(saved)
-                return (
-                  <label key={m.id} className="admin-field block">
-                    <span className="admin-kpi__label">
-                      {m.keyLabel}
-                      {hasSaved ? (
-                        <span className="ml-2 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-emerald-800">
-                          Saved
-                        </span>
-                      ) : null}
-                    </span>
-                    <div className="relative">
-                      <input
-                        type={showKey[m.id] ? 'text' : 'password'}
-                        value={keyInputs[m.id]}
-                        onChange={(e) => setKeyInputs((prev) => ({ ...prev, [m.id]: e.target.value }))}
-                        placeholder={hasSaved ? 'Saved — leave blank to keep' : m.placeholder}
-                        className="admin-input w-full pr-10 font-mono text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowKey((prev) => ({ ...prev, [m.id]: !prev[m.id] }))}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--admin-c-9b9b9b)]"
-                      >
-                        {showKey[m.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-[var(--admin-c-9b9b9b)]">Env: <code>{m.envHint}</code></p>
-                    {m.id === 'manus' ? (
-                      <p className="mt-1 text-[10px] leading-relaxed text-[var(--admin-text-secondary)]">
-                        Active model select → Admin chat + Telegram bot both use that model. Manus replies
-                        async (slower).
-                      </p>
-                    ) : null}
-                  </label>
-                )
-              })}
-            </div>
-          </section>
-        </div>
-      </div>
-
-      <section className="ai-command-card">
-        <div className="ai-command-card__head">
-          <Sparkles className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
-          <h2>System instructions</h2>
-        </div>
-        <textarea
-          className="admin-input mt-3 min-h-[140px] font-mono text-sm"
-          value={systemPrompt}
-          onChange={(e) => setSystemPrompt(e.target.value)}
-          placeholder="You are SPLARO Command..."
-        />
       </section>
 
-      <section className="ai-command-card">
-        <div className="ai-command-card__head">
-          <Workflow className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
-          <h2>Telegram bridge</h2>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-medium text-[var(--admin-text-secondary)]">
-            {telegramReady ? 'Telegram থেকে same chatbot brain কাজ করে।' : 'Telegram Bot settings এ token + chat ID দিন।'}
+      {/* Telegram bridge */}
+      <section style={{ ...dcCard, padding: 16 }}>
+        <p style={{ ...dcCaps, margin: 0 }}>Telegram bridge</p>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 11,
+            marginTop: 10,
+          }}
+        >
+          <p style={{ margin: 0, font: `400 12.5px/1.55 ${FONT}`, color: 'var(--ink-2)' }}>
+            {telegramReady
+              ? 'Telegram থেকে same chatbot brain কাজ করে।'
+              : 'Telegram Bot settings এ token + chat ID দিন।'}
           </p>
-          <div className="flex flex-wrap gap-2">
-            <AdminButton loading={testingTelegram} disabled={!telegramReady} onClick={() => void handleTelegramTest()}>
-              <Send className="h-4 w-4" />
-              Test
-            </AdminButton>
-            <Link href="/dashboard/telegram-bot" className="admin-btn px-4 py-2 text-xs font-semibold">
-              Telegram Bot <ChevronRight className="h-3.5 w-3.5" />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <button
+              type="button"
+              style={dcBtn(false)}
+              disabled={!telegramReady || testingTelegram}
+              onClick={() => void handleTelegramTest()}
+            >
+              {testingTelegram ? 'Testing…' : 'Test'}
+            </button>
+            <Link href="/dashboard/telegram-bot" style={{ ...dcBtn(false), textDecoration: 'none' }}>
+              Telegram Bot
             </Link>
           </div>
         </div>
       </section>
 
-      <section className="ai-command-card">
-        <div className="ai-command-card__head">
-          <Activity className="h-4 w-4 text-[var(--admin-color-accent-blue)]" />
-          <h2>Agent activity</h2>
-        </div>
-        <p className="ai-command-hint mt-2">
-          Recent AI runs, tool calls, tiers, and estimated cost — last 50 sessions.
+      {/* Agent activity */}
+      <section style={{ ...dcCard, padding: 16 }}>
+        <p style={{ ...dcCaps, margin: 0 }}>Agent activity</p>
+        <p style={{ margin: '8px 0 0', font: `400 12px/1.5 ${FONT}`, color: 'var(--ink-2)' }}>
+          Recent AI runs, tool calls, tiers and estimated cost — last 50 sessions.
         </p>
+
         {activityLoading ? (
-          <div className="mt-4 flex items-center gap-2 text-sm text-[var(--admin-text-muted)]">
-            <Loader2 className="h-4 w-4 animate-spin" />
+          <p style={{ margin: '14px 0 0', font: `500 12.5px/1.5 ${FONT}`, color: 'var(--ink-3)' }}>
             Loading activity…
-          </div>
+          </p>
         ) : activity.length === 0 ? (
-          <p className="mt-4 text-sm text-[var(--admin-text-muted)]">No agent runs yet — use floating CHAT to start.</p>
+          <p style={{ margin: '14px 0 0', font: `500 12.5px/1.5 ${FONT}`, color: 'var(--ink-3)' }}>
+            No agent runs yet — open CHAT and ask something to see runs here.
+          </p>
         ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="admin-module-table w-full text-left text-xs">
+          <div style={{ marginTop: 12, overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', font: `400 12px/1.4 ${FONT}` }}>
               <thead>
                 <tr>
-                  <th>Time</th>
-                  <th>Status</th>
-                  <th>Model</th>
-                  <th>Tools</th>
-                  <th>Cost</th>
-                  <th>Message</th>
+                  {['Time', 'Status', 'Model', 'Tools', 'Cost', 'Message'].map((h) => (
+                    <th key={h} style={dcTh}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {activity.map((run) => (
-                  <tr key={run.id} className="admin-table-row">
-                    <td className="whitespace-nowrap font-mono text-[10px]">
-                      {new Date(run.startedAt).toLocaleString('en-BD', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}
+                  <tr key={run.id}>
+                    <td style={{ ...dcTd, whiteSpace: 'nowrap', fontFamily: MONO, fontSize: 10.5 }}>
+                      {new Date(run.startedAt).toLocaleString('en-BD', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        day: 'numeric',
+                        month: 'short',
+                      })}
                     </td>
-                    <td>
-                      <span
-                        className={cn(
-                          'rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase',
-                          run.status === 'completed' && 'bg-emerald-100 text-emerald-800',
-                          run.status === 'failed' && 'bg-red-100 text-red-800',
-                          run.status === 'budget_refused' && 'bg-amber-100 text-amber-800',
-                          run.status === 'running' && 'bg-blue-100 text-blue-800',
-                        )}
-                      >
-                        {run.status}
-                      </span>
+                    <td style={dcTd}>
+                      <span style={dcChip(runTone[run.status] ?? 'mute')}>{run.status}</span>
                     </td>
-                    <td className="font-mono text-[10px]">{run.model}</td>
-                    <td>
+                    <td style={{ ...dcTd, fontFamily: MONO, fontSize: 10.5 }}>{run.model}</td>
+                    <td style={dcTd}>
                       {run.toolCalls.length === 0 ? (
-                        <span className="text-[var(--admin-text-muted)]">—</span>
+                        <span style={{ color: 'var(--ink-3)' }}>—</span>
                       ) : (
-                        <div className="flex flex-wrap gap-1">
+                        <span style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                           {run.toolCalls.map((tc) => (
-                            <span
-                              key={tc.id}
-                              title={tc.resultSummary}
-                              className={cn(
-                                'rounded px-1.5 py-0.5 font-mono text-[9px] font-bold',
-                                tc.tier === 'DANGEROUS' && 'bg-red-100 text-red-800',
-                                tc.tier === 'WRITE' && 'bg-amber-100 text-amber-900',
-                                tc.tier === 'READ' && 'bg-slate-100 text-slate-700',
-                              )}
-                            >
+                            <span key={tc.id} title={tc.resultSummary} style={dcChip(tierTone[tc.tier] ?? 'mute')}>
                               {tc.toolName.replace(/_/g, ' ')}
                               {tc.confirmed ? ' ✓' : ''}
                             </span>
                           ))}
-                        </div>
+                        </span>
                       )}
                     </td>
-                    <td className="font-mono text-[10px]">
+                    <td style={{ ...dcTd, fontFamily: MONO, fontSize: 10.5 }}>
                       ${run.costEstUsd < 0.01 ? run.costEstUsd.toFixed(4) : run.costEstUsd.toFixed(3)}
                     </td>
-                    <td className="max-w-[200px] truncate text-[10px] text-[var(--admin-text-secondary)]" title={run.userMessage}>
+                    <td
+                      style={{ ...dcTd, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                      title={run.userMessage}
+                    >
                       {run.userMessage}
                     </td>
                   </tr>
@@ -907,19 +1000,35 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
         )}
       </section>
 
-      <div className="ai-command-save-bar">
-        <div className="ai-command-save-bar__meta">
-          <p className="text-[11px] font-semibold text-[var(--admin-text)]">
-            {MODELS.find((m) => m.id === activeModel)?.label ?? 'Model'} · {saveTarget.label}
-          </p>
-          <p className="text-[10px] font-medium text-[var(--admin-text-muted)]">
+      {/* Save bar */}
+      <div
+        style={{
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 5,
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          padding: '12px 16px',
+          borderRadius: 12,
+          border: '1px solid var(--line-2)',
+          background: 'var(--surface)',
+          backgroundImage: 'var(--card-sheen)',
+        }}
+      >
+        <span style={{ minWidth: 0 }}>
+          <span style={{ display: 'block', font: `700 12px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+            {activeModelLabel} · {saveTarget.label}
+          </span>
+          <span style={{ display: 'block', font: `500 11px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
             {chatReady ? 'Ready for chat + Telegram' : 'Save API key for active model first'}
-          </p>
-        </div>
-        <AdminButton variant="accent" loading={saving} onClick={() => void handleSave()}>
-          <Save className="h-4 w-4" />
-          Save AI settings
-        </AdminButton>
+          </span>
+        </span>
+        <button type="button" style={dcBtn(true)} disabled={saving} onClick={() => void handleSave()}>
+          {saving ? 'Saving…' : 'Save AI settings'}
+        </button>
       </div>
     </div>
   )

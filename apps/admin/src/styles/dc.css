@@ -2460,6 +2460,55 @@
   border-color: transparent !important;
 }
 
+/* Premium invoice action card — readable on dark order detail */
+.invoice-actions-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--line, var(--admin-foundation-border));
+  background: var(--surface, var(--admin-foundation-surface));
+  background-image: var(--card-sheen, none);
+  box-shadow: none;
+}
+
+.invoice-actions-bar__title {
+  margin: 0;
+  font: 800 10px/1.2 var(--dc-font, inherit);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3, var(--admin-foundation-ink-muted));
+}
+
+.invoice-actions-bar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.invoice-actions-bar .admin-btn:not(.admin-btn--accent):not(.admin-btn--danger):not(.admin-btn--warning):not(.admin-btn--success) {
+  background: var(--surface-2, var(--admin-foundation-surface-2)) !important;
+  border-color: var(--line-2, var(--admin-foundation-border-strong)) !important;
+  color: var(--ink, var(--admin-foundation-ink)) !important;
+  box-shadow: none !important;
+}
+
+.invoice-actions-bar .admin-btn--ghost {
+  background: transparent !important;
+  border-color: var(--line, var(--admin-foundation-border)) !important;
+  color: var(--ink-2, var(--admin-foundation-ink-secondary)) !important;
+}
+
+.invoice-actions-bar .admin-btn--ghost:hover:not(:disabled) {
+  background: var(--surface-2, var(--admin-foundation-surface-2)) !important;
+  color: var(--ink, var(--admin-foundation-ink)) !important;
+}
+
+.invoice-actions-bar .admin-btn:not(.admin-btn--accent):not(.admin-btn--danger):not(.admin-btn--warning):not(.admin-btn--success):hover:not(:disabled) {
+  background: var(--surface-3, var(--admin-foundation-surface-3)) !important;
+}
+
 .dc-customer-360 .rounded-full {
   border-radius: 8px !important;
 }

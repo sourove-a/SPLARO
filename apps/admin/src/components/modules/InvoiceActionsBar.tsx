@@ -120,13 +120,12 @@ export function InvoiceActionsBar({
   }
 
   return (
-    <div className="rounded-[16px] border border-[var(--admin-color-ink-elevated)] bg-white/80 p-3 backdrop-blur-xl dark:border-white/10 dark:bg-[var(--admin-c-1c1c24)]/95">
-      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--admin-c-9a7848)] dark:text-[var(--admin-c-d4b896)]">
-        Premium invoice · {invoiceNumber}
-      </p>
-      <div className="flex flex-wrap gap-2">
+    <div className="invoice-actions-bar">
+      <p className="invoice-actions-bar__title">Premium invoice · {invoiceNumber}</p>
+      <div className="invoice-actions-bar__actions">
         <AdminButton
           size="sm"
+          variant="secondary"
           disabled={busy !== null}
           loading={busy === 'view'}
           onClick={() => void run('view', () => downloadInvoice(invoiceRef))}
@@ -136,6 +135,7 @@ export function InvoiceActionsBar({
         </AdminButton>
         <AdminButton
           size="sm"
+          variant="secondary"
           disabled={busy !== null}
           loading={busy === 'pdf'}
           onClick={() => void run('pdf', () => downloadInvoicePdf(invoiceRef, invoiceNumber))}
@@ -145,6 +145,7 @@ export function InvoiceActionsBar({
         </AdminButton>
         <AdminButton
           size="sm"
+          variant="secondary"
           disabled={busy !== null}
           loading={busy === 'print'}
           onClick={() => void run('print', () => printInvoice(invoiceRef))}
@@ -154,7 +155,7 @@ export function InvoiceActionsBar({
         </AdminButton>
         <AdminButton
           size="sm"
-          variant="dark"
+          variant="secondary"
           disabled={busy !== null}
           loading={busy === 'label'}
           onClick={() => void run('label', () => printOrderLabel(invoiceRef))}
@@ -164,6 +165,7 @@ export function InvoiceActionsBar({
         </AdminButton>
         <AdminButton
           size="sm"
+          variant="secondary"
           disabled={busy !== null}
           loading={busy === 'sticker'}
           onClick={() => void run('sticker', () => printOrderSticker(invoiceRef))}
@@ -174,6 +176,7 @@ export function InvoiceActionsBar({
           <>
             <AdminButton
               size="sm"
+              variant="secondary"
               disabled={busy !== null}
               loading={busy === 'track'}
               onClick={() => void run('track', trackParcel)}
