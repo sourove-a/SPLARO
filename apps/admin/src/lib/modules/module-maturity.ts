@@ -25,7 +25,6 @@ const BETA_ROUTES = new Set<string>([
   '/dashboard/delivery/agents',
   '/dashboard/company/dashboard',
   '/dashboard/company/employees',
-  '/dashboard/company/payroll',
   '/dashboard/company/tasks',
   '/dashboard/production/overview',
   '/dashboard/production/fabric-inventory',
