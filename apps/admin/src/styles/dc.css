@@ -2991,3 +2991,15 @@
   background: var(--warn-soft, var(--surface-2));
   color: var(--warn);
 }
+
+/* Media picker tiles — a picker with no hover state gives no clue that the
+   thumbnails are clickable, or which one is about to be chosen. */
+.dc-media-pick__tile {
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.dc-media-pick__tile:hover,
+.dc-media-pick__tile:focus-visible {
+  border-color: var(--violet-bd);
+  background: var(--violet-soft);
+}

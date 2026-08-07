@@ -9,6 +9,7 @@ import { FONT } from '@/components/dc/tokens'
 import { MEDIA_DEPT_FOLDERS, mediaDeptKeyFromUrl } from '@/lib/admin/size-presets'
 import { useMedia } from '@/lib/api/hooks'
 import { resolveMediaUrl } from '@/lib/media-url'
+import { DcIcon } from '@/components/dc/DcIcon'
 
 export function DcMediaPickModal({
   open,
@@ -96,10 +97,13 @@ export function DcMediaPickModal({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))',
-              gap: 10,
-              overflow: 'auto',
+              // 128px min: at 96 the tiles were too small to tell products apart.
+              gridTemplateColumns: 'repeat(auto-fill, minmax(128px, 1fr))',
+              gap: 12,
+              overflowY: 'auto',
+              maxHeight: '52vh',
               paddingBottom: 8,
+              alignContent: 'start',
             }}
           >
             {rows.slice(0, 80).map((a) => {
@@ -113,9 +117,14 @@ export function DcMediaPickModal({
                     onPick(a.url)
                     onClose()
                   }}
+                  className="dc-media-pick__tile"
                   style={{
-                    position: 'relative',
-                    aspectRatio: '1',
+                    // display:block is load-bearing — a button is inline-block by
+                    // default, where aspect-ratio on the child is unreliable and
+                    // the tiles collapsed into ragged columns.
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'left',
                     borderRadius: 10,
                     border: '1px solid var(--line)',
                     overflow: 'hidden',
@@ -124,9 +133,53 @@ export function DcMediaPickModal({
                     background: 'var(--surface-2)',
                   }}
                 >
-                  {src ? (
-                    <Image src={src} alt={a.name} fill sizes="96px" style={{ objectFit: 'cover' }} unoptimized />
-                  ) : null}
+                  <span
+                    style={{
+                      position: 'relative',
+                      display: 'block',
+                      width: '100%',
+                      aspectRatio: '1 / 1',
+                      background: 'var(--surface-3)',
+                    }}
+                  >
+                    {src ? (
+                      <Image
+                        src={src}
+                        alt=""
+                        fill
+                        sizes="160px"
+                        style={{ objectFit: 'cover' }}
+                        unoptimized
+                      />
+                    ) : (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          display: 'grid',
+                          placeItems: 'center',
+                          color: 'var(--ink-3)',
+                        }}
+                      >
+                        <DcIcon name="icon-image" size={16} />
+                      </span>
+                    )}
+                  </span>
+                  {/* Without a caption there is no way to tell one crop from another. */}
+                  <span
+                    style={{
+                      display: 'block',
+                      padding: '7px 9px',
+                      borderTop: '1px solid var(--line)',
+                      font: `500 11px/1.35 ${FONT}`,
+                      color: 'var(--ink-2)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {a.name}
+                  </span>
                 </button>
               )
             })}
