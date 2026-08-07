@@ -2127,3 +2127,69 @@ html:not(.dark) .admin-btn--accent {
 .dark .admin-kpi-card [class*='Filter'] {
   color: rgba(196, 181, 253, 0.9) !important;
 }
+
+/* Variant bulk bar — set one price or generate SKUs across the whole matrix. */
+.sf-variants__bulkbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 11px 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.sf-variants__bulkbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.sf-variants__bulkbar label span {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.sf-variants__bulkbar input {
+  width: 130px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12.5px;
+}
+
+.sf-variants__bulkbar button {
+  height: 32px;
+  padding: 0 13px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sf-variants__bulkbar button:disabled {
+  color: var(--ink-3);
+  cursor: not-allowed;
+}
+
+.sf-variants__bulkbar-sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--line);
+}
+
+@media (max-width: 640px) {
+  .sf-variants__bulkbar-sep { display: none; }
+  .sf-variants__bulkbar input { width: 100%; }
+  .sf-variants__bulkbar label { flex: 1 1 100%; }
+}

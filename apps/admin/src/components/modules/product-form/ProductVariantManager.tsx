@@ -144,6 +144,9 @@ export function ProductVariantManager({
     image: '',
   })
   const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkAllPrice, setBulkAllPrice] = useState('')
+  const [skuPrefix, setSkuPrefix] = useState('')
+  const [bulkAllBusy, setBulkAllBusy] = useState<'price' | 'sku' | null>(null)
   const [showManual, setShowManual] = useState(false)
   const [addDraft, setAddDraft] = useState<RowDraft>(EMPTY_DRAFT)
 
@@ -450,6 +453,110 @@ export function ProductVariantManager({
     if (saved > 0) toastOk(`Image applied to ${saved} variant${saved === 1 ? '' : 's'}`)
   }
 
+  /**
+   * Applies one value across every variant at once. Editing 50 rows by hand was
+   * the only way to reprice a size/colour matrix.
+   */
+  const applyToAllVariants = async (
+    label: string,
+    valueFor: (row: Variant, index: number) => Partial<{ price: number; sku: string }>,
+  ) => {
+    const targets = variants.filter((row) => row.id)
+    if (targets.length === 0) {
+      toastFail('No variants to update yet.')
+      return
+    }
+
+    let saved = 0
+    let failed = 0
+    for (const [index, row] of targets.entries()) {
+      if (!row.id) continue
+      const d = draftFor(row)
+      const override = valueFor(row, index)
+      const price = override.price ?? Number(d.price || row.price || 0)
+      const sku = (override.sku ?? d.sku ?? row.sku ?? '').trim()
+      const stock = Number(d.stock || serverStock(row))
+
+      const ok = await confirmVariantSaved(
+        productId,
+        row.id,
+        { price, stock, size: (d.size || row.size || '').trim() },
+        () =>
+          updateVariant.mutateAsync({
+            productId,
+            variantId: row.id!,
+            size: (d.size || row.size || '').trim(),
+            color: (d.color || row.color || '').trim(),
+            colorName: (d.colorName || row.colorName || '').trim(),
+            colorHex: (d.colorHex || row.colorHex || '').trim(),
+            image: (d.image || row.image || '').trim(),
+            sku,
+            price,
+            stock,
+          }),
+      )
+      if (ok) {
+        saved += 1
+        if (override.price !== undefined) setField(row.id, 'price', String(price))
+        if (override.sku !== undefined) setField(row.id, 'sku', sku)
+        syncDraftFromServer(row.id, { ...row, price, sku })
+      } else {
+        failed += 1
+      }
+    }
+
+    // Each row is its own request, so a partial result is real — report it.
+    if (saved && failed) toastFail(`${label}: ${saved} updated, ${failed} failed`)
+    else if (saved) toastOk(`${label} — ${saved} variant${saved === 1 ? '' : 's'} updated`)
+  }
+
+  const handleSetAllPrice = async () => {
+    const raw = bulkAllPrice.trim()
+    const price = Number(raw)
+    if (!raw || Number.isNaN(price) || price < 0) {
+      toastFail('Enter a price to apply to every variant.')
+      return
+    }
+    setBulkAllBusy('price')
+    try {
+      await applyToAllVariants('Price set on all', () => ({ price }))
+    } finally {
+      setBulkAllBusy(null)
+    }
+  }
+
+  /**
+   * PREFIX-SIZE-COLOUR, uppercased, non-alphanumerics collapsed. Falls back to the
+   * row index when a variant has neither size nor colour, so SKUs stay unique.
+   */
+  const handleAutoSku = async () => {
+    const prefix = (skuPrefix.trim() || 'SKU').toUpperCase().replace(/[^A-Z0-9]+/g, '')
+    if (!prefix) {
+      toastFail('Enter an SKU prefix.')
+      return
+    }
+    const seen = new Set<string>()
+    setBulkAllBusy('sku')
+    try {
+      await applyToAllVariants('SKUs generated', (row, index) => {
+        const d = draftFor(row)
+        const part = (value: string) => value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '')
+        const size = part(d.size || row.size || '')
+        const colour = part(d.colorName || row.colorName || d.color || row.color || '')
+        let sku = [prefix, size, colour].filter(Boolean).join('-')
+        if (sku === prefix) sku = `${prefix}-${index + 1}`
+        // A duplicate SKU would be rejected by the API — disambiguate here.
+        let candidate = sku
+        let n = 2
+        while (seen.has(candidate)) candidate = `${sku}-${n++}`
+        seen.add(candidate)
+        return { sku: candidate }
+      })
+    } finally {
+      setBulkAllBusy(null)
+    }
+  }
+
   const toggleActive = async (v: Variant) => {
     if (!v.id) return
     const next = !(v.isActive ?? true)
@@ -696,6 +803,46 @@ export function ProductVariantManager({
           </div>
         ) : (
           <div className="sf-variants__table-wrap">
+            {/* Repricing or numbering a 50-cell matrix one row at a time was the
+                only option before this. */}
+            <div className="sf-variants__bulkbar">
+              <label>
+                <span>Set all price</span>
+                <input
+                  value={bulkAllPrice}
+                  onChange={(e) => setBulkAllPrice(e.target.value.replace(/[^0-9.]/g, ''))}
+                  placeholder="4500"
+                  inputMode="decimal"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => void handleSetAllPrice()}
+                disabled={bulkAllBusy !== null || !bulkAllPrice.trim()}
+              >
+                {bulkAllBusy === 'price' ? 'Applying…' : `Apply to ${variants.length}`}
+              </button>
+
+              <span className="sf-variants__bulkbar-sep" aria-hidden />
+
+              <label>
+                <span>SKU prefix</span>
+                <input
+                  value={skuPrefix}
+                  onChange={(e) => setSkuPrefix(e.target.value)}
+                  placeholder="SPL-SHIRT"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => void handleAutoSku()}
+                disabled={bulkAllBusy !== null || !skuPrefix.trim()}
+                title="PREFIX-SIZE-COLOUR for every variant"
+              >
+                {bulkAllBusy === 'sku' ? 'Generating…' : 'Auto SKUs'}
+              </button>
+            </div>
+
             <table className="sf-variants__table">
               <thead>
                 <tr>
