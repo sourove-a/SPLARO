@@ -764,6 +764,13 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
                       value={keyInputs[m.id]}
                       onChange={(e) => setKeyInputs((prev) => ({ ...prev, [m.id]: e.target.value }))}
                       placeholder={hasSaved ? 'Saved — leave blank to keep' : m.placeholder}
+                      autoComplete="new-password"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      data-1p-ignore="true"
+                      data-lpignore="true"
+                      data-form-type="other"
+                      name={`ai-provider-key-${m.id}`}
                       style={{ ...dcInput, paddingRight: 38 }}
                     />
                     <button

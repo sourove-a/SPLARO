@@ -114,6 +114,18 @@ export function DcSidebar({
   onOpenProfile,
 }: DcSidebarProps) {
   const [query, setQuery] = useState('')
+  /** Password managers ignore `readonly` until the user focuses — blocks email dump on page load / nearby password-field clicks. */
+  const [filterEditable, setFilterEditable] = useState(false)
+
+  const applyNavFilter = (raw: string) => {
+    const next = raw.trim()
+    // Autofill often dumps `admin@…` into this box when API-key password fields are on screen.
+    if (next.includes('@') && !/\s/.test(next) && next.length <= 80) {
+      setQuery('')
+      return
+    }
+    setQuery(raw)
+  }
 
   const allRows: Row[] = useMemo(
     () =>
@@ -231,21 +243,27 @@ export function DcSidebar({
               <DcIcon name="icon-search" size={13} color="var(--ink-3)" />
               <input
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => applyNavFilter(e.target.value)}
+                onFocus={() => setFilterEditable(true)}
+                onBlur={() => {
+                  if (!query.trim()) setFilterEditable(false)
+                }}
                 placeholder="Filter menu…"
                 aria-label="Filter menu"
-                // Without these the browser's password manager treats this as a
-                // login field and drops the saved admin email into it on focus,
-                // so opening the menu looked like a search nobody typed.
+                // Password managers treat bare search inputs as login email fields and
+                // dump admin@… here when nearby password inputs (API keys) get attention.
                 type="search"
                 name="dc-nav-filter"
                 className="dc-nav-filter"
+                readOnly={!filterEditable}
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="off"
                 spellCheck={false}
-                data-1p-ignore
+                inputMode="search"
+                data-1p-ignore="true"
                 data-lpignore="true"
+                data-bwignore="true"
                 data-form-type="other"
                 style={{
                   flex: 1,
