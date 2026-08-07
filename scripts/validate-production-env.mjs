@@ -240,9 +240,11 @@ for (const [envKey, label] of [
   }
 }
 
-// Optional integrations — warn only (empty KEY= counts as not configured)
-let courierConfigured = false
-let bkashConfigured = false
+// Optional integrations — warn only (empty KEY= counts as not configured in .env).
+// Admin → Settings may still hold encrypted Steadfast/bKash keys — do not claim the
+// feature is globally disabled when only the env vars are blank.
+let courierEnvConfigured = false
+let bkashEnvConfigured = false
 for (const [label, keys] of Object.entries(OPTIONAL_GROUPS)) {
   const present = keys.filter((k) => process.env[k]?.trim())
   const emptyDeclared = keys.filter(
@@ -256,23 +258,23 @@ for (const [label, keys] of Object.entries(OPTIONAL_GROUPS)) {
   } else if (!present.length) {
     if (emptyDeclared.length) {
       warnings.push(
-        `${label}: ${emptyDeclared.join(', ')} are empty — set real values in .env or Admin → Settings, or delete the blank keys`,
+        `${label}: ${emptyDeclared.join(', ')} are empty in .env — OK if keys live in Admin → Settings; otherwise set real values or delete the blank keys`,
       )
     } else {
-      warnings.push(`${label} not configured (optional — feature disabled)`)
+      warnings.push(`${label} not in .env (optional — check Admin → Settings if you use this feature)`)
     }
   } else if (present.length < keys.length) {
     warnings.push(`${label} partially configured (${present.length}/${keys.length} vars) — double-check`)
   } else {
-    ok.push(`${label} configured`)
-    if (label === 'Courier (Steadfast)') courierConfigured = true
-    if (label === 'Payment (bKash)') bkashConfigured = true
+    ok.push(`${label} configured (.env)`)
+    if (label === 'Courier (Steadfast)') courierEnvConfigured = true
+    if (label === 'Payment (bKash)') bkashEnvConfigured = true
   }
 }
 
-if (isProduction && !courierConfigured && !bkashConfigured) {
+if (isProduction && !courierEnvConfigured && !bkashEnvConfigured) {
   warnings.push(
-    'Launch mode is COD-honest: Steadfast + bKash env keys are empty — courier booking and digital pay stay disabled until real credentials are saved',
+    'COD-honest launch note: Steadfast / bKash .env keys are empty — live booking/pay still work if Admin → Settings has real encrypted credentials; otherwise courier book and digital pay stay off',
   )
 }
 
