@@ -7,6 +7,7 @@ import { DcIcon } from '@/components/dc/DcIcon'
 import { DcModal } from '@/components/dc/DcModal'
 import { useDcScreen } from '@/components/dc/DcScreenContext'
 import { FONT, MONO, formatTaka, statusToneStyle } from '@/components/dc/tokens'
+import { resolveMediaUrl } from '@/lib/media-url'
 import { downloadInvoice } from '@/lib/admin/admin-actions'
 import { formatBdPhone, operatorOf, telHref } from '@/lib/format/bd-phone'
 import { verifyDeleteSuccess } from '@/lib/admin/mutation-verify'
@@ -366,6 +367,11 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
                 {(d.items ?? []).map((it) => {
                   const name = it.productName ?? it.product?.name ?? 'Product'
                   const variant = [it.variant?.size, it.variant?.color].filter(Boolean).join(' · ')
+                  // The drawer used to render a striped placeholder unconditionally —
+                  // the order item carries an image on three possible fields.
+                  const rawThumb =
+                    it.image ?? it.variant?.image ?? it.product?.images?.[0]?.url ?? null
+                  const thumb = rawThumb ? resolveMediaUrl(rawThumb) : null
                   return (
                     <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                       <span
@@ -377,12 +383,25 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
                           flex: 'none',
                           borderRadius: 8,
                           border: '1px solid var(--line)',
-                          background:
-                            'repeating-linear-gradient(135deg, var(--surface-2), var(--surface-2) 5px, var(--surface-3) 5px, var(--surface-3) 10px)',
+                          background: thumb
+                            ? 'var(--surface-2)'
+                            : 'repeating-linear-gradient(135deg, var(--surface-2), var(--surface-2) 5px, var(--surface-3) 5px, var(--surface-3) 10px)',
                           color: 'var(--ink-3)',
+                          overflow: 'hidden',
                         }}
                       >
-                        <DcIcon name="icon-image" size={13} />
+                        {thumb ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- remote/upload URLs; next/image not wired for admin thumbs
+                          <img
+                            src={thumb}
+                            alt=""
+                            width={40}
+                            height={48}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <DcIcon name="icon-image" size={13} />
+                        )}
                       </span>
                       <span
                         style={{
