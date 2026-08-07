@@ -86,9 +86,13 @@ export function parseAutofilledAddress(raw: string): {
  */
 export function composeDeliveryAddress(address: string, thana: string, district: string): string {
   const street = stripLocalitySuffix(address, thana, district)
-  const parts = [street, thana.trim(), district.trim()].filter(Boolean)
 
-  // Guard against a street that repeats the locality mid-line rather than at the end.
+  // Compare part-by-part, not street-as-one-string: an autofilled line like
+  // "Natornibash, Uttar RajaBari, Turag, Uttara" carries the thana in the
+  // MIDDLE, so a whole-string comparison never matched it and "Turag" was
+  // appended a second time.
+  const parts = [...splitAddressParts(street), thana.trim(), district.trim()].filter(Boolean)
+
   const seen = new Set<string>()
   return parts
     .filter((part) => {
