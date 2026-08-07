@@ -60,6 +60,7 @@ import { DcGoogleWorkspaceExtras } from '@/components/dc/screens/DcGoogleWorkspa
 import { DcSystemLogs } from '@/components/dc/screens/DcSystemLogs'
 import { DcPlatformDev } from '@/components/dc/screens/DcPlatformDev'
 import { DcNotificationCenter } from '@/components/dc/screens/DcNotificationCenter'
+import { DcPosCounter } from '@/components/dc/screens/DcPosCounter'
 import { resolveAliasRedirect } from '@/lib/navigation/alias-redirects'
 import { resolveNavRoute, getRecordIdFromSubPath } from '@/lib/navigation/admin-nav'
 
@@ -118,7 +119,7 @@ const DC_BESPOKE: Record<string, () => React.ReactElement> = {
   '/dashboard/cms': () => <DcCmsPages />,
   '/dashboard/landing-pages': () => <DcLandingPages />,
   // Thin API hubs (all-nav-live)
-  '/dashboard/pos': () => <DcCommerceExtras tab="pos" />,
+  '/dashboard/pos': () => <DcPosCounter />,
   '/dashboard/invoices': () => <DcCommerceExtras tab="invoices" />,
   '/dashboard/transactions': () => <DcCommerceExtras tab="transactions" />,
   '/dashboard/subscriptions': () => <DcCommerceExtras tab="subscriptions" />,

@@ -16,7 +16,6 @@ function getLiveRoutes(): Set<string> {
  * Thin hubs from all-nav-live stay beta until they have verified daily workflows.
  */
 const BETA_ROUTES = new Set<string>([
-  '/dashboard/pos',
   '/dashboard/invoices',
   '/dashboard/transactions',
   '/dashboard/subscriptions',

@@ -1,4 +1,6 @@
-import { apiFetch, getStoreId } from './client'
+import { apiFetch } from './client'
+
+export type PosPaymentMethod = 'cash' | 'bkash' | 'nagad' | 'card'
 
 export interface PosVariant {
   id: string
@@ -23,17 +25,17 @@ export interface PosProduct {
 
 export interface PosCatalogResponse {
   products: PosProduct[]
+  /** Set when a barcode/SKU scan resolved to exactly one variant. */
   matchedVariantId: string | null
 }
 
 export interface PosTodayStats {
-  count: number
   total: number
-  byMethod: Record<string, number>
-  date: string
+  count: number
+  [key: string]: unknown
 }
 
-export interface PosSaleResult {
+export interface PosSaleResponse {
   order: {
     id: string
     invoiceNumber: string
@@ -43,20 +45,19 @@ export interface PosSaleResult {
   }
 }
 
-export type PosPaymentMethod = 'cash' | 'bkash' | 'nagad' | 'card'
-
-export function fetchPosCatalog(params?: { q?: string; sku?: string }) {
-  const qs = new URLSearchParams({ storeId: getStoreId() })
-  if (params?.q) qs.set('q', params.q)
-  if (params?.sku) qs.set('sku', params.sku)
-  return apiFetch<PosCatalogResponse>(`/admin/pos/catalog?${qs}`)
+export function searchPosCatalog(params: { q?: string; sku?: string }) {
+  const qs = new URLSearchParams()
+  if (params.q?.trim()) qs.set('q', params.q.trim())
+  if (params.sku?.trim()) qs.set('sku', params.sku.trim())
+  const suffix = qs.toString()
+  return apiFetch<PosCatalogResponse>(`/admin/pos/catalog${suffix ? `?${suffix}` : ''}`)
 }
 
 export function fetchPosToday() {
-  return apiFetch<PosTodayStats>(`/admin/pos/today?storeId=${encodeURIComponent(getStoreId())}`)
+  return apiFetch<PosTodayStats>('/admin/pos/today')
 }
 
-export function createPosSale(input: {
+export function createPosSale(body: {
   items: { productId: string; variantId: string; quantity: number }[]
   paymentMethod: PosPaymentMethod
   customerName?: string
@@ -65,8 +66,8 @@ export function createPosSale(input: {
   notes?: string
   staffName?: string
 }) {
-  return apiFetch<PosSaleResult>(`/admin/pos/sale?storeId=${encodeURIComponent(getStoreId())}`, {
+  return apiFetch<PosSaleResponse>('/admin/pos/sale', {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify(body),
   })
 }

@@ -16,6 +16,7 @@ import { DcCoupons } from '@/components/dc/screens/DcCoupons'
 import { DcFinanceOverview } from '@/components/dc/screens/DcFinanceOverview'
 import { DcGoogleSheets } from '@/components/dc/screens/DcGoogleSheets'
 import { DcOperationsHub } from '@/components/dc/screens/DcOperationsHub'
+import { DcPosCounter } from '@/components/dc/screens/DcPosCounter'
 import { DcProfitLoss } from '@/components/dc/screens/DcProfitLoss'
 import { DcPurchaseOrders } from '@/components/dc/screens/DcPurchaseOrders'
 import { DcReturnsRma } from '@/components/dc/screens/DcReturnsRma'
@@ -46,6 +47,7 @@ const SCREENS: Record<string, { label: string; render: () => React.ReactElement 
   bulk: { label: 'Bulk & CSV', render: () => <DcBulkCsv /> },
   analytics: { label: 'Analytics', render: () => <DcAnalytics /> },
   'ai-agent': { label: 'AI Command Brain', render: () => <DcAiCommandBrain /> },
+  pos: { label: 'POS Counter', render: () => <DcPosCounter /> },
 }
 
 export const HARNESS_SCREENS = Object.keys(SCREENS)
