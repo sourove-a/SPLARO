@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
@@ -28,17 +28,43 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
   const configured = Boolean(googleClientId)
   const originEligible = useGoogleOAuthOriginEligibility()
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const host = googleHostRef.current
     if (!host) return
-    const updateWidth = () => {
+
+    /*
+     * Measure the parent, not the host.
+     *
+     * `googleButtonWidth` is the `key` on <GoogleLogin>, and GIS renders its
+     * iframe *inside* the host. Observing the host therefore let the button's
+     * own layout feed back into the key that remounts it: GIS mounts → host
+     * width shifts a pixel → key changes → GIS unmounts and remounts. That
+     * loop is why the button was slow to settle, and why a click could land on
+     * an iframe that was already being torn down.
+     *
+     * The parent is not touched by GIS, so its content box is a stable source
+     * of the available width.
+     */
+    const target = host.parentElement ?? host
+    const measure = () => {
+      const styles = getComputedStyle(target)
+      const inner =
+        target.clientWidth -
+        (parseFloat(styles.paddingLeft) || 0) -
+        (parseFloat(styles.paddingRight) || 0)
       // GIS width is integer px; round so the pill matches the Sign in button edge.
-      const width = Math.max(200, Math.min(400, Math.round(host.getBoundingClientRect().width)))
-      setGoogleButtonWidth((prev) => (prev === width ? prev : width))
+      return Math.max(200, Math.min(400, Math.round(inner)))
     }
+    const updateWidth = () => {
+      const width = measure()
+      // Remount only on a real layout change. Sub-pixel jitter must never
+      // recreate a button the user may be in the middle of clicking.
+      setGoogleButtonWidth((prev) => (Math.abs(prev - width) < 8 ? prev : width))
+    }
+
     updateWidth()
     const observer = new ResizeObserver(updateWidth)
-    observer.observe(host)
+    observer.observe(target)
     return () => observer.disconnect()
   }, [configured, originEligible])
 
