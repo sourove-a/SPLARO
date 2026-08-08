@@ -7,6 +7,7 @@ node_modules/
 .env.local
 .env.production
 .env.staging
+.env.mcp
 *.env
 infrastructure/hostinger/.env.splaro.co.production
 infrastructure/hostinger/hpanel-env.paste.txt

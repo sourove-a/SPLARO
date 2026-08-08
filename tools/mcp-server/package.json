@@ -1,0 +1,22 @@
+{
+  "name": "@splaro/mcp-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Read-only MCP server exposing SPLARO catalog, orders and sales data to local AI clients over stdio",
+  "type": "module",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/index.ts",
+    "type-check": "tsc --noEmit",
+    "smoke": "node --disable-warning=ExperimentalWarning scripts/smoke.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@prisma/client": "^5.16.0",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^5.5.0"
+  }
+}

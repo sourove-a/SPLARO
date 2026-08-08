@@ -50,6 +50,8 @@
     "sheets:sync": "cd tools/google-sheets-sync && pnpm sync:all",
     "print:start": "cd tools/print-service && pnpm build && pnpm start",
     "invoice:test": "cd tools/invoice-generator && pnpm build && pnpm test",
+    "mcp:start": "pnpm --filter @splaro/mcp-server start",
+    "mcp:smoke": "pnpm --filter @splaro/mcp-server smoke",
     "deploy": "bash infrastructure/scripts/deploy.sh",
     "deploy:hostinger": "bash infrastructure/hostinger/push-deploy.sh",
     "deploy:hostinger:fresh": "bash infrastructure/hostinger/push-deploy.sh -- -m \"deploy: splaro.co fresh\" && bash infrastructure/hostinger/run-fresh-deploy.sh",

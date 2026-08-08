@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "splaro": {
+      "command": "node",
+      "args": ["--disable-warning=ExperimentalWarning", "tools/mcp-server/src/index.ts"]
+    }
+  }
+}
