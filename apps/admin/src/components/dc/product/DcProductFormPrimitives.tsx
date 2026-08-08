@@ -374,6 +374,8 @@ export function DcStickyPublishBar({
           </span>
         </span>
       </span>
+      {/* Blocked publish is a neutral button, not washed-out violet — a faded
+          brand colour reads as a rendering fault rather than a deliberate state. */}
       <button
         type="button"
         data-dc-publish-primary="1"
@@ -386,15 +388,15 @@ export function DcStickyPublishBar({
           height: 38,
           padding: '0 16px',
           borderRadius: 10,
-          border: 0,
-          background: 'var(--violet-solid)',
-          color: 'var(--on-violet)',
+          border: saveDisabled && !saving ? '1px solid var(--line-2)' : 0,
+          background: saveDisabled && !saving ? 'var(--surface-2)' : 'var(--violet-solid)',
+          color: saveDisabled && !saving ? 'var(--ink-3)' : 'var(--on-violet)',
           cursor: saveDisabled || saving ? 'not-allowed' : 'pointer',
-          opacity: saveDisabled || saving ? 0.55 : 1,
+          opacity: saving ? 0.7 : 1,
           font: `600 12.5px/1 ${FONT}`,
         }}
       >
-        <DcIcon name="icon-check" size={14} />
+        <DcIcon name={saveDisabled && !saving ? 'icon-lock' : 'icon-check'} size={14} />
         <span>
           {saving
             ? 'Saving…'
@@ -407,12 +409,13 @@ export function DcStickyPublishBar({
         type="button"
         onClick={onDraft}
         disabled={saving}
+        className="dc-hover-line"
         style={{
           height: 38,
           padding: '0 14px',
           borderRadius: 10,
           border: '1px solid var(--line-2)',
-          background: 'var(--surface-2)',
+          background: 'var(--surface)',
           color: 'var(--ink)',
           cursor: 'pointer',
           font: `600 12.5px/1 ${FONT}`,
@@ -425,6 +428,7 @@ export function DcStickyPublishBar({
         onClick={onDiscard}
         className="dc-hover-ink"
         style={{
+          marginLeft: 'auto',
           height: 38,
           padding: '0 12px',
           borderRadius: 10,
@@ -534,22 +538,38 @@ export function DcStorefrontPreview({
         <span style={{ font: `500 10.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>card</span>
       </div>
       <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 11 }}>
+        {/* 4/5 mirrors `.shop-product-card__media` — the crop the shop really renders. */}
         <div
           style={{
             width: '100%',
-            aspectRatio: '3 / 4',
+            aspectRatio: '4 / 5',
             borderRadius: 10,
-            border: '1px dashed var(--line-2)',
+            border: imageUrl ? '1px solid var(--line)' : '1px dashed var(--line-2)',
             background: imageUrl
               ? `center / cover no-repeat url(${JSON.stringify(imageUrl)})`
               : 'var(--surface-2)',
             display: 'grid',
             placeItems: 'center',
             color: 'var(--ink-3)',
-            font: `500 11px/1 ${FONT}`,
           }}
         >
-          {!imageUrl ? 'Main photo' : null}
+          {!imageUrl ? (
+            <span
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 7,
+                color: 'var(--ink-3)',
+              }}
+            >
+              <DcIcon name="icon-image" size={20} />
+              <span style={{ font: `500 11px/1 ${FONT}` }}>Main photo</span>
+              <span style={{ font: `400 10px/1 ${FONT}`, color: 'var(--ink-3)', opacity: 0.75 }}>
+                First media slot fills this
+              </span>
+            </span>
+          ) : null}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           {dept ? (

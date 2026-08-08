@@ -1338,13 +1338,26 @@
   }
 }
 
+/* Even 3-up grid — an auto-fit track left the 6th menu orphaned on its own row. */
+.dc-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 719px) {
+  .dc-menu-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .dc-menu-tile {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  min-height: 96px;
-  padding: 14px 13px;
+  align-items: center;
+  gap: 11px;
+  min-height: 60px;
+  padding: 12px 13px;
   border-radius: 12px;
   border: 1px solid var(--line);
   background: var(--surface);
@@ -1352,11 +1365,17 @@
   color: var(--ink);
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  overflow: hidden;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 
 .dc-menu-tile:hover {
   border-color: var(--line-2);
+  background: var(--surface-2);
+}
+
+.dc-menu-tile:active {
+  transform: translateY(1px);
 }
 
 .dc-menu-tile--on {
@@ -1364,15 +1383,21 @@
   background: var(--violet-soft);
 }
 
+.dc-menu-tile--on:hover {
+  background: var(--violet-soft);
+}
+
 .dc-menu-tile__icon {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 10px;
   border: 1px solid var(--line);
   background: var(--surface-2);
   color: var(--ink-2);
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .dc-menu-tile--on .dc-menu-tile__icon {
@@ -1381,14 +1406,53 @@
   color: var(--violet);
 }
 
+.dc-menu-tile__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
 .dc-menu-tile__label {
   font: 600 13px/1.25 var(--dc-font);
   color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dc-menu-tile__hint {
-  font: 400 11px/1.35 var(--dc-font);
+  font: 500 10.5px/1.3 var(--dc-font);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--violet);
+}
+
+/* Selected corner tick — reads at a glance without shouting over the label. */
+.dc-menu-tile__tick {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 99px;
+  background: var(--violet-solid);
+  color: var(--on-violet);
+}
+
+/* Media slots — one uniform track so tile bottoms line up across rows. */
+.dc-media-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 719px) {
+  .dc-media-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* Home Page / Our Story — DC handoff density inside live module host */
@@ -2992,14 +3056,89 @@
   color: var(--warn);
 }
 
-/* Media picker tiles — a picker with no hover state gives no clue that the
-   thumbnails are clickable, or which one is about to be chosen. */
+/* Media picker.
+   `grid-auto-rows: max-content` is the load-bearing line: the grid is a flex
+   item inside the modal body, so with default `auto` rows the flex shrink
+   squeezed all 27 rows into the leftover ~94px and every thumbnail rendered as
+   a 3px strip. Intrinsic rows keep their height and let the grid scroll. */
+.dc-media-pick__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  grid-auto-rows: max-content;
+  gap: 12px;
+  overflow-y: auto;
+  align-content: start;
+  padding: 2px 2px 8px;
+  /* Take the leftover modal height and scroll inside, so the folder tabs and
+     search box stay pinned above the results. */
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* A picker with no hover state gives no clue that the thumbnails are
+   clickable, or which one is about to be chosen. */
 .dc-media-pick__tile {
-  transition: border-color 0.14s ease, background 0.14s ease;
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease, transform 0.14s ease;
 }
 
 .dc-media-pick__tile:hover,
 .dc-media-pick__tile:focus-visible {
   border-color: var(--violet-bd);
   background: var(--violet-soft);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.dc-media-pick__thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--surface-3);
+}
+
+/* "Use photo" veil — only on hover/focus, so the grid stays quiet at rest. */
+.dc-media-pick__veil {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  opacity: 0;
+  background: color-mix(in srgb, var(--violet-solid) 74%, transparent);
+  color: var(--on-violet);
+  font: 600 11px/1 var(--dc-font);
+  transition: opacity 0.14s ease;
+}
+
+.dc-media-pick__tile:hover .dc-media-pick__veil,
+.dc-media-pick__tile:focus-visible .dc-media-pick__veil {
+  opacity: 1;
+}
+
+.dc-media-pick__name {
+  display: block;
+  padding: 8px 10px;
+  border-top: 1px solid var(--line);
+  font: 500 11px/1.35 var(--dc-font);
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dc-media-pick__skeleton {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  aspect-ratio: 1 / 1.18;
 }

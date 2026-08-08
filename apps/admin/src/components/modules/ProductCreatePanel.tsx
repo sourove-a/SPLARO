@@ -18,7 +18,7 @@ import { DcProductMediaSlots } from '@/components/dc/product/DcProductMediaSlots
 import { FONT, MONO, formatTaka } from '@/components/dc/tokens'
 import { toastOk, toastFail, toastWarn } from '@/lib/admin/feedback'
 import { confirmProductCreated } from '@/lib/admin/catalog-save'
-import { buildCategoryPicker } from '@/lib/admin/category-picker'
+import { buildCategoryPicker, menuIconFor } from '@/lib/admin/category-picker'
 import {
   colourInputValue,
   DEFAULT_COLOUR_HEX,
@@ -782,17 +782,11 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
               >
                 Step 1 · Menu
               </span>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                  gap: 10,
-                }}
-              >
-                {catsLoading ? (
-                  <span style={{ font: `500 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>Loading menus…</span>
-                ) : (
-                  categoryPicker.departments.map((d) => {
+              {catsLoading ? (
+                <span style={{ font: `500 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>Loading menus…</span>
+              ) : (
+                <div className="dc-menu-grid">
+                  {categoryPicker.departments.map((d) => {
                     const on = departmentId === d.id
                     return (
                       <button
@@ -800,17 +794,25 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                         type="button"
                         onClick={() => handleDepartmentChange(d.id)}
                         className={`dc-menu-tile${on ? ' dc-menu-tile--on' : ''}`}
+                        aria-pressed={on}
                       >
                         <span className="dc-menu-tile__icon">
-                          {on ? <DcIcon name="icon-check" size={15} /> : <DcIcon name="icon-layers" size={15} />}
+                          <DcIcon name={menuIconFor(d.name)} size={16} />
                         </span>
-                        <span className="dc-menu-tile__label">{d.name}</span>
-                        {on ? <span className="dc-menu-tile__hint">Selected</span> : null}
+                        <span className="dc-menu-tile__text">
+                          <span className="dc-menu-tile__label">{d.name}</span>
+                          {on ? <span className="dc-menu-tile__hint">Selected</span> : null}
+                        </span>
+                        {on ? (
+                          <span className="dc-menu-tile__tick" aria-hidden>
+                            <DcIcon name="icon-check" size={11} />
+                          </span>
+                        ) : null}
                       </button>
                     )
-                  })
-                )}
-              </div>
+                  })}
+                </div>
+              )}
             </div>
 
             <div

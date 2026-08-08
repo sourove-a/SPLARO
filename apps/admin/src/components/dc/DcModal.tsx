@@ -15,6 +15,8 @@ export interface DcModalProps {
   danger?: boolean | undefined
   busy?: boolean | undefined
   busyLabel?: string | undefined
+  /** CSS width for the panel. Browsing modals (media library) need more room than a confirm. */
+  width?: string | undefined
   onClose: () => void
   onConfirm: () => void
   children?: ReactNode
@@ -29,6 +31,7 @@ export function DcModal({
   danger,
   busy,
   busyLabel = 'Saving…',
+  width = 'min(460px, 100%)',
   onClose,
   onConfirm,
   children,
@@ -66,7 +69,7 @@ export function DcModal({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: 'min(460px, 100%)',
+          width,
           maxHeight: '85vh',
           display: 'flex',
           flexDirection: 'column',

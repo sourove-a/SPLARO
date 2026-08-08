@@ -6,7 +6,9 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { DcShell } from '@/components/dc'
 import { DcAdminProfilePopover } from '@/components/dc/DcAdminProfilePopover'
 import { DcCommandPalette } from '@/components/dc/DcCommandPalette'
+import { DcConnectionPopover } from '@/components/dc/DcConnectionPopover'
 import { DcNotificationsPopover } from '@/components/dc/DcNotificationsPopover'
+import { DcPresencePopover } from '@/components/dc/DcPresencePopover'
 import type { DcActivityItem, DcQuickAction, DcTone } from '@/components/dc'
 import { useAdminSession, useDashboardInsights } from '@/lib/api/hooks'
 import { fetchAdminAuthProfile } from '@/lib/api/auth-profile'
@@ -61,9 +63,17 @@ export function DcAdminShell({ banner, children }: DcAdminShellProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { data: sessionUser } = useAdminSession()
-  const { api, storefront, database, checking } = useAdminConnection(25_000)
+  const { api, storefront, database, checking, refresh: refreshConnection } = useAdminConnection(25_000)
   const apiReachable = api.pulse === 'online' || api.pulse === 'degraded'
-  const { label: onlineLabel, title: onlineTitle, presence } = useOnlinePresence(apiReachable)
+  const {
+    label: onlineLabel,
+    title: onlineTitle,
+    presence,
+    onlineAdmins,
+    onlineAdminsLoading,
+  } = useOnlinePresence(apiReachable)
+  const [onlineOpen, setOnlineOpen] = useState(false)
+  const [connOpen, setConnOpen] = useState(false)
   const setAgentChatOpen = useAdminUiStore((s) => s.setAgentChatOpen)
   const insights = useDashboardInsights('7 Days')
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -140,6 +150,10 @@ export function DcAdminShell({ banner, children }: DcAdminShellProps) {
   const openPalette = useCallback(() => setPaletteOpen(true), [])
   const toggleNotifs = useCallback(() => setNotifOpen((v) => !v), [])
   const closeNotifs = useCallback(() => setNotifOpen(false), [])
+  const openOnline = useCallback(() => setOnlineOpen(true), [])
+  const closeOnline = useCallback(() => setOnlineOpen(false), [])
+  const openConnection = useCallback(() => setConnOpen(true), [])
+  const closeConnection = useCallback(() => setConnOpen(false), [])
   const onUnreadChange = useCallback((count: number, critical: number) => {
     setNotifUnread(count)
     setNotifUrgent(critical)
@@ -212,6 +226,8 @@ export function DcAdminShell({ banner, children }: DcAdminShellProps) {
         notificationsUrgent: notifUrgent > 0,
         onOpenPalette: openPalette,
         onOpenNotifications: toggleNotifs,
+        onOpenOnline: openOnline,
+        onOpenConnection: openConnection,
       }}
       {...(hideShellRail ? {} : { rail: { quickActions, activity } })}
       {...(banner ? { banner } : {})}
@@ -241,6 +257,21 @@ export function DcAdminShell({ banner, children }: DcAdminShellProps) {
         open={notifOpen}
         onClose={closeNotifs}
         onUnreadChange={onUnreadChange}
+      />
+      <DcPresencePopover
+        open={onlineOpen}
+        onClose={closeOnline}
+        admins={onlineAdmins?.admins}
+        storefrontCount={presence?.storefront ?? 0}
+        loading={onlineAdminsLoading}
+      />
+      <DcConnectionPopover
+        open={connOpen}
+        onClose={closeConnection}
+        api={api}
+        database={database}
+        storefront={storefront}
+        onRetry={refreshConnection}
       />
     </DcShell>
   )

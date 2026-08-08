@@ -51,6 +51,12 @@ export class DashboardController {
     return this.presence.getPresence(storeId ?? 'splaro')
   }
 
+  /** Who exactly is online right now — admin identities + storefront visitor count. */
+  @Get('presence/online-admins')
+  getOnlineAdmins(@Query('storeId') storeId?: string) {
+    return this.presence.getOnlineAdmins(storeId ?? 'splaro')
+  }
+
   /** Admin panel heartbeat — keeps staff in the live online count. */
   @Post('presence/heartbeat')
   async adminPresenceHeartbeat(

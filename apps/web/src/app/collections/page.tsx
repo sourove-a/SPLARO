@@ -28,7 +28,7 @@ export default async function CollectionsPage() {
         <div className="collections-page__hero shop-hero__glass">
           <div className="collections-page__hero-copy">
             <p className="shop-hero__eyebrow label-luxury">SPLARO Collections</p>
-            <h1 className="collections-page__title">Choose your edit</h1>
+            <h1 className="collections-page__title">Designed for every part of your wardrobe.</h1>
             <p className="shop-hero__subtitle">
               {visibleCards.length > 0
                 ? 'Each collection opens a filtered shop with size, colour, and price filters.'

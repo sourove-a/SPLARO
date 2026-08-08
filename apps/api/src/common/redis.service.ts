@@ -190,6 +190,20 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
+  /** List members seen inside the rolling presence window. */
+  async listPresenceMembers(setKey: string, windowMs: number): Promise<string[]> {
+    if (!this.client) await this.ensureClient()
+    if (!this.client) return []
+    const now = Date.now()
+    const min = now - windowMs
+    try {
+      await this.client.zremrangebyscore(setKey, 0, min)
+      return await this.client.zrange(setKey, 0, -1)
+    } catch {
+      return []
+    }
+  }
+
   /** SET NX lock — returns token when acquired, null when held by another caller. */
   async tryAcquireLock(key: string, ttlSeconds: number): Promise<string | null> {
     if (!this.client) await this.ensureClient()

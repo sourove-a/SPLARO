@@ -10,13 +10,20 @@ import { FONT, MONO } from '@/components/dc/tokens'
 import { toastFail, toastWarn } from '@/lib/admin/feedback'
 import { uploadAdminImage } from '@/lib/api/upload'
 
+/**
+ * Every slot crops to 4/5 because that is what `.shop-product-card__media`
+ * renders on the storefront — a 1/1 main tile previewed a crop the shop never
+ * shows, and mixing ratios left the grid rows ragged.
+ */
+const SLOT_RATIO = '4 / 5'
+
 const SLOT_META = [
-  { key: 'main', label: 'Main card thumbnail', hint: 'Upload · URL · library', ratio: '1 / 1' },
-  { key: 'front', label: 'Front', hint: 'Upload · URL · library', ratio: '3 / 4' },
-  { key: 'back', label: 'Back', hint: 'Upload · URL · library', ratio: '3 / 4' },
-  { key: 'cuff', label: 'Cuff detail', hint: 'Upload · URL · library', ratio: '3 / 4' },
-  { key: 'model', label: 'On model', hint: 'Upload · URL · library', ratio: '3 / 4' },
-  { key: 'fabric', label: 'Fabric close-up', hint: 'Upload · URL · library', ratio: '3 / 4' },
+  { key: 'main', label: 'Main card thumbnail', hint: 'Upload · URL · library', ratio: SLOT_RATIO },
+  { key: 'front', label: 'Front', hint: 'Upload · URL · library', ratio: SLOT_RATIO },
+  { key: 'back', label: 'Back', hint: 'Upload · URL · library', ratio: SLOT_RATIO },
+  { key: 'cuff', label: 'Cuff detail', hint: 'Upload · URL · library', ratio: SLOT_RATIO },
+  { key: 'model', label: 'On model', hint: 'Upload · URL · library', ratio: SLOT_RATIO },
+  { key: 'fabric', label: 'Fabric close-up', hint: 'Upload · URL · library', ratio: SLOT_RATIO },
 ] as const
 
 export function DcProductMediaSlots({
@@ -97,13 +104,7 @@ export function DcProductMediaSlots({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(168px, 1fr))',
-          gap: 12,
-        }}
-      >
+      <div className="dc-media-grid">
         {SLOT_META.map((slot, index) => {
           const url = imageUrls[index]
           const busy = busyIdx === index

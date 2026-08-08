@@ -8,8 +8,27 @@ export interface PresenceSnapshot {
   updatedAt: string
 }
 
+export interface OnlineAdmin {
+  id: string
+  name: string
+  email: string | null
+  avatar: string | null
+  role: string
+}
+
+export interface OnlineAdminsSnapshot {
+  admins: OnlineAdmin[]
+  storefront: number
+  source: 'live' | 'sessions'
+  updatedAt: string
+}
+
 export function fetchOnlinePresence() {
   return apiFetch<PresenceSnapshot>('/admin/dashboard/presence')
+}
+
+export function fetchOnlineAdmins() {
+  return apiFetch<OnlineAdminsSnapshot>('/admin/dashboard/presence/online-admins')
 }
 
 export function sendAdminPresenceHeartbeat(visitorId: string) {

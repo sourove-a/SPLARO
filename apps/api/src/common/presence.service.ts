@@ -16,6 +16,21 @@ export interface PresenceSnapshot {
   updatedAt: string
 }
 
+export interface OnlineAdmin {
+  id: string
+  name: string
+  email: string | null
+  avatar: string | null
+  role: string
+}
+
+export interface OnlineAdminsSnapshot {
+  admins: OnlineAdmin[]
+  storefront: number
+  source: PresenceSource
+  updatedAt: string
+}
+
 @Injectable()
 export class PresenceService {
   constructor(
@@ -79,6 +94,80 @@ export class PresenceService {
       storefront,
       admin,
       total: storefront + admin,
+      source: 'sessions',
+      updatedAt,
+    }
+  }
+
+  async getOnlineAdmins(storeIdRaw: string): Promise<OnlineAdminsSnapshot> {
+    const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    const updatedAt = new Date().toISOString()
+
+    if (this.redis.isReady) {
+      const [members, storefront] = await Promise.all([
+        this.redis.listPresenceMembers(this.setKey(storeId, 'admin'), PRESENCE_WINDOW_MS),
+        this.redis.countPresenceSet(this.setKey(storeId, 'storefront'), PRESENCE_WINDOW_MS),
+      ])
+      const ids = members
+        .filter((m) => m.startsWith('admin:'))
+        .map((m) => m.slice('admin:'.length))
+        .filter(Boolean)
+      const users =
+        ids.length === 0
+          ? []
+          : await this.prisma.user.findMany({
+              where: { id: { in: ids } },
+              select: { id: true, firstName: true, lastName: true, email: true, avatar: true, role: true },
+            })
+      return {
+        admins: users.map((u) => ({
+          id: u.id,
+          name: `${u.firstName} ${u.lastName}`.trim(),
+          email: u.email,
+          avatar: u.avatar,
+          role: u.role,
+        })),
+        storefront,
+        source: 'live',
+        updatedAt,
+      }
+    }
+
+    const since = new Date(Date.now() - SESSION_FALLBACK_MS)
+    const sessionWhere = {
+      isRevoked: false,
+      expiresAt: { gt: new Date() },
+      lastActive: { gte: since },
+    } as const
+
+    const [adminUsers, storefront] = await Promise.all([
+      this.prisma.user.findMany({
+        where: {
+          staffRoles: { some: { storeId } },
+          deviceSessions: { some: sessionWhere },
+        },
+        select: { id: true, firstName: true, lastName: true, email: true, avatar: true, role: true },
+      }),
+      this.prisma.deviceSession.count({
+        where: {
+          ...sessionWhere,
+          user: {
+            customer: { storeId },
+            staffRoles: { none: { storeId } },
+          },
+        },
+      }),
+    ])
+
+    return {
+      admins: adminUsers.map((u) => ({
+        id: u.id,
+        name: `${u.firstName} ${u.lastName}`.trim(),
+        email: u.email,
+        avatar: u.avatar,
+        role: u.role,
+      })),
+      storefront,
       source: 'sessions',
       updatedAt,
     }

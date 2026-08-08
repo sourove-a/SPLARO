@@ -15,7 +15,7 @@ import {
 import { DcProductMediaSlots } from '@/components/dc/product/DcProductMediaSlots'
 import { mediaFolderForDept } from '@/lib/admin/size-presets'
 import { FONT, MONO, formatTaka } from '@/components/dc/tokens'
-import { buildCategoryPicker } from '@/lib/admin/category-picker'
+import { buildCategoryPicker, menuIconFor } from '@/lib/admin/category-picker'
 import {
   buildDescriptionDraft,
   formatBilingualDescription,
@@ -881,13 +881,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
               >
                 Step 1 · Menu
               </span>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                  gap: 10,
-                }}
-              >
+              <div className="dc-menu-grid">
                 {categoryPicker.departments.map((d) => {
                   const on = departmentId === d.id
                   return (
@@ -896,11 +890,20 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
                       type="button"
                       onClick={() => handleDepartmentChange(d.id)}
                       className={`dc-menu-tile${on ? ' dc-menu-tile--on' : ''}`}
+                      aria-pressed={on}
                     >
                       <span className="dc-menu-tile__icon">
-                        {on ? <DcIcon name="icon-check" size={15} /> : <DcIcon name="icon-layers" size={15} />}
+                        <DcIcon name={menuIconFor(d.name)} size={16} />
                       </span>
-                      <span className="dc-menu-tile__label">{d.name}</span>
+                      <span className="dc-menu-tile__text">
+                        <span className="dc-menu-tile__label">{d.name}</span>
+                        {on ? <span className="dc-menu-tile__hint">Selected</span> : null}
+                      </span>
+                      {on ? (
+                        <span className="dc-menu-tile__tick" aria-hidden>
+                          <DcIcon name="icon-check" size={11} />
+                        </span>
+                      ) : null}
                     </button>
                   )
                 })}

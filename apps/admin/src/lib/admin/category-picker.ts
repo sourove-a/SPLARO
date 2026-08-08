@@ -207,3 +207,20 @@ export function buildCategoryPicker(categories: CategoryPickerRow[], treeRoots?:
 
   return { departments, subcategoriesForDepartment, departmentForCategory, childrenOf, deptIds, deptById }
 }
+
+/**
+ * Storefront menus read faster with their own icon — every tile carrying the
+ * same generic glyph made the menu row scan as one undifferentiated block.
+ * Returns a `DcIcon` name; "women" is tested before "men" so it wins the
+ * substring match.
+ */
+export function menuIconFor(name: string): string {
+  const n = name.toLowerCase()
+  if (n.includes('women') || n.includes('girl')) return 'icon-gem'
+  if (n.includes('men') || n.includes('boy')) return 'icon-shirt'
+  if (n.includes('kid') || n.includes('child') || n.includes('baby')) return 'icon-baby'
+  if (n.includes('footwear') || n.includes('shoe') || n.includes('sneaker')) return 'icon-footprints'
+  if (n.includes('accessor') || n.includes('bag') || n.includes('watch')) return 'icon-watch'
+  if (n.includes('new') || n.includes('arrival')) return 'icon-sparkles'
+  return 'icon-layers'
+}

@@ -16,6 +16,8 @@ export interface DcHeaderProps {
   onToggleRail: () => void
   onOpenPalette?: () => void
   onOpenNotifications?: () => void
+  onOpenOnline?: () => void
+  onOpenConnection?: () => void
 }
 
 const iconButton = {
@@ -38,6 +40,8 @@ export function DcHeader({
   onToggleRail,
   onOpenPalette,
   onOpenNotifications,
+  onOpenOnline,
+  onOpenConnection,
 }: DcHeaderProps) {
   const { theme, toggleTheme } = useDcTheme()
   const api = toneStyle(apiTone)
@@ -100,8 +104,10 @@ export function DcHeader({
       <div className="dc-header__spacer" style={{ flex: 1 }} />
 
       {onlineLabel ? (
-        <div
-          className="dc-header__online"
+        <button
+          type="button"
+          onClick={onOpenOnline}
+          className="dc-header__online dc-hover-line"
           title={onlineTitle}
           style={{
             display: 'flex',
@@ -114,15 +120,18 @@ export function DcHeader({
             background: online.bg,
             font: `600 11.5px/1 ${FONT}`,
             color: online.fg,
+            cursor: 'pointer',
           }}
         >
           <DcIcon name="icon-users" size={13} />
           <span>{onlineLabel}</span>
-        </div>
+        </button>
       ) : null}
 
-      <div
-        className="dc-header__api"
+      <button
+        type="button"
+        onClick={onOpenConnection}
+        className="dc-header__api dc-hover-line"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -134,6 +143,7 @@ export function DcHeader({
           background: api.bg,
           font: `600 11.5px/1 ${FONT}`,
           color: api.fg,
+          cursor: 'pointer',
         }}
       >
         <span
@@ -146,7 +156,7 @@ export function DcHeader({
           }}
         />
         <span className="dc-header__api-label">{apiLabel}</span>
-      </div>
+      </button>
 
       <div
         className="dc-header__divider"

@@ -5,9 +5,9 @@ import { createRouteMetadata } from '@/lib/seo/route-metadata'
 import { buildBreadcrumbJsonLd } from '@/lib/seo/geo-json-ld'
 
 export const metadata = createRouteMetadata({
-  title: 'Shop',
+  title: 'Shop Premium Fashion for Men, Women & Kids',
   description:
-    'Browse SPLARO Summer Edition, Men, Women, Kids, and Footwear. Filter by size and colour.',
+    'Shop SPLARO clothing, footwear and accessories for men, women and kids. Premium everyday fashion crafted for modern Bangladesh.',
   path: '/shop',
 })
 

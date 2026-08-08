@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchOnlinePresence, sendAdminPresenceHeartbeat } from '@/lib/api/presence'
+import { fetchOnlineAdmins, fetchOnlinePresence, sendAdminPresenceHeartbeat } from '@/lib/api/presence'
 import { useAdminSession } from '@/lib/api/hooks'
 
 const HEARTBEAT_MS = 10_000
@@ -22,6 +22,15 @@ export function useOnlinePresence(apiReachable: boolean) {
   const query = useQuery({
     queryKey: ['admin-online-presence'],
     queryFn: fetchOnlinePresence,
+    enabled: apiReachable,
+    staleTime: 1_000,
+    refetchInterval: POLL_MS,
+    retry: 1,
+  })
+
+  const adminsQuery = useQuery({
+    queryKey: ['admin-online-admins'],
+    queryFn: fetchOnlineAdmins,
     enabled: apiReachable,
     staleTime: 1_000,
     refetchInterval: POLL_MS,
@@ -69,5 +78,8 @@ export function useOnlinePresence(apiReachable: boolean) {
     title,
     presence,
     loading: query.isLoading,
+    onlineAdmins: adminsQuery.data,
+    onlineAdminsLoading: adminsQuery.isLoading,
+    refetchOnlineAdmins: adminsQuery.refetch,
   }
 }
