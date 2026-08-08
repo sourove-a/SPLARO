@@ -28,12 +28,32 @@ describe('SPLARO API (e2e)', () => {
     expect(res.body.database).toBe('connected')
   })
 
-  it('GET /api/v1/health/full — infrastructure summary', async () => {
-    const res = await request(app.getHttpServer()).get('/api/v1/health/full').expect(200)
+  it('GET /api/v1/health/full — requires auth or internal secret', async () => {
+    await request(app.getHttpServer()).get('/api/v1/health/full').expect(401)
+  })
+
+  it('GET /api/v1/health/full — infrastructure summary with internal secret', async () => {
+    const secret = 'e2e-internal-health-secret-min-16'
+    process.env.INTERNAL_HEALTH_SECRET = secret
+
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/health/full')
+      .set('x-splaro-internal', secret)
+      .expect(200)
 
     expect(res.body.service).toBe('splaro-api')
     expect(res.body.summary?.total).toBeGreaterThan(0)
     expect(Array.isArray(res.body.checks)).toBe(true)
+  })
+
+  it('POST /api/v1/admin/auth/login-method — unknown email is generic telegram', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/admin/auth/login-method')
+      .send({ email: 'nobody@example.com' })
+      .expect(201)
+
+    expect(res.body.method).toBe('telegram')
+    expect(res.body.exists).toBeUndefined()
   })
 
   it('GET /api/v1/storefront/settings — public storefront config', async () => {
@@ -65,6 +85,19 @@ describe('SPLARO API (e2e)', () => {
 
     expect(res.body.statusCode).toBe(401)
     expect(res.body.message).toMatch(/Telegram login token required/i)
+  })
+
+  it('POST /api/v1/admin/auth/login — unknown email uses the same telegram gate', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/admin/auth/login')
+      .send({ email: 'nobody@example.com' })
+      .expect(401)
+
+    expect(res.body.message).toMatch(/Telegram login token required/i)
+  })
+
+  it('POST /api/v1/telegram-webhook — rejects missing secret', async () => {
+    await request(app.getHttpServer()).post('/api/v1/telegram-webhook').send({}).expect(401)
   })
 
   it('POST /api/v1/storefront/auth/otp/send — validates phone length', async () => {

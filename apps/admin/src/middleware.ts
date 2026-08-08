@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from '@/lib/auth/session'
+import {
+  ADMIN_SESSION_COOKIE,
+  sessionCookieOptions,
+  verifyAdminSessionToken,
+} from '@/lib/auth/session'
+import { probeLiveAdminSession } from '@/lib/auth/live-session'
 import { getAdminRequestOrigin } from '@/lib/auth/request-origin'
 import {
   canAccessNavRoute,
@@ -17,6 +22,12 @@ function dashboardPermissionAction(pathname: string): PermissionAction {
   return 'view'
 }
 
+function clearSessionRedirect(url: URL) {
+  const res = NextResponse.redirect(url)
+  res.cookies.set(ADMIN_SESSION_COOKIE, '', { ...sessionCookieOptions(0), maxAge: 0 })
+  return res
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const origin = getAdminRequestOrigin(request)
@@ -25,10 +36,17 @@ export async function middleware(request: NextRequest) {
     const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value
     const session = token ? await verifyAdminSessionToken(token) : null
 
-    if (!session) {
+    if (!session || !token) {
       const loginUrl = new URL('/login', origin)
       loginUrl.searchParams.set('next', pathname)
       return NextResponse.redirect(loginUrl)
+    }
+
+    const live = await probeLiveAdminSession(token)
+    if (live === 'rejected') {
+      const loginUrl = new URL('/login', origin)
+      loginUrl.searchParams.set('next', pathname)
+      return clearSessionRedirect(loginUrl)
     }
 
     if (pathname === '/dashboard/access-denied') {
@@ -54,6 +72,12 @@ export async function middleware(request: NextRequest) {
   if (pathname === '/login') {
     const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value
     if (token && (await verifyAdminSessionToken(token))) {
+      const live = await probeLiveAdminSession(token)
+      if (live === 'rejected') {
+        const res = NextResponse.next()
+        res.cookies.set(ADMIN_SESSION_COOKIE, '', { ...sessionCookieOptions(0), maxAge: 0 })
+        return res
+      }
       return NextResponse.redirect(new URL('/dashboard', origin))
     }
   }

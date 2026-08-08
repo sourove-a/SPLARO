@@ -12,6 +12,7 @@ export class AppThrottlerGuard extends ThrottlerGuard {
     const req = context.switchToHttp().getRequest<{ url?: string; path?: string; originalUrl?: string }>()
     const path = req.originalUrl ?? req.url ?? req.path ?? ''
     if (/\/admin\/auth(\/|$|\?)/.test(path)) return super.shouldSkip(context)
+    if (/\/admin\/dashboard\/presence\/heartbeat(\/|$|\?)/.test(path)) return super.shouldSkip(context)
     if (/\/admin(\/|$|\?)/.test(path)) return true
     return super.shouldSkip(context)
   }

@@ -149,14 +149,17 @@ export class AuthService {
   async resolveLoginMethod(
     email: string,
     storeIdRaw?: string,
-  ): Promise<{ method: 'telegram' | 'password'; email: string }> {
+  ): Promise<{ method: 'telegram' | 'password'; email: string; exists: boolean }> {
+    const normalized = email.trim().toLowerCase()
     const admin = await this.resolveAdminStaff(email, storeIdRaw)
     if (!admin) {
-      throw new UnauthorizedException('No admin account found for this email')
+      // Unknown emails look like Telegram-only admins so existence is not leaked.
+      return { method: 'telegram', email: normalized, exists: false }
     }
     return {
       method: this.isTelegramOnlyAdmin(admin.role, admin.email) ? 'telegram' : 'password',
       email: admin.email,
+      exists: true,
     }
   }
 

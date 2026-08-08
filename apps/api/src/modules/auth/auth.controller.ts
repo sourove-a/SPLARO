@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  ForbiddenException,
   Get,
   Headers,
   Inject,
@@ -39,7 +38,8 @@ export class AuthController {
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('login-method')
   async loginMethod(@Body() body: AdminLoginMethodDto) {
-    return this.auth.resolveLoginMethod(body.email.trim(), body.storeId)
+    const resolved = await this.auth.resolveLoginMethod(body.email.trim(), body.storeId)
+    return { method: resolved.method, email: resolved.email }
   }
 
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
@@ -48,10 +48,9 @@ export class AuthController {
     const email = body.email.trim()
     const storeId = body.storeId ?? 'splaro'
 
-    // Owner/Admin accounts use Telegram; Manager/Staff use password.
-    const method = await this.auth.resolveLoginMethod(email, body.storeId)
-    if (method.method !== 'telegram') {
-      throw new ForbiddenException('Use email and password to sign in')
+    const resolved = await this.auth.resolveLoginMethod(email, body.storeId)
+    if (!resolved.exists || resolved.method !== 'telegram') {
+      return { ok: true, email: resolved.email, tokenSent: true }
     }
 
     const delivery = await this.telegram.resolveAdminLoginDelivery(storeId, email)

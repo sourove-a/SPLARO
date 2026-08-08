@@ -1,7 +1,16 @@
 import { Controller, Post, Body, Headers, UnauthorizedException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { timingSafeEqual } from 'node:crypto'
 import { Public } from '../../common/auth/public.decorator'
 import { TelegramService } from '../telegram/telegram.service'
+
+function webhookSecretsEqual(provided: string | undefined, expected: string): boolean {
+  if (!provided) return false
+  const a = Buffer.from(provided, 'utf8')
+  const b = Buffer.from(expected, 'utf8')
+  if (a.length !== b.length) return false
+  return timingSafeEqual(a, b)
+}
 
 @Public()
 @Controller('telegram-webhook')
@@ -20,7 +29,7 @@ export class TelegramWebhookController {
     if (!expected) {
       throw new UnauthorizedException('Telegram webhook secret is not configured')
     }
-    if (secret !== expected) {
+    if (!webhookSecretsEqual(secret, expected)) {
       throw new UnauthorizedException('Invalid webhook secret')
     }
     await this.telegram.handleWebhookUpdate(body)

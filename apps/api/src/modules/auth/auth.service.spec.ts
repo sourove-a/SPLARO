@@ -1,5 +1,5 @@
 import { createHash } from 'crypto'
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common'
+import { ForbiddenException } from '@nestjs/common'
 import { AuthService } from './auth.service'
 import { hashPassword } from '../../common/password.util'
 
@@ -115,6 +115,7 @@ describe('AuthService role-split login', () => {
     await expect(service.resolveLoginMethod('ceo@example.com')).resolves.toEqual({
       method: 'telegram',
       email: 'ceo@example.com',
+      exists: true,
     })
   })
 
@@ -132,6 +133,7 @@ describe('AuthService role-split login', () => {
     await expect(service.resolveLoginMethod('staff@example.com')).resolves.toEqual({
       method: 'password',
       email: 'staff@example.com',
+      exists: true,
     })
   })
 
@@ -147,6 +149,7 @@ describe('AuthService role-split login', () => {
     await expect(service.resolveLoginMethod('admin@example.com')).resolves.toEqual({
       method: 'telegram',
       email: 'admin@example.com',
+      exists: true,
     })
   })
 
@@ -246,7 +249,7 @@ describe('AuthService role-split login', () => {
 })
 
 describe('AuthService resolveAdminStaff missing', () => {
-  it('throws when no admin account', async () => {
+  it('returns generic telegram method without leaking existence', async () => {
     const prisma = {
       user: { findFirst: jest.fn().mockResolvedValue(null) },
       staffRole: { findFirst: jest.fn().mockResolvedValue(null) },
@@ -260,8 +263,10 @@ describe('AuthService resolveAdminStaff missing', () => {
       {} as never,
       { sendForStore: jest.fn() } as never,
     )
-    await expect(service.resolveLoginMethod('nobody@example.com')).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    )
+    await expect(service.resolveLoginMethod('nobody@example.com')).resolves.toEqual({
+      method: 'telegram',
+      email: 'nobody@example.com',
+      exists: false,
+    })
   })
 })

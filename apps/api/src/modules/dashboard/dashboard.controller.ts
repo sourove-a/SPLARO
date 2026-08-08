@@ -10,6 +10,7 @@ import {
   Req,
   UnauthorizedException,
 } from '@nestjs/common'
+import { Throttle } from '@nestjs/throttler'
 import type { Request } from 'express'
 import { DashboardService } from './dashboard.service'
 import { PrismaService } from '../../common/prisma.service'
@@ -58,6 +59,7 @@ export class DashboardController {
   }
 
   /** Admin panel heartbeat — keeps staff in the live online count. */
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post('presence/heartbeat')
   async adminPresenceHeartbeat(
     @Query('storeId') storeId: string | undefined,

@@ -117,6 +117,7 @@ export function validateEnv(config: Record<string, unknown>) {
   checkSecret(config, 'ADMIN_SESSION_SECRET', 24, missing, errors)
   checkSecret(config, 'INTERNAL_HEALTH_SECRET', 16, missing, errors)
   checkSecret(config, 'ENCRYPTION_KEY', 32, missing, errors)
+  checkSecret(config, 'INVOICE_ACCESS_SECRET', 32, missing, errors)
 
   // ── CORS — must not boot with localhost fallbacks (main.ts getCorsOrigins) ──
   const corsOrigins = resolveCorsOrigins(config)

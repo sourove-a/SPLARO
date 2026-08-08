@@ -86,6 +86,7 @@ console.log('✅ /api/v1/health')
 try {
   const res = await fetch(`http://127.0.0.1:${port}/api/v1/health/full`, {
     signal: AbortSignal.timeout(20_000),
+    headers: { 'x-splaro-internal': env.INTERNAL_HEALTH_SECRET },
   })
   const body = await res.text()
   let payload = null

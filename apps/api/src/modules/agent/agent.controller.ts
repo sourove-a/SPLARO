@@ -13,6 +13,7 @@ import {
   GoneException,
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { timingSafeEqual } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { Public } from '../../common/auth/public.decorator'
 import { RequireFeature } from '../../common/auth/require-feature.decorator'
@@ -201,7 +202,13 @@ export class AgentController {
     if (!expected) {
       throw new UnauthorizedException('Telegram webhook secret is not configured')
     }
-    if (secret !== expected) {
+    const provided = secret ? Buffer.from(secret, 'utf8') : null
+    const expectedBuf = Buffer.from(expected, 'utf8')
+    if (
+      !provided ||
+      provided.length !== expectedBuf.length ||
+      !timingSafeEqual(provided, expectedBuf)
+    ) {
       throw new UnauthorizedException('Invalid webhook secret')
     }
     throw new GoneException(

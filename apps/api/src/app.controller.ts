@@ -29,7 +29,6 @@ export class AppController {
       docs: {
         swagger: '/api/v1/docs',
         health: '/api/v1/health',
-        healthFull: '/api/v1/health/full',
         healthRoutes: '/api/v1/health/routes',
         storefrontSettings: '/api/v1/storefront/settings?storeId=splaro',
       },
@@ -123,9 +122,8 @@ export class AppController {
   }
 
   @SkipThrottle()
-  @Public()
   @Get('health/full')
-  @ApiOperation({ summary: 'Full infrastructure health check' })
+  @ApiOperation({ summary: 'Full infrastructure health (admin or internal secret)' })
   async fullHealth(@Res({ passthrough: true }) res: Response) {
     const started = Date.now()
     const checks: {
