@@ -4,7 +4,6 @@ import { useMemo, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import { HeroSlider } from '@/components/home/HeroSlider'
 import { MarqueeStrip } from '@/components/home/MarqueeStrip'
-import { TrustBar } from '@/components/home/TrustBar'
 import { HomeDepartmentRows } from '@/components/home/HomeDepartmentRows'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import type { HeroBanner } from '@/lib/api/banners'
@@ -76,10 +75,16 @@ export function GlassStorefront({
         <HeroSlider key="home-hero" initialBanners={heroBanners} />
       ) : null}
 
-      {homepage.marquee || homepage.trustBar ? (
+      {/*
+        TrustBar is intentionally not rendered on the homepage — the badge strip
+        sat directly under the hero and broke the run from campaign image into
+        the catalog. The `homepage.trustBar` admin toggle still drives the
+        component everywhere else; restore it here by putting back
+        `{homepage.trustBar ? <TrustBar key="home-trust" /> : null}`.
+      */}
+      {homepage.marquee ? (
         <div key="home-post-hero" className="home-post-hero">
-          {homepage.marquee ? <MarqueeStrip key="home-marquee" /> : null}
-          {homepage.trustBar ? <TrustBar key="home-trust" /> : null}
+          <MarqueeStrip key="home-marquee" />
         </div>
       ) : null}
 
