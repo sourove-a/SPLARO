@@ -14,6 +14,7 @@ DEPLOY_SHA="${SPLARO_DEPLOY_SHA:-}"
 REPO_SSH="${SPLARO_REPO_SSH:-git@github.com:sourove-a/SPLARO.git}"
 DEPLOY_KEY="${SPLARO_DEPLOY_KEY:-/root/.ssh/github_deploy}"
 DEPLOY_LOCK="${SPLARO_DEPLOY_LOCK:-/var/run/splaro-deploy.lock}"
+NEXT_APPS_STOPPED=0
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
 die() { log "ERROR: $*"; exit 1; }
@@ -45,7 +46,7 @@ on_exit() {
       mv "${APP_DIR}/apps/admin/.next.prev" "${APP_DIR}/apps/admin/.next"
       log "Restored previous apps/admin/.next"
     fi
-    if command -v pm2 >/dev/null 2>&1; then
+    if [ "$NEXT_APPS_STOPPED" = "1" ] && command -v pm2 >/dev/null 2>&1; then
       pm2 resurrect 2>/dev/null || pm2 restart splaro-web splaro-admin 2>/dev/null || true
     fi
   fi
@@ -84,6 +85,7 @@ if [ ! -d "$APP_DIR/.git" ]; then
 fi
 
 cd "$APP_DIR" || die "Missing $APP_DIR"
+PREVIOUS_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
 
 # Load env
 if [ -f .env ]; then
@@ -129,6 +131,29 @@ else
   git reset --hard "origin/$BRANCH"
 fi
 
+# API-only releases never rebuild, move, stop, or reload storefront/admin.
+# Documentation and this deploy script itself are neutral for scope detection,
+# allowing uptime hardening to ship beside an API change without forcing Next.
+DEPLOY_SCOPE="full"
+CHANGED_FILES=""
+if [ -n "$PREVIOUS_SHA" ] && git cat-file -e "${PREVIOUS_SHA}^{commit}" 2>/dev/null; then
+  CHANGED_FILES="$(git diff --name-only "$PREVIOUS_SHA" HEAD)"
+  API_CHANGE=0
+  API_ONLY=1
+  while IFS= read -r changed_file; do
+    [ -n "$changed_file" ] || continue
+    case "$changed_file" in
+      apps/api/*) API_CHANGE=1 ;;
+      docs/*|infrastructure/vps/deploy.sh) ;;
+      *) API_ONLY=0 ;;
+    esac
+  done <<<"$CHANGED_FILES"
+  if [ "$API_CHANGE" = "1" ] && [ "$API_ONLY" = "1" ]; then
+    DEPLOY_SCOPE="api"
+  fi
+fi
+log "Deploy scope: $DEPLOY_SCOPE"
+
 # Fail fast on missing/placeholder production secrets before a long build.
 # Re-load .env after sync in case deploy pinned a commit that documents new keys.
 if [ -f .env ]; then
@@ -165,6 +190,23 @@ log "Build..."
 # Swap already verified before dependency install; keep this idempotent guard
 # next to build too in case an operator disabled swap during a long deploy.
 ensure_swap
+
+if [ "$DEPLOY_SCOPE" = "api" ]; then
+  log "API-only rolling release — storefront/admin remain online and untouched."
+  pnpm --filter @splaro/types build
+  pnpm --filter @splaro/config build
+  pnpm --filter @splaro/invoice-generator build
+  pnpm --filter @splaro/api build
+  touch_deploy_lock
+  pm2 reload splaro-api --update-env
+  pm2 save
+else
+  # Current full Next build needs the live .next directories moved and the
+  # Next processes stopped. Refuse that path by default: failed deploy is safer
+  # than violating storefront uptime. A blue/green release must replace it.
+  if [ "${SPLARO_REQUIRE_STOREFRONT_UPTIME:-1}" = "1" ]; then
+    die "Full Next deploy blocked: current build path would stop storefront. Use a blue/green release path first."
+  fi
 # Move .next aside instead of deleting it — a build killed mid-write (OOM,
 # this script erroring out) can leave .next/server with a partial manifest
 # set; the next build then silently reuses that stale dir and crashes at
@@ -182,6 +224,7 @@ log "Building sequentially (TURBO_CONCURRENCY=$TURBO_CONCURRENCY)…"
 # the storefront is what OOM-kills `next build` on an 8GB box.
 if command -v pm2 >/dev/null 2>&1; then
   pm2 stop splaro-web splaro-admin 2>/dev/null || true
+  NEXT_APPS_STOPPED=1
 fi
 touch_deploy_lock
 pnpm --filter @splaro/types build
@@ -210,10 +253,12 @@ PM2_CONFIG="infrastructure/pm2/ecosystem.config.js"
 log "PM2 reload..."
 pm2 startOrReload "$PM2_CONFIG" --update-env
 pm2 save
+NEXT_APPS_STOPPED=0
 touch_deploy_lock
 
 # Build succeeded and PM2 is up on the new code — drop the rollback copies.
 rm -rf apps/web/.next.prev apps/admin/.next.prev 2>/dev/null || true
+fi
 
 # ── Meilisearch + Nginx performance (idempotent, safe reload) ─
 if [ -f infrastructure/vps/setup-meilisearch.sh ]; then
@@ -352,7 +397,7 @@ sleep 6
 
 if pnpm db:enable-telegram 2>/dev/null; then
   log "Telegram — all notification flags enabled"
-  pm2 restart splaro-api --update-env 2>/dev/null || true
+  pm2 reload splaro-api --update-env 2>/dev/null || true
 else
   log "WARN: telegram enable skipped (no config yet)"
 fi

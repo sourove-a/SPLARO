@@ -13,6 +13,14 @@ Production runs on the Contabo VPS at `147.93.171.45`; Hostinger is email/legacy
 6. Watch both GitHub workflows to completion, then verify the live site yourself.
 7. Green means verified HTTP/API success. A running PM2 process alone is not proof.
 
+### Storefront uptime rule
+
+- `splaro.co` must remain available throughout deployment. Never stop `splaro-web` for a live release.
+- API-only releases use PM2 cluster rolling reload and must not build, move, stop, or reload web/admin artifacts.
+- Full Next.js releases are blocked while the deploy path requires moving live `.next` directories or stopping Next processes. Build a blue/green release path before enabling full storefront deploys.
+- Deployment failure must leave the last healthy storefront serving. Do not trade availability for a new build.
+- Verify uptime from an external probe during deployment, then verify homepage, shop, API health, admin ping, Git SHA, and PM2 state after release.
+
 ---
 
 ## Standard automatic deploy
