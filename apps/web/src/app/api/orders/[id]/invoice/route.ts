@@ -19,20 +19,27 @@ interface RouteContext {
 
 async function fetchApiInvoiceHtml(
   orderId: string,
-  opts: { key?: string | null; phone?: string | null },
+  opts: {
+    key?: string | null
+    phone?: string | null
+    sessionToken?: string | null
+  },
 ): Promise<string | null> {
   const base = getServerApiBaseUrl()
   const params = new URLSearchParams({ storeId: STORE_ID })
   if (opts.key) params.set('key', opts.key)
   if (opts.phone) params.set('phone', opts.phone)
   const url = `${base}/storefront/orders/${encodeURIComponent(orderId)}/invoice?${params.toString()}`
+  const headers: Record<string, string> = {}
+  if (opts.sessionToken) headers['x-splaro-session'] = opts.sessionToken
 
   // Deploy reloads can briefly replace API workers. Retry latest invoice
   // renderer instead of silently falling back to legacy storefront markup.
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      const res = await fetch(url, { cache: 'no-store' })
+      const res = await fetch(url, { headers, cache: 'no-store' })
       if (res.ok) return await res.text()
+      if (res.status < 500) return null
     } catch {
       // Retry below.
     }
@@ -79,7 +86,10 @@ export async function GET(request: Request, context: RouteContext) {
 
   const apiHtml = await fetchApiInvoiceHtml(order.id, {
     key: hasInvoiceKey ? key : null,
-    phone: ownsOrder ? order.customer.phone : null,
+    // A signed email link needs key auth only. Sending phone as well makes the
+    // API require an OTP/session proof before it evaluates the valid key.
+    phone: !hasInvoiceKey && ownsOrder ? order.customer.phone : null,
+    sessionToken: !hasInvoiceKey && ownsOrder ? (sessionToken ?? null) : null,
   })
 
   if (!apiHtml) {
