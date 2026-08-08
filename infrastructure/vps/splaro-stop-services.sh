@@ -3,14 +3,14 @@
 # Safe to run before pointing DNS to Hostinger shared hosting.
 set -euo pipefail
 
-echo "[splaro-stop] Stopping SPLARO PM2 processes only (splaro-api, splaro-web, splaro-admin)…"
+echo "[splaro-stop] Stopping SPLARO PM2 processes only (API, web, admin)…"
 
 if ! command -v pm2 >/dev/null 2>&1; then
   echo "[splaro-stop] pm2 not found — nothing to stop."
   exit 0
 fi
 
-for proc in splaro-api splaro-web splaro-admin; do
+for proc in splaro-api splaro-web-live splaro-web splaro-admin; do
   if pm2 describe "$proc" >/dev/null 2>&1; then
     pm2 stop "$proc" || true
     pm2 delete "$proc" || true

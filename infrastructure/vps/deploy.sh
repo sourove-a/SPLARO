@@ -14,7 +14,12 @@ DEPLOY_SHA="${SPLARO_DEPLOY_SHA:-}"
 REPO_SSH="${SPLARO_REPO_SSH:-git@github.com:sourove-a/SPLARO.git}"
 DEPLOY_KEY="${SPLARO_DEPLOY_KEY:-/root/.ssh/github_deploy}"
 DEPLOY_LOCK="${SPLARO_DEPLOY_LOCK:-/var/run/splaro-deploy.lock}"
-NEXT_APPS_STOPPED=0
+RELEASE_SWITCHED=0
+RELEASE_ROOT="${SPLARO_RELEASE_ROOT:-/var/www/splaro-releases}"
+RELEASE_CANDIDATE=""
+PREVIOUS_RELEASE="${RELEASE_ROOT}/previous"
+TEMP_WEB_PID=""
+TEMP_ADMIN_PID=""
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
 die() { log "ERROR: $*"; exit 1; }
@@ -33,21 +38,31 @@ touch_deploy_lock() {
 on_exit() {
   local code=$?
   rm -f "$DEPLOY_LOCK"
+  [ -z "$TEMP_WEB_PID" ] || kill "$TEMP_WEB_PID" 2>/dev/null || true
+  [ -z "$TEMP_ADMIN_PID" ] || kill "$TEMP_ADMIN_PID" 2>/dev/null || true
   if [ "$code" -ne 0 ]; then
     log "Deploy failed (exit $code) — rolling back so the site stays up."
-    # New build didn't finish — restore the last good .next if we moved it aside.
-    if [ -d "${APP_DIR}/apps/web/.next.prev" ] && [ ! -f "${APP_DIR}/apps/web/.next/standalone/apps/web/server.js" ]; then
-      rm -rf "${APP_DIR}/apps/web/.next"
-      mv "${APP_DIR}/apps/web/.next.prev" "${APP_DIR}/apps/web/.next"
-      log "Restored previous apps/web/.next"
+    if [ "$RELEASE_SWITCHED" = "1" ] && [ -d "$PREVIOUS_RELEASE" ]; then
+      local failed_release="${RELEASE_ROOT}/failed-$(date +%Y%m%d%H%M%S)"
+      cd /
+      mv "$APP_DIR" "$failed_release"
+      mv "$PREVIOUS_RELEASE" "$APP_DIR"
+      RELEASE_SWITCHED=0
+      log "Restored previous blue/green release"
+      if command -v pm2 >/dev/null 2>&1; then
+        # Existing PM2 definitions keep fixed /var/www/splaro paths. After the
+        # directory rollback, targeted reloads return every process to old code
+        # without trusting config naming from either release.
+        for app in splaro-web-live splaro-web splaro-admin splaro-api splaro-worker splaro-print; do
+          pm2 describe "$app" >/dev/null 2>&1 || continue
+          pm2 reload "$app" --update-env 2>/dev/null || pm2 restart "$app" --update-env 2>/dev/null || true
+        done
+        pm2 save 2>/dev/null || true
+      fi
     fi
-    if [ -d "${APP_DIR}/apps/admin/.next.prev" ] && [ ! -f "${APP_DIR}/apps/admin/.next/standalone/apps/admin/server.js" ]; then
-      rm -rf "${APP_DIR}/apps/admin/.next"
-      mv "${APP_DIR}/apps/admin/.next.prev" "${APP_DIR}/apps/admin/.next"
-      log "Restored previous apps/admin/.next"
-    fi
-    if [ "$NEXT_APPS_STOPPED" = "1" ] && command -v pm2 >/dev/null 2>&1; then
-      pm2 resurrect 2>/dev/null || pm2 restart splaro-web splaro-admin 2>/dev/null || true
+    if [ -n "$RELEASE_CANDIDATE" ] && [ -d "$RELEASE_CANDIDATE" ]; then
+      rm -rf "$RELEASE_CANDIDATE"
+      log "Removed failed blue/green candidate"
     fi
   fi
 }
@@ -112,6 +127,27 @@ ensure_swap() {
   grep -q '/swapfile' /etc/fstab 2>/dev/null || echo '/swapfile none swap sw 0 0' >> /etc/fstab
   swapon --show 2>/dev/null | grep -q . || die "Swap unavailable — refusing memory-risk deploy"
   log "Swap enabled"
+}
+
+wait_for_local_health() {
+  local url="$1"
+  local label="$2"
+  local attempts="${3:-30}"
+  local delay="${4:-3}"
+  local code="000"
+  local i=1
+  while [ "$i" -le "$attempts" ]; do
+    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$url" 2>/dev/null || echo 000)"
+    if [ "$code" = "200" ]; then
+      log "$label healthy (HTTP $code) after ${i} attempt(s)"
+      return 0
+    fi
+    log "Waiting for $label… HTTP $code (attempt $i/$attempts)"
+    sleep "$delay"
+    i=$((i + 1))
+  done
+  log "$label not ready after $attempts attempts (last HTTP $code)"
+  return 1
 }
 
 # ── Git sync ─────────────────────────────────────────────────
@@ -201,63 +237,87 @@ if [ "$DEPLOY_SCOPE" = "api" ]; then
   pm2 reload splaro-api --update-env
   pm2 save
 else
-  # Current full Next build needs the live .next directories moved and the
-  # Next processes stopped. Refuse that path by default: failed deploy is safer
-  # than violating storefront uptime. A blue/green release must replace it.
-  if [ "${SPLARO_REQUIRE_STOREFRONT_UPTIME:-1}" = "1" ]; then
-    die "Full Next deploy blocked: current build path would stop storefront. Use a blue/green release path first."
-  fi
-# Move .next aside instead of deleting it — a build killed mid-write (OOM,
-# this script erroring out) can leave .next/server with a partial manifest
-# set; the next build then silently reuses that stale dir and crashes at
-# "Collecting page data" with ENOENT on pages-manifest.json / middleware-
-# manifest.json. Renaming forces a fully fresh build while keeping the last
-# good build around as .next.prev — on_exit restores it if this build fails,
-# so a broken deploy still serves the last working site instead of a 500.
-rm -rf apps/web/.next.prev apps/admin/.next.prev 2>/dev/null || true
-if [ -d apps/web/.next ]; then mv apps/web/.next apps/web/.next.prev; fi
-if [ -d apps/admin/.next ]; then mv apps/admin/.next apps/admin/.next.prev; fi
-export TURBO_CONCURRENCY="${TURBO_CONCURRENCY:-1}"
-export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=3072"
-log "Building sequentially (TURBO_CONCURRENCY=$TURBO_CONCURRENCY)…"
-# Free RAM during Next builds — running dual cluster web+admin while compiling
-# the storefront is what OOM-kills `next build` on an 8GB box.
-if command -v pm2 >/dev/null 2>&1; then
-  pm2 stop splaro-web splaro-admin 2>/dev/null || true
-  NEXT_APPS_STOPPED=1
-fi
-touch_deploy_lock
-pnpm --filter @splaro/types build
-pnpm --filter @splaro/config build
-pnpm --filter @splaro/invoice-generator build
-pnpm --filter @splaro/print-service build
-pnpm --filter @splaro/api build
-pnpm --filter @splaro/worker build
-touch_deploy_lock
-# One Next app at a time; verify standalone output before continuing.
-pnpm --filter @splaro/web build
-[ -f apps/web/.next/standalone/apps/web/server.js ] \
-  || die "Web standalone missing after build — likely OOM. Check free -h / swap."
-touch_deploy_lock
-pnpm --filter @splaro/admin build
-[ -f apps/admin/.next/standalone/apps/admin/server.js ] \
-  || die "Admin standalone missing after build — likely OOM."
-node scripts/prepare-next-standalone.mjs apps/web
-node scripts/prepare-next-standalone.mjs apps/admin
-touch_deploy_lock
+  # Blue/green: build in an isolated checkout while current PM2 processes keep
+  # serving. Only after both standalone apps pass local preflight do we swap
+  # directory names and ask PM2 cluster mode for a rolling reload.
+  mkdir -p "$RELEASE_ROOT"
+  RELEASE_CANDIDATE="${RELEASE_ROOT}/candidate-${DEPLOY_SHA:-$(git rev-parse HEAD)}"
+  rm -rf "$RELEASE_CANDIDATE"
+  log "Blue/green candidate: $RELEASE_CANDIDATE"
+  GIT_SSH_COMMAND="ssh -i $DEPLOY_KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
+    git clone --no-checkout "$REPO_SSH" "$RELEASE_CANDIDATE"
+  cd "$RELEASE_CANDIDATE"
+  git checkout --detach "${DEPLOY_SHA:-origin/$BRANCH}"
+  cp --preserve=mode "$APP_DIR/.env" .env
+  set -a && source .env && set +a
+  export SPLARO_APP_DIR="$RELEASE_CANDIDATE"
+  export TURBO_CONCURRENCY="${TURBO_CONCURRENCY:-1}"
+  export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=3072"
 
-# ── PM2 ──────────────────────────────────────────────────────
-PM2_CONFIG="infrastructure/pm2/ecosystem.config.js"
-[ -f "$PM2_CONFIG" ] || PM2_CONFIG="infrastructure/pm2/ecosystem.hostinger.config.js"
+  log "Installing blue/green candidate dependencies…"
+  NODE_ENV=development pnpm install --frozen-lockfile --prod=false --network-concurrency="$PNPM_NETWORK_CONCURRENCY"
+  log "Building candidate sequentially (live storefront stays online)…"
+  touch_deploy_lock
+  pnpm --filter @splaro/types build
+  pnpm --filter @splaro/config build
+  pnpm --filter @splaro/invoice-generator build
+  pnpm --filter @splaro/print-service build
+  pnpm --filter @splaro/api build
+  pnpm --filter @splaro/worker build
+  touch_deploy_lock
+  pnpm --filter @splaro/web build
+  [ -f apps/web/.next/standalone/apps/web/server.js ] \
+    || die "Web standalone missing after candidate build — likely OOM."
+  touch_deploy_lock
+  pnpm --filter @splaro/admin build
+  [ -f apps/admin/.next/standalone/apps/admin/server.js ] \
+    || die "Admin standalone missing after candidate build — likely OOM."
+  node scripts/prepare-next-standalone.mjs apps/web
+  node scripts/prepare-next-standalone.mjs apps/admin
 
-log "PM2 reload..."
-pm2 startOrReload "$PM2_CONFIG" --update-env
-pm2 save
-NEXT_APPS_STOPPED=0
-touch_deploy_lock
+  log "Candidate preflight on :3100 and :3101…"
+  (cd apps/web && PORT=3100 HOSTNAME=127.0.0.1 node .next/standalone/apps/web/server.js) \
+    >>"$LOG_FILE" 2>&1 &
+  TEMP_WEB_PID=$!
+  wait_for_local_health "http://127.0.0.1:3100/" "candidate web" 30 2 \
+    || die "Candidate web preflight failed"
+  kill "$TEMP_WEB_PID" 2>/dev/null || true
+  wait "$TEMP_WEB_PID" 2>/dev/null || true
+  TEMP_WEB_PID=""
+  (cd apps/admin && PORT=3101 HOSTNAME=127.0.0.1 node .next/standalone/apps/admin/server.js) \
+    >>"$LOG_FILE" 2>&1 &
+  TEMP_ADMIN_PID=$!
+  wait_for_local_health "http://127.0.0.1:3101/login" "candidate admin" 30 2 \
+    || die "Candidate admin preflight failed"
+  kill "$TEMP_ADMIN_PID" 2>/dev/null || true
+  wait "$TEMP_ADMIN_PID" 2>/dev/null || true
+  TEMP_ADMIN_PID=""
 
-# Build succeeded and PM2 is up on the new code — drop the rollback copies.
-rm -rf apps/web/.next.prev apps/admin/.next.prev 2>/dev/null || true
+  # Keep previous immutable chunks/assets available during rolling reload, so
+  # in-flight HTML from old workers never points at a suddenly missing file.
+  cp -an "$APP_DIR/apps/web/.next/static/." apps/web/.next/static/ 2>/dev/null || true
+  cp -an "$APP_DIR/apps/web/public/." apps/web/public/ 2>/dev/null || true
+
+  log "Switching blue/green release…"
+  cd /
+  rm -rf "$PREVIOUS_RELEASE"
+  mv "$APP_DIR" "$PREVIOUS_RELEASE"
+  mv "$RELEASE_CANDIDATE" "$APP_DIR"
+  RELEASE_SWITCHED=1
+  cd "$APP_DIR"
+  export SPLARO_APP_DIR="$APP_DIR"
+  set -a && source .env && set +a
+
+  PM2_CONFIG="$APP_DIR/infrastructure/pm2/ecosystem.config.js"
+  [ -f "$PM2_CONFIG" ] || PM2_CONFIG="$APP_DIR/infrastructure/pm2/ecosystem.hostinger.config.js"
+  log "PM2 rolling reload…"
+  pm2 startOrReload "$PM2_CONFIG" --update-env
+  pm2 save
+  touch_deploy_lock
+  wait_for_local_health "http://127.0.0.1:3000/" "web" 30 2 || die "Web failed after release switch"
+  wait_for_local_health "http://127.0.0.1:3001/login" "admin" 30 2 || die "Admin failed after release switch"
+  wait_for_local_health "http://127.0.0.1:4000/api/v1/health" "api" 40 3 || die "API failed after release switch"
+  log "Blue/green release active; previous release retained at $PREVIOUS_RELEASE"
 fi
 
 # ── Meilisearch + Nginx performance (idempotent, safe reload) ─
@@ -370,27 +430,6 @@ maybe_revalidate_storefront() {
   else
     log "WARN: storefront revalidate failed (HTTP $code)"
   fi
-}
-
-wait_for_local_health() {
-  local url="$1"
-  local label="$2"
-  local attempts="${3:-30}"
-  local delay="${4:-3}"
-  local code="000"
-  local i=1
-  while [ "$i" -le "$attempts" ]; do
-    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$url" 2>/dev/null || echo 000)"
-    if [ "$code" = "200" ]; then
-      log "$label healthy (HTTP $code) after ${i} attempt(s)"
-      return 0
-    fi
-    log "Waiting for $label… HTTP $code (attempt $i/$attempts)"
-    sleep "$delay"
-    i=$((i + 1))
-  done
-  log "$label not ready after $attempts attempts (last HTTP $code)"
-  return 1
 }
 
 sleep 6

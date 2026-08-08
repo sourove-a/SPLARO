@@ -17,7 +17,8 @@ Production runs on the Contabo VPS at `147.93.171.45`; Hostinger is email/legacy
 
 - `splaro.co` must remain available throughout deployment. Never stop `splaro-web` for a live release.
 - API-only releases use PM2 cluster rolling reload and must not build, move, stop, or reload web/admin artifacts.
-- Full Next.js releases are blocked while the deploy path requires moving live `.next` directories or stopping Next processes. Build a blue/green release path before enabling full storefront deploys.
+- Full Next.js releases build in `/var/www/splaro-releases/candidate-<sha>` while current PM2 workers stay online. Candidate web/admin must pass local preflight before directory switch and PM2 rolling reload.
+- `/var/www/splaro-releases/previous` retains last release for automatic rollback. Old immutable chunks merge into candidate before switch so in-flight pages remain valid.
 - Deployment failure must leave the last healthy storefront serving. Do not trade availability for a new build.
 - Verify uptime from an external probe during deployment, then verify homepage, shop, API health, admin ping, Git SHA, and PM2 state after release.
 

@@ -7,7 +7,9 @@ const LOG_DIR = process.env.SPLARO_LOG_DIR || path.join(APP_ROOT, 'logs')
 module.exports = {
   apps: [
     {
-      name: 'splaro-web',
+      // Production keeps this stable name across blue/green directory swaps;
+      // PM2 can then reload cluster workers one at a time on the same port.
+      name: 'splaro-web-live',
       cwd: `${APP_ROOT}/apps/web`,
       // Must be a JS file (not the `node` binary) so PM2 cluster mode can
       // wrap it and share port 3000 across instances — `script: 'node'`
