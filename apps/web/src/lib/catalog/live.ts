@@ -8,6 +8,7 @@ import {
   buildProductDescriptionFallback,
   formatProductWeightGrams,
   parseProductSpecs,
+  splitLegacyBilingualDescription,
 } from '@/lib/catalog/product-copy'
 import {
   sanitizeStorefrontDescription,
@@ -390,6 +391,14 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
     : {}
   const nameBn = typeof schema.nameBn === 'string' ? schema.nameBn : undefined
   const weavingType = typeof schema.weavingType === 'string' ? schema.weavingType : undefined
+
+  // Admin-written Bangla lives in schemaMarkup. Older products still hold both
+  // languages inside `description`, so fall back to splitting that apart.
+  const schemaDescriptionBn =
+    typeof schema.descriptionBn === 'string' ? schema.descriptionBn.trim() : ''
+  const legacyCopy = splitLegacyBilingualDescription(p.description)
+  const descriptionEn = schemaDescriptionBn ? (p.description?.trim() ?? '') : legacyCopy.en
+  const descriptionBn = schemaDescriptionBn || legacyCopy.bn
   const publicSku = sanitizeStorefrontProductCode(p.sku, p.slug)
   const specs = parseProductSpecs(schema)
   for (const detail of p.additionalDetails ?? []) {
@@ -440,7 +449,8 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
     ...(mapped.isUnisex ? { isUnisex: true } : {}),
     ...(typeof mapped.stockUnits === 'number' ? { stockUnits: mapped.stockUnits } : {}),
     collectionSlug: slugFromCategory(category),
-    description: sanitizeStorefrontDescription(p.description, descriptionFallback),
+    description: sanitizeStorefrontDescription(descriptionEn, descriptionFallback),
+    ...(descriptionBn ? { descriptionBn } : {}),
     ...(() => {
       const short = sanitizeStorefrontShortDescription(p.shortDescription)
       return short ? { shortDescription: short } : {}

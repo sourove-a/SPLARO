@@ -96,22 +96,46 @@ function optionalTrimmed(value: string | null | undefined): string | null | unde
   return trimmed ? trimmed : null
 }
 
+/**
+ * Product fields kept in `schemaMarkup` rather than their own columns —
+ * Bangla copy and the weaving label. Adding a key here is all it takes to
+ * make a new extra field round-trip through create, update and read.
+ */
+const SCHEMA_EXTRA_KEYS = ['nameBn', 'descriptionBn', 'weavingType'] as const
+type SchemaExtraKey = (typeof SCHEMA_EXTRA_KEYS)[number]
+type SchemaExtras = Partial<Record<SchemaExtraKey, string | undefined>>
+
+function pickSchemaExtras(body: SchemaExtras): SchemaExtras {
+  const picked: SchemaExtras = {}
+  for (const key of SCHEMA_EXTRA_KEYS) {
+    if (body[key] !== undefined) picked[key] = body[key]
+  }
+  return picked
+}
+
+function buildSchemaMarkup(extras: SchemaExtras): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const key of SCHEMA_EXTRA_KEYS) {
+    const value = extras[key]?.trim()
+    if (value) out[key] = value
+  }
+  return out
+}
+
+/** An explicitly cleared field is removed; an absent field is left untouched. */
 function mergeSchemaMarkup(
   existing: unknown,
-  nameBn?: string,
-  weavingType?: string,
+  extras: SchemaExtras,
 ): Record<string, string> | undefined {
   const base =
     existing && typeof existing === 'object' && !Array.isArray(existing)
       ? { ...(existing as Record<string, string>) }
       : {}
-  if (nameBn !== undefined) {
-    if (nameBn.trim()) base.nameBn = nameBn.trim()
-    else delete base.nameBn
-  }
-  if (weavingType !== undefined) {
-    if (weavingType.trim()) base.weavingType = weavingType.trim()
-    else delete base.weavingType
+  for (const key of SCHEMA_EXTRA_KEYS) {
+    const value = extras[key]
+    if (value === undefined) continue
+    if (value.trim()) base[key] = value.trim()
+    else delete base[key]
   }
   return Object.keys(base).length ? base : undefined
 }
@@ -348,9 +372,7 @@ export class ProductsController {
       }
     })
 
-    const schemaExtras: Record<string, string> = {}
-    if (body.nameBn?.trim()) schemaExtras.nameBn = body.nameBn.trim()
-    if (body.weavingType?.trim()) schemaExtras.weavingType = body.weavingType.trim()
+    const schemaExtras = buildSchemaMarkup(body)
 
     const productSku =
       body.sku?.trim() ||
@@ -535,9 +557,10 @@ export class ProductsController {
           })
         : null
 
+    const schemaExtraUpdates = pickSchemaExtras(body)
     const schemaMarkup =
-      body.nameBn !== undefined || body.weavingType !== undefined
-        ? mergeSchemaMarkup(existing.schemaMarkup, body.nameBn, body.weavingType)
+      Object.keys(schemaExtraUpdates).length > 0
+        ? mergeSchemaMarkup(existing.schemaMarkup, schemaExtraUpdates)
         : undefined
 
     const imageUrls = Array.from(

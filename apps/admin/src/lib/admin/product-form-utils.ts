@@ -1,39 +1,20 @@
 /** Shared product form helpers — create + edit panels. */
 
-export function parseProductSchemaMarkup(raw: unknown): { nameBn: string; weavingType: string } {
-  if (!raw || typeof raw !== 'object') return { nameBn: '', weavingType: '' }
-  const o = raw as Record<string, unknown>
-  return {
-    nameBn: typeof o.nameBn === 'string' ? o.nameBn : '',
-    weavingType: typeof o.weavingType === 'string' ? o.weavingType : '',
-  }
-}
+/**
+ * Fields the API keeps inside `schemaMarkup` instead of their own columns —
+ * Bangla copy and the weaving label. Keep in sync with SCHEMA_EXTRA_KEYS in
+ * the API's products controller.
+ */
+export const PRODUCT_SCHEMA_EXTRA_KEYS = ['nameBn', 'descriptionBn', 'weavingType'] as const
 
-export function buildProductSchemaMarkup(nameBn?: string, weavingType?: string): Record<string, string> | undefined {
-  const extras: Record<string, string> = {}
-  if (nameBn?.trim()) extras.nameBn = nameBn.trim()
-  if (weavingType?.trim()) extras.weavingType = weavingType.trim()
-  return Object.keys(extras).length ? extras : undefined
-}
+export type ProductSchemaExtras = Record<(typeof PRODUCT_SCHEMA_EXTRA_KEYS)[number], string>
 
-export function mergeProductSchemaMarkup(
-  existing: unknown,
-  nameBn?: string,
-  weavingType?: string,
-): Record<string, string> | undefined {
-  const base =
-    existing && typeof existing === 'object' && !Array.isArray(existing)
-      ? { ...(existing as Record<string, string>) }
-      : {}
-  if (nameBn !== undefined) {
-    if (nameBn.trim()) base.nameBn = nameBn.trim()
-    else delete base.nameBn
-  }
-  if (weavingType !== undefined) {
-    if (weavingType.trim()) base.weavingType = weavingType.trim()
-    else delete base.weavingType
-  }
-  return Object.keys(base).length ? base : undefined
+export function parseProductSchemaMarkup(raw: unknown): ProductSchemaExtras {
+  const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  return PRODUCT_SCHEMA_EXTRA_KEYS.reduce((acc, key) => {
+    acc[key] = typeof o[key] === 'string' ? (o[key] as string) : ''
+    return acc
+  }, {} as ProductSchemaExtras)
 }
 
 export function parseTagsInput(raw: string): string[] {

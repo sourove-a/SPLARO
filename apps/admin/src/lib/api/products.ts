@@ -91,6 +91,8 @@ export interface CreateProductInput {
   slug?: string
   description?: string
   shortDescription?: string
+  /** Bangla copy — stored beside nameBn, kept out of the English description. */
+  descriptionBn?: string
   basePrice: number
   compareAtPrice?: number | null
   costPrice?: number

@@ -18,7 +18,6 @@ import { FONT, MONO, formatTaka } from '@/components/dc/tokens'
 import { buildCategoryPicker, menuIconFor } from '@/lib/admin/category-picker'
 import {
   buildDescriptionDraft,
-  formatBilingualDescription,
   polishBanglaDescription,
   splitBilingualDescription,
 } from '@/lib/admin/product-description-draft'
@@ -175,18 +174,21 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
     [departmentHint],
   )
 
-  const fullDescription = useMemo(
-    () => formatBilingualDescription(form.descriptionEn, form.descriptionBn),
-    [form.descriptionEn, form.descriptionBn],
-  )
+  // English and Bangla are saved apart — nothing merges them back together.
+  const descriptionEn = form.descriptionEn.trim()
+  const descriptionBn = form.descriptionBn.trim()
 
   useEffect(() => {
     if (!product) return
     const p = product
     const extra = p
-    const { en, bn } = splitBilingualDescription(p.description ?? '')
     const categoryId = p.category?.id ?? p.categoryId ?? ''
     const schema = parseProductSchemaMarkup(extra.schemaMarkup)
+    // Products saved before Bangla got its own field still carry both
+    // languages in `description`, joined by a blank-line separator.
+    const legacy = splitBilingualDescription(p.description ?? '')
+    const en = schema.descriptionBn ? (p.description ?? '').trim() : legacy.en
+    const bn = schema.descriptionBn || legacy.bn
     const prices = displayPriceFields(p.basePrice, extra.compareAtPrice)
     const fitSplit = splitFitAndProductType(p.fitType)
     const media = parseProductMedia(p.images)
@@ -525,7 +527,9 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
         slug: form.slug,
         ...(form.nameBn.trim() ? { nameBn: form.nameBn.trim() } : {}),
         shortDescription: form.shortDescription.trim(),
-        description: fullDescription.trim(),
+        description: descriptionEn,
+        // Sent even when empty so clearing the box actually clears it.
+        descriptionBn,
         basePrice: sellingPrice,
         compareAtPrice: compareAt ?? null,
         ...(costPrice && costPrice > 0 ? { costPrice } : {}),

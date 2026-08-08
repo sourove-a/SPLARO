@@ -139,6 +139,13 @@ export class AdminProductPatchDto {
   @IsString()
   shortDescription?: string
 
+  // Bangla copy rides schemaMarkup alongside nameBn, so it is length-capped —
+  // that column is JSON, not the unbounded text the English field uses.
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  descriptionBn?: string
+
   @IsOptional()
   @IsNumber()
   @Min(0)

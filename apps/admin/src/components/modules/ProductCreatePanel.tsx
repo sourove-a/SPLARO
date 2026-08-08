@@ -45,7 +45,6 @@ import {
 import {
   buildDescriptionDraft,
   buildSeoDraft,
-  formatBilingualDescription,
   polishBanglaDescription,
   splitBilingualDescription,
 } from '@/lib/admin/product-description-draft'
@@ -233,10 +232,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     }
   }, [form.categoryId, categories.length, categoryPicker, departmentId, categories])
 
-  const fullDescription = useMemo(
-    () => formatBilingualDescription(form.descriptionEn, form.descriptionBn),
-    [form.descriptionEn, form.descriptionBn],
-  )
+  const hasDescriptionCopy = Boolean(form.descriptionEn.trim() || form.descriptionBn.trim())
 
   const categoryName = selectedCategory?.name ?? ''
 
@@ -489,12 +485,15 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
       }
     }
 
-    let description = fullDescription.trim()
+    // English and Bangla are stored apart so the storefront can show one
+    // language at a time — never both stacked in the same block.
+    let description = form.descriptionEn.trim()
+    const descriptionBn = form.descriptionBn.trim()
     let metaTitle = form.metaTitle.trim()
     let metaDescription = form.metaDescription.trim()
 
     if (!description) {
-      description = buildDescriptionDraft({
+      const draft = buildDescriptionDraft({
         name: form.name,
         notes: form.descriptionNotes,
         fabric: form.fabricContent,
@@ -502,6 +501,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         occasion: form.occasion,
         category: categoryName,
       })
+      description = splitBilingualDescription(draft).en
     }
     if (!metaTitle || !metaDescription) {
       const seo = buildSeoDraft(form.name, description)
@@ -543,6 +543,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         fabricContent: form.fabricContent,
         fitType,
         description,
+        ...(descriptionBn ? { descriptionBn } : {}),
         metaTitle,
         metaDescription,
         categoryId: form.categoryId,
@@ -641,7 +642,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         sub: 'Regular price in BDT',
       },
       {
-        ok: Boolean(fullDescription.trim() || form.descriptionEn.trim()),
+        ok: hasDescriptionCopy,
         label: 'Description',
         sub: 'Or use AI / Draft copy',
       },
@@ -656,10 +657,9 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     form.name,
     form.imageUrls.length,
     form.basePrice,
-    form.descriptionEn,
     activeColors,
     sizeList.length,
-    fullDescription,
+    hasDescriptionCopy,
   ])
 
   const jumpItems = [

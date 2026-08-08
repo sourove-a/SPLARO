@@ -23,6 +23,33 @@ const SPEC_LABELS: Array<{ key: string; label: string }> = [
   { key: 'weight', label: 'Weight' },
 ]
 
+/**
+ * Products saved before Bangla got its own field carry both languages in one
+ * `description`, joined by a blank-line separator. Split them so the storefront
+ * can show one language at a time instead of stacking both.
+ *
+ * Mirrors splitBilingualDescription in the admin app — keep the two in step.
+ */
+export function splitLegacyBilingualDescription(description?: string | null): {
+  en: string
+  bn: string
+} {
+  const raw = description?.trim() ?? ''
+  if (!raw) return { en: '', bn: '' }
+
+  const parts = raw.split('\n\n\n')
+  if (parts.length >= 2) {
+    return { en: parts[0]?.trim() ?? '', bn: parts.slice(1).join('\n\n\n').trim() }
+  }
+
+  // A single block that opens in Bangla script is Bangla-only copy.
+  const hasBangla = /[ঀ-৿]/.test(raw)
+  if (hasBangla && !/[a-zA-Z]{4,}/.test(raw.slice(0, 40))) {
+    return { en: '', bn: raw }
+  }
+  return { en: raw, bn: '' }
+}
+
 export function isGenericProductCopy(text?: string | null): boolean {
   const trimmed = text?.trim() ?? ''
   if (!trimmed) return true
@@ -54,7 +81,8 @@ export function buildProductDescriptionFallback(input: {
   const bits: string[] = []
   if (name) bits.push(name)
   if (material) bits.push(`in ${material}`)
-  if (silhouette) bits.push(`${silhouette} fit`)
+  // fitType is often already worded as "Cushioned fit" — don't produce "fit fit".
+  if (silhouette) bits.push(/\bfit$/i.test(silhouette) ? silhouette : `${silhouette} fit`)
   const head = bits.join(' · ')
   const occasionBit = occasion ? ` Made for ${occasion}.` : ''
   return `${head}.${occasionBit}`.replace(/\.\./g, '.').trim()

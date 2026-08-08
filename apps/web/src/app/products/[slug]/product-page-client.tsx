@@ -55,6 +55,7 @@ import type { ProductDetailData } from '@/types/product'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
 import { sanitizeStorefrontProductCode } from '@/lib/catalog/storefront-sanitize'
+import { buildProductDescriptionBn } from '@/lib/catalog/product-copy-bn'
 import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import type { ProductReview } from '@/lib/catalog/live'
 import { sortSizes } from '@/lib/catalog/live'
@@ -133,6 +134,9 @@ const DETAIL_SECTION_SUMMARY: Record<string, string> = {
 }
 const DETAIL_SECTION_SUMMARY_FALLBACK = 'Product information'
 
+/** Reader's description language, shared across every product page. */
+const DESC_LANG_KEY = 'splaro:pdp-desc-lang'
+
 function renderFormattedDescription(text: string) {
   if (!text) return null
   const bulletItems = text
@@ -178,6 +182,7 @@ export default function ProductPageClient({
   const [addedPulse, setAddedPulse] = useState(false)
   const [addingToCart, setAddingToCart] = useState(false)
   const [descExpanded, setDescExpanded] = useState(false)
+  const [descLang, setDescLang] = useState<'en' | 'bn'>('en')
   const [openSection, setOpenSection] = useState<string | null>(null)
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false)
@@ -211,6 +216,56 @@ export default function ProductPageClient({
     (fullDescription.length > 160 ? fullDescription : fullDescription)
   /** Clamp visually when copy is long; full text always stays in the DOM for crawlers. */
   const showReadMore = fullDescription.length > 160
+
+  /**
+   * Admin-written Bangla wins. Without it, Bangla is generated from the
+   * merchant spec fields — and when there are none, this stays empty and the
+   * language toggle never renders.
+   */
+  const descriptionBn = useMemo(
+    () =>
+      product.descriptionBn?.trim() ||
+      buildProductDescriptionBn({
+        name: product.name,
+        nameBn: product.nameBn,
+        fabricContent: product.fabricContent,
+        fitType: product.fitType,
+        occasion: product.occasion,
+      }),
+    [
+      product.descriptionBn,
+      product.name,
+      product.nameBn,
+      product.fabricContent,
+      product.fitType,
+      product.occasion,
+    ],
+  )
+
+  /**
+   * Restore the reader's language after mount rather than during render —
+   * the server has no localStorage, and reading it inline would desync
+   * hydration.
+   */
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(DESC_LANG_KEY) === 'bn') setDescLang('bn')
+    } catch {
+      // Private mode / storage disabled — English stays.
+    }
+  }, [])
+
+  const chooseDescLang = (next: 'en' | 'bn') => {
+    setDescLang(next)
+    setDescExpanded(false)
+    try {
+      window.localStorage.setItem(DESC_LANG_KEY, next)
+    } catch {
+      // Preference simply won't persist.
+    }
+  }
+
+  const showBangla = descLang === 'bn' && descriptionBn.length > 0
 
   const colorOptions = useMemo(() => {
     const map = new Map<string, { hex: string; name: string; image: string }>()
@@ -1574,18 +1629,52 @@ export default function ProductPageClient({
               <section className="pp-info__details" aria-label="Product details">
                 {(fullDescription || shortDesc) && (
                   <div className="pp-info__desc-block">
-                    <span className="pp-info__desc-eyebrow">The piece</span>
+                    <div className="pp-info__desc-head">
+                      <span className="pp-info__desc-eyebrow" lang={showBangla ? 'bn' : 'en'}>
+                        {showBangla ? 'পণ্য পরিচিতি' : 'The piece'}
+                      </span>
+                      {descriptionBn.length > 0 && (
+                        <div
+                          className="pp-lang"
+                          role="group"
+                          aria-label="Description language / বিবরণের ভাষা"
+                        >
+                          <button
+                            type="button"
+                            className={cn('pp-lang__opt', !showBangla && 'pp-lang__opt--on')}
+                            onClick={() => chooseDescLang('en')}
+                            aria-pressed={!showBangla}
+                            lang="en"
+                          >
+                            EN
+                          </button>
+                          <button
+                            type="button"
+                            className={cn('pp-lang__opt', showBangla && 'pp-lang__opt--on')}
+                            onClick={() => chooseDescLang('bn')}
+                            aria-pressed={showBangla}
+                            lang="bn"
+                          >
+                            বাং
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     <div
                       id="pp-product-description"
+                      lang={showBangla ? 'bn' : 'en'}
                       className={cn(
                         'pp-info__desc',
-                        showReadMore && !descExpanded && 'pp-info__desc--clamped',
+                        showBangla && 'pp-info__desc--bn',
+                        showReadMore && !descExpanded && !showBangla && 'pp-info__desc--clamped',
                         descExpanded && 'pp-info__desc--expanded',
                       )}
                     >
-                      {renderFormattedDescription(fullDescription || shortDesc)}
+                      {showBangla
+                        ? renderFormattedDescription(descriptionBn)
+                        : renderFormattedDescription(fullDescription || shortDesc)}
                     </div>
-                    {showReadMore && (
+                    {showReadMore && !showBangla && (
                       <MotionPressable
                         type="button"
                         className="pp-info__read-more"

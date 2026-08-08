@@ -71,6 +71,8 @@ export interface ProductDetailData extends ProductCardData {
   description: string
   shortDescription?: string
   nameBn?: string
+  /** Admin-written Bangla description. Absent when the admin left it blank. */
+  descriptionBn?: string
   weavingType?: string
   sku?: string
   fabricContent?: string
