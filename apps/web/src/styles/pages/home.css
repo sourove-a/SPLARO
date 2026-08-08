@@ -2555,6 +2555,12 @@ html[data-home-hero='top'] .home-hero-slider .hero-content {
     border-radius: inherit;
   }
 
+  .home-hero-slider .hero-slide__media,
+  .home-hero-slider .hero-slide__media-shell {
+    inset: 0;
+    height: 100%;
+  }
+
   .home-hero-slider .hero-slide {
     height: 100%;
   }
@@ -2565,7 +2571,8 @@ html[data-home-hero='top'] .home-hero-slider .hero-content {
   .home-hero-slider .hero-slide__media video.hero-bg-video {
     object-fit: cover !important;
     object-position: center center;
-    transform: none;
+    transform: none !important;
+    transition: none !important;
   }
 
   .home-hero-slider .hero-overlay {
@@ -2619,25 +2626,23 @@ html[data-home-hero='top'] .home-hero-slider .hero-content {
   }
 
   .home-hero-slider__stage {
-    /* Portrait campaign crop. The old 1.95/1 letterbox capped the hero at
-       46vw — 172px on a 375px phone — which read as a banner strip rather
-       than a campaign image, and left the headline no room.
-       `!important` is needed only to beat the min-height:0 override above. */
-    aspect-ratio: 4 / 5;
-    min-height: clamp(360px, 50svh, 500px) !important;
-    max-height: var(--hero-slide-height-mobile);
+    /* Match desktop campaign framing on phones. A portrait stage forces the
+       16:9 desktop artwork through `object-fit: cover` and crops both sides. */
+    aspect-ratio: 16 / 9;
+    min-height: 0 !important;
+    max-height: none;
   }
 
   .home-hero-slider .hero-content h1,
   .home-hero-slider .hero-content .hero-title {
-    font-size: clamp(1.6rem, 8vw, 2.35rem);
+    font-size: clamp(1.35rem, 6.4vw, 1.85rem);
     line-height: 1.08;
     max-width: 15ch;
   }
 
   .home-hero-slider .hero-subtitle {
-    font-size: 0.84rem;
-    line-height: 1.45;
+    font-size: 0.76rem;
+    line-height: 1.35;
   }
 
   .home-hero-slider .hero-slider-controls {

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import type { HeroBanner } from '@/lib/api/banners'
 import { heroBannersFromDefaults } from '@/lib/api/hero-banners'
 import { resolveLocalHeroVariants } from '@/lib/assets/hero-cdn'
+import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 
 /** Static first-slide shell — paints LCP before HeroSlider JS hydrates. */
 export function HomeHeroLcpShell({ banners = [] }: { banners?: HeroBanner[] }) {
@@ -11,6 +12,11 @@ export function HomeHeroLcpShell({ banners = [] }: { banners?: HeroBanner[] }) {
   if (!slide) return null
 
   const variants = resolveLocalHeroVariants(slide.image)
+  const mobileImage = slide.mobileImage?.trim()
+    ? optimizeImageSrc(slide.mobileImage.trim(), 'hero', slide.mobileImage.trim(), {
+        allowStockMedia: true,
+      })
+    : variants?.mobile
   const title = slide.title?.trim() || 'Premium Everyday Luxury.'
   const subtitle =
     slide.subtitle?.trim() || 'Discover curated fashion for Bangladesh.'
@@ -32,16 +38,14 @@ export function HomeHeroLcpShell({ banners = [] }: { banners?: HeroBanner[] }) {
           >
             <div className="hero-slide__media">
               <div className="hero-slide__media-shell">
-                {variants ? (
+                {variants || mobileImage ? (
                   <picture>
-                    <source
-                      media="(max-width: 768px)"
-                      srcSet={variants.mobile}
-                      type="image/webp"
-                    />
+                    {mobileImage ? (
+                      <source media="(max-width: 768px)" srcSet={mobileImage} />
+                    ) : null}
                     <img
                       className="hero-bg-image"
-                      src={variants.desktop}
+                      src={variants?.desktop ?? slide.image}
                       alt=""
                       width={1600}
                       height={900}

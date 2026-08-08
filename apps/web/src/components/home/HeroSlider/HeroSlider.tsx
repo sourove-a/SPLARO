@@ -39,6 +39,8 @@ const HERO_VIDEO = process.env.NEXT_PUBLIC_HERO_VIDEO?.trim() || HERO_DEFAULT_VI
 export interface HeroSlide {
   id: string
   image: string
+  /** Optional mobile asset for viewports ≤ 768px; 16:9 preserves full desktop framing. */
+  mobileImage?: string
   video?: string
   /** Lighter rendition served to viewports ≤ 768px. */
   videoMobile?: string
@@ -171,6 +173,7 @@ function resolveSlideEyebrow(banner: HeroBanner, index: number, subtitle: string
 
 function mapBannerToSlide(banner: HeroBanner, index: number): HeroSlide {
   const media = banner.image?.trim() || ''
+  const mobileMedia = banner.mobileImage?.trim() || ''
   const title = banner.title?.trim() || 'SPLARO'
   const subtitle = banner.subtitle?.trim() || 'Premium fashion crafted for timeless everyday luxury.'
   const href = banner.linkUrl?.trim() || '/shop'
@@ -180,6 +183,9 @@ function mapBannerToSlide(banner: HeroBanner, index: number): HeroSlide {
   return {
     id: banner.id,
     image: poster,
+    ...(!isVideoUrl(mobileMedia) && mobileMedia
+      ? { mobileImage: heroImageSrc(mobileMedia) }
+      : {}),
     ...videoConfig,
     eyebrow: resolveSlideEyebrow(banner, index, subtitle),
     title,
@@ -249,6 +255,12 @@ function warmHeroSlideMedia(slides: HeroSlide[], eagerOnly?: Set<number>) {
 
   const warmImage = (slide: HeroSlide) => {
     if (slide.image.trim() && !isBrandLogoPoster(slide.image)) {
+      if (mobile && slide.mobileImage?.trim()) {
+        const img = new window.Image()
+        img.decoding = 'async'
+        img.src = slide.mobileImage
+        return
+      }
       const local = resolveLocalHeroVariants(slide.image)
       const img = new window.Image()
       img.decoding = 'async'
@@ -301,10 +313,12 @@ function warmHeroVideo(url: string) {
 
 function HeroStaticBackdrop({
   src,
+  mobileSrc,
   priority,
   eager,
 }: {
   src: string
+  mobileSrc?: string | undefined
   priority: boolean
   eager?: boolean
 }) {
@@ -316,6 +330,28 @@ function HeroStaticBackdrop({
 
   if (!src.trim() || isBrandLogoPoster(src) || failed) {
     return <div className="hero-bg-fallback" aria-hidden />
+  }
+
+  if (mobileSrc?.trim() && !isBrandLogoPoster(mobileSrc)) {
+    return (
+      <picture>
+        <source media="(max-width: 768px)" srcSet={mobileSrc} />
+        <img
+          src={src}
+          alt=""
+          className="hero-bg-image"
+          width={1600}
+          height={900}
+          sizes="100vw"
+          fetchPriority={priority ? 'high' : 'auto'}
+          loading={priority || eager ? 'eager' : 'lazy'}
+          decoding="async"
+          draggable={false}
+          style={HERO_MEDIA_STYLE}
+          onError={() => setFailed(true)}
+        />
+      </picture>
+    )
   }
 
   const local = resolveLocalHeroVariants(src)
@@ -388,8 +424,9 @@ function HeroBackground({
     [slide, mobileActive, windowsActive],
   )
   const videoSrc = sourceChain[sourceIndex]
+  const posterCandidate = mobileActive && slide.mobileImage?.trim() ? slide.mobileImage : slide.image
   const poster =
-    slide.image.trim() && !isBrandLogoPoster(slide.image) ? slide.image : undefined
+    posterCandidate.trim() && !isBrandLogoPoster(posterCandidate) ? posterCandidate : undefined
 
   useLayoutEffect(() => {
     if (!allowVideo || !isActive) {
@@ -477,7 +514,12 @@ function HeroBackground({
 
   return (
     <>
-      <HeroStaticBackdrop src={slide.image} priority={priority} eager />
+      <HeroStaticBackdrop
+        src={slide.image}
+        mobileSrc={slide.mobileImage}
+        priority={priority}
+        eager
+      />
       {mountVideo ? (
         <video
           key={videoSrc}

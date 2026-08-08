@@ -5,6 +5,7 @@ export interface BannerRow {
   title?: string | null
   subtitle?: string | null
   image: string
+  mobileImage?: string | null
   linkUrl?: string | null
   position: string
   isActive: boolean
@@ -17,6 +18,7 @@ export function fetchBanners(position?: string) {
 
 export function createBanner(data: {
   image: string
+  mobileImage?: string
   title?: string
   subtitle?: string
   linkUrl?: string
@@ -40,6 +42,7 @@ export function updateBanner(
     sortOrder?: number
     position?: string
     image?: string
+    mobileImage?: string
   },
 ) {
   return apiFetch<BannerRow>(`/admin/banners/${id}`, {

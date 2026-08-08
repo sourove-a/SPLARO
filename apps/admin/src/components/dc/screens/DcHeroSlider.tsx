@@ -37,10 +37,11 @@ interface Form {
   title: string
   subtitle: string
   image: string
+  mobileImage: string
   linkUrl: string
 }
 
-const EMPTY_FORM: Form = { title: '', subtitle: '', image: '', linkUrl: '' }
+const EMPTY_FORM: Form = { title: '', subtitle: '', image: '', mobileImage: '', linkUrl: '' }
 
 export function DcHeroSlider() {
   const router = useRouter()
@@ -142,6 +143,7 @@ function DcHeroSliderBody() {
     mutationFn: async () => {
       const expected = {
         image: form.image.trim(),
+        mobileImage: form.mobileImage.trim(),
         position: HERO_POSITION,
         isActive: false,
         ...(form.title.trim() ? { title: form.title.trim() } : {}),
@@ -151,7 +153,12 @@ function DcHeroSliderBody() {
       const saved = await createBanner(expected)
       const fresh = await fetchBanners(HERO_POSITION)
       const row = fresh.banners.find((item) => item.id === saved.id)
-      if (!row || row.image !== expected.image || row.isActive !== false) {
+      if (
+        !row ||
+        row.image !== expected.image ||
+        String(row.mobileImage ?? '') !== expected.mobileImage ||
+        row.isActive !== false
+      ) {
         throw new Error('Created slide did not persist on server')
       }
       return row
@@ -179,6 +186,7 @@ function DcHeroSliderBody() {
         subtitle: form.subtitle.trim(),
         linkUrl: form.linkUrl.trim(),
         image: form.image.trim(),
+        mobileImage: form.mobileImage.trim(),
       }
       await updateBanner(editing.id, expected)
       const fresh = await fetchBanners(HERO_POSITION)
@@ -188,7 +196,8 @@ function DcHeroSliderBody() {
         String(row.title ?? '') !== expected.title ||
         String(row.subtitle ?? '') !== expected.subtitle ||
         String(row.linkUrl ?? '') !== expected.linkUrl ||
-        row.image !== expected.image
+        row.image !== expected.image ||
+        String(row.mobileImage ?? '') !== expected.mobileImage
       ) {
         throw new Error('Slide changes did not persist on server')
       }
@@ -480,6 +489,7 @@ function DcHeroSliderBody() {
                           title: b.title ?? '',
                           subtitle: b.subtitle ?? '',
                           image: b.image ?? '',
+                          mobileImage: b.mobileImage ?? '',
                           linkUrl: b.linkUrl ?? '',
                         })
                         setEditing(b)
@@ -600,6 +610,14 @@ function SlideFields({
         placeholder="/uploads/hero/eid-edit.webp"
         mono
         hint="Upload in Media Library first, then paste the path here."
+      />
+      <DcField
+        label="Mobile image URL (optional)"
+        value={form.mobileImage}
+        onChange={(v) => setForm((f) => ({ ...f, mobileImage: v }))}
+        placeholder="/uploads/hero/eid-edit-mobile.webp"
+        mono
+        hint="For the same full desktop frame on mobile, leave blank or use a 16:9 image (828 × 466)."
       />
       <DcField
         label="Headline"
