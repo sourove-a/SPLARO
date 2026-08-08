@@ -16,8 +16,11 @@ import { PremiumIcon } from '@/components/ui/PremiumIcon'
 const items = [
   {
     icon: ShieldCheck,
-    label: 'Checked',
-    text: 'Quality checked before dispatch',
+    // "Checked" alone reads as an unfinished sentence — checked by whom, for
+    // what? Authenticity is the promise the brand already makes elsewhere
+    // (llms.txt, the about page), and it is one word.
+    label: 'Authentic',
+    text: 'Authenticity guaranteed · quality checked before dispatch',
     href: '/about',
   },
   {

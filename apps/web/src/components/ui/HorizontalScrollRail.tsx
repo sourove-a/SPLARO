@@ -107,10 +107,17 @@ export function HorizontalScrollRail({
         </button>
       ) : null}
 
+      {/* Scroll state was tracked but never exposed, so CSS had no way to draw
+          an edge fade. The data attributes below let the rail fade only on the
+          side that still has content, instead of a permanent gradient that
+          lies once you reach the end. */}
       <div
         ref={trackRef}
         className={cn('h-scroll-rail__track', trackClassName)}
         data-h-scroll="true"
+        data-overflow={hasOverflow ? 'true' : 'false'}
+        data-fade-start={canScrollLeft ? 'true' : 'false'}
+        data-fade-end={canScrollRight ? 'true' : 'false'}
         {...(hasOverflow ? { tabIndex: 0 } : {})}
         {...(trackRole ? { role: trackRole } : ariaLabel ? { role: 'region' } : {})}
         {...(ariaLabel ? { 'aria-label': ariaLabel } : {})}

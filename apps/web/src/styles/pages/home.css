@@ -645,9 +645,11 @@
   }
 
   .home-dept-row .home-dept-tile {
-    width: calc(100vw - (var(--home-dept-peek) * 2));
-    max-width: 24.5rem;
-    scroll-snap-align: center;
+    /* Two cards plus a peek of the third. The old full-width coverflow showed
+       1.4 cards, so browsing a department meant a swipe per card. */
+    width: 44vw;
+    max-width: 13rem;
+    scroll-snap-align: start;
     scroll-snap-stop: normal; /* always = sticky swipe feel */
     touch-action: pan-x pan-y;
     -webkit-user-drag: none;
@@ -660,33 +662,24 @@
     pointer-events: none; /* swipe goes to track, not image drag */
   }
 
+  /* In a multi-card rail every tile is equally "chosen", so the centred
+     coverflow scale/dim is dropped — it only reads as intent when one card
+     fills the viewport. */
   .home-dept-row .home-dept-tile__media {
-    border-radius: 0.95rem;
-    transform: scale(0.88);
-    transform-origin: center center;
-    will-change: transform;
-    transition:
-      transform 340ms var(--home-dept-ease),
-      box-shadow 340ms var(--home-dept-ease);
+    border-radius: 0.85rem;
+    transform: none;
     box-shadow:
       0 1px 0 rgba(255, 255, 255, 0.5) inset,
       0 6px 18px rgba(16, 17, 20, 0.05);
   }
 
-  .home-dept-row .home-dept-tile.is-active .home-dept-tile__media {
-    transform: scale(1.02);
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.72) inset,
-      0 16px 36px rgba(16, 17, 20, 0.13),
-      0 5px 12px rgba(16, 17, 20, 0.05);
-  }
-
-  .home-dept-row .home-dept-tile:not(.is-active) {
-    opacity: 0.78;
-  }
-
+  .home-dept-row .home-dept-tile:not(.is-active),
   .home-dept-row .home-dept-tile.is-active {
     opacity: 1;
+  }
+
+  .home-dept-row .home-dept-tile.is-active .home-dept-tile__media {
+    transform: none;
   }
 
   /* Touch: no hover zoom jump on swipe */
@@ -698,10 +691,10 @@
   .home-dept-row .home-dept-tile__label {
     left: 50%;
     right: auto;
-    bottom: 0.95rem;
-    max-width: min(88%, 14rem);
-    padding: 0.42rem 0.95rem;
-    font-size: 0.9rem;
+    bottom: 0.6rem;
+    max-width: min(90%, 9rem);
+    padding: 0.32rem 0.7rem;
+    font-size: 0.76rem;
     font-weight: 500;
     letter-spacing: 0.01em;
     border-color: rgba(255, 255, 255, 0.22);
@@ -2538,11 +2531,13 @@ html[data-home-hero='top'] .home-hero-slider .hero-content {
   }
 
   .home-hero-slider__stage {
-    aspect-ratio: 1.4 / 1;
+    /* Near-square on tablet — a landscape letterbox reads like a banner ad,
+       not a campaign image. */
+    aspect-ratio: 1.15 / 1;
     width: 100%;
     height: auto !important;
     min-height: 0 !important;
-    max-height: min(78vw, 22rem);
+    max-height: min(96vw, 30rem);
     border-radius: inherit;
     overflow: hidden;
   }
@@ -2624,17 +2619,25 @@ html[data-home-hero='top'] .home-hero-slider .hero-content {
   }
 
   .home-hero-slider__stage {
-    aspect-ratio: 1.95 / 1;
-    max-height: min(46vw, 13.75rem);
+    /* Portrait campaign crop. The old 1.95/1 letterbox capped the hero at
+       46vw — 172px on a 375px phone — which read as a banner strip rather
+       than a campaign image, and left the headline no room.
+       `!important` is needed only to beat the min-height:0 override above. */
+    aspect-ratio: 4 / 5;
+    min-height: clamp(360px, 50svh, 500px) !important;
+    max-height: var(--hero-slide-height-mobile);
   }
 
   .home-hero-slider .hero-content h1,
   .home-hero-slider .hero-content .hero-title {
-    font-size: clamp(1.25rem, 6vw, 1.7rem);
+    font-size: clamp(1.6rem, 8vw, 2.35rem);
+    line-height: 1.08;
+    max-width: 15ch;
   }
 
   .home-hero-slider .hero-subtitle {
-    font-size: 0.74rem;
+    font-size: 0.84rem;
+    line-height: 1.45;
   }
 
   .home-hero-slider .hero-slider-controls {

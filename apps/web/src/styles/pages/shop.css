@@ -1811,6 +1811,49 @@
   display: none;
 }
 
+/* The last pill used to end flush against the rounded edge, so "Footwear"
+   rendered as "Footwe…" with nothing to suggest the row scrolled. The fade is
+   driven by the rail's own scroll state, so it only appears on a side that
+   still has content. */
+.shop-category-pill__track[data-fade-end='true'] {
+  padding-right: 1.6rem;
+  mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 2.1rem), transparent 100%);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 0,
+    #000 calc(100% - 2.1rem),
+    transparent 100%
+  );
+}
+
+.shop-category-pill__track[data-fade-start='true'] {
+  padding-left: 1.6rem;
+  mask-image: linear-gradient(to left, #000 0, #000 calc(100% - 2.1rem), transparent 100%);
+  -webkit-mask-image: linear-gradient(
+    to left,
+    #000 0,
+    #000 calc(100% - 2.1rem),
+    transparent 100%
+  );
+}
+
+.shop-category-pill__track[data-fade-start='true'][data-fade-end='true'] {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 2.1rem,
+    #000 calc(100% - 2.1rem),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 2.1rem,
+    #000 calc(100% - 2.1rem),
+    transparent 100%
+  );
+}
+
 .shop-category-pill__item {
   position: relative;
   flex: 0 0 auto;
@@ -3120,6 +3163,10 @@ button.splaro-card__details-btn {
   font-weight: 500;
   line-height: 1.38;
   letter-spacing: -0.01em;
+  /* Always reserve both clamped lines. Without this a one-line name yields a
+     296px card next to a 315px two-line neighbour, so every row in the grid
+     sat at a different height. */
+  min-height: 2.76em;
 }
 
 .shop-product-grid .splaro-card--shop .splaro-card__code {
@@ -3128,16 +3175,19 @@ button.splaro-card__details-btn {
   color: #8a8a8a;
 }
 
+/* Name, colour count and price sat 6px and 9px apart — three type sizes
+   stacked with almost no separation, which is what made a 160px card read as
+   crowded. Wider gaps cost 9px of card height and buy back the rhythm. */
 .shop-product-grid .splaro-card--shop .splaro-card__colors {
-  margin-top: 0.28rem;
+  margin-top: 0.5rem;
   font-size: 0.6875rem;
   font-weight: 500;
-  color: rgba(17, 17, 17, 0.62);
+  color: rgba(17, 17, 17, 0.52);
   letter-spacing: 0.01em;
 }
 
 .shop-product-grid .splaro-card--shop .splaro-card__price-row {
-  margin-top: 0.42rem;
+  margin-top: 0.7rem;
   align-items: baseline;
   gap: 0.4rem;
 }
@@ -5923,6 +5973,16 @@ del.pc-info__compare {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;
+}
+
+/* Restore the scroll-cue gutters this reset clears (padding: 0 above), so the
+   trailing pill has room to fade instead of clipping at the rail edge. */
+.shop-page-shell .shop-category-pill__track[data-fade-end='true'] {
+  padding-right: 1.6rem;
+}
+
+.shop-page-shell .shop-category-pill__track[data-fade-start='true'] {
+  padding-left: 1.6rem;
 }
 
 .shop-page-shell .shop-category-pill__item {

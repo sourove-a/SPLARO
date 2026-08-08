@@ -50,7 +50,9 @@
   --z-chrome-header: 50;
   --z-floating-actions: 56;
   --z-mobile-nav: 120;
-  --mobile-nav-height: 5.125rem;
+  /* 5.125rem (82px) took ~10% of a phone screen and read as a second header.
+     4rem still clears the 44px touch-target floor once item padding is added. */
+  --mobile-nav-height: 4rem;
   --mobile-nav-dock-pad: 0;
   /* Edge-flush dock: no extra outer pad — safe-area lives inside the bar */
   --mobile-nav-pad-y: 0;
@@ -1360,17 +1362,19 @@ body[data-hide-productDetail][data-section="productDetail"]{ display: none; }
   margin: 0;
   min-height: var(--mobile-nav-height);
   padding:
-    0.45rem 0.2rem
-    max(env(safe-area-inset-bottom, 0px), 12px);
+    0.3rem 0.2rem
+    max(env(safe-area-inset-bottom, 0px), 10px);
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 1.75rem 1.75rem 0 0;
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  /* Quieter glass — the dock is navigation, not a surface that should compete
+     with product imagery on shop and PDP. */
+  border-top: 1px solid rgba(16, 17, 20, 0.06);
+  border-radius: 1.25rem 1.25rem 0 0;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
-    0 -6px 24px rgba(16, 17, 20, 0.045);
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 -2px 12px rgba(16, 17, 20, 0.035);
   pointer-events: auto;
   color: #6b7280;
   overflow: visible;
@@ -1386,8 +1390,8 @@ body[data-hide-productDetail][data-section="productDetail"]{ display: none; }
   gap: 0.28rem;
   width: 100%;
   min-width: 0;
-  min-height: 3rem;
-  padding: 0.35rem 0.2rem 0.2rem;
+  min-height: 2.5rem;
+  padding: 0.25rem 0.2rem 0.15rem;
   border: none;
   border-radius: 1.15rem;
   background: transparent;
@@ -1535,7 +1539,9 @@ html[data-os='windows'] .mobile-bottom-nav__capsule {
 .mobile-floating-offset,
 .support-floating-system {
   right: clamp(14px, 2.5vw, 22px);
-  bottom: calc(var(--mobile-nav-total) + 0.55rem);
+  /* 0.55rem left the FAB sitting in the seam between the dock and the last
+     product row, so the corner read as three stacked things. */
+  bottom: calc(var(--mobile-nav-total) + 1rem);
 }
 
 @media (min-width: 1024px) {
@@ -3398,9 +3404,19 @@ html[data-perf='lite'] .footer-lux__address-mobile:active {
 }
 
 .support-glass-btn--main {
-  width: 3rem;
-  height: 3rem;
+  /* 44px keeps the touch-target floor while taking less of a 375px screen
+     than the old 48px did — the FAB overlaps product imagery, so it should
+     be the quietest thing in the corner, not the loudest. */
+  width: 2.75rem;
+  height: 2.75rem;
   --support-radius: 50% 50% 4px;
+}
+
+/* Resting glow competes with product photography behind it on touch widths. */
+@media (max-width: 639px) {
+  .support-glass-btn__glow {
+    opacity: 0.55;
+  }
 }
 
 @media (min-width: 640px) {

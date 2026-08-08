@@ -155,7 +155,7 @@ export function HubTable({
 }) {
   return (
     <div style={{ ...hubCard, overflow: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', font: `400 13px/1.4 ${FONT}` }}>
+      <table style={{ width: '100%', minWidth: Math.max(560, columns.length * 140), borderCollapse: 'collapse', font: `400 13px/1.4 ${FONT}` }}>
         <thead>
           <tr>
             {columns.map((c) => (

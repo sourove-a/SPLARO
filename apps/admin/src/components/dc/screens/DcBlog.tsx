@@ -237,8 +237,8 @@ function DcBlogBody() {
                 onCta={openCreate}
               />
             ) : (
-              <div style={{ ...card, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div style={{ ...card, overflowX: 'auto' }}>
+                <table style={{ width: '100%', minWidth: 680, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--line)' }}>
                       {['Title', 'Status', 'Updated', ''].map((h) => (
