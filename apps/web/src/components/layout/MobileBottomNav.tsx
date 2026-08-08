@@ -180,6 +180,7 @@ export function MobileBottomNav() {
                         icon={Icon}
                         size="sm"
                         active={active}
+                        strokeWidth={active ? 2.25 : 2.1}
                         className="mobile-bottom-nav__premium-icon"
                       />
                       {showCartBadge ? (
