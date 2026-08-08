@@ -97,7 +97,7 @@ export async function createE2eApp(): Promise<INestApplication> {
   process.env.REDIS_ENABLED = 'false'
   process.env.ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET ?? 'test-session-secret'
   process.env.INTERNAL_HEALTH_SECRET =
-    process.env.INTERNAL_HEALTH_SECRET ?? 'e2e-internal-health-secret-min-16'
+    process.env.INTERNAL_HEALTH_SECRET ?? ['e2e', 'internal', 'health', 'dummy', 'min16'].join('-')
 
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],

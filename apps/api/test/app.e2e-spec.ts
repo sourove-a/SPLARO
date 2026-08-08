@@ -33,12 +33,12 @@ describe('SPLARO API (e2e)', () => {
   })
 
   it('GET /api/v1/health/full — infrastructure summary with internal secret', async () => {
-    const secret = 'e2e-internal-health-secret-min-16'
-    process.env.INTERNAL_HEALTH_SECRET = secret
+    const secret = process.env.INTERNAL_HEALTH_SECRET
+    expect(secret).toBeTruthy()
 
     const res = await request(app.getHttpServer())
       .get('/api/v1/health/full')
-      .set('x-splaro-internal', secret)
+      .set('x-splaro-internal', secret as string)
       .expect(200)
 
     expect(res.body.service).toBe('splaro-api')
