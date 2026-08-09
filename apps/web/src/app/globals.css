@@ -1079,11 +1079,12 @@ html[data-scroll-profile='mobile'].lenis [data-lenis-prevent] {
 }
 
 @media (min-width: 1024px) {
-  /* Default: no utility topbar (shop/PDP/etc). Home opts in via data-topbar=visible. */
+  /* Desktop utility topbar stays mounted across storefront routes. Keeping one
+     chrome offset prevents the header jumping 48px during client navigation. */
   :root {
-    --site-header-offset: var(--header-height);
-    --site-content-pad: calc(var(--header-height) + var(--header-gap));
-    --page-content-top: calc(var(--header-height) + 0.35rem);
+    --site-header-offset: calc(var(--header-height) + var(--topbar-height));
+    --site-content-pad: calc(var(--header-height) + var(--topbar-height) + var(--header-gap));
+    --page-content-top: calc(var(--site-header-offset) + 0.35rem);
   }
 
   html[data-topbar='visible'] {
@@ -7874,9 +7875,9 @@ html[data-chrome-pin='1'] .site-header-glass {
 }
 
 @media (min-width: 1024px) {
-  /* Topbar only on home — non-home headers sit at top:0 (see data-topbar rules). */
+  /* Stable desktop chrome: primary header always sits below utility topbar. */
   .site-header-glass {
-    top: 0;
+    top: var(--topbar-height);
   }
 }
 

@@ -1,0 +1,94 @@
+import type { ExpenseCategory, PartnerTransactionType } from '@prisma/client'
+
+const LEGACY_TO_EXPENSE: Record<string, ExpenseCategory> = {
+  PRODUCT_COST: 'INVENTORY_PURCHASE',
+  PACKAGING_COST: 'PACKAGING',
+  COURIER_COST: 'COURIER',
+  MARKETING_COST: 'ADVERTISING',
+  OFFICE_EXPENSE: 'OFFICE',
+  SALARY: 'SALARY',
+  REFUND: 'REFUND_LOSS',
+  RETURN_LOSS: 'RETURN_LOSS',
+  SAAS_SUBSCRIPTION_COST: 'SOFTWARE',
+  OTHER_EXPENSE: 'MISC',
+  INVENTORY_PURCHASE: 'INVENTORY_PURCHASE',
+  PACKAGING: 'PACKAGING',
+  COURIER: 'COURIER',
+  ADVERTISING: 'ADVERTISING',
+  OFFICE: 'OFFICE',
+  ELECTRICITY: 'ELECTRICITY',
+  INTERNET: 'INTERNET',
+  SOFTWARE: 'SOFTWARE',
+  EQUIPMENT: 'EQUIPMENT',
+  PHOTOGRAPHY: 'PHOTOGRAPHY',
+  REFUND_LOSS: 'REFUND_LOSS',
+  PAYMENT_FEES: 'PAYMENT_FEES',
+  TAX: 'TAX',
+  MISC: 'MISC',
+}
+
+const EXPENSE_TO_PARTNER: Record<ExpenseCategory, PartnerTransactionType> = {
+  INVENTORY_PURCHASE: 'PRODUCT_COST',
+  PACKAGING: 'PACKAGING_COST',
+  COURIER: 'COURIER_COST',
+  ADVERTISING: 'MARKETING_COST',
+  SALARY: 'SALARY',
+  OFFICE: 'OFFICE_EXPENSE',
+  ELECTRICITY: 'OFFICE_EXPENSE',
+  INTERNET: 'OFFICE_EXPENSE',
+  SOFTWARE: 'SAAS_SUBSCRIPTION_COST',
+  EQUIPMENT: 'OFFICE_EXPENSE',
+  PHOTOGRAPHY: 'OFFICE_EXPENSE',
+  REFUND_LOSS: 'REFUND',
+  RETURN_LOSS: 'RETURN_LOSS',
+  PAYMENT_FEES: 'OTHER_EXPENSE',
+  TAX: 'OTHER_EXPENSE',
+  MISC: 'OTHER_EXPENSE',
+}
+
+export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
+  'INVENTORY_PURCHASE',
+  'PACKAGING',
+  'COURIER',
+  'ADVERTISING',
+  'SALARY',
+  'OFFICE',
+  'ELECTRICITY',
+  'INTERNET',
+  'SOFTWARE',
+  'EQUIPMENT',
+  'PHOTOGRAPHY',
+  'REFUND_LOSS',
+  'RETURN_LOSS',
+  'PAYMENT_FEES',
+  'TAX',
+  'MISC',
+]
+
+export function parseExpenseCategory(raw: string | undefined | null): ExpenseCategory | null {
+  if (!raw?.trim()) return null
+  return LEGACY_TO_EXPENSE[raw.trim().toUpperCase()] ?? null
+}
+
+export function expenseCategoryToPartnerType(category: ExpenseCategory): PartnerTransactionType {
+  return EXPENSE_TO_PARTNER[category]
+}
+
+export const OPEX_CATEGORIES: ExpenseCategory[] = [
+  'SALARY',
+  'OFFICE',
+  'ELECTRICITY',
+  'INTERNET',
+  'SOFTWARE',
+  'EQUIPMENT',
+  'PHOTOGRAPHY',
+  'TAX',
+  'MISC',
+]
+
+export const AD_CATEGORIES: ExpenseCategory[] = ['ADVERTISING']
+export const PACKAGING_CATEGORIES: ExpenseCategory[] = ['PACKAGING']
+export const COURIER_EXPENSE_CATEGORIES: ExpenseCategory[] = ['COURIER']
+export const COGS_EXPENSE_CATEGORIES: ExpenseCategory[] = ['INVENTORY_PURCHASE']
+export const RETURN_EXPENSE_CATEGORIES: ExpenseCategory[] = ['REFUND_LOSS', 'RETURN_LOSS']
+export const FEE_EXPENSE_CATEGORIES: ExpenseCategory[] = ['PAYMENT_FEES']

@@ -10,7 +10,6 @@ export const ALIAS_REDIRECTS: Record<string, string> = {
   '/dashboard/business-intelligence': '/dashboard/analytics',
 
   // Finance tabs inside Partner Hub / Sheets
-  '/dashboard/finance/expenses': '/dashboard/finance/partner-accounts',
   '/dashboard/finance/investments': '/dashboard/finance/partner-accounts',
   '/dashboard/finance/withdrawals': '/dashboard/finance/partner-accounts',
   '/dashboard/finance/google-sheets-finance': '/dashboard/automation/google-sheets-sync',

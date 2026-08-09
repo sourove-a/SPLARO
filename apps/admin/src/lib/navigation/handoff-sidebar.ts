@@ -63,6 +63,8 @@ export const HANDOFF_SIDEBAR_GROUPS: ReadonlyArray<{ group: string; hrefs: reado
     group: 'Finance',
     hrefs: [
       '/dashboard/finance/finance-reports',
+      '/dashboard/finance/order-profit',
+      '/dashboard/finance/expenses',
       '/dashboard/finance/profit-loss',
       '/dashboard/finance/daily-closing',
     ],
@@ -123,7 +125,7 @@ const LABEL_OVERRIDES: Record<string, string> = {
   '/dashboard/returns-rma': 'Returns / RMA',
   '/dashboard/wms/overview': 'Warehouse & Stock',
   '/dashboard/procurement/purchase-orders': 'Purchase Orders',
-  '/dashboard/finance/finance-reports': 'Finance Overview',
+  '/dashboard/finance/finance-reports': 'Profit & Cash Flow',
   '/dashboard/automation/google-sheets-sync': 'Google Sheets',
   '/dashboard/ai-agent': 'AI Command Brain',
   '/dashboard/telegram-bot': 'Telegram Bot',

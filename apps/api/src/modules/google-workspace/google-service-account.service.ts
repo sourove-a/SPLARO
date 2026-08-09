@@ -6,6 +6,7 @@ import { google, type Auth } from 'googleapis'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { GoogleAuditService } from './google-audit.service'
+import { parseServiceAccountEnabled } from './google-sheets-auth.util'
 
 const SA_SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
@@ -33,7 +34,9 @@ export class GoogleServiceAccountService implements OnModuleInit {
   }
 
   isConfigured(): boolean {
-    return this.config.get<string>('GOOGLE_SERVICE_ACCOUNT_ENABLED') === 'true' && Boolean(this.resolveKeyPath())
+    const enabled = parseServiceAccountEnabled(this.config.get<string>('GOOGLE_SERVICE_ACCOUNT_ENABLED'))
+    if (enabled === false) return false
+    return Boolean(this.resolveKeyPath())
   }
 
   getEmail(): string | null {
@@ -46,12 +49,20 @@ export class GoogleServiceAccountService implements OnModuleInit {
       this.config.get<string>('GOOGLE_SERVICE_ACCOUNT_KEY_PATH')?.trim() ||
       this.config.get<string>('GOOGLE_APPLICATION_CREDENTIALS')?.trim()
     if (!raw) return null
+    if (raw.startsWith('/') && existsSync(raw)) return raw
 
-    const candidates = [
-      resolve(process.cwd(), raw),
-      resolve(process.cwd(), 'apps/api', raw),
-      resolve(process.cwd(), '../../', raw),
+    const roots = [
+      process.cwd(),
+      resolve(process.cwd(), '..'),
+      resolve(process.cwd(), '../..'),
+      resolve(process.cwd(), '../../..'),
+      '/var/www/splaro',
     ]
+    const candidates = roots.flatMap((root) => [
+      resolve(root, raw),
+      resolve(root, 'apps/api', raw),
+      resolve(root, 'tools/google-sheets-sync/credentials/service-account.json'),
+    ])
     return candidates.find((p) => existsSync(p)) ?? null
   }
 

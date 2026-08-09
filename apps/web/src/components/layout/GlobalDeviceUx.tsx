@@ -33,10 +33,15 @@ export function DesktopPerfParity() {
   return null
 }
 
+const OVERLAY_PANE_SELECTOR =
+  '[data-overlay-scroll], [role="dialog"], [data-lenis-prevent], [data-lenis-prevent-wheel]'
+
 /**
- * Allow wheel/touch only inside a real overflow scroller that still has room.
+ * Allow wheel only inside a real overflow scroller that still has room.
  * Never treat `[data-lenis-prevent]` / `[data-h-scroll]` as a free pass — that
  * chained wheel to the page behind cart/search/menu (F-001).
+ * Touch uses `isInsideOverlayPane` instead — iOS cancels taps if touchmove is
+ * preventDefault'd inside a dialog that is not yet overflowing.
  */
 function isScrollableOverflowY(el: HTMLElement): boolean {
   const { overflowY } = getComputedStyle(el)
@@ -54,14 +59,16 @@ function findScrollableAncestor(start: Element, root: Element): HTMLElement | nu
   return null
 }
 
+function isInsideOverlayPane(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest(OVERLAY_PANE_SELECTOR))
+}
+
 function shouldAllowOverlayInnerScroll(target: EventTarget | null, deltaY: number): boolean {
   if (!(target instanceof Element)) return false
   if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
     return true
   }
-  const pane = target.closest(
-    '[data-overlay-scroll], [role="dialog"], [data-lenis-prevent], [data-lenis-prevent-wheel]',
-  )
+  const pane = target.closest(OVERLAY_PANE_SELECTOR)
   if (!(pane instanceof Element)) return false
 
   const scroller = findScrollableAncestor(target, pane)
@@ -193,7 +200,7 @@ export function OverlayScrollLockAttr() {
     }
 
     const blockPageTouch = (event: TouchEvent) => {
-      if (shouldAllowOverlayInnerScroll(event.target, 0)) return
+      if (isInsideOverlayPane(event.target)) return
       event.preventDefault()
     }
 

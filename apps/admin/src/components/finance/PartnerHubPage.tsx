@@ -63,14 +63,14 @@ const capsLabel = {
   color: 'var(--ink-3)',
 }
 const EXPENSE_CATEGORIES = [
-  { value: 'PRODUCT_COST', label: 'Product cost' },
-  { value: 'COURIER_COST', label: 'Courier / delivery' },
-  { value: 'MARKETING_COST', label: 'Marketing' },
-  { value: 'PACKAGING_COST', label: 'Packaging' },
-  { value: 'OFFICE_EXPENSE', label: 'Office expense' },
+  { value: 'INVENTORY_PURCHASE', label: 'Inventory purchase' },
+  { value: 'COURIER', label: 'Courier / delivery' },
+  { value: 'ADVERTISING', label: 'Advertising' },
+  { value: 'PACKAGING', label: 'Packaging' },
+  { value: 'OFFICE', label: 'Office' },
   { value: 'SALARY', label: 'Salary' },
-  { value: 'SAAS_SUBSCRIPTION_COST', label: 'SaaS / tools' },
-  { value: 'OTHER_EXPENSE', label: 'Other' },
+  { value: 'SOFTWARE', label: 'Software / SaaS' },
+  { value: 'MISC', label: 'Other' },
 ] as const
 
 type HubTab =
@@ -211,7 +211,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
   const [savingSlug, setSavingSlug] = useState<string | null>(null)
 
   const [expenseForm, setExpenseForm] = useState({
-    category: 'OTHER_EXPENSE',
+    category: 'MISC',
     amount: '',
     note: '',
     partnerId: '',
@@ -354,7 +354,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
       if (!verifyStringEquals(created.note ?? '', note, 'Expense note')) return
       if (!verifyPersisted(created.status === 'PENDING', 'Expense status')) return
       toastOk('Expense recorded — pending approval')
-      setExpenseForm({ category: 'OTHER_EXPENSE', amount: '', note: '', partnerId: '' })
+      setExpenseForm({ category: 'MISC', amount: '', note: '', partnerId: '' })
       loadAll()
     } catch {
       toastFail('Could not save expense')

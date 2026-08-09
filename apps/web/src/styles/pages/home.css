@@ -2742,10 +2742,6 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
   flex-shrink: 0;
 }
 
-.home-flow-strip:hover .home-flow-strip__track {
-  animation-play-state: paused;
-}
-
 @keyframes home-flow-marquee {
   from {
     transform: translate3d(0, 0, 0);

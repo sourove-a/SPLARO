@@ -31,6 +31,8 @@ export const SCREEN_HREF: Record<string, string> = {
   operations: '/dashboard/operations',
   finance: '/dashboard/finance/finance-reports',
   pl: '/dashboard/finance/profit-loss',
+  orderprofit: '/dashboard/finance/order-profit',
+  expenses: '/dashboard/finance/expenses',
   campaigns: '/dashboard/campaigns',
   coupons: '/dashboard/coupons',
   homepage: '/dashboard/home-page',

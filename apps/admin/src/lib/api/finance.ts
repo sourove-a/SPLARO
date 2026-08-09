@@ -51,8 +51,84 @@ export interface ExpenseRow {
   amount: number | string
   expenseDate: string
   note?: string | null
+  attachmentUrl?: string | null
+  vendor?: string | null
+  paymentMethod?: string | null
+  recurring?: boolean
   status: string
   partner?: { name: string; slug: string } | null
+}
+
+export interface FinanceOverviewMetrics {
+  orderCount: number
+  incompleteOrders: number
+  grossSales: number
+  netSales: number
+  cogs: number
+  packaging: number
+  delivery: number
+  adSpend: number
+  opEx: number
+  paymentFees: number
+  discount: number
+  returnLoss: number
+  grossProfit: number
+  netProfit: number
+  marginPct: number | null
+  cashIn: number
+  cashOut: number
+  receivableCod: number
+  netProfitChangePct: number | null
+  previousNetProfit: number
+}
+
+export interface FinanceOverviewData {
+  period: { from: string; to: string; previousFrom: string; previousTo: string }
+  formula: string
+  adAllocationNote: string
+  comingNext: string[]
+  settings: { defaultPackagingCostPerOrder: number; paymentFeePercent: number }
+  metrics: FinanceOverviewMetrics
+}
+
+export interface OrderProfitRow {
+  id: string
+  orderNumber: string
+  deliveredAt: string
+  paymentMethod: string
+  paymentStatus: string
+  selling: number
+  productCost: number
+  packaging: number
+  courier: number
+  paymentFee: number
+  discount: number
+  allocatedAds: number
+  returnLoss: number
+  netProfit: number
+  marginPct: number | null
+  incompleteReasons: string[]
+}
+
+export interface OrderProfitDetail extends OrderProfitRow {
+  items: Array<{
+    productName: string
+    sku?: string | null
+    quantity: number
+    unitPrice: number
+    lineTotal: number
+    costPrice: number | null
+    incomplete: boolean
+  }>
+  courierCharge: number
+}
+
+export interface OrderProfitList {
+  period: { from: string; to: string }
+  page: number
+  limit: number
+  total: number
+  items: OrderProfitRow[]
 }
 
 export interface PartnerTransactionRow {
@@ -122,6 +198,7 @@ export interface ProfitLossSummary {
     paymentGatewayFee: number
     discount: number
     returnLoss: number
+    allocatedAdCost?: number
     netProfit: number
   }
   orderCount: number
@@ -204,7 +281,50 @@ export function fetchPartnerTransactions(params?: Record<string, string>) {
 
 export function fetchExpenses(page = 1, params?: Record<string, string>) {
   const qs = new URLSearchParams({ page: String(page), ...params })
-  return apiFetch<{ items: ExpenseRow[]; total: number }>(`/expenses?${qs.toString()}`)
+  return apiFetch<{
+    items: ExpenseRow[]
+    total: number
+    categories?: string[]
+    paymentMethods?: string[]
+  }>(`/expenses?${qs.toString()}`)
+}
+
+export function fetchFinanceOverview(params?: Record<string, string>) {
+  const qs = params ? `?${new URLSearchParams(params).toString()}` : '?preset=today'
+  return apiFetch<FinanceOverviewData>(`/admin/finance/overview${qs}`)
+}
+
+export function fetchOrderProfitList(params?: Record<string, string>) {
+  const qs = params ? `?${new URLSearchParams(params).toString()}` : '?preset=30d'
+  return apiFetch<OrderProfitList>(`/admin/finance/orders${qs}`)
+}
+
+export function fetchOrderProfitDetail(id: string) {
+  return apiFetch<OrderProfitDetail>(`/admin/finance/orders/${encodeURIComponent(id)}`)
+}
+
+export function updateFinanceSettings(body: {
+  defaultPackagingCostPerOrder?: number
+  paymentFeePercent?: number
+}) {
+  return apiFetch<{ defaultPackagingCostPerOrder: number; paymentFeePercent: number }>(
+    '/admin/finance/settings',
+    { method: 'PATCH', body: JSON.stringify(body) },
+  )
+}
+
+export function updateExpense(id: string, body: Record<string, unknown>) {
+  return apiFetch<ExpenseRow>(`/expenses/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+export function rejectExpense(id: string, rejectedBy?: string) {
+  return apiFetch<ExpenseRow>(`/expenses/${id}/reject`, {
+    method: 'PATCH',
+    body: JSON.stringify({ rejectedBy }),
+  })
 }
 
 export function approveExpense(id: string, approvedBy?: string) {

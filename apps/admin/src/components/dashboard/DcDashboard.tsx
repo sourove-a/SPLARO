@@ -1,6 +1,7 @@
 'use client'
 
 
+import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 
@@ -26,6 +27,7 @@ import {
 } from '@/lib/api/hooks'
 import { useClientNow } from '@/components/dc/useClientNow'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { fetchFinanceOverview } from '@/lib/api/finance'
 
 /* ── shared surfaces ─────────────────────────────────────────────── */
 
@@ -126,6 +128,12 @@ function DcDashboardBody() {
   const funnel = useConversionFunnel('30d')
   const goal = useDailyGoal()
   const saveGoal = useSaveDailyGoal()
+  const financePulse = useQuery({
+    queryKey: ['finance-overview', 'today-pulse'],
+    queryFn: () => fetchFinanceOverview({ preset: 'today' }),
+    staleTime: 60_000,
+    retry: 1,
+  })
 
   // Revenue comes off the orders table, zero-filled per day by the API. The
   // profit-loss timeline was the old source, but it is built from
@@ -390,6 +398,63 @@ function DcDashboardBody() {
               }
             />
           </div>
+
+          <button
+            type="button"
+            onClick={() => router.push('/dashboard/finance/finance-reports')}
+            style={{
+              ...card,
+              width: '100%',
+              textAlign: 'left',
+              cursor: 'pointer',
+              padding: '16px 18px',
+              display: 'grid',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ flex: 1, font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)' }}>
+                Financial Pulse
+              </span>
+              <span style={{ font: `600 12px/1 ${FONT}`, color: 'var(--violet)' }}>
+                Profit & Cash Flow →
+              </span>
+            </div>
+            {financePulse.isError ? (
+              <span style={{ font: `500 12.5px/1.4 ${FONT}`, color: 'var(--bad)' }}>
+                Today’s profit not loaded — API offline. No invented numbers.
+              </span>
+            ) : financePulse.isLoading ? (
+              <span style={{ font: `500 12.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>Loading today…</span>
+            ) : (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                  gap: 12,
+                }}
+              >
+                {[
+                  ['Sales', formatTaka(financePulse.data?.metrics.grossSales ?? 0)],
+                  ['Expenses', formatTaka((financePulse.data?.metrics.opEx ?? 0) + (financePulse.data?.metrics.adSpend ?? 0))],
+                  ['Net profit', formatTaka(financePulse.data?.metrics.netProfit ?? 0)],
+                  [
+                    'Margin',
+                    financePulse.data?.metrics.marginPct == null
+                      ? '—'
+                      : `${financePulse.data.metrics.marginPct}%`,
+                  ],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <div style={capsLabel}>{label}</div>
+                    <div style={{ marginTop: 6, font: `700 18px/1 ${FONT}`, color: 'var(--ink)' }}>
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </button>
 
           {/* ── row 3: revenue + pipeline ──────────────────────────── */}
           <div

@@ -289,6 +289,34 @@ enum PartnerTransactionType {
   PROFIT_DISTRIBUTION
 }
 
+enum ExpenseCategory {
+  INVENTORY_PURCHASE
+  PACKAGING
+  COURIER
+  ADVERTISING
+  SALARY
+  OFFICE
+  ELECTRICITY
+  INTERNET
+  SOFTWARE
+  EQUIPMENT
+  PHOTOGRAPHY
+  REFUND_LOSS
+  RETURN_LOSS
+  PAYMENT_FEES
+  TAX
+  MISC
+}
+
+enum ExpensePaymentMethod {
+  CASH
+  BANK
+  BKASH
+  NAGAD
+  CARD
+  OTHER
+}
+
 enum FinanceTransactionStatus {
   PENDING
   APPROVED
@@ -2078,6 +2106,8 @@ model SiteSettings {
   googleAnalyticsId      String?
   facebookPixelId        String?
   googleSearchConsoleKey String?
+  defaultPackagingCostPerOrder Decimal @default(0) @db.Decimal(10, 2)
+  paymentFeePercent            Decimal @default(0) @db.Decimal(6, 3)
   customHeadScripts      String?
   customBodyScripts      String?
   customCss              String?
@@ -2232,11 +2262,14 @@ model Expense {
   id              String                   @id @default(cuid())
   storeId         String
   partnerId       String?
-  category        PartnerTransactionType
+  category        ExpenseCategory
   amount          Decimal                  @db.Decimal(14, 2)
   expenseDate     DateTime                 @default(now())
   note            String?
   attachmentUrl   String?
+  vendor          String?
+  paymentMethod   ExpensePaymentMethod?
+  recurring       Boolean                  @default(false)
   status          FinanceTransactionStatus @default(PENDING)
   createdBy       String?
   approvedBy      String?
@@ -2264,6 +2297,8 @@ model ProfitCalculation {
   paymentGatewayFee Decimal  @default(0) @db.Decimal(14, 2)
   discount          Decimal  @default(0) @db.Decimal(14, 2)
   returnLoss        Decimal  @default(0) @db.Decimal(14, 2)
+  allocatedAdCost   Decimal  @default(0) @db.Decimal(14, 2)
+  incompleteReasons String[] @default([])
   netProfit         Decimal  @db.Decimal(14, 2)
   partnerShares     Json?
   calculatedAt      DateTime @default(now())

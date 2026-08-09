@@ -198,6 +198,7 @@ export class GoogleOAuthService {
         googleEmail,
         isConnected: true,
         tokenHealth: 'healthy',
+        autoSyncEnabled: true,
         scopes: tokens.scope ?? GOOGLE_OAUTH_SCOPES.join(' '),
         lastError: null,
         updatedBy: userId ?? null,

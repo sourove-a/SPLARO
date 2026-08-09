@@ -131,7 +131,9 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     group: 'Finance',
     items: [
-      item('Finance Overview', 'finance/finance-reports', 'FileBarChart', 'Live finance overview & exports'),
+      item('Profit & Cash Flow', 'finance/finance-reports', 'FileBarChart', 'Net profit, cash in/out, and cost breakdown'),
+      item('Order Profitability', 'finance/order-profit', 'Calculator', 'Per-order selling, cost, margin'),
+      item('Expenses', 'finance/expenses', 'Receipt', 'Operating expenses — approve, vendor, recurring'),
       item('Partner Hub', 'finance/partner-accounts', 'Handshake', 'Partner hisab, balance, investment & withdrawal'),
       item('Profit & Loss', 'finance/profit-loss', 'TrendingUp', 'Daily, weekly, monthly profit reports'),
       item('Daily Closing', 'finance/daily-closing', 'CalendarCheck', 'End-of-day finance closing'),

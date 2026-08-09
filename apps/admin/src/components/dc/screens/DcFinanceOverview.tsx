@@ -1,8 +1,8 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 import { DcIcon } from '@/components/dc/DcIcon'
 import { DcPageHead } from '@/components/dc/DcPageHead'
@@ -10,9 +10,13 @@ import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
-import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
-import { fetchDashboardInsights } from '@/lib/api/dashboard'
-import { fetchFinanceDashboard, fetchProfitLoss, type ProfitLossSummary } from '@/lib/api/finance'
+import { FONT, MONO, formatTaka, toneStyle } from '@/components/dc/tokens'
+import { toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
+import {
+  fetchFinanceOverview,
+  updateFinanceSettings,
+  type FinanceOverviewData,
+} from '@/lib/api/finance'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 
 const card = {
@@ -29,27 +33,36 @@ const capsLabel = {
   color: 'var(--ink-3)',
 }
 
-const th = {
-  textAlign: 'left' as const,
-  padding: '9px 15px',
-  font: `600 10.5px/1 ${FONT}`,
-  letterSpacing: '.09em',
-  textTransform: 'uppercase' as const,
-  color: 'var(--ink-3)',
-  borderBottom: '1px solid var(--line)',
-  whiteSpace: 'nowrap' as const,
-}
+const PRESETS = [
+  { id: 'today', label: 'Today' },
+  { id: 'yesterday', label: 'Yesterday' },
+  { id: '7d', label: '7D' },
+  { id: '30d', label: '30D' },
+  { id: 'this_month', label: 'This month' },
+  { id: 'custom', label: 'Custom' },
+] as const
 
-interface Decision {
-  key: string
-  title: string
-  headline: string
-  detail: string
-  why: string
-  tone: DcTone
-  cta: string
-  href: string
-}
+type PresetId = (typeof PRESETS)[number]['id']
+
+const METRICS: Array<{
+  key: keyof FinanceOverviewData['metrics']
+  label: string
+  hint: string
+}> = [
+  { key: 'grossSales', label: 'Gross sales', hint: 'Delivered order subtotals' },
+  { key: 'netSales', label: 'Net sales', hint: 'Including delivery, after discount' },
+  { key: 'cogs', label: 'COGS', hint: 'Product costPrice × qty — missing cost is not invented' },
+  { key: 'packaging', label: 'Packaging', hint: 'Store default per delivered order' },
+  { key: 'delivery', label: 'Delivery', hint: 'Real courier / order delivery charge' },
+  { key: 'adSpend', label: 'Ad spend', hint: 'Approved advertising expenses' },
+  { key: 'opEx', label: 'OpEx', hint: 'Salary, office, utilities, software…' },
+  { key: 'paymentFees', label: 'Payment fees', hint: 'Digital fee % + fee expenses' },
+  { key: 'grossProfit', label: 'Gross profit', hint: 'Sales − COGS − packaging' },
+  { key: 'cashIn', label: 'Cash in', hint: 'Paid / non-COD collected' },
+  { key: 'cashOut', label: 'Cash out', hint: 'Approved expenses + delivery + fees' },
+  { key: 'receivableCod', label: 'Receivable (COD)', hint: 'COD not settled — best effort' },
+  { key: 'returnLoss', label: 'Refund / return', hint: 'RMA refunds + return expenses' },
+]
 
 export function DcFinanceOverview() {
   const router = useRouter()
@@ -62,680 +75,323 @@ export function DcFinanceOverview() {
 
 function DcFinanceOverviewBody() {
   const router = useRouter()
+  const qc = useQueryClient()
   const { api } = useAdminConnection(25_000)
+  const [preset, setPreset] = useState<PresetId>('today')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+  const [packaging, setPackaging] = useState('')
+  const [feePct, setFeePct] = useState('')
 
-  const dash = useQuery({
-    queryKey: ['finance-dashboard'],
-    queryFn: fetchFinanceDashboard,
-    staleTime: 45_000,
+  const params = useMemo(() => {
+    if (preset === 'custom') {
+      return {
+        preset: 'custom',
+        ...(customFrom ? { from: customFrom } : {}),
+        ...(customTo ? { to: customTo } : {}),
+      }
+    }
+    return { preset }
+  }, [preset, customFrom, customTo])
+
+  const overview = useQuery({
+    queryKey: ['finance-overview', params],
+    queryFn: () => fetchFinanceOverview(params),
+    staleTime: 30_000,
     retry: 1,
   })
-  const pl = useQuery({
-    queryKey: ['profit-loss', 'monthly'],
-    queryFn: () => fetchProfitLoss('monthly') as Promise<ProfitLossSummary>,
-    staleTime: 60_000,
-    retry: 1,
+
+  const saveSettings = useMutation({
+    mutationFn: () =>
+      updateFinanceSettings({
+        ...(packaging !== '' ? { defaultPackagingCostPerOrder: Number(packaging) } : {}),
+        ...(feePct !== '' ? { paymentFeePercent: Number(feePct) } : {}),
+      }),
+    onSuccess: async (saved) => {
+      toastOk('Finance cost assumptions saved.')
+      setPackaging(String(saved.defaultPackagingCostPerOrder))
+      setFeePct(String(saved.paymentFeePercent))
+      await qc.invalidateQueries({ queryKey: ['finance-overview'] })
+    },
+    onError: (err) => {
+      toastFail(err instanceof Error ? err.message : 'Could not save finance settings.')
+    },
   })
-  /** Payment mix is the only place the API splits money by the rail it arrived on. */
-  const insights = useQuery({
-    queryKey: ['dashboard-insights', '30d'],
-    queryFn: () => fetchDashboardInsights('30d'),
-    staleTime: 60_000,
-    retry: 1,
-  })
 
-  const pageStatus = dcPageStatus([dash, pl, insights], api.pulse)
-  const rails = useMemo(
-    () =>
-      (insights.data?.paymentMix ?? [])
-        .slice()
-        .sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0)),
-    [insights.data],
-  )
-  const railTotal = rails.reduce((s, r) => s + Number(r.revenue || 0), 0)
-  const totals = dash.data?.totals
-  const partners = useMemo(() => dash.data?.partners ?? [], [dash.data])
-  const categories = useMemo(
-    () => (dash.data?.expensesByCategory ?? []).slice().sort((a, b) => b.amount - a.amount),
-    [dash.data],
-  )
-  const pending = dash.data?.pendingApprovals ?? 0
-
-  const revenue = Number(totals?.revenue || 0)
-  const expense = Number(totals?.expense || 0)
-  const net = Number(totals?.netProfit || 0)
-  const daily = Number(totals?.dailyNetProfit || 0)
-  const expenseRatio = revenue > 0 ? (expense / revenue) * 100 : 0
-  const combinedBalance = partners.reduce((s, p) => s + Number(p.currentBalance || 0), 0)
-  const shareTotal = partners.reduce((s, p) => s + Number(p.sharePercent || 0), 0)
-  const topCategory = categories[0]
-  const categoryMax = categories.reduce((m, c) => Math.max(m, Number(c.amount || 0)), 0)
-
-  const monthlyMargin = pl.data
-    ? Number(pl.data.totals.grossRevenue || 0) > 0
-      ? (Number(pl.data.totals.netProfit || 0) / Number(pl.data.totals.grossRevenue || 0)) * 100
-      : 0
-    : null
-
-  const decisions: Decision[] = [
-    ...(pending > 0
-      ? [
-          {
-            key: 'approvals',
-            title: 'Expenses waiting for approval',
-            headline: String(pending),
-            detail: 'nobody has signed these off',
-            why: 'Unapproved expenses are missing from net profit, so every number on this page is optimistic until they clear.',
-            tone: 'warn' as DcTone,
-            cta: 'Open Expenses',
-            href: '/dashboard/finance/expenses',
-          },
-        ]
-      : []),
-    ...(expenseRatio >= 70
-      ? [
-          {
-            key: 'ratio',
-            title: 'Expenses are eating the revenue',
-            headline: `${expenseRatio.toFixed(1)}%`,
-            detail: `${formatTaka(expense)} spent against ${formatTaka(revenue)} earned`,
-            why: topCategory
-              ? `${topCategory.category} alone is ${formatTaka(Number(topCategory.amount || 0))}. Cut there first — it moves the number fastest.`
-              : 'Categorise the spend before cutting, or you will cut the wrong thing.',
-            tone: expenseRatio >= 90 ? ('bad' as DcTone) : ('warn' as DcTone),
-            cta: 'Open Expenses',
-            href: '/dashboard/finance/expenses',
-          },
-        ]
-      : []),
-    ...(net < 0
-      ? [
-          {
-            key: 'loss',
-            title: 'The period is running at a loss',
-            headline: formatTaka(net),
-            detail: 'net after every recorded expense',
-            why: 'Partner shares cannot be paid out of a loss. Check Profit & Loss to see which cost line caused it.',
-            tone: 'bad' as DcTone,
-            cta: 'Open Profit & Loss',
-            href: '/dashboard/finance/profit-loss',
-          },
-        ]
-      : []),
-    ...(partners.length > 0 && Math.round(shareTotal) !== 100
-      ? [
-          {
-            key: 'shares',
-            title: 'Partner shares do not add to 100%',
-            headline: `${shareTotal.toFixed(1)}%`,
-            detail: `${partners.length} partner${partners.length === 1 ? '' : 's'} on file`,
-            why: 'Profit is split by these percentages. While they are wrong, every payout is wrong.',
-            tone: 'bad' as DcTone,
-            cta: 'Open Partner Hub',
-            href: '/dashboard/finance/partner-accounts',
-          },
-        ]
-      : []),
-    ...(partners.some((p) => Number(p.currentBalance || 0) < 0)
-      ? [
-          {
-            key: 'negative',
-            title: 'A partner balance is negative',
-            headline: String(partners.filter((p) => Number(p.currentBalance || 0) < 0).length),
-            detail: 'withdrew more than their share earned',
-            why: 'That partner owes the business money. Settle it before the next withdrawal is approved.',
-            tone: 'warn' as DcTone,
-            cta: 'Open Partner Hub',
-            href: '/dashboard/finance/partner-accounts',
-          },
-        ]
-      : []),
-  ]
+  const data = overview.data
+  const m = data?.metrics
+  const pageStatus = dcPageStatus([overview], api.pulse)
 
   const skeleton: DcBlock[] = [
+    { t: 'seg' } as DcBlock,
+    { t: 'hero' } as DcBlock,
     { t: 'kpis' } as DcBlock,
-    { t: 'decide', title: '', items: [] } as DcBlock,
-    { t: 'chart', w: 'main', title: '' } as DcBlock,
-    { t: 'table', w: 'side', title: '', cols: [], rows: [] } as DcBlock,
+    { t: 'form' } as DcBlock,
   ]
-
-  const refetchAll = () => {
-    void dash.refetch()
-    void pl.refetch()
-    void insights.refetch()
-  }
 
   return (
     <>
       <DcPageHead
         crumbGroup="Finance"
-        title="Finance Overview"
+        title="Profit & Cash Flow"
         statusLabel={pageStatus.label}
         statusTone={pageStatus.tone}
         syncLabel={
-          dash.isFetching || pl.isFetching || insights.isFetching
+          overview.isFetching
             ? 'syncing…'
-            : `${partners.length} partner${partners.length === 1 ? '' : 's'} · ${categories.length} expense categor${categories.length === 1 ? 'y' : 'ies'}`
+            : data?.period
+              ? `${fmtDate(data.period.from)} → ${fmtDate(data.period.to)}`
+              : 'no period'
         }
-        syncing={dash.isFetching || pl.isFetching || insights.isFetching}
-        onSync={refetchAll}
+        syncing={overview.isFetching}
         actions={[
           {
-            label: 'Daily Closing',
-            icon: 'icon-calendar-check',
-            onClick: () => router.push('/dashboard/finance/daily-closing'),
+            label: 'Order profit',
+            icon: 'icon-calculator',
+            variant: 'ghost',
+            onClick: () => router.push('/dashboard/finance/order-profit'),
           },
           {
-            label: 'Profit & Loss',
-            icon: 'icon-trending-up',
-            variant: 'primary',
-            onClick: () => router.push('/dashboard/finance/profit-loss'),
+            label: 'Expenses',
+            icon: 'icon-receipt',
+            variant: 'ghost',
+            onClick: () => router.push('/dashboard/finance/expenses'),
           },
         ]}
       />
 
-      {dash.isLoading ? (
-        <DcLoadingState blocks={skeleton} />
-      ) : dash.error ? (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+        {PRESETS.map((p) => {
+          const active = preset === p.id
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setPreset(p.id)}
+              style={{
+                border: `1px solid ${active ? 'var(--ink)' : 'var(--line)'}`,
+                background: active ? 'var(--ink)' : 'var(--surface)',
+                color: active ? 'var(--paper)' : 'var(--ink-2)',
+                borderRadius: 999,
+                padding: '8px 12px',
+                font: `600 12px/1 ${FONT}`,
+                cursor: 'pointer',
+              }}
+            >
+              {p.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {preset === 'custom' ? (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+          <label style={{ display: 'grid', gap: 4, font: `600 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+            From
+            <input
+              type="date"
+              value={customFrom}
+              onChange={(e) => setCustomFrom(e.target.value)}
+              className="admin-input"
+            />
+          </label>
+          <label style={{ display: 'grid', gap: 4, font: `600 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+            To
+            <input
+              type="date"
+              value={customTo}
+              onChange={(e) => setCustomTo(e.target.value)}
+              className="admin-input"
+            />
+          </label>
+        </div>
+      ) : null}
+
+      {overview.error ? (
         <DcErrorState
-          error={`GET /finance-reports/dashboard → ${dash.error instanceof Error ? dash.error.message : '500 Internal Server Error'}`}
-          hint="Expenses, investments and withdrawals are all still recorded — only this summary failed."
-          onRetry={refetchAll}
+          error={`GET /admin/finance/overview → ${overview.error instanceof Error ? overview.error.message : 'failed'}`}
+          hint="API offline or finance module failed — numbers are not invented."
+          onRetry={() => void overview.refetch()}
         />
-      ) : !totals ? (
+      ) : overview.isLoading ? (
+        <DcLoadingState blocks={skeleton} />
+      ) : !m ? (
         <DcEmptyState
-          icon="icon-file-bar-chart"
-          title="No finance data yet"
-          body="The overview computes from delivered orders and approved expenses. Once either exists, the numbers appear here."
+          icon="icon-banknote"
+          title="No finance window yet"
+          body="Delivered orders and approved expenses in this range will appear here."
         />
       ) : (
         <>
+          {m.incompleteOrders > 0 ? (
+            <div
+              style={{
+                ...card,
+                padding: '12px 14px',
+                marginBottom: 14,
+                borderColor: 'var(--warn-bd)',
+                background: 'var(--warn-soft)',
+              }}
+            >
+              <strong style={{ font: `600 13px/1.4 ${FONT}`, color: 'var(--warn)' }}>
+                {m.incompleteOrders} order{m.incompleteOrders === 1 ? '' : 's'} incomplete
+              </strong>
+              <p style={{ margin: '6px 0 0', font: `500 12.5px/1.45 ${FONT}`, color: 'var(--ink-2)' }}>
+                Missing product costPrice is counted as ৳0 — not selling price. Set cost on products
+                and packaging default below.
+              </p>
+            </div>
+          ) : null}
+
+          <div style={{ ...card, padding: '22px 22px 18px', marginBottom: 16 }}>
+            <div style={capsLabel}>Net profit · {data?.formula}</div>
+            <div
+              style={{
+                marginTop: 10,
+                font: `700 42px/1 ${FONT}`,
+                letterSpacing: '-.04em',
+                color: m.netProfit >= 0 ? 'var(--ok)' : 'var(--bad)',
+              }}
+            >
+              {formatTaka(m.netProfit)}
+            </div>
+            <div style={{ marginTop: 8, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ font: `600 13px/1 ${FONT}`, color: 'var(--ink-2)' }}>
+                Margin {m.marginPct == null ? '—' : `${m.marginPct}%`}
+              </span>
+              <ChangePill pct={m.netProfitChangePct} />
+              <span style={{ font: `500 12.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                {m.orderCount} delivered order{m.orderCount === 1 ? '' : 's'}
+              </span>
+            </div>
+          </div>
+
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(206px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(168px, 1fr))',
               gap: 12,
+              marginBottom: 16,
             }}
           >
-            <Kpi label="Revenue" value={formatTaka(revenue)} sub="delivered orders in the window" />
-            <Kpi
-              label="Expenses"
-              value={formatTaka(expense)}
-              sub={`${expenseRatio.toFixed(1)}% of revenue`}
-              color={expenseRatio >= 70 ? 'var(--warn)' : undefined}
-            />
-            <Kpi
-              label="Net profit"
-              value={formatTaka(net)}
-              sub={
-                monthlyMargin === null
-                  ? pl.error
-                    ? 'GET /profit-loss/monthly failed'
-                    : 'margin loading…'
-                  : `${monthlyMargin.toFixed(1)}% margin this month`
-              }
-              color={net >= 0 ? 'var(--ok)' : 'var(--bad)'}
-            />
-            <Kpi
-              label="Today"
-              value={formatTaka(daily)}
-              sub="net profit booked today"
-              color={daily >= 0 ? undefined : 'var(--bad)'}
-            />
+            {METRICS.map((row) => {
+              const value = Number(m[row.key] ?? 0)
+              return (
+                <div key={row.key} style={{ ...card, padding: '14px 15px' }}>
+                  <div style={capsLabel}>{row.label}</div>
+                  <div style={{ marginTop: 8, font: `700 20px/1 ${MONO}`, color: 'var(--ink)' }}>
+                    {formatTaka(value)}
+                  </div>
+                  <div style={{ marginTop: 6, font: `500 11.5px/1.35 ${FONT}`, color: 'var(--ink-3)' }}>
+                    {row.hint}
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
-          <div style={{ ...card, overflow: 'hidden' }}>
-            <div
-              style={{
-                padding: '13px 16px',
-                borderBottom: '1px solid var(--line)',
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: 9,
-                flexWrap: 'wrap',
-              }}
-            >
-              <span style={{ font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)' }}>
-                What finance needs from you
-              </span>
-              <span
-                style={{ flex: 1, minWidth: 60, font: `400 11.5px/1.4 ${FONT}`, color: 'var(--ink-3)' }}
-              >
-                anything that makes the numbers above wrong shows up here
-              </span>
-            </div>
-            {decisions.length === 0 ? (
-              <div
+          <div style={{ ...card, padding: '16px 18px', marginBottom: 16 }}>
+            <div style={{ font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)' }}>Cost assumptions</div>
+            <p style={{ margin: '6px 0 12px', font: `500 12.5px/1.45 ${FONT}`, color: 'var(--ink-2)' }}>
+              Packaging default is ৳0 until you set it — never a silent ৳15. Digital payment fee applies
+              to non-COD only.
+            </p>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end' }}>
+              <label style={{ display: 'grid', gap: 4, font: `600 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                Packaging / order (৳)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="admin-input"
+                  placeholder={String(data?.settings.defaultPackagingCostPerOrder ?? 0)}
+                  value={packaging}
+                  onChange={(e) => setPackaging(e.target.value)}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 4, font: `600 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                Payment fee %
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  className="admin-input"
+                  placeholder={String(data?.settings.paymentFeePercent ?? 0)}
+                  value={feePct}
+                  onChange={(e) => setFeePct(e.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                disabled={saveSettings.isPending || (packaging === '' && feePct === '')}
+                onClick={() => {
+                  if (packaging !== '' && (!Number.isFinite(Number(packaging)) || Number(packaging) < 0)) {
+                    toastFail('Packaging must be 0 or more.')
+                    return
+                  }
+                  if (feePct !== '' && (!Number.isFinite(Number(feePct)) || Number(feePct) < 0)) {
+                    toastFail('Fee percent must be 0 or more.')
+                    return
+                  }
+                  saveSettings.mutate()
+                }}
                 style={{
-                  padding: '34px 16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 8,
-                  textAlign: 'center',
+                  border: 0,
+                  borderRadius: 10,
+                  padding: '10px 14px',
+                  background: 'var(--ink)',
+                  color: 'var(--paper)',
+                  font: `600 12.5px/1 ${FONT}`,
+                  cursor: 'pointer',
                 }}
               >
-                <DcIcon name="icon-check-circle" size={20} color="var(--ok)" />
-                <span style={{ font: `600 13px/1.4 ${FONT}`, color: 'var(--ink)' }}>
-                  The books are clean
-                </span>
+                {saveSettings.isPending ? 'Saving…' : 'Save assumptions'}
+              </button>
+            </div>
+            <p style={{ margin: '12px 0 0', font: `500 12px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
+              {data?.adAllocationNote}
+            </p>
+          </div>
+
+          <div style={{ ...card, padding: '16px 18px' }}>
+            <div style={{ font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)' }}>Coming next</div>
+            <p style={{ margin: '6px 0 10px', font: `500 12.5px/1.45 ${FONT}`, color: 'var(--ink-2)' }}>
+              Not fake numbers — these modules are not in V1.
+            </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {(data?.comingNext ?? []).map((label) => (
                 <span
+                  key={label}
                   style={{
-                    maxWidth: 420,
-                    font: `400 12px/1.55 ${FONT}`,
-                    color: 'var(--ink-3)',
-                    textWrap: 'pretty',
+                    ...toneStyle('mute'),
+                    border: '1px solid var(--line)',
+                    borderRadius: 999,
+                    padding: '6px 10px',
+                    font: `600 11.5px/1 ${FONT}`,
                   }}
                 >
-                  Nothing pending approval, expenses under control, shares add to 100%, and no
-                  partner is overdrawn.
+                  {label}
                 </span>
-              </div>
-            ) : (
-              <div
-                style={{
-                  padding: 12,
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(330px, 100%), 1fr))',
-                  gap: 10,
-                }}
-              >
-                {decisions.map((d) => {
-                  const tone = toneStyle(d.tone)
-                  return (
-                    <div
-                      key={d.key}
-                      style={{
-                        border: '1px solid var(--line)',
-                        borderLeft: `3px solid ${tone.fg}`,
-                        borderRadius: 11,
-                        background: 'var(--surface-2)',
-                        padding: '12px 13px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 9,
-                      }}
-                    >
-                      <span style={{ font: `600 13px/1.35 ${FONT}`, color: 'var(--ink)' }}>
-                        {d.title}
-                      </span>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'baseline',
-                          gap: 8,
-                          flexWrap: 'wrap',
-                          padding: '9px 10px',
-                          border: '1px solid var(--line)',
-                          borderRadius: 9,
-                          background: 'var(--surface)',
-                        }}
-                      >
-                        <span style={{ font: `700 15px/1.2 ${MONO}`, color: tone.fg }}>
-                          {d.headline}
-                        </span>
-                        <span style={{ font: `500 11.5px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
-                          {d.detail}
-                        </span>
-                      </div>
-                      <span
-                        style={{
-                          font: `400 11.5px/1.55 ${FONT}`,
-                          color: 'var(--ink-3)',
-                          textWrap: 'pretty',
-                        }}
-                      >
-                        {d.why}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => router.push(d.href)}
-                        style={{
-                          alignSelf: 'flex-start',
-                          height: 30,
-                          padding: '0 12px',
-                          borderRadius: 8,
-                          border: '1px solid var(--violet-solid)',
-                          background: 'var(--violet-solid)',
-                          color: 'var(--on-violet)',
-                          cursor: 'pointer',
-                          font: `600 11.5px/1 ${FONT}`,
-                        }}
-                      >
-                        {d.cta}
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 16,
-              alignItems: 'flex-start',
-              width: '100%',
-            }}
-          >
-            <div style={{ flex: '1 1 46%', minWidth: 320, maxWidth: '100%' }}>
-              <div style={{ ...card, overflow: 'hidden' }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'baseline',
-                    gap: 9,
-                    flexWrap: 'wrap',
-                    padding: '12px 15px',
-                    borderBottom: '1px solid var(--line)',
-                  }}
-                >
-                  <span
-                    style={{
-                      flex: 1,
-                      minWidth: 120,
-                      font: `600 13.5px/1.3 ${FONT}`,
-                      color: 'var(--ink)',
-                    }}
-                  >
-                    Where the spend goes
-                  </span>
-                  <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
-                    {formatTaka(expense)} total
-                  </span>
-                </div>
-                {categories.length === 0 ? (
-                  <Note text="No expenses recorded in this window." />
-                ) : (
-                  <div style={{ padding: '4px 15px 12px' }}>
-                    {categories.map((c, i) => {
-                      const amount = Number(c.amount || 0)
-                      const width = categoryMax > 0 ? (amount / categoryMax) * 100 : 0
-                      return (
-                        <div
-                          key={`${c.category}-${i}`}
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 6,
-                            padding: '11px 0',
-                            borderBottom:
-                              i === categories.length - 1 ? 'none' : '1px solid var(--line)',
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'baseline',
-                              gap: 9,
-                              flexWrap: 'wrap',
-                            }}
-                          >
-                            <span
-                              style={{
-                                flex: 1,
-                                minWidth: 90,
-                                font: `500 12.5px/1.3 ${FONT}`,
-                                color: 'var(--ink)',
-                              }}
-                            >
-                              {c.category}
-                            </span>
-                            <span style={{ font: `600 13px/1 ${MONO}`, color: 'var(--ink)' }}>
-                              {formatTaka(amount)}
-                            </span>
-                            <span
-                              style={{
-                                width: 50,
-                                textAlign: 'right',
-                                font: `500 11.5px/1 ${MONO}`,
-                                color: 'var(--ink-3)',
-                              }}
-                            >
-                              {expense > 0 ? ((amount / expense) * 100).toFixed(1) : '0'}%
-                            </span>
-                          </div>
-                          <div
-                            style={{
-                              height: 5,
-                              borderRadius: 99,
-                              background: 'var(--surface-3)',
-                              overflow: 'hidden',
-                            }}
-                          >
-                            <div
-                              style={{
-                                width: `${Math.min(100, width)}%`,
-                                height: '100%',
-                                borderRadius: 99,
-                                background: i === 0 ? 'var(--warn)' : 'var(--ink-3)',
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
-
-            <div style={{ flex: '1 1 46%', minWidth: 320, maxWidth: '100%' }}>
-              <div style={{ ...card, overflow: 'auto' }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'baseline',
-                    gap: 9,
-                    flexWrap: 'wrap',
-                    padding: '12px 15px',
-                    borderBottom: '1px solid var(--line)',
-                  }}
-                >
-                  <span
-                    style={{
-                      flex: 1,
-                      minWidth: 120,
-                      font: `600 13.5px/1.3 ${FONT}`,
-                      color: 'var(--ink)',
-                    }}
-                  >
-                    Partner balances
-                  </span>
-                  <span
-                    style={{
-                      font: `500 11.5px/1 ${FONT}`,
-                      color: Math.round(shareTotal) === 100 ? 'var(--ink-3)' : 'var(--bad)',
-                    }}
-                  >
-                    shares total {shareTotal.toFixed(1)}%
-                  </span>
-                </div>
-                {partners.length === 0 ? (
-                  <Note text="No partners on file. Profit is not being split." />
-                ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>
-                        <th style={th}>Partner</th>
-                        <th style={{ ...th, textAlign: 'right' }}>Share</th>
-                        <th style={{ ...th, textAlign: 'right' }}>Balance</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {partners.map((p) => {
-                        const bal = Number(p.currentBalance || 0)
-                        return (
-                          <tr key={p.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                            <td
-                              style={{
-                                padding: '10px 15px',
-                                font: `500 13px/1.3 ${FONT}`,
-                                color: 'var(--ink)',
-                              }}
-                            >
-                              {p.name}
-                            </td>
-                            <td
-                              style={{
-                                padding: '10px 15px',
-                                textAlign: 'right',
-                                font: `600 12.5px/1 ${MONO}`,
-                                color: 'var(--ink-2)',
-                              }}
-                            >
-                              {Number(p.sharePercent || 0).toFixed(1)}%
-                            </td>
-                            <td
-                              style={{
-                                padding: '10px 15px',
-                                textAlign: 'right',
-                                font: `600 13px/1 ${MONO}`,
-                                color: bal < 0 ? 'var(--bad)' : 'var(--ink)',
-                              }}
-                            >
-                              {formatTaka(bal)}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                      <tr>
-                        <td
-                          style={{
-                            padding: '10px 15px',
-                            font: `600 12.5px/1.3 ${FONT}`,
-                            color: 'var(--ink-3)',
-                          }}
-                        >
-                          Combined
-                        </td>
-                        <td />
-                        <td
-                          style={{
-                            padding: '10px 15px',
-                            textAlign: 'right',
-                            font: `700 13px/1 ${MONO}`,
-                            color: 'var(--ink)',
-                          }}
-                        >
-                          {formatTaka(combinedBalance)}
-                        </td>
-                      </tr>
-                    </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Settlement by rail — how the money actually arrived. */}
-          <div style={{ ...card, overflow: 'auto' }}>
-            <div
+            <button
+              type="button"
+              onClick={() => toastWarn('Cash flow ledger, ads sync, and loss intelligence ship in later phases.')}
               style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: 9,
-                flexWrap: 'wrap',
-                padding: '12px 15px',
-                borderBottom: '1px solid var(--line)',
+                marginTop: 12,
+                border: 0,
+                background: 'transparent',
+                cursor: 'pointer',
+                font: `600 12px/1 ${FONT}`,
+                color: 'var(--violet)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
               }}
             >
-              <span
-                style={{ flex: 1, minWidth: 140, font: `600 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}
-              >
-                Settlement by rail
-              </span>
-              <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
-                last 30 days · from the payment mix
-              </span>
-            </div>
-            {insights.isLoading ? (
-              <Note text="Loading the payment mix…" />
-            ) : insights.error ? (
-              <Note
-                text={`GET /admin/dashboard/insights → ${insights.error instanceof Error ? insights.error.message : 'request failed'}`}
-              />
-            ) : rails.length === 0 ? (
-              <Note text="No payments in the last 30 days, so there is nothing to split by rail." />
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={th}>Rail</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Orders</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Collected</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Share</th>
-                    <th style={th}>When you hold it</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rails.map((r, i) => {
-                    const rev = Number(r.revenue || 0)
-                    const isCod = /^cod$|cash/i.test(r.name)
-                    return (
-                      <tr key={`${r.name}-${i}`} style={{ borderBottom: '1px solid var(--line)' }}>
-                        <td
-                          style={{
-                            padding: '10px 15px',
-                            font: `500 13px/1.3 ${FONT}`,
-                            color: 'var(--ink)',
-                          }}
-                        >
-                          {r.name}
-                        </td>
-                        <td
-                          style={{
-                            padding: '10px 15px',
-                            textAlign: 'right',
-                            font: `500 12.5px/1 ${MONO}`,
-                            color: 'var(--ink-2)',
-                          }}
-                        >
-                          {Number(r.count || 0).toLocaleString('en-IN')}
-                        </td>
-                        <td
-                          style={{
-                            padding: '10px 15px',
-                            textAlign: 'right',
-                            font: `600 13px/1 ${MONO}`,
-                            color: 'var(--ink)',
-                          }}
-                        >
-                          {formatTaka(rev)}
-                        </td>
-                        <td
-                          style={{
-                            padding: '10px 15px',
-                            textAlign: 'right',
-                            font: `500 12.5px/1 ${MONO}`,
-                            color: 'var(--ink-3)',
-                          }}
-                        >
-                          {railTotal > 0 ? `${((rev / railTotal) * 100).toFixed(1)}%` : '—'}
-                        </td>
-                        <td
-                          style={{
-                            padding: '10px 15px',
-                            font: `400 12px/1.4 ${FONT}`,
-                            color: isCod ? 'var(--warn)' : 'var(--ink-3)',
-                          }}
-                        >
-                          {isCod
-                            ? 'only once the rider hands the cash over'
-                            : 'once the gateway settles into the account'}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-                </table>
-              </div>
-            )}
+              <DcIcon name="icon-info" size={13} /> Why some tiles are missing
+            </button>
           </div>
         </>
       )}
@@ -743,43 +399,26 @@ function DcFinanceOverviewBody() {
   )
 }
 
-function Note({ text }: { text: string }) {
+function ChangePill({ pct }: { pct: number | null }) {
+  if (pct == null) {
+    return <span style={{ font: `600 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>vs prior window — n/a</span>
+  }
+  const up = pct >= 0
   return (
-    <div
+    <span
       style={{
-        padding: '40px 15px',
-        textAlign: 'center',
-        font: `400 12.5px/1.55 ${FONT}`,
-        color: 'var(--ink-3)',
+        font: `600 12px/1 ${FONT}`,
+        color: up ? 'var(--ok)' : 'var(--bad)',
       }}
     >
-      {text}
-    </div>
+      {up ? '+' : ''}
+      {pct}% vs prior window
+    </span>
   )
 }
 
-function Kpi({
-  label,
-  value,
-  sub,
-  color,
-}: {
-  label: string
-  value: string
-  sub: string
-  color?: string | undefined
-}) {
-  return (
-    <div
-      style={{ ...card, padding: '14px 15px 13px', display: 'flex', flexDirection: 'column', gap: 8 }}
-    >
-      <span style={capsLabel}>{label}</span>
-      <span
-        style={{ font: `700 25px/1 ${FONT}`, letterSpacing: '-.025em', color: color ?? 'var(--ink)' }}
-      >
-        {value}
-      </span>
-      <span style={{ font: `400 11.5px/1.35 ${FONT}`, color: 'var(--ink-3)' }}>{sub}</span>
-    </div>
-  )
+function fmtDate(iso: string) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('en-BD', { day: 'numeric', month: 'short', year: 'numeric' })
 }

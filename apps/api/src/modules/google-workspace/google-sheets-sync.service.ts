@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import {
   resolveCustomerFacingAssetUrl,
@@ -149,6 +149,7 @@ export class GoogleSheetsSyncService {
       })
     }
 
+    const ready = await this.client.canUseSheets(storeId)
     await this.prisma.googleWorkspaceConnection.upsert({
       where: { storeId },
       create: {
@@ -156,12 +157,21 @@ export class GoogleSheetsSyncService {
         spreadsheetId,
         spreadsheetUrl,
         isConnected: true,
-        autoSyncEnabled: true,
-        tokenHealth: 'healthy',
+        autoSyncEnabled: ready.ok,
+        tokenHealth: ready.ok ? 'healthy' : 'needs_reconnect',
+        lastError: ready.ok ? null : ready.reason,
         googleEmail: this.config.get<string>('GOOGLE_SERVICE_ACCOUNT_EMAIL') ?? null,
         createdBy: userId ?? null,
       },
-      update: { spreadsheetId, spreadsheetUrl, isConnected: true, tokenHealth: 'healthy', lastError: null, updatedBy: userId ?? null },
+      update: {
+        spreadsheetId,
+        spreadsheetUrl,
+        isConnected: true,
+        autoSyncEnabled: ready.ok,
+        tokenHealth: ready.ok ? 'healthy' : 'needs_reconnect',
+        lastError: ready.ok ? null : ready.reason,
+        updatedBy: userId ?? null,
+      },
     })
 
     await this.audit.log({
@@ -1377,9 +1387,17 @@ export class GoogleSheetsSyncService {
 
   async toggleAutoSync(storeIdRaw: string, enabled: boolean, userId?: string) {
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    if (enabled) {
+      const ready = await this.client.canUseSheets(storeId)
+      if (!ready.ok) throw new BadRequestException(ready.reason)
+    }
     await this.prisma.googleWorkspaceConnection.update({
       where: { storeId },
-      data: { autoSyncEnabled: enabled, updatedBy: userId ?? null },
+      data: {
+        autoSyncEnabled: enabled,
+        ...(enabled ? { tokenHealth: 'healthy', lastError: null } : {}),
+        updatedBy: userId ?? null,
+      },
     })
     return { autoSyncEnabled: enabled }
   }

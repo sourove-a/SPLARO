@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "splaro": {
+      "type": "stdio",
+      "command": "/bin/zsh",
+      "args": [
+        "-c",
+        "source \"$HOME/.nvm/nvm.sh\" >/dev/null 2>&1; exec node --disable-warning=ExperimentalWarning \"${workspaceFolder}/tools/mcp-server/start.mjs\""
+      ],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}

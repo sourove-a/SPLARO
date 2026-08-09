@@ -36,6 +36,8 @@ import { DcPurchaseOrders } from '@/components/dc/screens/DcPurchaseOrders'
 import { DcReturnsRma } from '@/components/dc/screens/DcReturnsRma'
 import { DcOperationsHub } from '@/components/dc/screens/DcOperationsHub'
 import { DcFinanceOverview } from '@/components/dc/screens/DcFinanceOverview'
+import { DcOrderProfitability } from '@/components/dc/screens/DcOrderProfitability'
+import { DcExpenses } from '@/components/dc/screens/DcExpenses'
 import { DcProfitLoss } from '@/components/dc/screens/DcProfitLoss'
 import { DcCoupons } from '@/components/dc/screens/DcCoupons'
 import { DcCampaigns } from '@/components/dc/screens/DcCampaigns'
@@ -104,6 +106,8 @@ const DC_BESPOKE: Record<string, () => React.ReactElement> = {
   '/dashboard/returns-rma': () => <DcReturnsRma />,
   '/dashboard/operations': () => <DcOperationsHub />,
   '/dashboard/finance/finance-reports': () => <DcFinanceOverview />,
+  '/dashboard/finance/order-profit': () => <DcOrderProfitability />,
+  '/dashboard/finance/expenses': () => <DcExpenses />,
   '/dashboard/finance/profit-loss': () => <DcProfitLoss />,
   '/dashboard/coupons': () => <DcCoupons />,
   '/dashboard/campaigns': () => <DcCampaigns />,

@@ -60,7 +60,7 @@ const MODULE_PAGES: Record<string, ModulePageTuple> = {
   categories:  ['Categories','Catalog','live','synced 6m ago',[['New category','icon-plus','primary']]],
   inventory:   ['Inventory','Catalog','live','stock synced 40s ago',[['Stock count','icon-clipboard-list','ghost'],['Restock PO','icon-plus','primary']]],
   operations:  ['Operations Hub','Operations','live','live session',[['Assign staff','icon-user-cog','ghost']]],
-  finance:     ['Finance Overview','Finance','live','synced 3m ago',[['Export','icon-download','ghost']]],
+  finance:     ['Profit & Cash Flow','Finance','live','synced 3m ago',[['Export','icon-download','ghost']]],
   pl:          ['Profit & Loss','Finance','live','July, provisional',[['Choose month','icon-calendar','ghost'],['Export','icon-download','ghost']]],
   campaigns:   ['Campaigns','Marketing','live','synced 8m ago',[['New campaign','icon-plus','primary']]],
   coupons:     ['Coupons','Marketing','live','synced 8m ago',[['New coupon','icon-plus','primary']]],

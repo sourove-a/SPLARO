@@ -3,6 +3,7 @@
 import '@/styles/pages/shop.css'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 import { X } from 'lucide-react'
@@ -37,8 +38,11 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [sizeShake, setSizeShake] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const panelRef = useRef<HTMLElement>(null)
   useDialogFocusTrap(open, panelRef, onClose)
+
+  useEffect(() => setMounted(true), [])
 
   useEffect(() => {
     if (!open || !product) return
@@ -125,7 +129,9 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
         transition: SETTLE,
       }
 
-  return (
+  if (!mounted) return null
+
+  return createPortal(
     <AnimatePresence>
       {open && product ? (
         <>
@@ -143,10 +149,11 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
           <motion.aside
             ref={panelRef}
             {...panelMotion}
-            className="pqv-panel fixed right-0 top-0 z-[59] flex h-full w-full max-w-[min(100vw,28rem)] flex-col border-l border-white/70 bg-white/[0.94] shadow-[-20px_0_72px_rgba(16,17,20,0.14)]"
+            className="pqv-panel fixed right-0 top-0 z-[59] flex h-[100dvh] w-full max-w-[min(100vw,28rem)] flex-col border-l border-white/70 bg-white/[0.94] shadow-[-20px_0_72px_rgba(16,17,20,0.14)]"
             role="dialog"
             aria-modal="true"
             aria-label="Quick view"
+            data-overlay-scroll
           >
             <div className="pqv-panel__header flex items-center justify-between border-b border-black/6 px-5 py-4">
               <h2 className="text-[0.68rem] font-black uppercase tracking-[0.16em] text-luxury-black">
@@ -308,6 +315,7 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
           </motion.aside>
         </>
       ) : null}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }

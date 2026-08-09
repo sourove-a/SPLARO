@@ -77,8 +77,10 @@ export class GoogleWorkspaceService {
       tokenHealth: oauthConnected
         ? conn?.tokenHealth ?? 'healthy'
         : saConfigured && conn?.isConnected
-          ? 'healthy'
-          : conn?.tokenHealth ?? (conn?.isConnected ? 'healthy' : 'missing'),
+          ? conn?.tokenHealth === 'needs_reconnect'
+            ? 'needs_reconnect'
+            : 'healthy'
+          : conn?.tokenHealth ?? (conn?.isConnected ? 'needs_reconnect' : 'missing'),
       tokenExpiry: token?.tokenExpiry?.toISOString() ?? null,
       lastSyncAt: conn?.lastSyncAt?.toISOString() ?? null,
       lastError: conn?.lastError ?? null,

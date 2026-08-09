@@ -59,6 +59,7 @@ import { InvoiceService } from './modules/invoices/invoice.service'
 import { PartnersService, PartnerTransactionsService } from './modules/finance/partners.service'
 import { ExpensesService } from './modules/finance/expenses.service'
 import { ProfitLossService } from './modules/finance/profit-loss.service'
+import { FinanceOverviewService } from './modules/finance/finance-overview.service'
 import {
   DailyClosingService,
   GoogleSheetsFinanceService,
@@ -93,6 +94,7 @@ import {
   ProfitLossController,
   DailyClosingController,
 } from './modules/finance/finance-reports.controller'
+import { AdminFinanceController } from './modules/finance/admin-finance.controller'
 import {
   TelegramWebhookController,
   TelegramFinanceController,
@@ -259,6 +261,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     ExpensesController,
     ProfitLossController,
     DailyClosingController,
+    AdminFinanceController,
     GoogleSheetsController,
     ReportsController,
     AiProductAgentController,
@@ -357,6 +360,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     PartnerTransactionsService,
     ExpensesService,
     ProfitLossService,
+    FinanceOverviewService,
     DailyClosingService,
     GoogleSheetsFinanceService,
     FinanceReportsService,

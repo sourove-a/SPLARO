@@ -6,6 +6,7 @@ import { GoogleSheetsFinanceService } from '../finance/finance-support.service'
 import { TelegramIntegrationService } from '../integrations/telegram-integration.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { GOOGLE_SYNC_JOB_TYPES } from './google.constants'
+import { isSheetsAuthFailure } from './google-sheets-auth.util'
 import { GoogleSheetsSyncService } from './google-sheets-sync.service'
 import type { GoogleSyncJobPayload } from './google-sync-queue.service'
 
@@ -125,17 +126,35 @@ export class GoogleSyncProcessor extends WorkerHost {
         },
       })
 
-      await this.prisma.googleWorkspaceConnection.update({
-        where: { storeId },
-        data: { lastError: msg },
-      })
+      if (isSheetsAuthFailure(msg)) {
+        await this.prisma.googleWorkspaceConnection.updateMany({
+          where: { storeId, autoSyncEnabled: true },
+          data: { autoSyncEnabled: false, tokenHealth: 'needs_reconnect', lastError: msg.slice(0, 500) },
+        })
+      } else {
+        await this.prisma.googleWorkspaceConnection.update({
+          where: { storeId },
+          data: { lastError: msg },
+        })
+      }
 
       if (job.attemptsMade + 1 >= (job.opts.attempts ?? 3)) {
-        await this.telegram
-          .test(storeId, undefined, `⚠️ SPLARO Google Sync failed: ${jobType}\n${msg}`)
-          .catch(() => undefined)
-        // Telegram can be off or unconfigured — the tray must still show it.
-        await this.notifications.notifySyncFailed(storeId, jobType, msg).catch(() => undefined)
+        if (isSheetsAuthFailure(msg)) {
+          await this.notifications
+            .notifyInApp({
+              storeId,
+              subject: 'Google Sheets auto-sync paused',
+              body: `${msg} Auto-sync is off until you reconnect Google.`,
+              href: '/dashboard/google-workspace/connect',
+              level: 'warn',
+            })
+            .catch(() => undefined)
+        } else {
+          await this.telegram
+            .test(storeId, undefined, `⚠️ SPLARO Google Sync failed: ${jobType}\n${msg}`)
+            .catch(() => undefined)
+          await this.notifications.notifySyncFailed(storeId, jobType, msg).catch(() => undefined)
+        }
       }
 
       throw err

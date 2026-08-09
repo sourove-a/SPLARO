@@ -42,6 +42,8 @@ export const REGISTERED_MODULE_HREFS: string[] = [
   '/dashboard/returns-rma',
   '/dashboard/operations',
   '/dashboard/finance/finance-reports',
+  '/dashboard/finance/order-profit',
+  '/dashboard/finance/expenses',
   '/dashboard/finance/profit-loss',
   '/dashboard/coupons',
   '/dashboard/campaigns',

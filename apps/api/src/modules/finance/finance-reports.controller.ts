@@ -15,13 +15,17 @@ export class ExpensesController {
     @Query('category') category?: string,
     @Query('status') status?: string,
     @Query('partnerId') partnerId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
     return this.expenses.list(storeId, {
-      category: category as never,
-      status: status as never,
+      category,
+      status,
       partnerId,
+      from,
+      to,
       page: Number(page) || 1,
       limit: Number(limit) || 20,
     })
@@ -37,11 +41,33 @@ export class ExpensesController {
       expenseDate?: string
       note?: string
       attachmentUrl?: string
+      vendor?: string
+      paymentMethod?: string
+      recurring?: boolean
       partnerId?: string
       createdBy?: string
     },
   ) {
-    return this.expenses.create(storeId, { ...body, category: body.category as never })
+    return this.expenses.create(storeId, body)
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Query('storeId') storeId: string,
+    @Body()
+    body: {
+      category?: string
+      amount?: number
+      expenseDate?: string
+      note?: string
+      attachmentUrl?: string
+      vendor?: string
+      paymentMethod?: string | null
+      recurring?: boolean
+    },
+  ) {
+    return this.expenses.update(id, storeId, body)
   }
 
   @Patch(':id/approve')
@@ -51,6 +77,15 @@ export class ExpensesController {
     @Body() body: { approvedBy?: string },
   ) {
     return this.expenses.approve(id, storeId, body.approvedBy)
+  }
+
+  @Patch(':id/reject')
+  reject(
+    @Param('id') id: string,
+    @Query('storeId') storeId: string,
+    @Body() body: { rejectedBy?: string },
+  ) {
+    return this.expenses.reject(id, storeId, body.rejectedBy)
   }
 }
 

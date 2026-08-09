@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { PartnerTransactionsService } from './partners.service'
+import { allocateAdsRevenueWeighted, computeOrderProfit } from './order-profit.util'
 
 @Injectable()
 export class ProfitLossService {
@@ -16,92 +17,163 @@ export class ProfitLossService {
     return resolveStoreId(this.prisma, raw)
   }
 
-  async calculateOrderProfit(storeIdOrSlug: string, orderId: string) {
+  async getFinanceSettings(storeIdOrSlug: string) {
     const storeId = await this.sid(storeIdOrSlug)
-    const existing = await this.prisma.profitCalculation.findUnique({ where: { orderId } })
-    if (existing) return existing
+    const settings = await this.prisma.siteSettings.findUnique({
+      where: { storeId },
+      select: { defaultPackagingCostPerOrder: true, paymentFeePercent: true },
+    })
+    return {
+      defaultPackagingCostPerOrder: Number(settings?.defaultPackagingCostPerOrder ?? 0),
+      paymentFeePercent: Number(settings?.paymentFeePercent ?? 0),
+    }
+  }
 
+  async updateFinanceSettings(
+    storeIdOrSlug: string,
+    patch: { defaultPackagingCostPerOrder?: number; paymentFeePercent?: number },
+  ) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const current = await this.getFinanceSettings(storeId)
+    const next = {
+      defaultPackagingCostPerOrder:
+        patch.defaultPackagingCostPerOrder != null
+          ? Math.max(0, Number(patch.defaultPackagingCostPerOrder) || 0)
+          : current.defaultPackagingCostPerOrder,
+      paymentFeePercent:
+        patch.paymentFeePercent != null
+          ? Math.min(100, Math.max(0, Number(patch.paymentFeePercent) || 0))
+          : current.paymentFeePercent,
+    }
+    await this.prisma.siteSettings.upsert({
+      where: { storeId },
+      create: { storeId, ...next },
+      update: next,
+    })
+    return next
+  }
+
+  async calculateOrderProfit(storeIdOrSlug: string, orderId: string, allocatedAdCost = 0) {
+    const storeId = await this.sid(storeIdOrSlug)
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, storeId },
       include: {
         items: { include: { product: { select: { costPrice: true } } } },
         courier: true,
-        payments: true,
+        rmas: { select: { refundAmount: true, status: true } },
       },
     })
     if (!order || order.status !== 'DELIVERED') return null
 
-    const grossRevenue = Number(order.total)
-    const productCost = order.items.reduce(
-      (sum, item) =>
-        sum + Number(item.product.costPrice ?? item.price) * item.quantity,
-      0,
-    )
-    const courierCost = Number(order.courier?.deliveryCharge ?? order.deliveryCharge ?? 0)
-    const packagingCost = 15
-    const paymentGatewayFee =
-      order.paymentMethod === 'CASH_ON_DELIVERY'
-        ? 0
-        : grossRevenue * 0.025
-    const discount = Number(order.discount)
-    const returnLoss = 0
-
-    const netProfit =
-      grossRevenue -
-      productCost -
-      courierCost -
-      packagingCost -
-      paymentGatewayFee -
-      discount -
-      returnLoss
-
-    const partners = await this.prisma.partner.findMany({
-      where: { storeId, isActive: true },
+    const settings = await this.getFinanceSettings(storeId)
+    const result = computeOrderProfit({
+      grossRevenue: Number(order.subtotal),
+      discount: Number(order.discount),
+      courierCost: Number(order.courier?.deliveryCharge ?? order.deliveryCharge ?? 0),
+      packagingCostPerOrder: settings.defaultPackagingCostPerOrder,
+      paymentFeePercent: settings.paymentFeePercent,
+      isCod: order.paymentMethod === 'CASH_ON_DELIVERY',
+      returnLoss: order.rmas
+        .filter((r) => ['REFUNDED', 'PROCESSED', 'CLOSED'].includes(r.status))
+        .reduce((s, r) => s + Number(r.refundAmount ?? 0), 0),
+      allocatedAdCost,
+      lines: order.items.map((item) => ({
+        unitPrice: Number(item.price),
+        quantity: item.quantity,
+        productCostPrice: item.product?.costPrice != null ? Number(item.product.costPrice) : null,
+      })),
     })
 
-    const partnerShares: Record<string, number> = {}
-    for (const partner of partners) {
-      const share = (netProfit * Number(partner.sharePercent)) / 100
-      partnerShares[partner.slug] = Math.round(share * 100) / 100
-
-      if (share > 0) {
-        await this.transactions.create(storeId, {
-          partnerId: partner.id,
-          type: 'PROFIT_DISTRIBUTION',
-          amount: share,
-          orderId,
-          note: `Profit share from order ${order.invoiceNumber}`,
-          createdBy: 'system',
-        })
-      }
+    const existing = await this.prisma.profitCalculation.findUnique({ where: { orderId } })
+    const data = {
+      storeId,
+      orderId,
+      grossRevenue: result.grossRevenue,
+      productCost: result.productCost,
+      courierCost: result.courierCost,
+      packagingCost: result.packagingCost,
+      paymentGatewayFee: result.paymentGatewayFee,
+      discount: result.discount,
+      returnLoss: result.returnLoss,
+      allocatedAdCost: result.allocatedAdCost,
+      incompleteReasons: result.incompleteReasons,
+      netProfit: result.netProfit,
+      calculatedAt: new Date(),
+      ...(existing ? {} : { partnerShares: {} as Record<string, number> }),
     }
 
-    const calculation = await this.prisma.profitCalculation.create({
-      data: {
-        storeId,
-        orderId,
-        grossRevenue,
-        productCost,
-        courierCost,
-        packagingCost,
-        paymentGatewayFee,
-        discount,
-        returnLoss,
-        netProfit,
-        partnerShares,
-      },
-    })
+    if (!existing && result.netProfit > 0) {
+      const partners = await this.prisma.partner.findMany({ where: { storeId, isActive: true } })
+      const partnerShares: Record<string, number> = {}
+      for (const partner of partners) {
+        const share = Math.round((result.netProfit * Number(partner.sharePercent)) / 100 * 100) / 100
+        partnerShares[partner.slug] = share
+        if (share > 0) {
+          await this.transactions.create(storeId, {
+            partnerId: partner.id,
+            type: 'PROFIT_DISTRIBUTION',
+            amount: share,
+            orderId,
+            note: `Profit share from order ${order.invoiceNumber}`,
+            createdBy: 'system',
+          })
+        }
+      }
+      data.partnerShares = partnerShares
+    }
 
-    this.logger.log(`Profit calculated for ${order.invoiceNumber}: ${netProfit} BDT`)
+    const calculation = existing
+      ? await this.prisma.profitCalculation.update({ where: { orderId }, data })
+      : await this.prisma.profitCalculation.create({ data })
+
+    this.logger.log(`Profit calculated for ${order.invoiceNumber}: ${result.netProfit} BDT`)
     return calculation
+  }
+
+  async recalculateWindowAllocation(storeIdOrSlug: string, from: Date, to: Date) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const [orders, adSpendAgg] = await Promise.all([
+      this.prisma.order.findMany({
+        where: { storeId, status: 'DELIVERED', deliveredAt: { gte: from, lte: to } },
+        select: { id: true, subtotal: true },
+        orderBy: { deliveredAt: 'asc' },
+      }),
+      this.prisma.expense.aggregate({
+        where: {
+          storeId,
+          status: 'APPROVED',
+          category: 'ADVERTISING',
+          expenseDate: { gte: from, lte: to },
+        },
+        _sum: { amount: true },
+      }),
+    ])
+
+    if (!orders.length) return { updated: 0, adSpend: 0 }
+
+    const adSpend = Number(adSpendAgg._sum.amount ?? 0)
+    const allocations = allocateAdsRevenueWeighted(
+      adSpend,
+      orders.map((o) => Number(o.subtotal)),
+    )
+
+    let updated = 0
+    for (let i = 0; i < orders.length; i++) {
+      try {
+        await this.calculateOrderProfit(storeId, orders[i].id, allocations[i] ?? 0)
+        updated++
+      } catch (err) {
+        this.logger.warn(
+          `Profit recalc failed for ${orders[i].id}: ${err instanceof Error ? err.message : err}`,
+        )
+      }
+    }
+    return { updated, adSpend }
   }
 
   async getSummary(storeId: string, from: Date, to: Date) {
     const calculations = await this.prisma.profitCalculation.findMany({
-      where: {
-        storeId,
-        calculatedAt: { gte: from, lte: to },
-      },
+      where: { storeId, calculatedAt: { gte: from, lte: to } },
     })
 
     const totals = calculations.reduce(
@@ -113,6 +185,7 @@ export class ProfitLossService {
         paymentGatewayFee: acc.paymentGatewayFee + Number(c.paymentGatewayFee),
         discount: acc.discount + Number(c.discount),
         returnLoss: acc.returnLoss + Number(c.returnLoss),
+        allocatedAdCost: acc.allocatedAdCost + Number(c.allocatedAdCost ?? 0),
         netProfit: acc.netProfit + Number(c.netProfit),
       }),
       {
@@ -123,6 +196,7 @@ export class ProfitLossService {
         paymentGatewayFee: 0,
         discount: 0,
         returnLoss: 0,
+        allocatedAdCost: 0,
         netProfit: 0,
       },
     )
@@ -139,8 +213,6 @@ export class ProfitLossService {
       },
     })
 
-    // Real per-day revenue timeline for the admin sales chart — grouped from
-    // actual profit calculations, never synthesized.
     const byDay = new Map<string, number>()
     for (const c of calculations) {
       const key = new Date(c.calculatedAt).toISOString().slice(0, 10)

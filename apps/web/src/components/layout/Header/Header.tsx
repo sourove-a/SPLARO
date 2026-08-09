@@ -70,18 +70,15 @@ export function Header() {
     if (!user) router.prefetch('/login')
   }, [user, router])
 
-  // Hide utility topbar after home hero leaves viewport — DOM-only (no Header re-render).
-  // React setState here remounted Navigation mid-scroll and caused click jump / missed taps.
+  // Home hero chrome stays DOM-only (no Header re-render).
+  // Utility topbar remains mounted across storefront routes so client navigation
+  // never shifts the primary header between top:48px and top:0.
   useEffect(() => {
     const root = document.documentElement
     const clearHeroChrome = () => {
       pastHeroRef.current = false
-      root.removeAttribute('data-topbar')
       root.removeAttribute('data-home-hero')
-      const topbar = document.querySelector<HTMLElement>('[data-top-bar]')
       const header = document.querySelector<HTMLElement>('[data-header-chrome]')
-      topbar?.classList.remove('site-topbar--hidden')
-      topbar?.setAttribute('aria-hidden', 'false')
       header?.classList.remove('site-header-glass--topbar-collapsed')
       // Drop IO-owned home chrome so non-home React classes take over cleanly.
       header?.classList.remove('site-header-glass--over-hero')
@@ -142,14 +139,9 @@ export function Header() {
         return
       }
       pastHeroRef.current = past
-      const topbar = document.querySelector<HTMLElement>('[data-top-bar]')
       const header = document.querySelector<HTMLElement>('[data-header-chrome]')
 
-      root.setAttribute('data-topbar', past ? 'hidden' : 'visible')
       root.setAttribute('data-home-hero', past ? 'scrolled' : 'top')
-      topbar?.classList.toggle('site-topbar--hidden', past)
-      topbar?.setAttribute('aria-hidden', past ? 'true' : 'false')
-      header?.classList.toggle('site-header-glass--topbar-collapsed', past)
       header?.classList.toggle('site-header-glass--over-hero', !past)
       header?.classList.toggle('site-header-glass--scrolled', past)
       if (past) header?.classList.remove('site-header-glass--hero-copy-under')
@@ -236,18 +228,20 @@ export function Header() {
       const hero = document.querySelector('.home-hero-slider')
       if (!hero) return
       const past = hero.getBoundingClientRect().bottom <= 8
-      const topbar = document.querySelector<HTMLElement>('[data-top-bar]')
       const header = document.querySelector<HTMLElement>('[data-header-chrome]')
       pastHeroRef.current = past
-      root.setAttribute('data-topbar', past ? 'hidden' : 'visible')
       root.setAttribute('data-home-hero', past ? 'scrolled' : 'top')
-      topbar?.classList.toggle('site-topbar--hidden', past)
-      topbar?.setAttribute('aria-hidden', past ? 'true' : 'false')
-      header?.classList.toggle('site-header-glass--topbar-collapsed', past)
       header?.classList.toggle('site-header-glass--over-hero', !past)
       header?.classList.toggle('site-header-glass--scrolled', past)
     }
   }, [headerPinned, isHome, isDesktop])
+
+  // Keep desktop chrome geometry stable on every storefront route.
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    root.setAttribute('data-topbar', 'visible')
+    return () => root.removeAttribute('data-topbar')
+  }, [])
 
   // Never set data-home-hero=scrolled until desktop MQ is known — that painted a
   // white topbar flash on every hard reload (isDesktop starts false).
@@ -256,12 +250,7 @@ export function Header() {
     const root = document.documentElement
     if (!isHome || !isDesktop) {
       root.removeAttribute('data-home-hero')
-      root.removeAttribute('data-topbar')
       return
-    }
-    // Seed topbar visible so header sits under it before IntersectionObserver runs.
-    if (!root.hasAttribute('data-topbar')) {
-      root.setAttribute('data-topbar', pastHeroRef.current ? 'hidden' : 'visible')
     }
     // Only seed initial attr if IO hasn't run yet — avoid fighting DOM toggles.
     if (!root.hasAttribute('data-home-hero')) {
@@ -270,7 +259,6 @@ export function Header() {
     return () => {
       if (!isHome) {
         root.removeAttribute('data-home-hero')
-        root.removeAttribute('data-topbar')
       }
     }
   }, [isHome, isDesktop])
@@ -294,7 +282,7 @@ export function Header() {
 
   return (
     <>
-      {isHome ? <TopBar /> : null}
+      <TopBar />
 
       <header
         data-site-chrome
@@ -306,7 +294,6 @@ export function Header() {
           !isHome && (isScrolled || forceSolidChrome) && 'site-header-glass--scrolled',
           isHome && isDesktop && !pastHeroRef.current && !forceSolidChrome && 'site-header-glass--over-hero',
           isHome && (forceSolidChrome || pastHeroRef.current) && 'site-header-glass--scrolled',
-          isHome && isDesktop && pastHeroRef.current && 'site-header-glass--topbar-collapsed',
           isSearchOpen && 'site-header-glass--search-open',
           isMegaMenuOpen && 'site-header-glass--mega-open',
           desktopSearchActive && 'site-header-glass--search-desktop',

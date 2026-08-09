@@ -1,9 +1,10 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common'
+import { Injectable, Logger, NotFoundException, BadRequestException, Optional } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { assertOrderStatusTransition, STOCK_RESTORING_STATUSES } from '../../common/order-status.util'
 import { restoreOrderStock } from '../../common/order-stock.util'
 import { OrderEventsService } from './order-events.service'
 import { StockReservationService } from '../payments/stock-reservation.service'
+import { ProfitLossService } from '../finance/profit-loss.service'
 
 /**
  * Shared order status mutations — admin UI + AI agent must use the same path
@@ -17,6 +18,7 @@ export class OrderStatusService {
     private readonly prisma: PrismaService,
     private readonly orderEvents: OrderEventsService,
     private readonly reservations: StockReservationService,
+    @Optional() private readonly profitLoss?: ProfitLossService,
   ) {}
 
   async applyStatusChange(
@@ -106,6 +108,14 @@ export class OrderStatusService {
           }`,
         ),
       )
+
+    if (order.status === 'DELIVERED' && this.profitLoss) {
+      void this.profitLoss.calculateOrderProfit(order.storeId, id).catch((error: unknown) =>
+        this.logger.warn(
+          `Profit calc failed for ${id}: ${error instanceof Error ? error.message : 'unknown'}`,
+        ),
+      )
+    }
 
     return order
   }

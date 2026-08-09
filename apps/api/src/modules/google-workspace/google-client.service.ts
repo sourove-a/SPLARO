@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import { google, type Auth } from 'googleapis'
 import type { PrismaClient } from '@splaro/database'
 import { PrismaService } from '../../common/prisma.service'
@@ -13,6 +13,8 @@ function asPrisma(db: PrismaService): PrismaClient {
 
 @Injectable()
 export class GoogleClientService {
+  private readonly logger = new Logger(GoogleClientService.name)
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly crypto: EncryptionService,
@@ -20,10 +22,63 @@ export class GoogleClientService {
     private readonly serviceAccount: GoogleServiceAccountService,
   ) {}
 
-  async getSheetsAuth(storeId: string): Promise<Auth.GoogleAuth | Auth.OAuth2Client> {
-    if (this.serviceAccount.isConfigured()) {
-      return this.serviceAccount.getAuthClient()
+  async canUseSheets(storeIdRaw: string): Promise<{ ok: true; mode: 'sa' | 'oauth' } | { ok: false; reason: string }> {
+    const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    if (this.serviceAccount.isConfigured()) return { ok: true, mode: 'sa' }
+
+    const db = asPrisma(this.prisma)
+    const conn = await db.googleWorkspaceConnection.findUnique({ where: { storeId } })
+    if (this.serviceAccount.parseAuthMode(conn?.scopes) === 'service_account') {
+      return {
+        ok: false,
+        reason:
+          'Google service account key not loaded. Set GOOGLE_SERVICE_ACCOUNT_KEY_PATH (or disable auto-sync until the key is on this host).',
+      }
     }
+
+    const tokenRow = conn
+      ? await db.googleWorkspaceToken.findUnique({
+          where: { connectionId_serviceName: { connectionId: conn.id, serviceName: 'oauth' } },
+          select: { refreshTokenEncrypted: true },
+        })
+      : null
+    if (tokenRow?.refreshTokenEncrypted) return { ok: true, mode: 'oauth' }
+
+    return {
+      ok: false,
+      reason: 'Google account not connected. Connect in Google Workspace → Connect Google Account.',
+    }
+  }
+
+  /** Stop the 3-minute live cron from retrying an unfixable auth state. */
+  async pauseLiveSync(storeIdRaw: string, reason: string): Promise<boolean> {
+    const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    const result = await this.prisma.googleWorkspaceConnection.updateMany({
+      where: { storeId, autoSyncEnabled: true },
+      data: {
+        autoSyncEnabled: false,
+        tokenHealth: 'needs_reconnect',
+        lastError: reason.slice(0, 500),
+      },
+    })
+    if (result.count > 0) {
+      this.logger.warn(`Paused Google Sheets auto-sync for ${storeId}: ${reason}`)
+    }
+    return result.count > 0
+  }
+
+  async resumeLiveSync(storeIdRaw: string): Promise<void> {
+    const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    await this.prisma.googleWorkspaceConnection.updateMany({
+      where: { storeId },
+      data: { autoSyncEnabled: true, tokenHealth: 'healthy', lastError: null },
+    })
+  }
+
+  async getSheetsAuth(storeId: string): Promise<Auth.GoogleAuth | Auth.OAuth2Client> {
+    const ready = await this.canUseSheets(storeId)
+    if (!ready.ok) throw new BadRequestException(ready.reason)
+    if (ready.mode === 'sa') return this.serviceAccount.getAuthClient()
     return this.getOAuthClient(storeId)
   }
 
@@ -51,10 +106,24 @@ export class GoogleClientService {
       throw new BadRequestException('Google refresh token missing. Reconnect your Google account.')
     }
 
+    let refreshToken: string
+    try {
+      refreshToken = this.crypto.decrypt(tokenRow.refreshTokenEncrypted).trim()
+    } catch {
+      throw new BadRequestException(
+        'Google refresh token could not be decrypted. Reconnect your Google account.',
+      )
+    }
+    if (!refreshToken) {
+      throw new BadRequestException('Google refresh token missing. Reconnect your Google account.')
+    }
+
     const oauth2 = await this.oauth.getOAuthClient(storeId)
     oauth2.setCredentials({
-      access_token: tokenRow.accessTokenEncrypted ? this.crypto.decrypt(tokenRow.accessTokenEncrypted) : undefined,
-      refresh_token: this.crypto.decrypt(tokenRow.refreshTokenEncrypted),
+      access_token: tokenRow.accessTokenEncrypted
+        ? this.crypto.decrypt(tokenRow.accessTokenEncrypted)
+        : undefined,
+      refresh_token: refreshToken,
       expiry_date: tokenRow.tokenExpiry?.getTime(),
     })
 

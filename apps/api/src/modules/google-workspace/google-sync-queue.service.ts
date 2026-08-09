@@ -4,6 +4,7 @@ import { Queue } from 'bullmq'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { GOOGLE_SYNC_JOB_TYPES } from './google.constants'
+import { GoogleClientService } from './google-client.service'
 
 export interface GoogleSyncJobPayload {
   storeId: string
@@ -19,11 +20,14 @@ export class GoogleSyncQueueService {
   constructor(
     @InjectQueue('google-sync') private readonly queue: Queue,
     private readonly prisma: PrismaService,
+    private readonly client: GoogleClientService,
   ) {}
 
   async isAutoSyncEnabled(storeId: string) {
     const conn = await this.prisma.googleWorkspaceConnection.findUnique({ where: { storeId } })
-    return conn?.isConnected && conn.autoSyncEnabled
+    if (!conn?.isConnected || !conn.autoSyncEnabled) return false
+    const ready = await this.client.canUseSheets(storeId)
+    return ready.ok
   }
 
   async enqueue(payload: GoogleSyncJobPayload) {

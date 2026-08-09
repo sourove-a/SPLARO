@@ -62,8 +62,16 @@ Then copy `.env.mcp.example` at the repo root to `.env.mcp` (gitignored) and poi
 
 ## Using it
 
-Claude Code picks the server up automatically from the repo's `.mcp.json`. For Claude Desktop
-or Cursor, add:
+Claude Code picks the server up automatically from the repo's `.mcp.json`.
+
+**Cursor** does not read root `.mcp.json`. It loads project MCP from `.cursor/mcp.json`
+(already in this repo: stdio, repo-root `cwd`, entry = `tools/mcp-server/start.mjs`).
+After opening this workspace, `splaro` should appear under Cursor Settings → MCP. Project
+servers often start **disconnected** until you toggle them on once. If `node` is only on
+nvm/fnm PATH, Cursor’s GUI spawn uses `/bin/zsh` + `nvm.sh` (stdout stays clean for MCP).
+Do not add a public URL or `mcp.splaro.co`.
+
+Claude Desktop can reuse the same stdio command with an explicit repo-root `cwd`:
 
 ```json
 {
@@ -72,8 +80,9 @@ or Cursor, add:
       "command": "node",
       "args": [
         "--disable-warning=ExperimentalWarning",
-        "/Users/sourove/Desktop/Website/SPLARO-BRAND/tools/mcp-server/src/index.ts"
-      ]
+        "/ABSOLUTE/PATH/TO/SPLARO-BRAND/tools/mcp-server/start.mjs"
+      ],
+      "cwd": "/ABSOLUTE/PATH/TO/SPLARO-BRAND"
     }
   }
 }

@@ -583,12 +583,22 @@
     rgba(255, 255, 255, 0.18);
 }
 
-/* Sections share one card, so the only thing separating them is rhythm —
-   without it "Payment method" reads as part of the delivery block. */
+/* Cards are separate — form gap is enough. Extra sibling margin left
+   Payment method floating below promo with empty space inside the card. */
 .checkout-section + .checkout-section {
-  margin-top: 1.6rem;
+  margin-top: 0;
   padding-top: 0;
   border-top: none;
+}
+
+.checkout-section--payment {
+  padding-top: 0.95rem;
+  padding-bottom: 0.72rem;
+}
+
+.checkout-section--payment .checkout-section__head {
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.42rem;
 }
 
 .checkout-section__head {
@@ -5663,6 +5673,15 @@ html[data-perf='lite'] .track-history-row {
 
   .checkout-section-card {
     padding: 1rem 0.95rem 1.05rem;
+  }
+
+  .checkout-section--payment {
+    padding: 0.92rem 0.95rem 0.7rem;
+  }
+
+  .checkout-section--payment .checkout-section__head {
+    margin-bottom: 0.42rem;
+    padding-bottom: 0.38rem;
   }
 
   .checkout-summary.checkout-glass-panel {
