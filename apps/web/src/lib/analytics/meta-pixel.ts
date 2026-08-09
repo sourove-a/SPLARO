@@ -3,7 +3,10 @@
  * New analytics code may import the typed commerce layer directly.
  */
 export {
+  SPLARO_ITEM_BRAND,
+  toCommerceItemFromCart,
   trackAddPaymentInfo,
+  trackAddShippingInfo,
   trackAddToCart,
   trackAddToWishlist,
   trackBeginCheckout,
@@ -11,10 +14,14 @@ export {
   trackInitiateCheckout,
   trackMetaEvent,
   trackPurchase,
+  trackRemoveFromCart,
   trackSearch,
+  trackSelectItem,
   trackSelectPayment,
+  trackViewCart,
   trackViewContent,
   trackViewItem,
+  trackViewItemList,
 } from './commerce'
 
 export type {

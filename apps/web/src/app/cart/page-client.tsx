@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { useCartStore, cartLineKey, toCartLineRef } from '@/store/cartStore'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
@@ -7,6 +8,11 @@ import { CartEmptyState } from '@/components/cart/CartEmptyState'
 import { CartFreeShippingBar } from '@/components/cart/CartFreeShippingBar'
 import { CartLineItem } from '@/components/cart/CartLineItem'
 import { CartSummary } from '@/components/cart/CartSummary'
+import {
+  toCommerceItemFromCart,
+  trackRemoveFromCart,
+  trackViewCart,
+} from '@/lib/analytics/meta-pixel'
 import { cn } from '@/lib/utils/cn'
 
 export function CartPageClient() {
@@ -16,6 +22,17 @@ export function CartPageClient() {
   const freeShippingThreshold = shipping.freeDeliveryThreshold
   const showFreeShippingBar = freeShippingThreshold > 0 && subtotal > 0
   const isEmpty = items.length === 0
+  const viewCartTracked = useRef(false)
+
+  useEffect(() => {
+    if (!cartHydrated || isEmpty || viewCartTracked.current) return
+    viewCartTracked.current = true
+    trackViewCart({
+      value: subtotal,
+      numItems: itemCount,
+      items: items.map(toCommerceItemFromCart),
+    })
+  }, [cartHydrated, isEmpty, itemCount, items, subtotal])
 
   if (!cartHydrated) {
     return (
@@ -66,7 +83,10 @@ export function CartPageClient() {
                       item={item}
                       onDecrease={() => updateQuantity(toCartLineRef(item), item.quantity - 1)}
                       onIncrease={() => updateQuantity(toCartLineRef(item), item.quantity + 1)}
-                      onRemove={() => removeItem(toCartLineRef(item))}
+                      onRemove={() => {
+                        trackRemoveFromCart(toCommerceItemFromCart(item))
+                        removeItem(toCartLineRef(item))
+                      }}
                     />
                   </li>
                 ))}

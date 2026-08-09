@@ -48,6 +48,7 @@ import { deriveShopFilterCategories } from '@/lib/catalog/shop-categories'
 import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 import { formatItemRange } from '@/lib/utils/pluralize'
+import { trackViewItemList } from '@/lib/analytics/meta-pixel'
 
 const ProductQuickView = dynamic(
   () =>
@@ -426,6 +427,51 @@ export function ShopCatalog({
     const slice = filteredProducts.slice(0, visibleCount)
     return isHomepage ? slice.slice(0, homepageProductLimit) : slice
   }, [filteredProducts, homepageProductLimit, isHomepage, visibleCount])
+
+  const itemListKeyRef = useRef('')
+  useEffect(() => {
+    if (!visibleProducts.length) return
+    const listId = isHomepage
+      ? 'homepage'
+      : catalogPreset || collectionSlug || categorySlug || currentCategory || 'shop'
+    const listName = isHomepage
+      ? 'Homepage'
+      : catalogPreset === 'new-arrivals'
+        ? 'New Arrivals'
+        : catalogPreset === 'best-sellers'
+          ? 'Best Sellers'
+          : currentCategory !== 'All'
+            ? currentCategory
+            : 'Shop'
+    const key = `${listId}:${visibleProducts.map((product) => product.id).join(',')}`
+    if (itemListKeyRef.current === key) return
+    itemListKeyRef.current = key
+    trackViewItemList({
+      listId,
+      listName,
+      items: visibleProducts.slice(0, 24).map((product, index) => ({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: 1,
+        brand: 'SPLARO',
+        index,
+        listId,
+        listName,
+        ...(product.category ? { category: product.category } : {}),
+        ...(product.categoryName && product.categoryName !== product.category
+          ? { category2: product.categoryName }
+          : {}),
+      })),
+    })
+  }, [
+    catalogPreset,
+    categorySlug,
+    collectionSlug,
+    currentCategory,
+    isHomepage,
+    visibleProducts,
+  ])
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE)

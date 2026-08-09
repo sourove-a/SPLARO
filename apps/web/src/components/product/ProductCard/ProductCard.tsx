@@ -14,13 +14,25 @@ import { useWishlistStore } from '@/store/wishlistStore'
 import { cn } from '@/lib/utils/cn'
 import { ProductDiscountBadge, ProductPrice } from '@/components/product/ProductPrice'
 import { pluralize } from '@/lib/utils/pluralize'
-import { trackAddToCart, trackAddToWishlist } from '@/lib/analytics/meta-pixel'
+import { trackAddToCart, trackAddToWishlist, trackSelectItem } from '@/lib/analytics/meta-pixel'
 import { resolveQuickAddVariant } from '@/lib/catalog/index'
 import { resolveStockStatus } from '@/lib/catalog/stock-status'
 import { cardHover } from '@/lib/motion/variants'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import type { ProductCardData } from '@/types/product'
 import type { ProductStatus } from '@/data/storefront'
+
+function selectShopItem(product: ProductCardData, listName = 'Shop') {
+  trackSelectItem({
+    id: product.id,
+    name: product.name,
+    price: product.price,
+    brand: 'SPLARO',
+    listId: 'shop',
+    listName,
+    ...(product.category ? { category: product.category } : {}),
+  })
+}
 
 function cardStock(product: ProductCardData) {
   if (typeof product.stockUnits === 'number') return resolveStockStatus(product.stockUnits)
@@ -124,6 +136,7 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
         price: product.price,
         quantity: 1,
         brand: 'SPLARO',
+        ...(product.category ? { category: product.category } : {}),
         ...(size || colorLabel
           ? { variant: [size, colorLabel].filter(Boolean).join(' / ') }
           : {}),
@@ -192,6 +205,7 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
           href={`/products/${product.slug}`}
           className="pc-media__link"
           aria-label={product.name}
+          onClick={() => selectShopItem(product)}
         >
           <div className="product-shared-media" style={mediaTransition}>
             <StorefrontImage
@@ -263,7 +277,12 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
         </motion.button>
       </div>
 
-      <ProductTransitionLink href={`/products/${product.slug}`} className="pc-info" tabIndex={-1}>
+      <ProductTransitionLink
+        href={`/products/${product.slug}`}
+        className="pc-info"
+        tabIndex={-1}
+        onClick={() => selectShopItem(product)}
+      >
         <div className="pc-info__row">
           <span className="pc-info__name">{product.name}</span>
           <span className="pc-info__meta">
@@ -354,6 +373,7 @@ function ProductCardShop({
       price: product.price,
       quantity: 1,
       brand: 'SPLARO',
+      ...(product.category ? { category: product.category } : {}),
       ...(size || colorLabel
         ? { variant: [size, colorLabel].filter(Boolean).join(' / ') }
         : {}),
@@ -371,6 +391,7 @@ function ProductCardShop({
           href={productHref}
           className="shop-product-card__link"
           aria-label={`View ${product.name}`}
+          onClick={() => selectShopItem(product)}
         >
           <div className="shop-product-card__media">
             <div className="product-shared-media" style={mediaTransition}>

@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
+import { isBrowserAnalyticsAllowed } from '@/lib/analytics/enabled'
 import { trackAnalyticsPageView } from '@/lib/analytics/runtime'
 
 function RouteAnalyticsTrackerInner() {
@@ -11,7 +12,7 @@ function RouteAnalyticsTrackerInner() {
   const lastTrackedUrl = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!pathname) return
+    if (!pathname || !isBrowserAnalyticsAllowed()) return
     const pagePath = search ? `${pathname}?${search}` : pathname
     if (lastTrackedUrl.current === pagePath) return
 

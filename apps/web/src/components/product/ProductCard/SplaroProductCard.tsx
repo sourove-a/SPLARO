@@ -16,7 +16,7 @@ import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 import { ProductDiscountBadge, ProductPrice } from '@/components/product/ProductPrice'
 import { pluralize } from '@/lib/utils/pluralize'
-import { trackAddToCart, trackAddToWishlist } from '@/lib/analytics/meta-pixel'
+import { trackAddToCart, trackAddToWishlist, trackSelectItem } from '@/lib/analytics/meta-pixel'
 import { resolveQuickAddVariant } from '@/lib/catalog/index'
 import { resolveStockStatus } from '@/lib/catalog/stock-status'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
@@ -89,6 +89,16 @@ export function SplaroProductCard({
   const [addedFlash, setAddedFlash] = useState(false)
 
   const link = href ?? `/products/${slug}`
+  const selectThisItem = () =>
+    trackSelectItem({
+      id,
+      name,
+      price,
+      brand: 'SPLARO',
+      listId: isHomepage ? 'homepage' : 'shop',
+      listName: isHomepage ? 'Homepage' : 'Shop',
+      ...(category ? { category } : {}),
+    })
   const hasDiscount = Boolean(compareAtPrice && compareAtPrice > price)
   const tag = collection ?? category
   const showStatus = status && status !== 'Ready'
@@ -203,6 +213,7 @@ export function SplaroProductCard({
             price,
             quantity: 1,
             brand: 'SPLARO',
+            ...(category ? { category } : {}),
             ...(size || color
               ? { variant: [size, color].filter(Boolean).join(' / ') }
               : {}),
@@ -226,6 +237,7 @@ export function SplaroProductCard({
       addItem,
       addedFlash,
       adding,
+      category,
       colorHexes,
       id,
       image,
@@ -262,6 +274,7 @@ export function SplaroProductCard({
           className="splaro-card__link"
           aria-label={name}
           prefetch={!(isHomepage && mounted && isMobile)}
+          onClick={selectThisItem}
         >
           <div className="product-shared-media" style={mediaTransition}>
             {useCssHoverCrossfade && hoverSrc ? (
@@ -424,6 +437,7 @@ export function SplaroProductCard({
           href={link}
           className="splaro-card__info"
           tabIndex={-1}
+          onClick={selectThisItem}
         >
         <div className="splaro-card__title-row">
           <h3 className="splaro-card__name">{name}</h3>

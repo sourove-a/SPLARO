@@ -1,3 +1,5 @@
+import { isBrowserAnalyticsAllowed } from './enabled'
+
 export type AnalyticsProvider = 'ga' | 'meta'
 
 type QueuedAnalyticsEvent =
@@ -74,6 +76,7 @@ function enqueue(event: QueuedAnalyticsEvent): void {
 }
 
 export function trackGaEvent(name: string, payload: Record<string, unknown> = {}): void {
+  if (!isBrowserAnalyticsAllowed()) return
   enqueue({ provider: 'ga', name, payload })
 }
 
@@ -82,6 +85,7 @@ export function trackMetaEvent(
   payload: Record<string, unknown> = {},
   eventId?: string,
 ): void {
+  if (!isBrowserAnalyticsAllowed()) return
   enqueue({
     provider: 'meta',
     name,

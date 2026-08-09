@@ -50,6 +50,8 @@ import { notifyOrderPaymentEvent } from '@/lib/api/order-events'
 import { fetchAccountProfile } from '@/lib/api/account'
 import { startBkashCheckout, startNagadCheckout, startSslCommerzCheckout } from '@/lib/api/payments'
 import {
+  toCommerceItemFromCart,
+  trackAddShippingInfo,
   trackInitiateCheckout,
   trackPurchase,
   trackSelectPayment,
@@ -346,23 +348,29 @@ export default function CheckoutPageClient() {
     [items],
   )
   const analyticsItems = useMemo(
-    () =>
-      items.map((item) => ({
-        id: item.variantId ?? item.productId,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        ...(item.size || item.color
-          ? { variant: [item.size, item.color].filter(Boolean).join(' / ') }
-          : {}),
-      })),
+    () => items.map((item) => toCommerceItemFromCart(item)),
     [items],
   )
+  const checkoutTracked = useRef(false)
+  const shippingTracked = useRef(false)
 
   useEffect(() => {
-    if (items.length === 0) return
+    if (items.length === 0 || checkoutTracked.current) return
+    checkoutTracked.current = true
     trackInitiateCheckout({ value: totalBdt, numItems: itemCount, items: analyticsItems })
   }, [items.length, totalBdt, itemCount, analyticsItems])
+
+  useEffect(() => {
+    if (!city || items.length === 0 || shippingTracked.current) return
+    shippingTracked.current = true
+    trackAddShippingInfo({
+      value: totalBdt,
+      numItems: itemCount,
+      items: analyticsItems,
+      shippingTier: city,
+      ...(couponApplied && couponCode.trim() ? { coupon: couponCode.trim() } : {}),
+    })
+  }, [city, items.length, totalBdt, itemCount, analyticsItems, couponApplied, couponCode])
 
   useEffect(() => {
     reset({ ...getCheckoutFormDefaults(), ...loadCheckoutCustomerDraft() })

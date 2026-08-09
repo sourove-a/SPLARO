@@ -620,6 +620,10 @@ export default function ProductPageClient({
       price: product.price,
       quantity: 1,
       brand: 'SPLARO',
+      ...(product.category ? { category: product.category } : {}),
+      ...(product.categorySlug && product.categorySlug !== product.category
+        ? { category2: product.categorySlug }
+        : {}),
     })
     // Deliberately unselected by default. Pre-picking the smallest size makes a
     // decision the shopper has to notice and undo. Merchant/Meta deep-links (?v=)
@@ -654,7 +658,16 @@ export default function ProductPageClient({
       const next = byHex ?? byName
       if (next) setSelectedColor(next.hex)
     }
-  }, [product.id, product.name, product.price, product.variants, sizes, colorOptions])
+  }, [
+    product.id,
+    product.name,
+    product.price,
+    product.category,
+    product.categorySlug,
+    product.variants,
+    sizes,
+    colorOptions,
+  ])
 
   useEffect(() => {
     setActiveImage(0)
@@ -824,6 +837,7 @@ export default function ProductPageClient({
       price: item.price,
       quantity: item.quantity,
       brand: 'SPLARO',
+      ...(product.category ? { category: product.category } : {}),
       ...(item.size || item.color
         ? { variant: [item.size, item.color].filter(Boolean).join(' / ') }
         : {}),
@@ -917,6 +931,7 @@ export default function ProductPageClient({
       price: item.price,
       quantity: item.quantity,
       brand: 'SPLARO',
+      ...(product.category ? { category: product.category } : {}),
       ...(item.size || item.color
         ? { variant: [item.size, item.color].filter(Boolean).join(' / ') }
         : {}),

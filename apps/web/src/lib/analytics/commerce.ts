@@ -3,10 +3,17 @@ import {
   trackMetaEvent as queueMetaEvent,
 } from './runtime'
 
+export const SPLARO_ITEM_BRAND = 'SPLARO'
+
 export type CommerceAnalyticsEvent =
+  | 'view_item_list'
+  | 'select_item'
   | 'view_item'
   | 'add_to_cart'
+  | 'remove_from_cart'
+  | 'view_cart'
   | 'begin_checkout'
+  | 'add_shipping_info'
   | 'add_payment_info'
   | 'select_payment'
   | 'purchase'
@@ -101,10 +108,11 @@ function safeNumber(value: number | undefined): number | undefined {
 }
 
 function toGaItem(item: CommerceItemInput): Ga4CommerceItem {
+  const brand = item.brand?.trim() || SPLARO_ITEM_BRAND
   return {
     item_id: item.id,
     item_name: item.name,
-    ...(item.brand ? { item_brand: item.brand } : {}),
+    item_brand: brand,
     ...(item.category ? { item_category: item.category } : {}),
     ...(item.category2 ? { item_category2: item.category2 } : {}),
     ...(item.category3 ? { item_category3: item.category3 } : {}),
@@ -213,6 +221,37 @@ export function trackGaEvent(
   queueGaEvent(name, params)
 }
 
+export function trackViewItemList(input: {
+  listId?: string
+  listName?: string
+  items: CommerceItemInput[]
+}): void {
+  if (!input.items.length) return
+  const items = input.items.slice(0, 24).map((item, index) =>
+    toGaItem({
+      ...item,
+      quantity: item.quantity ?? 1,
+      index: item.index ?? index,
+      ...(item.listId ?? input.listId ? { listId: item.listId ?? input.listId } : {}),
+      ...(item.listName ?? input.listName ? { listName: item.listName ?? input.listName } : {}),
+    }),
+  )
+  queueGaEvent('view_item_list', {
+    ...(input.listId ? { item_list_id: input.listId } : {}),
+    ...(input.listName ? { item_list_name: input.listName } : {}),
+    items,
+  })
+}
+
+export function trackSelectItem(input: CommerceItemInput & { listId?: string; listName?: string }): void {
+  const item = toGaItem({ ...input, quantity: input.quantity ?? 1 })
+  queueGaEvent('select_item', {
+    ...(input.listId ? { item_list_id: input.listId } : {}),
+    ...(input.listName ? { item_list_name: input.listName } : {}),
+    items: [item],
+  })
+}
+
 export function trackViewItem(input: CommerceItemInput): void {
   const item = toGaItem({ ...input, quantity: input.quantity ?? 1 })
   const currency = 'BDT'
@@ -229,6 +268,60 @@ export function trackAddToCart(input: CommerceItemInput): void {
   const value = (input.price ?? 0) * item.quantity
   queueGaEvent('add_to_cart', { currency, value, items: [toGaItem(item)] })
   queueMetaEvent('AddToCart', metaCommercePayload([item], value, currency))
+}
+
+export function trackRemoveFromCart(input: CommerceItemInput): void {
+  const item = { ...input, quantity: input.quantity ?? 1 }
+  const currency = 'BDT'
+  const value = (input.price ?? 0) * item.quantity
+  queueGaEvent('remove_from_cart', { currency, value, items: [toGaItem(item)] })
+}
+
+export function trackViewCart(input: CommerceValueInput): void {
+  const currency = input.currency ?? 'BDT'
+  const items = resolveItems(input)
+  queueGaEvent('view_cart', {
+    currency,
+    value: input.value,
+    items: items.map(toGaItem),
+  })
+}
+
+export function trackAddShippingInfo(
+  input: CommerceValueInput & { shippingTier?: string },
+): void {
+  const currency = input.currency ?? 'BDT'
+  const items = resolveItems(input)
+  queueGaEvent('add_shipping_info', {
+    currency,
+    value: input.value,
+    items: items.map(toGaItem),
+    ...(input.shippingTier ? { shipping_tier: input.shippingTier } : {}),
+    ...(input.coupon ? { coupon: input.coupon } : {}),
+  })
+}
+
+export function toCommerceItemFromCart(item: {
+  productId: string
+  variantId?: string
+  name: string
+  price: number
+  quantity: number
+  size?: string
+  color?: string
+  category?: string
+}): CommerceItemInput {
+  return {
+    id: item.variantId ?? item.productId,
+    name: item.name,
+    price: item.price,
+    quantity: item.quantity,
+    brand: SPLARO_ITEM_BRAND,
+    ...(item.category ? { category: item.category } : {}),
+    ...(item.size || item.color
+      ? { variant: [item.size, item.color].filter(Boolean).join(' / ') }
+      : {}),
+  }
 }
 
 export function trackBeginCheckout(input: CommerceValueInput): void {

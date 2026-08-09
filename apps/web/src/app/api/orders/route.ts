@@ -3,7 +3,6 @@ import { apiAuthMe, getSessionToken } from '@/lib/server/api-auth'
 import { validateCoupon } from '@/lib/server/coupons'
 import { createOrderViaApi, fetchCustomerOrdersViaApi } from '@/lib/server/api-orders'
 import { cacheOrderInFile } from '@/lib/server/orders'
-import { trackOrderPurchaseMetaCapi } from '@/lib/server/meta-capi'
 import { getCheckoutShippingSettings } from '@/lib/storefront/settings'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
 import { getTrustedClientIp } from '@/lib/server/client-ip'
@@ -254,18 +253,11 @@ export async function POST(request: NextRequest) {
       throw new Error('Unable to create order')
     }
 
-    // Dev file cache & Meta CAPI server-side event — never block the place-order response.
+    // Dev file cache only — never block the place-order response.
+    // Meta CAPI Purchase is owned by Nest (COD on place, digital on payment
+    // confirm) with event_id = invoiceNumber. Do not send a second CAPI
+    // Purchase from this BFF (would count unpaid online checkouts).
     void cacheOrderInFile(order)
-
-    const fbpCookie = request.cookies.get('_fbp')?.value
-    const fbcCookie = request.cookies.get('_fbc')?.value
-    const capiAttribution = {
-      ...body.attribution,
-      ...(fbpCookie && !body.attribution?.fbp ? { fbp: fbpCookie } : {}),
-      ...(fbcCookie && !body.attribution?.fbc ? { fbc: fbcCookie } : {}),
-    }
-
-    void trackOrderPurchaseMetaCapi(order, { clientIp, userAgent, attribution: capiAttribution })
 
     const response = NextResponse.json({ order }, { status: 201 })
     if (isNewDeviceId) {

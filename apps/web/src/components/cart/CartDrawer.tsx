@@ -19,6 +19,11 @@ import { EASE_EXPO_OUT } from '@/lib/motion/config'
 import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap'
 import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
 import { cn } from '@/lib/utils/cn'
+import {
+  toCommerceItemFromCart,
+  trackRemoveFromCart,
+  trackViewCart,
+} from '@/lib/analytics/meta-pixel'
 
 interface CartDrawerProps {
   isOpen: boolean
@@ -30,6 +35,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const { shipping } = useStorefrontSettings()
   const reducedMotion = useReducedMotion()
   const drawerRef = useRef<HTMLDivElement>(null)
+  const viewCartTracked = useRef(false)
   const [mounted, setMounted] = useState(false)
   useDialogFocusTrap(isOpen, drawerRef, onClose)
   useOverlayScrollLock(isOpen)
@@ -37,6 +43,20 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const showFreeShippingBar = freeShippingThreshold > 0
 
   useEffect(() => setMounted(true), [])
+
+  useEffect(() => {
+    if (!isOpen || items.length === 0) {
+      if (!isOpen) viewCartTracked.current = false
+      return
+    }
+    if (viewCartTracked.current) return
+    viewCartTracked.current = true
+    trackViewCart({
+      value: subtotal,
+      numItems: items.reduce((sum, item) => sum + item.quantity, 0),
+      items: items.map(toCommerceItemFromCart),
+    })
+  }, [isOpen, items, subtotal])
 
   const lineMotion = reducedMotion
     ? { initial: false as const }
@@ -149,6 +169,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                           onRemove={() => {
                             const removedLine = toCartLineRef(item)
                             const toastId = `cart-remove-${cartLineKey(removedLine)}-${Date.now()}`
+                            trackRemoveFromCart(toCommerceItemFromCart(item))
                             removeItem(removedLine)
                             toast(
                               (t) => (

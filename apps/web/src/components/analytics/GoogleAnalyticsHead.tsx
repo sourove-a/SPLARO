@@ -1,4 +1,5 @@
 import Script from 'next/script'
+import { isPublicAnalyticsEnabled } from '@/lib/analytics/enabled'
 
 /**
  * Single source of truth for the env-configured GA4 measurement ID.
@@ -19,6 +20,7 @@ export const GOOGLE_ADS_ENV_ID = /^AW-\d+$/i.test(RAW_GOOGLE_ADS_ID) ? RAW_GOOGL
 
 /** GA4 (+ optional Google Ads) — env; admin GA override via AnalyticsScripts. */
 export function GoogleAnalyticsHead() {
+  if (!isPublicAnalyticsEnabled()) return null
   if (!GA_ENV_ID && !GOOGLE_ADS_ENV_ID) return null
   const serializedGaId = JSON.stringify(GA_ENV_ID)
   const serializedAdsId = JSON.stringify(GOOGLE_ADS_ENV_ID)

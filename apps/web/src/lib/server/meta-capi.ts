@@ -43,9 +43,10 @@ export interface MetaCapiInput {
 }
 
 /**
- * Server-Side Meta Conversions API (CAPI) Event Dispatcher.
- * Bypasses browser AdBlockers / iOS 14.5+ restrictions by sending
- * purchase & ecommerce events directly from Node.js server to Meta Graph API.
+ * Legacy web-BFF Meta CAPI helper.
+ * Purchase CAPI is owned by Nest `MetaCapiService` (COD on place-order,
+ * digital on payment confirm) with event_id = invoiceNumber.
+ * Do not call this from `/api/orders` — it would count unpaid checkouts.
  */
 export async function sendMetaCapiEvent(input: MetaCapiInput): Promise<boolean> {
   const pixelId = process.env.META_PIXEL_ID || process.env.NEXT_PUBLIC_META_PIXEL_ID
