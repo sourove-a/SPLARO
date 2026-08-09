@@ -121,6 +121,45 @@ const SOFTWARE_RENDERER_MARKERS = [
   'google swiftshader',
 ]
 
+/**
+ * True only when the GPU string is a *confirmed* software rasterizer.
+ *
+ * Unlike `isSoftwareRenderer()`, a missing or failed WebGL context counts as
+ * "unknown", not as software. WebGL availability says nothing about video
+ * decode: Windows machines routinely run with hardware acceleration switched
+ * off (it is the standard troubleshooting step), on a blocklisted GPU driver,
+ * or over RDP — and H.264 still decodes fine on all of them.
+ *
+ * Use this for media gating. Use `isSoftwareRenderer()` for WebGL work, where
+ * "no WebGL" genuinely does mean "cannot render".
+ */
+let confirmedSoftwareCache: boolean | null = null
+export function isConfirmedSoftwareRenderer(): boolean {
+  if (confirmedSoftwareCache !== null) return confirmedSoftwareCache
+  if (typeof window === 'undefined') return false
+  try {
+    const canvas = document.createElement('canvas')
+    const gl =
+      canvas.getContext('webgl') ??
+      (canvas.getContext('experimental-webgl') as WebGLRenderingContext | null)
+    // No context / no debug extension — unknown GPU, not a software one.
+    if (!gl) {
+      confirmedSoftwareCache = false
+      return false
+    }
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info')
+    if (!debugInfo) {
+      confirmedSoftwareCache = false
+      return false
+    }
+    const renderer = String(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)).toLowerCase()
+    confirmedSoftwareCache = SOFTWARE_RENDERER_MARKERS.some((marker) => renderer.includes(marker))
+  } catch {
+    confirmedSoftwareCache = false
+  }
+  return confirmedSoftwareCache
+}
+
 /** True on RDP / software GL — use CSS earth, skip WebGL attempt. */
 let softwareRendererCache: boolean | null = null
 export function isSoftwareRenderer(): boolean {

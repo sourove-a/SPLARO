@@ -814,27 +814,25 @@ export function ShopCatalog({
           <div className="shop-empty glass-tile">
             {catalogIsEmpty && !hasActiveFilters ? (
               <>
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-black/40">
-                  Catalog coming soon
-                </p>
-                <h2 className="mt-3 text-2xl font-black tracking-normal text-black">
-                  New pieces are on the way.
-                </h2>
-                <p className="mt-2 max-w-md text-sm text-black/55">
-                  Our collection is being prepared. Check back soon or contact us for help.
+                <p className="shop-empty__eyebrow">Catalog coming soon</p>
+                <h2 className="shop-empty__title">New pieces are on the way.</h2>
+                <span className="shop-empty__rule" aria-hidden />
+                <p className="shop-empty__body">
+                  The collection is being prepared. Check back shortly, or reach out and
+                  we&apos;ll help you find something.
                 </p>
               </>
             ) : (
               <>
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-black/40">
-                  No products found
+                <p className="shop-empty__eyebrow">No products found</p>
+                <h2 className="shop-empty__title">Nothing matches that combination.</h2>
+                <span className="shop-empty__rule" aria-hidden />
+                <p className="shop-empty__body">
+                  Try removing a filter, or browse the full collection.
                 </p>
-                <h2 className="mt-3 text-2xl font-black tracking-normal text-black">
-                  Try a different filter or category.
-                </h2>
-                <button type="button" className="glass-action glass-action-dark mt-5" onClick={clearFilters}>
+                <button type="button" className="shop-empty__action" onClick={clearFilters}>
+                  <X className="shop-empty__action-icon" aria-hidden />
                   Clear filters
-                  <X className="h-4 w-4" />
                 </button>
               </>
             )}

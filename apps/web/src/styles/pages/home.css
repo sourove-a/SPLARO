@@ -561,6 +561,7 @@
   overflow: hidden;
 }
 
+
 .home-dept-row__rail {
   position: relative;
   width: 100%;
@@ -645,11 +646,9 @@
   }
 
   .home-dept-row .home-dept-tile {
-    /* Two cards plus a peek of the third. The old full-width coverflow showed
-       1.4 cards, so browsing a department meant a swipe per card. */
-    width: 44vw;
-    max-width: 13rem;
-    scroll-snap-align: start;
+    width: calc(100vw - (var(--home-dept-peek) * 2));
+    max-width: 24.5rem;
+    scroll-snap-align: center;
     scroll-snap-stop: normal; /* always = sticky swipe feel */
     touch-action: pan-x pan-y;
     -webkit-user-drag: none;
@@ -662,24 +661,33 @@
     pointer-events: none; /* swipe goes to track, not image drag */
   }
 
-  /* In a multi-card rail every tile is equally "chosen", so the centred
-     coverflow scale/dim is dropped — it only reads as intent when one card
-     fills the viewport. */
   .home-dept-row .home-dept-tile__media {
-    border-radius: 0.85rem;
-    transform: none;
+    border-radius: 0.95rem;
+    transform: scale(0.88);
+    transform-origin: center center;
+    will-change: transform;
+    transition:
+      transform 340ms var(--home-dept-ease),
+      box-shadow 340ms var(--home-dept-ease);
     box-shadow:
       0 1px 0 rgba(255, 255, 255, 0.5) inset,
       0 6px 18px rgba(16, 17, 20, 0.05);
   }
 
-  .home-dept-row .home-dept-tile:not(.is-active),
-  .home-dept-row .home-dept-tile.is-active {
-    opacity: 1;
+  .home-dept-row .home-dept-tile.is-active .home-dept-tile__media {
+    transform: scale(1.02);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.72) inset,
+      0 16px 36px rgba(16, 17, 20, 0.13),
+      0 5px 12px rgba(16, 17, 20, 0.05);
   }
 
-  .home-dept-row .home-dept-tile.is-active .home-dept-tile__media {
-    transform: none;
+  .home-dept-row .home-dept-tile:not(.is-active) {
+    opacity: 0.78;
+  }
+
+  .home-dept-row .home-dept-tile.is-active {
+    opacity: 1;
   }
 
   /* Touch: no hover zoom jump on swipe */
@@ -691,10 +699,10 @@
   .home-dept-row .home-dept-tile__label {
     left: 50%;
     right: auto;
-    bottom: 0.6rem;
-    max-width: min(90%, 9rem);
-    padding: 0.32rem 0.7rem;
-    font-size: 0.76rem;
+    bottom: 0.95rem;
+    max-width: min(88%, 14rem);
+    padding: 0.42rem 0.95rem;
+    font-size: 0.9rem;
     font-weight: 500;
     letter-spacing: 0.01em;
     border-color: rgba(255, 255, 255, 0.22);
@@ -3223,14 +3231,24 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
 }
 
 .home-story-deck__card {
-  /* DesignMonks-grade: near-black panel + luminous green rim + soft aura */
-  --story-green: #22c55e;
-  --story-green-deep: #16a34a;
-  --story-green-soft: #86efac;
-  --story-green-glow: rgba(34, 197, 94, 0.45);
+  /*
+   * Warm-ivory accent on a neutral near-black panel.
+   *
+   * This was a neon-green rim with a coloured aura, which reads as tech/gaming
+   * — the opposite of the quiet-luxury language the rest of the storefront
+   * uses. Restraint is the brand: one accent, no glow, type does the work.
+   *
+   * The `--story-green*` names are kept because ~40 downstream rules reference
+   * them; only the values changed. Worth renaming to `--story-accent*` in a
+   * dedicated pass.
+   */
+  --story-green: #ece6da;
+  --story-green-deep: #b9b0a0;
+  --story-green-soft: #fffaf0;
+  --story-green-glow: rgba(236, 230, 218, 0.2);
   --plat-hi: rgba(255, 255, 255, 0.92);
-  --plat-mid: rgba(134, 239, 172, 0.45);
-  --plat-lo: rgba(34, 197, 94, 0.28);
+  --plat-mid: rgba(236, 230, 218, 0.38);
+  --plat-lo: rgba(185, 176, 160, 0.22);
   --story-ink: #ffffff;
   position: absolute;
   top: 50%;
@@ -3240,15 +3258,13 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
   margin-left: calc(min(21.25rem, 64vw) / -2);
   margin-top: calc(min(29.5rem, 76vw) / -2);
   border-radius: 1.15rem;
-  border: 1px solid rgba(34, 197, 94, 0.42);
-  background: linear-gradient(180deg, rgba(22, 24, 28, 0.98) 0%, rgba(8, 9, 11, 1) 100%);
+  border: 1px solid rgba(236, 230, 218, 0.16);
+  background: linear-gradient(180deg, rgba(24, 24, 26, 0.98) 0%, rgba(10, 10, 11, 1) 100%);
+  /* Depth only — the coloured aura is gone. */
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    inset 0 0 0 1px rgba(34, 197, 94, 0.08),
-    0 0 0 1px rgba(0, 0, 0, 0.65),
-    0 0 18px rgba(34, 197, 94, 0.18),
-    0 0 42px rgba(34, 197, 94, 0.12),
-    0 18px 40px rgba(0, 0, 0, 0.55);
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 18px 44px rgba(0, 0, 0, 0.55);
   overflow: hidden;
   transform-style: preserve-3d;
   backface-visibility: hidden;
@@ -3264,51 +3280,27 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
 }
 
 .home-story-deck__card:not(.is-active) {
-  border-color: rgba(34, 197, 94, 0.22);
-  background: linear-gradient(180deg, rgba(16, 17, 20, 0.98) 0%, rgba(6, 7, 9, 1) 100%);
+  border-color: rgba(236, 230, 218, 0.08);
+  background: linear-gradient(180deg, rgba(17, 17, 19, 0.98) 0%, rgba(7, 7, 8, 1) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.03),
     0 0 0 1px rgba(0, 0, 0, 0.55),
-    0 0 14px rgba(34, 197, 94, 0.08),
-    0 14px 28px rgba(0, 0, 0, 0.45);
+    0 14px 30px rgba(0, 0, 0, 0.45);
 }
 
+/*
+ * The active card is distinguished by a brighter hairline and more lift —
+ * not by a coloured halo. The pulsing `home-story-green-breathe` animation is
+ * gone: a throbbing glow draws the eye away from the copy it is meant to
+ * frame, and it ran forever on an element the reader is trying to read.
+ */
 .home-story-deck__card.is-active {
-  border-color: rgba(134, 239, 172, 0.7);
-  background: linear-gradient(180deg, rgba(28, 32, 36, 1) 0%, rgba(8, 10, 12, 1) 100%);
+  border-color: rgba(236, 230, 218, 0.32);
+  background: linear-gradient(180deg, rgba(30, 30, 33, 1) 0%, rgba(11, 11, 13, 1) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 0 0 1px rgba(134, 239, 172, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
     0 0 0 1px rgba(0, 0, 0, 0.7),
-    0 0 22px rgba(34, 197, 94, 0.28),
-    0 0 56px rgba(34, 197, 94, 0.18),
-    0 0 90px rgba(22, 163, 74, 0.1),
-    0 22px 48px rgba(0, 0, 0, 0.58);
-  animation: home-story-green-breathe 4.8s ease-in-out infinite;
-}
-
-@keyframes home-story-green-breathe {
-  0%,
-  100% {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.05),
-      inset 0 0 0 1px rgba(134, 239, 172, 0.1),
-      0 0 0 1px rgba(0, 0, 0, 0.7),
-      0 0 18px rgba(34, 197, 94, 0.24),
-      0 0 48px rgba(34, 197, 94, 0.14),
-      0 0 80px rgba(22, 163, 74, 0.08),
-      0 22px 48px rgba(0, 0, 0, 0.58);
-  }
-  50% {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.06),
-      inset 0 0 0 1px rgba(134, 239, 172, 0.14),
-      0 0 0 1px rgba(0, 0, 0, 0.7),
-      0 0 24px rgba(34, 197, 94, 0.34),
-      0 0 58px rgba(34, 197, 94, 0.2),
-      0 0 100px rgba(22, 163, 74, 0.12),
-      0 22px 48px rgba(0, 0, 0, 0.58);
-  }
+    0 26px 60px rgba(0, 0, 0, 0.6);
 }
 
 
@@ -3344,8 +3336,8 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
   display: block;
   z-index: 4;
   box-shadow:
-    inset 0 0 0 1px rgba(34, 197, 94, 0.14),
-    inset 0 0 28px rgba(34, 197, 94, 0.04);
+    inset 0 0 0 1px rgba(236, 230, 218, 0.14),
+    inset 0 0 28px rgba(236, 230, 218, 0.04);
 }
 
 .home-story-deck__card-edge {
@@ -3356,10 +3348,10 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
     linear-gradient(#000, #000) padding-box,
     linear-gradient(
       135deg,
-      rgba(134, 239, 172, 0.75),
-      rgba(34, 197, 94, 0.35) 40%,
-      rgba(22, 163, 74, 0.2) 70%,
-      rgba(134, 239, 172, 0.45)
+      rgba(255, 250, 240, 0.75),
+      rgba(236, 230, 218, 0.35) 40%,
+      rgba(185, 176, 160, 0.2) 70%,
+      rgba(255, 250, 240, 0.45)
     ) border-box;
   opacity: 0.55;
   -webkit-mask:
@@ -3418,10 +3410,10 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
     from 0deg,
     transparent 0deg,
     transparent 250deg,
-    rgba(34, 197, 94, 0.15) 268deg,
+    rgba(236, 230, 218, 0.15) 268deg,
     rgba(190, 255, 210, 0.95) 286deg,
-    rgba(34, 197, 94, 0.7) 304deg,
-    rgba(22, 163, 74, 0.25) 328deg,
+    rgba(236, 230, 218, 0.7) 304deg,
+    rgba(185, 176, 160, 0.25) 328deg,
     transparent 348deg,
     transparent 360deg
   );
@@ -3504,12 +3496,12 @@ html[data-scrolling] .home-story-deck__card.is-active {
   inset: 0.7rem;
   z-index: 1;
   border-radius: 0.85rem;
-  border: 1px solid rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(236, 230, 218, 0.12);
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 
 .home-story-deck__card.is-active .home-story-deck__card-engraved {
-  border-color: rgba(134, 239, 172, 0.22);
+  border-color: rgba(255, 250, 240, 0.22);
 }
 
 .home-story-deck__card-bevel {
@@ -3554,16 +3546,16 @@ html[data-scrolling] .home-story-deck__card.is-active {
   height: 0.22rem;
   border-radius: 999px;
   rotate: 0deg;
-  background: #86efac;
-  box-shadow:
-    0 0 8px 1px rgba(34, 197, 94, 0.8),
-    0 0 16px 2px rgba(34, 197, 94, 0.35);
-  opacity: 0.45;
+  background: #fffaf0;
+  /* Flat point, no halo. A glowing dot reads as an LED indicator; a printed
+     registration mark is what an editorial layout uses. */
+  box-shadow: none;
+  opacity: 0.3;
 }
 
 .home-story-deck__card.is-active .home-story-deck__corner-dot {
-  opacity: 1;
-  background: #bbf7d0;
+  opacity: 0.65;
+  background: #f3efe6;
 }
 
 .home-story-deck__corner--tl .home-story-deck__corner-dot,
@@ -3657,7 +3649,7 @@ html[data-scrolling] .home-story-deck__card.is-active {
   border-radius: 999px;
   background: radial-gradient(
     circle,
-    rgba(34, 197, 94, 0.4) 0%,
+    rgba(236, 230, 218, 0.4) 0%,
     transparent 70%
   );
   opacity: 0.75;
@@ -3675,32 +3667,32 @@ html[data-scrolling] .home-story-deck__card.is-active {
 
 .home-story-deck__seal-ring--outer {
   inset: 0;
-  border: 1px solid rgba(34, 197, 94, 0.45);
+  border: 1px solid rgba(236, 230, 218, 0.45);
   background:
     radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.08), transparent 58%),
-    rgba(34, 197, 94, 0.08);
+    rgba(236, 230, 218, 0.08);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 0 16px rgba(34, 197, 94, 0.25);
+    0 0 16px rgba(236, 230, 218, 0.25);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 
 .home-story-deck__seal-ring--mid {
   inset: 0.4rem;
-  border: 1px solid rgba(34, 197, 94, 0.28);
-  border-top-color: rgba(134, 239, 172, 0.55);
-  border-bottom-color: rgba(22, 163, 74, 0.15);
+  border: 1px solid rgba(236, 230, 218, 0.28);
+  border-top-color: rgba(255, 250, 240, 0.55);
+  border-bottom-color: rgba(185, 176, 160, 0.15);
 }
 
 .home-story-deck__seal-ring--inner {
   inset: 0.72rem;
-  border: 1px dashed rgba(134, 239, 172, 0.28);
+  border: 1px dashed rgba(255, 250, 240, 0.28);
   opacity: 0.85;
 }
 
 .home-story-deck__card.is-active .home-story-deck__seal-ring--outer {
-  border-color: rgba(134, 239, 172, 0.75);
+  border-color: rgba(255, 250, 240, 0.75);
 }
 
 .home-story-deck__medallion {
@@ -3710,7 +3702,7 @@ html[data-scrolling] .home-story-deck__card.is-active {
   width: 1.85rem;
   height: 1.85rem;
   place-items: center;
-  color: #86efac;
+  color: #fffaf0;
 }
 
 /* Active logo: slow orbit + soft icon float */
@@ -3720,6 +3712,21 @@ html[data-scrolling] .home-story-deck__card.is-active {
 
 .home-story-deck__card.is-active .home-story-deck__seal-ring--inner {
   animation: home-story-seal-spin-rev 9s linear infinite;
+}
+
+/*
+ * The seal rings and border beam run `infinite` — they never settle. None of
+ * them were covered by a reduced-motion rule, and the stylesheets have no
+ * blanket reset, so a reader who asked the OS to reduce motion still got two
+ * counter-rotating rings and a pulsing glow for as long as the card was open.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .home-story-deck__card-beam-spin,
+  .home-story-deck__card.is-active .home-story-deck__seal-glow,
+  .home-story-deck__card.is-active .home-story-deck__seal-ring--mid,
+  .home-story-deck__card.is-active .home-story-deck__seal-ring--inner {
+    animation: none !important;
+  }
 }
 
 .home-story-deck__medallion svg {
@@ -3789,7 +3796,7 @@ html[data-scrolling] .home-story-deck__card.is-active {
   font-weight: 650;
   letter-spacing: 0.38em;
   text-transform: uppercase;
-  color: rgba(134, 239, 172, 0.78);
+  color: rgba(255, 250, 240, 0.78);
 }
 
 .home-story-deck__card-mid {
@@ -3852,9 +3859,9 @@ html[data-scrolling] .home-story-deck__card.is-active {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(34, 197, 94, 0.35),
-    rgba(134, 239, 172, 0.75),
-    rgba(34, 197, 94, 0.35),
+    rgba(236, 230, 218, 0.35),
+    rgba(255, 250, 240, 0.75),
+    rgba(236, 230, 218, 0.35),
     transparent
   );
   transform: translateY(-50%);
@@ -3867,10 +3874,10 @@ html[data-scrolling] .home-story-deck__card.is-active {
   height: 0.26rem;
   border-radius: 1px;
   rotate: 45deg;
-  background: linear-gradient(145deg, #bbf7d0, #22c55e);
+  background: linear-gradient(145deg, #f3efe6, #d9d2c4);
   box-shadow:
-    0 0 10px rgba(34, 197, 94, 0.65),
-    0 0 0 1px rgba(134, 239, 172, 0.3);
+    0 0 10px rgba(236, 230, 218, 0.65),
+    0 0 0 1px rgba(255, 250, 240, 0.3);
 }
 
 .home-story-deck__card-foot {
@@ -4474,10 +4481,10 @@ html[data-os='windows'] .home-story-deck__card {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   background: linear-gradient(180deg, #16181c 0%, #08090b 100%) !important;
-  border-color: rgba(34, 197, 94, 0.4) !important;
+  border-color: rgba(236, 230, 218, 0.4) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 0 20px rgba(34, 197, 94, 0.18),
+    0 0 20px rgba(236, 230, 218, 0.18),
     0 16px 36px rgba(0, 0, 0, 0.5) !important;
   filter: none !important;
   transform-style: flat;
@@ -4488,26 +4495,26 @@ html[data-os='windows'] .home-story-deck__card {
 html[data-perf='lite'] .home-story-deck__card.is-active,
 html[data-os='windows'] .home-story-deck__card.is-active {
   background: linear-gradient(180deg, #1c2026 0%, #0a0b0d 100%) !important;
-  border-color: rgba(134, 239, 172, 0.6) !important;
+  border-color: rgba(255, 250, 240, 0.6) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 0 28px rgba(34, 197, 94, 0.3),
-    0 0 60px rgba(34, 197, 94, 0.16),
+    0 0 28px rgba(236, 230, 218, 0.3),
+    0 0 60px rgba(236, 230, 218, 0.16),
     0 20px 44px rgba(0, 0, 0, 0.55) !important;
 }
 
 html[data-perf='lite'] .home-story-deck__card:not(.is-active),
 html[data-os='windows'] .home-story-deck__card:not(.is-active) {
   background: #0c0d10 !important;
-  border-color: rgba(34, 197, 94, 0.22) !important;
+  border-color: rgba(236, 230, 218, 0.22) !important;
 }
 
 html[data-perf='lite'] .home-story-deck__seal-ring--outer,
 html[data-os='windows'] .home-story-deck__seal-ring--outer {
   background:
     radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.08), transparent 62%),
-    rgba(34, 197, 94, 0.1) !important;
-  border-color: rgba(34, 197, 94, 0.45) !important;
+    rgba(236, 230, 218, 0.1) !important;
+  border-color: rgba(236, 230, 218, 0.45) !important;
 }
 
 html[data-perf='lite'] .home-story-deck__card.is-active .home-story-deck__seal-ring--mid,

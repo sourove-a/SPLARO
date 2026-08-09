@@ -3764,11 +3764,105 @@ button.splaro-card__details-btn {
   opacity: 1;
 }
 
+/*
+ * Empty state — quiet-luxury voice.
+ *
+ * This was a black uppercase eyebrow, a `font-black` sans headline and a solid
+ * black pill: three heavy elements shouting at someone who just failed to find
+ * something. The serif headline matches the PDP title and the newsletter, and
+ * the action is an outline pill so it reads as an offer, not an alarm.
+ */
 .shop-empty {
-  max-width: 32rem;
-  margin: 1.5rem auto 0;
-  padding: 2rem;
+  max-width: 34rem;
+  margin: 2.5rem auto 0;
+  padding: 3.25rem 2rem 3.5rem;
   text-align: center;
+}
+
+.shop-empty__eyebrow {
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: rgba(16, 17, 20, 0.38);
+}
+
+.shop-empty__title {
+  margin-top: 0.9rem;
+  font-family: var(--font-cormorant), Georgia, serif;
+  font-size: clamp(1.6rem, 5.2vw, 2.15rem);
+  font-weight: 500;
+  line-height: 1.14;
+  letter-spacing: -0.015em;
+  color: #101114;
+}
+
+/* Hairline instead of a divider block — structure without a hard edge. */
+.shop-empty__rule {
+  display: block;
+  width: 2.25rem;
+  height: 1px;
+  margin: 1.15rem auto;
+  background: linear-gradient(90deg, transparent, rgba(16, 17, 20, 0.22), transparent);
+}
+
+.shop-empty__body {
+  margin: 0 auto;
+  max-width: 26rem;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: rgba(16, 17, 20, 0.52);
+}
+
+.shop-empty__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  margin-top: 1.75rem;
+  padding: 0 1.4rem;
+  border: 1px solid rgba(16, 17, 20, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #101114;
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    border-color 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shop-empty__action:hover {
+  border-color: rgba(16, 17, 20, 0.34);
+  background: #ffffff;
+}
+
+.shop-empty__action:active {
+  transform: translateY(1px);
+}
+
+.shop-empty__action:focus-visible {
+  outline: 2px solid rgba(16, 17, 20, 0.5);
+  outline-offset: 3px;
+}
+
+.shop-empty__action-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-empty__action {
+    transition: none;
+  }
 }
 
 .shop-trust-row {

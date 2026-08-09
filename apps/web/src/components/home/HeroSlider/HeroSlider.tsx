@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils/cn'
 import { HERO_DEFAULT_SLIDES, HERO_DEFAULT_VIDEO } from '@splaro/config'
 import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import { preferLocalHeroSrc, resolveLocalHeroVariants } from '@/lib/assets/hero-cdn'
-import { isSoftwareRenderer, isWindowsOS } from '@/lib/earth/globe-performance'
+import { isConfirmedSoftwareRenderer, isWindowsOS } from '@/lib/earth/globe-performance'
 import { useMobileViewport, isMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 
 const SLIDE_DURATION_MS = 7500
@@ -219,8 +219,14 @@ function useAllowHeroVideo(): boolean {
       /** Low-power / save-data lite profile — images only. Re-check when data-perf flips. */
       const lite = document.documentElement.getAttribute('data-perf') === 'lite'
       const isWin = isWindowsOS()
-      // Software rendering/RDP cannot decode + composite hero video reliably.
-      const softwareRenderer = isSoftwareRenderer()
+      // A *confirmed* software rasterizer (SwiftShader/llvmpipe/RDP basic
+      // driver) cannot composite hero video smoothly. This deliberately does
+      // NOT use isSoftwareRenderer(): that returns true whenever WebGL is
+      // merely unavailable, which is common on Windows with hardware
+      // acceleration disabled or a blocklisted driver — machines that decode
+      // H.264 perfectly well. Gating on it left every such Windows user
+      // looking at a still poster.
+      const softwareRenderer = isConfirmedSoftwareRenderer()
       // GlobalDeviceUx sets data-perf=lite for all touch UIs — that must NOT kill hero video.
       // Mobile/tablet/Windows play via lightweight chain; save-data, 2G, or software rendering stay off.
       const isTouchUi =
