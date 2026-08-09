@@ -8418,7 +8418,19 @@ html[data-chrome-pin='1'] .site-header-glass {
   pointer-events: none;
   position: fixed;
   inset-inline: 0;
-  top: var(--site-header-offset);
+  /*
+   * Header height only — not --site-header-offset.
+   *
+   * .site-header-glass carries a transform, which makes it the containing
+   * block for this fixed child. `top` is therefore measured from the header's
+   * own top edge, not the viewport. --site-header-offset includes the topbar
+   * (calc(header + topbar)), so on any page showing the topbar that height was
+   * counted twice: the header already sat 48px down, and the panel was pushed
+   * a further 48px past its bottom edge, leaving the hero visible in the seam.
+   *
+   * Measured on splaro.co at 1440px: header bottom 120, panel top 168.
+   */
+  top: var(--header-height);
   z-index: calc(var(--z-chrome-header) - 1);
   /* Always mounted — visibility gates hit-testing/focus; the panel itself
      performs the shutter reveal (see .mega-menu-panel below). */
