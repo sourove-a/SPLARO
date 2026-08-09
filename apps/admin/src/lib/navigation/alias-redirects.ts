@@ -109,10 +109,33 @@ export const ALIAS_REDIRECTS: Record<string, string> = {
 /** Resolve longest matching alias for a dashboard slug path. */
 export function resolveAliasRedirect(slug: string[] | undefined): string | null {
   if (!slug?.length) return null
+  const current = `/dashboard/${slug.join('/')}`
+
   for (let depth = slug.length; depth >= 1; depth -= 1) {
     const href = `/dashboard/${slug.slice(0, depth).join('/')}`
     const target = ALIAS_REDIRECTS[href]
-    if (target) return target
+    if (!target) continue
+
+    // Exact hit always wins.
+    if (depth === slug.length) {
+      return target === current ? null : target
+    }
+
+    /*
+     * Shallower hits are the "bookmark to a removed parent" fallback, but a
+     * parent alias must not swallow its own children. '/dashboard/
+     * google-workspace' redirects to '/dashboard/google-workspace/connect',
+     * so the prefix walk sent /connect straight back to itself — an infinite
+     * redirect that rendered a blank page, and sent every sibling (/gmail,
+     * /drive, /sync-logs) to /connect instead of their own screen.
+     *
+     * When the target lives under the same parent, the deeper path is a real
+     * route and must be left alone.
+     */
+    if (target === current || target.startsWith(`${href}/`)) continue
+
+    return target
   }
+
   return null
 }
