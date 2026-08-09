@@ -196,21 +196,23 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
                 ) : null}
               </div>
 
-              <div className="pqv-info px-5 py-5">
-                <h3 className="font-serif text-[1.35rem] leading-tight tracking-tight text-luxury-black">
+              <div className="pqv-info px-5 pb-6 pt-6">
+                <h3 className="font-serif text-[1.45rem] leading-[1.15] tracking-tight text-luxury-black">
                   {product.name}
                 </h3>
                 {product.productCode ? (
-                  <p className="mt-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-luxury-gray">
+                  <p className="mt-1.5 text-[0.66rem] font-medium uppercase tracking-[0.16em] text-luxury-gray">
                     Code: {product.productCode}
                   </p>
                 ) : null}
 
+                {/* A bold sans price sat 12px under a serif name — two voices
+                    with no pause. Same spacing the PDP uses. */}
                 <ProductPrice
                   price={product.price}
                   compareAtPrice={product.compareAtPrice}
-                  className="mt-3 flex flex-wrap items-baseline gap-2"
-                  priceClassName="text-[0.95rem] font-semibold text-luxury-black"
+                  className="mt-4 flex flex-wrap items-baseline gap-2.5"
+                  priceClassName="text-[1.05rem] font-semibold tracking-[-0.01em] text-luxury-black"
                   compareClassName="text-[0.82rem] text-luxury-gray line-through"
                 />
 
@@ -249,7 +251,7 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
                 {sizeOptionUi.showSelector ? (
                   <div className={cn('pqv-sizes mt-5', sizeShake && 'pqv-sizes--shake')}>
                     <div className="mb-2.5 flex items-center justify-between gap-3">
-                      <p className="text-[0.68rem] font-black uppercase tracking-[0.14em] text-luxury-black">
+                      <p className="text-[0.66rem] font-semibold uppercase tracking-[0.18em] text-luxury-gray">
                         {sizeOptionUi.label}
                       </p>
                     </div>
