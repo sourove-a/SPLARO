@@ -691,12 +691,11 @@
   box-shadow: none;
 }
 
+/* The prefix chip sits beside the input, so filling it red doubled the alarm
+   for a single invalid field. Border only. */
 .checkout-field--error .checkout-input-chip {
-  border-color: rgba(220, 38, 38, 0.38);
-  background:
-    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.96), transparent 55%),
-    linear-gradient(160deg, #fef2f2 0%, #fee2e2 100%);
-  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.3);
+  color: rgba(153, 27, 27, 0.85);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 1),
     0 2px 8px rgba(220, 38, 38, 0.12);
@@ -777,8 +776,8 @@
 }
 
 .checkout-phone-input--invalid {
-  border-color: rgba(155, 48, 48, 0.45);
-  box-shadow: 0 0 0 3px rgba(155, 48, 48, 0.08);
+  border-color: rgba(220, 38, 38, 0.34);
+  box-shadow: inset 2px 0 0 rgba(220, 38, 38, 0.55);
 }
 
 .checkout-phone-input__prefix {
@@ -862,25 +861,34 @@
   background: #fff;
 }
 
+/*
+ * Error state is a signal, not a repaint.
+ *
+ * Fields used to fill with a red wash (background + border + red label), so a
+ * half-completed checkout looked like a page of failures rather than a form in
+ * progress. The field keeps its normal white surface; a thin bar on the
+ * leading edge plus a muted border carries the message, and the helper text
+ * below says what is actually wrong.
+ */
 .checkout-field--error .checkout-field__label {
-  color: #b91c1c;
+  color: rgba(153, 27, 27, 0.88);
 }
 
 .checkout-field--error .checkout-input,
-.checkout-field--error .checkout-phone-input {
-  border-color: rgba(220, 38, 38, 0.45);
-  background: rgba(254, 242, 242, 0.7);
-}
-
+.checkout-field--error .checkout-phone-input,
 .checkout-input--invalid {
-  border-color: rgba(176, 48, 48, 0.35) !important;
-  background: rgba(255, 248, 248, 0.96);
+  border-color: rgba(220, 38, 38, 0.34) !important;
+  background: #fff;
+  box-shadow: inset 2px 0 0 rgba(220, 38, 38, 0.55);
 }
 
+.checkout-field--error .checkout-input:focus,
+.checkout-field--error .checkout-phone-input:focus,
 .checkout-input--invalid:focus {
+  border-color: rgba(220, 38, 38, 0.5) !important;
   box-shadow:
-    0 0 0 3px rgba(176, 48, 48, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 1);
+    inset 2px 0 0 rgba(220, 38, 38, 0.7),
+    0 0 0 3px rgba(220, 38, 38, 0.09);
 }
 
 .checkout-input--select {
@@ -901,7 +909,7 @@
   width: 100%;
   padding: 0.9rem 0.95rem;
   border: 1px solid rgba(255, 255, 255, 0.82);
-  border-radius: 16px;
+  border-radius: 13px;
   background: rgba(255, 255, 255, 0.52);
   backdrop-filter: blur(14px) saturate(1.25);
   -webkit-backdrop-filter: blur(14px) saturate(1.25);
@@ -984,7 +992,7 @@
   min-height: 2.85rem;
   padding: 0.65rem 0.85rem;
   border: 1px solid rgba(255, 255, 255, 0.82);
-  border-radius: 16px;
+  border-radius: 13px;
   background: rgba(255, 255, 255, 0.42);
   backdrop-filter: blur(16px) saturate(1.3);
   -webkit-backdrop-filter: blur(16px) saturate(1.3);
@@ -4384,7 +4392,7 @@ html[data-perf='lite'] .track-history-row {
 }
 
 .checkout-field--error .checkout-field__label {
-  color: #b91c1c;
+  color: rgba(153, 27, 27, 0.88);
 }
 
 /* Step badges: solid ink — clear step markers on the light card */
@@ -4870,9 +4878,8 @@ html[data-perf='lite'] .track-history-row {
 }
 
 .checkout-field--error .checkout-input-chip {
-  border-color: rgba(185, 28, 28, 0.3);
-  background: #fef2f2;
-  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.3);
+  color: rgba(153, 27, 27, 0.85);
 }
 
 .checkout-field--icon:has(.checkout-input--area) .checkout-input--area {
