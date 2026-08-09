@@ -158,7 +158,7 @@ async function loadDepartmentProducts(deptSlug: string): Promise<CatalogProduct[
 }
 
 /**
- * Live subcategory image rails for the homepage (ILYN-style).
+ * Live subcategory image rails for the homepage (editorial-style).
  * Empty departments / tiles without real images are omitted — no fake stock.
  */
 function isDepartmentHiddenInHeaderNav(

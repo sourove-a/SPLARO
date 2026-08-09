@@ -1,6 +1,6 @@
 /* pdp.css — route stylesheet */
 
-/* Official Fontshare web delivery; ILYN size selector uses General Sans 500. */
+/* Official Fontshare web delivery; editorial reference size selector uses General Sans 500. */
 @font-face {
   font-family: 'GeneralSans';
   src: url('https://cdn.fontshare.com/wf/3RZHWSNONLLWJK3RLPEKUZOMM56GO4LJ/BPDRY7AHVI3MCDXXVXTQQ76H3UXA63S3/SB2OEB6IKZPRR6JT4GFJ2TFT6HBB6AZN.woff2') format('woff2');
@@ -3380,7 +3380,7 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   display: none !important;
 }
 
-/* ILYN-smooth: bag chip always visible + soft press */
+/* editorial-smooth: bag chip always visible + soft press */
 .pp-related .splaro-card__wish--touch {
   opacity: 1 !important;
   transition:
@@ -4021,7 +4021,7 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   box-shadow: none;
 }
 
-/* Size row — ILYN: flex wrap, gap 12px */
+/* Size row — editorial reference: flex wrap, gap 12px */
 .pp-view .pp-size-row {
   display: flex;
   align-items: center;
@@ -4690,7 +4690,7 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   transform: none;
 }
 
-/* Size button look owned by ILYN-style .pp-size-btn block above */
+/* Size button look owned by editorial-style .pp-size-btn block above */
 
 .pp-view .pp-color-thumb {
   border: 1px solid rgba(255, 255, 255, 0.85);

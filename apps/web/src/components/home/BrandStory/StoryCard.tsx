@@ -33,7 +33,7 @@ const STORY_ICONS: Record<StoryDeckIconName, LucideIcon> = {
 }
 
 /**
- * Desktop ILLIYEEN-style: wider horizontal step so ±1 cards read as solid peeks
+ * Desktop editorial-style: wider horizontal step so ±1 cards read as solid peeks
  * (not a tight 3D pile). Mobile keeps a larger step so text does not bleed.
  */
 const DESKTOP_STEP = 200
@@ -60,7 +60,7 @@ function getLayoutSnapshot(): string {
   if (mobile) {
     return `${Math.round(Math.min(260, window.innerWidth * 0.66))}:1`
   }
-  // ~52% of desktop card width — ILLIYEEN side peeks
+  // ~52% of desktop card width — editorial reference side peeks
   const cardW = Math.min(320, window.innerWidth * 0.22)
   const step = Math.round(Math.min(230, Math.max(180, cardW * 0.55)))
   return `${step}:0`
@@ -123,7 +123,7 @@ function coverflowStyle(
     opacity = 1
   } else if (abs <= 1) {
     const t = abs
-    // Desktop ILLIYEEN: neighbours stay large + readable
+    // Desktop editorial reference: neighbours stay large + readable
     scale = mobile ? 1 - t * 0.18 : 1 - t * 0.1
     opacity = mobile ? 1 - t * 0.45 : 1 - t * 0.12
   } else if (abs <= 2) {
@@ -136,7 +136,7 @@ function coverflowStyle(
   }
 
   const x = visual * step
-  // Desktop ILLIYEEN = flat fan + light depth. Mobile/lite = 2D slide only.
+  // Desktop editorial reference = flat fan + light depth. Mobile/lite = 2D slide only.
   const desktop = !mobile
   const rotateY =
     flatMotion || desktop ? 0 : Math.max(-5.5, Math.min(5.5, visual * -3.2))

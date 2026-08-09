@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils/cn'
 interface BagIconProps {
   size?: number
   className?: string
-  /** Outline weight — ILYN product card uses ~1.37 */
+  /** Outline weight — editorial reference product card uses ~1.37 */
   strokeWidth?: number
   /** Filled body (mobile dock active state) */
   filled?: boolean
@@ -16,15 +16,15 @@ interface BagIconProps {
    */
   cutColor?: string
   /**
-   * Center “+” — ILYN product-card add-to-bag style.
+   * Center “+” — editorial reference product-card add-to-bag style.
    * Off for header / cart chrome (bag only).
    */
   plus?: boolean
 }
 
 /**
- * ILYN-style shopping bag — arched handle, rounded body, optional center plus.
- * Path adapted from https://ilyn.global product-card “Show Details” / bag control.
+ * editorial-style shopping bag — arched handle, rounded body, optional center plus.
+ * Path adapted from the reference storefront product-card “Show Details” / bag control.
  */
 export function BagIcon({
   size = 18,
@@ -53,7 +53,7 @@ export function BagIcon({
           fill="currentColor"
         />
       ) : null}
-      {/* Body + arched handle (ILYN geometry) */}
+      {/* Body + arched handle (editorial reference geometry) */}
       <path
         d="M7.62 7.83V6.45C7.62 5.36 8.05 4.31 8.83 3.53C9.60 2.76 10.65 2.33 11.75 2.33C12.84 2.33 13.89 2.76 14.66 3.53C15.44 4.31 15.87 5.36 15.87 6.45V7.83M4.18 7.83C4.00 7.83 3.83 7.90 3.70 8.03C3.57 8.16 3.5 8.33 3.5 8.51V17.80C3.5 19.09 4.60 20.20 5.90 20.20H17.59C18.89 20.20 20 19.15 20 17.85V8.51C20 8.33 19.92 8.16 19.79 8.03C19.66 7.90 19.49 7.83 19.31 7.83H4.18Z"
         stroke="currentColor"
@@ -82,7 +82,7 @@ export function BagIcon({
   )
 }
 
-/** Add-to-bag glyph — always includes the ILYN center plus. */
+/** Add-to-bag glyph — always includes the editorial reference center plus. */
 export function AddToBagIcon({
   size = 18,
   className,

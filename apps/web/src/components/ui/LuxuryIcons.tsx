@@ -34,7 +34,7 @@ export function SupportBubbleIcon({ className }: IconProps) {
   return <LiveSupportBubble {...(className ? { className } : {})} />
 }
 
-/** Three-dot live typing wave — ILLIYEEN-style support FAB */
+/** Three-dot live typing wave — editorial-style support FAB */
 export function LiveSupportBubble({ className }: IconProps) {
   return (
     <span className={cn('support-live-bubble', className)} aria-hidden>
@@ -45,7 +45,7 @@ export function LiveSupportBubble({ className }: IconProps) {
   )
 }
 
-/** Premium arc icons — ILLIYEEN-style thin stroke marks */
+/** Premium arc icons — editorial-style thin stroke marks */
 export function SupportPhoneIcon({ className }: IconProps) {
   return (
     <svg

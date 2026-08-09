@@ -44,7 +44,7 @@
   box-shadow: var(--nav-glass-shadow-float) !important;
 }
 
-/* Header — ILYN frosted glass (only when scrolled / non-hero chrome) */
+/* Header — editorial reference frosted glass (only when scrolled / non-hero chrome) */
 .site-header-glass:not(.site-header-glass--over-hero),
 .site-header-glass.site-header-glass--scrolled {
   background: var(--header-glass-bg-scrolled, var(--nav-glass-frost)) !important;

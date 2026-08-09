@@ -484,7 +484,7 @@
   background: #ffffff;
 }
 
-/* ── ILYN-style department category rails ─────────────────── */
+/* ── editorial-style department category rails ─────────────────── */
 
 .home-dept-rows {
   /* Full-width big tiles; pad > arrow so prev/next sit centered in gutters */
@@ -3225,7 +3225,7 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
   width: 100%;
   height: 100%;
   transform-style: preserve-3d;
-  /* Soft depth — ILLIYEEN desktop fan, not hard 3D carousel */
+  /* Soft depth — editorial reference desktop fan, not hard 3D carousel */
   perspective: 1800px;
   perspective-origin: 50% 45%;
 }
@@ -3912,7 +3912,7 @@ html[data-scrolling] .home-story-deck__card.is-active {
   }
 }
 
-/* Bottom front — ILLIYEEN-style dark glass circles + outlined pill */
+/* Bottom front — editorial-style dark glass circles + outlined pill */
 .home-story-deck__nav {
   display: flex;
   align-items: center;
@@ -4285,7 +4285,7 @@ html[data-scrolling] .home-story-deck__card.is-active {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  /* Desktop ILLIYEEN proportions — portrait glass, side peeks readable */
+  /* Desktop editorial reference proportions — portrait glass, side peeks readable */
   .home-story-deck__card {
     width: min(20rem, 21vw);
     height: min(27.5rem, 34vw);

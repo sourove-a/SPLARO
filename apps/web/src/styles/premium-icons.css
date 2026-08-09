@@ -241,7 +241,7 @@ html[data-perf='lite'] .premium-icon__sheen::after {
   content: none !important;
 }
 
-/* Header icon buttons — ILYN linear: bare hit target, no glass disk */
+/* Header icon buttons — editorial reference linear: bare hit target, no glass disk */
 .site-header-glass__icon-btn {
   /* visible: cart count badge sits on the rim.
      Also kill backdrop-filter — browsers clip to border-radius when

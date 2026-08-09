@@ -67,7 +67,7 @@ interface PremiumSwiperCarouselProps {
   speed?: number
   spaceBetween?: number
   breakpoints?: PremiumSwiperBreakpoints
-  /** ILYN-like momentum drag (best with `effect="slide"`). */
+  /** editorial-like momentum drag (best with `effect="slide"`). */
   freeScroll?: boolean
   className?: string
   ariaLabel?: string

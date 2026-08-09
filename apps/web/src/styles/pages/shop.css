@@ -450,7 +450,7 @@
   box-shadow: 0 0 0 1.5px #fff, 0 0 0 3px #101114;
 }
 
-/* ── Size pills — ILYN fresh white liquid glass ── */
+/* ── Size pills — editorial reference fresh white liquid glass ── */
 .pdp-size-guide {
   display: inline-flex;
   align-items: center;
@@ -3525,7 +3525,7 @@ button.splaro-card__details-btn {
   bottom: 0.75rem;
   z-index: 4;
   display: flex;
-  /* ILYN product-card bag chip */
+  /* editorial reference product-card bag chip */
   height: 2.5rem;
   width: 2.5rem;
   align-items: center;
@@ -5423,7 +5423,7 @@ html[data-perf='lite'] .glass-nav-pair .splaro-nav-btn {
   object-position: center top;
 }
 
-/* ILYN-style dual stack — both layers always painted; opacity crossfade only */
+/* editorial-style dual stack — both layers always painted; opacity crossfade only */
 .splaro-card__img-frame--crossfade {
   position: absolute;
   inset: 0;
@@ -5549,7 +5549,7 @@ html[data-perf='lite'] .glass-nav-pair .splaro-nav-btn {
   text-overflow: ellipsis;
 }
 
-/* Wishlist / add-bag — ILYN soft square glass */
+/* Wishlist / add-bag — editorial reference soft square glass */
 .splaro-card__wish {
   position: absolute;
   bottom: 10px;
@@ -5875,7 +5875,7 @@ del.pc-info__compare {
 }
 
 .shop-product-grid .splaro-card__wish {
-  /* ILYN product-card bag chip */
+  /* editorial reference product-card bag chip */
   width: 2.5rem;
   height: 2.5rem;
   bottom: 0.65rem;

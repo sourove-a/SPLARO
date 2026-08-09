@@ -100,7 +100,7 @@ export function SplaroProductCard({
   const [galleryIndex, setGalleryIndex] = useState(0)
   const isShop = variant === 'shop'
   const isHomepage = variant === 'homepage'
-  /** ILYN-style: stacked images + CSS opacity — no remount/AnimatePresence jank. */
+  /** editorial-style: stacked images + CSS opacity — no remount/AnimatePresence jank. */
   const useCssHoverCrossfade = (isShop || isHomepage) && imageGallery.length > 1
   const hoverSrc = imageGallery[1] ?? null
   const imageFit = isHomepage || isShop ? 'cover' : fit

@@ -60,9 +60,9 @@ Key files:
 - `apps/web/src/components/auth/AuthGoogleGlassFooter.tsx`
 - `.env.example`
 
-### PDP size selector — ILYN parity
+### PDP size selector — editorial reference parity
 
-Reference checked against ILYN product page and local PDP at desktop/mobile.
+Reference checked against editorial reference product page and local PDP at desktop/mobile.
 
 - Unselected: transparent white liquid-glass surface, 40px height, 64px minimum width, 100px
   radius, 4px blur, matching inset/outset soft shadow, General Sans 16px/500.

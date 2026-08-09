@@ -12,10 +12,10 @@ import { useStorefrontSettings } from '@/components/providers/StorefrontSettings
 import { resolveWhatsAppNumber, whatsAppHref } from '@/lib/storefront/contact'
 
 /**
- * ILYN-style liquid support FAB:
+ * editorial-style liquid support FAB:
  * blurred color orbs behind translucent glass + gradient rim mask.
  * Shape: border-radius 50% 50% 4px (tip bottom-right).
- * @see https://ilyn.global/bd/en
+ * @see the reference storefront
  */
 function SupportLiquidGlow({ uid, dimmed = false }: { uid: string; dimmed?: boolean }) {
   const f0 = `${uid}-f0`
