@@ -34,11 +34,12 @@ export class RealtimeBusService implements OnModuleDestroy {
   private reconnects = 0
 
   constructor() {
-    this.enabled = process.env['REDIS_ENABLED'] !== 'false'
+    const inTest = process.env['NODE_ENV'] === 'test' || Boolean(process.env['JEST_WORKER_ID'])
+    this.enabled = process.env['REDIS_ENABLED'] !== 'false' && !inTest
     this.local.setMaxListeners(200)
     if (this.enabled) {
       void this.connectRedis()
-    } else {
+    } else if (!inTest) {
       this.logger.warn('Realtime bus using in-process fallback (REDIS_ENABLED=false)')
     }
   }
@@ -164,12 +165,13 @@ export class RealtimeBusService implements OnModuleDestroy {
     try {
       const publisher = new Redis(url, redisOptions())
       const subscriber = new Redis(url, redisOptions())
-      publisher.on('error', (err: Error) => {
-        this.logger.debug(`Realtime publisher error: ${err.message}`)
-      })
-      subscriber.on('error', (err: Error) => {
-        this.logger.debug(`Realtime subscriber error: ${err.message}`)
-      })
+      const swallow = (label: string) => (err: Error) => {
+        this.logger.debug(`Realtime ${label} error: ${err.message}`)
+      }
+      publisher.on('error', swallow('publisher'))
+      subscriber.on('error', swallow('subscriber'))
+      publisher.on('end', () => undefined)
+      subscriber.on('end', () => undefined)
       subscriber.on('message', (channel, message) => {
         this.dispatch(channel, message)
       })
@@ -205,8 +207,15 @@ export class RealtimeBusService implements OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    await this.publisher?.quit().catch(() => undefined)
-    await this.subscriber?.quit().catch(() => undefined)
+    const publisher = this.publisher
+    const subscriber = this.subscriber
+    this.publisher = null
+    this.subscriber = null
+    this.handlers.clear()
     this.local.removeAllListeners()
+    publisher?.removeAllListeners()
+    subscriber?.removeAllListeners()
+    publisher?.disconnect()
+    subscriber?.disconnect()
   }
 }
