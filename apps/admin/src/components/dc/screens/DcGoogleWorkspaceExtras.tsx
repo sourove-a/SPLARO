@@ -124,6 +124,20 @@ function DcGoogleWorkspaceExtrasBody({ initial }: { initial: GoogleExtrasTab }) 
   }, [logs.data])
 
   const connected = Boolean(status.data?.connected)
+  /*
+   * `connected` is true when a service account is configured and a spreadsheet
+   * id exists — GOOGLE_DEFAULT_SPREADSHEET_ID satisfies that from env alone.
+   * So the tile read "Linked" while no OAuth token was ever stored, and every
+   * Sheets refresh failed with "refresh token missing" against a screen
+   * claiming the account was connected.
+   *
+   * OAuth is what Sheets sync and Gmail actually run on, so the tile reports
+   * that, and the service-account-only case gets its own label instead of
+   * borrowing the connected one.
+   */
+  const oauthLinked = Boolean(status.data?.oauthConnected)
+  const serviceAccountOnly = connected && !oauthLinked
+  const linkedEmail = status.data?.oauthEmail ?? status.data?.googleEmail ?? null
 
   return (
     <>
@@ -145,11 +159,15 @@ function DcGoogleWorkspaceExtrasBody({ initial }: { initial: GoogleExtrasTab }) 
           ? {
               actions: [
                 {
-                  label: connected ? 'Disconnect' : 'Connect Google',
-                  icon: connected ? 'icon-unlink' : 'icon-link',
+                  // Keyed to OAuth, not to `connected`: a service-account-only
+                  // store offered "Disconnect" and had no way back to the
+                  // consent screen, which is why a missing token could not be
+                  // repaired from this page.
+                  label: oauthLinked ? 'Disconnect' : 'Connect Google',
+                  icon: oauthLinked ? 'icon-unlink' : 'icon-link',
                   variant: 'primary' as const,
                   onClick: () => {
-                    if (connected) void revoke.mutateAsync()
+                    if (oauthLinked) void revoke.mutateAsync()
                     else void connect.mutateAsync()
                   },
                 },
@@ -218,7 +236,15 @@ function DcGoogleWorkspaceExtrasBody({ initial }: { initial: GoogleExtrasTab }) 
         />
         <HubKpis
           items={[
-            { label: 'Connection', value: connected ? 'Linked' : 'Off', tone: connected ? 'ok' : 'warn' },
+            {
+              label: 'Connection',
+              value: oauthLinked ? 'Linked' : serviceAccountOnly ? 'Reconnect needed' : 'Off',
+              tone: oauthLinked ? 'ok' : 'warn',
+            },
+            {
+              label: 'Google account',
+              value: oauthLinked ? (linkedEmail ?? 'Linked') : 'Not linked',
+            },
             {
               label: 'Gmail sender',
               value: gmail.data?.senderName ?? '—',
