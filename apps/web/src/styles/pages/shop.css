@@ -5226,10 +5226,117 @@ button.splaro-card__details-btn {
 /* ── Product Quick View (premium drawer) ───────────────────── */
 .pqv-backdrop {
   -webkit-tap-highlight-color: transparent;
+  border: 0;
+  background: rgba(16, 17, 20, 0.54);
 }
 
 .pqv-panel {
   -webkit-overflow-scrolling: touch;
+  overflow: hidden;
+  border-left: 1px solid rgba(16, 17, 20, 0.08);
+  border-radius: 1rem 0 0 1rem;
+  background: #fff;
+  color: #101114;
+  box-shadow: -24px 0 72px rgba(16, 17, 20, 0.18);
+}
+
+.pqv-panel__header {
+  display: flex;
+  min-height: 3.65rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.35rem;
+  border-bottom: 1px solid rgba(16, 17, 20, 0.08);
+  background: #fff;
+}
+
+.pqv-panel__title {
+  margin: 0;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 2rem;
+  letter-spacing: -0.025em;
+}
+
+.pqv-panel__close {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #101114;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.pqv-panel__close:hover {
+  background: rgba(16, 17, 20, 0.055);
+}
+
+.pqv-panel__close:focus-visible {
+  outline: none;
+  background: rgba(16, 17, 20, 0.045);
+  box-shadow: inset 0 0 0 1px rgba(16, 17, 20, 0.14);
+}
+
+.pqv-panel__body {
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #fff;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(16, 17, 20, 0.28) transparent;
+}
+
+.pqv-gallery {
+  padding: 1.25rem 1.5rem 0;
+  background: #f3f3f1;
+}
+
+.pqv-gallery__stage {
+  border: 1px solid rgba(16, 17, 20, 0.08);
+  border-radius: 0.35rem;
+  background: #f5f5f3;
+}
+
+.pqv-info {
+  padding: 1.6rem 1.5rem 2rem;
+  background: #f3f3f3;
+}
+
+.pqv-product-title {
+  margin: 0;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 2rem;
+  letter-spacing: -0.025em;
+  color: #121212;
+}
+
+.pqv-product-code {
+  margin: 0.45rem 0 0;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5rem;
+  color: rgba(18, 18, 18, 0.56);
+}
+
+.pqv-color-label {
+  margin: 1.25rem 0 0;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5rem;
+  color: #121212;
+}
+
+.pqv-color-label span {
+  font-weight: 400;
 }
 
 html[data-perf='lite'] .pqv-backdrop {
@@ -5244,9 +5351,88 @@ html[data-perf='lite'] .pqv-panel {
 .pqv-gallery__controls {
   position: absolute;
   left: 50%;
-  bottom: 0.9rem;
+  bottom: 1rem;
   z-index: 3;
   transform: translateX(-50%);
+}
+
+/* Milky liquid-glass gallery controls: translucent over product imagery, with
+   a bright rim and restrained depth instead of opaque white bubbles. */
+.pqv-gallery__controls .glass-nav-pair {
+  gap: 0.4rem;
+}
+
+.pqv-gallery__controls .splaro-nav-btn {
+  width: 2.7rem;
+  height: 2.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.72) !important;
+  border-radius: 999px;
+  background:
+    radial-gradient(
+      ellipse 90% 68% at 48% -8%,
+      rgba(255, 255, 255, 0.88),
+      transparent 58%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.72) 0%,
+      rgba(247, 248, 250, 0.48) 58%,
+      rgba(255, 255, 255, 0.6) 100%
+    ) !important;
+  color: #282a2f;
+  box-shadow:
+    0 10px 24px rgba(9, 10, 12, 0.16),
+    0 2px 5px rgba(9, 10, 12, 0.08),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.28) !important;
+  backdrop-filter: blur(18px) saturate(1.7);
+  -webkit-backdrop-filter: blur(18px) saturate(1.7);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.pqv-gallery__controls .splaro-nav-btn svg {
+  width: 0.78rem;
+  height: 0.78rem;
+  color: #282a2f;
+  stroke-width: 1.9;
+  transform: none;
+}
+
+.pqv-gallery__controls .premium-nav-btn__sheen {
+  display: block;
+  opacity: 0.72;
+}
+
+.pqv-gallery__controls .splaro-nav-btn:hover,
+.pqv-gallery__controls .splaro-nav-btn:active {
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.9) !important;
+  background:
+    radial-gradient(
+      ellipse 90% 68% at 48% -8%,
+      rgba(255, 255, 255, 0.98),
+      transparent 58%
+    ),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(249, 250, 252, 0.6)) !important;
+  box-shadow:
+    0 12px 28px rgba(9, 10, 12, 0.19),
+    0 2px 6px rgba(9, 10, 12, 0.08),
+    inset 0 1.5px 0 #fff,
+    inset 0 -1px 0 rgba(255, 255, 255, 0.34) !important;
+}
+
+.pqv-gallery__controls .splaro-nav-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.96);
+  outline-offset: 2px;
+}
+
+.pqv-gallery__controls .splaro-nav-btn--prev:hover svg,
+.pqv-gallery__controls .splaro-nav-btn--next:hover svg {
+  transform: none;
 }
 
 .glass-nav-pair {
@@ -5287,57 +5473,201 @@ html[data-perf='lite'] .glass-nav-pair .splaro-nav-btn {
 
 .pqv-gallery__counter {
   position: absolute;
-  right: 0.85rem;
-  bottom: 0.85rem;
+  right: 2.1rem;
+  bottom: 1rem;
   z-index: 2;
   margin: 0;
-  padding: 0.28rem 0.55rem;
+  min-width: 2.72rem;
+  padding: 0.42rem 0.65rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: rgba(16, 17, 20, 0.72);
+  border: 1px solid rgba(16, 17, 20, 0.035);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 3px 12px rgba(16, 17, 20, 0.08);
+  font-size: 0.6rem;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: rgba(16, 17, 20, 0.68);
 }
 
 .pqv-color-swatch {
-  height: 1.65rem;
-  width: 1.65rem;
-  border: 1px solid rgba(16, 17, 20, 0.14);
-  border-radius: 999px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  position: relative;
+  width: 4.25rem;
+  height: 5.15rem;
+  overflow: hidden;
+  border: 1px solid rgba(16, 17, 20, 0.1);
+  border-radius: 0.18rem;
+  background: #f3f3f1;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.pqv-color-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.7rem;
+}
+
+.pqv-color-swatch__color {
+  position: absolute;
+  inset: 0.38rem;
+  border-radius: 0.1rem;
 }
 
 .pqv-color-swatch--active {
-  box-shadow:
-    0 0 0 2px #fff,
-    0 0 0 3px #101114;
+  border-color: #101114;
+  box-shadow: inset 0 0 0 1px #101114;
+}
+
+.pqv-sizes {
+  margin-top: 1.35rem;
+}
+
+.pqv-sizes__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.72rem;
+}
+
+.pqv-sizes__label {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5rem;
+  color: #121212;
+}
+
+.pqv-size-guide {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.2rem 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: rgba(18, 18, 18, 0.72);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5rem;
+  cursor: pointer;
+}
+
+.pqv-size-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .pqv-size {
-  min-width: 2.45rem;
-  min-height: 2.15rem;
-  padding: 0 0.65rem;
-  border: 1px solid rgba(16, 17, 20, 0.12);
-  background: #fff;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #101114;
-  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  width: auto;
+  min-width: 4rem;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1.25rem;
+  overflow: visible;
+  border: 0;
+  border-radius: 100px;
+  background: transparent;
+  box-shadow:
+    inset 6px 6px 8px rgba(217, 218, 222, 0.3),
+    inset -6px -6px 8px #fff,
+    6px 6px 10px rgba(235, 235, 235, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: #121212;
+  cursor: pointer;
+  transform: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
 }
 
-.pqv-size--active {
-  border-color: #101114;
-  background: #101114;
+.pqv-size::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 1.5px solid transparent;
+  border-radius: inherit;
+  background: linear-gradient(
+      140deg,
+      #fff 0%,
+      rgba(255, 255, 255, 0) 50%,
+      rgba(255, 255, 255, 0) 100%
+    ) border-box;
+  -webkit-mask:
+    linear-gradient(#000 0 0) padding-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) padding-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.pqv-size:hover:not(:disabled):not(.pqv-size--active),
+.pqv-size:active:not(:disabled) {
+  transform: none;
+}
+
+.pqv-size:hover:not(:disabled):not(.pqv-size--active) {
+  background: transparent;
+  box-shadow:
+    inset 6px 6px 8px rgba(217, 218, 222, 0.3),
+    inset -6px -6px 8px #fff,
+    6px 6px 10px rgba(235, 235, 235, 0.5);
+}
+
+.pqv-size:focus-visible {
+  outline: 2px solid #121212;
+  outline-offset: 2px;
+}
+
+.pqv-size--active,
+.pqv-size--active:hover,
+.pqv-size--active:active {
+  border: 0;
+  background: #121212;
   color: #fff;
+  box-shadow: none;
+  transform: none;
+}
+
+.pqv-size--active::before {
+  display: none;
 }
 
 .pqv-size--disabled {
-  opacity: 0.38;
+  border: 0;
+  background: transparent;
+  color: rgba(18, 18, 18, 0.8);
+  opacity: 1;
   cursor: not-allowed;
   text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  box-shadow:
+    inset 6px 6px 8px rgba(217, 218, 222, 0.3),
+    inset -6px -6px 8px #fff,
+    6px 6px 10px rgba(235, 235, 235, 0.5);
+}
+
+html[data-perf='lite'] .pqv-size {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .pqv-sizes--shake {
@@ -5360,14 +5690,22 @@ html[data-perf='lite'] .glass-nav-pair .splaro-nav-btn {
 }
 
 .pqv-cta {
-  min-height: 2.85rem;
-  border: 1px solid #101114;
-  background: #101114;
+  display: inline-flex;
+  min-height: 3.5rem;
+  width: calc((100% - 1.5rem) / 2);
+  flex: 0 0 calc((100% - 1.5rem) / 2);
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 1rem;
+  border: 0;
+  background: #121212;
   color: #fff;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 .pqv-cta:disabled {
@@ -5377,23 +5715,64 @@ html[data-perf='lite'] .glass-nav-pair .splaro-nav-btn {
 
 .pqv-full-details {
   display: flex;
-  min-height: 2.55rem;
+  min-height: 3.5rem;
+  width: calc((100% - 1.5rem) / 2);
+  flex: 0 0 calc((100% - 1.5rem) / 2);
+  min-width: 0;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(16, 17, 20, 0.12);
-  background: #fff;
-  font-size: 0.66rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  padding: 0 1rem;
+  border: 1px solid #121212;
+  background: transparent;
+  color: #121212;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
+  text-align: center;
+  text-transform: none;
   text-decoration: none;
-  color: #101114;
   transition: border-color 160ms ease, background 160ms ease;
 }
 
+.pqv-actions {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 0.9rem;
+  padding: 1rem 2.5rem calc(1rem + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(16, 17, 20, 0.08);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 -12px 30px rgba(16, 17, 20, 0.05);
+}
+
+.pqv-actions__row {
+  display: flex;
+  gap: 1.5rem;
+}
+
 .pqv-full-details:hover {
-  border-color: rgba(16, 17, 20, 0.24);
-  background: rgba(16, 17, 20, 0.03);
+  border-color: #101114;
+  background: rgba(16, 17, 20, 0.025);
+}
+
+@media (max-width: 480px) {
+  .pqv-panel {
+    border-radius: 0;
+  }
+
+  .pqv-gallery {
+    padding: 1rem 1rem 0;
+  }
+
+  .pqv-info {
+    padding-inline: 1rem;
+  }
+
+  .pqv-actions {
+    padding-inline: 1rem;
+  }
+
 }
 
 .splaro-card__media::before {
