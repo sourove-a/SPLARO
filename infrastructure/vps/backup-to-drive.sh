@@ -41,6 +41,13 @@ ID_FILE="${SPLARO_DRIVE_ID_FILE:-/opt/splaro/secrets/drive-file-id}"
 
 log() { echo "[drive-backup $(date '+%F %T')] $*"; }
 
+# `--check` verifies every prerequisite and the Drive round-trip WITHOUT
+# touching the database, so setup can be confirmed before the first real run
+# and before any cron entry exists. The last backup script was wired up wrong
+# and nobody found out until the data was already gone.
+CHECK_ONLY=0
+[ "${1:-}" = "--check" ] && CHECK_ONLY=1
+
 # ── Telegram alerting ────────────────────────────────────────
 TG_TOKEN="$(grep -m1 '^TELEGRAM_BOT_TOKEN=' "$APP_DIR/.env" 2>/dev/null | cut -d= -f2- || true)"
 TG_CHAT="$(grep -m1 '^TELEGRAM_ADMIN_CHAT_ID=' "$APP_DIR/.env" 2>/dev/null | cut -d= -f2- || true)"
@@ -74,6 +81,51 @@ DATABASE_URL="$(grep -m1 '^DATABASE_URL=' "$APP_DIR/.env" | cut -d= -f2-)"
 
 mkdir -p "$WORK_DIR" "$(dirname "$ID_FILE")"
 DUMP_PATH="$WORK_DIR/$DUMP_NAME"
+
+# ── --check: prove the setup works, then stop ────────────────
+if [ "$CHECK_ONLY" = "1" ]; then
+  log "Preflight passed: pg_dump, python3, libs, key file, folder id, .env"
+
+  log "Testing database connection..."
+  pg_isready --dbname="$DATABASE_URL" >/dev/null 2>&1 \
+    || die "Cannot reach database with DATABASE_URL from .env"
+  log "  database reachable"
+
+  log "Testing Drive access (upload + delete a probe file)..."
+  CHECK_OUT="$(
+    SA_KEY="$SA_KEY" FOLDER_ID="$FOLDER_ID" python3 <<'PY' 2>&1
+import os, io
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+
+creds = service_account.Credentials.from_service_account_file(
+    os.environ["SA_KEY"], scopes=["https://www.googleapis.com/auth/drive"])
+svc = build("drive", "v3", credentials=creds, cache_discovery=False)
+folder = os.environ["FOLDER_ID"]
+
+meta = svc.files().get(fileId=folder, fields="id,name,mimeType",
+                       supportsAllDrives=True).execute()
+if meta.get("mimeType") != "application/vnd.google-apps.folder":
+    raise SystemExit("SPLARO_DRIVE_FOLDER_ID is not a folder")
+
+# Writing is the only way to know the share is Editor and not Viewer.
+media = MediaIoBaseUpload(io.BytesIO(b"splaro drive check"),
+                          mimetype="text/plain")
+probe = svc.files().create(body={"name": ".splaro-drive-check",
+                                 "parents": [folder]},
+                           media_body=media, fields="id",
+                           supportsAllDrives=True).execute()
+svc.files().delete(fileId=probe["id"], supportsAllDrives=True).execute()
+print("folder:" + meta["name"])
+PY
+  )" || die "Drive check failed:%0A$CHECK_OUT%0A%0AShare the folder with the service account as Editor."
+
+  log "  Drive OK — writable folder \"${CHECK_OUT#folder:}\""
+  log "Telegram: $([ -n "$TG_TOKEN" ] && [ -n "$TG_CHAT" ] && echo configured || echo 'NOT configured (failures will be silent)')"
+  log "All checks passed. Run without --check to take a real backup."
+  exit 0
+fi
 
 # ── Dump ─────────────────────────────────────────────────────
 log "Dumping database (custom format)..."
