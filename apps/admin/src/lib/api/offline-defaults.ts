@@ -18,6 +18,8 @@ export const EMPTY_SEO_OVERVIEW: SeoOverview = {
     connected: false,
     status: 'not_connected',
     message: 'Search Console status unavailable while API is offline.',
+    property: null,
+    lastSuccessAt: null,
   },
   summary: { avgScore: 0, criticalErrors: 0, warnings: 0, products: 0 },
 }

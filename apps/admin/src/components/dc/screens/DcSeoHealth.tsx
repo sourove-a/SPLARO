@@ -9,11 +9,15 @@ import { DcIcon } from '@/components/dc/DcIcon'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
+import { HubTabs } from '@/components/dc/screens/DcHubKit'
+import { DcSearchConsolePanel, type SeoGscTab } from '@/components/dc/screens/DcSearchConsolePanel'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { toastFail, toastOk } from '@/lib/admin/feedback'
 import { useAuditProductSeo, useFixMissingProductSeo, useSeoOverview } from '@/lib/api/hooks'
 import type { SeoOverview } from '@/lib/api/admin-hub'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+
+type SeoHealthTab = 'overview' | 'technical' | SeoGscTab
 
 const card = {
   border: '1px solid var(--line)',
@@ -61,6 +65,7 @@ function DcSeoHealthBody() {
   const { api } = useAdminConnection(25_000)
   const [query, setQuery] = useState('')
   const [auditingId, setAuditingId] = useState<string | null>(null)
+  const [tab, setTab] = useState<SeoHealthTab>('overview')
 
   const data = seo.data
   const audits = data.productAudits
@@ -150,42 +155,66 @@ function DcSeoHealthBody() {
         />
       ) : (
         <>
-          <ScoreOverview data={data} needsMeta={needsMeta} />
-          {!data.searchConsole.connected ? (
-            <section
-              style={{
-                ...card,
-                marginTop: 12,
-                padding: '12px 14px',
-                borderColor: 'var(--warn-bd)',
-                background: 'var(--warn-soft)',
-                color: 'var(--warn)',
-                font: `500 11.5px/1.45 ${FONT}`,
-              }}
-            >
-              <strong>Search Console disconnected.</strong> {data.searchConsole.message} Daily targets use
-              catalog metadata and onsite searches only; no product is changed automatically.
-            </section>
-          ) : null}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              flexWrap: 'wrap',
-              gap: 16,
-              minWidth: 0,
-            }}
-          >
-            <IssueTable
-              rows={filtered}
-              total={audits.length}
-              query={query}
-              auditingId={auditingId}
-              onQuery={setQuery}
-              onAudit={runAudit}
+          <div style={{ margin: '4px 0 14px' }}>
+            <HubTabs
+              tabs={[
+                { id: 'overview', label: 'Overview' },
+                { id: 'technical', label: 'Technical' },
+                { id: 'console', label: 'Search Console' },
+                { id: 'sitemaps', label: 'Sitemaps' },
+                { id: 'indexing', label: 'Indexing' },
+              ]}
+              active={tab}
+              onChange={(next) => setTab(next as SeoHealthTab)}
             />
-            <TechnicalChecks data={data} />
           </div>
+          {tab === 'overview' ? (
+            <>
+              <ScoreOverview data={data} needsMeta={needsMeta} />
+              {!data.searchConsole.connected ? (
+                <section
+                  style={{
+                    ...card,
+                    marginTop: 12,
+                    padding: '12px 14px',
+                    borderColor: 'var(--warn-bd)',
+                    background: 'var(--warn-soft)',
+                    color: 'var(--warn)',
+                    font: `500 11.5px/1.45 ${FONT}`,
+                  }}
+                >
+                  <strong>
+                    {data.searchConsole.status === 'needs_reconnect'
+                      ? 'Search Console needs reconnect.'
+                      : 'Search Console disconnected.'}
+                  </strong>{' '}
+                  {data.searchConsole.message} Daily targets use catalog metadata and onsite searches only; no
+                  product is changed automatically.
+                </section>
+              ) : null}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  flexWrap: 'wrap',
+                  gap: 16,
+                  minWidth: 0,
+                  marginTop: 16,
+                }}
+              >
+                <IssueTable
+                  rows={filtered}
+                  total={audits.length}
+                  query={query}
+                  auditingId={auditingId}
+                  onQuery={setQuery}
+                  onAudit={runAudit}
+                />
+              </div>
+            </>
+          ) : null}
+          {tab === 'technical' ? <TechnicalChecks data={data} /> : null}
+          {tab === 'console' || tab === 'sitemaps' || tab === 'indexing' ? <DcSearchConsolePanel tab={tab} /> : null}
         </>
       )}
     </>
@@ -483,7 +512,7 @@ function TechnicalChecks({ data }: { data: SeoOverview }) {
   ]
 
   return (
-    <section style={{ ...card, flex: '1 1 290px', minWidth: 0, overflow: 'hidden' }}>
+    <section style={{ ...card, minWidth: 0, overflow: 'hidden' }}>
       <div style={{ minHeight: 50, padding: '0 14px', display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--line)' }}>
         <span style={{ font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)' }}>Technical checks</span>
       </div>

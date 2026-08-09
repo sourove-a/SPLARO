@@ -9,6 +9,7 @@ import { GoogleSheetsSyncService } from './google-sheets-sync.service'
 import { GoogleGmailService, GoogleDriveService } from './google-gmail-drive.service'
 import { GoogleServiceAccountService } from './google-service-account.service'
 import { GoogleSyncQueueService } from './google-sync-queue.service'
+import { GoogleSearchConsoleService } from './google-search-console.service'
 import { isGoogleServiceAccountEmail } from './google-api.util'
 
 @Injectable()
@@ -24,6 +25,7 @@ export class GoogleWorkspaceService {
     private readonly drive: GoogleDriveService,
     private readonly serviceAccount: GoogleServiceAccountService,
     private readonly syncQueue: GoogleSyncQueueService,
+    private readonly searchConsole: GoogleSearchConsoleService,
   ) {}
 
   async getStatus(storeIdRaw: string) {
@@ -60,6 +62,7 @@ export class GoogleWorkspaceService {
       (saConfigured && Boolean(conn?.isConnected || spreadsheetId))
 
     const oauthConfigReady = this.oauth.isOAuthConfigured()
+    const gscStatus = await this.searchConsole.getStatus(storeId).catch(() => null)
 
     return {
       connected: sheetsConnected || oauthConnected,
@@ -113,7 +116,10 @@ export class GoogleWorkspaceService {
         calendar: { connected: oauthConnected },
         contacts: { connected: oauthConnected && Boolean(conn?.contactsSyncEnabled) },
         analytics: { connected: oauthConnected },
-        searchConsole: { connected: oauthConnected },
+        searchConsole: {
+          connected: Boolean(gscStatus?.connected),
+          lastSyncAt: gscStatus?.lastSuccessAt ?? null,
+        },
         merchant: { connected: oauthConnected },
       },
       recentFailures24h: failedCount,

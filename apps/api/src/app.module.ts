@@ -172,6 +172,8 @@ import {
 } from './modules/integrations'
 import {
   GoogleWorkspaceController,
+  GoogleSearchConsoleController,
+  GoogleSearchConsoleService,
   GoogleWorkspaceService,
   GoogleOAuthService,
   GoogleClientService,
@@ -288,6 +290,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     AgentController,
     IntegrationsController,
     GoogleWorkspaceController,
+    GoogleSearchConsoleController,
     LoyaltyController,
     CourierController,
     SteadfastWebhookController,
@@ -405,6 +408,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     InfrastructureIntegrationService,
     IntegrationAuditService,
     GoogleWorkspaceService,
+    GoogleSearchConsoleService,
     GoogleOAuthService,
     GoogleClientService,
     GoogleSheetsSyncService,

@@ -1,3 +1,5 @@
+export const WEBMASTERS_READONLY_SCOPE = 'https://www.googleapis.com/auth/webmasters.readonly'
+
 export const GOOGLE_OAUTH_SCOPES = [
   'openid',
   'email',
@@ -9,7 +11,7 @@ export const GOOGLE_OAUTH_SCOPES = [
   'https://www.googleapis.com/auth/gmail.send',
   'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/analytics.readonly',
-  'https://www.googleapis.com/auth/webmasters.readonly',
+  WEBMASTERS_READONLY_SCOPE,
   'https://www.googleapis.com/auth/content',
 ] as const
 

@@ -1,4 +1,6 @@
 export { GoogleWorkspaceController } from './google-workspace.controller'
+export { GoogleSearchConsoleController } from './google-search-console.controller'
+export { GoogleSearchConsoleService } from './google-search-console.service'
 export { GoogleWorkspaceService } from './google-workspace.service'
 export { GoogleOAuthService } from './google-oauth.service'
 export { GoogleClientService } from './google-client.service'

@@ -184,6 +184,9 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     p('seo-audit-products', 'SEO Product Audit', 'SEO Center', q('/seo/audit/products')),
     p('seo-schema-org', 'Schema Organization', 'SEO Center', q('/seo/schema/organization')),
     p('seo-schema-breadcrumb', 'Schema Breadcrumb', 'SEO Center', q('/seo/schema/breadcrumb') + '&path=/products'),
+    p('seo-gsc-status', 'Search Console Status', 'SEO Center', q('/admin/google/search-console/status')),
+    p('seo-gsc-performance', 'Search Console Performance', 'SEO Center', q('/admin/google/search-console/performance') + '&range=28d'),
+    p('seo-gsc-sitemaps', 'Search Console Sitemaps', 'SEO Center', q('/admin/google/search-console/sitemaps')),
 
     // ── AI Center ─────────────────────────────────────────────────────────
     p('agent-status', 'AI Command Brain', 'AI Center', q('/agent/status')),

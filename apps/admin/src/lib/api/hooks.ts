@@ -28,6 +28,18 @@ import { fetchBrands, createBrand, updateBrand } from './brands'
 import { createBanner, fetchBanners, updateBanner, deleteBanner } from './banners'
 import { createRedirect, deleteRedirect, fetchRedirects, updateRedirect } from './redirects'
 import { auditProduct, fixMissingProductMeta } from './seo'
+import {
+  fetchGscInsights,
+  fetchGscPages,
+  fetchGscPerformance,
+  fetchGscQueries,
+  fetchGscSitemaps,
+  fetchGscStatus,
+  inspectGscUrl,
+  refreshGscCache,
+  type GscRange,
+  type GscSort,
+} from './search-console'
 import { EMPTY_HELPDESK_OVERVIEW, EMPTY_SEO_OVERVIEW, isNetworkOrServerError } from './offline-defaults'
 import { fetchCustomers, fetchCustomer, deleteCustomer, blockCustomer } from './customers'
 import { fetchLoyaltySummary, fetchReferralStats, fetchReferrals } from './loyalty'
@@ -743,6 +755,89 @@ export function useFixMissingProductSeo() {
     mutationFn: () => fixMissingProductMeta(),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['seo-overview'] })
+    },
+  })
+}
+
+export function useGscStatus(enabled = true) {
+  return useQuery({
+    queryKey: ['gsc-status'],
+    queryFn: fetchGscStatus,
+    enabled,
+    staleTime: 15 * 60_000,
+    retry: false,
+  })
+}
+
+export function useGscPerformance(range: GscRange, enabled = true) {
+  return useQuery({
+    queryKey: ['gsc-performance', range],
+    queryFn: () => fetchGscPerformance(range),
+    enabled,
+    staleTime: 30 * 60_000,
+    retry: false,
+  })
+}
+
+export function useGscQueries(range: GscRange, sort: GscSort = 'clicks', enabled = true) {
+  return useQuery({
+    queryKey: ['gsc-queries', range, sort],
+    queryFn: () => fetchGscQueries(range, 25, sort),
+    enabled,
+    staleTime: 30 * 60_000,
+    retry: false,
+  })
+}
+
+export function useGscPages(range: GscRange, sort: GscSort = 'clicks', enabled = true) {
+  return useQuery({
+    queryKey: ['gsc-pages', range, sort],
+    queryFn: () => fetchGscPages(range, 25, sort),
+    enabled,
+    staleTime: 30 * 60_000,
+    retry: false,
+  })
+}
+
+export function useGscSitemaps(enabled = true) {
+  return useQuery({
+    queryKey: ['gsc-sitemaps'],
+    queryFn: fetchGscSitemaps,
+    enabled,
+    staleTime: 15 * 60_000,
+    retry: false,
+  })
+}
+
+export function useGscInsights(range: GscRange, enabled = true) {
+  return useQuery({
+    queryKey: ['gsc-insights', range],
+    queryFn: () => fetchGscInsights(range),
+    enabled,
+    staleTime: 30 * 60_000,
+    retry: false,
+  })
+}
+
+export function useGscInspect() {
+  return useMutation({
+    mutationFn: (url: string) => inspectGscUrl(url),
+  })
+}
+
+export function useGscRefresh() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: refreshGscCache,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['gsc-status'] })
+      void qc.invalidateQueries({ queryKey: ['gsc-performance'] })
+      void qc.invalidateQueries({ queryKey: ['gsc-queries'] })
+      void qc.invalidateQueries({ queryKey: ['gsc-pages'] })
+      void qc.invalidateQueries({ queryKey: ['gsc-sitemaps'] })
+      void qc.invalidateQueries({ queryKey: ['gsc-insights'] })
+      void qc.invalidateQueries({ queryKey: ['seo-overview'] })
+      void qc.invalidateQueries({ queryKey: ['google-status'] })
     },
   })
 }

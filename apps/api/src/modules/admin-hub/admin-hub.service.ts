@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import { GoogleSearchConsoleService } from '../google-workspace/google-search-console.service'
 import {
   formatSocialHandle,
   resolveSocialUrl,
@@ -21,7 +22,10 @@ const STATIC_CMS_PAGES = [
 
 @Injectable()
 export class AdminHubService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly searchConsole: GoogleSearchConsoleService,
+  ) {}
 
   private sid(storeIdOrSlug: string) {
     return resolveStoreId(this.prisma, storeIdOrSlug)
@@ -364,17 +368,34 @@ export class AdminHubService {
       })),
       redirects: allRedirects,
       productAudits,
-      searchConsole: {
-        connected: false,
-        status: 'not_connected',
-        message: 'Google ranking and crawl data unavailable until Search Console OAuth is connected.',
-      },
+      searchConsole: await this.seoSearchConsole(storeId),
       summary: {
         avgScore,
         criticalErrors: productAudits.filter((p) => p.score < 50).length,
         warnings: productAudits.filter((p) => p.score >= 50 && p.score < 80).length,
         products: products.length,
       },
+    }
+  }
+
+  private async seoSearchConsole(storeId: string) {
+    try {
+      const gsc = await this.searchConsole.getStatus(storeId)
+      return {
+        connected: gsc.connected,
+        status: gsc.status,
+        message: gsc.message,
+        property: gsc.property,
+        lastSuccessAt: gsc.lastSuccessAt,
+      }
+    } catch {
+      return {
+        connected: false,
+        status: 'not_connected' as const,
+        message: 'Google ranking and crawl data unavailable until Search Console OAuth is connected.',
+        property: null,
+        lastSuccessAt: null,
+      }
     }
   }
 

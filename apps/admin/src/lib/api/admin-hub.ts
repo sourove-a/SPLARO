@@ -46,7 +46,13 @@ export interface SeoOverview {
     isActive?: boolean
   }[]
   productAudits: { id: string; name: string; slug: string; score: number; hasMetaTitle: boolean; hasMetaDescription: boolean; lastAuditAt: string | null }[]
-  searchConsole: { connected: boolean; status: 'connected' | 'not_connected'; message: string }
+  searchConsole: {
+    connected: boolean
+    status: 'connected' | 'not_connected' | 'needs_reconnect' | 'missing_property' | 'quota' | 'error'
+    message: string
+    property?: string | null
+    lastSuccessAt?: string | null
+  }
   summary: { avgScore: number; criticalErrors: number; warnings: number; products: number }
 }
 
