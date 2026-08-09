@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const apiOrigin = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1\/?$/, '') ?? 'http://localhost:4000'
 const isProd = process.env.NODE_ENV === 'production'
+const googlePopupCoopHeader = {
+  key: 'Cross-Origin-Opener-Policy',
+  value: 'same-origin-allow-popups',
+}
 const cdnOrigin = process.env.NEXT_PUBLIC_CDN_URL?.replace(/\/$/, '')
 /** Contabo VPS (same-box web+api). SPLARO_HOSTINGER=1 is a legacy alias only. */
 const onSameBoxVps =
@@ -113,7 +117,11 @@ const nextConfig = {
   },
 
   async headers() {
-    if (!isProd) return []
+    // GIS popup mode needs opener access to return credentials to login/signup.
+    // Keep this in dev too so registered loopback origins match production behavior.
+    if (!isProd) {
+      return [{ source: '/(.*)', headers: [googlePopupCoopHeader] }]
+    }
 
     return [
       {
@@ -121,6 +129,7 @@ const nextConfig = {
         headers: [
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
+          googlePopupCoopHeader,
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           {
             key: 'Permissions-Policy',
