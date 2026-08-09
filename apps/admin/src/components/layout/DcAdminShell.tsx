@@ -19,6 +19,7 @@ import { getHandoffSidebarNavGroups } from '@/lib/navigation/handoff-sidebar'
 import type { AdminNavSession } from '@/lib/navigation/admin-nav-permissions'
 import { formatAdminDisplayName, formatAdminRoleLabel } from '@/lib/auth/role-label'
 import { useAdminUiStore } from '@/store/uiStore'
+import { useAdminOrdersRealtime } from '@/lib/realtime/useAdminOrdersRealtime'
 
 /** Quick actions in the right rail — the six the design pins there. */
 // Violet is reserved for active nav and primary buttons, so these icons use the
@@ -63,6 +64,7 @@ export function DcAdminShell({ banner, children }: DcAdminShellProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { data: sessionUser } = useAdminSession()
+  useAdminOrdersRealtime(Boolean(sessionUser))
   const { api, storefront, database, checking, refresh: refreshConnection } = useAdminConnection(25_000)
   const apiReachable = api.pulse === 'online' || api.pulse === 'degraded'
   const {

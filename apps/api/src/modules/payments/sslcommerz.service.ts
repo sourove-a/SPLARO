@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, Optional } from '@nestjs/common'
 import { createHash } from 'crypto'
 import { PrismaService } from '../../common/prisma.service'
+import { RealtimePublisher } from '../../common/realtime/realtime.publisher'
 import { resolveStoreId } from '../../common/store.util'
 import { assertOrderStatusTransition } from '../../common/order-status.util'
 import { generatePaymentCode } from '../../common/payment-code.util'
@@ -55,6 +56,7 @@ export class SslCommerzService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentIntegration: PaymentIntegrationService,
+    @Optional() private readonly realtime?: RealtimePublisher,
   ) {}
 
   private baseUrl(creds: SslRuntime): string {
@@ -367,5 +369,19 @@ export class SslCommerzService {
     ])
 
     this.logger.log(`SSLCommerz payment ${status} for order ${invoiceNumber}`)
+
+    if (status === 'PAID') {
+      void this.realtime
+        ?.publishOrderEvent({
+          type: nextStatus === 'CONFIRMED' ? 'order.status_changed' : 'order.payment_updated',
+          orderId: order.id,
+          storeId: order.storeId,
+          invoiceNumber,
+          status: nextStatus,
+          paymentStatus: 'PAID',
+          updatedAt: new Date(),
+        })
+        .catch(() => undefined)
+    }
   }
 }

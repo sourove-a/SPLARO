@@ -25,6 +25,8 @@ import {
 } from '@/lib/orders'
 import { cn } from '@/lib/utils/cn'
 import { useStorefrontAuthConfig } from '@/hooks/useStorefrontAuthConfig'
+import { useOrderRealtime } from '@/lib/realtime/useOrderRealtime'
+import type { StorefrontRealtimeOrderEvent } from '@/lib/realtime/realtime-event'
 
 const TRACK_STAGES = [
   'Confirmed',
@@ -227,7 +229,24 @@ function ThumbnailStack({ order }: { order: StoredOrder }) {
   )
 }
 
-function ActiveOrderCard({ order }: { order: StoredOrder }) {
+function patchOrderFromRealtime(
+  order: StoredOrder,
+  event: StorefrontRealtimeOrderEvent,
+): StoredOrder {
+  const status = event.status?.toLowerCase()
+  return {
+    ...order,
+    ...(status ? { status } : {}),
+    ...(event.updatedAt ? { updatedAt: event.updatedAt } : {}),
+    tracking: {
+      ...order.tracking,
+      ...(status ? { stage: status } : {}),
+      ...(event.updatedAt ? { updatedAt: event.updatedAt } : {}),
+    },
+  }
+}
+
+function ActiveOrderCard({ order, liveHint }: { order: StoredOrder; liveHint?: boolean }) {
   const [expanded, setExpanded] = useState(false)
 
   return (
@@ -246,7 +265,9 @@ function ActiveOrderCard({ order }: { order: StoredOrder }) {
         </div>
         <div className="track-active-card__status-block">
           <StatusPill order={order} />
-          <p className="track-active-card__eta">{estimatedDeliveryLabel(order)}</p>
+          <p className="track-active-card__eta">
+            {liveHint ? 'Updated just now' : estimatedDeliveryLabel(order)}
+          </p>
         </div>
       </div>
 
@@ -500,6 +521,38 @@ export default function TrackOrderClient({
     return result.orders.filter((order) => order.id !== result.active?.id)
   }, [result])
 
+  const liveOrderId = result?.active?.id ?? result?.orders[0]?.id ?? null
+  const { liveHint } = useOrderRealtime({
+    orderId: liveOrderId,
+    phone: phone.trim() || undefined,
+    enabled: Boolean(liveOrderId && result),
+    onEvent: (event) => {
+      setResult((current) => {
+        if (!current) return current
+        const match = (order: StoredOrder) =>
+          order.id === event.orderId ||
+          order.invoiceNumber === event.orderId ||
+          order.invoiceNumber === event.invoiceNumber ||
+          order.id === event.invoiceNumber
+        const nextOrders = current.orders.map((order) =>
+          match(order) ? patchOrderFromRealtime(order, event) : order,
+        )
+        const nextActive = current.active && match(current.active)
+          ? patchOrderFromRealtime(current.active, event)
+          : current.active
+        const nextPrevious = current.previous.map((order) =>
+          match(order) ? patchOrderFromRealtime(order, event) : order,
+        )
+        return { orders: nextOrders, active: nextActive, previous: nextPrevious }
+      })
+    },
+    onReconcile: async () => {
+      if (!phone.trim()) return
+      const payload = await trackOrdersByPhone(phone.trim())
+      if (payload.ok) setResult(payload.data)
+    },
+  })
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (phoneOtpEnabled && otpStep) {
@@ -607,7 +660,7 @@ export default function TrackOrderClient({
 
           {result?.active ? (
             <section className="track-section" aria-label="Current order">
-              <ActiveOrderCard order={result.active} />
+              <ActiveOrderCard order={result.active} liveHint={liveHint} />
             </section>
           ) : null}
 

@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common'
 import { Cron, CronExpression } from '@nestjs/schedule'
 import type { Prisma } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
+import { RealtimePublisher } from '../../common/realtime/realtime.publisher'
 import { assertOrderStatusTransition } from '../../common/order-status.util'
 
 export interface ReservableLine {
@@ -17,7 +18,10 @@ const DEFAULT_RESERVATION_MINUTES = 15
 export class StockReservationService {
   private readonly logger = new Logger(StockReservationService.name)
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly realtime?: RealtimePublisher,
+  ) {}
 
   private expiryDate(): Date {
     const configured = Number(process.env['PAYMENT_STOCK_RESERVATION_MINUTES'])
@@ -168,12 +172,12 @@ export class StockReservationService {
       take: 100,
     })
     for (const row of expired) {
-      await this.prisma.$transaction(async (tx) => {
+      const cancelled = await this.prisma.$transaction(async (tx) => {
         const released = await this.releaseForOrder(tx, row.orderId, 'EXPIRED')
-        if (!released) return
+        if (!released) return false
         // updateMany already gates on PENDING — assert documents the allowed transition
         assertOrderStatusTransition('PENDING', 'CANCELLED')
-        const cancelled = await tx.order.updateMany({
+        const updated = await tx.order.updateMany({
           where: {
             id: row.orderId,
             status: 'PENDING',
@@ -185,7 +189,7 @@ export class StockReservationService {
             cancelledAt: new Date(),
           },
         })
-        if (cancelled.count === 1) {
+        if (updated.count === 1) {
           await tx.orderStatusHistory.create({
             data: {
               orderId: row.orderId,
@@ -193,8 +197,29 @@ export class StockReservationService {
               note: 'Digital payment window expired; reserved stock released',
             },
           })
+          return true
         }
+        return false
       })
+      if (cancelled) {
+        const order = await this.prisma.order.findUnique({
+          where: { id: row.orderId },
+          select: { storeId: true, invoiceNumber: true, updatedAt: true },
+        })
+        if (order) {
+          void this.realtime
+            ?.publishOrderEvent({
+              type: 'order.status_changed',
+              orderId: row.orderId,
+              storeId: order.storeId,
+              invoiceNumber: order.invoiceNumber,
+              status: 'CANCELLED',
+              paymentStatus: 'FAILED',
+              updatedAt: order.updatedAt,
+            })
+            .catch(() => undefined)
+        }
+      }
     }
     if (expired.length) this.logger.log(`Expired ${expired.length} stock reservation(s)`)
   }

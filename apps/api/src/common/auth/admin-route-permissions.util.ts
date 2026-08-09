@@ -109,6 +109,10 @@ export function resolveRoutePermission(
     return { moduleSlug: 'finance', action: methodToAction(method) }
   }
 
+  if (normalized.startsWith('realtime/admin')) {
+    return { moduleSlug: 'orders', action: 'view' }
+  }
+
   if (
     !normalized.startsWith('admin/') &&
     !normalized.startsWith('commerce-os/') &&

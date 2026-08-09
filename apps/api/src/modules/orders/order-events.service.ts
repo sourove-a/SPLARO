@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger, Optional, forwardRef } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
+import { RealtimePublisher } from '../../common/realtime/realtime.publisher'
 import { AutomationService } from '../automation/automation.service'
 import { LoyaltyService } from '../loyalty/loyalty.service'
 import { NotificationsService } from '../notifications/notifications.service'
@@ -34,6 +35,7 @@ export class OrderEventsService {
     @Optional() private readonly telegramHub: AdminTelegramHubService,
     @Optional() private readonly webhooks: WebhooksService,
     @Optional() private readonly googleSync: GoogleSyncQueueService,
+    @Optional() private readonly realtime: RealtimePublisher,
   ) {}
 
   async onOrderPlaced(storeId: string, orderId: string): Promise<void> {
@@ -42,6 +44,18 @@ export class OrderEventsService {
       include: { items: true, customer: true },
     })
     if (!order) return
+
+    void this.realtime
+      ?.publishOrderEvent({
+        type: 'order.created',
+        orderId: order.id,
+        storeId,
+        invoiceNumber: order.invoiceNumber,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        updatedAt: order.updatedAt,
+      })
+      .catch(() => undefined)
 
     const ctx = this.buildContext(order, storeId)
 
@@ -66,6 +80,18 @@ export class OrderEventsService {
       include: { items: true, customer: true },
     })
     if (!order) return
+
+    void this.realtime
+      ?.publishOrderEvent({
+        type: 'order.status_changed',
+        orderId: order.id,
+        storeId,
+        invoiceNumber: order.invoiceNumber,
+        status: newStatus,
+        paymentStatus: order.paymentStatus,
+        updatedAt: order.updatedAt,
+      })
+      .catch(() => undefined)
 
     const ctx = this.buildContext(order, storeId)
 
@@ -103,6 +129,18 @@ export class OrderEventsService {
   async onPaymentReceived(storeId: string, orderId: string, amount: number, method: string): Promise<void> {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } })
     if (!order) return
+
+    void this.realtime
+      ?.publishOrderEvent({
+        type: 'order.payment_updated',
+        orderId: order.id,
+        storeId,
+        invoiceNumber: order.invoiceNumber,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        updatedAt: order.updatedAt,
+      })
+      .catch(() => undefined)
 
     await this.notifications?.notifyPaymentReceived(storeId, order.invoiceNumber, amount, method)
     await this.webhooks?.dispatch(storeId, 'payment.received', {

@@ -8,10 +8,9 @@ import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider, useDcScreen } from '@/components/dc/DcScreenContext'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
-import { useOrders } from '@/lib/api/hooks'
+import { useFulfillmentTodayStats, useOrders } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import {
-  fetchFulfillmentTodayStats,
   scanFulfillment,
   type FulfillmentScanAction,
 } from '@/lib/api/fulfillment'
@@ -62,7 +61,6 @@ function DcPackingBody() {
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [history, setHistory] = useState<ScanRow[]>([])
-  const [stats, setStats] = useState({ packed: 0, shipped: 0 })
   const [blocked, setBlocked] = useState<{ id: string; message: string } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const mobileInputRef = useRef<HTMLInputElement>(null)
@@ -71,18 +69,13 @@ function DcPackingBody() {
   const queueStatus = mode === 'pack' ? 'CONFIRMED' : 'PACKED'
   const orders = useOrders({ status: queueStatus, limit: 50 })
   const queue = useMemo(() => orders.data?.orders ?? [], [orders.data])
+  const todayStats = useFulfillmentTodayStats()
+  const stats = todayStats.data ?? { packed: 0, shipped: 0 }
+  const refetchStats = todayStats.refetch
 
   const refreshStats = useCallback(() => {
-    fetchFulfillmentTodayStats()
-      .then(setStats)
-      .catch(() => {
-        /* The counters are informational — a failed poll must not block scanning. */
-      })
-  }, [])
-
-  useEffect(() => {
-    refreshStats()
-  }, [refreshStats])
+    void refetchStats()
+  }, [refetchStats])
 
   // The scanner is a keyboard wedge: the field must hold focus at all times.
   useEffect(() => {

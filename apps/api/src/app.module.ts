@@ -135,6 +135,9 @@ import { SteadfastWebhookController } from './modules/courier/steadfast-webhook.
 import { SteadfastWebhookService } from './modules/courier/steadfast-webhook.service'
 import { NotificationsController } from './modules/notifications/notifications.controller'
 import { InvoiceController } from './modules/invoices/invoice.controller'
+import { RealtimeController } from './modules/realtime/realtime.controller'
+import { RealtimeBusService } from './common/realtime/realtime-bus.service'
+import { RealtimePublisher } from './common/realtime/realtime.publisher'
 import { PosController } from './modules/pos/pos.controller'
 import { FulfillmentController } from './modules/fulfillment/fulfillment.controller'
 import { FulfillmentService } from './modules/fulfillment/fulfillment.service'
@@ -290,6 +293,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     SteadfastWebhookController,
     NotificationsController,
     InvoiceController,
+    RealtimeController,
     PosController,
     FulfillmentController,
   ],
@@ -303,6 +307,8 @@ const queueWorkerProviders = redisQueuesEnabled()
     PrismaService,
     FinanceAuditService,
     RedisService,
+    RealtimeBusService,
+    RealtimePublisher,
     CacheService,
     PresenceService,
     AdminSessionResolver,

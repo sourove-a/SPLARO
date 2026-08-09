@@ -12,6 +12,7 @@ import {
   saveDailyGoal,
 } from './dashboard'
 import { fetchOrders, fetchOrder, updateOrderStatus, updateOrderPaymentStatus, deleteOrder, bookOrderCourier, bookOrdersCourierBulk, createOrder, bulkUpdateOrderStatus, setOrderCodRisk, addOrderNote, type OrderPaymentStatus } from './orders'
+import { fetchFulfillmentTodayStats } from './fulfillment'
 import { fetchProducts, createProduct, updateProduct, deleteProduct, fetchProduct, updateProductVariant, fetchProductVersions, restoreProductVersion, createProductVariant, archiveProductVariant } from './products'
 import {
   fetchCategories,
@@ -135,6 +136,14 @@ export function useDashboardInsights(periodLabel: string) {
     staleTime: 60_000,
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
+  })
+}
+
+export function useFulfillmentTodayStats() {
+  return useQuery({
+    queryKey: ['fulfillment-today-stats'],
+    queryFn: fetchFulfillmentTodayStats,
+    staleTime: 15_000,
   })
 }
 

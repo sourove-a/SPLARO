@@ -40,6 +40,7 @@ import { displayOrderCode, orderConfirmedDocumentTitle } from '@splaro/config'
 import { formatBDT } from '@/lib/utils/currency'
 import { checkoutMotionTransition, checkoutTapSpring } from '@/lib/checkout/checkout-motion'
 import { copyTextToClipboard } from '@/lib/utils/clipboard'
+import { useOrderRealtime } from '@/lib/realtime/useOrderRealtime'
 
 interface OrderConfirmationPageClientProps {
   orderId: string
@@ -75,6 +76,34 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const [showDispatch, setShowDispatch] = useState(false)
   const reducedMotion = useReducedMotion()
+  const { liveHint } = useOrderRealtime({
+    orderId: order?.id || orderId,
+    accessKey,
+    enabled: Boolean(order),
+    onEvent: (event) => {
+      setOrder((current) => {
+        if (!current) return current
+        const status = event.status?.toLowerCase()
+        return {
+          ...current,
+          ...(status ? { status } : {}),
+          ...(event.updatedAt ? { updatedAt: event.updatedAt } : {}),
+          tracking: {
+            ...current.tracking,
+            ...(status ? { stage: status } : {}),
+            ...(event.updatedAt ? { updatedAt: event.updatedAt } : {}),
+          },
+        }
+      })
+    },
+    onReconcile: async () => {
+      const fresh = await fetchOrderById(orderId, accessKey)
+      if (fresh) {
+        setOrder(fresh)
+        saveOrderLocally(fresh)
+      }
+    },
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -328,6 +357,11 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
               transition={{ ...checkoutMotionTransition(reducedMotion, 0.42), delay: reducedMotion ? 0 : 0.28 }}
             >
               <DeliveryMotion stage={deliveryStage} />
+              {liveHint ? (
+                <p className="checkout-subtitle" aria-live="polite">
+                  Updated just now
+                </p>
+              ) : null}
             </motion.div>
             <div className="checkout-success__actions">
               <motion.button

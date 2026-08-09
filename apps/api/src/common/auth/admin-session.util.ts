@@ -98,6 +98,9 @@ export function isPublicApiPath(path: string, method = 'GET'): boolean {
 
   if (normalized.startsWith('seo/sitemap/') && verb === 'GET') return true
   if (normalized.startsWith('seo/schema/product/') && verb === 'GET') return true
+  if (verb === 'GET' && (normalized === 'realtime/orders' || normalized.startsWith('realtime/orders/'))) {
+    return true
+  }
 
   if (normalized === 'search/analytics/track' && verb === 'POST') return true
   if (normalized.startsWith('search/analytics/') && normalized.endsWith('/click') && verb === 'PATCH') {
