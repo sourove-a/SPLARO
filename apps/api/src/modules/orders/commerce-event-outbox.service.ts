@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { Cron, CronExpression } from '@nestjs/schedule'
 import type { Prisma } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
+import { isSchedulerInstance } from '../../common/scheduler-instance.util'
 import {
   OrderSideEffectsQueueService,
   type OrderPlacedSideEffectPayload,
@@ -58,6 +59,7 @@ export class CommerceEventOutboxService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async processPending(): Promise<void> {
+    if (!isSchedulerInstance()) return
     const staleProcessing = new Date(Date.now() - PROCESSING_TIMEOUT_MS)
     const events = await this.prisma.commerceEventOutbox.findMany({
       where: {

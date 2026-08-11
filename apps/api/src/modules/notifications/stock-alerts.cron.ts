@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { PrismaService } from '../../common/prisma.service'
+import { isSchedulerInstance } from '../../common/scheduler-instance.util'
 import { findLowStockVariants } from './low-stock.util'
 import { NotificationsService } from './notifications.service'
 
@@ -25,6 +26,7 @@ export class StockAlertsCron {
    */
   @Cron('0 */4 * * *')
   async sweepLowStock() {
+    if (!isSchedulerInstance()) return
     if (this.running) return
     this.running = true
     try {

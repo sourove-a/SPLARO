@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import {
   useGoogleOneTapLogin,
   useGoogleOAuth,
@@ -118,9 +119,17 @@ function GoogleOneTapPrompt({
             needsPhone?: boolean
           }
           needsPhone?: boolean
+          error?: string
         }
 
-        if (!res.ok || !payload.user) return
+        if (!res.ok || !payload.user) {
+          // Silence here left the shopper tapping One Tap with nothing happening —
+          // a rejected credential (e.g. unverified Google email) must be visible.
+          toast.error(payload.error ?? 'Google sign-in failed. Try the sign-in page.', {
+            id: 'google-one-tap',
+          })
+          return
+        }
 
         dismissGoogleOneTap()
         onDismissed()
@@ -131,7 +140,10 @@ function GoogleOneTapPrompt({
           safeClientNavigate(router, buildSignupPhonePath('/account'), 'replace')
         }
       } catch {
-        // leave dismiss untouched for retry
+        // Network failure — leave dismiss untouched so One Tap can retry.
+        toast.error('Could not reach SPLARO — check your connection and try again.', {
+          id: 'google-one-tap',
+        })
       } finally {
         busyRef.current = false
       }

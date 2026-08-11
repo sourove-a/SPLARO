@@ -25,6 +25,18 @@ function splitName(name: string) {
   return { firstName, lastName }
 }
 
+/** Storefront reads this to show sign-in / recovery links on the phone step. */
+export const PHONE_TAKEN_CODE = 'phone_taken'
+
+function phoneTakenError() {
+  return new BadRequestException({
+    statusCode: 400,
+    code: PHONE_TAKEN_CODE,
+    message:
+      'This phone number is already registered. Sign in to that account, or use a different number.',
+  })
+}
+
 function accountExistsMessage(user: {
   googleId?: string | null
   authProvider?: string | null
@@ -191,9 +203,7 @@ export class CustomersService implements OnModuleInit {
           const isGuestOnly =
             !phoneOwner.passwordHash && !phoneOwner.googleId && !phoneOwner.email
           if (!input.phoneVerified || !isGuestOnly) {
-            throw new BadRequestException(
-              'This phone number is already registered. Sign in to that account, or use a different number.',
-            )
+            throw phoneTakenError()
           }
           await this.adoptGuestAccount(tx, {
             guestUserId: phoneOwner.id,
@@ -253,7 +263,7 @@ export class CustomersService implements OnModuleInit {
     } catch (err) {
       if (err instanceof BadRequestException) throw err
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new BadRequestException('This phone number is already registered')
+        throw phoneTakenError()
       }
       throw err
     }
@@ -274,9 +284,7 @@ export class CustomersService implements OnModuleInit {
     })
     if (targetCustomer) {
       // Both sides already have order history — merging those is an admin decision.
-      throw new BadRequestException(
-        'This phone number is already registered. Sign in to that account, or use a different number.',
-      )
+      throw phoneTakenError()
     }
 
     await tx.user.update({

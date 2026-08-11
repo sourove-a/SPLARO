@@ -34,7 +34,10 @@ export async function POST(request: Request) {
   })
 
   if ('error' in result) {
-    return NextResponse.json({ error: result.error }, { status: 400 })
+    return NextResponse.json(
+      { error: result.error, ...(result.code ? { code: result.code } : {}) },
+      { status: 400 },
+    )
   }
 
   return NextResponse.json({ user: result.user }, { status: 200 })

@@ -1008,6 +1008,28 @@ body.auth-page .auth-google-glass__native iframe {
   color: rgba(16, 17, 20, 0.45);
 }
 
+/* Recovery links shown when the phone belongs to another account. */
+.auth-form__recovery {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border-radius: 16px;
+  border: 1px solid rgba(16, 17, 20, 0.1);
+  background: rgba(16, 17, 20, 0.03);
+  padding: 0.8rem 1rem;
+}
+
+.auth-form__recovery .auth-form__hint {
+  margin: 0;
+}
+
+.auth-form__recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem;
+}
+
 .auth-google-phone-cancel {
   align-self: center;
   margin-top: 0.15rem;

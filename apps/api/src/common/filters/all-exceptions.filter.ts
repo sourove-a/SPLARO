@@ -12,10 +12,14 @@ type ErrorBody = {
   statusCode: number
   message: string | string[]
   error?: string
+  code?: string
   path: string
   requestId?: string
   timestamp: string
 }
+
+/** Stable machine-readable reasons clients branch on (e.g. phone_taken). */
+const CODE_PATTERN = /^[a-z][a-z0-9_]{2,39}$/
 
 function isProduction() {
   return process.env['NODE_ENV'] === 'production'
@@ -38,6 +42,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR
     let message: string | string[] = 'Internal server error'
     let error = 'Internal Server Error'
+    let code: string | undefined
 
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus()
@@ -51,6 +56,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
         }
         if (typeof record.error === 'string') {
           error = record.error
+        }
+        // Carry an explicit reason code through to the client. Only 4xx, and only
+        // a slug — never an internal message that could leak query details.
+        if (
+          typeof record.code === 'string' &&
+          statusCode < 500 &&
+          CODE_PATTERN.test(record.code)
+        ) {
+          code = record.code
         }
       }
     } else if (exception instanceof Error) {
@@ -78,6 +92,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       statusCode,
       message: clientMessage,
       error,
+      ...(code ? { code } : {}),
       path: request.url,
       timestamp: new Date().toISOString(),
       ...(requestId ? { requestId } : {}),

@@ -2,6 +2,7 @@ import { Injectable, Logger, Optional } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { PrismaService } from '../../common/prisma.service'
 import { CacheService } from '../../common/cache.service'
+import { isSchedulerInstance } from '../../common/scheduler-instance.util'
 import { SearchService } from '../search/search.service'
 import { refreshProductCatalogAfterMutation } from './product-catalog-refresh.util'
 
@@ -19,6 +20,7 @@ export class ProductPublishCron {
   /** Flip SCHEDULED products whose publishAt has passed to live on the storefront. */
   @Cron('*/5 * * * *')
   async publishDueProducts() {
+    if (!isSchedulerInstance()) return
     if (this.running) return
     this.running = true
     try {

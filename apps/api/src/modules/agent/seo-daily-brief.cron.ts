@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { PrismaService } from '../../common/prisma.service'
+import { isSchedulerInstance } from '../../common/scheduler-instance.util'
 import { NotificationsService } from '../notifications/notifications.service'
 import { buildSeoDailyBrief } from './seo-daily-brief.util'
 
@@ -17,6 +18,7 @@ export class SeoDailyBriefCron {
   /** Read-only daily brief. Never changes product metadata or requests an LLM. */
   @Cron('15 6 * * *', { timeZone: 'Asia/Dhaka' })
   async publishDailyBrief() {
+    if (!isSchedulerInstance()) return
     if (this.running) return
     this.running = true
     try {

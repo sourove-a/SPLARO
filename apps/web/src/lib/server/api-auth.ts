@@ -121,7 +121,7 @@ export async function apiAuthGoogle(
 export async function apiCompletePhone(
   sessionToken: string,
   input: { phone: string; code?: string },
-): Promise<{ user: ApiAuthUser } | { error: string }> {
+): Promise<{ user: ApiAuthUser } | { error: string; code?: string }> {
   const res = await fetchWithTimeout(
     apiUrl(`/storefront/auth/complete-phone?storeId=${encodeURIComponent(STORE_ID)}`),
     {
@@ -135,8 +135,11 @@ export async function apiCompletePhone(
     return { error: 'Could not save phone — try again.' }
   }
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { message?: string }
-    return { error: body.message ?? 'Could not complete signup' }
+    const body = (await res.json().catch(() => ({}))) as { message?: string; code?: string }
+    return {
+      error: body.message ?? 'Could not complete signup',
+      ...(body.code ? { code: body.code } : {}),
+    }
   }
   const payload = (await res.json()) as { user?: ApiAuthUser }
   if (!payload.user) {

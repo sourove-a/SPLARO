@@ -85,6 +85,7 @@ export function AuthExperience() {
   const [googleName, setGoogleName] = useState(
     () => useAuthStore.getState().user?.name ?? '',
   )
+  const [phoneTaken, setPhoneTaken] = useState(false)
   const [otpCode, setOtpCode] = useState('')
   const [otpSent, setOtpSent] = useState(false)
   const [otpDevHint, setOtpDevHint] = useState('')
@@ -354,10 +355,14 @@ export function AuthExperience() {
       const payload = (await response.json()) as {
         user?: { id: string; name: string; email: string; phone: string }
         error?: string
+        code?: string
       }
 
       if (!response.ok || !payload.user) {
         setError(payload.error ?? 'Could not complete signup.')
+        // The number belongs to another account — offer a way out instead of
+        // leaving the shopper stuck on a step they cannot pass.
+        setPhoneTaken(payload.code === 'phone_taken')
         return
       }
 
@@ -547,7 +552,7 @@ export function AuthExperience() {
     </>
   )
 
-  const handleCancelGooglePhone = async () => {
+  const leavePhoneStep = async (destination: string) => {
     setError('')
     await signOut()
     setPhone('')
@@ -555,11 +560,22 @@ export function AuthExperience() {
     setOtpSent(false)
     setOtpDevHint('')
     setGoogleName('')
+    setPhoneTaken(false)
     setGoogleStep('form')
     setGoogleError('')
     invalidateAuthSessionReconcile()
-    safeClientNavigate(router, '/signup', 'replace')
+    safeClientNavigate(router, destination, 'replace')
   }
+
+  const handleCancelGooglePhone = () => leavePhoneStep('/signup')
+
+  /** The number is on another account — drop this half-made session and sign in there. */
+  const handleSignInInstead = () =>
+    leavePhoneStep(
+      nextPath && nextPath !== '/account'
+        ? `/login?next=${encodeURIComponent(nextPath)}`
+        : '/login',
+    )
 
   const googlePhoneFields = (
     <>
@@ -574,7 +590,11 @@ export function AuthExperience() {
         inputMode="numeric"
         inputRef={phoneInputRef}
         value={phone}
-        onChange={(event) => setPhone(formatBdPhoneInput(event.target.value))}
+        onChange={(event) => {
+          setPhone(formatBdPhoneInput(event.target.value))
+          // Typing a different number clears the "belongs to another account" branch.
+          if (phoneTaken) setPhoneTaken(false)
+        }}
         placeholder="01XXXXXXXXX"
         autoComplete="tel-national"
         trailing={
@@ -606,6 +626,28 @@ export function AuthExperience() {
         </>
       ) : null}
       {error ? <p className="auth-form__error">{error}</p> : null}
+      {phoneTaken ? (
+        <div className="auth-form__recovery">
+          <p className="auth-form__hint">
+            Already ordered with this number? Sign in to that account instead.
+          </p>
+          <div className="auth-form__recovery-actions">
+            <Link
+              href={`/login?next=${encodeURIComponent(nextPath)}`}
+              className="auth-link"
+              onClick={(event) => {
+                event.preventDefault()
+                void handleSignInInstead()
+              }}
+            >
+              Sign in to that account
+            </Link>
+            <Link href="/forgot-password" className="auth-link auth-link--muted">
+              Forgot password?
+            </Link>
+          </div>
+        </div>
+      ) : null}
       <AuthSubmitButton loading={loading} loadingLabel="Saving…">
         Save phone & continue
       </AuthSubmitButton>

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { isFeatureEnabled } from '@splaro/config'
 import { PrismaService } from '../../common/prisma.service'
+import { isSchedulerInstance } from '../../common/scheduler-instance.util'
 import { NotificationsService } from '../notifications/notifications.service'
 import { GoogleClientService } from './google-client.service'
 import { isSheetsAuthFailure } from './google-sheets-auth.util'
@@ -28,6 +29,7 @@ export class GoogleSheetsLiveCron {
    */
   @Cron('*/15 * * * *')
   async liveRefresh() {
+    if (!isSchedulerInstance()) return
     if (!isFeatureEnabled('googleSheets')) return
     if (this.running) return
     this.running = true

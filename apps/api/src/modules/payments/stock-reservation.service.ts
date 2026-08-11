@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
 import { RealtimePublisher } from '../../common/realtime/realtime.publisher'
 import { assertOrderStatusTransition } from '../../common/order-status.util'
+import { isSchedulerInstance } from '../../common/scheduler-instance.util'
 
 export interface ReservableLine {
   variantId: string
@@ -166,6 +167,7 @@ export class StockReservationService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async expireReservations(): Promise<void> {
+    if (!isSchedulerInstance()) return
     const expired = await this.prisma.stockReservation.findMany({
       where: { status: 'ACTIVE', expiresAt: { lte: new Date() } },
       select: { orderId: true },
