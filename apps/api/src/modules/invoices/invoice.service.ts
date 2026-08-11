@@ -6,7 +6,13 @@ import { buildInvoiceViewModel, type InvoiceOrder } from './invoice.helpers'
 import { generateInvoiceEmailBody } from './invoice-email-body.template'
 import { generateInvoiceHTML } from './invoice.template'
 import { generateInvoiceEmailHTML } from './invoice-email.template'
-import { SPLARO_INVOICE_BRAND, resolveCustomerFacingSiteUrl, buildInvoiceAccessToken } from '@splaro/config'
+import {
+  SPLARO_INVOICE_BRAND,
+  resolveCustomerFacingSiteUrl,
+} from '@splaro/config'
+import {
+  buildInvoiceAccessToken,
+} from '@splaro/config/invoice-access'
 
 function resolveChromeExecutable(puppeteerExecutablePath: () => string): string | undefined {
   const fromEnv = process.env.PUPPETEER_EXECUTABLE_PATH?.trim()

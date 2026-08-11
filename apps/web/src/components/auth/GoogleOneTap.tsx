@@ -192,11 +192,15 @@ export function GoogleOneTap() {
       if (!cancelled) setBootReady(true)
     }
 
+    const win = /Windows/i.test(navigator.userAgent || '')
+    const idleTimeout = win ? 4500 : 2200
+    const fallbackMs = win ? 3500 : 1600
+
     const idle =
       typeof window !== 'undefined' && 'requestIdleCallback' in window
-        ? window.requestIdleCallback(start, { timeout: 2200 })
+        ? window.requestIdleCallback(start, { timeout: idleTimeout })
         : null
-    const fallback = window.setTimeout(start, 1600)
+    const fallback = window.setTimeout(start, fallbackMs)
 
     return () => {
       cancelled = true

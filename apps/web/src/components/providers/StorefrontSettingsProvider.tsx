@@ -35,10 +35,17 @@ export function StorefrontSettingsProvider({
 
   useEffect(() => {
     let cancelled = false
+    let idleId: number | null = null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
 
     const syncSettings = async () => {
       try {
-        const res = await fetch('/api/nav', { cache: 'no-store', credentials: 'same-origin' })
+        // Soft cache — SSR already hydrated chrome; this only picks up mid-session admin edits.
+        const res = await fetch('/api/nav', {
+          credentials: 'same-origin',
+          // Allow BFCache / HTTP cache on Windows cold loads instead of forcing a network trip.
+          cache: 'default',
+        })
         if (!res.ok) return
         const data = (await res.json()) as { settings?: StorefrontSettings }
         if (cancelled || !data.settings) return
@@ -48,9 +55,39 @@ export function StorefrontSettingsProvider({
       }
     }
 
-    void syncSettings()
+    const schedule = () => {
+      const win =
+        typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent || '')
+      const delayMs = win ? 2500 : 400
+      const run = () => {
+        if (cancelled) return
+        void syncSettings()
+      }
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        idleId = window.requestIdleCallback(run, { timeout: delayMs + 1500 })
+      } else {
+        timeoutId = setTimeout(run, delayMs)
+      }
+    }
+
+    // Wait for first paint / load before competing with LCP on Windows Chrome.
+    if (typeof document !== 'undefined' && document.readyState === 'complete') {
+      schedule()
+    } else if (typeof window !== 'undefined') {
+      window.addEventListener('load', schedule, { once: true })
+    } else {
+      schedule()
+    }
+
     return () => {
       cancelled = true
+      if (idleId != null && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId)
+      }
+      if (timeoutId) clearTimeout(timeoutId)
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('load', schedule)
+      }
     }
   }, [pathname, settings])
 

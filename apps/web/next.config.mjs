@@ -63,7 +63,17 @@ const nextConfig = {
   // Hide Next.js "N" badge — overlaps storefront content in local/dev.
   devIndicators: false,
   experimental: {
-    optimizePackageImports: ['lucide-react', 'motion/react', 'date-fns', '@radix-ui/react-dialog'],
+    optimizePackageImports: [
+      'lucide-react',
+      'motion/react',
+      'date-fns',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-select',
+      '@radix-ui/react-accordion',
+      '@radix-ui/react-tabs',
+      'zod',
+    ],
     // CloudLinux NPROC counts threads — parallel build workers get the process killed
     ...(onSameBoxVps ? { cpus: 1, workerThreads: false } : {}),
   },

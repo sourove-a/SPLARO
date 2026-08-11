@@ -536,8 +536,13 @@ function HeroBackground({
           loop
           playsInline
           autoPlay
-          /* Active slide only — auto preload so first frames arrive without idle lag. */
-          preload="auto"
+          /* Active slide: metadata on Windows (main-thread / bandwidth), auto elsewhere. */
+          preload={
+            typeof document !== 'undefined' &&
+            document.documentElement.getAttribute('data-os') === 'windows'
+              ? 'metadata'
+              : 'auto'
+          }
           disablePictureInPicture
           controls={false}
           {...(poster ? { poster } : {})}

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { verifyInvoiceAccessToken } from '@splaro/config'
+import {
+  verifyInvoiceAccessToken,
+} from '@splaro/config/invoice-access'
 import { resolveOrderById } from '@/lib/server/orders'
 import { initPayment } from '@/lib/server/payments/sslcommerz'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'

@@ -11,11 +11,13 @@ import {
 } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
 import {
-  buildInvoiceAccessToken,
   resolveAllowedPaymentCallbackUrl,
   resolveCustomerFacingSiteUrl,
-  verifyInvoiceAccessToken,
 } from '@splaro/config'
+import {
+  buildInvoiceAccessToken,
+  verifyInvoiceAccessToken,
+} from '@splaro/config/invoice-access'
 import type { Prisma } from '@prisma/client'
 import type { Response } from 'express'
 import {

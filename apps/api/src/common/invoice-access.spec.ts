@@ -1,4 +1,7 @@
-import { buildInvoiceAccessToken, verifyInvoiceAccessToken } from '@splaro/config'
+import {
+  buildInvoiceAccessToken,
+  verifyInvoiceAccessToken,
+} from '@splaro/config/invoice-access'
 
 describe('invoice access token', () => {
   const secret = 'test-invoice-secret'

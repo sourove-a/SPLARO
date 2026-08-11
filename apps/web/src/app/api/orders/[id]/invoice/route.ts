@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server'
-import { getServerApiBaseUrl, verifyInvoiceAccessToken } from '@splaro/config'
+import {
+  getServerApiBaseUrl,
+} from '@splaro/config'
+import {
+  verifyInvoiceAccessToken,
+} from '@splaro/config/invoice-access'
 import { apiAuthMe, getSessionToken } from '@/lib/server/api-auth'
 import { resolveOrderById } from '@/lib/server/orders'
 

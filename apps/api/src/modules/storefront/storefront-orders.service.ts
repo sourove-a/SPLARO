@@ -1,5 +1,11 @@
 import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common'
-import { formatSplOrderCode, parseSplOrderNumber, verifyInvoiceAccessToken } from '@splaro/config'
+import {
+  formatSplOrderCode,
+  parseSplOrderNumber,
+} from '@splaro/config'
+import {
+  verifyInvoiceAccessToken,
+} from '@splaro/config/invoice-access'
 import { PrismaService } from '../../common/prisma.service'
 import { RedisService } from '../../common/redis.service'
 import { resolveStoreId } from '../../common/store.util'

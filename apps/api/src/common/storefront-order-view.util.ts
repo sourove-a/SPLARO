@@ -1,4 +1,6 @@
-import { buildInvoiceAccessToken } from '@splaro/config'
+import {
+  buildInvoiceAccessToken,
+} from '@splaro/config/invoice-access'
 import { publicOrderCode, serializePublicOrder } from './public-order.util'
 
 type OrderItemLike = {

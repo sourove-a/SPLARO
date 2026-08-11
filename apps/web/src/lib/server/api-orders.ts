@@ -1,5 +1,10 @@
 import { createHash } from 'crypto'
-import { buildInvoiceAccessToken, getServerApiBaseUrl } from '@splaro/config'
+import {
+  getServerApiBaseUrl,
+} from '@splaro/config'
+import {
+  buildInvoiceAccessToken,
+} from '@splaro/config/invoice-access'
 import type { StoredOrder, StoredOrderItem } from '@/lib/server/store'
 import { fetchWithTimeout } from '@/lib/server/build-safe-fetch'
 

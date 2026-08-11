@@ -16,8 +16,15 @@
       "require": "./dist/domains.js",
       "import": "./dist/domains.js",
       "default": "./dist/domains.js"
+    },
+    "./invoice-access": {
+      "types": "./dist/invoice-access.d.ts",
+      "require": "./dist/invoice-access.js",
+      "import": "./dist/invoice-access.js",
+      "default": "./dist/invoice-access.js"
     }
   },
+  "sideEffects": false,
   "scripts": {
     "build": "node -e \"const fs=require('fs'); fs.rmSync('dist',{recursive:true,force:true}); try{fs.unlinkSync('tsconfig.build.tsbuildinfo')}catch(e){}\" && tsc -p tsconfig.build.json",
     "type-check": "tsc -p tsconfig.json --noEmit"

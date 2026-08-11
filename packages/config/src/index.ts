@@ -4,7 +4,8 @@ export * from './brand-icons'
 export * from './delivery-zones'
 export * from './domains'
 export * from './feature-flags'
-export * from './invoice-access'
+// invoice-access uses Node crypto — import from '@splaro/config/invoice-access' only
+// (never from this barrel) so client bundles do not pull ~325KB asn1/bn.js polyfills.
 export * from './invoice-brand'
 export * from './splaro-invoice-brand'
 export * from './strip-extension-attrs'

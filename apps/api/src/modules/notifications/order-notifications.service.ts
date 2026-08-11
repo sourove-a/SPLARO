@@ -4,7 +4,13 @@ import { EmailService } from '../email/email.service'
 import { generateInvoiceEmailBody } from '../invoices/invoice-email-body.template'
 import { generateInvoiceEmailHTML } from '../invoices/invoice-email.template'
 import { buildInvoiceViewModel } from '../invoices/invoice.helpers'
-import { resolveCustomerFacingSiteUrl, SPLARO_INVOICE_BRAND, buildInvoiceAccessToken } from '@splaro/config'
+import {
+  resolveCustomerFacingSiteUrl,
+  SPLARO_INVOICE_BRAND,
+} from '@splaro/config'
+import {
+  buildInvoiceAccessToken,
+} from '@splaro/config/invoice-access'
 import { TelegramService } from '../telegram/telegram.service'
 import { CourierService } from '../courier/courier.service'
 import { NotificationsService } from './notifications.service'
