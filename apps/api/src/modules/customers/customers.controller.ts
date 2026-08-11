@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Param, Query, Body, NotFoundException, BadRequestException, Inject } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { deleteOrderWithRelations } from '../../common/order-cleanup'
+import { buildCustomerLookupWhere } from '../../common/customer-code.util'
 import { resolveStoreId } from '../../common/store.util'
 import { resolveAdminPagination } from '../../common/admin-pagination.util'
 import { LoyaltyService } from '../loyalty/loyalty.service'
@@ -35,11 +36,11 @@ export class CustomersController {
     return resolveStoreId(this.prisma, raw)
   }
 
-  /** Load a customer scoped to the caller's store — prevents cross-store IDOR via :id. */
-  private async ownedCustomer(id: string, storeId?: string, select?: Prisma.CustomerSelect) {
+  /** Load a customer scoped to the caller's store — id or SPL-C-######. */
+  private async ownedCustomer(idOrCode: string, storeId?: string, select?: Prisma.CustomerSelect) {
     const sid = await this.sid(storeId)
     const customer = await this.prisma.customer.findFirst({
-      where: { id, storeId: sid },
+      where: buildCustomerLookupWhere(idOrCode, sid),
       ...(select ? { select } : {}),
     })
     if (!customer) throw new NotFoundException('Customer not found')
@@ -62,6 +63,7 @@ export class CustomersController {
       ...(search ? {
         OR: [
           { phone: { contains: search } },
+          { customerCode: { contains: search, mode: 'insensitive' as const } },
           { firstName: { contains: search, mode: 'insensitive' as const } },
           { lastName: { contains: search, mode: 'insensitive' as const } },
           { email: { contains: search, mode: 'insensitive' as const } },
@@ -73,7 +75,7 @@ export class CustomersController {
       this.prisma.customer.findMany({
         where,
         select: {
-          id: true, firstName: true, lastName: true, phone: true, email: true,
+          id: true, customerCode: true, firstName: true, lastName: true, phone: true, email: true,
           loyaltyTier: true, loyaltyPoints: true, totalOrders: true, totalSpent: true,
           codRiskScore: true, tags: true, createdAt: true, lastOrderDate: true,
           user: {
@@ -127,7 +129,7 @@ export class CustomersController {
     const customers = await this.prisma.customer.findMany({
       where: { storeId: sid, ...(tier ? { loyaltyTier: tier as import('@prisma/client').LoyaltyTier } : {}) },
       select: {
-        firstName: true, lastName: true, phone: true, email: true,
+        customerCode: true, firstName: true, lastName: true, phone: true, email: true,
         loyaltyTier: true, loyaltyPoints: true, totalOrders: true, totalSpent: true,
         createdAt: true,
       },
@@ -135,9 +137,9 @@ export class CustomersController {
       take: 5000,
     })
 
-    const header = 'First Name,Last Name,Phone,Email,Tier,Points,Orders,Spent,Joined'
+    const header = 'Customer Code,First Name,Last Name,Phone,Email,Tier,Points,Orders,Spent,Joined'
     const rows = customers.map((c) =>
-      [c.firstName, c.lastName, c.phone, c.email ?? '', c.loyaltyTier, c.loyaltyPoints, c.totalOrders, Number(c.totalSpent), c.createdAt.toISOString()].join(','),
+      [c.customerCode ?? '', c.firstName, c.lastName, c.phone, c.email ?? '', c.loyaltyTier, c.loyaltyPoints, c.totalOrders, Number(c.totalSpent), c.createdAt.toISOString()].join(','),
     )
     return [header, ...rows].join('\n')
   }
@@ -158,7 +160,7 @@ export class CustomersController {
   async findOne(@Param('id') id: string, @Query('storeId') storeId?: string) {
     const sid = await this.sid(storeId)
     const customer = await this.prisma.customer.findFirst({
-      where: { id, storeId: sid },
+      where: buildCustomerLookupWhere(id, sid),
       include: {
         addresses: true,
         orders: {
@@ -336,9 +338,9 @@ export class CustomersController {
     @Param('id') id: string,
     @Body() body: { content: string; createdBy: string; storeId?: string },
   ) {
-    await this.ownedCustomer(id, body.storeId, { id: true })
+    const customer = await this.ownedCustomer(id, body.storeId, { id: true })
     return this.prisma.customerNote.create({
-      data: { customerId: id, body: body.content, isPrivate: true, authorId: body.createdBy },
+      data: { customerId: customer.id, body: body.content, isPrivate: true, authorId: body.createdBy },
     })
   }
 
@@ -347,14 +349,14 @@ export class CustomersController {
     @Param('id') id: string,
     @Body() body: { tags: string[]; storeId?: string },
   ) {
-    await this.ownedCustomer(id, body.storeId, { id: true })
-    return this.prisma.customer.update({ where: { id }, data: { tags: body.tags } })
+    const customer = await this.ownedCustomer(id, body.storeId, { id: true })
+    return this.prisma.customer.update({ where: { id: customer.id }, data: { tags: body.tags } })
   }
 
   @Get(':id/loyalty')
   async getLoyaltySummary(@Param('id') id: string, @Query('storeId') storeId?: string) {
-    await this.ownedCustomer(id, storeId, { id: true })
-    return this.loyalty.getLoyaltySummary(id)
+    const customer = await this.ownedCustomer(id, storeId, { id: true })
+    return this.loyalty.getLoyaltySummary(customer.id)
   }
 
   @Post(':id/loyalty/points')
@@ -362,10 +364,20 @@ export class CustomersController {
     @Param('id') id: string,
     @Body() body: { points: number; reason: string; storeId?: string },
   ) {
-    await this.ownedCustomer(id, body.storeId, { id: true })
+    const customer = await this.ownedCustomer(id, body.storeId, { id: true })
     await this.prisma.$transaction([
-      this.prisma.customer.update({ where: { id }, data: { loyaltyPoints: { increment: body.points } } }),
-      this.prisma.loyaltyHistory.create({ data: { customerId: id, points: body.points, type: 'BONUS', reason: body.reason } }),
+      this.prisma.customer.update({
+        where: { id: customer.id },
+        data: { loyaltyPoints: { increment: body.points } },
+      }),
+      this.prisma.loyaltyHistory.create({
+        data: {
+          customerId: customer.id,
+          points: body.points,
+          type: 'BONUS',
+          reason: body.reason,
+        },
+      }),
     ])
     return { success: true }
   }
@@ -434,9 +446,9 @@ export class CustomersController {
   /** Get wishlist for a customer */
   @Get(':id/wishlist')
   async getWishlist(@Param('id') id: string, @Query('storeId') storeId?: string) {
-    await this.ownedCustomer(id, storeId, { id: true })
+    const customer = await this.ownedCustomer(id, storeId, { id: true })
     return this.prisma.wishlist.findFirst({
-      where: { customerId: id },
+      where: { customerId: customer.id },
       include: {
         items: {
           include: {
@@ -450,8 +462,8 @@ export class CustomersController {
   /** Get addresses for a customer */
   @Get(':id/addresses')
   async getAddresses(@Param('id') id: string, @Query('storeId') storeId?: string) {
-    await this.ownedCustomer(id, storeId, { id: true })
-    return this.prisma.address.findMany({ where: { customerId: id } })
+    const customer = await this.ownedCustomer(id, storeId, { id: true })
+    return this.prisma.address.findMany({ where: { customerId: customer.id } })
   }
 
   @Delete(':id')
@@ -460,17 +472,18 @@ export class CustomersController {
     @Query('force') force?: string,
     @Query('storeId') storeId?: string,
   ) {
-    const customer = await this.ownedCustomer(id, storeId, { userId: true })
+    const customer = await this.ownedCustomer(id, storeId, { id: true, userId: true })
+    const customerId = customer.id
     // Counted, not read off Customer.totalOrders — that column is denormalised
     // and a stale zero would send a customer with real orders down the
     // no-force path, straight into a raw foreign-key error.
-    const orderCount = await this.prisma.order.count({ where: { customerId: id } })
+    const orderCount = await this.prisma.order.count({ where: { customerId } })
     if (orderCount > 0 && force !== 'true') {
       throw new BadRequestException('Delete orders first, or use force delete from admin.')
     }
 
     const orders = await this.prisma.$transaction(
-      (tx) => this.purgeCustomer(tx, id, customer.userId, force === 'true'),
+      (tx) => this.purgeCustomer(tx, customerId, customer.userId, force === 'true'),
       PURGE_TX_OPTIONS,
     )
 

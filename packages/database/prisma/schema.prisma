@@ -742,6 +742,7 @@ model StaffRole {
 
 model Customer {
   id                String         @id @default(cuid())
+  customerCode      String?
   userId            String         @unique
   storeId           String
   firstName         String
@@ -782,8 +783,10 @@ model Customer {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
+  @@unique([storeId, customerCode])
   @@index([storeId])
   @@index([phone])
+  @@index([customerCode])
   @@index([loyaltyTier])
 }
 

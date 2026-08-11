@@ -18,6 +18,7 @@ import { useCustomers } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { formatBdPhone, phoneMatches } from '@/lib/format/bd-phone'
 import type { ApiCustomer } from '@/lib/api/customers'
+import { customerPublicId } from '@/lib/format/customer-code'
 
 const SEGMENTS = ['All', 'VIP', 'Repeat', 'New', 'At risk', 'Blocked'] as const
 type Segment = (typeof SEGMENTS)[number]
@@ -120,7 +121,9 @@ function DcCustomersBody() {
       if (segment !== 'All' && segmentOf(c) !== segment) return false
       if (!q) return true
       if (phoneMatches(c.phone, q)) return true
-      return fullName(c).toLowerCase().includes(q) || c.id.toLowerCase().includes(q)
+      return fullName(c).toLowerCase().includes(q) ||
+        c.id.toLowerCase().includes(q) ||
+        (c.customerCode?.toLowerCase().includes(q) ?? false)
     })
   }, [all, segment, query])
 
@@ -271,7 +274,7 @@ function DcCustomersBody() {
             query={query}
             onQuery={setQuery}
             onSegment={setSegment}
-            onOpen={(id) => router.push(`/dashboard/customers/${id}`)}
+            onOpen={(id) => router.push(`/dashboard/customers/${encodeURIComponent(id)}`)}
           />
 
           <div className="dc-desktop-route-panel">
@@ -329,7 +332,7 @@ function DcCustomersBody() {
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Phone, name or customer ID…"
+                  placeholder="Phone, name, or SPL-C code…"
                   aria-label="Search customers"
                   style={{
                     flex: 1,
@@ -513,7 +516,7 @@ function DcCustomersBody() {
                     return (
                       <tr
                         key={c.id}
-                        onClick={() => router.push(`/dashboard/customers/${c.id}`)}
+                        onClick={() => router.push(`/dashboard/customers/${encodeURIComponent(customerPublicId(c))}`)}
                         className="dc-hover-surface"
                         style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer' }}
                       >
@@ -580,6 +583,13 @@ function DcCustomersBody() {
                               >
                                 {formatBdPhone(c.phone)}
                               </span>
+                              {c.customerCode ? (
+                                <span
+                                  style={{ font: `500 11px/1 ${MONO}`, color: 'var(--violet)' }}
+                                >
+                                  {c.customerCode.toUpperCase()}
+                                </span>
+                              ) : null}
                             </span>
                           </div>
                         </td>
@@ -924,7 +934,7 @@ function MobileCustomersList({
         <input
           value={query}
           onChange={(e) => onQuery(e.target.value)}
-          placeholder="Phone, name…"
+          placeholder="Phone, name, SPL-C…"
           aria-label="Search customers"
         />
       </label>
@@ -973,7 +983,7 @@ function MobileCustomersList({
                 key={c.id}
                 type="button"
                 className="dc-mobile-list-card"
-                onClick={() => onOpen(c.id)}
+                onClick={() => onOpen(customerPublicId(c))}
               >
                 <span
                   className="dc-mobile-list-card__icon"

@@ -1,6 +1,7 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common'
+import { BadRequestException, ConflictException, Injectable, OnModuleInit } from '@nestjs/common'
 import { Prisma } from '@prisma/client'
 import { bdPhoneLookupVariants, isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
+import { backfillCustomerCodes, createCustomerWithCode } from '../../common/customer-code.util'
 import { PrismaService } from '../../common/prisma.service'
 
 export interface RegisterCustomerInput {
@@ -36,8 +37,26 @@ function accountExistsMessage(user: {
 }
 
 @Injectable()
-export class CustomersService {
+export class CustomersService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
+
+  async onModuleInit() {
+    void this.backfillLegacyCustomerCodes()
+  }
+
+  private async backfillLegacyCustomerCodes() {
+    try {
+      const stores = await this.prisma.store.findMany({ select: { id: true } })
+      for (const { id } of stores) {
+        for (let batch = 0; batch < 40; batch++) {
+          const fixed = await backfillCustomerCodes(this.prisma, id, 100)
+          if (fixed === 0) break
+        }
+      }
+    } catch {
+      // DB offline in partial dev shells — skip.
+    }
+  }
 
   /**
    * Persist storefront signup as User + Customer in one transaction.
@@ -105,6 +124,7 @@ export class CustomersService {
 
         const existingCustomer = await tx.customer.findUnique({
           where: { userId },
+          select: { id: true, customerCode: true },
         })
 
         if (existingCustomer) {
@@ -121,16 +141,14 @@ export class CustomersService {
         }
 
         const sourceTag = input.source?.trim()
-        return tx.customer.create({
-          data: {
-            userId,
-            storeId,
-            firstName,
-            lastName,
-            email,
-            phone,
-            ...(sourceTag ? { tags: [sourceTag] } : {}),
-          },
+        return createCustomerWithCode(tx, {
+          userId,
+          storeId,
+          firstName,
+          lastName,
+          email,
+          phone,
+          ...(sourceTag ? { tags: [sourceTag] } : {}),
         })
       })
     } catch (err) {
@@ -202,16 +220,14 @@ export class CustomersService {
           return { customer, created: false as const }
         }
 
-        const customer = await tx.customer.create({
-          data: {
-            userId: user.id,
-            storeId,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            ...(email ? { email } : {}),
-            phone,
-            tags: ['Google signup'],
-          },
+        const customer = await createCustomerWithCode(tx, {
+          userId: user.id,
+          storeId,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          ...(email ? { email } : {}),
+          phone,
+          tags: ['Google signup'],
         })
         return { customer, created: true as const }
       })
@@ -277,16 +293,14 @@ export class CustomersService {
           select: { id: true },
         })
 
-        return tx.customer.create({
-          data: {
-            userId: user.id,
-            storeId,
-            firstName,
-            lastName,
-            email,
-            phone,
-            tags: ['admin-created'],
-          },
+        return createCustomerWithCode(tx, {
+          userId: user.id,
+          storeId,
+          firstName,
+          lastName,
+          email,
+          phone,
+          tags: ['admin-created'],
         })
       })
     } catch (err) {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 
 import { CustomerProfileClient } from '@/components/customers/CustomerProfileClient'
 import { DcPageHead } from '@/components/dc/DcPageHead'
@@ -9,6 +9,7 @@ import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { useCustomer } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { customerPublicId } from '@/lib/format/customer-code'
 
 /**
  * Customer 360 in DC chrome. Live profile + mutations stay in CustomerProfileClient.
@@ -25,6 +26,16 @@ export function DcCustomer360({ customerId }: { customerId: string }) {
     if (!data) return 'Customer 360°'
     return `${data.firstName} ${data.lastName}`.trim() || 'Customer 360°'
   }, [data])
+  const publicRef = data ? customerPublicId(data) : customerId
+  const syncRef = data?.customerCode ? publicRef : customerId
+
+  useEffect(() => {
+    if (!data?.customerCode) return
+    const next = customerPublicId(data)
+    if (customerId === data.id && next !== data.id) {
+      router.replace(`/dashboard/customers/${encodeURIComponent(next)}`)
+    }
+  }, [customerId, data, router])
 
   return (
     <DcScreenProvider screen="customer" onNavigate={(next) => router.push(`/dashboard/${next}`)}>
@@ -37,8 +48,8 @@ export function DcCustomer360({ customerId }: { customerId: string }) {
           customer.isFetching
             ? 'syncing…'
             : api.latencyMs != null
-              ? `GET /customers/${customerId} · ${api.latencyMs}ms`
-              : `GET /customers/${customerId}`
+              ? `GET /customers/${syncRef} · ${api.latencyMs}ms`
+              : `GET /customers/${syncRef}`
         }
         syncing={customer.isFetching}
         onBack={() => router.push('/dashboard/customers')}

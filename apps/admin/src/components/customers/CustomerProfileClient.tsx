@@ -43,6 +43,7 @@ export function CustomerProfileClient({ customerId }: { customerId: string }) {
     <Customer360Profile
       customer={{
         id: data.id,
+        ...(data.customerCode != null ? { customerCode: data.customerCode } : {}),
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,

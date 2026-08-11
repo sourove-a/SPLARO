@@ -22,6 +22,7 @@ import {
   generatePasswordResetEmailText,
 } from '../email/password-reset-email.template'
 import { CustomersService } from '../customers/customers.service'
+import { createCustomerWithCode } from '../../common/customer-code.util'
 import { GoogleIdTokenService } from './google-id-token.service'
 import { StorefrontOtpService, isStorefrontPhoneOtpEnabled } from './storefront-otp.service'
 
@@ -511,16 +512,13 @@ export class StorefrontAuthService {
     const lastName = parts.slice(1).join(' ') || firstName
 
     try {
-      const customer = await this.prisma.customer.create({
-        data: {
-          userId: user.id,
-          storeId,
-          firstName,
-          lastName,
-          email: user.email,
-          phone: user.phone,
-        },
-        select: { id: true },
+      const customer = await createCustomerWithCode(this.prisma, {
+        userId: user.id,
+        storeId,
+        firstName,
+        lastName,
+        email: user.email,
+        phone: user.phone,
       })
       return customer.id
     } catch (err) {

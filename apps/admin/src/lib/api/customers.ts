@@ -2,6 +2,7 @@ import { apiFetch } from './client'
 
 export interface ApiCustomer {
   id: string
+  customerCode?: string | null
   firstName: string
   lastName: string
   phone: string

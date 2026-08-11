@@ -13,6 +13,7 @@ import type { CustomerFraudSignals } from '@/lib/api/customers'
 
 interface CustomerProfileData {
   id: string
+  customerCode?: string | null
   firstName: string
   lastName: string
   phone: string
@@ -115,6 +116,11 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
               <h2 className="text-lg font-semibold text-[var(--ink)] sm:text-xl">
                 {customer.firstName} {customer.lastName}
               </h2>
+              {customer.customerCode ? (
+                <span className="rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide text-[var(--violet)]">
+                  {customer.customerCode.toUpperCase()}
+                </span>
+              ) : null}
               <span
                 className={cn(
                   'rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
