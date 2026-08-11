@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState, type CSSProperties, type ReactNode } from 'react'
 
 import { DcPageHead } from '@/components/dc/DcPageHead'
+import { DcIcon } from '@/components/dc/DcIcon'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
@@ -20,6 +21,12 @@ import {
   type ExpenseRow,
 } from '@/lib/api/finance'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import {
+  financeGhostBtn,
+  financePagerBtn,
+  financePeriodPill,
+  financePrimaryBtn,
+} from '@/components/dc/screens/finance-ui'
 
 const card = {
   border: '1px solid var(--line)',
@@ -231,6 +238,7 @@ function DcExpensesBody() {
         statusTone={pageStatus.tone}
         syncLabel={list.isFetching ? 'syncing…' : `${list.data?.total ?? 0} records`}
         syncing={list.isFetching}
+        onSync={() => void list.refetch()}
         actions={[
           {
             label: 'Profit & Cash Flow',
@@ -331,15 +339,7 @@ function DcExpensesBody() {
             type="button"
             disabled={busy}
             onClick={submit}
-            style={{
-              border: 0,
-              borderRadius: 10,
-              padding: '10px 14px',
-              background: 'var(--ink)',
-              color: 'var(--paper)',
-              font: `600 12.5px/1 ${FONT}`,
-              cursor: 'pointer',
-            }}
+            style={financePrimaryBtn}
           >
             {busy ? 'Saving…' : editingId ? 'Update expense' : 'Create expense'}
           </button>
@@ -350,14 +350,7 @@ function DcExpensesBody() {
                 setEditingId(null)
                 setDraft(emptyDraft())
               }}
-              style={{
-                border: '1px solid var(--line)',
-                borderRadius: 10,
-                padding: '10px 14px',
-                background: 'var(--surface)',
-                font: `600 12.5px/1 ${FONT}`,
-                cursor: 'pointer',
-              }}
+              style={financeGhostBtn}
             >
               Cancel
             </button>
@@ -376,15 +369,7 @@ function DcExpensesBody() {
                 setStatus(s)
                 setPage(1)
               }}
-              style={{
-                border: `1px solid ${active ? 'var(--ink)' : 'var(--line)'}`,
-                background: active ? 'var(--ink)' : 'var(--surface)',
-                color: active ? 'var(--paper)' : 'var(--ink-2)',
-                borderRadius: 999,
-                padding: '7px 11px',
-                font: `600 12px/1 ${FONT}`,
-                cursor: 'pointer',
-              }}
+              style={financePeriodPill(active)}
             >
               {s || 'All'}
             </button>
@@ -407,101 +392,117 @@ function DcExpensesBody() {
           body="Create one above — it stays pending until you approve it."
         />
       ) : (
-        <div style={{ ...card, overflow: 'auto' }}>
-          <table style={{ width: '100%', minWidth: 880, borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                {['Date', 'Category', 'Vendor', 'Amount', 'Pay', 'Status', ''].map((h) => (
-                  <th
-                    key={h || 'actions'}
-                    style={{
-                      textAlign: 'left',
-                      padding: '9px 12px',
-                      font: `600 10.5px/1 ${FONT}`,
-                      letterSpacing: '.09em',
-                      textTransform: 'uppercase',
-                      color: 'var(--ink-3)',
-                      borderBottom: '1px solid var(--line)',
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td style={cell}>{String(row.expenseDate).slice(0, 10)}</td>
-                  <td style={cell}>
-                    {CATEGORY_LABELS[row.category] ?? row.category}
-                    {row.recurring ? ' · rec' : ''}
-                  </td>
-                  <td style={cell}>{row.vendor || '—'}</td>
-                  <td style={{ ...cell, font: `600 13px/1 ${MONO}` }}>{formatTaka(Number(row.amount))}</td>
-                  <td style={cell}>{row.paymentMethod ? PAYMENT_LABELS[row.paymentMethod] ?? row.paymentMethod : '—'}</td>
-                  <td style={cell}>
-                    <span
-                      style={{
-                        ...toneStyle(STATUS_TONE[row.status] ?? 'mute'),
-                        borderRadius: 999,
-                        padding: '4px 8px',
-                        font: `600 11px/1 ${FONT}`,
-                      }}
-                    >
-                      {row.status}
-                    </span>
-                  </td>
-                  <td style={cell}>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {row.status === 'PENDING' ? (
-                        <>
-                          <button type="button" className="admin-input" onClick={() => startEdit(row)}>
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="admin-input"
-                            disabled={approveMut.isPending}
-                            onClick={() => approveMut.mutate(row.id)}
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            className="admin-input"
-                            disabled={rejectMut.isPending}
-                            onClick={() => rejectMut.mutate(row.id)}
-                          >
-                            Reject
-                          </button>
-                        </>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {totalPages > 1 ? (
-            <div style={{ display: 'flex', gap: 8, padding: 12, justifyContent: 'flex-end' }}>
-              <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="admin-input">
-                Prev
-              </button>
-              <span style={{ font: `600 12px/2 ${FONT}`, color: 'var(--ink-3)' }}>
-                {page} / {totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="admin-input"
-              >
-                Next
-              </button>
+        <>
+          <div className="dc-mobile-route-panel" aria-label="Expenses">
+            <div className="dc-mobile-list">
+              {rows.map((row) => {
+                const tone = toneStyle(STATUS_TONE[row.status] ?? 'mute')
+                return (
+                  <div key={row.id} style={{ display: 'grid', gap: 8 }}>
+                    <article className="dc-mobile-list-card dc-mobile-list-card--static">
+                      <span className="dc-mobile-list-card__icon" style={{ background: tone.bg, color: tone.fg }}>
+                        <DcIcon name="icon-receipt" size={15} />
+                      </span>
+                      <span className="dc-mobile-list-card__copy">
+                        <span className="dc-mobile-list-card__title">
+                          {CATEGORY_LABELS[row.category] ?? row.category}
+                          {row.vendor ? ` · ${row.vendor}` : ''}
+                        </span>
+                        <span className="dc-mobile-list-card__sub">
+                          {String(row.expenseDate).slice(0, 10)} · {row.status}
+                          {row.paymentMethod
+                            ? ` · ${PAYMENT_LABELS[row.paymentMethod] ?? row.paymentMethod}`
+                            : ''}
+                          {row.recurring ? ' · recurring' : ''}
+                        </span>
+                      </span>
+                      <span className="dc-mobile-list-card__value">{formatTaka(Number(row.amount))}</span>
+                    </article>
+                    {row.status === 'PENDING' ? (
+                      <ExpenseRowActions
+                        row={row}
+                        onEdit={startEdit}
+                        onApprove={() => approveMut.mutate(row.id)}
+                        onReject={() => rejectMut.mutate(row.id)}
+                        approvePending={approveMut.isPending}
+                        rejectPending={rejectMut.isPending}
+                      />
+                    ) : null}
+                  </div>
+                )
+              })}
             </div>
-          ) : null}
-        </div>
+            <ExpensePagination page={page} totalPages={totalPages} onPage={setPage} />
+          </div>
+
+          <div className="dc-desktop-route-panel">
+            <div style={{ ...card, overflow: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 880, borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    {['Date', 'Category', 'Vendor', 'Amount', 'Pay', 'Status', ''].map((h) => (
+                      <th
+                        key={h || 'actions'}
+                        style={{
+                          textAlign: 'left',
+                          padding: '9px 12px',
+                          font: `600 10.5px/1 ${FONT}`,
+                          letterSpacing: '.09em',
+                          textTransform: 'uppercase',
+                          color: 'var(--ink-3)',
+                          borderBottom: '1px solid var(--line)',
+                        }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.id}>
+                      <td style={cell}>{String(row.expenseDate).slice(0, 10)}</td>
+                      <td style={cell}>
+                        {CATEGORY_LABELS[row.category] ?? row.category}
+                        {row.recurring ? ' · rec' : ''}
+                      </td>
+                      <td style={cell}>{row.vendor || '—'}</td>
+                      <td style={{ ...cell, font: `600 13px/1 ${MONO}` }}>{formatTaka(Number(row.amount))}</td>
+                      <td style={cell}>
+                        {row.paymentMethod ? PAYMENT_LABELS[row.paymentMethod] ?? row.paymentMethod : '—'}
+                      </td>
+                      <td style={cell}>
+                        <span
+                          style={{
+                            ...toneStyle(STATUS_TONE[row.status] ?? 'mute'),
+                            borderRadius: 999,
+                            padding: '4px 8px',
+                            font: `600 11px/1 ${FONT}`,
+                          }}
+                        >
+                          {row.status}
+                        </span>
+                      </td>
+                      <td style={cell}>
+                        {row.status === 'PENDING' ? (
+                          <ExpenseRowActions
+                            row={row}
+                            onEdit={startEdit}
+                            onApprove={() => approveMut.mutate(row.id)}
+                            onReject={() => rejectMut.mutate(row.id)}
+                            approvePending={approveMut.isPending}
+                            rejectPending={rejectMut.isPending}
+                          />
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <ExpensePagination page={page} totalPages={totalPages} onPage={setPage} />
+            </div>
+          </div>
+        </>
       )}
     </>
   )
@@ -513,6 +514,66 @@ const cell = {
   color: 'var(--ink)',
   borderBottom: '1px solid var(--line)',
   verticalAlign: 'top' as const,
+}
+
+function ExpenseRowActions({
+  row,
+  onEdit,
+  onApprove,
+  onReject,
+  approvePending,
+  rejectPending,
+}: {
+  row: ExpenseRow
+  onEdit: (row: ExpenseRow) => void
+  onApprove: () => void
+  onReject: () => void
+  approvePending: boolean
+  rejectPending: boolean
+}) {
+  return (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <button type="button" style={financeGhostBtn} onClick={() => onEdit(row)}>
+        Edit
+      </button>
+      <button type="button" style={financeGhostBtn} disabled={approvePending} onClick={onApprove}>
+        Approve
+      </button>
+      <button type="button" style={financeGhostBtn} disabled={rejectPending} onClick={onReject}>
+        Reject
+      </button>
+    </div>
+  )
+}
+
+function ExpensePagination({
+  page,
+  totalPages,
+  onPage,
+}: {
+  page: number
+  totalPages: number
+  onPage: (page: number) => void
+}) {
+  if (totalPages <= 1) return null
+  return (
+    <div style={{ display: 'flex', gap: 8, padding: 12, justifyContent: 'flex-end', alignItems: 'center' }}>
+      <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)} style={financePagerBtn(page <= 1)}>
+        Prev
+      </button>
+      <span style={{ font: `600 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+        {page} / {totalPages}
+      </span>
+      <button
+        type="button"
+        disabled={page >= totalPages}
+        onClick={() => onPage(page + 1)}
+        style={financePagerBtn(page >= totalPages)}
+      >
+        Next
+      </button>
+    </div>
+  )
 }
 
 function Field({

@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { DcIcon } from '@/components/dc/DcIcon'
 import { DcPageHead } from '@/components/dc/DcPageHead'
@@ -18,6 +18,7 @@ import {
   type FinanceOverviewData,
 } from '@/lib/api/finance'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { financePeriodPill, financePrimaryBtn } from '@/components/dc/screens/finance-ui'
 
 const card = {
   border: '1px solid var(--line)',
@@ -82,6 +83,7 @@ function DcFinanceOverviewBody() {
   const [customTo, setCustomTo] = useState('')
   const [packaging, setPackaging] = useState('')
   const [feePct, setFeePct] = useState('')
+  const settingsHydrated = useRef(false)
 
   const params = useMemo(() => {
     if (preset === 'custom') {
@@ -122,6 +124,13 @@ function DcFinanceOverviewBody() {
   const m = data?.metrics
   const pageStatus = dcPageStatus([overview], api.pulse)
 
+  useEffect(() => {
+    if (!data?.settings || settingsHydrated.current) return
+    setPackaging(String(data.settings.defaultPackagingCostPerOrder))
+    setFeePct(String(data.settings.paymentFeePercent))
+    settingsHydrated.current = true
+  }, [data?.settings])
+
   const skeleton: DcBlock[] = [
     { t: 'seg' } as DcBlock,
     { t: 'hero' } as DcBlock,
@@ -144,6 +153,7 @@ function DcFinanceOverviewBody() {
               : 'no period'
         }
         syncing={overview.isFetching}
+        onSync={() => void overview.refetch()}
         actions={[
           {
             label: 'Order profit',
@@ -168,15 +178,7 @@ function DcFinanceOverviewBody() {
               key={p.id}
               type="button"
               onClick={() => setPreset(p.id)}
-              style={{
-                border: `1px solid ${active ? 'var(--ink)' : 'var(--line)'}`,
-                background: active ? 'var(--ink)' : 'var(--surface)',
-                color: active ? 'var(--paper)' : 'var(--ink-2)',
-                borderRadius: 999,
-                padding: '8px 12px',
-                font: `600 12px/1 ${FONT}`,
-                cursor: 'pointer',
-              }}
+              style={financePeriodPill(active)}
             >
               {p.label}
             </button>
@@ -324,7 +326,7 @@ function DcFinanceOverviewBody() {
               </label>
               <button
                 type="button"
-                disabled={saveSettings.isPending || (packaging === '' && feePct === '')}
+                disabled={saveSettings.isPending}
                 onClick={() => {
                   if (packaging !== '' && (!Number.isFinite(Number(packaging)) || Number(packaging) < 0)) {
                     toastFail('Packaging must be 0 or more.')
@@ -336,15 +338,7 @@ function DcFinanceOverviewBody() {
                   }
                   saveSettings.mutate()
                 }}
-                style={{
-                  border: 0,
-                  borderRadius: 10,
-                  padding: '10px 14px',
-                  background: 'var(--ink)',
-                  color: 'var(--paper)',
-                  font: `600 12.5px/1 ${FONT}`,
-                  cursor: 'pointer',
-                }}
+                style={financePrimaryBtn}
               >
                 {saveSettings.isPending ? 'Saving…' : 'Save assumptions'}
               </button>

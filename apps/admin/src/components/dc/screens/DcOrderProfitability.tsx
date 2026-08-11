@@ -2,9 +2,10 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { DcPageHead } from '@/components/dc/DcPageHead'
+import { DcIcon } from '@/components/dc/DcIcon'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
@@ -18,6 +19,7 @@ import {
   type OrderProfitRow,
 } from '@/lib/api/finance'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { financeGhostBtn, financePagerBtn, financePeriodPill } from '@/components/dc/screens/finance-ui'
 
 const card = {
   border: '1px solid var(--line)',
@@ -97,6 +99,7 @@ function DcOrderProfitabilityBody() {
         statusTone={pageStatus.tone}
         syncLabel={list.isFetching ? 'syncing…' : `${list.data?.total ?? 0} delivered`}
         syncing={list.isFetching}
+        onSync={() => void list.refetch()}
         actions={[
           {
             label: 'Profit & Cash Flow',
@@ -118,15 +121,7 @@ function DcOrderProfitabilityBody() {
                 setPreset(p.id)
                 setPage(1)
               }}
-              style={{
-                border: `1px solid ${active ? 'var(--ink)' : 'var(--line)'}`,
-                background: active ? 'var(--ink)' : 'var(--surface)',
-                color: active ? 'var(--paper)' : 'var(--ink-2)',
-                borderRadius: 999,
-                padding: '8px 12px',
-                font: `600 12px/1 ${FONT}`,
-                cursor: 'pointer',
-              }}
+              style={financePeriodPill(active)}
             >
               {p.label}
             </button>
@@ -149,70 +144,94 @@ function DcOrderProfitabilityBody() {
           body="Profit rows appear after an order is marked DELIVERED."
         />
       ) : (
-        <div style={{ ...card, overflow: 'auto' }}>
-          <table style={{ width: '100%', minWidth: 960, borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                {['Order', 'Selling', 'Cost', 'Pack', 'Courier', 'Fee', 'Discount', 'Ads', 'Net', 'Margin'].map(
-                  (h) => (
-                    <th key={h} style={th}>
-                      {h}
-                    </th>
-                  ),
-                )}
-              </tr>
-            </thead>
-            <tbody>
+        <>
+          <div className="dc-mobile-route-panel" aria-label="Order profitability">
+            <div className="dc-mobile-list">
               {rows.map((row) => (
-                <tr
+                <button
                   key={row.id}
+                  type="button"
+                  className="dc-mobile-list-card"
                   onClick={() => setOpenId(row.id)}
-                  style={{ cursor: 'pointer' }}
                 >
-                  <td style={td}>
-                    <div style={{ font: `600 13px/1.3 ${MONO}` }}>{row.orderNumber}</div>
-                    <div style={{ marginTop: 4, font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                  <span
+                    className="dc-mobile-list-card__icon"
+                    style={{
+                      background: row.netProfit >= 0 ? 'var(--ok-soft)' : 'var(--bad-soft)',
+                      color: row.netProfit >= 0 ? 'var(--ok)' : 'var(--bad)',
+                    }}
+                  >
+                    <DcIcon name="icon-calculator" size={15} />
+                  </span>
+                  <span className="dc-mobile-list-card__copy">
+                    <span className="dc-mobile-list-card__title">{row.orderNumber}</span>
+                    <span className="dc-mobile-list-card__sub">
                       {new Date(row.deliveredAt).toLocaleDateString('en-BD', {
                         day: 'numeric',
                         month: 'short',
                       })}
+                      {row.marginPct == null ? '' : ` · ${row.marginPct}% margin`}
                       {row.incompleteReasons.length ? ' · incomplete' : ''}
-                    </div>
-                  </td>
-                  <td style={td}>{formatTaka(row.selling)}</td>
-                  <td style={td}>{formatTaka(row.productCost)}</td>
-                  <td style={td}>{formatTaka(row.packaging)}</td>
-                  <td style={td}>{formatTaka(row.courier)}</td>
-                  <td style={td}>{formatTaka(row.paymentFee)}</td>
-                  <td style={td}>{formatTaka(row.discount)}</td>
-                  <td style={td}>{formatTaka(row.allocatedAds)}</td>
-                  <td style={{ ...td, color: row.netProfit >= 0 ? 'var(--ok)' : 'var(--bad)', fontWeight: 700 }}>
+                    </span>
+                  </span>
+                  <span
+                    className="dc-mobile-list-card__value"
+                    style={{ color: row.netProfit >= 0 ? 'var(--ok)' : 'var(--bad)' }}
+                  >
                     {formatTaka(row.netProfit)}
-                  </td>
-                  <td style={td}>{row.marginPct == null ? '—' : `${row.marginPct}%`}</td>
-                </tr>
+                  </span>
+                </button>
               ))}
-            </tbody>
-          </table>
-          {totalPages > 1 ? (
-            <div style={{ display: 'flex', gap: 8, padding: 12, justifyContent: 'flex-end' }}>
-              <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="admin-input">
-                Prev
-              </button>
-              <span style={{ font: `600 12px/2 ${FONT}`, color: 'var(--ink-3)' }}>
-                {page} / {totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="admin-input"
-              >
-                Next
-              </button>
             </div>
-          ) : null}
-        </div>
+            <OrderProfitPagination page={page} totalPages={totalPages} onPage={setPage} />
+          </div>
+
+          <div className="dc-desktop-route-panel">
+            <div style={{ ...card, overflow: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 960, borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    {['Order', 'Selling', 'Cost', 'Pack', 'Courier', 'Fee', 'Discount', 'Ads', 'Net', 'Margin'].map(
+                      (h) => (
+                        <th key={h} style={th}>
+                          {h}
+                        </th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.id} onClick={() => setOpenId(row.id)} style={{ cursor: 'pointer' }}>
+                      <td style={td}>
+                        <div style={{ font: `600 13px/1.3 ${MONO}` }}>{row.orderNumber}</div>
+                        <div style={{ marginTop: 4, font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                          {new Date(row.deliveredAt).toLocaleDateString('en-BD', {
+                            day: 'numeric',
+                            month: 'short',
+                          })}
+                          {row.incompleteReasons.length ? ' · incomplete' : ''}
+                        </div>
+                      </td>
+                      <td style={td}>{formatTaka(row.selling)}</td>
+                      <td style={td}>{formatTaka(row.productCost)}</td>
+                      <td style={td}>{formatTaka(row.packaging)}</td>
+                      <td style={td}>{formatTaka(row.courier)}</td>
+                      <td style={td}>{formatTaka(row.paymentFee)}</td>
+                      <td style={td}>{formatTaka(row.discount)}</td>
+                      <td style={td}>{formatTaka(row.allocatedAds)}</td>
+                      <td style={{ ...td, color: row.netProfit >= 0 ? 'var(--ok)' : 'var(--bad)', fontWeight: 700 }}>
+                        {formatTaka(row.netProfit)}
+                      </td>
+                      <td style={td}>{row.marginPct == null ? '—' : `${row.marginPct}%`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <OrderProfitPagination page={page} totalPages={totalPages} onPage={setPage} />
+            </div>
+          </div>
+        </>
       )}
 
       {openId ? (
@@ -254,9 +273,11 @@ function OrderDrawer({
     ] as Array<[string, number]>
   }, [row])
 
-  if (error && !row) {
-    toastFail(error instanceof Error ? error.message : 'Could not load order profit.')
-  }
+  useEffect(() => {
+    if (error && !row) {
+      toastFail(error instanceof Error ? error.message : 'Could not load order profit.')
+    }
+  }, [error, row])
 
   return (
     <div
@@ -285,12 +306,26 @@ function OrderDrawer({
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <strong style={{ flex: 1, font: `700 16px/1 ${FONT}` }}>{row?.orderNumber ?? 'Order'}</strong>
-          <button type="button" onClick={onClose} style={{ border: 0, background: 'transparent', cursor: 'pointer' }}>
-            Close
+          <button type="button" onClick={onClose} style={financeGhostBtn} aria-label="Close drawer">
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <DcIcon name="icon-x" size={14} /> Close
+            </span>
           </button>
         </div>
         {loading ? (
-          <p style={{ color: 'var(--ink-3)' }}>Loading breakdown…</p>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                style={{
+                  height: 18,
+                  borderRadius: 6,
+                  background: 'var(--surface-2)',
+                  opacity: 0.7,
+                }}
+              />
+            ))}
+          </div>
         ) : !row ? (
           <p style={{ color: 'var(--bad)' }}>Order not found.</p>
         ) : (
@@ -340,6 +375,36 @@ function OrderDrawer({
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+function OrderProfitPagination({
+  page,
+  totalPages,
+  onPage,
+}: {
+  page: number
+  totalPages: number
+  onPage: (page: number) => void
+}) {
+  if (totalPages <= 1) return null
+  return (
+    <div style={{ display: 'flex', gap: 8, padding: 12, justifyContent: 'flex-end', alignItems: 'center' }}>
+      <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)} style={financePagerBtn(page <= 1)}>
+        Prev
+      </button>
+      <span style={{ font: `600 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+        {page} / {totalPages}
+      </span>
+      <button
+        type="button"
+        disabled={page >= totalPages}
+        onClick={() => onPage(page + 1)}
+        style={financePagerBtn(page >= totalPages)}
+      >
+        Next
+      </button>
     </div>
   )
 }
