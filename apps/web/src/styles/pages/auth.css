@@ -1030,6 +1030,29 @@ body.auth-page .auth-google-glass__native iframe {
   text-align: left;
 }
 
+/*
+ * Google → phone step must never paint blank.
+ * Motion/GIS teardown can leave opacity/transform stuck — lock visibility.
+ */
+.auth-card[data-auth-step='google-phone'],
+.auth-card[data-auth-step='google-phone'] .auth-card__body,
+.auth-card[data-auth-step='google-phone'] .auth-form,
+.auth-card[data-auth-step='google-phone'] .auth-form--stable {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
+
+.auth-card[data-auth-step='google-phone'] .auth-card__body {
+  min-height: 14rem;
+}
+
+.auth-form--stable {
+  opacity: 1;
+  transform: none;
+}
+
 .auth-otp-send {
   align-self: flex-start;
   padding: 0;

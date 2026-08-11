@@ -121,24 +121,42 @@ function hashPassword(password: string): string {
 }
 
 async function main() {
+  const adminEmail = ADMIN_EMAIL.toLowerCase()
   let admin = await prisma.user.findFirst({
-    where: { email: ADMIN_EMAIL.toLowerCase() },
+    where: { email: adminEmail },
   })
 
   if (!admin) {
     admin = await prisma.user.create({
       data: {
-        email: ADMIN_EMAIL.toLowerCase(),
+        email: adminEmail,
         emailVerified: true,
         passwordHash: hashPassword(resolvedAdminPassword),
         firstName: 'SPLARO',
-        lastName: ADMIN_EMAIL.toLowerCase() === 'splaro.bd@gmail.com' ? 'CEO' : 'Admin',
+        lastName: adminEmail === 'splaro.bd@gmail.com' ? 'CEO' : 'Admin',
         role: 'SUPER_ADMIN',
         isActive: true,
         twoFAEnabled: false,
       },
     })
     console.log(`Created admin user: ${ADMIN_EMAIL}`)
+  } else {
+    // Always heal primary owner — never leave SUPER_ADMIN inactive / demoted / unlinked.
+    admin = await prisma.user.update({
+      where: { id: admin.id },
+      data: {
+        emailVerified: true,
+        role: 'SUPER_ADMIN',
+        isActive: true,
+        firstName: admin.firstName?.trim() || 'SPLARO',
+        lastName:
+          adminEmail === 'splaro.bd@gmail.com'
+            ? 'CEO'
+            : admin.lastName?.trim() || 'Admin',
+        ...(admin.passwordHash ? {} : { passwordHash: hashPassword(resolvedAdminPassword) }),
+      },
+    })
+    console.log(`Healed primary admin: ${ADMIN_EMAIL} (SUPER_ADMIN, active)`)
   }
 
   let store = await prisma.store.findFirst({ where: { slug: 'splaro' } })
@@ -179,8 +197,42 @@ async function main() {
       role: 'SUPER_ADMIN',
       permissions: ['*'],
     },
-    update: { role: 'SUPER_ADMIN' },
+    update: { role: 'SUPER_ADMIN', permissions: ['*'] },
   })
+
+  if (store.ownerId !== admin.id) {
+    store = await prisma.store.update({
+      where: { id: store.id },
+      data: { ownerId: admin.id },
+    })
+    console.log(`Store owner restored → ${ADMIN_EMAIL}`)
+  }
+
+  // Relink Telegram for primary admin when User.telegramId was cleared but bot still knows the chat.
+  if (!admin.telegramId?.trim()) {
+    const tgUser = await prisma.telegramUser.findFirst({
+      where: { isActive: true, role: 'SUPER_ADMIN', config: { storeId: store.id, isActive: true } },
+      orderBy: { createdAt: 'asc' },
+      select: { telegramId: true, username: true },
+    })
+    const cfg = await prisma.telegramConfig.findFirst({
+      where: { storeId: store.id, isActive: true },
+      select: { chatId: true },
+    })
+    const chatId = tgUser?.telegramId?.trim() || cfg?.chatId?.trim() || null
+    if (chatId) {
+      admin = await prisma.user.update({
+        where: { id: admin.id },
+        data: {
+          telegramId: chatId,
+          telegramUsername: tgUser?.username ?? admin.telegramUsername,
+          twoFAEnabled: true,
+        },
+      })
+      console.log(`Relinked primary admin Telegram → ${chatId}`)
+    }
+  }
+
   console.log(`Staff role assigned: ${ADMIN_EMAIL} → SUPER_ADMIN (CEO)`)
   console.log('Partners: add via Admin → Finance → Partner Hub (no default seed)')
 

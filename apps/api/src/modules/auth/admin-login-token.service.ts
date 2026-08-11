@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common'
 import { randomBytes } from 'crypto'
 import { PrismaService } from '../../common/prisma.service'
 
-const TOKEN_TTL_MS = 5 * 60 * 1000
+/** 10 minutes — owners often switch apps slowly on mobile. */
+const TOKEN_TTL_MS = 10 * 60 * 1000
 const LOGIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 export interface AdminLoginTokenRecord {
@@ -19,15 +20,22 @@ export interface AdminLoginTokenRecord {
 export class AdminLoginTokenService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Returns display form XXXX-XXXX (always hyphenated for Telegram copy + admin UI). */
   async issue(record: Omit<AdminLoginTokenRecord, 'exp' | 'used'>): Promise<string> {
     await this.purgeExpired()
+    const email = record.email.trim().toLowerCase()
     const code = this.generateCode()
     const expiresAt = new Date(Date.now() + TOKEN_TTL_MS)
+
+    // Only the newest unused code should work — kills confusion from stacked OTPs.
+    await this.prisma.adminLoginToken.deleteMany({
+      where: { email, usedAt: null },
+    })
 
     await this.prisma.adminLoginToken.create({
       data: {
         code,
-        email: record.email.trim().toLowerCase(),
+        email,
         userId: record.userId,
         name: record.name,
         role: record.role,
@@ -42,6 +50,7 @@ export class AdminLoginTokenService {
   async peekByCode(rawCode: string): Promise<AdminLoginTokenRecord | null> {
     await this.purgeExpired()
     const code = this.normalizeCode(rawCode)
+    if (code.length !== 8) return null
     const row = await this.prisma.adminLoginToken.findUnique({ where: { code } })
     if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) return null
     return {
@@ -58,39 +67,46 @@ export class AdminLoginTokenService {
   async consume(email: string, rawCode: string): Promise<AdminLoginTokenRecord | null> {
     await this.purgeExpired()
     const code = this.normalizeCode(rawCode)
+    if (code.length !== 8) return null
     const normalizedEmail = email.trim().toLowerCase()
 
-    const claimed = await this.prisma.adminLoginToken.updateMany({
-      where: {
-        code,
-        email: normalizedEmail,
-        usedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      data: { usedAt: new Date() },
+    // Transaction: read then claim so we never lose the row payload to a purge race.
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.adminLoginToken.findFirst({
+        where: {
+          code,
+          email: normalizedEmail,
+          usedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+      })
+      if (!row) return null
+
+      const claimed = await tx.adminLoginToken.updateMany({
+        where: { id: row.id, usedAt: null },
+        data: { usedAt: new Date() },
+      })
+      if (claimed.count !== 1) return null
+
+      return {
+        email: row.email,
+        userId: row.userId,
+        name: row.name,
+        role: row.role,
+        storeId: row.storeId,
+        exp: row.expiresAt.getTime(),
+        used: true,
+      }
     })
-    if (claimed.count !== 1) return null
-
-    const row = await this.prisma.adminLoginToken.findUnique({ where: { code } })
-    if (!row) return null
-
-    return {
-      email: row.email,
-      userId: row.userId,
-      name: row.name,
-      role: row.role,
-      storeId: row.storeId,
-      exp: row.expiresAt.getTime(),
-      used: true,
-    }
   }
 
   formatCode(code: string): string {
     const normalized = this.normalizeCode(code)
+    if (normalized.length <= 4) return normalized
     return `${normalized.slice(0, 4)}-${normalized.slice(4)}`
   }
 
-  private normalizeCode(raw: string): string {
+  normalizeCode(raw: string): string {
     return raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
   }
 

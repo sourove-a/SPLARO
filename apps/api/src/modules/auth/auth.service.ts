@@ -51,6 +51,11 @@ export class AuthService {
     private readonly email: EmailService,
   ) {}
 
+  /** The permanent primary owner address (ADMIN_EMAIL) — always Telegram OTP, never demotable. */
+  isPrimaryOwnerEmail(email: string): boolean {
+    return email.trim().toLowerCase() === CEO_EMAIL
+  }
+
   /** Owner / Super Admin / Admin: Telegram OTP. Manager / Staff: password. */
   isTelegramOnlyAdmin(role: string, email: string): boolean {
     const normalizedRole = role.toUpperCase()
@@ -319,32 +324,65 @@ export class AuthService {
 
     await this.assertIpNotLockedOut(ipAddress)
 
-    const admin = await this.resolveAdminStaff(normalized, storeIdRaw)
-    if (!admin) {
+    // Consume first — a valid one-time code is the source of truth.
+    // Looking up the admin row before consume produced a false
+    // "No admin account found" when the real problem was an expired/used code.
+    const record = await this.loginTokens.consume(normalized, token)
+    if (!record) {
       await this.recordIpFailedAttempt(ipAddress)
-      throw new UnauthorizedException('No admin account found for this email')
+      throw new UnauthorizedException(
+        'Invalid or expired token. Tap Resend token for a new code.',
+      )
     }
 
-    if (!this.isTelegramOnlyAdmin(admin.role, admin.email)) {
+    if (!this.isTelegramOnlyAdmin(record.role, record.email)) {
       await this.recordIpFailedAttempt(ipAddress)
       throw new ForbiddenException('Use email and password to sign in')
     }
 
-    const record = await this.loginTokens.consume(normalized, token)
-    if (!record) {
+    await this.assertNotLockedOut(record.userId)
+
+    const liveUser = await this.prisma.user.findFirst({
+      where: { id: record.userId, isActive: true },
+      select: { id: true, email: true, firstName: true, lastName: true },
+    })
+    if (!liveUser?.email) {
       await this.recordIpFailedAttempt(ipAddress)
-      throw new UnauthorizedException('Invalid or expired token. Send /login in Telegram bot for a new one.')
+      throw new UnauthorizedException(
+        'Invalid or expired token. Tap Resend token for a new code.',
+      )
     }
 
-    await this.assertNotLockedOut(record.userId)
+    const storeId = await resolveStoreId(this.prisma, storeIdRaw || record.storeId)
+    const staffRole =
+      record.role === 'SUPER_ADMIN' ||
+      record.role === 'ADMIN' ||
+      record.role === 'MANAGER' ||
+      record.role === 'STAFF'
+        ? record.role
+        : 'ADMIN'
+
+    await this.prisma.staffRole.upsert({
+      where: { userId_storeId: { userId: liveUser.id, storeId } },
+      create: {
+        userId: liveUser.id,
+        storeId,
+        role: staffRole,
+        permissions: staffRole === 'SUPER_ADMIN' ? ['*'] : [],
+      },
+      update: {
+        role: staffRole,
+        ...(staffRole === 'SUPER_ADMIN' ? { permissions: ['*'] } : {}),
+      },
+    })
 
     await Promise.all([
       this.prisma.user.update({
-        where: { id: record.userId },
+        where: { id: liveUser.id },
         data: { lastLoginAt: new Date() },
       }),
       this.recordLoginAttempt({
-        userId: record.userId,
+        userId: liveUser.id,
         ipAddress,
         userAgent,
         success: true,
@@ -353,17 +391,17 @@ export class AuthService {
 
     const permissions = await resolveStaffPermissionTokens(
       this.prisma,
-      record.userId,
-      record.storeId,
-      record.role,
+      liveUser.id,
+      storeId,
+      staffRole,
     )
 
     return {
-      userId: record.userId,
-      email: record.email,
-      name: record.name,
-      role: record.role,
-      storeId: record.storeId,
+      userId: liveUser.id,
+      email: liveUser.email.toLowerCase(),
+      name: `${liveUser.firstName} ${liveUser.lastName}`.trim() || liveUser.email,
+      role: staffRole,
+      storeId,
       permissions,
     }
   }
@@ -708,8 +746,11 @@ export class AuthService {
       : user.staffRoles[0]
 
     if (!staff) {
+      // The primary owner email is permanently SUPER_ADMIN: a storefront signup with the
+      // same address must never be able to demote it out of the admin panel.
+      const isPrimaryOwner = user.email.toLowerCase() === CEO_EMAIL
       const staffRoles = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STAFF'])
-      if (!staffRoles.has(user.role)) return null
+      if (!isPrimaryOwner && !staffRoles.has(user.role)) return null
       const targetStoreId =
         storeId ??
         user.ownedStores[0]?.id ??
@@ -721,15 +762,35 @@ export class AuthService {
         create: {
           userId: user.id,
           storeId: targetStoreId,
-          role: user.role === 'CUSTOMER' || user.role === 'VENDOR' ? 'ADMIN' : user.role,
-          permissions: user.role === 'SUPER_ADMIN' ? ['*'] : [],
+          role: isPrimaryOwner
+            ? 'SUPER_ADMIN'
+            : user.role === 'CUSTOMER' || user.role === 'VENDOR'
+              ? 'ADMIN'
+              : user.role,
+          permissions: isPrimaryOwner || user.role === 'SUPER_ADMIN' ? ['*'] : [],
         },
-        update: {},
+        update: isPrimaryOwner ? { role: 'SUPER_ADMIN', permissions: ['*'] } : {},
         select: { role: true, storeId: true },
       })
+
+      if (isPrimaryOwner && user.role !== 'SUPER_ADMIN') {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { role: 'SUPER_ADMIN', isActive: true, emailVerified: true },
+        })
+      }
     }
 
     if (!staff) return null
+
+    // Existing staff row that drifted (e.g. demoted by hand) is restored for the owner email.
+    if (staff.role !== 'SUPER_ADMIN' && user.email.toLowerCase() === CEO_EMAIL) {
+      staff = await this.prisma.staffRole.update({
+        where: { userId_storeId: { userId: user.id, storeId: staff.storeId } },
+        data: { role: 'SUPER_ADMIN', permissions: ['*'] },
+        select: { role: true, storeId: true },
+      })
+    }
 
     return {
       userId: user.id,

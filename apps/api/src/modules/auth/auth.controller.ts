@@ -50,7 +50,14 @@ export class AuthController {
 
     const resolved = await this.auth.resolveLoginMethod(email, body.storeId)
     if (!resolved.exists || resolved.method !== 'telegram') {
-      return { ok: true, email: resolved.email, tokenSent: true }
+      // Unknown/password accounts get a silent OK so admin emails cannot be enumerated.
+      // The primary owner must never be silenced — a real failure there locks the panel.
+      if (this.auth.isPrimaryOwnerEmail(email)) {
+        throw new ServiceUnavailableException(
+          'Primary owner admin record is missing for this store. Run scripts/restore-primary-admin.ts (or pnpm db:seed) on this database.',
+        )
+      }
+      return { ok: true, email: resolved.email, method: resolved.method, tokenSent: true }
     }
 
     const delivery = await this.telegram.resolveAdminLoginDelivery(storeId, email)
@@ -68,7 +75,8 @@ export class AuthController {
       )
     }
 
-    return { ok: true, email: adminEmail, tokenSent: true }
+    // `method` lets the login screen skip a second round trip to /login-method.
+    return { ok: true, email: adminEmail, method: 'telegram' as const, tokenSent: true }
   }
 
   @Throttle({ default: { limit: 10, ttl: 60_000 } })

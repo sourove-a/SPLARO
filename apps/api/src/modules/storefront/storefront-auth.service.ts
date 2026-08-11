@@ -305,6 +305,14 @@ export class StorefrontAuthService {
 
     const googleUser = await this.googleIdToken.verify(credential)
 
+    // An unverified Google email must never match an existing SPLARO account:
+    // matching on it would hand over any password account with the same address.
+    if (!googleUser.emailVerified) {
+      throw new UnauthorizedException(
+        'Your Google account email is not verified. Verify it with Google, then try again.',
+      )
+    }
+
     let isNewUser = false
     let user = await this.prisma.user.findFirst({
       where: {
@@ -448,7 +456,14 @@ export class StorefrontAuthService {
     if (!current) throw new UnauthorizedException('Session expired')
 
     if (!current.needsPhone) {
-      throw new BadRequestException('Phone number is already on your account')
+      // Double submit / retry after a slow first request: the account is already
+      // complete, so echo it back instead of failing a finished signup.
+      if (normalizeBdPhone(input.phone ?? '') === normalizeBdPhone(current.phone ?? '')) {
+        return { isNewCustomer: false, user: current }
+      }
+      throw new BadRequestException(
+        'A phone number is already saved on your account. Change it from your profile.',
+      )
     }
 
     if (isStorefrontPhoneOtpEnabled()) {

@@ -21,15 +21,26 @@ export async function POST(request: Request) {
       signal: AbortSignal.timeout(12_000),
     })
 
-    const data = (await res.json()) as { message?: string; error?: string; email?: string; tokenSent?: boolean }
+    const data = (await res.json()) as {
+      message?: string
+      error?: string
+      email?: string
+      method?: 'telegram' | 'password'
+      tokenSent?: boolean
+    }
     if (!res.ok) {
       return NextResponse.json(
-        { error: data.message ?? data.error ?? 'No admin account found for this email' },
+        { error: data.message ?? data.error ?? 'Could not send Telegram token. Try again.' },
         { status: res.status },
       )
     }
 
-    return NextResponse.json({ ok: true, email: data.email ?? email, tokenSent: data.tokenSent ?? true })
+    return NextResponse.json({
+      ok: true,
+      email: data.email ?? email,
+      method: data.method ?? 'telegram',
+      tokenSent: data.tokenSent ?? true,
+    })
   } catch (error) {
     if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
       return NextResponse.json(

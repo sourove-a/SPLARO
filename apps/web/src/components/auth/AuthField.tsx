@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type InputHTMLAttributes, type ReactNode } from 'react'
+import { useState, type InputHTMLAttributes, type ReactNode, type Ref } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { isValidBdMobile } from '@/lib/checkout/phone'
@@ -10,6 +10,8 @@ interface AuthFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   trailing?: ReactNode
   /** Force red icon state (form validation error). */
   invalid?: boolean
+  /** Optional ref to the underlying input (phone step soft-focus). */
+  inputRef?: Ref<HTMLInputElement>
 }
 
 function isAuthValueValid(type: string | undefined, value: string): boolean {
@@ -29,6 +31,7 @@ export function AuthField({
   invalid = false,
   value,
   defaultValue,
+  inputRef,
   ...props
 }: AuthFieldProps) {
   const [visible, setVisible] = useState(false)
@@ -51,6 +54,7 @@ export function AuthField({
       <span className="auth-field__wrap">
         <input
           {...props}
+          ref={inputRef}
           value={value}
           defaultValue={defaultValue}
           type={inputType}

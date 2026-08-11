@@ -39,6 +39,7 @@
     "db:seed:categories": "node scripts/api-ts-run.mjs scripts/seed-category-tree.ts",
     "db:purge-demo": "node scripts/api-ts-run.mjs scripts/purge-demo-catalog.ts",
     "db:bootstrap-store": "node scripts/api-ts-run.mjs scripts/bootstrap-production-store.ts",
+    "db:restore-primary-admin": "node scripts/api-ts-run.mjs scripts/restore-primary-admin.ts",
     "telegram:configure": "node scripts/tsx-run.mjs packages/database prisma/configure-telegram.ts",
     "db:studio": "node scripts/db-run.mjs studio",
     "db:reset": "node scripts/db-run.mjs migrate reset",

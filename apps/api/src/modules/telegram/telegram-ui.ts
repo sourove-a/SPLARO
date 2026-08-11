@@ -147,13 +147,21 @@ export function orderActionKeyboard(
   return { inline_keyboard: rows }
 }
 
+/** Always copy XXXX-XXXX so admin paste matches the on-screen field. */
+export function formatLoginTokenDisplay(code: string): string {
+  const raw = code.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+  if (raw.length <= 4) return raw
+  return `${raw.slice(0, 4)}-${raw.slice(4)}`
+}
+
 export function loginCopyKeyboard(code: string): InlineKeyboardMarkup {
+  const display = formatLoginTokenDisplay(code)
   return {
     inline_keyboard: [
       [
         {
           text: '📋 Copy Token',
-          copy_text: { text: code },
+          copy_text: { text: display },
         } as InlineKeyboardButton,
       ],
       [{ text: '◀️ Menu', callback_data: TG_CALLBACK.MENU_MAIN }],

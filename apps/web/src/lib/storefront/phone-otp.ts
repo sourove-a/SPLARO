@@ -12,8 +12,24 @@ export type StorefrontAuthConfigPayload = {
   googleClientId: string
 }
 
+/**
+ * Deploy-scoped flags — every mounted consumer shares one request instead of
+ * firing its own (auth pages mount ~8 of them).
+ */
+let configPromise: Promise<StorefrontAuthConfigPayload> | null = null
+
 /** Client-only: fetch BFF config so UI matches API flags. */
-export async function fetchStorefrontAuthConfig(): Promise<StorefrontAuthConfigPayload> {
+export function fetchStorefrontAuthConfig(): Promise<StorefrontAuthConfigPayload> {
+  if (!configPromise) {
+    configPromise = loadStorefrontAuthConfig().catch((err) => {
+      configPromise = null
+      throw err
+    })
+  }
+  return configPromise
+}
+
+async function loadStorefrontAuthConfig(): Promise<StorefrontAuthConfigPayload> {
   const bakedGoogle =
     process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID?.trim() ||
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ||

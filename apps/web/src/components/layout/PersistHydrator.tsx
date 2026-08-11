@@ -51,6 +51,12 @@ export function PersistHydrator() {
       return
     }
     if (!authHydrated || !wishlistHydrated) return
+    // Google signup mid-flight: there is no Customer row yet, so a sync can only
+    // 400. Retry once the phone step creates the account.
+    if (user.needsPhone) {
+      syncedUserRef.current = null
+      return
+    }
 
     const userKey = user.id ?? user.email
     if (syncedUserRef.current === userKey) return

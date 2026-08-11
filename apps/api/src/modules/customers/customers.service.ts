@@ -177,10 +177,29 @@ export class CustomersService implements OnModuleInit {
       return await this.prisma.$transaction(async (tx) => {
         const phoneOwner = await tx.user.findFirst({
           where: { phone: { in: bdPhoneLookupVariants(phone) }, NOT: { id: userId } },
-          select: { id: true },
+          select: {
+            id: true,
+            email: true,
+            passwordHash: true,
+            googleId: true,
+            customer: { select: { id: true } },
+          },
         })
         if (phoneOwner) {
-          throw new BadRequestException('This phone number is already registered')
+          // A guest-checkout account (phone only, no way to sign in) may be adopted,
+          // but only when this signup proved ownership of the number by OTP.
+          const isGuestOnly =
+            !phoneOwner.passwordHash && !phoneOwner.googleId && !phoneOwner.email
+          if (!input.phoneVerified || !isGuestOnly) {
+            throw new BadRequestException(
+              'This phone number is already registered. Sign in to that account, or use a different number.',
+            )
+          }
+          await this.adoptGuestAccount(tx, {
+            guestUserId: phoneOwner.id,
+            guestCustomerId: phoneOwner.customer?.id ?? null,
+            targetUserId: userId,
+          })
         }
 
         const user = await tx.user.findUnique({
@@ -237,6 +256,39 @@ export class CustomersService implements OnModuleInit {
         throw new BadRequestException('This phone number is already registered')
       }
       throw err
+    }
+  }
+
+  /**
+   * Move a guest-checkout account's Customer row (orders, addresses, loyalty) onto a
+   * real account and retire the guest User so its unique phone is free to re-use.
+   * Caller must have proven phone ownership first.
+   */
+  private async adoptGuestAccount(
+    tx: Prisma.TransactionClient,
+    input: { guestUserId: string; guestCustomerId: string | null; targetUserId: string },
+  ) {
+    const targetCustomer = await tx.customer.findUnique({
+      where: { userId: input.targetUserId },
+      select: { id: true },
+    })
+    if (targetCustomer) {
+      // Both sides already have order history — merging those is an admin decision.
+      throw new BadRequestException(
+        'This phone number is already registered. Sign in to that account, or use a different number.',
+      )
+    }
+
+    await tx.user.update({
+      where: { id: input.guestUserId },
+      data: { phone: null, isActive: false },
+    })
+
+    if (input.guestCustomerId) {
+      await tx.customer.update({
+        where: { id: input.guestCustomerId },
+        data: { userId: input.targetUserId },
+      })
     }
   }
 

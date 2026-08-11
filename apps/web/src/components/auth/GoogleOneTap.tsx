@@ -23,6 +23,8 @@ import {
 } from '@/lib/auth/google-one-tap-dismiss'
 import { authFetch } from '@/lib/auth/auth-fetch'
 import { isAuthPath } from '@/lib/auth/auth-return'
+import { buildSignupPhonePath } from '@/lib/auth/signup-phone-path'
+import { invalidateAuthSessionReconcile } from '@/lib/api/session'
 import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 import { useAuthStore } from '@/store/authStore'
 
@@ -122,10 +124,11 @@ function GoogleOneTapPrompt({
 
         dismissGoogleOneTap()
         onDismissed()
+        invalidateAuthSessionReconcile()
         signIn(payload.user)
 
         if (payload.needsPhone || payload.user.needsPhone) {
-          safeClientNavigate(router, '/signup', 'replace')
+          safeClientNavigate(router, buildSignupPhonePath('/account'), 'replace')
         }
       } catch {
         // leave dismiss untouched for retry

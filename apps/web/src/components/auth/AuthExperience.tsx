@@ -1,10 +1,10 @@
 'use client'
 
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Check, Mail, Phone, UserRound } from 'lucide-react'
-import { AnimatePresence, LayoutGroup, motion } from '@/lib/motion/react'
+import { AnimatePresence, motion } from '@/lib/motion/react'
 import { AuthField } from '@/components/auth/AuthField'
 import { AuthModeSwitch } from '@/components/auth/AuthModeSwitch'
 import { AuthSubmitButton } from '@/components/auth/AuthSubmitButton'
@@ -15,8 +15,13 @@ import {
   useAuthShowMotion,
 } from '@/lib/auth/auth-motion'
 import { authFetch } from '@/lib/auth/auth-fetch'
+import { invalidateAuthSessionReconcile } from '@/lib/api/session'
 import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 import { resolvePostAuthDestination } from '@/lib/auth/post-auth-destination'
+import {
+  buildSignupPhonePath,
+  isSignupPhoneQuery,
+} from '@/lib/auth/signup-phone-path'
 import { loadCheckoutCustomerDraft } from '@/lib/checkout/customer-draft'
 import { formatBdPhoneInput, getBdPhoneError, normalizeBdPhone } from '@/lib/checkout/phone'
 import { useAuthStore } from '@/store/authStore'
@@ -48,6 +53,7 @@ export function AuthExperience() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const nextPath = searchParams.get('next') ?? '/account'
+  const phoneQuery = isSignupPhoneQuery(searchParams.get('phone'))
   const copy = useAuthCopy(mode)
   const showMotion = useAuthShowMotion()
   const fadeSlide = authFadeSlide(!showMotion)
@@ -62,6 +68,10 @@ export function AuthExperience() {
   const authHydrated = useAuthStore((state) => state._hydrated)
   const { setStep: setGoogleStep, registerGoogleHandler, setGoogleError } = useAuthGoogleBridge()
 
+  // Single source of truth — incomplete Google signup always shows the phone step.
+  const showPhoneStep = Boolean(user?.needsPhone)
+  const step: AuthStep = showPhoneStep ? 'google-phone' : 'form'
+
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -72,18 +82,21 @@ export function AuthExperience() {
   const [loading, setLoading] = useState(false)
   const [redirecting, setRedirecting] = useState(false)
   const [successCopy, setSuccessCopy] = useState('')
-  const [step, setStep] = useState<AuthStep>('form')
-  const [googleName, setGoogleName] = useState('')
+  const [googleName, setGoogleName] = useState(
+    () => useAuthStore.getState().user?.name ?? '',
+  )
   const [otpCode, setOtpCode] = useState('')
   const [otpSent, setOtpSent] = useState(false)
   const [otpDevHint, setOtpDevHint] = useState('')
   const [sendingOtp, setSendingOtp] = useState(false)
+  const phoneInputRef = useRef<HTMLInputElement | null>(null)
 
+  // Login ↔ signup share AuthExperience. Never wipe an in-progress phone step.
   useEffect(() => {
+    if (useAuthStore.getState().user?.needsPhone) return
     setError('')
     setRedirecting(false)
     setSuccessCopy('')
-    setStep('form')
     setGoogleStep('form')
     setOtpCode('')
     setOtpSent(false)
@@ -105,22 +118,52 @@ export function AuthExperience() {
     router.prefetch('/forgot-password')
   }, [mode, router])
 
-  // Resume incomplete Google signup (phone still required).
+  // Bridge + greeting stay in sync with needsPhone (hydrate / Google / One Tap).
   useEffect(() => {
-    const pending = useAuthStore.getState().user
-    if (!pending?.needsPhone) return
-    setGoogleName(pending.name)
-    setStep('google-phone')
+    if (!user?.needsPhone) {
+      setGoogleStep('form')
+      return
+    }
+    setGoogleName(user.name || '')
     setGoogleStep('google-phone')
-  }, [mode, setGoogleStep])
+  }, [user?.needsPhone, user?.name, setGoogleStep])
+
+  // Stale ?phone=1 after complete/cancel — drop query so UI isn't stuck.
+  useEffect(() => {
+    if (!phoneQuery || !authHydrated || user?.needsPhone) return
+    if (mode !== 'signup') return
+    const dest =
+      nextPath && nextPath !== '/account'
+        ? `/signup?next=${encodeURIComponent(nextPath)}`
+        : '/signup'
+    safeClientNavigate(router, dest, 'replace')
+  }, [phoneQuery, authHydrated, user?.needsPhone, mode, nextPath, router])
+
+  // Account already carries a phone (missing Customer row, not missing number) —
+  // prefill so the user confirms instead of retyping it.
+  useEffect(() => {
+    if (!showPhoneStep) return
+    const existing = user?.phone?.trim()
+    if (!existing) return
+    setPhone((current) => current || formatBdPhoneInput(existing))
+  }, [showPhoneStep, user?.phone])
+
+  // Soft-focus after paint — autoFocus can white-flash mobile keyboards.
+  useEffect(() => {
+    if (!showPhoneStep) return
+    const id = window.requestAnimationFrame(() => {
+      phoneInputRef.current?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(id)
+  }, [showPhoneStep])
 
   useEffect(() => {
-    if (nextPath !== '/checkout' || mode !== 'signup') return
+    if (nextPath !== '/checkout' || mode !== 'signup' || showPhoneStep) return
     const draft = loadCheckoutCustomerDraft()
     if (draft.name) setName(draft.name)
     if (draft.email) setEmail(draft.email)
     if (draft.phone) setPhone(formatBdPhoneInput(draft.phone))
-  }, [mode, nextPath])
+  }, [mode, nextPath, showPhoneStep])
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -135,7 +178,7 @@ export function AuthExperience() {
         body: JSON.stringify({ email: identifier.trim(), password }),
       })
       const payload = (await response.json()) as {
-        user?: { id: string; name: string; email: string; phone: string }
+        user?: { id: string; name: string; email: string; phone: string; needsPhone?: boolean }
         error?: string
       }
 
@@ -144,7 +187,17 @@ export function AuthExperience() {
         return
       }
 
+      invalidateAuthSessionReconcile()
       signIn(payload.user)
+
+      if (payload.user.needsPhone) {
+        setGoogleName(payload.user.name)
+        setPhone('')
+        setGoogleStep('google-phone')
+        safeClientNavigate(router, buildSignupPhonePath(nextPath), 'replace')
+        return
+      }
+
       const destination = resolvePostAuthDestination(nextPath, 'login')
       setSuccessCopy('Signed in — taking you there…')
       setRedirecting(true)
@@ -156,67 +209,87 @@ export function AuthExperience() {
     }
   }
 
-  const finishAuth = useCallback((user: { id?: string; name: string; email: string; phone: string }, authMode: AuthMode) => {
-    if (authMode === 'signup') {
-      signUp(user)
-      window.localStorage.setItem(
-        'splaro-customer',
-        JSON.stringify({
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-        }),
-      )
-      setSuccessCopy(`Welcome, ${user.name.split(' ')[0]}!`)
-    } else {
-      signIn(user)
-      setSuccessCopy('Signed in — taking you there…')
-    }
-    const destination = resolvePostAuthDestination(nextPath, authMode)
-    setRedirecting(true)
-    safeClientNavigate(router, destination, 'replace')
-  }, [nextPath, router, signIn, signUp])
-
-  const handleGoogle = useCallback(async (credential: string) => {
-    setError('')
-    setGoogleError('')
-    try {
-      const response = await authFetch('/api/auth/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ credential }),
-      })
-      const payload = (await response.json()) as {
-        user?: { id: string; name: string; email: string; phone: string; needsPhone?: boolean }
-        needsPhone?: boolean
-        error?: string
+  const finishAuth = useCallback(
+    (authed: { id?: string; name: string; email: string; phone: string }, authMode: AuthMode) => {
+      invalidateAuthSessionReconcile()
+      setGoogleStep('form')
+      if (authMode === 'signup') {
+        signUp(authed)
+        window.localStorage.setItem(
+          'splaro-customer',
+          JSON.stringify({
+            name: authed.name,
+            email: authed.email,
+            phone: authed.phone,
+          }),
+        )
+        setSuccessCopy(`Welcome, ${authed.name.split(' ')[0]}!`)
+      } else {
+        signIn(authed)
+        setSuccessCopy('Signed in — taking you there…')
       }
+      const destination = resolvePostAuthDestination(nextPath, authMode)
+      setRedirecting(true)
+      safeClientNavigate(router, destination, 'replace')
+    },
+    [nextPath, router, setGoogleStep, signIn, signUp],
+  )
 
-      if (!response.ok || !payload.user) {
-        const message = payload.error ?? 'Google sign-in failed.'
+  const handleGoogle = useCallback(
+    async (credential: string) => {
+      setError('')
+      setGoogleError('')
+      try {
+        const response = await authFetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ credential }),
+        })
+        const payload = (await response.json()) as {
+          user?: { id: string; name: string; email: string; phone: string; needsPhone?: boolean }
+          needsPhone?: boolean
+          error?: string
+        }
+
+        if (!response.ok || !payload.user) {
+          const message = payload.error ?? 'Google sign-in failed.'
+          setError(message)
+          setGoogleError(message)
+          return
+        }
+
+        // Drop in-flight /api/auth/me that started before this cookie existed.
+        invalidateAuthSessionReconcile()
+        signIn(payload.user)
+
+        if (payload.needsPhone || payload.user.needsPhone) {
+          setGoogleName(payload.user.name)
+          setPhone('')
+          setOtpCode('')
+          setOtpSent(false)
+          setOtpDevHint('')
+          setGoogleStep('google-phone')
+          // Durable URL so remount / soft-nav still lands on phone step.
+          const phonePath = buildSignupPhonePath(nextPath)
+          if (typeof window !== 'undefined') {
+            const here = `${window.location.pathname}${window.location.search}`
+            if (here !== phonePath) {
+              safeClientNavigate(router, phonePath, 'replace')
+            }
+          }
+          return
+        }
+
+        finishAuth(payload.user, mode)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Network error. Please try again.'
         setError(message)
         setGoogleError(message)
-        return
       }
-
-      signIn(payload.user)
-
-      if (payload.needsPhone || payload.user.needsPhone) {
-        setGoogleName(payload.user.name)
-        setPhone('')
-        setStep('google-phone')
-        setGoogleStep('google-phone')
-        return
-      }
-
-      finishAuth(payload.user, mode)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Network error. Please try again.'
-      setError(message)
-      setGoogleError(message)
-    }
-  }, [finishAuth, mode, setGoogleError, setGoogleStep, signIn])
+    },
+    [finishAuth, mode, nextPath, router, setGoogleError, setGoogleStep, signIn],
+  )
 
   useEffect(() => {
     registerGoogleHandler(handleGoogle)
@@ -232,11 +305,12 @@ export function AuthExperience() {
     setError('')
     setSendingOtp(true)
     try {
+      const normalized = normalizeBdPhone(phone)
       const response = await authFetch('/api/auth/otp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ phone: phone.trim() }),
+        body: JSON.stringify({ phone: normalized }),
       })
       const payload = (await response.json()) as { sent?: boolean; devCode?: string; error?: string }
       if (!response.ok || !payload.sent) {
@@ -273,7 +347,7 @@ export function AuthExperience() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          phone: phone.trim(),
+          phone: normalizeBdPhone(phone),
           ...(phoneOtpEnabled ? { code: otpCode.trim() } : {}),
         }),
       })
@@ -331,6 +405,7 @@ export function AuthExperience() {
         return
       }
 
+      invalidateAuthSessionReconcile()
       signUp(payload.user)
       window.localStorage.setItem(
         'splaro-customer',
@@ -480,23 +555,24 @@ export function AuthExperience() {
     setOtpSent(false)
     setOtpDevHint('')
     setGoogleName('')
-    setStep('form')
     setGoogleStep('form')
     setGoogleError('')
+    invalidateAuthSessionReconcile()
+    safeClientNavigate(router, '/signup', 'replace')
   }
 
   const googlePhoneFields = (
     <>
       <p className="auth-card__subtitle auth-card__subtitle--phone-step">
-        Hi {googleName.split(' ')[0] || 'there'} — one last step. Add your Bangladesh mobile so we
-        can confirm orders and delivery.
+        Hi {googleName.split(' ')[0] || user?.name?.split(' ')[0] || 'there'} — one last step. Add
+        your Bangladesh mobile so we can confirm orders and delivery.
       </p>
       <p className="auth-form__hint">Use 01XXXXXXXXX (11 digits).</p>
       <AuthField
         required
         type="tel"
         inputMode="numeric"
-        autoFocus
+        inputRef={phoneInputRef}
         value={phone}
         onChange={(event) => setPhone(formatBdPhoneInput(event.target.value))}
         placeholder="01XXXXXXXXX"
@@ -517,9 +593,7 @@ export function AuthExperience() {
           >
             {sendingOtp ? 'Sending code…' : otpSent ? 'Resend verification code' : 'Send verification code'}
           </button>
-          {otpDevHint ? (
-            <p className="auth-form__dev-hint">Dev code: {otpDevHint}</p>
-          ) : null}
+          {otpDevHint ? <p className="auth-form__dev-hint">Dev code: {otpDevHint}</p> : null}
           <AuthField
             required
             type="text"
@@ -548,10 +622,8 @@ export function AuthExperience() {
 
   const heading = (
     <>
-      <h1 className="auth-card__title">
-        {step === 'google-phone' ? 'Your phone number' : copy.title}
-      </h1>
-      {step === 'form' ? <p className="auth-card__subtitle">{copy.subtitle}</p> : null}
+      <h1 className="auth-card__title">{copy.title}</h1>
+      <p className="auth-card__subtitle">{copy.subtitle}</p>
     </>
   )
 
@@ -567,10 +639,12 @@ export function AuthExperience() {
 
   const renderForm = (
     fields: React.ReactNode,
-    formKey: AuthMode,
+    formKey: string,
     onSubmit: (event: FormEvent<HTMLFormElement>) => void,
   ) => {
-    if (showMotion) {
+    // Phone step: no enter/exit motion — GIS teardown + AnimatePresence wait
+    // previously left an empty (white) card on first Google signup.
+    if (showMotion && formKey !== 'google-phone') {
       return (
         <motion.form
           key={formKey}
@@ -585,7 +659,7 @@ export function AuthExperience() {
     }
 
     return (
-      <form key={formKey} onSubmit={onSubmit} className="auth-form">
+      <form key={formKey} onSubmit={onSubmit} className="auth-form auth-form--stable">
         {fields}
       </form>
     )
@@ -609,8 +683,8 @@ export function AuthExperience() {
         {successPanel}
       </div>
     )
-  ) : step === 'google-phone' ? (
-    renderForm(googlePhoneFields, 'signup', handleCompleteGooglePhone)
+  ) : showPhoneStep ? (
+    renderForm(googlePhoneFields, 'google-phone', handleCompleteGooglePhone)
   ) : mode === 'login' ? (
     renderForm(loginFields, 'login', handleLogin)
   ) : (
@@ -618,40 +692,36 @@ export function AuthExperience() {
   )
 
   return (
-    <LayoutGroup id="auth-card">
-      <div className="auth-card">
-        {step === 'form' ? <AuthModeSwitch nextPath={nextPath} /> : null}
+    <div className="auth-card" data-auth-step={step}>
+      {showPhoneStep ? null : <AuthModeSwitch nextPath={nextPath} />}
 
-        {step === 'form' ? (
+      {showPhoneStep ? (
+        <div className="auth-card__heading" aria-live="polite">
+          <h1 className="auth-card__title">Finish with your phone</h1>
+        </div>
+      ) : (
         <div className="auth-card__heading" aria-live="polite">
           {showMotion ? (
-            <motion.div layout>
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div key={mode} {...fadeSlide} transition={motionTransition}>
-                  {heading}
-                </motion.div>
-              </AnimatePresence>
-            </motion.div>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div key={mode} {...fadeSlide} transition={motionTransition}>
+                {heading}
+              </motion.div>
+            </AnimatePresence>
           ) : (
             <div>{heading}</div>
           )}
         </div>
-        ) : (
-          <div className="auth-card__heading" aria-live="polite">
-            <h1 className="auth-card__title">Finish with your phone</h1>
-          </div>
-        )}
+      )}
 
-        <div className="auth-card__body">
-          {showMotion ? (
-            <AnimatePresence mode="wait" initial={false}>
-              {bodyContent}
-            </AnimatePresence>
-          ) : (
-            bodyContent
-          )}
-        </div>
+      <div className="auth-card__body">
+        {showMotion && !showPhoneStep && !redirecting ? (
+          <AnimatePresence mode="wait" initial={false}>
+            {bodyContent}
+          </AnimatePresence>
+        ) : (
+          bodyContent
+        )}
       </div>
-    </LayoutGroup>
+    </div>
   )
 }

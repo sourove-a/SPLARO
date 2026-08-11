@@ -38,21 +38,26 @@ export function SessionHydrator() {
     const applyUser = (serverUser: Awaited<ReturnType<typeof reconcileAuthSession>>) => {
       if (cancelled) return
       if (serverUser === null) {
+        // Never clobber a just-established Google needsPhone session with a
+        // stale null (request started before Set-Cookie landed).
+        const current = useAuthStore.getState().user
+        if (current?.needsPhone) return
         setUser(null)
         return
       }
       setUser(serverUser)
       // Incomplete Google signup — finish phone before account/checkout.
       if (serverUser.needsPhone && NEEDS_PHONE_GATE.test(pathname ?? '')) {
-        safeClientNavigate(router, '/signup', 'replace')
+        safeClientNavigate(router, '/signup?phone=1', 'replace')
       }
     }
 
     const run = () => {
       reconcileAuthSession()
         .then(applyUser)
-        .catch(() => {
-          // Network/API outage — keep cached user; account page surfaces connection errors.
+        .catch((err) => {
+          // Superseded reconcile or network — keep cached user.
+          if (err instanceof Error && err.message === 'Session reconcile superseded') return
           if (!criticalPath) softNavSessionStarted = false
         })
         .finally(() => {

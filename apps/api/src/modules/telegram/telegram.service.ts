@@ -40,6 +40,7 @@ import {
   BOT_COMMANDS,
   BUTTON_ROUTES,
   TG_CALLBACK,
+  formatLoginTokenDisplay,
   inlineFinanceMenu,
   inlineMainMenu,
   inlineOrdersMenu,
@@ -1081,10 +1082,11 @@ ${items}
       if (sent) {
         await this.logCommand(ctx.chatId, '/login', ctx.userId)
       } else {
+        const displayCode = formatLoginTokenDisplay(code)
         await this.bot?.sendMessage(
           ctx.chatId,
-          `❌ Could not deliver login token.\n\nToken: <code>${code}</code>\n\nCopy and paste at ${this.adminLoginUrl()}`,
-          { parse_mode: 'HTML', reply_markup: loginCopyKeyboard(code) },
+          `❌ Could not deliver login token.\n\nToken: <code>${displayCode}</code>\n\nCopy and paste at ${this.adminLoginUrl()}`,
+          { parse_mode: 'HTML', reply_markup: loginCopyKeyboard(displayCode) },
         )
       }
     } catch (err) {
@@ -1158,21 +1160,60 @@ ${items}
     const normalizedEmail = email.trim().toLowerCase()
     const envAdminEmail = this.config.get<string>('ADMIN_EMAIL')?.trim().toLowerCase()
     const envTelegramId = this.config.get<string>('TELEGRAM_ADMIN_USER_ID')?.trim()
+    const isPrimaryOwner = Boolean(envAdminEmail && envAdminEmail === normalizedEmail)
 
     const user = await this.prisma.user.findFirst({
       where: { email: normalizedEmail, isActive: true },
       select: { telegramId: true },
     })
 
-    if (user?.telegramId?.trim()) {
-      return { ok: true, chatIds: [user.telegramId.trim()] }
+    const chatIds = new Set<string>()
+    if (user?.telegramId?.trim()) chatIds.add(user.telegramId.trim())
+    if (envTelegramId && isPrimaryOwner) chatIds.add(envTelegramId)
+
+    if (chatIds.size > 0) {
+      // Persist the env fallback so the owner stays reachable even if TELEGRAM_ADMIN_USER_ID is dropped.
+      if (isPrimaryOwner && !user?.telegramId?.trim() && envTelegramId) {
+        await this.prisma.user.updateMany({
+          where: { email: normalizedEmail, isActive: true },
+          data: { telegramId: envTelegramId, twoFAEnabled: true },
+        })
+      }
+      return { ok: true, chatIds: [...chatIds] }
     }
 
-    if (envTelegramId && envAdminEmail === normalizedEmail) {
-      return { ok: true, chatIds: [envTelegramId] }
-    }
+    // Primary owner safety net — recover from TelegramUser / config when User.telegramId was cleared.
+    if (isPrimaryOwner) {
+      try {
+        const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+        const tgUser = await this.prisma.telegramUser.findFirst({
+          where: { isActive: true, role: 'SUPER_ADMIN', config: { storeId, isActive: true } },
+          orderBy: { createdAt: 'asc' },
+          select: { telegramId: true, username: true },
+        })
+        const cfg = await this.prisma.telegramConfig.findFirst({
+          where: { storeId, isActive: true },
+          select: { chatId: true },
+        })
+        const chatId = tgUser?.telegramId?.trim() || cfg?.chatId?.trim() || null
+        if (chatId) {
+          await this.prisma.user.updateMany({
+            where: { email: normalizedEmail, isActive: true },
+            data: {
+              telegramId: chatId,
+              ...(tgUser?.username ? { telegramUsername: tgUser.username } : {}),
+              twoFAEnabled: true,
+            },
+          })
+          this.logger.warn(`Auto-relinked primary admin Telegram (${normalizedEmail} → ${chatId})`)
+          return { ok: true, chatIds: [chatId] }
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Primary admin Telegram auto-relink failed: ${err instanceof Error ? err.message : 'unknown'}`,
+        )
+      }
 
-    if (envAdminEmail === normalizedEmail) {
       return {
         ok: false,
         message:
@@ -1209,20 +1250,70 @@ ${items}
       }
 
       const adminUrl = this.adminLoginUrl()
-      const message = `🔐 <b>Admin Panel Login</b>\n\nEmail: <code>${email}</code>\nToken: <code>${code}</code>\n\n⏱ Valid <b>5 min</b> · one-time\n📋 Tap <b>Copy Token</b> → paste in admin\n\n<i>${adminUrl}</i>`
+      const displayCode = formatLoginTokenDisplay(code)
+      const htmlMessage =
+        `🔐 <b>SPLARO Admin Login</b>\n\n` +
+        `Email: <code>${email}</code>\n` +
+        `Token: <code>${displayCode}</code>\n\n` +
+        `⏱ Valid <b>10 min</b> · one-time use\n` +
+        `📋 Tap <b>Copy Token</b> → paste as <code>XXXX-XXXX</code> → Verify\n\n` +
+        `<i>${adminUrl}</i>`
+      const plainMessage =
+        `SPLARO Admin Login\n\n` +
+        `Email: ${email}\n` +
+        `Token: ${displayCode}\n\n` +
+        `Valid 10 min · one-time\n` +
+        `Copy → paste → Verify at ${adminUrl}`
 
+      let delivered = 0
       for (const chatId of chatIds) {
-        await this.bot.sendMessage(chatId, message, {
-          parse_mode: 'HTML',
-          reply_markup: loginCopyKeyboard(code),
-        })
+        const ok = await this.sendLoginTokenToChat(chatId, htmlMessage, plainMessage, displayCode)
+        if (ok) delivered += 1
       }
+
+      if (delivered === 0) {
+        this.recordDeliveryFailure(`Telegram sendMessage failed for chat(s): ${chatIds.join(',')}`)
+        this.logger.error(`Admin login token delivery failed for ${email} → ${chatIds.join(',')}`)
+        return false
+      }
+
+      this.logger.log(`Admin login token delivered to ${delivered}/${chatIds.length} chat(s) for ${email}`)
       this.recordDeliverySuccess()
       return true
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'sendMessage failed'
       this.recordDeliveryFailure(errMsg)
       this.logger.error(`Admin login token delivery failed: ${errMsg}`)
+      return false
+    }
+  }
+
+  /** HTML + copy button first; plain text fallback so OTP still lands if markup is rejected. */
+  private async sendLoginTokenToChat(
+    chatId: string,
+    htmlMessage: string,
+    plainMessage: string,
+    code: string,
+  ): Promise<boolean> {
+    if (!this.bot) return false
+    try {
+      await this.bot.sendMessage(chatId, htmlMessage, {
+        parse_mode: 'HTML',
+        reply_markup: loginCopyKeyboard(code),
+      })
+      return true
+    } catch (err) {
+      this.logger.warn(
+        `Login OTP HTML/keyboard send failed (${chatId}): ${err instanceof Error ? err.message : 'unknown'} — retrying plain`,
+      )
+    }
+    try {
+      await this.bot.sendMessage(chatId, plainMessage)
+      return true
+    } catch (err) {
+      this.logger.error(
+        `Login OTP plain send failed (${chatId}): ${err instanceof Error ? err.message : 'unknown'}`,
+      )
       return false
     }
   }

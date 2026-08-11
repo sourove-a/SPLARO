@@ -3,6 +3,7 @@
 import { Suspense, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { AuthExperience } from '@/components/auth/AuthExperience'
+import { AuthExperienceErrorBoundary } from '@/components/auth/AuthExperienceErrorBoundary'
 import { AuthShell } from '@/components/auth/AuthShell'
 
 function AuthExperienceFallback() {
@@ -29,9 +30,11 @@ export function AuthLayoutClient({ children }: { children: ReactNode }) {
       {passwordFlow ? (
         children
       ) : (
-        <Suspense fallback={<AuthExperienceFallback />}>
-          <AuthExperience />
-        </Suspense>
+        <AuthExperienceErrorBoundary>
+          <Suspense fallback={<AuthExperienceFallback />}>
+            <AuthExperience />
+          </Suspense>
+        </AuthExperienceErrorBoundary>
       )}
     </AuthShell>
   )

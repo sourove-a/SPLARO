@@ -32,7 +32,18 @@ const AuthGoogleBridgeContext = createContext<AuthGoogleBridgeValue | null>(null
 
 export function AuthGoogleBridgeProvider({ children }: { children: ReactNode }) {
   const handlerRef = useRef<((credential: string) => Promise<void>) | null>(null)
-  const [step, setStep] = useState<AuthGoogleStep>('form')
+  const [step, setStep] = useState<AuthGoogleStep>(() => {
+    if (typeof window === 'undefined') return 'form'
+    try {
+      // Best-effort: if persisted auth still needs phone, hide GIS immediately.
+      const raw = window.localStorage.getItem('splaro-auth')
+      if (!raw) return 'form'
+      const parsed = JSON.parse(raw) as { state?: { user?: { needsPhone?: boolean } } }
+      return parsed.state?.user?.needsPhone ? 'google-phone' : 'form'
+    } catch {
+      return 'form'
+    }
+  })
   const [googleLoading, setGoogleLoading] = useState(false)
   const [googleError, setGoogleError] = useState('')
 

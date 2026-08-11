@@ -4602,6 +4602,19 @@ html:not(.dark) .admin-header-chip:hover {
   color: rgba(255, 255, 255, 0.82);
 }
 
+.admin-auth-back:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Paste + resend sit on one row above the verify button. */
+.admin-auth-token-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .admin-auth-back:active {
   transform: scale(0.98);
 }

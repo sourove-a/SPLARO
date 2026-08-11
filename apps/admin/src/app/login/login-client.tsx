@@ -1,10 +1,10 @@
 'use client'
 
-import type { ClipboardEvent, FormEvent, KeyboardEvent, ReactNode } from 'react'
+import type { ClipboardEvent, FormEvent, ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { useSearchParams } from 'next/navigation'
+import { motion, useReducedMotion } from 'framer-motion'
 import {
   AlertCircle,
   ArrowLeft,
@@ -23,10 +23,31 @@ import { setAdminApiToken } from '@/lib/auth/api-token'
 
 const motionEase = [0.16, 1, 0.3, 1] as const
 
+/** Mirrors TOKEN_TTL_MS in AdminLoginTokenService — display only. */
+const LOGIN_TOKEN_TTL_MS = 10 * 60 * 1000
+
 type Step = 'email' | 'token' | 'password'
 
 function normalizeTokenInput(value: string): string {
   return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 8)
+}
+
+/**
+ * Pull the code out of whatever was pasted — the bare token, the "Token: XXXX-XXXX"
+ * line, or the whole Telegram message copied by hand.
+ */
+function extractLoginToken(pasted: string): string {
+  const text = pasted.trim().toUpperCase()
+
+  const labelled = text.match(/TOKEN[:\s]+([A-Z0-9]{4})[-\s]?([A-Z0-9]{4})\b/)
+  if (labelled) return `${labelled[1]}${labelled[2]}`
+
+  const hyphenated = text.match(/\b([A-Z0-9]{4})-([A-Z0-9]{4})\b/)
+  if (hyphenated) return `${hyphenated[1]}${hyphenated[2]}`
+
+  const compact = normalizeTokenInput(text)
+  // Only trust an unlabelled blob when it is exactly the code, never a prefix of prose.
+  return text.replace(/[^A-Z0-9]/g, '').length === 8 ? compact : ''
 }
 
 function formatTokenDisplay(value: string): string {
@@ -35,13 +56,48 @@ function formatTokenDisplay(value: string): string {
   return `${raw.slice(0, 4)}-${raw.slice(4)}`
 }
 
+function formatCountdown(msLeft: number): string {
+  const total = Math.max(0, Math.ceil(msLeft / 1000))
+  const minutes = Math.floor(total / 60)
+  const seconds = total % 60
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
+/**
+ * Owns its own 1s tick so the page component never re-renders once a second —
+ * the step forms stay stable while the admin is reading the code.
+ */
+function TokenExpiryHint({ expiresAt }: { expiresAt: number | null }) {
+  const [msLeft, setMsLeft] = useState(() => (expiresAt ? expiresAt - Date.now() : 0))
+
+  useEffect(() => {
+    if (!expiresAt) return
+    const tick = () => setMsLeft(expiresAt - Date.now())
+    tick()
+    const id = window.setInterval(tick, 1000)
+    return () => window.clearInterval(id)
+  }, [expiresAt])
+
+  if (!expiresAt) {
+    return <p className="admin-auth-hint">Paste the code and it signs you in instantly.</p>
+  }
+
+  return (
+    <p className="admin-auth-hint">
+      {msLeft <= 0
+        ? 'This code expired — tap Resend token for a fresh one.'
+        : `Paste the code and it signs you in instantly. Expires in ${formatCountdown(msLeft)}.`}
+    </p>
+  )
+}
+
 export default function AdminLoginPage() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const requestedNext = searchParams.get('next')
   const next = requestedNext?.startsWith('/dashboard') ? requestedNext : '/dashboard'
   const tokenInputRef = useRef<HTMLInputElement>(null)
   const passwordInputRef = useRef<HTMLInputElement>(null)
+  const verifyInFlight = useRef(false)
   const prefersReducedMotion = useReducedMotion()
   const [motionReady, setMotionReady] = useState(false)
   const showMotion = motionReady && !prefersReducedMotion
@@ -53,11 +109,17 @@ export default function AdminLoginPage() {
   const [passwordVisible, setPasswordVisible] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [signedIn, setSignedIn] = useState(false)
+  const [tokenExpiresAt, setTokenExpiresAt] = useState<number | null>(null)
+  /** One-time codes: never auto-fire the same value twice (paste + effect + Enter). */
+  const autoSubmittedRef = useRef<string | null>(null)
 
+  // Enter-only. An exit animation gated behind AnimatePresence mode="wait" cannot
+  // finish while the tab is hidden (rAF is paused) — and this flow sends the admin
+  // to Telegram mid-step, which froze the card on the previous form.
   const panelMotion = {
     initial: { opacity: 0, y: 10 },
     animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -8 },
   }
   const panelTransition = { duration: 0.24, ease: motionEase }
 
@@ -76,8 +138,8 @@ export default function AdminLoginPage() {
     }
   }, [step])
 
-  const resolveLoginMethod = async (targetEmail: string) => {
-    const res = await fetch('/api/auth/login-method', {
+  const requestLoginToken = async (targetEmail: string) => {
+    const res = await fetch('/api/auth/request-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: targetEmail }),
@@ -86,24 +148,17 @@ export default function AdminLoginPage() {
       error?: string
       email?: string
       method?: 'telegram' | 'password'
+      tokenSent?: boolean
     }
-    if (!res.ok || (data.method !== 'telegram' && data.method !== 'password')) {
-      throw new Error(data.error ?? 'No admin account found for this email')
-    }
-    return { method: data.method, email: data.email?.trim() || targetEmail.trim().toLowerCase() }
-  }
-
-  const requestLoginToken = async (targetEmail: string) => {
-    const res = await fetch('/api/auth/request-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: targetEmail }),
-    })
-    const data = (await res.json()) as { error?: string; tokenSent?: boolean }
     if (!res.ok) {
-      throw new Error(data.error ?? 'No admin account found for this email')
+      throw new Error(data.error ?? 'Could not send Telegram token. Try again in a moment.')
     }
-    return data
+    autoSubmittedRef.current = null
+    setTokenExpiresAt(Date.now() + LOGIN_TOKEN_TTL_MS)
+    return {
+      method: data.method === 'password' ? ('password' as const) : ('telegram' as const),
+      email: data.email?.trim() || targetEmail.trim().toLowerCase(),
+    }
   }
 
   const handleEmailSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -111,10 +166,11 @@ export default function AdminLoginPage() {
     setLoading(true)
     setError(null)
     try {
-      const resolved = await resolveLoginMethod(email)
+      // One round trip: the API resolves the method and sends the code in the
+      // same call, so a Telegram admin reaches the code field ~250ms sooner.
+      const resolved = await requestLoginToken(email)
       setEmail(resolved.email)
       if (resolved.method === 'telegram') {
-        await requestLoginToken(resolved.email)
         setStep('token')
         setToken('')
       } else {
@@ -145,6 +201,11 @@ export default function AdminLoginPage() {
   const submitToken = async (rawToken: string) => {
     const normalized = normalizeTokenInput(rawToken)
     if (normalized.length < 8) return
+    // Single in-flight verify — the auto-submit effect and the Verify button can
+    // both reach here for the same keystroke, and the code only works once.
+    if (verifyInFlight.current) return
+    verifyInFlight.current = true
+    autoSubmittedRef.current = normalized
 
     setLoading(true)
     setError(null)
@@ -153,25 +214,64 @@ export default function AdminLoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, token: normalized }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), token: normalized }),
       })
-      const data = (await res.json()) as { error?: string; apiToken?: string }
+      const data = (await res.json()) as { error?: string; message?: string; apiToken?: string }
       if (!res.ok) {
-        setError(data.error ?? 'Invalid or expired token')
+        setError(data.error ?? data.message ?? 'Invalid or expired token. Tap Resend token.')
+        setToken('')
         setLoading(false)
+        verifyInFlight.current = false
+        window.setTimeout(() => tokenInputRef.current?.focus(), 0)
         return
       }
       if (data.apiToken) setAdminApiToken(data.apiToken)
-      router.replace(next)
+      setSignedIn(true)
+      // Hard navigate — soft replace can race middleware live-session probe and
+      // drop the user back on /login with a confusing error.
+      window.location.assign(next)
     } catch {
       setError('Unable to connect. Please try again.')
       setLoading(false)
+      verifyInFlight.current = false
     }
   }
+
+  // Complete code in the field → verify immediately. Paste, type, or OTP autofill
+  // all land here, so there is one submit path instead of three.
+  useEffect(() => {
+    if (step !== 'token') return
+    const normalized = normalizeTokenInput(token)
+    if (normalized.length < 8) return
+    if (loading || verifyInFlight.current) return
+    if (autoSubmittedRef.current === normalized) return
+    void submitToken(normalized)
+    // submitToken is recreated every render; token/step/loading drive the intent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, step, loading])
 
   const handleTokenSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     await submitToken(token)
+  }
+
+  /** One tap: read the clipboard and verify without a manual paste. */
+  const handlePasteFromClipboard = async () => {
+    if (loading || verifyInFlight.current) return
+    try {
+      const text = await navigator.clipboard.readText()
+      const extracted = extractLoginToken(text)
+      if (extracted.length !== 8) {
+        setError('No 8-character code found on the clipboard. Copy it from Telegram and try again.')
+        tokenInputRef.current?.focus()
+        return
+      }
+      setError(null)
+      setToken(extracted)
+    } catch {
+      setError('Clipboard is blocked by the browser — paste into the field instead.')
+      tokenInputRef.current?.focus()
+    }
   }
 
   const handlePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -186,36 +286,30 @@ export default function AdminLoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
       })
-      const data = (await res.json()) as { error?: string; apiToken?: string }
+      const data = (await res.json()) as { error?: string; message?: string; apiToken?: string }
       if (!res.ok) {
-        setError(data.error ?? 'Invalid email or password')
+        setError(data.error ?? data.message ?? 'Invalid email or password')
         setLoading(false)
         return
       }
       if (data.apiToken) setAdminApiToken(data.apiToken)
-      router.replace(next)
+      window.location.assign(next)
     } catch {
       setError('Unable to connect. Please try again.')
       setLoading(false)
     }
   }
 
+  // Accepts the bare code or the whole Telegram message; the auto-submit effect
+  // (guarded against double-fire) verifies as soon as 8 characters are in.
   const handleTokenPaste = (event: ClipboardEvent<HTMLInputElement>) => {
-    const pasted = event.clipboardData.getData('text')
-    const normalized = normalizeTokenInput(pasted)
-    if (normalized.length >= 8) {
+    const extracted = extractLoginToken(event.clipboardData.getData('text'))
+    if (extracted.length === 8) {
       event.preventDefault()
-      setToken(normalized)
-      void submitToken(normalized)
-    }
-  }
-
-  const handleTokenKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter' && normalizeTokenInput(token).length >= 8) {
-      event.preventDefault()
-      void submitToken(token)
+      setToken(extracted)
+      setError(null)
     }
   }
 
@@ -225,6 +319,8 @@ export default function AdminLoginPage() {
     setToken('')
     setPassword('')
     setPasswordVisible(false)
+    setTokenExpiresAt(null)
+    autoSubmittedRef.current = null
   }
 
   const stepCopy =
@@ -320,21 +416,34 @@ export default function AdminLoginPage() {
             value={formatTokenDisplay(token)}
             onChange={(e) => setToken(normalizeTokenInput(e.target.value))}
             onPaste={handleTokenPaste}
-            onKeyDown={handleTokenKeyDown}
             className="admin-auth-input admin-auth-input--token"
+            spellCheck={false}
+            autoCapitalize="characters"
+            disabled={signedIn}
           />
         </div>
-        <p className="admin-auth-hint">Paste complete code to sign in automatically.</p>
+        <TokenExpiryHint expiresAt={tokenExpiresAt} />
       </label>
 
-      <button
-        type="button"
-        onClick={() => void handleResendToken()}
-        disabled={loading}
-        className="admin-auth-back"
-      >
-        {loading ? 'Sending…' : 'Resend token'}
-      </button>
+      <div className="admin-auth-token-actions">
+        <button
+          type="button"
+          onClick={() => void handlePasteFromClipboard()}
+          disabled={loading || signedIn}
+          className="admin-auth-back"
+        >
+          <ClipboardPaste className="h-3.5 w-3.5" />
+          Paste code
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleResendToken()}
+          disabled={loading || signedIn}
+          className="admin-auth-back"
+        >
+          {loading && !signedIn ? 'Sending…' : 'Resend token'}
+        </button>
+      </div>
 
       {error ? (
         <div className="admin-auth-error" role="alert">
@@ -345,18 +454,23 @@ export default function AdminLoginPage() {
 
       <button
         type="submit"
-        disabled={loading || normalizeTokenInput(token).length < 8}
+        disabled={loading || signedIn || normalizeTokenInput(token).length < 8}
         className="admin-auth-submit"
       >
-        {loading ? (
+        {loading || signedIn ? (
           <Loader2 className="admin-auth-submit__spinner h-4 w-4" strokeWidth={2.5} />
         ) : (
           <Lock className="h-4 w-4" strokeWidth={2.5} />
         )}
-        {loading ? 'Verifying…' : 'Verify and enter'}
+        {signedIn ? 'Opening dashboard…' : loading ? 'Verifying…' : 'Verify and enter'}
       </button>
 
-      <button type="button" onClick={backToEmail} className="admin-auth-back">
+      <button
+        type="button"
+        onClick={backToEmail}
+        disabled={signedIn}
+        className="admin-auth-back"
+      >
         <ArrowLeft className="h-3.5 w-3.5" />
         Change email
       </button>
@@ -492,12 +606,10 @@ export default function AdminLoginPage() {
           </span>
         </div>
         {showMotion ? (
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={step} {...panelMotion} transition={panelTransition}>
-              <h1 className="admin-auth-card__title">{stepCopy.title}</h1>
-              <p className="admin-auth-card__subtitle">{stepCopy.subtitle}</p>
-            </motion.div>
-          </AnimatePresence>
+          <motion.div key={step} {...panelMotion} transition={panelTransition}>
+            <h1 className="admin-auth-card__title">{stepCopy.title}</h1>
+            <p className="admin-auth-card__subtitle">{stepCopy.subtitle}</p>
+          </motion.div>
         ) : (
           <div>
             <h1 className="admin-auth-card__title">{stepCopy.title}</h1>
@@ -506,13 +618,7 @@ export default function AdminLoginPage() {
         )}
       </div>
 
-      {showMotion ? (
-        <AnimatePresence mode="wait" initial={false}>
-          {activeForm}
-        </AnimatePresence>
-      ) : (
-        activeForm
-      )}
+      {activeForm}
 
       <div className="admin-auth-footer">
         <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />

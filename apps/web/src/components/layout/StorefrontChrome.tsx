@@ -66,6 +66,7 @@ function AuthRoutePaintGuard({ children }: { children: ReactNode }) {
   const childrenRef = useRef<HTMLDivElement>(null)
   // Start held so soft-nav never paints the previous route first.
   const [ready, setReady] = useState(false)
+  const prevPathRef = useRef(pathname)
 
   useLayoutEffect(() => {
     const root = childrenRef.current
@@ -80,11 +81,26 @@ function AuthRoutePaintGuard({ children }: { children: ReactNode }) {
     return () => mo.disconnect()
   }, [pathname])
 
+  // Soft-nav within auth (login ↔ signup?phone=1) — shell never unmounts.
+  // Keep ready so phone step never flashes the empty shimmer / white card.
+  useLayoutEffect(() => {
+    const prev = prevPathRef.current
+    prevPathRef.current = pathname
+    if (prev === pathname) return
+    if (isAuthPath(prev) && isAuthPath(pathname) && childrenRef.current?.querySelector('.auth-shell')) {
+      setReady(true)
+    }
+  }, [pathname])
+
   useEffect(() => {
     if (ready) return
     const timer = window.setTimeout(() => {
-      // Placeholder chrome also uses .auth-shell — only trust the real route tree.
-      if (childrenRef.current?.querySelector('.auth-shell')) return
+      // If the real shell mounted but the observer missed it, unblock paint
+      // instead of leaving the shimmer forever (looks like a white screen).
+      if (childrenRef.current?.querySelector('.auth-shell')) {
+        setReady(true)
+        return
+      }
       hardNavigate(pathname)
     }, 2500)
     return () => window.clearTimeout(timer)

@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
     if (!res.ok || (data.method !== 'telegram' && data.method !== 'password')) {
       return NextResponse.json(
-        { error: data.message ?? data.error ?? 'No admin account found for this email' },
+        { error: data.message ?? data.error ?? 'Could not verify this email. Try again.' },
         { status: res.status === 401 || res.status === 403 ? res.status : 400 },
       )
     }

@@ -180,7 +180,15 @@ describe('AuthService role-split login', () => {
         emailVerified: true,
       },
     })
-    loginTokens.consume.mockResolvedValue(true)
+    loginTokens.consume.mockResolvedValue({
+      email: 'staff@example.com',
+      userId: 'u2',
+      name: 'Staff',
+      role: 'MANAGER',
+      storeId: 'store-1',
+      exp: Date.now() + 60_000,
+      used: true,
+    })
     await expect(
       service.loginWithToken('staff@example.com', 'ABCD1234', 'splaro', { ipAddress: '127.0.0.1' }),
     ).rejects.toBeInstanceOf(ForbiddenException)
