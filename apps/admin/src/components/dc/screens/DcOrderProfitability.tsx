@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcIcon } from '@/components/dc/DcIcon'
@@ -52,6 +53,33 @@ const td = {
   color: 'var(--ink)',
   borderBottom: '1px solid var(--line)',
   verticalAlign: 'top' as const,
+}
+
+const INCOMPLETE_FIX: Record<string, { message: string; fixLabel: string; fixHref: string }> = {
+  missing_cost: {
+    message: 'Product cost price is missing on one or more items — COGS is counted as ৳0 until you set it.',
+    fixLabel: 'Open Products',
+    fixHref: '/dashboard/products',
+  },
+  packaging_unset: {
+    message: 'Default packaging cost per order is unset (৳0) — set it under Profit & Cash Flow settings.',
+    fixLabel: 'Set packaging',
+    fixHref: '/dashboard/finance/finance-reports',
+  },
+}
+
+function isProfitIncomplete(row: Pick<OrderProfitRow, 'incompleteReasons'>) {
+  return row.incompleteReasons.length > 0
+}
+
+function netProfitColor(row: Pick<OrderProfitRow, 'incompleteReasons' | 'netProfit'>) {
+  if (isProfitIncomplete(row)) return 'var(--warn)'
+  return row.netProfit >= 0 ? 'var(--ok)' : 'var(--bad)'
+}
+
+function displayMargin(row: Pick<OrderProfitRow, 'incompleteReasons' | 'marginPct'>) {
+  if (isProfitIncomplete(row)) return '—'
+  return row.marginPct == null ? '—' : `${row.marginPct}%`
 }
 
 export function DcOrderProfitability() {
@@ -157,8 +185,12 @@ function DcOrderProfitabilityBody() {
                   <span
                     className="dc-mobile-list-card__icon"
                     style={{
-                      background: row.netProfit >= 0 ? 'var(--ok-soft)' : 'var(--bad-soft)',
-                      color: row.netProfit >= 0 ? 'var(--ok)' : 'var(--bad)',
+                      background: isProfitIncomplete(row)
+                        ? 'var(--warn-soft)'
+                        : row.netProfit >= 0
+                          ? 'var(--ok-soft)'
+                          : 'var(--bad-soft)',
+                      color: netProfitColor(row),
                     }}
                   >
                     <DcIcon name="icon-calculator" size={15} />
@@ -170,13 +202,16 @@ function DcOrderProfitabilityBody() {
                         day: 'numeric',
                         month: 'short',
                       })}
-                      {row.marginPct == null ? '' : ` · ${row.marginPct}% margin`}
-                      {row.incompleteReasons.length ? ' · incomplete' : ''}
+                      {isProfitIncomplete(row)
+                        ? ' · incomplete'
+                        : row.marginPct == null
+                          ? ''
+                          : ` · ${row.marginPct}% margin`}
                     </span>
                   </span>
                   <span
                     className="dc-mobile-list-card__value"
-                    style={{ color: row.netProfit >= 0 ? 'var(--ok)' : 'var(--bad)' }}
+                    style={{ color: netProfitColor(row) }}
                   >
                     {formatTaka(row.netProfit)}
                   </span>
@@ -220,10 +255,12 @@ function DcOrderProfitabilityBody() {
                       <td style={td}>{formatTaka(row.paymentFee)}</td>
                       <td style={td}>{formatTaka(row.discount)}</td>
                       <td style={td}>{formatTaka(row.allocatedAds)}</td>
-                      <td style={{ ...td, color: row.netProfit >= 0 ? 'var(--ok)' : 'var(--bad)', fontWeight: 700 }}>
+                      <td style={{ ...td, color: netProfitColor(row), fontWeight: 700 }}>
                         {formatTaka(row.netProfit)}
                       </td>
-                      <td style={td}>{row.marginPct == null ? '—' : `${row.marginPct}%`}</td>
+                      <td style={{ ...td, color: isProfitIncomplete(row) ? 'var(--warn)' : 'var(--ink)' }}>
+                        {displayMargin(row)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -240,6 +277,7 @@ function DcOrderProfitabilityBody() {
           error={detail.error}
           row={detail.data ?? rows.find((r) => r.id === openId) ?? null}
           onClose={() => setOpenId(null)}
+          onNavigate={(href) => router.push(href)}
         />
       ) : null}
     </>
@@ -251,12 +289,15 @@ function OrderDrawer({
   error,
   row,
   onClose,
+  onNavigate,
 }: {
   loading: boolean
   error: unknown
   row: OrderProfitRow | OrderProfitDetail | null
   onClose: () => void
+  onNavigate: (href: string) => void
 }) {
+  const [mounted, setMounted] = useState(false)
   const detail = row && 'items' in row ? (row as OrderProfitDetail) : null
   const lines = useMemo(() => {
     if (!row) return []
@@ -269,9 +310,15 @@ function OrderDrawer({
       ['Discount', row.discount],
       ['Allocated ads', row.allocatedAds],
       ['Return loss', row.returnLoss],
-      ['Net profit', row.netProfit],
+      [isProfitIncomplete(row) ? 'Net (incomplete)' : 'Net profit', row.netProfit],
     ] as Array<[string, number]>
   }, [row])
+
+  const incomplete = row ? isProfitIncomplete(row) : false
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (error && !row) {
@@ -279,103 +326,261 @@ function OrderDrawer({
     }
   }, [error, row])
 
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 80,
-        background: 'color-mix(in srgb, var(--ink) 35%, transparent)',
-        display: 'flex',
-        justifyContent: 'flex-end',
-      }}
-      onClick={onClose}
-    >
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
+
+  if (!mounted) return null
+
+  return createPortal(
+    <>
       <div
+        aria-hidden
+        onClick={onClose}
         style={{
-          width: 'min(420px, 100%)',
-          height: '100%',
-          background: 'var(--paper)',
-          borderLeft: '1px solid var(--line)',
-          overflow: 'auto',
-          padding: 20,
+          position: 'fixed',
+          inset: 0,
+          zIndex: 120,
+          background: 'var(--overlay)',
+          animation: 'dc-fadein 140ms ease-out',
         }}
-        onClick={(e) => e.stopPropagation()}
+      />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label={row?.orderNumber ? `Order ${row.orderNumber}` : 'Order profit detail'}
+        className="dc-finance-drawer"
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 121,
+          width: 'min(420px, 100vw)',
+          display: 'flex',
+          flexDirection: 'column',
+          background: 'var(--bg)',
+          borderLeft: '1px solid var(--line-2)',
+          boxShadow: '-12px 0 40px rgba(0, 0, 0, 0.18)',
+          animation: 'dc-slidein 200ms cubic-bezier(.22,.9,.3,1)',
+          fontFamily: FONT,
+        }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <strong style={{ flex: 1, font: `700 16px/1 ${FONT}` }}>{row?.orderNumber ?? 'Order'}</strong>
+        <header
+          style={{
+            flex: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '14px 16px',
+            borderBottom: '1px solid var(--line)',
+            background: 'var(--surface)',
+          }}
+        >
+          <strong style={{ flex: 1, minWidth: 0, font: `700 15px/1.2 ${MONO}`, letterSpacing: '-.01em' }}>
+            {row?.orderNumber ?? 'Order'}
+          </strong>
           <button type="button" onClick={onClose} style={financeGhostBtn} aria-label="Close drawer">
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <DcIcon name="icon-x" size={14} /> Close
             </span>
           </button>
-        </div>
-        {loading ? (
-          <div style={{ display: 'grid', gap: 10 }}>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div
-                key={i}
-                style={{
-                  height: 18,
-                  borderRadius: 6,
-                  background: 'var(--surface-2)',
-                  opacity: 0.7,
-                }}
-              />
-            ))}
-          </div>
-        ) : !row ? (
-          <p style={{ color: 'var(--bad)' }}>Order not found.</p>
-        ) : (
-          <>
-            {row.incompleteReasons.length ? (
-              <p style={{ font: `600 12.5px/1.4 ${FONT}`, color: 'var(--warn)', marginBottom: 12 }}>
-                Incomplete: {row.incompleteReasons.join(', ')}
-              </p>
-            ) : null}
-            <div style={{ display: 'grid', gap: 8, marginBottom: 16 }}>
-              {lines.map(([label, amount]) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                  <span style={{ color: 'var(--ink-2)', font: `500 13px/1 ${FONT}` }}>{label}</span>
-                  <span style={{ font: `600 13px/1 ${MONO}` }}>{formatTaka(amount)}</span>
-                </div>
+        </header>
+
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            padding: 16,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+          }}
+        >
+          {loading ? (
+            <div style={{ display: 'grid', gap: 10 }}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  style={{
+                    height: 18,
+                    borderRadius: 6,
+                    background: 'var(--surface-2)',
+                    opacity: 0.7,
+                  }}
+                />
               ))}
             </div>
-            {detail?.items?.length ? (
-              <div>
+          ) : !row ? (
+            <p style={{ color: 'var(--bad)', font: `500 13px/1.45 ${FONT}` }}>Order not found.</p>
+          ) : (
+            <>
+              {row.incompleteReasons.length ? (
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {row.incompleteReasons.map((reason) => {
+                    const copy = INCOMPLETE_FIX[reason]
+                    return (
+                      <div
+                        key={reason}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: 10,
+                          border: '1px solid var(--warn-bd)',
+                          background: 'var(--warn-soft)',
+                        }}
+                      >
+                        <p
+                          style={{
+                            margin: 0,
+                            font: `600 12.5px/1.45 ${FONT}`,
+                            color: 'var(--warn)',
+                          }}
+                        >
+                          {copy?.message ?? `Incomplete: ${reason}`}
+                        </p>
+                        {copy ? (
+                          <button
+                            type="button"
+                            onClick={() => onNavigate(copy.fixHref)}
+                            style={{
+                              ...financeGhostBtn,
+                              marginTop: 8,
+                              borderColor: 'var(--warn-bd)',
+                              color: 'var(--warn)',
+                            }}
+                          >
+                            {copy.fixLabel}
+                          </button>
+                        ) : null}
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : null}
+
+              <section style={{ ...card, padding: '12px 14px' }}>
                 <div
                   style={{
-                    font: `600 11px/1 ${FONT}`,
+                    font: `600 10.5px/1 ${FONT}`,
                     letterSpacing: '.09em',
                     textTransform: 'uppercase',
                     color: 'var(--ink-3)',
-                    marginBottom: 8,
+                    marginBottom: 10,
                   }}
                 >
-                  Line items
+                  Profit breakdown
                 </div>
-                {detail.items.map((item, i) => (
+                <div style={{ display: 'grid', gap: 0 }}>
+                  {lines.map(([label, amount], index) => {
+                    const isNet = label.startsWith('Net')
+                    const isLast = index === lines.length - 1
+                    const unsetCost =
+                      incomplete && label === 'Product cost' && row.incompleteReasons.includes('missing_cost')
+                    const unsetPack =
+                      incomplete && label === 'Packaging' && row.incompleteReasons.includes('packaging_unset')
+                    return (
+                      <div
+                        key={label}
+                        className="dc-finance-drawer__row"
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'minmax(0, 1fr) auto',
+                          alignItems: 'center',
+                          gap: 12,
+                          padding: '9px 0',
+                          borderBottom: isLast ? 0 : '1px solid var(--line)',
+                          marginTop: isNet ? 4 : 0,
+                          paddingTop: isNet ? 12 : 9,
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: isNet ? 'var(--ink)' : 'var(--ink-2)',
+                            font: `${isNet ? 600 : 500} 13px/1.35 ${FONT}`,
+                          }}
+                        >
+                          {label}
+                        </span>
+                        <span
+                          style={{
+                            font: `700 13px/1 ${MONO}`,
+                            color: unsetCost || unsetPack
+                              ? 'var(--warn)'
+                              : isNet
+                                ? netProfitColor(row)
+                                : 'var(--ink)',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {unsetCost || unsetPack ? 'Not set' : formatTaka(amount)}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+                {!incomplete && row.marginPct != null ? (
                   <div
-                    key={`${item.sku ?? item.productName}-${i}`}
-                    style={{ ...card, padding: '10px 12px', marginBottom: 8 }}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      marginTop: 10,
+                      paddingTop: 10,
+                      borderTop: '1px dashed var(--line)',
+                    }}
                   >
-                    <div style={{ font: `600 13px/1.3 ${FONT}` }}>{item.productName}</div>
-                    <div style={{ marginTop: 4, font: `500 12px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
-                      {item.quantity} × {formatTaka(item.unitPrice)}
-                      {item.incomplete
-                        ? ' · missing cost'
-                        : ` · cost ${formatTaka((item.costPrice ?? 0) * item.quantity)}`}
-                    </div>
+                    <span style={{ font: `600 11px/1 ${FONT}`, letterSpacing: '.08em', color: 'var(--ink-3)' }}>
+                      MARGIN
+                    </span>
+                    <span style={{ font: `700 13px/1 ${MONO}`, color: 'var(--ink)' }}>{row.marginPct}%</span>
                   </div>
-                ))}
-              </div>
-            ) : null}
-          </>
-        )}
-      </div>
-    </div>
+                ) : null}
+              </section>
+
+              {detail?.items?.length ? (
+                <section>
+                  <div
+                    style={{
+                      font: `600 10.5px/1 ${FONT}`,
+                      letterSpacing: '.09em',
+                      textTransform: 'uppercase',
+                      color: 'var(--ink-3)',
+                      marginBottom: 8,
+                    }}
+                  >
+                    Line items
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {detail.items.map((item, i) => (
+                      <div key={`${item.sku ?? item.productName}-${i}`} style={{ ...card, padding: '10px 12px' }}>
+                        <div style={{ font: `600 13px/1.3 ${FONT}`, color: 'var(--ink)' }}>{item.productName}</div>
+                        <div style={{ marginTop: 4, font: `500 12px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
+                          {item.quantity} × {formatTaka(item.unitPrice)}
+                          {item.incomplete
+                            ? ' · missing cost'
+                            : ` · cost ${formatTaka((item.costPrice ?? 0) * item.quantity)}`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </>
+          )}
+        </div>
+      </aside>
+    </>,
+    document.body,
   )
 }
 

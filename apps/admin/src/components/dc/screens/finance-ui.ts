@@ -19,7 +19,7 @@ export const financePrimaryBtn: CSSProperties = {
   borderRadius: 10,
   padding: '10px 14px',
   background: 'var(--ink)',
-  color: 'var(--paper)',
+  color: 'var(--surface)',
   font: `600 12.5px/1 ${FONT}`,
   cursor: 'pointer',
 }

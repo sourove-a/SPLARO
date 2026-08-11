@@ -64,6 +64,7 @@ function DcInventoryBody() {
   const searchParams = useSearchParams()
   const lowStockRef = useRef<HTMLDivElement>(null)
   const [skuFocus, setSkuFocus] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     const stock = searchParams.get('stock')?.toLowerCase()
@@ -104,6 +105,24 @@ function DcInventoryBody() {
       all.find((p) => p.id === skuFocus || (p.sku ?? '').toLowerCase() === key) ?? null
     )
   }, [all, skuFocus])
+
+  const tableRows = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    const filtered = needle
+      ? all.filter((p) =>
+          `${p.name} ${p.sku ?? ''} ${p.category?.name ?? ''}`.toLowerCase().includes(needle),
+        )
+      : all
+    return [...filtered].sort((a, b) => stockOf(a) - stockOf(b) || a.name.localeCompare(b.name))
+  }, [all, query])
+
+  const stockStatus = (p: ApiProduct): { label: string; tone: DcTone } => {
+    const onHand = stockOf(p)
+    const threshold = p.lowStockThreshold ?? 5
+    if (onHand <= 0) return { label: 'Out', tone: 'bad' }
+    if (onHand <= threshold) return { label: 'Low', tone: 'warn' }
+    return { label: 'OK', tone: 'ok' }
+  }
 
   const pageStatus = dcPageStatus([products, alerts], api.pulse)
 
@@ -166,7 +185,7 @@ function DcInventoryBody() {
           onCta={() => router.push('/dashboard/products/new')}
         />
       ) : (
-        <>
+        <div style={{ display: 'grid', gap: 12 }}>
           {focusedProduct ? (
             <div
               style={{
@@ -312,6 +331,47 @@ function DcInventoryBody() {
             </div>
           ) : null}
 
+          <div style={{ ...card, padding: '6px 16px 8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0 8px' }}>
+              <span style={{ flex: 1, font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)' }}>
+                Stock alerts
+              </span>
+              {low.length > 0 || (alerts.data?.outOfStock ?? 0) > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => lowStockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  style={{
+                    height: 28,
+                    padding: '0 10px',
+                    borderRadius: 8,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface-2)',
+                    color: 'var(--ink-2)',
+                    font: `600 11px/1 ${FONT}`,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Jump to low stock
+                </button>
+              ) : null}
+            </div>
+            <AlertRow
+              icon="icon-circle-x"
+              tone="bad"
+              title="Out of stock"
+              sub="zero available across all variants"
+              value={alerts.data ? String(alerts.data.outOfStock) : '—'}
+            />
+            <AlertRow
+              icon="icon-triangle-alert"
+              tone="warn"
+              title="Low stock"
+              sub="at or below the reorder point"
+              value={alerts.data ? String(alerts.data.lowStock) : '—'}
+            />
+          </div>
+
+          {low.length > 0 ? (
           <div ref={lowStockRef} style={{ ...card, overflow: 'auto' }}>
             <div
               style={{
@@ -329,197 +389,389 @@ function DcInventoryBody() {
                 {low.length} SKU{low.length === 1 ? '' : 's'} · each against its own threshold
               </span>
             </div>
-            {low.length === 0 ? (
-              <div
-                style={{
-                  padding: '44px 20px',
-                  textAlign: 'center',
-                  font: `400 12.5px/1.55 ${FONT}`,
-                  color: 'var(--ink-3)',
-                }}
-              >
-                Nothing is at or below its reorder point.
-              </div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={th}>Product</th>
-                    <th style={th}>SKU</th>
-                    <th style={{ ...th, textAlign: 'right' }}>On hand</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Reserved</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Reorder at</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Cover</th>
-                    <th style={th}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {low.map((p) => {
-                    const onHand = stockOf(p)
-                    const threshold = p.lowStockThreshold ?? 5
-                    const pct = Math.min(100, Math.round((onHand / Math.max(threshold, 1)) * 100))
-                    const tone = toneStyle(onHand <= threshold / 2 ? 'bad' : 'warn')
-                    return (
-                      <tr
-                        key={p.id}
-                        onClick={() => router.push(`/dashboard/products/${p.id}/edit`)}
-                        className="dc-hover-surface"
-                        style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer' }}
-                      >
-                        <td style={{ padding: '10px 15px' }}>
-                          <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <span style={{ font: `500 13px/1.25 ${FONT}`, color: 'var(--ink)' }}>
-                              {p.name}
-                            </span>
-                            <span
-                              style={{ font: `400 11.5px/1.3 ${FONT}`, color: 'var(--ink-3)' }}
-                            >
-                              {p.category?.name ?? 'Uncategorised'}
-                            </span>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={th}>Product</th>
+                  <th style={th}>SKU</th>
+                  <th style={{ ...th, textAlign: 'right' }}>On hand</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Reserved</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Reorder at</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Cover</th>
+                  <th style={th}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {low.map((p) => {
+                  const onHand = stockOf(p)
+                  const threshold = p.lowStockThreshold ?? 5
+                  const pct = Math.min(100, Math.round((onHand / Math.max(threshold, 1)) * 100))
+                  const tone = toneStyle(onHand <= threshold / 2 ? 'bad' : 'warn')
+                  return (
+                    <tr
+                      key={p.id}
+                      onClick={() => router.push(`/dashboard/products/${p.id}/edit`)}
+                      className="dc-hover-surface"
+                      style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer' }}
+                    >
+                      <td style={{ padding: '10px 15px' }}>
+                        <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <span style={{ font: `500 13px/1.25 ${FONT}`, color: 'var(--ink)' }}>
+                            {p.name}
                           </span>
-                        </td>
-                        <td
+                          <span style={{ font: `400 11.5px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>
+                            {p.category?.name ?? 'Uncategorised'}
+                          </span>
+                        </span>
+                      </td>
+                      <td
+                        style={{
+                          padding: '10px 15px',
+                          font: `500 12px/1 ${MONO}`,
+                          color: 'var(--ink-2)',
+                        }}
+                      >
+                        {p.sku ?? '—'}
+                      </td>
+                      <td
+                        style={{
+                          padding: '10px 15px',
+                          textAlign: 'right',
+                          font: `600 13px/1 ${MONO}`,
+                          color: tone.fg,
+                        }}
+                      >
+                        {onHand}
+                      </td>
+                      <td
+                        style={{
+                          padding: '10px 15px',
+                          textAlign: 'right',
+                          font: `600 13px/1 ${MONO}`,
+                          color: 'var(--ink-2)',
+                        }}
+                      >
+                        {reservedOf(p)}
+                      </td>
+                      <td
+                        style={{
+                          padding: '10px 15px',
+                          textAlign: 'right',
+                          font: `600 13px/1 ${MONO}`,
+                          color: 'var(--ink-2)',
+                        }}
+                      >
+                        {threshold}
+                      </td>
+                      <td style={{ padding: '10px 15px' }}>
+                        <span
                           style={{
-                            padding: '10px 15px',
-                            font: `500 12px/1 ${MONO}`,
-                            color: 'var(--ink-2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 9,
+                            justifyContent: 'flex-end',
                           }}
                         >
-                          {p.sku ?? '—'}
-                        </td>
-                        <td
-                          style={{
-                            padding: '10px 15px',
-                            textAlign: 'right',
-                            font: `600 13px/1 ${MONO}`,
-                            color: tone.fg,
-                          }}
-                        >
-                          {onHand}
-                        </td>
-                        <td
-                          style={{
-                            padding: '10px 15px',
-                            textAlign: 'right',
-                            font: `600 13px/1 ${MONO}`,
-                            color: 'var(--ink-2)',
-                          }}
-                        >
-                          {reservedOf(p)}
-                        </td>
-                        <td
-                          style={{
-                            padding: '10px 15px',
-                            textAlign: 'right',
-                            font: `600 13px/1 ${MONO}`,
-                            color: 'var(--ink-2)',
-                          }}
-                        >
-                          {threshold}
-                        </td>
-                        <td style={{ padding: '10px 15px' }}>
                           <span
                             style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 9,
-                              justifyContent: 'flex-end',
+                              display: 'block',
+                              width: 54,
+                              height: 5,
+                              borderRadius: 99,
+                              background: 'var(--surface-3)',
+                              overflow: 'hidden',
                             }}
                           >
                             <span
                               style={{
                                 display: 'block',
-                                width: 54,
                                 height: 5,
                                 borderRadius: 99,
-                                background: 'var(--surface-3)',
-                                overflow: 'hidden',
+                                width: `${pct}%`,
+                                background: tone.fg,
                               }}
-                            >
-                              <span
-                                style={{
-                                  display: 'block',
-                                  height: 5,
-                                  borderRadius: 99,
-                                  width: `${pct}%`,
-                                  background: tone.fg,
-                                }}
-                              />
-                            </span>
-                            <span
-                              style={{
-                                font: `600 11.5px/1 ${MONO}`,
-                                color: tone.fg,
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {pct}%
-                            </span>
+                            />
                           </span>
-                        </td>
-                        <td style={{ padding: '10px 15px' }}>
                           <span
                             style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 5,
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                              font: `600 11px/1 ${FONT}`,
-                              border: `1px solid ${tone.bd}`,
-                              background: tone.bg,
+                              font: `600 11.5px/1 ${MONO}`,
                               color: tone.fg,
                               whiteSpace: 'nowrap',
                             }}
                           >
-                            <span
-                              style={{
-                                width: 5,
-                                height: 5,
-                                borderRadius: 99,
-                                background: 'currentColor',
-                              }}
-                            />
-                            {onHand <= threshold / 2 ? 'Critical' : 'Low'}
+                            {pct}%
                           </span>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-                </table>
-              </div>
-            )}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 15px' }}>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            padding: '3px 8px',
+                            borderRadius: 6,
+                            font: `600 11px/1 ${FONT}`,
+                            border: `1px solid ${tone.bd}`,
+                            background: tone.bg,
+                            color: tone.fg,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 5,
+                              height: 5,
+                              borderRadius: 99,
+                              background: 'currentColor',
+                            }}
+                          />
+                          {onHand <= threshold / 2 ? 'Critical' : 'Low'}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+              </table>
+            </div>
+          </div>
+          ) : null}
+
+          <div className="dc-mobile-route-panel" aria-label="Inventory">
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '0 0 4px',
+              }}
+            >
+              <label
+                style={{
+                  flex: 1,
+                  height: 34,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '0 10px',
+                  border: '1px solid var(--line)',
+                  borderRadius: 9,
+                  background: 'var(--surface-2)',
+                }}
+              >
+                <DcIcon name="icon-search" size={13} color="var(--ink-3)" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search SKU or product…"
+                  className="dc-nav-filter"
+                  style={{
+                    width: '100%',
+                    border: 0,
+                    outline: 0,
+                    background: 'transparent',
+                    color: 'var(--ink)',
+                    font: `400 12px/1 ${FONT}`,
+                  }}
+                />
+              </label>
+            </div>
+            <div className="dc-mobile-list">
+              {tableRows.map((p) => {
+                const status = stockStatus(p)
+                const tone = toneStyle(status.tone)
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="dc-mobile-list-card"
+                    onClick={() => router.push(`/dashboard/products/${p.id}/edit`)}
+                  >
+                    <span
+                      className="dc-mobile-list-card__icon"
+                      style={{ background: tone.bg, color: tone.fg }}
+                    >
+                      <DcIcon name="icon-archive" size={15} />
+                    </span>
+                    <span className="dc-mobile-list-card__copy">
+                      <span className="dc-mobile-list-card__title">{p.name}</span>
+                      <span className="dc-mobile-list-card__sub">
+                        {p.sku ?? '—'} · {status.label}
+                        {reservedOf(p) > 0 ? ` · ${reservedOf(p)} reserved` : ''}
+                      </span>
+                    </span>
+                    <span className="dc-mobile-list-card__value">{stockOf(p)}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
-          <div style={{ ...card, padding: '6px 16px 8px' }}>
-            <div
-              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0 8px' }}
-            >
-              <span style={{ flex: 1, font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)' }}>
-                Stock alerts
-              </span>
-              <span style={{ font: `500 11.5px/1 ${MONO}`, color: 'var(--ink-3)' }}>
-                /admin/dashboard/inventory-alerts
-              </span>
+          <div className="dc-desktop-route-panel">
+            <div style={{ ...card, overflow: 'hidden' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '12px 15px',
+                  borderBottom: '1px solid var(--line)',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span style={{ flex: 1, minWidth: 140, font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)' }}>
+                  All SKUs
+                  <span style={{ marginLeft: 8, font: `500 11px/1 ${MONO}`, color: 'var(--ink-3)' }}>
+                    {tableRows.length}
+                  </span>
+                </span>
+                <label
+                  style={{
+                    width: 'min(260px, 100%)',
+                    height: 32,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '0 10px',
+                    border: '1px solid var(--line)',
+                    borderRadius: 8,
+                    background: 'var(--surface-2)',
+                  }}
+                >
+                  <DcIcon name="icon-search" size={13} color="var(--ink-3)" />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search SKU or product…"
+                    className="dc-nav-filter"
+                    style={{
+                      width: '100%',
+                      border: 0,
+                      outline: 0,
+                      background: 'transparent',
+                      color: 'var(--ink)',
+                      font: `400 11.5px/1 ${FONT}`,
+                    }}
+                  />
+                </label>
+              </div>
+              {tableRows.length === 0 ? (
+                <div
+                  style={{
+                    padding: '32px 20px',
+                    textAlign: 'center',
+                    font: `400 12.5px/1.55 ${FONT}`,
+                    color: 'var(--ink-3)',
+                  }}
+                >
+                  No SKUs match this search.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', minWidth: 880, borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={th}>Product</th>
+                        <th style={th}>SKU</th>
+                        <th style={{ ...th, textAlign: 'right' }}>On hand</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Reserved</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Reorder at</th>
+                        <th style={th}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tableRows.map((p) => {
+                        const onHand = stockOf(p)
+                        const threshold = p.lowStockThreshold ?? 5
+                        const status = stockStatus(p)
+                        const tone = toneStyle(status.tone)
+                        return (
+                          <tr
+                            key={p.id}
+                            onClick={() => router.push(`/dashboard/products/${p.id}/edit`)}
+                            className="dc-hover-surface"
+                            style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer' }}
+                          >
+                            <td style={{ padding: '10px 15px' }}>
+                              <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <span style={{ font: `500 13px/1.25 ${FONT}`, color: 'var(--ink)' }}>
+                                  {p.name}
+                                </span>
+                                <span style={{ font: `400 11.5px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>
+                                  {p.category?.name ?? 'Uncategorised'}
+                                </span>
+                              </span>
+                            </td>
+                            <td style={{ padding: '10px 15px', font: `500 12px/1 ${MONO}`, color: 'var(--ink-2)' }}>
+                              {p.sku ?? '—'}
+                            </td>
+                            <td
+                              style={{
+                                padding: '10px 15px',
+                                textAlign: 'right',
+                                font: `600 13px/1 ${MONO}`,
+                                color: tone.fg,
+                              }}
+                            >
+                              {onHand}
+                            </td>
+                            <td
+                              style={{
+                                padding: '10px 15px',
+                                textAlign: 'right',
+                                font: `600 13px/1 ${MONO}`,
+                                color: 'var(--ink-2)',
+                              }}
+                            >
+                              {reservedOf(p)}
+                            </td>
+                            <td
+                              style={{
+                                padding: '10px 15px',
+                                textAlign: 'right',
+                                font: `600 13px/1 ${MONO}`,
+                                color: 'var(--ink-2)',
+                              }}
+                            >
+                              {threshold}
+                            </td>
+                            <td style={{ padding: '10px 15px' }}>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                  padding: '3px 8px',
+                                  borderRadius: 6,
+                                  font: `600 11px/1 ${FONT}`,
+                                  border: `1px solid ${tone.bd}`,
+                                  background: tone.bg,
+                                  color: tone.fg,
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    width: 5,
+                                    height: 5,
+                                    borderRadius: 99,
+                                    background: 'currentColor',
+                                  }}
+                                />
+                                {status.label}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-            <AlertRow
-              icon="icon-circle-x"
-              tone="bad"
-              title="Out of stock"
-              sub="zero available across all variants"
-              value={alerts.data ? String(alerts.data.outOfStock) : '—'}
-            />
-            <AlertRow
-              icon="icon-triangle-alert"
-              tone="warn"
-              title="Low stock"
-              sub="at or below the reorder point"
-              value={alerts.data ? String(alerts.data.lowStock) : '—'}
-            />
           </div>
-        </>
+        </div>
       )}
     </>
   )

@@ -254,6 +254,7 @@ export class FinanceOverviewService {
     const calc = order.profitCalc
     const gross = Number(calc?.grossRevenue ?? 0)
     const net = Number(calc?.netProfit ?? 0)
+    const incompleteReasons = calc?.incompleteReasons ?? []
     return {
       id: order.id,
       orderNumber: order.invoiceNumber,
@@ -269,8 +270,8 @@ export class FinanceOverviewService {
       allocatedAds: round2(Number(calc?.allocatedAdCost ?? 0)),
       returnLoss: round2(Number(calc?.returnLoss ?? 0)),
       netProfit: round2(net),
-      marginPct: profitMarginPercent(net, gross),
-      incompleteReasons: calc?.incompleteReasons ?? [],
+      marginPct: incompleteReasons.length ? null : profitMarginPercent(net, gross),
+      incompleteReasons,
     }
   }
 }
