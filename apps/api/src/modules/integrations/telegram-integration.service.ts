@@ -6,6 +6,7 @@ import { IntegrationsService } from './integrations.service'
 import { AuthService } from '../auth/auth.service'
 import { TelegramService } from '../telegram/telegram.service'
 import { maskTelegramId } from '../telegram/telegram.util'
+import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 
 export interface TelegramIntegrationDto {
   botToken?: string
@@ -226,14 +227,14 @@ export class TelegramIntegrationService {
     }
   }
 
-  async generateLinkToken(storeIdRaw: string) {
+  async generateLinkToken(storeIdRaw: string, actor: AdminSessionPayload) {
     const storeId = await this.integrations.resolveStore(storeIdRaw)
     const cfg = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
     if (!cfg?.isActive) {
       throw new BadRequestException('Enable Telegram bot in settings before generating a link token.')
     }
 
-    const { code, email } = await this.auth.issueTelegramLoginToken(storeId)
+    const { code, email } = await this.auth.issueStaffTelegramLinkToken(actor, storeId)
     return {
       ok: true,
       code,

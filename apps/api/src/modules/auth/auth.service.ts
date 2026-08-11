@@ -368,6 +368,31 @@ export class AuthService {
     }
   }
 
+  /** One-time token for the signed-in staff member to link their personal Telegram chat. */
+  async issueStaffTelegramLinkToken(
+    actor: Pick<AdminSessionPayload, 'userId' | 'email' | 'name' | 'role' | 'storeId'>,
+    storeIdRaw?: string,
+  ): Promise<{ code: string; email: string }> {
+    const storeId = await resolveStoreId(this.prisma, storeIdRaw?.trim() || actor.storeId || '')
+    const staff = await this.prisma.staffRole.findUnique({
+      where: { userId_storeId: { userId: actor.userId, storeId } },
+      include: { user: { select: { email: true, isActive: true } } },
+    })
+    if (!staff?.user.isActive || !staff.user.email) {
+      throw new UnauthorizedException('No active admin account for this store')
+    }
+
+    const code = await this.loginTokens.issue({
+      email: staff.user.email,
+      userId: actor.userId,
+      name: actor.name || staff.user.email,
+      role: staff.role,
+      storeId,
+    })
+
+    return { code, email: staff.user.email }
+  }
+
   async issueLoginTokenForEmail(
     email: string,
     storeIdRaw?: string,

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, ForbiddenException, Get, Param, Post, Put, Query, Req } from '@nestjs/common'
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Post, Put, Query, Req, UnauthorizedException } from '@nestjs/common'
 import type { Request } from 'express'
 import { ConfigService } from '@nestjs/config'
 import { RequireFeature } from '../../common/auth/require-feature.decorator'
@@ -365,7 +365,11 @@ export class IntegrationsController {
   @Post('telegram/link-token')
   generateTelegramLinkToken(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
     this.assertWrite(req)
-    return this.telegram.generateLinkToken(storeId)
+    const actor = req.adminUser
+    if (!actor?.userId || !actor.email) {
+      throw new UnauthorizedException('Not authenticated')
+    }
+    return this.telegram.generateLinkToken(storeId, actor)
   }
 
   @Get('telegram/linked-admins')

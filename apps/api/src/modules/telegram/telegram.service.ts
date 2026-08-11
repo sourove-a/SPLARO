@@ -1137,6 +1137,7 @@ ${items}
       data: {
         telegramId: ctx.userId,
         telegramUsername: username ?? null,
+        twoFAEnabled: true,
       },
     })
 

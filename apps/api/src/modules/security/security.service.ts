@@ -570,7 +570,7 @@ export class SecurityService {
     const telegramId = target.user.telegramId?.trim()
     await this.prisma.user.update({
       where: { id: userId },
-      data: { telegramId: null, telegramUsername: null },
+      data: { telegramId: null, telegramUsername: null, twoFAEnabled: false },
     })
 
     if (telegramId) {

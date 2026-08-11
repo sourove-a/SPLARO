@@ -153,10 +153,10 @@ export class SecurityController {
   @Post('staff/me/telegram-link-token')
   staffTelegramLinkToken(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
     const actor = req.adminUser
-    if (!actor?.email) {
+    if (!actor?.email || !actor?.userId) {
       throw new UnauthorizedException('Not authenticated')
     }
-    return this.auth.issueLoginTokenForEmail(actor.email, storeId || actor.storeId).then(({ code, email }) => ({
+    return this.auth.issueStaffTelegramLinkToken(actor, storeId || actor.storeId).then(({ code, email }) => ({
       ok: true,
       code,
       email,

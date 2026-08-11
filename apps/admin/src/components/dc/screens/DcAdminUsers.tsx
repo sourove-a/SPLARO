@@ -11,14 +11,15 @@ import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
-import { toastFail } from '@/lib/admin/feedback'
+import { toastFail, toastOk } from '@/lib/admin/feedback'
 import {
   confirmAdminInvited,
   confirmStaffActiveUpdated,
   confirmStaffRemoved,
   confirmStaffRoleUpdated,
-  confirmTelegramLinkTokenGenerated,
+  confirmTelegramLinkToken,
   confirmTelegramReset,
+  type TelegramLinkTokenResult,
 } from '@/lib/admin/security-save'
 import {
   useAdminSession,
@@ -29,6 +30,7 @@ import {
   useStaffTelegramLinkToken,
   useUpdateStaffRole,
 } from '@/lib/api/hooks'
+import { fetchMyTelegramStatus } from '@/lib/api/security'
 import { ASSIGNABLE_STAFF_ROLES, CEO_EMAIL } from '@/lib/auth/role-label'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 
@@ -101,6 +103,7 @@ function DcAdminUsersBody() {
 
   const [query, setQuery] = useState('')
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [linkModal, setLinkModal] = useState<TelegramLinkTokenResult | null>(null)
   const [confirming, setConfirming] = useState<ConfirmAction | null>(null)
   const [inviteForm, setInviteForm] = useState({
     firstName: '',
@@ -130,7 +133,7 @@ function DcAdminUsersBody() {
     return row.email.toLowerCase() === CEO_EMAIL || role === 'SUPER_ADMIN'
   }).length
   const activeCount = rows.filter((row) => row.status === 'active').length
-  const linked2Fa = security.data?.kpis.twoFaEnabled ?? rows.filter((row) => row.twoFA).length
+  const linked2Fa = rows.filter((row) => row.telegramLinked).length
   const actorRole = session.data?.role
   const pageStatus = dcPageStatus([security, session], api.pulse)
   const mutating =
@@ -166,10 +169,13 @@ function DcAdminUsersBody() {
   }
 
   const handleLinkMyTelegram = async () => {
-    await confirmTelegramLinkTokenGenerated(
-      () => linkTelegram.mutateAsync(undefined),
-      'tg-staff-link',
-    )
+    try {
+      const saved = await linkTelegram.mutateAsync(undefined)
+      if (!confirmTelegramLinkToken(saved)) return
+      setLinkModal(saved as TelegramLinkTokenResult)
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not create link code.')
+    }
   }
 
   const submitInvite = async () => {
@@ -263,6 +269,7 @@ function DcAdminUsersBody() {
       ) : (
         <>
           <InfoBanner
+            linked={Boolean(currentRow?.telegramLinked)}
             action={
               currentRow && !currentRow.telegramLinked
                 ? {
@@ -291,9 +298,9 @@ function DcAdminUsersBody() {
               sub="Owner and Super Admin access"
             />
             <Kpi
-              label="2FA linked"
+              label="Telegram 2FA linked"
               value={`${linked2Fa} of ${rows.length}`}
-              sub={`${Math.max(0, rows.length - linked2Fa)} pending setup`}
+              sub={`${Math.max(0, rows.length - linked2Fa)} still need linking`}
               color={linked2Fa < rows.length ? 'var(--warn)' : 'var(--ok)'}
             />
             <Kpi
@@ -342,13 +349,33 @@ function DcAdminUsersBody() {
         onClose={() => setConfirming(null)}
         onConfirm={() => void runConfirmedAction()}
       />
+
+      <TelegramLinkModal
+        open={linkModal !== null}
+        token={linkModal}
+        busy={linkTelegram.isPending}
+        onClose={() => setLinkModal(null)}
+        onRefresh={() => {
+          refresh()
+          void fetchMyTelegramStatus()
+            .then((status) => {
+              if (status.telegramLinked) {
+                setLinkModal(null)
+                toastOk('Telegram linked — login codes will arrive in your personal chat.')
+              }
+            })
+            .catch(() => undefined)
+        }}
+      />
     </>
   )
 }
 
 function InfoBanner({
+  linked,
   action,
 }: {
+  linked: boolean
   action?: { label: string; onClick: () => void } | undefined
 }) {
   return (
@@ -358,12 +385,12 @@ function InfoBanner({
         alignItems: 'center',
         gap: 11,
         padding: '11px 13px',
-        border: '1px solid var(--info-bd)',
+        border: `1px solid ${linked ? 'var(--ok-bd)' : 'var(--warn-bd)'}`,
         borderRadius: 11,
-        background: 'var(--info-soft)',
+        background: linked ? 'var(--ok-soft)' : 'var(--warn-soft)',
       }}
     >
-      <DcIcon name="icon-info" size={15} color="var(--info)" />
+      <DcIcon name={linked ? 'icon-check-circle' : 'icon-alert-triangle'} size={15} color={linked ? 'var(--ok)' : 'var(--warn)'} />
       <span
         style={{
           flex: 1,
@@ -372,8 +399,17 @@ function InfoBanner({
           color: 'var(--ink-2)',
         }}
       >
-        Role names are fixed in code. Effective module access follows each role&apos;s permission
-        policy. Account and Telegram changes are verified against server before success appears.
+        {linked ? (
+          <>
+            <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>Telegram 2FA linked.</strong>
+            {' '}Login codes go to your personal chat — not a shared group.
+          </>
+        ) : (
+          <>
+            <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>Telegram not linked.</strong>
+            {' '}Generate a one-time code, send <code style={{ font: `600 11px/1 ${MONO}` }}>/login CODE</code> to the SPLARO bot, then refresh this page.
+          </>
+        )}
       </span>
       {action ? (
         <button
@@ -517,14 +553,14 @@ function AdminUsersTable({
         <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--surface-2)' }}>
-              {['User', 'Role', 'Scope', 'Last login', '2FA', 'Telegram', 'Status', ''].map(
+              {['User', 'Role', 'Scope', 'Last login', 'Telegram 2FA', 'Status', ''].map(
                 (label, index) => (
                   <th
                     key={`${label}-${index}`}
                     style={{
                       padding: '9px 13px',
                       borderBottom: '1px solid var(--line)',
-                      textAlign: index === 7 ? 'right' : 'left',
+                      textAlign: index === 6 ? 'right' : 'left',
                       ...capsLabel,
                       fontSize: 10.5,
                     }}
@@ -538,7 +574,7 @@ function AdminUsersTable({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ padding: '38px 16px', textAlign: 'center' }}>
+                <td colSpan={7} style={{ padding: '38px 16px', textAlign: 'center' }}>
                   <span style={{ font: `400 12px/1.5 ${FONT}`, color: 'var(--ink-3)' }}>
                     {total === 0 ? 'No admin users returned by server.' : 'No users match this search.'}
                   </span>
@@ -618,21 +654,16 @@ function AdminUsersTable({
                       </span>
                     </td>
                     <td style={cellStyle}>
-                      <MiniBadge label={row.twoFA ? 'Linked' : 'Pending'} tone={row.twoFA ? 'ok' : 'warn'} />
-                    </td>
-                    <td style={cellStyle}>
-                      <span
-                        style={{
-                          font: `500 11px/1 ${FONT}`,
-                          color: row.telegramLinked ? 'var(--ok)' : 'var(--warn)',
-                        }}
-                      >
-                        {row.telegramLinked
-                          ? row.telegramUsername
-                            ? `@${row.telegramUsername}`
-                            : 'Linked'
-                          : 'Not linked'}
-                      </span>
+                      {row.telegramLinked ? (
+                        <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 4 }}>
+                          <MiniBadge label="Linked" tone="ok" />
+                          <span style={{ font: `500 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                            {row.telegramUsername ? `@${row.telegramUsername}` : 'Personal chat'}
+                          </span>
+                        </span>
+                      ) : (
+                        <MiniBadge label="Not linked" tone="warn" />
+                      )}
                     </td>
                     <td style={cellStyle}>
                       <MiniBadge
@@ -915,6 +946,91 @@ function ConfirmStaffModal({
       <span style={{ font: `400 12px/1.55 ${FONT}`, color: 'var(--ink-2)' }}>
         Server response and persisted state will be verified before success appears.
       </span>
+    </DcModal>
+  )
+}
+
+function TelegramLinkModal({
+  open,
+  token,
+  busy,
+  onClose,
+  onRefresh,
+}: {
+  open: boolean
+  token: TelegramLinkTokenResult | null
+  busy: boolean
+  onClose: () => void
+  onRefresh: () => void
+}) {
+  const command = token ? `/login ${token.code}` : ''
+
+  const copyCommand = async () => {
+    if (!command) return
+    try {
+      await navigator.clipboard.writeText(command)
+      toastOk('Copied /login command to clipboard', 'tg-link-copy')
+    } catch {
+      toastFail('Could not copy — select and copy manually', 'tg-link-copy-fail')
+    }
+  }
+
+  return (
+    <DcModal
+      open={open}
+      title="Link Telegram for login codes"
+      subtitle="One-time code — expires in 5 minutes. Send it from your personal Telegram account."
+      confirmLabel="I've linked — refresh"
+      busy={busy}
+      onClose={onClose}
+      onConfirm={onRefresh}
+    >
+      <div style={{ display: 'grid', gap: 12 }}>
+        <ol style={{ margin: 0, paddingLeft: 18, font: `500 12.5px/1.55 ${FONT}`, color: 'var(--ink-2)' }}>
+          <li>Open the SPLARO bot in Telegram on your phone.</li>
+          <li>
+            Send this exact command:
+            <div
+              style={{
+                marginTop: 8,
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '1px solid var(--line)',
+                background: 'var(--surface-2)',
+                font: `700 14px/1.3 ${MONO}`,
+                color: 'var(--ink)',
+                wordBreak: 'break-all',
+              }}
+            >
+              {command || '—'}
+            </div>
+          </li>
+          <li>Wait for the bot confirmation message, then tap refresh below.</li>
+        </ol>
+        <button
+          type="button"
+          disabled={!command}
+          onClick={() => void copyCommand()}
+          style={{
+            justifySelf: 'start',
+            height: 34,
+            padding: '0 12px',
+            borderRadius: 9,
+            border: '1px solid var(--line)',
+            background: 'var(--surface)',
+            color: 'var(--ink)',
+            cursor: command ? 'pointer' : 'not-allowed',
+            font: `600 12px/1 ${FONT}`,
+          }}
+        >
+          Copy /login command
+        </button>
+        {token?.email ? (
+          <span style={{ font: `500 11.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
+            Linking account: {token.email}
+          </span>
+        ) : null}
+      </div>
     </DcModal>
   )
 }

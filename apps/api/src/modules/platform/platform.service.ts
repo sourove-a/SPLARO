@@ -93,7 +93,7 @@ export class PlatformService {
 
   async getSecurity(storeIdOrSlug: string) {
     const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
-    const [staff, auditLogs, successfulLogins, failedLogins, sessions, twoFaCount] = await Promise.all([
+    const [staff, auditLogs, successfulLogins, failedLogins, sessions] = await Promise.all([
       this.prisma.staffRole.findMany({
         where: { storeId },
         include: {
@@ -141,8 +141,11 @@ export class PlatformService {
           user: { staffRoles: { some: { storeId } } },
         },
       }),
-      this.prisma.user.count({ where: { twoFAEnabled: true, staffRoles: { some: { storeId } } } }),
     ])
+
+    const twoFaCount = staff.filter(
+      (s) => Boolean(s.user.telegramId?.trim()) || s.user.twoFAEnabled,
+    ).length
 
     const roleMap = new Map<string, { name: string; users: number; permissions: string[] }>()
     for (const s of staff) {
@@ -159,7 +162,7 @@ export class PlatformService {
       role: roleLabel(s.role, s.user.email),
       status: s.user.isActive ? 'active' : 'inactive',
       lastLogin: relTime(s.user.lastLoginAt),
-      twoFA: s.user.twoFAEnabled,
+      twoFA: Boolean(s.user.telegramId?.trim()) || s.user.twoFAEnabled,
       telegramLinked: Boolean(s.user.telegramId?.trim()),
       telegramUsername: s.user.telegramUsername ?? null,
     }))
