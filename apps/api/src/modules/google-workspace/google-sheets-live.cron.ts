@@ -19,8 +19,14 @@ export class GoogleSheetsLiveCron {
     private readonly notifications: NotificationsService,
   ) {}
 
-  /** Live refresh every 3 minutes — keeps dashboard + orders in sync with SPLARO */
-  @Cron('*/3 * * * *')
+  /**
+   * Live refresh — keeps the business hub spreadsheet in sync with SPLARO.
+   *
+   * Every 3 minutes rebuilt all 13 tabs, which pushed the API process past its
+   * 768M PM2 limit and restarted it on that same cadence, dropping in-flight
+   * requests. A spreadsheet mirror does not need sub-15-minute freshness.
+   */
+  @Cron('*/15 * * * *')
   async liveRefresh() {
     if (!isFeatureEnabled('googleSheets')) return
     if (this.running) return

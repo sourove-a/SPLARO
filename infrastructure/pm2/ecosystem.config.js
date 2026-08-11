@@ -76,7 +76,10 @@ module.exports = {
       instances: 2,
       exec_mode: 'cluster',
       watch: false,
-      max_memory_restart: '768M',
+      // Headroom for batch jobs (Google Sheets hub rebuild peaks around 1GB).
+      // At 768M both workers tripped the limit on every sync and reloaded,
+      // dropping in-flight requests. Two workers at 1.5G still fit 8GB RAM.
+      max_memory_restart: '1536M',
       error_file: `${LOG_DIR}/api-error.log`,
       out_file: `${LOG_DIR}/api-out.log`,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
