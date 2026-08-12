@@ -1,34 +1,15 @@
 /**
- * SPLARO background worker — processes sheets sync, AI jobs, and nightly closing.
+ * SPLARO background worker — nightly closing watch.
+ *
+ * It used to also "process" googleSheetSyncLog: it flipped every PENDING row to
+ * COMPLETED without writing a single cell, so the admin saw a green sync that
+ * never happened. Real Google Sheets pushes go through the google-sync BullMQ
+ * queue in the API (GoogleSyncProcessor), which owns those rows now.
  */
 import { PrismaClient } from '@splaro/database'
 
 const prisma = new PrismaClient()
 const INTERVAL_MS = 60_000
-
-async function processPendingSheetSyncs() {
-  const pending = await prisma.googleSheetSyncLog.findMany({
-    where: { status: 'PENDING' },
-    take: 10,
-    orderBy: { createdAt: 'asc' },
-  })
-
-  for (const log of pending) {
-    await prisma.googleSheetSyncLog.update({
-      where: { id: log.id },
-      data: { status: 'SYNCING' },
-    })
-
-    await prisma.googleSheetSyncLog.update({
-      where: { id: log.id },
-      data: { status: 'COMPLETED', syncedAt: new Date(), retryCount: { increment: 1 } },
-    })
-  }
-
-  if (pending.length > 0) {
-    console.log(`[worker] Processed ${pending.length} sheet sync jobs`)
-  }
-}
 
 async function runNightlyClosing() {
   const now = new Date()
@@ -48,7 +29,6 @@ async function runNightlyClosing() {
 
 async function tick() {
   try {
-    await processPendingSheetSyncs()
     await runNightlyClosing()
   } catch (err) {
     console.error('[worker] tick error:', err)

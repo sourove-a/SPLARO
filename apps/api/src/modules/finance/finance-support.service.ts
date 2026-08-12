@@ -336,6 +336,12 @@ export class GoogleSheetsFinanceService {
     const sheetId = workspace.spreadsheetId
     if (!sheetId) return []
 
+    // The hub push writes every tab, so anything left waiting is now written.
+    await this.prisma.googleSheetSyncLog.updateMany({
+      where: { storeId, status: { in: ['PENDING', 'SYNCING'] } },
+      data: { status: 'COMPLETED', syncedAt: new Date(), errorMsg: null },
+    })
+
     const types = Object.keys(this.sheetEnvMap) as GoogleSheetType[]
     return Promise.all(
       types.map((sheetType) =>
@@ -354,42 +360,26 @@ export class GoogleSheetsFinanceService {
     )
   }
 
+  /**
+   * This path has no writer of its own — the actual cells are written by the
+   * google-sync queue when a Google Workspace spreadsheet is connected. It used
+   * to mark the row COMPLETED anyway, which reported a sync that never ran and
+   * lit up the integrations card as healthy. The row stays PENDING with the
+   * reason until a real push settles it.
+   */
   async processSync(logId: string) {
     const log = await this.prisma.googleSheetSyncLog.findUnique({ where: { id: logId } })
     if (!log) return null
+    if (log.status === 'COMPLETED') return log
 
-    try {
-      await this.prisma.googleSheetSyncLog.update({
-        where: { id: logId },
-        data: { status: 'SYNCING' },
-      })
-
-      // Row append handled by worker / google-sheets-sync tool
-      const updated = await this.prisma.googleSheetSyncLog.update({
-        where: { id: logId },
-        data: {
-          status: 'COMPLETED',
-          syncedAt: new Date(),
-          retryCount: { increment: 1 },
-        },
-      })
-
-      await this.audit.log({
-        storeId: log.storeId,
-        action: 'SYNC',
-        resource: 'GoogleSheetSyncLog',
-        resourceId: logId,
-        note: `Synced ${log.sheetType}`,
-      })
-
-      return updated
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Sync failed'
-      return this.prisma.googleSheetSyncLog.update({
-        where: { id: logId },
-        data: { status: 'FAILED', errorMsg, retryCount: { increment: 1 } },
-      })
-    }
+    return this.prisma.googleSheetSyncLog.update({
+      where: { id: logId },
+      data: {
+        status: 'PENDING',
+        errorMsg:
+          'Waiting for a Google Workspace push — connect Google Workspace (Admin → Google Workspace) so this sheet is written.',
+      },
+    })
   }
 
   async syncAll(storeId: string, triggeredBy?: string) {
