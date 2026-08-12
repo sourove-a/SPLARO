@@ -105,10 +105,12 @@ function sanitizeHeroBanner(
   if (!image) return aligned
 
   if (isHeroVideoUrl(image)) {
-    // Admin-configured video slides stay videos — HeroSlider downgrades
-    // UHD→HD, picks mobile renditions, and derives a poster. Only the
-    // curated default path swaps video media for a local still.
-    if (options?.allowVideo) return aligned
+    // Remote Pexels (and other third-party mp4) stalls Bangladesh networks —
+    // homepage looks stuck on a tiny poster. Only same-origin clips may stay video.
+    const sameOriginVideo =
+      Boolean(options?.allowVideo) &&
+      (image.startsWith('/') || /^(https?:)?\/\/(www\.)?splaro\.co\//i.test(image))
+    if (sameOriginVideo) return aligned
     const local =
       HERO_DEFAULT_SLIDES[index % HERO_DEFAULT_SLIDES.length]?.image ??
       HERO_DEFAULT_SLIDES[0]?.image

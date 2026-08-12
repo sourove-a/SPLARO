@@ -130,14 +130,14 @@ function resolveSlideVideo(media: string, index: number) {
   // or when an explicit NEXT_PUBLIC_HERO_VIDEO override is set. Previously the
   // heavy default Pexels clip was force-played on slide 0 regardless of the
   // slide's real image — an ocean video behind a sneaker, plus ~12MB of lag.
-  if (isVideoUrl(media)) return normalizeHeroVideoUrl(media)
+  // Third-party hosts (Pexels) are blocked here too — they hang on BD links.
+  if (isVideoUrl(media) && !/videos\.pexels\.com/i.test(media)) {
+    return normalizeHeroVideoUrl(media)
+  }
   if (index === 0 && process.env.NEXT_PUBLIC_HERO_VIDEO?.trim()) {
-    // Route the env override through the same UHD→HD + mobile-SD-rendition
-    // logic as a real banner video — this path was returning the raw
-    // NEXT_PUBLIC_HERO_VIDEO_MOBILE (or, absent that, the same multi-MB
-    // desktop clip) straight to mobile with zero downgrade whenever no
-    // Banner rows existed in the DB (e.g. an empty/fresh catalog).
-    return normalizeHeroVideoUrl(HERO_VIDEO)
+    const override = HERO_VIDEO
+    if (/videos\.pexels\.com/i.test(override)) return {}
+    return normalizeHeroVideoUrl(override)
   }
   return {}
 }
