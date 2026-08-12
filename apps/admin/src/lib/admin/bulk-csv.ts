@@ -1,5 +1,6 @@
 import { csvRowsToObjects, parseCsvText } from '@/lib/admin/csv-parse'
-import { fetchProducts, type ApiProduct } from '@/lib/api/products'
+import { fetchAllProductsForCatalog } from '@/lib/admin/product-catalog-sheet'
+import type { ApiProduct } from '@/lib/api/products'
 
 export type BulkImportMode = 'stock' | 'price' | 'publish'
 
@@ -40,8 +41,9 @@ export function templateFor(mode: BulkImportMode): string[][] {
   return [HEADERS[mode], SAMPLE[mode]]
 }
 
-export function templateName(mode: BulkImportMode): string {
-  return `splaro-bulk-${mode}-template.csv`
+export function templateName(mode: BulkImportMode, format: 'csv' | 'xlsx' = 'csv'): string {
+  const base = `splaro-bulk-${mode}-template`
+  return format === 'xlsx' ? `${base}.xlsx` : `${base}.csv`
 }
 
 function truthy(v: string): boolean {
@@ -83,21 +85,17 @@ function buildSkuMaps(products: ApiProduct[]) {
 }
 
 /**
- * Validates a bulk CSV against the live catalogue without writing anything.
- *
- * Every rejection carries the reason the row would fail, because a bulk write
- * that silently drops half a file is worse than one that refuses to start.
+ * Validates bulk field-update rows against the live catalogue without writing.
  */
-export async function dryRunBulkCsv(
+export function dryRunBulkObjects(
   mode: BulkImportMode,
-  text: string,
-): Promise<BulkDryRunResult> {
-  const objects = csvRowsToObjects(parseCsvText(text))
+  objects: Record<string, string>[],
+  products: ApiProduct[],
+): BulkDryRunResult {
   if (objects.length === 0) {
     return { rows: [], parsed: 0 }
   }
 
-  const { products } = await fetchProducts({ limit: 500 })
   const { skuToVariant, skuToProduct, productMeta } = buildSkuMaps(products)
   const rows: BulkPreviewRow[] = []
 
@@ -191,6 +189,34 @@ export async function dryRunBulkCsv(
         return
       }
       const priceRef = sku ? skuToVariant.get(sku.toLowerCase()) : undefined
+      const resolvedVariantId = variantId || priceRef?.variantId
+      const resolvedProductId =
+        productId ||
+        priceRef?.productId ||
+        (sku ? skuToProduct.get(sku.toLowerCase()) : undefined)
+
+      // SKU-only rows must resolve in the live catalogue — do not mark unknown SKUs ok.
+      if (sku && !variantId && !productId && !priceRef) {
+        rows.push({
+          line,
+          key: sku,
+          value: String(price),
+          status: 'reject',
+          reason: 'SKU not found',
+        })
+        return
+      }
+      if (!resolvedVariantId && !resolvedProductId && !sku) {
+        rows.push({
+          line,
+          key: variantId || productId || '—',
+          value: String(price),
+          status: 'reject',
+          reason: 'SKU not found',
+        })
+        return
+      }
+
       rows.push({
         line,
         key: sku || variantId || productId,
@@ -199,9 +225,9 @@ export async function dryRunBulkCsv(
         ...(priceRef?.name ? { label: priceRef.name } : {}),
         status: 'ok',
         payload: {
-          ...(variantId ? { variantId } : {}),
+          ...(resolvedVariantId ? { variantId: resolvedVariantId } : {}),
           ...(sku ? { sku } : {}),
-          ...(productId ? { productId } : {}),
+          ...(resolvedProductId ? { productId: resolvedProductId } : {}),
           price,
           ...(compareAtPrice !== undefined ? { compareAtPrice } : {}),
         },
@@ -238,4 +264,30 @@ export async function dryRunBulkCsv(
   })
 
   return { rows, parsed: objects.length }
+}
+
+/**
+ * Validates a bulk CSV against the live catalogue without writing anything.
+ */
+async function fetchAllProductsForDryRun(): Promise<ApiProduct[]> {
+  return fetchAllProductsForCatalog()
+}
+
+export async function dryRunBulkCsv(
+  mode: BulkImportMode,
+  text: string,
+): Promise<BulkDryRunResult> {
+  const objects = csvRowsToObjects(parseCsvText(text))
+  if (objects.length === 0) {
+    return { rows: [], parsed: 0 }
+  }
+  return dryRunBulkObjects(mode, objects, await fetchAllProductsForDryRun())
+}
+
+export async function dryRunBulkFromObjects(
+  mode: BulkImportMode,
+  objects: Record<string, string>[],
+): Promise<BulkDryRunResult> {
+  if (objects.length === 0) return { rows: [], parsed: 0 }
+  return dryRunBulkObjects(mode, objects, await fetchAllProductsForDryRun())
 }

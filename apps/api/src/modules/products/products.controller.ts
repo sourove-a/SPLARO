@@ -29,6 +29,12 @@ import { mergeStorefrontConfig } from '../settings/storefront-config'
 import { CreateAdminProductDto, AdminProductPatchDto } from '../../common/dtos/admin-products.dto'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { resolveCustomerFacingSiteUrl, toStoredMediaUrl } from '@splaro/config'
+import {
+  CATALOG_BULK_MAX_ROWS,
+  loadCatalogExportRows,
+  upsertCatalogRowsBatch,
+  type CatalogBulkRowInput,
+} from './product-bulk-catalog.util'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
@@ -519,6 +525,16 @@ export class ProductsController {
       include: { images: true, variants: true, category: true },
     })
     return refreshed ?? product
+  }
+
+  @Get('export')
+  async exportCatalog(
+    @Query('storeId') storeId: string,
+    @Query('status') status?: string,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const rows = await loadCatalogExportRows(this.prisma, sid, status)
+    return { rows, total: rows.length }
   }
 
   @Get(':id')
@@ -1235,5 +1251,42 @@ export class ProductsController {
     await this.bustProductCache(sid)
     const updated = results.filter((r) => r.ok).length
     return { updated, failed: results.length - updated, results }
+  }
+
+  @Post('bulk/catalog')
+  async bulkCatalogUpsert(
+    @Query('storeId') storeId: string,
+    @Body() body: { rows?: CatalogBulkRowInput[] },
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const rows = body.rows ?? []
+    if (rows.length === 0) {
+      throw new BadRequestException('rows required')
+    }
+    if (rows.length > CATALOG_BULK_MAX_ROWS) {
+      throw new BadRequestException(
+        `At most ${CATALOG_BULK_MAX_ROWS} rows per request — split the file and retry.`,
+      )
+    }
+
+    const results = await upsertCatalogRowsBatch(this.prisma, sid, rows)
+    let created = 0
+    let updated = 0
+    for (const result of results) {
+      if (result.ok && result.action === 'created') created += 1
+      if (result.ok && result.action === 'updated') updated += 1
+    }
+
+    const touchedProductIds = [
+      ...new Set(results.filter((r) => r.ok && r.productId).map((r) => r.productId!)),
+    ]
+    for (const productId of touchedProductIds) {
+      await this.productAdvanced.ensureVariantSKUs(productId)
+    }
+
+    if (this.search) fireAndForget(this.search.indexProducts(sid), 'search.indexProducts')
+    await this.bustProductCache(sid)
+    const failed = results.filter((r) => !r.ok).length
+    return { created, updated, failed, results }
   }
 }

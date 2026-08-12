@@ -1,4 +1,5 @@
 import { apiFetch, SPLARO_DOMAINS } from './client'
+import type { CatalogUpsertRow } from '@/lib/admin/product-catalog-sheet'
 
 export interface ApiProduct {
   id: string
@@ -329,4 +330,62 @@ export function bulkUpdatePrices(
       body: JSON.stringify({ updates }),
     },
   )
+}
+
+export interface CatalogExportRow {
+  name: string
+  name_bn: string
+  product_sku: string
+  slug: string
+  category: string
+  collection: string
+  description: string
+  description_bn: string
+  short_description: string
+  base_price: string
+  compare_at_price: string
+  cost_price: string
+  published: string
+  featured: string
+  new_arrival: string
+  best_seller: string
+  badge: string
+  rm_code: string
+  tags: string
+  fabric: string
+  fit: string
+  occasion: string
+  season: string
+  care: string
+  image_url: string
+  image_urls: string
+  size: string
+  color: string
+  color_hex: string
+  variant_sku: string
+  barcode: string
+  price: string
+  stock: string
+  [key: string]: string
+}
+
+export function fetchProductsExport(params?: { status?: 'published' | 'draft' }) {
+  const qs = new URLSearchParams()
+  if (params?.status) qs.set('status', params.status)
+  const query = qs.toString()
+  return apiFetch<{ rows: CatalogExportRow[]; total: number }>(
+    `/admin/products/export${query ? `?${query}` : ''}`,
+  )
+}
+
+export function bulkUpsertCatalog(rows: CatalogUpsertRow[]) {
+  return apiFetch<{
+    created: number
+    updated: number
+    failed: number
+    results: { key: string; ok: boolean; action?: string; error?: string }[]
+  }>('/admin/products/bulk/catalog', {
+    method: 'POST',
+    body: JSON.stringify({ rows }),
+  })
 }

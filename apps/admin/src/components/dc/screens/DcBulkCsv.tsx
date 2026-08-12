@@ -1,6 +1,6 @@
 'use client'
 
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useMemo, useRef, useState } from 'react'
 
@@ -9,16 +9,37 @@ import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider, useDcScreen } from '@/components/dc/DcScreenContext'
 import { DcModal } from '@/components/dc/DcModal'
 import { FONT, MONO, toneStyle } from '@/components/dc/tokens'
-import { downloadCsv } from '@/lib/admin/admin-actions'
 import {
-  dryRunBulkCsv,
+  dryRunBulkFromObjects,
   templateFor,
   templateName,
   type BulkImportMode,
   type BulkPreviewRow,
 } from '@/lib/admin/bulk-csv'
+import {
+  CATALOG_HEADERS,
+  catalogTemplateMatrix,
+  catalogTemplateName,
+  chunkCatalogRows,
+  dryRunCatalogRows,
+  fetchAllProductsForCatalog,
+  rejectRowsToMatrix,
+  summarizeCatalogDryRun,
+  validateCatalogSheetHeaders,
+  type CatalogUpsertRow,
+} from '@/lib/admin/product-catalog-sheet'
+import { downloadSheet, parseSpreadsheetFile } from '@/lib/admin/sheet-io'
+import { isNetworkOrServerError } from '@/lib/api/offline-defaults'
 import { downloadFinanceCsv } from '@/lib/api/finance'
-import { bulkPublishProducts, bulkUpdatePrices, bulkUpdateStock } from '@/lib/api/products'
+import {
+  bulkPublishProducts,
+  bulkUpdatePrices,
+  bulkUpdateStock,
+  bulkUpsertCatalog,
+  fetchProductsExport,
+} from '@/lib/api/products'
+
+type WorkMode = BulkImportMode | 'catalog'
 
 const card = {
   border: '1px solid var(--line)',
@@ -48,12 +69,19 @@ const th = {
 const td = { padding: '9px 15px', font: `400 12.5px/1.4 ${FONT}`, color: 'var(--ink-2)' } as const
 
 const MODES: Array<{
-  id: BulkImportMode
+  id: WorkMode
   label: string
   endpoint: string
   what: string
   columns: string
 }> = [
+  {
+    id: 'catalog',
+    label: 'Catalog',
+    endpoint: 'POST /admin/products/bulk/catalog',
+    what: 'Creates missing products and updates existing ones — one row per size/colour variant.',
+    columns: CATALOG_HEADERS.join(' · '),
+  },
   {
     id: 'stock',
     label: 'Stock',
@@ -79,7 +107,7 @@ const MODES: Array<{
 
 /** One card per bulk endpoint — what it writes, and where the write is logged. */
 const OPERATIONS: Array<{
-  mode: BulkImportMode
+  mode: WorkMode
   title: string
   sub: string
   icon: string
@@ -88,12 +116,25 @@ const OPERATIONS: Array<{
   rows: Array<[string, string]>
 }> = [
   {
+    mode: 'catalog',
+    title: 'Import catalog',
+    sub: 'Create or update products from CSV / Excel',
+    icon: 'icon-package',
+    color: 'var(--violet-ink)',
+    cta: 'Import catalog file',
+    rows: [
+      ['Endpoint', 'POST /admin/products/bulk/catalog'],
+      ['Match', 'variant_sku, or product_sku + size + color'],
+      ['Formats', 'CSV and Excel (.xlsx)'],
+    ],
+  },
+  {
     mode: 'stock',
     title: 'Update stock',
     sub: 'Set stock across many SKUs in one write',
     icon: 'icon-archive',
     color: 'var(--ok)',
-    cta: 'Import stock CSV',
+    cta: 'Import stock file',
     rows: [
       ['Endpoint', 'POST /admin/products/bulk/stock'],
       ['Writes', 'ProductVariant.stock — set, not added'],
@@ -106,7 +147,7 @@ const OPERATIONS: Array<{
     sub: 'Flip storefront visibility for a whole list',
     icon: 'icon-eye',
     color: 'var(--violet-ink)',
-    cta: 'Import publish CSV',
+    cta: 'Import publish file',
     rows: [
       ['Endpoint', 'POST /admin/products/bulk/publish'],
       ['Writes', 'Product.isPublished'],
@@ -119,7 +160,7 @@ const OPERATIONS: Array<{
     sub: 'Overwrite price and compare-at per SKU',
     icon: 'icon-tag',
     color: 'var(--warn)',
-    cta: 'Import price CSV',
+    cta: 'Import price file',
     rows: [
       ['Endpoint', 'POST /admin/products/bulk/price'],
       ['Writes', 'price, and compareAtPrice when the column exists'],
@@ -142,32 +183,129 @@ function DcBulkCsvBody() {
   const qc = useQueryClient()
   const fileInput = useRef<HTMLInputElement | null>(null)
 
-  const [mode, setMode] = useState<BulkImportMode>('stock')
+  const [mode, setMode] = useState<WorkMode>('catalog')
   const [fileName, setFileName] = useState('')
   const [rows, setRows] = useState<BulkPreviewRow[]>([])
   const [parsing, setParsing] = useState(false)
   const [applying, setApplying] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [confirmApply, setConfirmApply] = useState(false)
   const [parseError, setParseError] = useState<string | null>(null)
+  const [applyProgress, setApplyProgress] = useState<{ done: number; total: number } | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+  const [lastApplyErrors, setLastApplyErrors] = useState<Array<{ key: string; error: string }>>([])
+
+  const apiProbe = useQuery({
+    queryKey: ['bulk-api-probe'],
+    queryFn: () => fetchProductsExport(),
+    staleTime: 30_000,
+    retry: false,
+  })
+  const apiOffline = apiProbe.isError && isNetworkOrServerError(apiProbe.error)
 
   const active = MODES.find((m) => m.id === mode) ?? MODES[0]!
   const okRows = useMemo(() => rows.filter((r) => r.status === 'ok'), [rows])
   const rejects = useMemo(() => rows.filter((r) => r.status === 'reject'), [rows])
+  const catalogSummary = useMemo(
+    () => (mode === 'catalog' && rows.length ? summarizeCatalogDryRun(rows) : null),
+    [mode, rows],
+  )
   const hasRun = rows.length > 0 || parseError !== null
 
   const reset = () => {
     setRows([])
     setFileName('')
     setParseError(null)
+    setApplyProgress(null)
+    setLastApplyErrors([])
+  }
+
+  const pickFile = (file: File | undefined) => {
+    if (file) void runDryRun(file)
+  }
+
+  const downloadRejects = (format: 'csv' | 'xlsx') => {
+    if (rejects.length === 0) return
+    downloadSheet(
+      format === 'xlsx' ? 'splaro-bulk-rejects.xlsx' : 'splaro-bulk-rejects.csv',
+      rejectRowsToMatrix(rows),
+      format,
+    )
+    toast('ok', 'Rejected rows downloaded', 'Fix these lines in your file and dry-run again.')
+  }
+
+  const downloadTemplate = (format: 'csv' | 'xlsx') => {
+    if (mode === 'catalog') {
+      downloadSheet(catalogTemplateName(format), catalogTemplateMatrix(), format)
+      toast('ok', `Catalog ${format.toUpperCase()} template ready`, 'One row per variant — same columns as export.')
+      return
+    }
+    downloadSheet(templateName(mode, format), templateFor(mode), format)
+    toast('ok', `${active.label} ${format.toUpperCase()} template ready`, 'Fill the rows, then dry-run before applying.')
+  }
+
+  const exportCatalog = async (format: 'csv' | 'xlsx') => {
+    setExporting(true)
+    try {
+      const { rows: exportRows } = await fetchProductsExport()
+      const matrix: string[][] = [
+        [...CATALOG_HEADERS],
+        ...exportRows.map((r) => CATALOG_HEADERS.map((h) => r[h] ?? '')),
+      ]
+      downloadSheet(
+        format === 'xlsx' ? 'splaro-catalog-export.xlsx' : 'splaro-catalog-export.csv',
+        matrix,
+        format,
+      )
+      toast(
+        'ok',
+        `Exported ${exportRows.length} variant row${exportRows.length === 1 ? '' : 's'}`,
+        format === 'xlsx' ? 'Excel file downloaded.' : 'CSV downloaded.',
+      )
+    } catch (e) {
+      toast('bad', 'Export failed', e instanceof Error ? e.message : 'Could not export catalog')
+    } finally {
+      setExporting(false)
+    }
   }
 
   const runDryRun = async (file: File) => {
+    if (apiOffline) {
+      toast('bad', 'API offline', 'Start the API on :4000 before importing.')
+      return
+    }
     setParsing(true)
     reset()
     setFileName(file.name)
     try {
-      const text = await file.text()
-      const res = await dryRunBulkCsv(mode, text)
+      const { objects } = await parseSpreadsheetFile(file)
+      const headerError =
+        mode === 'catalog' ? validateCatalogSheetHeaders(objects) : null
+      if (headerError) {
+        setParseError(headerError)
+        return
+      }
+
+      if (mode === 'catalog') {
+        const all = await fetchAllProductsForCatalog()
+        const res = dryRunCatalogRows(objects, all)
+        setRows(res.rows)
+        const summary = summarizeCatalogDryRun(res.rows)
+        if (res.rows.every((r) => r.status === 'reject')) {
+          toast('warn', 'Every row was rejected', 'Nothing has been written. Fix the file and dry-run again.')
+        } else {
+          toast(
+            'ok',
+            `${summary.ok} rows ready · ${summary.creates} new · ${summary.updates} updates`,
+            summary.draftWarnings > 0
+              ? `${summary.draftWarnings} row(s) will stay draft until category is set.`
+              : 'Nothing has changed yet — this was a dry run.',
+          )
+        }
+        return
+      }
+
+      const res = await dryRunBulkFromObjects(mode, objects)
       if (res.parsed === 0) {
         setParseError('The file has a header but no data rows.')
         return
@@ -187,7 +325,7 @@ function DcBulkCsvBody() {
         )
       }
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Could not read the CSV'
+      const message = e instanceof Error ? e.message : 'Could not read the file'
       setParseError(message)
       toast('bad', 'Dry run failed', message)
     } finally {
@@ -198,8 +336,41 @@ function DcBulkCsvBody() {
   const apply = async () => {
     setConfirmApply(false)
     setApplying(true)
+    setLastApplyErrors([])
     try {
-      if (mode === 'stock') {
+      if (mode === 'catalog') {
+        const payloads = okRows.map((r) => r.payload as unknown as CatalogUpsertRow)
+        const chunks = chunkCatalogRows(payloads)
+        let created = 0
+        let updated = 0
+        let failed = 0
+        const errors: Array<{ key: string; error: string }> = []
+        let done = 0
+        setApplyProgress({ done: 0, total: payloads.length })
+        for (const chunk of chunks) {
+          const res = await bulkUpsertCatalog(chunk)
+          created += res.created
+          updated += res.updated
+          failed += res.failed
+          for (const r of res.results) {
+            if (!r.ok && r.error) errors.push({ key: r.key, error: r.error })
+          }
+          done += chunk.length
+          setApplyProgress({ done, total: payloads.length })
+        }
+        setApplyProgress(null)
+        if (created + updated <= 0) {
+          setLastApplyErrors(errors)
+          toast('bad', 'Catalog import wrote nothing', `The API rejected all ${failed} row${failed === 1 ? '' : 's'}.`)
+          return
+        }
+        if (errors.length) setLastApplyErrors(errors)
+        toast(
+          'ok',
+          `Catalog: ${created} created · ${updated} updated`,
+          failed > 0 ? `${failed} row${failed === 1 ? '' : 's'} failed — see details below.` : 'Every valid row was written.',
+        )
+      } else if (mode === 'stock') {
         const updates = okRows.map((r) => r.payload as { variantId: string; stock: number })
         const res = await bulkUpdateStock(updates)
         if (res.updated <= 0) {
@@ -289,26 +460,36 @@ function DcBulkCsvBody() {
         syncLabel={
           parsing
             ? 'checking the file…'
-            : hasRun
-              ? `${okRows.length} would write · ${rejects.length} rejected`
-              : 'no file loaded'
+            : exporting
+              ? 'exporting…'
+              : hasRun
+                ? `${okRows.length} would write · ${rejects.length} rejected`
+                : 'no file loaded'
         }
-        syncing={parsing}
+        syncing={parsing || exporting}
         actions={[
           {
-            label: 'Download template',
+            label: 'Template CSV',
             icon: 'icon-download',
-            onClick: () => {
-              downloadCsv(templateName(mode), templateFor(mode))
-              toast(
-                'ok',
-                `${active.label} template downloaded`,
-                'Fill the rows, then dry-run it here before applying.',
-              )
-            },
+            onClick: () => downloadTemplate('csv'),
           },
           {
-            label: 'Choose CSV',
+            label: 'Template Excel',
+            icon: 'icon-download',
+            onClick: () => downloadTemplate('xlsx'),
+          },
+          {
+            label: 'Export CSV',
+            icon: 'icon-download',
+            onClick: () => void exportCatalog('csv'),
+          },
+          {
+            label: 'Export Excel',
+            icon: 'icon-download',
+            onClick: () => void exportCatalog('xlsx'),
+          },
+          {
+            label: 'Choose file',
             icon: 'icon-upload',
             variant: 'primary',
             onClick: () => fileInput.current?.click(),
@@ -316,15 +497,55 @@ function DcBulkCsvBody() {
         ]}
       />
 
+      {apiOffline ? (
+        <div
+          style={{
+            ...card,
+            padding: '12px 14px',
+            borderColor: 'var(--warn-bd)',
+            background: 'var(--warn-soft)',
+            font: `600 12.5px/1.4 ${FONT}`,
+            color: 'var(--ink-2)',
+          }}
+        >
+          API offline — imports and exports need the Nest API on :4000.
+        </div>
+      ) : null}
+
+      {applyProgress ? (
+        <div style={{ ...card, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span style={{ font: `600 12.5px/1.4 ${FONT}`, color: 'var(--ink)' }}>
+            Writing row {applyProgress.done} of {applyProgress.total}…
+          </span>
+          <div
+            style={{
+              height: 6,
+              borderRadius: 99,
+              background: 'var(--surface-2)',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                width: `${Math.round((applyProgress.done / applyProgress.total) * 100)}%`,
+                background: 'var(--violet-solid)',
+                transition: 'width 200ms ease',
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
+
       <input
         ref={fileInput}
         type="file"
-        accept=".csv,text/csv"
+        accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
         style={{ display: 'none' }}
         onChange={(e) => {
           const file = e.target.files?.[0]
           e.target.value = ''
-          if (file) void runDryRun(file)
+          pickFile(file)
         }}
       />
 
@@ -424,7 +645,7 @@ function DcBulkCsvBody() {
             Bulk operations
           </span>
           <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
-            all three write through a dry run first
+            all write through a dry run first
           </span>
         </div>
         <div
@@ -572,61 +793,102 @@ function DcBulkCsvBody() {
 
       {!hasRun ? (
         <div
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragOver(true)
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragOver(false)
+            pickFile(e.dataTransfer.files?.[0])
+          }}
           style={{
             ...card,
             padding: '44px 24px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 10,
+            gap: 12,
             textAlign: 'center',
+            borderStyle: dragOver ? 'dashed' : 'solid',
+            borderColor: dragOver ? 'var(--violet-solid)' : 'var(--line)',
+            background: dragOver ? 'var(--violet-soft)' : 'var(--surface)',
           }}
         >
           <span
             style={{
               display: 'grid',
               placeItems: 'center',
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               borderRadius: 12,
               border: '1px solid var(--line)',
               background: 'var(--surface-2)',
               color: 'var(--ink-3)',
             }}
           >
-            <DcIcon name="icon-upload" size={17} />
+            <DcIcon name="icon-upload" size={18} />
           </span>
-          <span style={{ font: `600 14px/1.4 ${FONT}`, color: 'var(--ink)' }}>
-            {parsing ? 'Checking the file against the catalogue…' : 'No file loaded'}
+          <span style={{ font: `600 15px/1.4 ${FONT}`, color: 'var(--ink)' }}>
+            {parsing ? 'Checking against the live catalogue…' : 'Drop CSV or Excel here'}
           </span>
           <span
             style={{
-              maxWidth: 440,
-              font: `400 12.5px/1.6 ${FONT}`,
+              maxWidth: 520,
+              font: `400 12.5px/1.65 ${FONT}`,
               color: 'var(--ink-3)',
               textWrap: 'pretty',
             }}
           >
-            Choose a CSV to dry-run it. Nothing is written until you read the preview and press
-            Apply.
+            {mode === 'catalog' ? (
+              <>
+                1. Download template · 2. One row per size/colour · 3. Dry-run preview · 4. Apply.
+                Same file shape as Export.
+              </>
+            ) : (
+              <>
+                Upload a {active.label.toLowerCase()} file — dry-run shows rejects before anything
+                is written.
+              </>
+            )}
           </span>
-          <button
-            type="button"
-            disabled={parsing}
-            onClick={() => fileInput.current?.click()}
-            style={{
-              height: 34,
-              padding: '0 14px',
-              borderRadius: 9,
-              border: '1px solid var(--violet-solid)',
-              background: 'var(--violet-solid)',
-              color: 'var(--on-violet)',
-              cursor: parsing ? 'not-allowed' : 'pointer',
-              font: `600 12.5px/1 ${FONT}`,
-            }}
-          >
-            {parsing ? 'Reading…' : 'Choose CSV'}
-          </button>
+          <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button
+              type="button"
+              disabled={parsing || apiOffline}
+              onClick={() => downloadTemplate('csv')}
+              style={{
+                height: 34,
+                padding: '0 14px',
+                borderRadius: 9,
+                border: '1px solid var(--line-2)',
+                background: 'transparent',
+                color: 'var(--ink-2)',
+                cursor: parsing || apiOffline ? 'not-allowed' : 'pointer',
+                font: `600 12px/1 ${FONT}`,
+              }}
+            >
+              Template CSV
+            </button>
+            <button
+              type="button"
+              disabled={parsing || apiOffline}
+              onClick={() => fileInput.current?.click()}
+              style={{
+                height: 34,
+                padding: '0 14px',
+                borderRadius: 9,
+                border: '1px solid var(--violet-solid)',
+                background: 'var(--violet-solid)',
+                color: 'var(--on-violet)',
+                cursor: parsing || apiOffline ? 'not-allowed' : 'pointer',
+                font: `600 12.5px/1 ${FONT}`,
+              }}
+            >
+              {parsing ? 'Reading…' : 'Choose file'}
+            </button>
+          </span>
         </div>
       ) : parseError ? (
         <div
@@ -682,23 +944,34 @@ function DcBulkCsvBody() {
               gap: 12,
             }}
           >
-            <Kpi label="Rows in file" value={String(rows.length)} sub={fileName || 'uploaded CSV'} />
-            <Kpi
-              label="Would write"
-              value={String(okRows.length)}
-              sub="matched a SKU and passed validation"
-              color={okRows.length > 0 ? 'var(--ok)' : 'var(--bad)'}
-            />
+            <Kpi label="Rows in file" value={String(rows.length)} sub={fileName || 'uploaded file'} />
+            {catalogSummary ? (
+              <>
+                <Kpi
+                  label="Would create"
+                  value={String(catalogSummary.creates)}
+                  sub="new products / variants"
+                  color={catalogSummary.creates > 0 ? 'var(--ok)' : undefined}
+                />
+                <Kpi
+                  label="Would update"
+                  value={String(catalogSummary.updates)}
+                  sub="matched existing SKUs"
+                />
+              </>
+            ) : (
+              <Kpi
+                label="Would write"
+                value={String(okRows.length)}
+                sub="matched a SKU and passed validation"
+                color={okRows.length > 0 ? 'var(--ok)' : 'var(--bad)'}
+              />
+            )}
             <Kpi
               label="Rejected"
               value={String(rejects.length)}
-              sub={rejects.length > 0 ? 'these rows will be skipped' : 'nothing rejected'}
+              sub={rejects.length > 0 ? 'download rejects to fix' : 'nothing rejected'}
               color={rejects.length > 0 ? 'var(--warn)' : undefined}
-            />
-            <Kpi
-              label="Written so far"
-              value="0"
-              sub="dry run only — nothing has changed yet"
             />
           </div>
 
@@ -727,6 +1000,24 @@ function DcBulkCsvBody() {
                 : `Applying writes ${okRows.length} row${okRows.length === 1 ? '' : 's'} through ${active.endpoint}. ${rejects.length > 0 ? `The ${rejects.length} rejected row${rejects.length === 1 ? '' : 's'} will be skipped, not fixed.` : ''} There is no undo.`}
             </span>
             <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {rejects.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => downloadRejects('csv')}
+                  style={{
+                    height: 32,
+                    padding: '0 13px',
+                    borderRadius: 9,
+                    border: '1px solid var(--line-2)',
+                    background: 'transparent',
+                    color: 'var(--ink-2)',
+                    cursor: 'pointer',
+                    font: `600 12px/1 ${FONT}`,
+                  }}
+                >
+                  Download rejects
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={reset}
@@ -872,8 +1163,8 @@ function DcBulkCsvBody() {
                           {r.status === 'ok' ? 'Will write' : 'Skipped'}
                         </span>
                       </td>
-                      <td style={{ ...td, color: r.reason ? 'var(--bad)' : 'var(--ink-3)' }}>
-                        {r.reason ?? 'matched the catalogue'}
+                      <td style={{ ...td, color: r.reason ? (r.status === 'ok' ? 'var(--warn)' : 'var(--bad)') : 'var(--ink-3)' }}>
+                        {r.reason ?? (r.status === 'ok' ? 'ready to write' : '—')}
                       </td>
                     </tr>
                   )
@@ -885,15 +1176,49 @@ function DcBulkCsvBody() {
         </>
       )}
 
+      {lastApplyErrors.length > 0 ? (
+        <div
+          style={{
+            ...card,
+            borderLeft: '3px solid var(--bad)',
+            padding: '13px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+          }}
+        >
+          <span style={{ font: `600 13px/1.35 ${FONT}`, color: 'var(--ink)' }}>
+            {lastApplyErrors.length} row{lastApplyErrors.length === 1 ? '' : 's'} failed on the API
+          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {lastApplyErrors.slice(0, 8).map((e) => (
+              <span
+                key={`${e.key}-${e.error}`}
+                style={{ font: `400 11.5px/1.45 ${MONO}`, color: 'var(--bad)', wordBreak: 'break-word' }}
+              >
+                {e.key}: {e.error}
+              </span>
+            ))}
+            {lastApplyErrors.length > 8 ? (
+              <span style={{ font: `400 11px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
+                + {lastApplyErrors.length - 8} more
+              </span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       <DcModal
         open={confirmApply}
         title={`Write ${okRows.length} row${okRows.length === 1 ? '' : 's'} now?`}
         subtitle={
-          mode === 'publish'
-            ? 'This changes what customers can see and buy on the storefront immediately. There is no undo.'
-            : mode === 'price'
-              ? 'New prices go live on the storefront immediately. There is no undo.'
-              : 'Stock is set to exactly the numbers in the file, overwriting what is there now. There is no undo.'
+          mode === 'catalog'
+            ? 'Creates missing products and updates matched SKUs. Publish only sticks when category and price are valid — otherwise draft. There is no undo.'
+            : mode === 'publish'
+              ? 'This changes what customers can see and buy on the storefront immediately. There is no undo.'
+              : mode === 'price'
+                ? 'New prices go live on the storefront immediately. There is no undo.'
+                : 'Stock is set to exactly the numbers in the file, overwriting what is there now. There is no undo.'
         }
         confirmLabel={`Apply ${okRows.length}`}
         busy={applying}
@@ -908,7 +1233,7 @@ function DcBulkCsvBody() {
           <div style={{ ...card, padding: '6px 16px 10px' }}>
             <div style={{ padding: '12px 0 9px' }}>
               <span style={{ font: `600 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
-                CSV you can export today
+                Export & templates
               </span>
             </div>
             {[
@@ -924,19 +1249,24 @@ function DcBulkCsvBody() {
               },
               {
                 icon: 'icon-package',
-                title: `${active.label} template`,
-                sub: `${active.columns} — the shape this importer expects`,
+                title: 'Full catalog (CSV)',
+                sub: 'All variants — same columns as Catalog import',
                 state: 'READY' as const,
-                run: () => {
-                  downloadCsv(templateName(mode), templateFor(mode))
-                  toast('ok', `${active.label} template downloaded`, 'Fill the rows, then dry-run it.')
-                },
+                run: () => void exportCatalog('csv'),
               },
               {
-                icon: 'icon-users',
-                title: 'Customers',
-                sub: 'no customer export endpoint exists on this API yet',
-                state: 'NOT BUILT' as const,
+                icon: 'icon-file-spreadsheet',
+                title: 'Full catalog (Excel)',
+                sub: 'Download .xlsx for editing in Sheets / Excel',
+                state: 'READY' as const,
+                run: () => void exportCatalog('xlsx'),
+              },
+              {
+                icon: 'icon-download',
+                title: `${active.label} template`,
+                sub: `${active.columns.slice(0, 72)}${active.columns.length > 72 ? '…' : ''}`,
+                state: 'READY' as const,
+                run: () => downloadTemplate('csv'),
               },
             ].map((x) => (
               <div

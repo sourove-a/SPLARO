@@ -96,7 +96,7 @@ export const adminNavGroups: AdminNavGroup[] = [
       item('Collections', 'collections', 'Layers', 'Curated product collections'),
       item('Categories', 'categories', 'FolderTree', 'Category hierarchy and navigation'),
       item('Inventory', 'inventory', 'Archive', 'Stock levels, alerts, and adjustments'),
-      item('Bulk & CSV', 'bulk', 'FileSpreadsheet', 'Bulk stock, price & publish CSV — customer export not built'),
+      item('Bulk & CSV', 'bulk', 'FileSpreadsheet', 'Catalog CSV/Excel import & export — stock, price, publish'),
       item('Brands', 'brands', 'Award', 'Brand profiles and vendor associations'),
     ],
   },

@@ -6,11 +6,13 @@ import { useQuery } from '@tanstack/react-query'
 import { DcIcon } from '@/components/dc/DcIcon'
 import { FONT, MONO } from '@/components/dc/tokens'
 import { downloadCsv } from '@/lib/admin/admin-actions'
+import { CATALOG_HEADERS } from '@/lib/admin/product-catalog-sheet'
+import { downloadSheet } from '@/lib/admin/sheet-io'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
 import { isNetworkOrServerError } from '@/lib/api/offline-defaults'
 import { fetchCustomers } from '@/lib/api/customers'
 import { fetchOrders } from '@/lib/api/orders'
-import { fetchProducts } from '@/lib/api/products'
+import { fetchProductsExport } from '@/lib/api/products'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 
 const card = {
@@ -36,28 +38,40 @@ export function DcExportCenterBody() {
   })
   const apiOffline = apiProbe.isError && isNetworkOrServerError(apiProbe.error)
 
-  const exportDataset = async (kind: 'orders' | 'customers' | 'products') => {
+  const exportDataset = async (
+    kind: 'orders' | 'customers' | 'products',
+    format: 'csv' | 'xlsx' = 'csv',
+  ) => {
     if (apiOffline) {
       toastFail('Export unavailable — API offline.', 'export-offline')
       return
     }
-    setBusy(kind)
+    setBusy(`${kind}-${format}`)
     try {
       if (kind === 'orders') {
-        const data = await fetchOrders({ limit: 500 })
-        downloadCsv('splaro-orders.csv', [
-          ['Invoice', 'Customer', 'Status', 'Total', 'Created'],
-          ...data.orders.map((o) => [
-            o.invoiceNumber,
-            o.shippingName,
-            o.status,
-            String(o.total),
-            o.createdAt,
-          ]),
-        ])
+        const rows: string[][] = [['Invoice', 'Customer', 'Status', 'Total', 'Created']]
+        let page = 1
+        let totalPages = 1
+        do {
+          const data = await fetchOrders({ limit: 100, page })
+          for (const o of data.orders) {
+            rows.push([
+              o.invoiceNumber,
+              o.shippingName,
+              o.status,
+              String(o.total),
+              o.createdAt,
+            ])
+          }
+          totalPages = data.totalPages ?? 1
+          page += 1
+        } while (page <= totalPages && page <= 50)
+        if (format === 'xlsx') downloadSheet('splaro-orders.xlsx', rows, 'xlsx')
+        else downloadCsv('splaro-orders.csv', rows)
       } else if (kind === 'customers') {
-        const data = await fetchCustomers({ limit: 500 })
-        downloadCsv('splaro-customers.csv', [
+        const data = await fetchCustomers({ limit: 100 })
+        // Customers API is single-page today — pull max available page size repeatedly if totalPages appears later.
+        const rows = [
           ['Name', 'Phone', 'Email', 'Orders', 'Total spent', 'Tier'],
           ...data.customers.map((c) => [
             `${c.firstName} ${c.lastName}`,
@@ -67,15 +81,25 @@ export function DcExportCenterBody() {
             String(c.totalSpent),
             c.loyaltyTier,
           ]),
-        ])
+        ]
+        if (format === 'xlsx') downloadSheet('splaro-customers.xlsx', rows, 'xlsx')
+        else downloadCsv('splaro-customers.csv', rows)
       } else {
-        const data = await fetchProducts({ limit: 500, status: 'published' })
-        downloadCsv('splaro-products.csv', [
-          ['Name', 'SKU', 'Price', 'Status'],
-          ...data.products.map((p) => [p.name, p.sku ?? '', String(p.basePrice), p.status]),
-        ])
+        const data = await fetchProductsExport()
+        const rows: string[][] = [
+          [...CATALOG_HEADERS],
+          ...data.rows.map((r) => CATALOG_HEADERS.map((h) => r[h] ?? '')),
+        ]
+        downloadSheet(
+          format === 'xlsx' ? 'splaro-products.xlsx' : 'splaro-products.csv',
+          rows,
+          format,
+        )
       }
-      toastOk(`${kind} exported as CSV.`, `export-${kind}`)
+      toastOk(
+        `${kind} exported as ${format.toUpperCase()}.`,
+        `export-${kind}-${format}`,
+      )
     } catch {
       toastFail('Export failed — is the API running?', 'export-fail')
     } finally {
@@ -84,9 +108,27 @@ export function DcExportCenterBody() {
   }
 
   const exports = [
-    { label: 'Orders', kind: 'orders' as const, desc: 'Up to 500 recent orders', icon: 'icon-shopping-bag' },
-    { label: 'Customers', kind: 'customers' as const, desc: 'Customer CRM export', icon: 'icon-users' },
-    { label: 'Products', kind: 'products' as const, desc: 'Published catalog', icon: 'icon-package' },
+    {
+      label: 'Orders',
+      kind: 'orders' as const,
+      desc: 'Orders (paginated export)',
+      icon: 'icon-shopping-bag',
+      excel: true,
+    },
+    {
+      label: 'Customers',
+      kind: 'customers' as const,
+      desc: 'Customer CRM export',
+      icon: 'icon-users',
+      excel: true,
+    },
+    {
+      label: 'Products',
+      kind: 'products' as const,
+      desc: 'Full catalog — Bangla, images, collections',
+      icon: 'icon-package',
+      excel: true,
+    },
   ]
 
   return (
@@ -115,12 +157,12 @@ export function DcExportCenterBody() {
       >
         {[
           { label: 'Datasets', value: '3' },
-          { label: 'Format', value: 'CSV' },
+          { label: 'Format', value: 'CSV + Excel' },
           {
             label: 'API',
             value: apiProbe.isLoading ? '…' : apiOffline ? 'Offline' : 'Live',
           },
-          { label: 'Max rows', value: '500' },
+          { label: 'Products', value: 'All rows' },
         ].map((k) => (
           <div key={k.label} style={{ ...card, padding: '12px 14px' }}>
             <div
@@ -147,7 +189,10 @@ export function DcExportCenterBody() {
         }}
       >
         {exports.map((ex) => (
-          <section key={ex.kind} style={{ ...card, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <section
+            key={ex.kind}
+            style={{ ...card, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span
                 style={{
@@ -167,39 +212,67 @@ export function DcExportCenterBody() {
                 <p style={{ font: `400 11.5px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>{ex.desc}</p>
               </div>
             </div>
-            <button
-              type="button"
-              disabled={busy !== null || apiOffline}
-              onClick={() => void exportDataset(ex.kind)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                height: 36,
-                borderRadius: 9,
-                border: 0,
-                background: 'var(--violet-solid)',
-                color: 'var(--on-violet)',
-                font: `600 12.5px/1 ${FONT}`,
-                cursor: busy || apiOffline ? 'not-allowed' : 'pointer',
-                opacity: busy || apiOffline ? 0.55 : 1,
-              }}
-            >
-              <DcIcon name="icon-download" size={14} />
-              {busy === ex.kind ? 'Exporting…' : 'Download CSV'}
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                disabled={busy !== null || apiOffline}
+                onClick={() => void exportDataset(ex.kind, 'csv')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  flex: 1,
+                  height: 36,
+                  borderRadius: 9,
+                  border: 0,
+                  background: 'var(--violet-solid)',
+                  color: 'var(--on-violet)',
+                  font: `600 12.5px/1 ${FONT}`,
+                  cursor: busy || apiOffline ? 'not-allowed' : 'pointer',
+                  opacity: busy || apiOffline ? 0.55 : 1,
+                }}
+              >
+                <DcIcon name="icon-download" size={14} />
+                {busy === `${ex.kind}-csv` ? 'Exporting…' : 'CSV'}
+              </button>
+              {ex.excel ? (
+                <button
+                  type="button"
+                  disabled={busy !== null || apiOffline}
+                  onClick={() => void exportDataset(ex.kind, 'xlsx')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    flex: 1,
+                    height: 36,
+                    borderRadius: 9,
+                    border: '1px solid var(--line-2)',
+                    background: 'var(--surface-2)',
+                    color: 'var(--ink)',
+                    font: `600 12.5px/1 ${FONT}`,
+                    cursor: busy || apiOffline ? 'not-allowed' : 'pointer',
+                    opacity: busy || apiOffline ? 0.55 : 1,
+                  }}
+                >
+                  <DcIcon name="icon-file-spreadsheet" size={14} />
+                  {busy === `${ex.kind}-xlsx` ? 'Exporting…' : 'Excel'}
+                </button>
+              ) : null}
+            </div>
           </section>
         ))}
       </div>
 
       <p style={{ font: `500 12px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
-        PDF exports use order invoices — open Orders and use Print / invoice download. Google Sheets
-        sync lives under Finance → Google Sheets.
+        Product import (create/update) lives under Catalog → Bulk & CSV. PDF invoices use Orders →
+        Print. Google Sheets sync lives under Finance → Google Sheets.
       </p>
       <button
         type="button"
-        onClick={() => navigate('/dashboard/automation/google-sheets-sync')}
+        onClick={() => navigate('/dashboard/bulk')}
         style={{
           alignSelf: 'flex-start',
           height: 34,
@@ -212,7 +285,7 @@ export function DcExportCenterBody() {
           cursor: 'pointer',
         }}
       >
-        Google Sheets sync →
+        Bulk import →
       </button>
     </div>
   )

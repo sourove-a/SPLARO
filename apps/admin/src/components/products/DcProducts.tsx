@@ -166,7 +166,7 @@ function DcProductsBody() {
         onSync={() => void products.refetch()}
         actions={[
           {
-            label: 'Upload CSV',
+            label: 'Import / Export',
             icon: 'icon-upload',
             onClick: () => router.push('/dashboard/bulk'),
           },
