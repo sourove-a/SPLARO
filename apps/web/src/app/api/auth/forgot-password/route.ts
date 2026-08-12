@@ -3,6 +3,7 @@ import { apiForgotPassword } from '@/lib/server/api-auth'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
 
 interface ForgotPasswordBody {
+  /** Email or BD phone number — the reset link always goes to the account's email. */
   email?: string
 }
 
@@ -22,12 +23,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const email = body.email?.trim()
-  if (!email) {
-    return NextResponse.json({ error: 'Email is required' }, { status: 400 })
+  const identifier = body.email?.trim()
+  if (!identifier) {
+    return NextResponse.json({ error: 'Email or phone number is required' }, { status: 400 })
   }
 
-  const result = await apiForgotPassword(email)
+  const result = await apiForgotPassword(identifier)
   if ('error' in result) {
     return NextResponse.json({ error: result.error }, { status: 503 })
   }

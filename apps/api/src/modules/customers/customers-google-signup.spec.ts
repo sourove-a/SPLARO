@@ -73,6 +73,48 @@ describe('CustomersService.completeGoogleSignup', () => {
     expect(tx.customer.update).not.toHaveBeenCalled()
   })
 
+  it('points at the store, not a sign-in page, when the record has no way in', async () => {
+    const { service } = buildService({
+      phoneOwner: {
+        id: 'user-record-only',
+        email: null,
+        passwordHash: null,
+        googleId: null,
+        customer: { id: 'customer-record-only' },
+      },
+    })
+
+    await expect(
+      service.completeGoogleSignup('store-1', 'user-google', {
+        phone: '01712345678',
+        phoneVerified: false,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'phone_taken_no_recovery' },
+    })
+  })
+
+  it('offers sign-in when the phone is on an account with an email to reset', async () => {
+    const { service } = buildService({
+      phoneOwner: {
+        id: 'user-other',
+        email: 'other@example.com',
+        passwordHash: null,
+        googleId: null,
+        customer: { id: 'customer-other' },
+      },
+    })
+
+    await expect(
+      service.completeGoogleSignup('store-1', 'user-google', {
+        phone: '01712345678',
+        phoneVerified: false,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'phone_taken' },
+    })
+  })
+
   it('refuses to adopt a guest account when the phone was not OTP-verified', async () => {
     const { service } = buildService({
       phoneOwner: {
@@ -89,7 +131,9 @@ describe('CustomersService.completeGoogleSignup', () => {
         phone: '01712345678',
         phoneVerified: false,
       }),
-    ).rejects.toBeInstanceOf(BadRequestException)
+    ).rejects.toMatchObject({
+      response: { code: 'phone_taken_no_recovery' },
+    })
   })
 
   it('adopts a guest-checkout account once the phone is OTP-verified', async () => {

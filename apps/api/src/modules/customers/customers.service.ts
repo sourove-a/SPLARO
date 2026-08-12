@@ -25,16 +25,39 @@ function splitName(name: string) {
   return { firstName, lastName }
 }
 
-/** Storefront reads this to show sign-in / recovery links on the phone step. */
+/** The number is on an account the shopper can still get into (sign in / email reset). */
 export const PHONE_TAKEN_CODE = 'phone_taken'
+/**
+ * The number is on a record with no way in — no password, no Google, no email to
+ * send a reset to (typically a customer an admin added by phone alone). Offering
+ * "sign in" there sends the shopper to a door that cannot open, so say so plainly
+ * and let the store fix the record.
+ */
+export const PHONE_TAKEN_NO_RECOVERY_CODE = 'phone_taken_no_recovery'
 
-function phoneTakenError() {
-  return new BadRequestException({
-    statusCode: 400,
-    code: PHONE_TAKEN_CODE,
-    message:
-      'This phone number is already registered. Sign in to that account, or use a different number.',
-  })
+function phoneTakenError(owner?: {
+  email?: string | null
+  passwordHash?: string | null
+  googleId?: string | null
+}) {
+  const canRecover =
+    !owner || Boolean(owner.email) || Boolean(owner.passwordHash) || Boolean(owner.googleId)
+
+  return new BadRequestException(
+    canRecover
+      ? {
+          statusCode: 400,
+          code: PHONE_TAKEN_CODE,
+          message:
+            'This phone number is already registered. Sign in to that account, or use a different number.',
+        }
+      : {
+          statusCode: 400,
+          code: PHONE_TAKEN_NO_RECOVERY_CODE,
+          message:
+            'This number is already on a customer record from an earlier order. Contact us to link it to your account, or continue with a different number.',
+        },
+  )
 }
 
 function accountExistsMessage(user: {
@@ -203,7 +226,7 @@ export class CustomersService implements OnModuleInit {
           const isGuestOnly =
             !phoneOwner.passwordHash && !phoneOwner.googleId && !phoneOwner.email
           if (!input.phoneVerified || !isGuestOnly) {
-            throw phoneTakenError()
+            throw phoneTakenError(phoneOwner)
           }
           await this.adoptGuestAccount(tx, {
             guestUserId: phoneOwner.id,
@@ -263,6 +286,8 @@ export class CustomersService implements OnModuleInit {
     } catch (err) {
       if (err instanceof BadRequestException) throw err
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        // Race: another request claimed the phone. We don't have the owner row here —
+        // offer sign-in rather than "contact store" so a real account isn't dead-ended.
         throw phoneTakenError()
       }
       throw err
@@ -284,7 +309,8 @@ export class CustomersService implements OnModuleInit {
     })
     if (targetCustomer) {
       // Both sides already have order history — merging those is an admin decision.
-      throw phoneTakenError()
+      // The other side is guest-only, so there is no account to send them to.
+      throw phoneTakenError({})
     }
 
     await tx.user.update({

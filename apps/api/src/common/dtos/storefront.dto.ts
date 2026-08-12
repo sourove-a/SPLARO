@@ -254,7 +254,9 @@ export class StorefrontCompletePhoneDto {
 }
 
 export class StorefrontForgotPasswordDto {
-  @IsEmail()
+  /** Email or BD phone number — the reset link always goes to the account's email. */
+  @IsString()
+  @MinLength(3)
   email!: string
 }
 

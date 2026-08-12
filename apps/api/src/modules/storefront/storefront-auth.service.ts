@@ -759,19 +759,29 @@ export class StorefrontAuthService {
     })
   }
 
+  /**
+   * Accepts an email or a BD phone number. Shoppers remember the number they order
+   * with far more often than the address on the account, and the link still goes to
+   * the account's email — no SMS, so no cost.
+   */
   async forgotPassword(
     storeId: string,
-    emailRaw: string,
+    identifierRaw: string,
   ): Promise<{ success: true; message: string; devToken?: string }> {
-    const email = normalizeEmail(emailRaw)
-    if (!email) throw new BadRequestException('Email is required')
+    const identifier = identifierRaw?.trim() ?? ''
+    if (!identifier) throw new BadRequestException('Email or phone number is required')
 
+    const isEmail = identifier.includes('@')
     const user = await this.prisma.user.findFirst({
-      where: { email, isActive: true },
+      where: isEmail
+        ? { email: normalizeEmail(identifier), isActive: true }
+        : { phone: { in: bdPhoneLookupVariants(identifier) }, isActive: true },
       select: { id: true, email: true, firstName: true },
     })
 
-    const message = 'If that email exists, a reset link has been sent'
+    // Same answer either way — a different reply for "no such account" would let
+    // anyone test which emails and numbers are registered here.
+    const message = 'If that account exists, a reset link has been sent to its email address'
 
     if (!user?.email) {
       return { success: true, message }

@@ -2,6 +2,7 @@
 
 import { type FormEvent, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Check, Mail } from 'lucide-react'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from '@/lib/motion/react'
 import { AuthField } from '@/components/auth/AuthField'
@@ -19,7 +20,11 @@ export default function ForgotPasswordPageClient() {
   const motionTransition = authMotionTransition(reduceMotion)
   const formTransition = authMotionTransition(reduceMotion, 0.24)
 
-  const [email, setEmail] = useState('')
+  const searchParams = useSearchParams()
+  // Signup phone step sends ?identifier=; older links may still use ?email=.
+  const [email, setEmail] = useState(
+    () => searchParams.get('identifier')?.trim() || searchParams.get('email')?.trim() || '',
+  )
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -45,7 +50,10 @@ export default function ForgotPasswordPageClient() {
         return
       }
 
-      setMessage(data.message ?? 'If an account exists, a reset link has been sent to your email.')
+      setMessage(
+        data.message ??
+          'If that account exists, a reset link has been sent to its email address.',
+      )
     } catch {
       setError('Network error. Please check your connection and try again.')
     } finally {
@@ -63,7 +71,8 @@ export default function ForgotPasswordPageClient() {
             </span>
             <h1 className="auth-card__title">Forgot your password?</h1>
             <p className="auth-card__subtitle">
-              Enter your email and we&apos;ll send a reset link.
+              Enter your email or the phone number you order with — we&apos;ll send a reset
+              link to the email on that account.
             </p>
           </motion.div>
         </motion.div>
@@ -78,11 +87,11 @@ export default function ForgotPasswordPageClient() {
           >
             <AuthField
               required
-              type="email"
+              type="text"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="Email address"
-              autoComplete="email"
+              placeholder="Email or phone number"
+              autoComplete="username"
               trailing={
                 <span className="auth-field__icon-chip">
                   <Mail className="h-4 w-4" strokeWidth={2.1} />

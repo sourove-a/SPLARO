@@ -104,7 +104,7 @@ function buildService(opts: {
     redis as never,
   )
 
-  return { service, prisma, googleIdToken, customers }
+  return { service, prisma, googleIdToken, customers, email }
 }
 
 describe('StorefrontAuthService googleSignIn', () => {
@@ -191,5 +191,70 @@ describe('StorefrontAuthService completePhone', () => {
       phoneVerified: false,
     })
     expect(result.isNewCustomer).toBe(true)
+  })
+})
+
+describe('StorefrontAuthService forgotPassword', () => {
+  it('finds the account by phone number and mails the link to its email', async () => {
+    const { service, prisma, email } = buildService({})
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      email: 'shopper@example.com',
+      firstName: 'Shopper',
+    })
+
+    const result = await service.forgotPassword('store-1', '01712345678')
+
+    expect(result.success).toBe(true)
+    // Looked up by phone, in both the 01… and 880… stored forms.
+    const where = prisma.user.findFirst.mock.calls[0]?.[0]?.where as {
+      phone?: { in?: string[] }
+      email?: string
+    }
+    expect(where.email).toBeUndefined()
+    expect(where.phone?.in).toEqual(expect.arrayContaining(['01712345678']))
+    // The link is emailed — no SMS is ever sent.
+    expect(email.sendForStore).toHaveBeenCalledWith(
+      expect.objectContaining({ to: 'shopper@example.com' }),
+    )
+  })
+
+  it('still accepts an email address', async () => {
+    const { service, prisma } = buildService({})
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      email: 'shopper@example.com',
+      firstName: 'Shopper',
+    })
+
+    await service.forgotPassword('store-1', 'Shopper@Example.com ')
+
+    const where = prisma.user.findFirst.mock.calls[0]?.[0]?.where as { email?: string }
+    expect(where.email).toBe('shopper@example.com')
+  })
+
+  it('answers the same way for an unknown number, so accounts cannot be probed', async () => {
+    const { service, prisma, email } = buildService({})
+    prisma.user.findFirst.mockResolvedValue(null)
+
+    const known = await buildService({})
+    known.prisma.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      email: 'shopper@example.com',
+      firstName: 'Shopper',
+    })
+
+    const unknownResult = await service.forgotPassword('store-1', '01900000000')
+    const knownResult = await known.service.forgotPassword('store-1', '01712345678')
+
+    expect(unknownResult.message).toBe(knownResult.message)
+    expect(email.sendForStore).not.toHaveBeenCalled()
+  })
+
+  it('rejects an empty identifier', async () => {
+    const { service } = buildService({})
+    await expect(service.forgotPassword('store-1', '   ')).rejects.toBeInstanceOf(
+      BadRequestException,
+    )
   })
 })

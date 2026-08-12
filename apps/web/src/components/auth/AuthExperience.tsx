@@ -85,7 +85,8 @@ export function AuthExperience() {
   const [googleName, setGoogleName] = useState(
     () => useAuthStore.getState().user?.name ?? '',
   )
-  const [phoneTaken, setPhoneTaken] = useState(false)
+  type PhoneTakenKind = 'recoverable' | 'contact-store' | null
+  const [phoneTaken, setPhoneTaken] = useState<PhoneTakenKind>(null)
   const [otpCode, setOtpCode] = useState('')
   const [otpSent, setOtpSent] = useState(false)
   const [otpDevHint, setOtpDevHint] = useState('')
@@ -361,8 +362,15 @@ export function AuthExperience() {
       if (!response.ok || !payload.user) {
         setError(payload.error ?? 'Could not complete signup.')
         // The number belongs to another account — offer a way out instead of
-        // leaving the shopper stuck on a step they cannot pass.
-        setPhoneTaken(payload.code === 'phone_taken')
+        // leaving the shopper stuck on a step they cannot pass. Sign-in links
+        // only help when that account can actually be opened.
+        setPhoneTaken(
+          payload.code === 'phone_taken'
+            ? 'recoverable'
+            : payload.code === 'phone_taken_no_recovery'
+              ? 'contact-store'
+              : null,
+        )
         return
       }
 
@@ -560,7 +568,7 @@ export function AuthExperience() {
     setOtpSent(false)
     setOtpDevHint('')
     setGoogleName('')
-    setPhoneTaken(false)
+    setPhoneTaken(null)
     setGoogleStep('form')
     setGoogleError('')
     invalidateAuthSessionReconcile()
@@ -593,7 +601,7 @@ export function AuthExperience() {
         onChange={(event) => {
           setPhone(formatBdPhoneInput(event.target.value))
           // Typing a different number clears the "belongs to another account" branch.
-          if (phoneTaken) setPhoneTaken(false)
+          if (phoneTaken) setPhoneTaken(null)
         }}
         placeholder="01XXXXXXXXX"
         autoComplete="tel-national"
@@ -626,7 +634,7 @@ export function AuthExperience() {
         </>
       ) : null}
       {error ? <p className="auth-form__error">{error}</p> : null}
-      {phoneTaken ? (
+      {phoneTaken === 'recoverable' ? (
         <div className="auth-form__recovery">
           <p className="auth-form__hint">
             Already ordered with this number? Sign in to that account instead.
@@ -642,8 +650,23 @@ export function AuthExperience() {
             >
               Sign in to that account
             </Link>
-            <Link href="/forgot-password" className="auth-link auth-link--muted">
+            <Link
+              href={`/forgot-password?identifier=${encodeURIComponent(normalizeBdPhone(phone))}`}
+              className="auth-link auth-link--muted"
+            >
               Forgot password?
+            </Link>
+          </div>
+        </div>
+      ) : phoneTaken === 'contact-store' ? (
+        <div className="auth-form__recovery">
+          <p className="auth-form__hint">
+            We already have this number on a record from an earlier order. Message us and
+            we&apos;ll link it to this account — or finish with a different number for now.
+          </p>
+          <div className="auth-form__recovery-actions">
+            <Link href="/contact" className="auth-link">
+              Contact us
             </Link>
           </div>
         </div>
