@@ -109,14 +109,17 @@ function normalizeHeroVideoUrl(url: string): { video: string; videoMobile?: stri
   return mobile ? { video, videoMobile: mobile } : { video }
 }
 
-/** Ordered lightweight-first renditions for mobile and Windows video decode. */
-function heroVideoSources(slide: HeroSlide, mobile: boolean, lightweight = false): string[] {
+function isLightweightHeroVideo(url: string): boolean {
+  return /sd_\d+|_\d{3,4}_360_|_640_360_/i.test(url)
+}
+
+/** Ordered lightweight-first renditions — HD-first stalled paint and felt like a dead slider. */
+function heroVideoSources(slide: HeroSlide, _mobile = false, _lightweight = false): string[] {
   const urls: string[] = []
-  const preferLightweight = mobile || lightweight
-  if (preferLightweight && slide.videoMobile?.trim()) urls.push(slide.videoMobile.trim())
+  if (slide.videoMobile?.trim()) urls.push(slide.videoMobile.trim())
   if (slide.video?.trim()) {
     const normalized = normalizeHeroVideoUrl(slide.video.trim())
-    if (preferLightweight && normalized.videoMobile) urls.push(normalized.videoMobile)
+    if (normalized.videoMobile) urls.push(normalized.videoMobile)
     urls.push(normalized.video)
   }
   return [...new Set(urls.filter(Boolean))]
@@ -300,11 +303,12 @@ const warmedHeroVideos = new Set<string>()
 
 function warmHeroVideo(url: string) {
   if (typeof window === 'undefined' || !url) return
+  // Never warm multi-MB HD — that raced the visible <video> and slowed first paint.
+  if (!isLightweightHeroVideo(url)) return
   if (warmedHeroVideos.has(url)) return
   warmedHeroVideos.add(url)
-  // Warm the active/next clip early (incl. mobile SD) so play() isn't cold-start.
   const video = document.createElement('video')
-  video.preload = 'auto'
+  video.preload = 'metadata'
   video.muted = true
   video.playsInline = true
   video.src = url
@@ -493,6 +497,25 @@ function HeroBackground({
     video.pause()
   }, [playbackActive, videoSrc, videoFailed, mountVideo, tryPlay])
 
+  // If the remote clip stalls, drop it fast — poster is already painted; don't burn bandwidth.
+  useEffect(() => {
+    if (!mountVideo || !playbackActive || videoFailed || videoReady) return
+    const timer = window.setTimeout(() => {
+      const video = videoRef.current
+      if (!video) return
+      if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return
+      try {
+        video.pause()
+        video.removeAttribute('src')
+        video.load()
+      } catch {
+        /* ignore */
+      }
+      setVideoFailed(true)
+    }, 4500)
+    return () => window.clearTimeout(timer)
+  }, [mountVideo, playbackActive, videoFailed, videoReady, videoSrc])
+
   useEffect(() => {
     if (!mountVideo || !playbackActive) return
 
@@ -543,10 +566,8 @@ function HeroBackground({
           loop
           playsInline
           autoPlay
-          /* Always auto — Windows used to use metadata-only to save bandwidth, but
-             Chromium then stalls at HAVE_METADATA and never paints frames. SD/HD
-             chain already keeps Windows on the lighter Pexels rendition. */
-          preload="auto"
+          /* SD: auto. HD fallback: metadata only — full HD preload was the home-page lag. */
+          preload={videoSrc && isLightweightHeroVideo(videoSrc) ? 'auto' : 'metadata'}
           disablePictureInPicture
           controls={false}
           {...(poster ? { poster } : {})}
@@ -714,18 +735,9 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   useEffect(() => {
     if (!slides.length) return
     const nextIndex = (index + 1) % slides.length
-    // Windows: images only for warm. Mobile/desktop: warm next video for instant advance.
-    if (isWindowsOS()) {
-      warmHeroSlideMedia(slides, new Set([index, nextIndex]))
-      return
-    }
+    // Images only for next-slide warm — never prefetch another remote mp4 while current plays.
     warmHeroSlideMedia(slides, new Set([index, nextIndex]))
-    const nextSlide = slides[nextIndex]
-    if (!nextSlide) return
-    const nextSources = heroVideoSources(nextSlide, isMobileViewport())
-    const nextVideo = nextSources[0] ?? nextSlide.video ?? ''
-    if (nextVideo && allowVideo && !reducedMotion) warmHeroVideo(nextVideo)
-  }, [index, slides, allowVideo, reducedMotion])
+  }, [index, slides])
 
   useEffect(() => {
     setIndex(0)
