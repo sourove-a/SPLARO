@@ -9,6 +9,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   MinLength,
   ValidateNested,
@@ -258,6 +259,63 @@ export class StorefrontForgotPasswordDto {
   @IsString()
   @MinLength(3)
   email!: string
+}
+
+/**
+ * Wholesale / export enquiry from the storefront. Buyers reach this from the
+ * footer, so it stays public — length caps keep a scripted post from filling
+ * the table with novels.
+ */
+export class WholesaleInquiryDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  fullName!: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  companyName?: string
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
+  industry!: string
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
+  country!: string
+
+  @IsString()
+  @MinLength(6)
+  @MaxLength(32)
+  phone!: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  email?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  productInterest?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  monthlyQuantity?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  message?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  sourcePath?: string
 }
 
 export class StorefrontResetPasswordDto {

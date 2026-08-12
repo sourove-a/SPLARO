@@ -46,7 +46,7 @@ export const HANDOFF_SIDEBAR_GROUPS: ReadonlyArray<{ group: string; hrefs: reado
   },
   {
     group: 'Customers',
-    hrefs: ['/dashboard/customers'],
+    hrefs: ['/dashboard/customers', '/dashboard/wholesale-leads'],
   },
   {
     group: 'Operations',

@@ -344,6 +344,7 @@ export const DEFAULT_FOOTER_GROUPS: FooterGroup[] = [
     title: 'Company',
     links: [
       { label: 'About SPLARO', href: '/about' },
+      { label: 'Wholesale & Export', href: '/wholesale' },
       { label: 'Journal', href: '/editorial' },
     ],
   },

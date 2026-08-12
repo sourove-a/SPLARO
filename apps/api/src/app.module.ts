@@ -78,6 +78,8 @@ import { ProductAdvancedService } from './modules/products/product-advanced.serv
 import { ProductPublishCron } from './modules/products/product-publish.cron'
 import { ProductsController } from './modules/products/products.controller'
 import { CustomersController } from './modules/customers/customers.controller'
+import { WholesaleController } from './modules/wholesale/wholesale.controller'
+import { WholesaleService } from './modules/wholesale/wholesale.service'
 import { CustomersService } from './modules/customers/customers.service'
 import { SearchController } from './modules/search/search.controller'
 import { SeoController } from './modules/seo/seo.controller'
@@ -252,6 +254,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     OrdersController,
     ProductsController,
     CustomersController,
+    WholesaleController,
     SearchController,
     SeoController,
     PaymentsController,
@@ -396,6 +399,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     StorefrontWishlistService,
     StorefrontOtpService,
     CustomersService,
+    WholesaleService,
     AdminHubService,
     AgentService,
     AgentToolsService,

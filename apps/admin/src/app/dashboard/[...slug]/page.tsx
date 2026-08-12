@@ -19,6 +19,7 @@ import { DcLegalPages } from '@/components/dc/screens/DcLegalPages'
 import { DcHeroSlider } from '@/components/dc/screens/DcHeroSlider'
 import { DcMenuControl } from '@/components/dc/screens/DcMenuControl'
 import { DcProductReviews } from '@/components/dc/screens/DcProductReviews'
+import { DcWholesaleLeads } from '@/components/dc/screens/DcWholesaleLeads'
 import { DcCollections } from '@/components/dc/screens/DcCollections'
 import { DcCategories } from '@/components/dc/screens/DcCategories'
 import { DcInventory } from '@/components/dc/screens/DcInventory'
@@ -86,6 +87,7 @@ const DC_BESPOKE: Record<string, () => React.ReactElement> = {
   '/dashboard/hero-slider': () => <DcHeroSlider />,
   '/dashboard/menu-control': () => <DcMenuControl />,
   '/dashboard/product-reviews': () => <DcProductReviews />,
+  '/dashboard/wholesale-leads': () => <DcWholesaleLeads />,
   '/dashboard/collections': () => <DcCollections />,
   '/dashboard/categories': () => <DcCategories />,
   '/dashboard/inventory': () => <DcInventory />,

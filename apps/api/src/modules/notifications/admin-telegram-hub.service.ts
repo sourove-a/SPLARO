@@ -74,6 +74,59 @@ Total: <b>${formatBDT(Number(order.total))}</b>${note ? `\nNote: ${note}` : ''}
     await this.safeSend(storeId, msg)
   }
 
+  /**
+   * Wholesale / export enquiry. Always lands in the notification tray — a bulk
+   * buyer waiting on a reply is worth more than one retail order, so it must not
+   * depend on the customer-notification flag being on.
+   */
+  async notifyWholesaleInquiry(
+    storeId: string,
+    input: {
+      fullName: string
+      companyName?: string
+      industry: string
+      country: string
+      phone: string
+      email?: string
+      productInterest?: string
+      monthlyQuantity?: string
+      message?: string
+    },
+  ): Promise<void> {
+    const who = input.companyName ? `${input.fullName} · ${input.companyName}` : input.fullName
+
+    await this.notifications.notifyInApp({
+      storeId,
+      subject: `Wholesale enquiry · ${who}`,
+      body: [input.industry, input.country, input.phone, input.monthlyQuantity]
+        .filter(Boolean)
+        .join(' · '),
+      href: '/dashboard/wholesale-leads',
+    })
+
+    const lines = [
+      '🏭 <b>New Wholesale / Export Enquiry</b>',
+      '',
+      `Name: ${escapeTelegramHtml(input.fullName)}`,
+      ...(input.companyName ? [`Company: ${escapeTelegramHtml(input.companyName)}`] : []),
+      `Industry: ${escapeTelegramHtml(input.industry)}`,
+      `Country: ${escapeTelegramHtml(input.country)}`,
+      `Phone: <code>${escapeTelegramHtml(input.phone)}</code>`,
+      ...(input.email ? [`Email: <code>${escapeTelegramHtml(input.email)}</code>`] : []),
+      ...(input.productInterest
+        ? [`Interest: ${escapeTelegramHtml(input.productInterest)}`]
+        : []),
+      ...(input.monthlyQuantity
+        ? [`Monthly qty: ${escapeTelegramHtml(input.monthlyQuantity)}`]
+        : []),
+      ...(input.message ? ['', escapeTelegramHtml(input.message.slice(0, 500))] : []),
+      '',
+      '<i>Admin → Customers → Wholesale Leads</i>',
+    ]
+
+    await this.safeSend(storeId, lines.join('\n'))
+  }
+
   async notifyCustomerRegistered(
     storeId: string,
     input: { name: string; email: string; phone: string; source?: string },

@@ -325,6 +325,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
         title: 'Company',
         links: [
           { label: 'About SPLARO', href: '/about' },
+          { label: 'Wholesale & Export', href: '/wholesale' },
           { label: 'Our Store', href: '/stores' },
           { label: 'Journal', href: '/editorial' },
         ],
@@ -507,6 +508,37 @@ function ensureFallbackFooterShopLinks(groups: FooterGroup[]): FooterGroup[] {
   })
 }
 
+/**
+ * Stores that saved their footer before this page existed keep their own
+ * footerGroups, which would hide the wholesale entry point entirely. Add it to
+ * the Company column when it is missing; an admin who removes it on purpose
+ * still wins, because a renamed or re-pointed link counts as present.
+ */
+function ensureFooterWholesaleLink(groups: FooterGroup[]): FooterGroup[] {
+  const alreadyLinked = groups.some((group) =>
+    group.links.some((link) => normalizeHref(link.href) === '/wholesale'),
+  )
+  if (alreadyLinked) return groups
+
+  const companyIdx = groups.findIndex(
+    (group) => group.id === 'company' || group.title.trim().toLowerCase() === 'company',
+  )
+  if (companyIdx < 0) return groups
+
+  const company = groups[companyIdx]
+  if (!company) return groups
+
+  const aboutIdx = company.links.findIndex((link) => normalizeHref(link.href) === '/about')
+  const insertAt = aboutIdx >= 0 ? aboutIdx + 1 : company.links.length
+  const links = [
+    ...company.links.slice(0, insertAt),
+    { label: 'Wholesale & Export', href: '/wholesale' },
+    ...company.links.slice(insertAt),
+  ]
+
+  return groups.map((group, idx) => (idx === companyIdx ? { ...group, links } : group))
+}
+
 function ensureHomeNavLink(nav: NavLink[]): NavLink[] {
   const hasHome = nav.some((item) => {
     const href = (item.href ?? '').split('?')[0]?.replace(/\/$/, '') || '/'
@@ -591,8 +623,10 @@ function applyStoreDefaults(settings: StorefrontSettings): StorefrontSettings {
     normalizedHeaderNav,
     catalogChannels,
   ).filter((item) => !isSummerEditionNavItem(item))
-  const footerGroupsSource = ensureFallbackFooterShopLinks(
-    settings.config.footerGroups?.length ? settings.config.footerGroups : fallbackGroups,
+  const footerGroupsSource = ensureFooterWholesaleLink(
+    ensureFallbackFooterShopLinks(
+      settings.config.footerGroups?.length ? settings.config.footerGroups : fallbackGroups,
+    ),
   )
   const filteredFooterGroups = filterFooterGroupsByCatalogChannels(
     footerGroupsSource,
