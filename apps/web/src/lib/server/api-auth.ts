@@ -37,26 +37,38 @@ export async function getPhoneAccessToken(): Promise<string | undefined> {
   return cookieStore.get(PHONE_ACCESS_COOKIE)?.value
 }
 
-export function sessionHeaders(sessionToken?: string): Record<string, string> {
+export function sessionHeaders(
+  sessionToken?: string,
+  clientIp?: string | null,
+): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
   }
   if (sessionToken) headers['x-splaro-session'] = sessionToken
+  // Nest @Throttle keys by req.ip — without this, every BFF call shares 127.0.0.1
+  // and a busy storefront can lock out the whole site.
+  if (clientIp) {
+    headers['X-Forwarded-For'] = clientIp
+    headers['X-Real-IP'] = clientIp
+  }
   return headers
 }
 
-export async function apiAuthSignup(input: {
-  name: string
-  email: string
-  phone: string
-  password: string
-}): Promise<{ sessionToken: string; user: ApiAuthUser } | { error: string; status?: number }> {
+export async function apiAuthSignup(
+  input: {
+    name: string
+    email: string
+    phone: string
+    password: string
+  },
+  clientIp?: string | null,
+): Promise<{ sessionToken: string; user: ApiAuthUser } | { error: string; status?: number }> {
   const res = await fetchWithTimeout(
     apiUrl(`/storefront/auth/signup?storeId=${encodeURIComponent(STORE_ID)}`),
     {
       method: 'POST',
-      headers: sessionHeaders(),
+      headers: sessionHeaders(undefined, clientIp),
       body: JSON.stringify(input),
       cache: 'no-store',
       timeoutMs: upstreamFetchTimeoutMs(),
@@ -82,6 +94,7 @@ export async function apiAuthSignup(input: {
 
 export async function apiAuthGoogle(
   credential: string,
+  clientIp?: string | null,
 ): Promise<
   | { sessionToken: string; user: ApiAuthUser; needsPhone: boolean }
   | { error: string }
@@ -90,7 +103,7 @@ export async function apiAuthGoogle(
     apiUrl(`/storefront/auth/google?storeId=${encodeURIComponent(STORE_ID)}`),
     {
       method: 'POST',
-      headers: sessionHeaders(),
+      headers: sessionHeaders(undefined, clientIp),
       body: JSON.stringify({ credential }),
       cache: 'no-store',
       timeoutMs: upstreamFetchTimeoutMs(),
@@ -121,12 +134,13 @@ export async function apiAuthGoogle(
 export async function apiCompletePhone(
   sessionToken: string,
   input: { phone: string; code?: string },
+  clientIp?: string | null,
 ): Promise<{ user: ApiAuthUser } | { error: string; code?: string }> {
   const res = await fetchWithTimeout(
     apiUrl(`/storefront/auth/complete-phone?storeId=${encodeURIComponent(STORE_ID)}`),
     {
       method: 'POST',
-      headers: sessionHeaders(sessionToken),
+      headers: sessionHeaders(sessionToken, clientIp),
       body: JSON.stringify(input),
       cache: 'no-store',
     },
@@ -148,15 +162,18 @@ export async function apiCompletePhone(
   return { user: payload.user }
 }
 
-export async function apiAuthLogin(input: {
-  email: string
-  password: string
-}): Promise<{ sessionToken: string; user: ApiAuthUser } | { error: string }> {
+export async function apiAuthLogin(
+  input: {
+    email: string
+    password: string
+  },
+  clientIp?: string | null,
+): Promise<{ sessionToken: string; user: ApiAuthUser } | { error: string }> {
   const res = await fetchWithTimeout(
     apiUrl(`/storefront/auth/login?storeId=${encodeURIComponent(STORE_ID)}`),
     {
       method: 'POST',
-      headers: sessionHeaders(),
+      headers: sessionHeaders(undefined, clientIp),
       body: JSON.stringify(input),
       cache: 'no-store',
       timeoutMs: upstreamFetchTimeoutMs(),
@@ -258,23 +275,26 @@ export async function apiAuthLogout(sessionToken: string): Promise<void> {
 
 export async function apiForgotPassword(
   email: string,
-): Promise<{ success: true; message: string; devToken?: string } | { error: string }> {
+  clientIp?: string | null,
+): Promise<{ success: true; message: string; devToken?: string } | { error: string; status?: number }> {
   const res = await fetchWithTimeout(
     apiUrl(`/storefront/auth/forgot-password?storeId=${encodeURIComponent(STORE_ID)}`),
     {
       method: 'POST',
-      headers: sessionHeaders(),
+      headers: sessionHeaders(undefined, clientIp),
       body: JSON.stringify({ email }),
       cache: 'no-store',
+      timeoutMs: upstreamFetchTimeoutMs(),
     },
   )
   if (!res) {
     return { error: 'Password reset service timed out — try again.' }
   }
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { message?: string }
-    const message = body.message ?? 'Could not process password reset'
-    return { error: message }
+    const body = (await res.json().catch(() => ({}))) as { message?: string | string[] }
+    const raw = body.message
+    const message = (Array.isArray(raw) ? raw[0] : raw)?.trim() || 'Could not process password reset'
+    return { error: message, status: res.status }
   }
   return (await res.json()) as { success: true; message: string; devToken?: string }
 }
@@ -282,10 +302,14 @@ export async function apiForgotPassword(
 export async function apiResetPassword(
   token: string,
   password: string,
-): Promise<{ success: true; message: string } | { error: string }> {
+  clientIp?: string | null,
+): Promise<
+  | { success: true; message: string; sessionToken: string; user: ApiAuthUser }
+  | { error: string }
+> {
   const res = await fetchWithTimeout(apiUrl('/storefront/auth/reset-password'), {
     method: 'POST',
-    headers: sessionHeaders(),
+    headers: sessionHeaders(undefined, clientIp),
     body: JSON.stringify({ token, password }),
     cache: 'no-store',
   })
@@ -296,10 +320,27 @@ export async function apiResetPassword(
     const body = (await res.json().catch(() => ({}))) as { message?: string }
     return { error: body.message ?? 'Invalid or expired reset token' }
   }
-  return (await res.json()) as { success: true; message: string }
+  const payload = (await res.json()) as {
+    success?: true
+    message?: string
+    sessionToken?: string
+    user?: ApiAuthUser
+  }
+  if (!payload.sessionToken || !payload.user) {
+    return { error: 'Password reset failed — invalid server response' }
+  }
+  return {
+    success: true,
+    message: payload.message ?? 'Password updated',
+    sessionToken: payload.sessionToken,
+    user: payload.user,
+  }
 }
 
-export async function apiSendOtp(phone: string): Promise<{
+export async function apiSendOtp(
+  phone: string,
+  clientIp?: string | null,
+): Promise<{
   sent: boolean
   devCode?: string
   error?: string
@@ -308,7 +349,7 @@ export async function apiSendOtp(phone: string): Promise<{
     apiUrl(`/storefront/auth/otp/send?storeId=${encodeURIComponent(STORE_ID)}`),
     {
       method: 'POST',
-      headers: sessionHeaders(),
+      headers: sessionHeaders(undefined, clientIp),
       body: JSON.stringify({ phone }),
       cache: 'no-store',
     },
@@ -326,12 +367,13 @@ export async function apiSendOtp(phone: string): Promise<{
 export async function apiVerifyOtp(
   phone: string,
   code: string,
+  clientIp?: string | null,
 ): Promise<{ phoneAccessToken: string; expiresAt: string } | { error: string }> {
   const res = await fetchWithTimeout(
     apiUrl(`/storefront/auth/otp/verify?storeId=${encodeURIComponent(STORE_ID)}`),
     {
       method: 'POST',
-      headers: sessionHeaders(),
+      headers: sessionHeaders(undefined, clientIp),
       body: JSON.stringify({ phone, code }),
       cache: 'no-store',
     },

@@ -102,13 +102,17 @@ export const adminNavGroups: AdminNavGroup[] = [
   },
   {
     group: 'Customers',
+    items: [item('Customers', 'customers', 'Users', 'Customer profiles and order history')],
+  },
+  {
+    group: 'Wholesale',
     items: [
-      item('Customers', 'customers', 'Users', 'Customer profiles and order history'),
+      item('Wholesale Leads', 'wholesale-leads', 'Factory', 'Buyer enquiries from /wholesale'),
       item(
-        'Wholesale Leads',
-        'wholesale-leads',
-        'Factory',
-        'Bulk and export enquiries from the storefront',
+        'Wholesale Stock',
+        'wholesale-stock',
+        'Image',
+        'Stock photos shown on the wholesale page',
       ),
     ],
   },

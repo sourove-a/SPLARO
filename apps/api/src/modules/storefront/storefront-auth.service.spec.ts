@@ -33,6 +33,7 @@ function buildService(opts: {
       ),
       create: jest.fn(),
       update: jest.fn().mockResolvedValue({}),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     deviceSession: {
       findFirst: jest.fn().mockImplementation(async () =>
@@ -92,6 +93,9 @@ function buildService(opts: {
     getCounter: jest.fn().mockResolvedValue(0),
     incrWithExpiry: jest.fn().mockResolvedValue(0),
     del: jest.fn().mockResolvedValue(undefined),
+    setJson: jest.fn().mockResolvedValue(undefined),
+    getJson: jest.fn().mockResolvedValue(null),
+    isReady: false,
   }
   const email = { sendForStore: jest.fn().mockResolvedValue(true) }
 
@@ -198,14 +202,15 @@ describe('StorefrontAuthService forgotPassword', () => {
   it('finds the account by phone number and mails the link to its email', async () => {
     const { service, prisma, email } = buildService({})
     prisma.user.findFirst.mockResolvedValue({
-      id: 'user-1',
-      email: 'shopper@example.com',
+      id: 'user-phone',
+      email: 'phone-user@example.com',
       firstName: 'Shopper',
     })
 
     const result = await service.forgotPassword('store-1', '01712345678')
 
     expect(result.success).toBe(true)
+    expect(result.message).toMatch(/email linked to this phone/i)
     // Looked up by phone, in both the 01… and 880… stored forms.
     const where = prisma.user.findFirst.mock.calls[0]?.[0]?.where as {
       phone?: { in?: string[] }
@@ -215,39 +220,31 @@ describe('StorefrontAuthService forgotPassword', () => {
     expect(where.phone?.in).toEqual(expect.arrayContaining(['01712345678']))
     // The link is emailed — no SMS is ever sent.
     expect(email.sendForStore).toHaveBeenCalledWith(
-      expect.objectContaining({ to: 'shopper@example.com' }),
+      expect.objectContaining({ to: 'phone-user@example.com' }),
     )
   })
 
   it('still accepts an email address', async () => {
     const { service, prisma } = buildService({})
     prisma.user.findFirst.mockResolvedValue({
-      id: 'user-1',
-      email: 'shopper@example.com',
+      id: 'user-email',
+      email: 'email-user@example.com',
       firstName: 'Shopper',
     })
 
-    await service.forgotPassword('store-1', 'Shopper@Example.com ')
+    await service.forgotPassword('store-1', 'Email-User@Example.com ')
 
     const where = prisma.user.findFirst.mock.calls[0]?.[0]?.where as { email?: string }
-    expect(where.email).toBe('shopper@example.com')
+    expect(where.email).toBe('email-user@example.com')
   })
 
-  it('answers the same way for an unknown number, so accounts cannot be probed', async () => {
+  it('answers clearly when the phone number is not registered', async () => {
     const { service, prisma, email } = buildService({})
     prisma.user.findFirst.mockResolvedValue(null)
 
-    const known = await buildService({})
-    known.prisma.user.findFirst.mockResolvedValue({
-      id: 'user-1',
-      email: 'shopper@example.com',
-      firstName: 'Shopper',
-    })
-
-    const unknownResult = await service.forgotPassword('store-1', '01900000000')
-    const knownResult = await known.service.forgotPassword('store-1', '01712345678')
-
-    expect(unknownResult.message).toBe(knownResult.message)
+    await expect(service.forgotPassword('store-1', '01900000000')).rejects.toThrow(
+      /No account found with this phone number/,
+    )
     expect(email.sendForStore).not.toHaveBeenCalled()
   })
 
@@ -255,6 +252,150 @@ describe('StorefrontAuthService forgotPassword', () => {
     const { service } = buildService({})
     await expect(service.forgotPassword('store-1', '   ')).rejects.toBeInstanceOf(
       BadRequestException,
+    )
+  })
+
+  it('stores only a SHA-256 of the reset token (never the raw email token)', async () => {
+    const { createHash } = await import('crypto')
+    const { service, prisma } = buildService({})
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user-hash',
+      email: 'hash-user@example.com',
+      firstName: 'Shopper',
+    })
+
+    const result = await service.forgotPassword('store-1', 'hash-user@example.com')
+    const updateData = prisma.user.update.mock.calls[0]?.[0]?.data as {
+      resetToken?: string
+    }
+    expect(updateData.resetToken).toMatch(/^[a-f0-9]{64}$/)
+    expect(result.devToken).toBeTruthy()
+    expect(updateData.resetToken).toBe(
+      createHash('sha256').update(String(result.devToken)).digest('hex'),
+    )
+    expect(updateData.resetToken).not.toBe(result.devToken)
+  })
+
+  it('clears the minted token when the reset email fails to send', async () => {
+    const { service, prisma, email } = buildService({})
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user-fail',
+      email: 'fail-send@example.com',
+      firstName: 'Shopper',
+    })
+    email.sendForStore.mockResolvedValue(false)
+
+    await expect(service.forgotPassword('store-1', 'fail-send@example.com')).rejects.toThrow(
+      /Could not send reset email/,
+    )
+    const clearCall = prisma.user.update.mock.calls.find((call) => {
+      const data = (call[0] as { data?: { resetToken?: string | null } })?.data
+      return data?.resetToken === null
+    })
+    expect(clearCall).toBeTruthy()
+  })
+
+  it('blocks a second reset request within the cooldown window', async () => {
+    const { service, prisma } = buildService({})
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user-cool',
+      email: 'cooldown@example.com',
+      firstName: 'Shopper',
+    })
+
+    await service.forgotPassword('store-1', 'cooldown@example.com')
+    await expect(service.forgotPassword('store-1', 'cooldown@example.com')).rejects.toThrow(
+      /wait a minute/i,
+    )
+  })
+})
+
+describe('StorefrontAuthService resetPassword', () => {
+  it('consumes a hashed token, revokes old sessions, and returns a fresh session', async () => {
+    const { createHash } = await import('crypto')
+    const { service, prisma } = buildService({})
+    const rawToken = 'a'.repeat(64)
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex')
+
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      email: 'shopper@example.com',
+      phone: '01712345678',
+      firstName: 'Shopper',
+      lastName: 'Example',
+      avatar: null,
+      phoneVerified: true,
+      emailVerified: true,
+      resetToken: tokenHash,
+      customer: { id: 'cust-1', loyaltyTier: 'BRONZE' },
+    })
+    prisma.user.updateMany.mockResolvedValue({ count: 1 })
+    prisma.deviceSession.create.mockResolvedValue({
+      sessionToken: 'new-session-token',
+      expiresAt: new Date(Date.now() + 60_000),
+    })
+
+    const result = await service.resetPassword(rawToken, 'NewPass12')
+
+    expect(prisma.user.findFirst.mock.calls[0]?.[0]?.where).toEqual(
+      expect.objectContaining({
+        OR: [{ resetToken: tokenHash }, { resetToken: rawToken }],
+      }),
+    )
+    expect(prisma.user.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 'user-1', resetToken: tokenHash }),
+      }),
+    )
+    expect(prisma.deviceSession.updateMany).toHaveBeenCalled()
+    expect(result.sessionToken).toBe('new-session-token')
+    expect(result.user.email).toBe('shopper@example.com')
+    expect(result.user.customerId).toBe('cust-1')
+  })
+
+  it('still accepts a legacy plaintext reset token', async () => {
+    const { service, prisma } = buildService({})
+    const rawToken = 'b'.repeat(64)
+
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user-legacy',
+      email: 'legacy@example.com',
+      phone: null,
+      firstName: 'Legacy',
+      lastName: 'User',
+      avatar: null,
+      phoneVerified: false,
+      emailVerified: true,
+      resetToken: rawToken,
+      customer: null,
+    })
+    prisma.user.updateMany.mockResolvedValue({ count: 1 })
+    prisma.deviceSession.create.mockResolvedValue({
+      sessionToken: 'legacy-session',
+      expiresAt: new Date(Date.now() + 60_000),
+    })
+
+    const result = await service.resetPassword(rawToken, 'NewPass12')
+    expect(result.sessionToken).toBe('legacy-session')
+    expect(prisma.user.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ resetToken: rawToken }),
+      }),
+    )
+  })
+
+  it('rejects a weak password', async () => {
+    const { service } = buildService({})
+    await expect(service.resetPassword('a'.repeat(64), 'short')).rejects.toBeInstanceOf(
+      BadRequestException,
+    )
+  })
+
+  it('rejects an unknown or already-used token', async () => {
+    const { service, prisma } = buildService({})
+    prisma.user.findFirst.mockResolvedValue(null)
+    await expect(service.resetPassword('a'.repeat(64), 'NewPass12')).rejects.toThrow(
+      /invalid or was replaced/i,
     )
   })
 })

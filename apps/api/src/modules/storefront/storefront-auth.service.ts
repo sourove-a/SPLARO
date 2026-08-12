@@ -1,12 +1,13 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common'
 import { fireAndForget } from '../../common/fire-and-forget'
 import { Prisma } from '@prisma/client'
-import { resolveCustomerFacingSiteUrl } from '@splaro/config'
+import { resolveCustomerFacingSiteUrl, resolvePublicSiteUrl } from '@splaro/config'
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 import { bdPhoneLookupVariants, isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
 import { isDhakaDistrict } from '../../common/delivery-charge.util'
@@ -34,8 +35,13 @@ const LOGIN_FAIL_TTL_SEC = 15 * 60
 const MAX_LOGIN_FAILS = 8
 const EMAIL_VERIFY_TTL_SEC = 2 * 60 * 60
 const EMAIL_VERIFY_COOLDOWN_SEC = 60
+/** Storefront password-reset link lifetime (raw token emailed; only SHA-256 stored). */
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000
+const PASSWORD_RESET_TOKEN_MIN_LEN = 32
+const PASSWORD_RESET_COOLDOWN_SEC = 90
 
 const memoryLoginFails = new Map<string, { count: number; expiresAt: number }>()
+const memoryPasswordResetCooldown = new Map<string, number>()
 
 interface EmailVerificationPayload {
   userId: string
@@ -46,6 +52,10 @@ interface EmailVerificationPayload {
 
 const memoryEmailVerification = new Map<string, EmailVerificationPayload>()
 const memoryEmailVerifyCooldown = new Map<string, number>()
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex')
+}
 
 function verifyPassword(password: string, passwordHash: string): boolean {
   const [salt, storedHash] = passwordHash.split(':')
@@ -760,9 +770,9 @@ export class StorefrontAuthService {
   }
 
   /**
-   * Accepts an email or a BD phone number. Shoppers remember the number they order
-   * with far more often than the address on the account, and the link still goes to
-   * the account's email — no SMS, so no cost.
+   * Accepts an email or a BD phone number. Shoppers remember the number they
+   * order with — we look up that account and email the reset link to the
+   * address already on file (no extra email typing, no SMS).
    */
   async forgotPassword(
     storeId: string,
@@ -772,6 +782,10 @@ export class StorefrontAuthService {
     if (!identifier) throw new BadRequestException('Email or phone number is required')
 
     const isEmail = identifier.includes('@')
+    if (!isEmail && !isValidBdMobile(identifier)) {
+      throw new BadRequestException('Enter a valid Bangladesh mobile number (01XXXXXXXXX) or email')
+    }
+
     const user = await this.prisma.user.findFirst({
       where: isEmail
         ? { email: normalizeEmail(identifier), isActive: true }
@@ -779,24 +793,41 @@ export class StorefrontAuthService {
       select: { id: true, email: true, firstName: true },
     })
 
-    // Same answer either way — a different reply for "no such account" would let
-    // anyone test which emails and numbers are registered here.
-    const message = 'If that account exists, a reset link has been sent to its email address'
-
-    if (!user?.email) {
-      return { success: true, message }
+    if (!user) {
+      throw new NotFoundException(
+        isEmail
+          ? 'No account found with this email'
+          : 'No account found with this phone number',
+      )
     }
 
-    const token = randomBytes(32).toString('hex')
-    const resetTokenExp = new Date(Date.now() + 60 * 60 * 1000)
+    if (!user.email?.trim()) {
+      throw new BadRequestException(
+        'This account has no email on file. Contact Customer Care to reset your password.',
+      )
+    }
+
+    const cooldownKey = this.passwordResetCooldownKey(
+      isEmail ? `email:${normalizeEmail(identifier)}` : `phone:${normalizeBdPhone(identifier)}`,
+    )
+    const cooldownUntil = await this.getPasswordResetCooldown(cooldownKey)
+    if (cooldownUntil > Date.now()) {
+      throw new BadRequestException(
+        'Please wait a minute before requesting another reset link.',
+      )
+    }
+
+    const rawToken = randomBytes(32).toString('hex')
+    const resetTokenExp = new Date(Date.now() + PASSWORD_RESET_TTL_MS)
+    const tokenHash = sha256(rawToken)
 
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { resetToken: token, resetTokenExp },
+      data: { resetToken: tokenHash, resetTokenExp },
     })
 
-    const siteUrl = resolveCustomerFacingSiteUrl()
-    const resetUrl = `${siteUrl}/reset-password?token=${encodeURIComponent(token)}`
+    const siteUrl = resolvePublicSiteUrl()
+    const resetUrl = `${siteUrl}/reset-password?token=${encodeURIComponent(rawToken)}`
 
     const sent = await this.email.sendForStore({
       storeId,
@@ -813,53 +844,111 @@ export class StorefrontAuthService {
     })
 
     if (!sent) {
+      // Don't leave a live token that was never delivered.
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { resetToken: null, resetTokenExp: null },
+      })
       throw new ServiceUnavailableException(
         'Could not send reset email right now. Please try again shortly.',
       )
     }
 
+    await this.setPasswordResetCooldown(
+      cooldownKey,
+      Date.now() + PASSWORD_RESET_COOLDOWN_SEC * 1000,
+    )
+
     return {
       success: true,
-      message,
-      ...(process.env.NODE_ENV !== 'production' ? { devToken: token } : {}),
+      message: isEmail
+        ? 'Reset link sent — check your email inbox'
+        : 'Reset link sent to the email linked to this phone number',
+      ...(process.env.NODE_ENV !== 'production' ? { devToken: rawToken } : {}),
     }
   }
 
-  async resetPassword(tokenRaw: string, password: string): Promise<{ success: true; message: string }> {
+  async resetPassword(
+    tokenRaw: string,
+    password: string,
+  ): Promise<{
+    success: true
+    message: string
+    sessionToken: string
+    expiresAt: string
+    user: StorefrontAuthUser
+  }> {
     const token = tokenRaw?.trim()
-    if (!token) throw new BadRequestException('Token is required')
+    if (!token || token.length < PASSWORD_RESET_TOKEN_MIN_LEN) {
+      throw new BadRequestException(
+        'This reset link is invalid or was replaced. Request a new link from Forgot password.',
+      )
+    }
     assertStrongPassword(password)
 
+    const tokenHash = sha256(token)
+    // Prefer hashed token; also accept legacy plaintext rows during rollout.
     const user = await this.prisma.user.findFirst({
       where: {
-        resetToken: token,
+        OR: [{ resetToken: tokenHash }, { resetToken: token }],
         resetTokenExp: { gt: new Date() },
         isActive: true,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        firstName: true,
+        lastName: true,
+        avatar: true,
+        phoneVerified: true,
+        emailVerified: true,
+        resetToken: true,
+        customer: { select: { id: true, loyaltyTier: true } },
+      },
     })
 
     if (!user) {
-      throw new BadRequestException('Invalid or expired reset token')
+      throw new BadRequestException(
+        'This reset link is invalid or was replaced. Request a new link from Forgot password.',
+      )
     }
 
-    await this.prisma.$transaction([
-      this.prisma.user.update({
-        where: { id: user.id },
-        data: {
-          passwordHash: hashPassword(password),
-          authProvider: 'password',
-          resetToken: null,
-          resetTokenExp: null,
-        },
-      }),
-      this.prisma.deviceSession.updateMany({
-        where: { userId: user.id, isRevoked: false },
-        data: { isRevoked: true },
-      }),
-    ])
+    const storedToken = user.resetToken
+    // Consume token atomically so a double-submit cannot mint two sessions.
+    const consumed = await this.prisma.user.updateMany({
+      where: {
+        id: user.id,
+        resetToken: storedToken ?? tokenHash,
+        resetTokenExp: { gt: new Date() },
+      },
+      data: {
+        passwordHash: hashPassword(password),
+        authProvider: 'password',
+        resetToken: null,
+        resetTokenExp: null,
+      },
+    })
+    if (consumed.count !== 1) {
+      throw new BadRequestException(
+        'This reset link is invalid or was replaced. Request a new link from Forgot password.',
+      )
+    }
 
-    return { success: true, message: 'Password updated' }
+    await this.prisma.deviceSession.updateMany({
+      where: { userId: user.id, isRevoked: false },
+      data: { isRevoked: true },
+    })
+
+    // Fresh session after revoke-all so the shopper is signed in immediately.
+    const session = await this.createSession(user.id)
+    return {
+      success: true,
+      message: 'Password updated',
+      sessionToken: session.sessionToken,
+      expiresAt: session.expiresAt.toISOString(),
+      user: this.toAuthUser(user, user.customer?.id, user.customer?.loyaltyTier),
+    }
   }
 
   async sessionPhone(sessionToken: string): Promise<string | null> {
@@ -964,6 +1053,27 @@ export class StorefrontAuthService {
 
   private emailVerificationCooldownKey(userId: string) {
     return `splaro:email-verify-cooldown:${userId}`
+  }
+
+  private passwordResetCooldownKey(identityKey: string) {
+    return `splaro:password-reset-cooldown:${identityKey}`
+  }
+
+  private async setPasswordResetCooldown(key: string, untilMs: number) {
+    const ttlSec = Math.max(1, Math.ceil((untilMs - Date.now()) / 1000))
+    await this.redis.setJson(key, { until: untilMs }, ttlSec)
+    if (!this.redis.isReady) memoryPasswordResetCooldown.set(key, untilMs)
+  }
+
+  private async getPasswordResetCooldown(key: string): Promise<number> {
+    const cached = await this.redis.getJson<{ until?: number }>(key)
+    if (cached?.until) return cached.until
+    const memory = memoryPasswordResetCooldown.get(key)
+    if (!memory || memory <= Date.now()) {
+      memoryPasswordResetCooldown.delete(key)
+      return 0
+    }
+    return memory
   }
 
   private async storeEmailVerification(key: string, payload: EmailVerificationPayload) {

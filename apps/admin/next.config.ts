@@ -1,4 +1,36 @@
 import type { NextConfig } from 'next'
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+/**
+ * Admin HMAC cookies must share ADMIN_SESSION_SECRET with Nest.
+ * Next does not auto-load monorepo root `.env` — pull it in at config time.
+ */
+function loadMonorepoRootEnv() {
+  const candidates = [resolve(process.cwd(), '../../.env'), resolve(process.cwd(), '.env')]
+  for (const envPath of candidates) {
+    if (!existsSync(envPath)) continue
+    for (const raw of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+      const line = raw.trim()
+      if (!line || line.startsWith('#')) continue
+      const eq = line.indexOf('=')
+      if (eq <= 0) continue
+      const key = line.slice(0, eq).trim()
+      if (!key || process.env[key] !== undefined) continue
+      let value = line.slice(eq + 1).trim()
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1)
+      }
+      process.env[key] = value
+    }
+    break
+  }
+}
+
+loadMonorepoRootEnv()
 
 const isProd = process.env.NODE_ENV === 'production'
 const onHostinger = process.env.SPLARO_HOSTINGER === '1'

@@ -79,7 +79,7 @@ export const SPLARO_INVOICE_BRAND = {
       : `https://www.${host}`
     : `https://www.${host}`,
   websiteDisplay: sanitizeWebsiteDisplay(process.env.COMPANY_WEBSITE_DISPLAY, host),
-  office: 'Uttara Sector 13, Dhaka - 1230',
+  office: 'House 84, Road 12, Sector 13, Uttara, Dhaka 1230',
   supportLine: 'Online Order & Client Support',
   /** Light-surface print / web memo — black premium wordmark. */
   printLogoPath: '/images/logo/splaro-logo-black-premium.png',

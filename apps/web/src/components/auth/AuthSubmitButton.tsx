@@ -1,8 +1,6 @@
 'use client'
 
-import { motion } from '@/lib/motion/react'
 import { Loader2 } from 'lucide-react'
-import { authHoverLift, authMotionTransition, authTapSpring, useAuthShowMotion } from '@/lib/auth/auth-motion'
 
 interface AuthSubmitButtonProps {
   loading: boolean
@@ -12,6 +10,10 @@ interface AuthSubmitButtonProps {
   disabled?: boolean
 }
 
+/**
+ * Plain <button> — Framer motion opacity/hover on submit previously fought
+ * auth CSS and could flash a white blank pill (white text on white bg).
+ */
 export function AuthSubmitButton({
   loading,
   loadingLabel,
@@ -19,39 +21,22 @@ export function AuthSubmitButton({
   type = 'submit',
   disabled = false,
 }: AuthSubmitButtonProps) {
-  const showMotion = useAuthShowMotion()
-  const pressMotion = showMotion && !loading ? { whileHover: authHoverLift, whileTap: authTapSpring } : {}
-
-  const content = loading ? (
-    <>
-      <Loader2 className="auth-submit__spinner h-4 w-4" strokeWidth={2.2} />
-      {loadingLabel}
-    </>
-  ) : (
-    children
-  )
-
-  if (!showMotion) {
-    return (
-      <button
-        type={type}
-        disabled={disabled || loading}
-        className="auth-submit auth-submit--primary"
-      >
-        {content}
-      </button>
-    )
-  }
-
   return (
-    <motion.button
+    <button
       type={type}
       disabled={disabled || loading}
       className="auth-submit auth-submit--primary"
-      {...pressMotion}
-      transition={authMotionTransition(false, 0.18)}
+      data-no-press
+      aria-busy={loading || undefined}
     >
-      {content}
-    </motion.button>
+      {loading ? (
+        <>
+          <Loader2 className="auth-submit__spinner h-4 w-4" strokeWidth={2.2} aria-hidden />
+          <span>{loadingLabel}</span>
+        </>
+      ) : (
+        <span>{children}</span>
+      )}
+    </button>
   )
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { apiForgotPassword } from '@/lib/server/api-auth'
+import { getTrustedClientIp } from '@/lib/server/client-ip'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
 
 interface ForgotPasswordBody {
@@ -8,7 +9,7 @@ interface ForgotPasswordBody {
 }
 
 export async function POST(request: Request) {
-  const limit = await rateLimit(getClientKey(request, 'auth-forgot-password'))
+  const limit = await rateLimit(getClientKey(request, 'auth-forgot-password'), 3, 60_000)
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Too many requests', retryAfter: limit.retryAfter },
@@ -28,9 +29,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Email or phone number is required' }, { status: 400 })
   }
 
-  const result = await apiForgotPassword(identifier)
+  const result = await apiForgotPassword(identifier, getTrustedClientIp(request))
   if ('error' in result) {
-    return NextResponse.json({ error: result.error }, { status: 503 })
+    const status =
+      result.status && result.status >= 400 && result.status < 500 ? result.status : 503
+    return NextResponse.json({ error: result.error }, { status })
   }
 
   return NextResponse.json({

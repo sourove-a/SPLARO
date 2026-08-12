@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Lock } from 'lucide-react'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from '@/lib/motion/react'
 import { AuthField } from '@/components/auth/AuthField'
@@ -14,6 +14,7 @@ import {
 } from '@/lib/auth/auth-motion'
 
 export default function ResetPasswordPageClient() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get('token') ?? ''
   const reduceMotion = useReducedMotion()
@@ -25,13 +26,11 @@ export default function ResetPasswordPageClient() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError('')
-    setMessage('')
 
     if (!token) {
       setError('Invalid or missing reset token. Request a new link.')
@@ -60,11 +59,15 @@ export default function ResetPasswordPageClient() {
       const data = (await response.json().catch(() => ({}))) as { message?: string; error?: string }
 
       if (!response.ok) {
-        setError(data.error ?? 'Unable to reset password. The link may have expired.')
+        setError(
+          data.error ??
+            'This reset link is invalid or was replaced. Request a new link from Forgot password.',
+        )
         return
       }
 
-      setMessage(data.message ?? 'Password updated successfully. You can sign in now.')
+      // Session cookie set by BFF — go straight to account, no second login.
+      router.replace('/account')
     } catch {
       setError('Network error. Please check your connection and try again.')
     } finally {
@@ -78,7 +81,7 @@ export default function ResetPasswordPageClient() {
         <motion.div layout className="auth-card__heading" aria-live="polite">
           <motion.div {...fadeSlide} transition={motionTransition}>
             <h1 className="auth-card__title">Reset your password</h1>
-            <p className="auth-card__subtitle">Choose a new password from your email link. No verification code needed.</p>
+            <p className="auth-card__subtitle">Choose a new password. You&apos;ll be signed in right away.</p>
           </motion.div>
         </motion.div>
 
@@ -127,21 +130,6 @@ export default function ResetPasswordPageClient() {
               ) : null}
             </AnimatePresence>
 
-            <AnimatePresence mode="wait">
-              {message ? (
-                <motion.p
-                  key="success"
-                  className="auth-form__success"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: reduceMotion ? 0 : 0.18 }}
-                >
-                  {message}
-                </motion.p>
-              ) : null}
-            </AnimatePresence>
-
             <AuthSubmitButton loading={loading} loadingLabel="Updating...">
               Update password
             </AuthSubmitButton>
@@ -149,18 +137,10 @@ export default function ResetPasswordPageClient() {
         </div>
 
         <motion.p layout className="auth-card__legal" transition={motionTransition}>
-          {message ? (
-            <Link href="/login" className="auth-link">
-              Sign in
-            </Link>
-          ) : (
-            <>
-              Need a new link?{' '}
-              <Link href="/forgot-password" className="auth-link">
-                Request reset
-              </Link>
-            </>
-          )}
+          Need a new link?{' '}
+          <Link href="/forgot-password" className="auth-link">
+            Request reset
+          </Link>
         </motion.p>
       </div>
     </LayoutGroup>

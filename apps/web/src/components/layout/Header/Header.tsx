@@ -71,10 +71,17 @@ export function Header() {
   }, [user, router])
 
   // Home hero chrome stays DOM-only (no Header re-render).
-  // Utility topbar remains mounted across storefront routes so client navigation
-  // never shifts the primary header between top:48px and top:0.
+  // Utility topbar: home + desktop + over-hero only — hide past slider and on every other route.
   useEffect(() => {
     const root = document.documentElement
+    const setTopbarVisible = (visible: boolean) => {
+      root.setAttribute('data-topbar', visible ? 'visible' : 'hidden')
+      const header = document.querySelector<HTMLElement>('[data-header-chrome]')
+      const topbar = document.querySelector<HTMLElement>('[data-top-bar]')
+      header?.classList.toggle('site-header-glass--topbar-collapsed', !visible)
+      topbar?.classList.toggle('site-topbar--hidden', !visible)
+    }
+
     const clearHeroChrome = () => {
       pastHeroRef.current = false
       root.removeAttribute('data-home-hero')
@@ -83,6 +90,7 @@ export function Header() {
       // Drop IO-owned home chrome so non-home React classes take over cleanly.
       header?.classList.remove('site-header-glass--over-hero')
       header?.classList.remove('site-header-glass--hero-copy-under')
+      setTopbarVisible(false)
     }
 
     if (!isHome || !isDesktop) {
@@ -142,6 +150,7 @@ export function Header() {
       const header = document.querySelector<HTMLElement>('[data-header-chrome]')
 
       root.setAttribute('data-home-hero', past ? 'scrolled' : 'top')
+      setTopbarVisible(!past)
       header?.classList.toggle('site-header-glass--over-hero', !past)
       header?.classList.toggle('site-header-glass--scrolled', past)
       if (past) header?.classList.remove('site-header-glass--hero-copy-under')
@@ -229,19 +238,32 @@ export function Header() {
       if (!hero) return
       const past = hero.getBoundingClientRect().bottom <= 8
       const header = document.querySelector<HTMLElement>('[data-header-chrome]')
+      const topbar = document.querySelector<HTMLElement>('[data-top-bar]')
       pastHeroRef.current = past
       root.setAttribute('data-home-hero', past ? 'scrolled' : 'top')
+      root.setAttribute('data-topbar', past ? 'hidden' : 'visible')
       header?.classList.toggle('site-header-glass--over-hero', !past)
       header?.classList.toggle('site-header-glass--scrolled', past)
+      header?.classList.toggle('site-header-glass--topbar-collapsed', past)
+      topbar?.classList.toggle('site-topbar--hidden', past)
     }
   }, [headerPinned, isHome, isDesktop])
 
-  // Keep desktop chrome geometry stable on every storefront route.
+  // Topbar geometry: visible only on home/desktop/over-hero. Every other route stays collapsed.
   useLayoutEffect(() => {
     const root = document.documentElement
-    root.setAttribute('data-topbar', 'visible')
-    return () => root.removeAttribute('data-topbar')
-  }, [])
+    const header = document.querySelector<HTMLElement>('[data-header-chrome]')
+    const topbar = document.querySelector<HTMLElement>('[data-top-bar]')
+    const show = isHome && isDesktop && !pastHeroRef.current
+    root.setAttribute('data-topbar', show ? 'visible' : 'hidden')
+    header?.classList.toggle('site-header-glass--topbar-collapsed', !show)
+    topbar?.classList.toggle('site-topbar--hidden', !show)
+    return () => {
+      root.setAttribute('data-topbar', 'hidden')
+      header?.classList.add('site-header-glass--topbar-collapsed')
+      topbar?.classList.add('site-topbar--hidden')
+    }
+  }, [isHome, isDesktop])
 
   // Never set data-home-hero=scrolled until desktop MQ is known — that painted a
   // white topbar flash on every hard reload (isDesktop starts false).

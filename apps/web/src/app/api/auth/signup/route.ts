@@ -4,6 +4,7 @@ import {
   attachSessionCookie,
 } from '@/lib/server/api-auth'
 import { getBdPhoneError, normalizeBdPhone } from '@/lib/checkout/phone'
+import { getTrustedClientIp } from '@/lib/server/client-ip'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
 
 interface SignupBody {
@@ -14,7 +15,7 @@ interface SignupBody {
 }
 
 export async function POST(request: Request) {
-  const limit = await rateLimit(getClientKey(request, 'auth-signup'))
+  const limit = await rateLimit(getClientKey(request, 'auth-signup'), 6, 60_000)
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Too many requests', retryAfter: limit.retryAfter },
@@ -50,7 +51,10 @@ export async function POST(request: Request) {
     )
   }
 
-  const result = await apiAuthSignup({ name, email, phone, password })
+  const result = await apiAuthSignup(
+    { name, email, phone, password },
+    getTrustedClientIp(request),
+  )
   if ('error' in result) {
     return NextResponse.json(
       { error: result.error },

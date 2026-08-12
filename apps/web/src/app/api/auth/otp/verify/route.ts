@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { apiVerifyOtp, attachPhoneAccessCookie } from '@/lib/server/api-auth'
+import { getTrustedClientIp } from '@/lib/server/client-ip'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
 
 export async function POST(request: Request) {
-  const limit = await rateLimit(getClientKey(request, 'otp-verify'))
+  const limit = await rateLimit(getClientKey(request, 'otp-verify'), 8, 60_000)
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Too many requests', retryAfter: limit.retryAfter },
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Phone and verification code are required' }, { status: 400 })
   }
 
-  const result = await apiVerifyOtp(phone, code)
+  const result = await apiVerifyOtp(phone, code, getTrustedClientIp(request))
   if ('error' in result) {
     return NextResponse.json({ error: result.error }, { status: 401 })
   }

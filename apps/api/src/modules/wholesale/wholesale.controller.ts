@@ -90,4 +90,47 @@ export class WholesaleController {
     const sid = await resolveStoreId(this.prisma, storeId)
     return this.wholesale.remove(sid, id)
   }
+
+  @Public()
+  @Get('storefront/wholesale-stock')
+  async publicStock(@Query('storeId') storeId: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const images = await this.wholesale.listStockImages(sid, { activeOnly: true })
+    return { images }
+  }
+
+  @Get('admin/wholesale-stock')
+  async adminStock(@Query('storeId') storeId: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const images = await this.wholesale.listStockImages(sid, { activeOnly: false })
+    return { images }
+  }
+
+  @Post('admin/wholesale-stock')
+  async createStock(
+    @Query('storeId') storeId: string,
+    @Body() body: { url?: string; title?: string },
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.wholesale.createStockImage(sid, {
+      url: body.url ?? '',
+      ...(body.title ? { title: body.title } : {}),
+    })
+  }
+
+  @Patch('admin/wholesale-stock/:id')
+  async updateStock(
+    @Param('id') id: string,
+    @Query('storeId') storeId: string,
+    @Body() body: { title?: string | null; sortOrder?: number; isActive?: boolean },
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.wholesale.updateStockImage(sid, id, body)
+  }
+
+  @Delete('admin/wholesale-stock/:id')
+  async removeStock(@Param('id') id: string, @Query('storeId') storeId: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.wholesale.removeStockImage(sid, id)
+  }
 }

@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, Optional } from '@nestjs/common'
-import { randomBytes } from 'crypto'
+import { createHash, randomBytes } from 'crypto'
 import { resolveCustomerFacingSiteUrl } from '@splaro/config'
 import { PrismaService } from '../../common/prisma.service'
 import { FinanceAuditService } from '../../common/finance-audit.service'
@@ -31,6 +31,15 @@ function newInviteToken(): string {
   return randomBytes(32).toString('hex')
 }
 
+function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex')
+}
+
+function stripInviteSecret<T extends { inviteToken?: string | null }>(partner: T): Omit<T, 'inviteToken'> {
+  const { inviteToken: _omit, ...rest } = partner
+  return rest
+}
+
 @Injectable()
 export class PartnersService {
   private readonly logger = new Logger(PartnersService.name)
@@ -50,16 +59,18 @@ export class PartnersService {
     return `${site}/partner-invite/${token}`
   }
 
-  private async sendInviteEmail(partner: {
-    id: string
-    storeId: string
-    name: string
-    email: string | null
-    sharePercent: { toNumber?: () => number } | number | string
-    inviteToken: string | null
-  }): Promise<boolean> {
+  private async sendInviteEmail(
+    partner: {
+      id: string
+      storeId: string
+      name: string
+      email: string | null
+      sharePercent: { toNumber?: () => number } | number | string
+    },
+    rawToken: string,
+  ): Promise<boolean> {
     const email = partner.email?.trim()
-    const token = partner.inviteToken?.trim()
+    const token = rawToken?.trim()
     if (!email || !token || !this.email) return false
 
     const store = await this.prisma.store.findUnique({
@@ -148,7 +159,7 @@ export class PartnersService {
       throw new BadRequestException('A partner with this email already exists')
     }
 
-    const inviteToken = newInviteToken()
+    const rawInviteToken = newInviteToken()
     const inviteSentAt = new Date()
 
     const partner = await this.prisma.partner.create({
@@ -162,7 +173,8 @@ export class PartnersService {
         notes: data.notes?.trim() || null,
         createdBy: data.createdBy,
         inviteStatus: 'INVITED',
-        inviteToken,
+        // Store hash only — raw token is emailed once and never persisted.
+        inviteToken: sha256(rawInviteToken),
         inviteSentAt,
       },
     })
@@ -176,19 +188,19 @@ export class PartnersService {
       },
     })
 
-    const inviteEmailSent = await this.sendInviteEmail(partner)
+    const inviteEmailSent = await this.sendInviteEmail(partner, rawInviteToken)
 
     await this.audit.log({
       storeId,
       action: 'CREATE',
       resource: 'Partner',
       resourceId: partner.id,
-      after: partner,
+      after: stripInviteSecret(partner),
       userId: data.createdBy,
       note: `Created partner ${name}${inviteEmailSent ? ' · invite emailed' : ' · invite email not sent'}`,
     })
 
-    return { partner, inviteEmailSent }
+    return { partner: stripInviteSecret(partner), inviteEmailSent }
   }
 
   async resendInvite(storeIdOrSlug: string, slug: string) {
@@ -201,24 +213,30 @@ export class PartnersService {
       throw new BadRequestException('Add an email on the partner profile before resending the invite')
     }
 
-    const inviteToken = newInviteToken()
+    const rawInviteToken = newInviteToken()
     const updated = await this.prisma.partner.update({
       where: { id: partner.id },
       data: {
         inviteStatus: 'INVITED',
-        inviteToken,
+        inviteToken: sha256(rawInviteToken),
         inviteSentAt: new Date(),
         inviteConfirmedAt: null,
       },
     })
 
-    const inviteEmailSent = await this.sendInviteEmail(updated)
-    return { partner: updated, inviteEmailSent }
+    const inviteEmailSent = await this.sendInviteEmail(updated, rawInviteToken)
+    return { partner: stripInviteSecret(updated), inviteEmailSent }
   }
 
   async previewInvite(token: string) {
+    const raw = token.trim()
+    if (!raw) throw new NotFoundException('Invite link is invalid or expired')
+    const tokenHash = sha256(raw)
     const partner = await this.prisma.partner.findFirst({
-      where: { inviteToken: token.trim(), isActive: true },
+      where: {
+        OR: [{ inviteToken: tokenHash }, { inviteToken: raw }],
+        isActive: true,
+      },
       select: {
         name: true,
         email: true,
@@ -239,8 +257,14 @@ export class PartnersService {
   }
 
   async confirmInvite(token: string) {
+    const raw = token.trim()
+    if (!raw) throw new NotFoundException('Invite link is invalid or expired')
+    const tokenHash = sha256(raw)
     const partner = await this.prisma.partner.findFirst({
-      where: { inviteToken: token.trim(), isActive: true },
+      where: {
+        OR: [{ inviteToken: tokenHash }, { inviteToken: raw }],
+        isActive: true,
+      },
     })
     if (!partner) throw new NotFoundException('Invite link is invalid or expired')
 
@@ -272,7 +296,7 @@ export class PartnersService {
       action: 'UPDATE',
       resource: 'Partner',
       resourceId: partner.id,
-      after: updated,
+      after: stripInviteSecret(updated),
       note: 'Partner confirmed invite via email link',
     })
 
@@ -320,7 +344,7 @@ export class PartnersService {
       },
     })
     if (!partner) throw new NotFoundException(`Partner ${slug} not found`)
-    return partner
+    return stripInviteSecret(partner)
   }
 
   async updateProfile(

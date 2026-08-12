@@ -8,6 +8,9 @@ import { dirname, join, resolve, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { reclaimNextDevPorts, reclaimPort } from './api-port.mjs'
 import { IS_WIN, killProcessTree, spawnCli } from './spawn-utils.mjs'
+import { loadRootEnv } from './load-env.mjs'
+
+loadRootEnv()
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PORTS = [3000, 3001, 4000]

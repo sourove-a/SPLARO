@@ -22,6 +22,7 @@ import {
   dismissGoogleOneTap,
   isGoogleOneTapDismissed,
 } from '@/lib/auth/google-one-tap-dismiss'
+import { detectInAppBrowser } from '@/lib/auth/in-app-browser'
 import { authFetch } from '@/lib/auth/auth-fetch'
 import { isAuthPath } from '@/lib/auth/auth-return'
 import { buildSignupPhonePath } from '@/lib/auth/signup-phone-path'
@@ -198,9 +199,18 @@ export function GoogleOneTap() {
     setDismissed(isGoogleOneTapDismissed())
   }, [])
 
+  // Embedded browsers (WhatsApp / Instagram / Telegram) cannot complete Google OAuth.
+  useEffect(() => {
+    if (detectInAppBrowser().inApp) {
+      setDismissed(true)
+      setBootReady(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (!authHydrated || user || dismissed || !providerReady) return
     if (shouldSkipOneTapPath(pathname)) return
+    if (detectInAppBrowser().inApp) return
 
     let cancelled = false
     const start = () => {

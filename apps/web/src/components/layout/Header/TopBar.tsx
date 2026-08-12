@@ -3,7 +3,11 @@
 import Link from 'next/link'
 import { Mail, PackageSearch, Phone, Truck } from 'lucide-react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
-import { DEFAULT_SUPPORT_EMAIL } from '@/lib/storefront/defaults'
+import {
+  DEFAULT_SUPPORT_EMAIL,
+  DEFAULT_SUPPORT_PHONE,
+  DEFAULT_SUPPORT_PHONE_E164,
+} from '@/lib/storefront/defaults'
 
 const linkClass = 'site-topbar__link'
 
@@ -16,7 +20,8 @@ export function TopBar() {
   const phone =
     settings.store.phone?.trim() ||
     process.env.NEXT_PUBLIC_SUPPORT_PHONE?.trim() ||
-    ''
+    DEFAULT_SUPPORT_PHONE_E164 ||
+    DEFAULT_SUPPORT_PHONE
 
   return (
     <div className="site-topbar z-chrome-header" data-site-chrome data-top-bar>

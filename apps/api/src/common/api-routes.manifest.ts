@@ -145,7 +145,6 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
 
     // ── Customers ─────────────────────────────────────────────────────────
     p('customers', 'Customers', 'Customers', q('/admin/customers') + '&limit=5'),
-    p('wholesale-inquiries', 'Wholesale Leads', 'Customers', q('/admin/wholesale-inquiries') + '&limit=5'),
     p('loyalty-summary', 'Loyalty Program', 'Customers', q('/admin/loyalty/summary'), { requiresFeature: 'loyalty' }),
     p('loyalty-referrals', 'Referrals', 'Customers', q('/admin/loyalty/referrals') + '&limit=5', { requiresFeature: 'loyalty' }),
     p('loyalty-history', 'Loyalty History', 'Customers', q('/admin/loyalty/history'), { requiresFeature: 'loyalty' }),

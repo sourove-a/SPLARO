@@ -28,6 +28,7 @@ const ALLOWED_FOLDERS = new Set([
   'partners',
   'banners',
   'media',
+  'wholesale',
 ])
 
 function isProductFolder(folder: string): boolean {

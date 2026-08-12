@@ -15,6 +15,7 @@ interface WholesaleBody {
   monthlyQuantity?: string
   message?: string
   sourcePath?: string
+  imageUrls?: string[]
 }
 
 export async function POST(request: Request) {
@@ -42,13 +43,19 @@ export async function POST(request: Request) {
     }
   }
 
+  const imageUrls = (body.imageUrls ?? [])
+    .filter((url): url is string => typeof url === 'string')
+    .map((url) => url.trim())
+    .filter((url) => /^\/uploads\/wholesale\/[a-zA-Z0-9._-]+\.(jpe?g|png|webp)$/i.test(url))
+    .slice(0, 4)
+
   try {
     const res = await fetch(
       `${getServerApiBaseUrl()}/storefront/wholesale-inquiry?storeId=${encodeURIComponent(STORE_ID)}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, imageUrls }),
         cache: 'no-store',
         signal: AbortSignal.timeout(15_000),
       },

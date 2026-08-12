@@ -1660,6 +1660,7 @@ export default function ProductPageClient({
                             onClick={() => chooseDescLang('en')}
                             aria-pressed={!showBangla}
                             lang="en"
+                            data-no-press
                           >
                             EN
                           </button>
@@ -1669,6 +1670,7 @@ export default function ProductPageClient({
                             onClick={() => chooseDescLang('bn')}
                             aria-pressed={showBangla}
                             lang="bn"
+                            data-no-press
                           >
                             বাং
                           </button>

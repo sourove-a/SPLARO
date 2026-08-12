@@ -575,6 +575,7 @@ model Store {
   notificationLogs   NotificationDeliveryLog[]
   newsletterSubscribers NewsletterSubscriber[]
   wholesaleInquiries WholesaleInquiry[]
+  wholesaleStockImages WholesaleStockImage[]
   payrollRuns        PayrollRun[]
   executiveInsights  ExecutiveInsight[]
   agentConfig        AgentConfig?
@@ -2153,7 +2154,7 @@ enum WholesaleInquiryStatus {
 /// Buyer asking to stock SPLARO wholesale or import it — captured from the
 /// storefront "Wholesale & Export" form, worked from the admin panel.
 model WholesaleInquiry {
-  id              String   @id @default(cuid())
+  id              String                 @id @default(cuid())
   storeId         String
   fullName        String
   companyName     String?
@@ -2164,18 +2165,35 @@ model WholesaleInquiry {
   productInterest String?
   monthlyQuantity String?
   message         String?
+  /// Reference photos of products the buyer wants (storefront uploads).
+  imageUrls       String[]               @default([])
   status          WholesaleInquiryStatus @default(NEW)
   adminNotes      String?
   handledById     String?
   handledAt       DateTime?
   sourcePath      String?
-  store           Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  store           Store                  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
 
   @@index([storeId, status])
   @@index([storeId, createdAt])
   @@index([phone])
+}
+
+/// Admin-curated stock photos shown on /wholesale (not buyer enquiry uploads).
+model WholesaleStockImage {
+  id        String   @id @default(cuid())
+  storeId   String
+  url       String
+  title     String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([storeId, isActive, sortOrder])
 }
 
 // ── AUDIT LOG ─────────────────────────────────────────────────

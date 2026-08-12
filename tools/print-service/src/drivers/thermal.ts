@@ -161,7 +161,7 @@ export async function printShippingLabel(
 
   printer.alignCenter()
   printer.println('FROM: SPLARO')
-  printer.println('Uttara Sector 13, Dhaka')
+  printer.println('House 84, Rd 12, Sec 13, Uttara')
   printer.println('01905010205')
   printer.newLine()
 

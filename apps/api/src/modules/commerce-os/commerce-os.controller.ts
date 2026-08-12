@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UnauthorizedException } from '@nestjs/common'
-import { randomBytes, scryptSync, timingSafeEqual } from 'crypto'
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'crypto'
+import { Throttle } from '@nestjs/throttler'
 import { Public } from '../../common/auth/public.decorator'
 import { PrismaService } from '../../common/prisma.service'
 import { CommerceOsService } from './commerce-os.service'
@@ -14,6 +15,10 @@ function verifyPassword(password: string, passwordHash: string): boolean {
   const computed = Buffer.from(hash, 'hex')
   if (stored.length !== computed.length) return false
   return timingSafeEqual(stored, computed)
+}
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex')
 }
 
 @Controller('commerce-os')
@@ -317,15 +322,29 @@ export class MobileAuthController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Post('login')
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
   async login(@Body() body: { email?: string; phone?: string; password: string; app?: string }) {
+    const password = typeof body.password === 'string' ? body.password : ''
+    if (!password || password.length < 4 || password.length > 128) {
+      throw new UnauthorizedException('Invalid credentials')
+    }
+
     const user = await this.prisma.user.findFirst({
       where: body.email
-        ? { email: body.email.trim().toLowerCase() }
-        : { phone: body.phone?.replace(/\D/g, '') },
-      select: { id: true, passwordHash: true, isActive: true, email: true, firstName: true, lastName: true, customer: { select: { id: true, storeId: true } } },
+        ? { email: body.email.trim().toLowerCase().slice(0, 160) }
+        : { phone: body.phone?.replace(/\D/g, '').slice(0, 20) },
+      select: {
+        id: true,
+        passwordHash: true,
+        isActive: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        customer: { select: { id: true, storeId: true } },
+      },
     })
 
-    if (!user || !user.isActive || !user.passwordHash || !verifyPassword(body.password, user.passwordHash)) {
+    if (!user || !user.isActive || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
       throw new UnauthorizedException('Invalid credentials')
     }
 
@@ -335,7 +354,8 @@ export class MobileAuthController {
 
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { refreshToken, lastLoginAt: new Date() },
+      // Store hash only — raw refresh token never lands in the DB.
+      data: { refreshToken: sha256(refreshToken), lastLoginAt: new Date() },
     })
 
     return {
@@ -357,11 +377,16 @@ export class MobileAuthController {
   }
 
   @Post('refresh')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   async refresh(@Body('refreshToken') refreshToken: string) {
-    if (!refreshToken) throw new UnauthorizedException('Refresh token required')
+    const raw = typeof refreshToken === 'string' ? refreshToken.trim() : ''
+    if (!raw || raw.length < 32 || raw.length > 256) {
+      throw new UnauthorizedException('Refresh token required')
+    }
 
+    const tokenHash = sha256(raw)
     const user = await this.prisma.user.findFirst({
-      where: { refreshToken },
+      where: { refreshToken: tokenHash },
       select: { id: true, isActive: true },
     })
 
@@ -372,10 +397,13 @@ export class MobileAuthController {
     const accessToken = randomBytes(32).toString('hex')
     const newRefreshToken = randomBytes(48).toString('hex')
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { refreshToken: newRefreshToken },
+    const rotated = await this.prisma.user.updateMany({
+      where: { id: user.id, refreshToken: tokenHash },
+      data: { refreshToken: sha256(newRefreshToken) },
     })
+    if (rotated.count !== 1) {
+      throw new UnauthorizedException('Invalid refresh token')
+    }
 
     return {
       accessToken,

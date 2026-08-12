@@ -4,10 +4,10 @@ export const SPLARO_INVOICE_BRAND = {
   name: 'SPLARO',
   tagline: 'Modesty. Refined.',
   phone: '01905010205',
-  email: 'support@splaro.co',
+  email: 'info@splaro.co',
   website: 'https://www.splaro.co',
   websiteDisplay: 'www.splaro.co',
-  office: 'Uttara Sector 13, Dhaka — 1230',
+  office: 'House 84, Road 12, Sector 13, Uttara, Dhaka 1230',
   arabicLogoPath: '/images/logo/splaro-logo-white-premium.png',
   thankYouNote:
     'Thank you for choosing SPLARO. Your order has been carefully prepared with premium quality, modest elegance, and care.',

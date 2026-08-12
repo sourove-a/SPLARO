@@ -1,74 +1,73 @@
-import { Factory, Globe2, PackageCheck, Ruler } from 'lucide-react'
+import { getServerApiBaseUrl } from '@splaro/config'
 import { WholesaleForm } from '@/components/wholesale/WholesaleForm'
 import { createRouteMetadata } from '@/lib/seo/route-metadata'
+import { fetchWithTimeout } from '@/lib/server/build-safe-fetch'
 
 export const metadata = createRouteMetadata({
   title: 'Wholesale & Export — SPLARO',
-  description:
-    'Stock SPLARO in your store or import our collections. Share your requirement and our wholesale team will get back to you.',
+  description: 'B2B wholesale and export partnership with SPLARO.',
   path: '/wholesale',
 })
 
-const POINTS = [
-  {
-    icon: Factory,
-    title: 'Made in our own studio',
-    body: 'Every piece is cut and finished in-house, so bulk runs keep the same fit and finish as retail.',
-  },
-  {
-    icon: Globe2,
-    title: 'Export ready',
-    body: 'We ship to overseas buyers with export documentation and consolidated packing.',
-  },
-  {
-    icon: PackageCheck,
-    title: 'Wholesale pricing',
-    body: 'Tiered pricing by quantity, quoted after we understand your range and volume.',
-  },
-  {
-    icon: Ruler,
-    title: 'Custom sizing & labels',
-    body: 'Size sets, private labelling, and packaging can be adapted for your market.',
-  },
-]
+const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
+const FALLBACK_HERO = '/images/hero/women-collection-1600.webp'
 
-export default function WholesalePage() {
+type StockImage = { id: string; url: string; title?: string | null }
+
+async function loadWholesaleStock(): Promise<StockImage[]> {
+  try {
+    const base = getServerApiBaseUrl()
+    const res = await fetchWithTimeout(
+      `${base}/storefront/wholesale-stock?storeId=${encodeURIComponent(STORE_ID)}`,
+      { next: { revalidate: 30, tags: ['wholesale-stock'] } },
+    )
+    if (!res?.ok) return []
+    const data = (await res.json()) as { images?: StockImage[] }
+    return (data.images ?? []).filter((row) => row.url?.trim())
+  } catch {
+    return []
+  }
+}
+
+export default async function WholesalePage() {
+  const stock = await loadWholesaleStock()
+  const hero = stock[0]?.url?.trim() || FALLBACK_HERO
+  const gallery = stock.length > 1 ? stock.slice(1) : stock
+
   return (
     <main className="wholesale-page">
-      <section className="wholesale-hero">
-        <div className="container-luxury">
-          <span className="wholesale-hero__eyebrow">Wholesale &amp; Export</span>
-          <h1 className="wholesale-hero__title">Carry SPLARO in your market.</h1>
-          <p className="wholesale-hero__lede">
-            We supply retailers, distributors and importers at wholesale volumes — from a single
-            boutique order to container shipments. Tell us what you need and our team will come back
-            with pricing and lead times.
-          </p>
+      <section className="wholesale-hero" aria-label="Wholesale">
+        <div className="wholesale-hero__media" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={hero} alt="" className="wholesale-hero__image wholesale-hero__image--static" />
+          <div className="wholesale-hero__veil" />
+        </div>
+        <div className="container-luxury wholesale-hero__copy">
+          <p className="wholesale-hero__brand">SPLARO</p>
+          <h1 className="wholesale-hero__title">Wholesale &amp; export</h1>
+          <a href="#wholesale-enquiry" className="wholesale-hero__cta">
+            Start enquiry
+          </a>
         </div>
       </section>
 
-      <section className="wholesale-points">
-        <div className="container-luxury wholesale-points__grid">
-          {POINTS.map(({ icon: Icon, title, body }) => (
-            <article key={title} className="wholesale-point">
-              <span className="wholesale-point__icon" aria-hidden="true">
-                <Icon className="h-5 w-5" strokeWidth={1.7} />
-              </span>
-              <h2 className="wholesale-point__title">{title}</h2>
-              <p className="wholesale-point__body">{body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+      {gallery.length > 0 ? (
+        <section className="wholesale-stock" aria-label="Wholesale stock">
+          <div className="container-luxury wholesale-stock__grid">
+            {gallery.map((item) => (
+              <figure key={item.id} className="wholesale-stock__item">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={item.url} alt={item.title?.trim() || ''} className="wholesale-stock__img" />
+              </figure>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
-      <section className="wholesale-form-section">
+      <section id="wholesale-enquiry" className="wholesale-form-section">
         <div className="container-luxury wholesale-form-section__inner">
           <div className="wholesale-form-section__intro">
-            <h2 className="wholesale-form-section__title">Wholesale enquiry</h2>
-            <p className="wholesale-form-section__text">
-              Fields marked <span aria-hidden="true">*</span> are required. The more you share about
-              your market and volume, the faster we can quote.
-            </p>
+            <h2 className="wholesale-form-section__title">Enquiry</h2>
           </div>
           <WholesaleForm />
         </div>

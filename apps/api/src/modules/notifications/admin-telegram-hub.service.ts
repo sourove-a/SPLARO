@@ -121,7 +121,7 @@ Total: <b>${formatBDT(Number(order.total))}</b>${note ? `\nNote: ${note}` : ''}
         : []),
       ...(input.message ? ['', escapeTelegramHtml(input.message.slice(0, 500))] : []),
       '',
-      '<i>Admin → Customers → Wholesale Leads</i>',
+      '<i>Admin → Wholesale → Wholesale Leads</i>',
     ]
 
     await this.safeSend(storeId, lines.join('\n'))

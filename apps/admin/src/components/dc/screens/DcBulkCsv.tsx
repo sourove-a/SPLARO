@@ -259,8 +259,10 @@ function DcBulkCsvBody() {
       )
       toast(
         'ok',
-        `Exported ${exportRows.length} variant row${exportRows.length === 1 ? '' : 's'}`,
-        format === 'xlsx' ? 'Excel file downloaded.' : 'CSV downloaded.',
+        `All products exported — ${exportRows.length} variant row${exportRows.length === 1 ? '' : 's'}`,
+        format === 'xlsx'
+          ? 'Excel includes draft + published (same columns as Catalog import).'
+          : 'CSV includes draft + published (same columns as Catalog import).',
       )
     } catch (e) {
       toast('bad', 'Export failed', e instanceof Error ? e.message : 'Could not export catalog')
@@ -1249,15 +1251,15 @@ function DcBulkCsvBody() {
               },
               {
                 icon: 'icon-package',
-                title: 'Full catalog (CSV)',
-                sub: 'All variants — same columns as Catalog import',
+                title: 'Export ALL products (CSV)',
+                sub: 'Draft + published — every variant, same columns as Catalog import',
                 state: 'READY' as const,
                 run: () => void exportCatalog('csv'),
               },
               {
                 icon: 'icon-file-spreadsheet',
-                title: 'Full catalog (Excel)',
-                sub: 'Download .xlsx for editing in Sheets / Excel',
+                title: 'Export ALL products (Excel)',
+                sub: 'Draft + published .xlsx for Sheets / Excel',
                 state: 'READY' as const,
                 run: () => void exportCatalog('xlsx'),
               },

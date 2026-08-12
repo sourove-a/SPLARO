@@ -66,12 +66,6 @@ function heroImageSrc(url: string): string {
   return optimizeImageSrc(local, 'hero', local, { allowStockMedia: true })
 }
 
-function videoMimeType(url: string): string {
-  if (/\.webm(\?|$)/i.test(url)) return 'video/webm'
-  if (/\.ogg(\?|$)/i.test(url)) return 'video/ogg'
-  return 'video/mp4'
-}
-
 /** For Pexels-hosted videos, derive a lightweight ~360p rendition for mobile. */
 function mobileVideoFallback(url: string): string | undefined {
   if (!url.includes('videos.pexels.com')) return undefined
@@ -460,14 +454,23 @@ function HeroBackground({
   }, [slide.id, mobileActive])
 
   const failUnlessAborted = (err: unknown) => {
+    // AbortError: superseded load/play. NotAllowedError: Chrome autoplay gate —
+    // stay on poster until a user gesture retries (handlers below); do not mark failed.
     if (err instanceof DOMException && (err.name === 'AbortError' || err.name === 'NotAllowedError'))
       return
     setVideoFailed(true)
   }
 
+  const markVideoReady = useCallback(() => {
+    setVideoReady(true)
+  }, [])
+
   const tryPlay = useCallback(() => {
     const video = videoRef.current
     if (!video || !playbackActive || !mountVideo) return
+    // Chrome requires the muted flag as a property before play(), not only the attribute.
+    video.muted = true
+    video.defaultMuted = true
     void video.play().catch(failUnlessAborted)
   }, [playbackActive, mountVideo])
 
@@ -476,7 +479,11 @@ function HeroBackground({
     if (!video || !videoSrc || videoFailed || !mountVideo) return
 
     if (playbackActive) {
-      if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+      // Only kick a fresh load from HAVE_NOTHING. Chrome + preload=metadata often
+      // parks at HAVE_METADATA; treating that as "not enough" and calling load()
+      // again aborts the buffer mid-flight — Edge/Firefox still play, Chrome stays
+      // on the still poster forever.
+      if (video.readyState === HTMLMediaElement.HAVE_NOTHING) {
         video.load()
       }
       tryPlay()
@@ -536,27 +543,28 @@ function HeroBackground({
           loop
           playsInline
           autoPlay
-          /* Active slide: metadata on Windows (main-thread / bandwidth), auto elsewhere. */
-          preload={
-            typeof document !== 'undefined' &&
-            document.documentElement.getAttribute('data-os') === 'windows'
-              ? 'metadata'
-              : 'auto'
-          }
+          /* Always auto — Windows used to use metadata-only to save bandwidth, but
+             Chromium then stalls at HAVE_METADATA and never paints frames. SD/HD
+             chain already keeps Windows on the lighter Pexels rendition. */
+          preload="auto"
           disablePictureInPicture
           controls={false}
           {...(poster ? { poster } : {})}
           aria-hidden={!isActive}
-          onPlaying={() => setVideoReady(true)}
+          /* Direct src (no <source type>) — Chrome is stricter about declared MIME
+             mismatches than Edge/Firefox sniffing. */
+          src={videoSrc}
+          onLoadedData={markVideoReady}
+          onPlaying={markVideoReady}
           onCanPlay={(event) => {
+            markVideoReady()
             if (!playbackActive) return
-            setVideoReady(true)
-            void event.currentTarget.play().catch(failUnlessAborted)
+            const el = event.currentTarget
+            el.muted = true
+            void el.play().catch(failUnlessAborted)
           }}
           onError={onVideoError}
-        >
-          <source src={videoSrc} type={videoMimeType(videoSrc!)} />
-        </video>
+        />
       ) : null}
     </>
   )

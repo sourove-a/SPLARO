@@ -69,12 +69,13 @@ export interface ApiCustomerDetail extends ApiCustomer {
   fraudSignals?: CustomerFraudSignals
 }
 
-export function fetchCustomers(params?: { search?: string; limit?: number }) {
+export function fetchCustomers(params?: { search?: string; limit?: number; page?: number }) {
   const qs = new URLSearchParams()
   if (params?.search) qs.set('search', params.search)
   if (params?.limit) qs.set('limit', String(params.limit))
+  if (params?.page) qs.set('page', String(params.page))
   const query = qs.toString()
-  return apiFetch<{ customers: ApiCustomer[]; total: number }>(
+  return apiFetch<{ customers: ApiCustomer[]; total: number; page?: number; totalPages?: number }>(
     `/admin/customers${query ? `?${query}` : ''}`,
   )
 }

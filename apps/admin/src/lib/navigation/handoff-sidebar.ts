@@ -46,7 +46,11 @@ export const HANDOFF_SIDEBAR_GROUPS: ReadonlyArray<{ group: string; hrefs: reado
   },
   {
     group: 'Customers',
-    hrefs: ['/dashboard/customers', '/dashboard/wholesale-leads'],
+    hrefs: ['/dashboard/customers'],
+  },
+  {
+    group: 'Wholesale',
+    hrefs: ['/dashboard/wholesale-leads', '/dashboard/wholesale-stock'],
   },
   {
     group: 'Operations',
@@ -129,6 +133,8 @@ const LABEL_OVERRIDES: Record<string, string> = {
   '/dashboard/automation/google-sheets-sync': 'Google Sheets',
   '/dashboard/ai-agent': 'AI Command Brain',
   '/dashboard/telegram-bot': 'Telegram Bot',
+  '/dashboard/wholesale-leads': 'Wholesale Leads',
+  '/dashboard/wholesale-stock': 'Wholesale Stock',
   '/dashboard/executive/export-center': 'Export Center',
 }
 

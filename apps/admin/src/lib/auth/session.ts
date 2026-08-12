@@ -1,8 +1,7 @@
 export const ADMIN_SESSION_COOKIE = 'splaro_admin_session'
-// Shorter admin session window bounds exposure from a stolen token — there is
-// no server-side revocation list (stateless HMAC token), so expiry is the
-// only backstop between logout and the token becoming unusable.
-const SESSION_TTL_MS = 1000 * 60 * 60 * 6 // 6 hours
+// Sliding refresh in middleware extends this window while the admin stays active.
+// Stateless HMAC has no server revoke list — expiry is still the hard backstop.
+export const ADMIN_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7 // 7 days
 
 export interface AdminSessionPayload {
   userId: string
@@ -59,7 +58,7 @@ export async function createAdminSessionToken(
 ): Promise<string> {
   const full: AdminSessionPayload = {
     ...payload,
-    exp: Date.now() + SESSION_TTL_MS,
+    exp: Date.now() + ADMIN_SESSION_TTL_MS,
   }
   const body = encodeStringBase64Url(JSON.stringify(full))
   const sig = await hmacBase64Url(body, getSecret())
@@ -90,7 +89,7 @@ export async function verifyAdminSessionToken(
   }
 }
 
-export function sessionCookieOptions(maxAgeSec = SESSION_TTL_MS / 1000) {
+export function sessionCookieOptions(maxAgeSec = ADMIN_SESSION_TTL_MS / 1000) {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

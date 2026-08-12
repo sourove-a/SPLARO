@@ -44,7 +44,7 @@ async function main() {
     phone
   const address =
     envFirst('COMPANY_ADDRESS', 'STORE_ADDRESS') ||
-    'Sector 13, Road 12, Uttara, Dhaka 1230, Bangladesh'
+    'House 84, Road 12, Sector 13, Uttara, Dhaka 1230, Bangladesh'
 
   const storePatch: { email?: string; phone?: string; address?: string } = {}
   const currentEmail = normalizeEmail(store.email ?? '')

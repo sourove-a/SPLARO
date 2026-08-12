@@ -244,7 +244,7 @@ async function main() {
         name: 'Dhaka Main Warehouse',
         code: 'DHK-01',
         city: 'Dhaka',
-        address: 'Dhanmondi, Dhaka',
+        address: 'House 84, Road 12, Sector 13, Uttara, Dhaka 1230, Bangladesh',
       },
     })
     console.log('Seeded default warehouse')

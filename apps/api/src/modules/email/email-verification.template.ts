@@ -6,76 +6,154 @@ export interface EmailVerificationInput {
   expiresInMinutes?: number
 }
 
+function resolvePublicSite(raw?: string): string {
+  const fallback = 'https://splaro.co'
+  const value = (raw ?? fallback).replace(/\/$/, '')
+  try {
+    const u = new URL(value.startsWith('http') ? value : `https://${value}`)
+    const h = u.hostname.replace(/^www\./, '').toLowerCase()
+    if (!h || h === 'localhost' || h === '127.0.0.1' || h.endsWith('.local') || h.endsWith('.localhost')) {
+      return fallback
+    }
+    return u.origin
+  } catch {
+    return fallback
+  }
+}
+
+function resolveVerifyUrl(inputVerifyUrl: string, site: string): string {
+  try {
+    const vu = new URL(inputVerifyUrl)
+    const vh = vu.hostname.replace(/^www\./, '').toLowerCase()
+    const isLoopback =
+      !vh ||
+      vh === 'localhost' ||
+      vh === '127.0.0.1' ||
+      vh.endsWith('.local') ||
+      vh.endsWith('.localhost')
+    if (isLoopback) {
+      if (process.env.NODE_ENV === 'production') {
+        return `${site}${vu.pathname}${vu.search}`
+      }
+      return vu.toString()
+    }
+    return vu.toString()
+  } catch {
+    return `${site}/verify-email`
+  }
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/**
+ * Premium always-light email verification mail.
+ * Matches password-reset styling: PNG wordmark only, gold accent, force-light.
+ */
 export function generateEmailVerificationHTML(input: EmailVerificationInput): string {
   const store = input.storeName?.trim() || 'SPLARO'
-  const raw = (input.siteUrl ?? 'https://splaro.co').replace(/\/$/, '')
-  let site = 'https://splaro.co'
-  try {
-    const u = new URL(raw.startsWith('http') ? raw : `https://${raw}`)
-    const h = u.hostname.replace(/^www\./, '').toLowerCase()
-    if (h && h !== 'localhost' && h !== '127.0.0.1' && !h.endsWith('.local') && !h.endsWith('.localhost')) {
-      site = u.origin
-    }
-  } catch {
-    site = 'https://splaro.co'
-  }
+  const site = resolvePublicSite(input.siteUrl)
   const name = input.firstName?.trim() || 'there'
   const minutes = input.expiresInMinutes ?? 120
-
-  let verifyUrl = input.verifyUrl
-  try {
-    const vu = new URL(input.verifyUrl)
-    const vh = vu.hostname.replace(/^www\./, '').toLowerCase()
-    if (!vh || vh === 'localhost' || vh === '127.0.0.1' || vh.endsWith('.local') || vh.endsWith('.localhost')) {
-      // Keep localhost in local/dev so the button works on :3000.
-      if (process.env.NODE_ENV === 'production') {
-        verifyUrl = `${site}${vu.pathname}${vu.search}`
-      }
-    }
-  } catch {
-    verifyUrl = `${site}/verify-email`
-  }
+  const verifyUrl = resolveVerifyUrl(input.verifyUrl, site)
+  const host = site.replace(/^https?:\/\//, '')
+  const year = new Date().getFullYear()
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light only" />
+  <meta name="supported-color-schemes" content="light" />
   <title>Verify your ${escapeHtml(store)} email</title>
+  <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
+  <style>
+    :root { color-scheme: light only; }
+    @media (prefers-color-scheme: dark) {
+      .force-light { background-color: #f7f3ed !important; color: #111111 !important; }
+      .force-card { background-color: #ffffff !important; color: #111111 !important; }
+      .force-ink { color: #111111 !important; }
+      .force-muted { color: #66615b !important; }
+      .force-soft { color: #8a837b !important; }
+      .force-btn { background-color: #111111 !important; color: #ffffff !important; }
+      .force-rule { background-color: #e8e2d8 !important; }
+    }
+  </style>
 </head>
-<body style="margin:0;padding:0;background:#f6f2ec;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111111;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:linear-gradient(180deg,#faf8f5 0%,#eee7dd 100%);padding:40px 16px;">
-    <tr><td align="center">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:540px;">
-        <tr><td align="center" style="padding-bottom:26px;">
-          <img src="${escapeHtml(site)}/images/logo/splaro-logo-email.png" alt="${escapeHtml(store)}" width="132" style="display:block;max-width:132px;height:auto;margin:0 auto 12px;" />
-          <div style="font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:#8f714d;">Quiet luxury · Bangladesh</div>
-        </td></tr>
-        <tr><td style="overflow:hidden;border:1px solid rgba(17,17,17,.09);border-radius:28px;background:#ffffff;box-shadow:0 24px 70px rgba(39,29,18,.10);">
-          <div style="height:5px;background:linear-gradient(90deg,#111111 0%,#c8a97e 50%,#111111 100%);"></div>
-          <div style="padding:38px 34px 34px;">
-            <div style="margin-bottom:12px;font-size:10px;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:#9b7a50;">Email verification</div>
-            <h1 style="margin:0 0 12px;font-family:Georgia,'Times New Roman',serif;font-size:31px;font-weight:500;line-height:1.2;color:#111111;">Confirm your email</h1>
-            <p style="margin:0 0 26px;font-size:15px;line-height:1.75;color:#66615b;">Hi ${escapeHtml(name)}, verification is optional. Tap the button below to confirm your email for ${escapeHtml(store)} — no code to type.</p>
-            <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 28px;">
-              <tr>
-                <td style="border-radius:999px;background:#111111;">
-                  <a href="${escapeHtml(verifyUrl)}" style="display:inline-block;padding:14px 28px;color:#ffffff;text-decoration:none;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;">
-                    Verify email
-                  </a>
-                </td>
-              </tr>
-            </table>
-            <p style="margin:0 0 12px;font-size:13px;line-height:1.65;color:#8a837b;">This link expires in ${minutes} minutes. If you did not request it, ignore this email.</p>
-            <p style="margin:0;font-size:12px;line-height:1.6;color:#918a82;word-break:break-all;">
-              Or copy this link:<br />
-              <a href="${escapeHtml(verifyUrl)}" style="color:#8f714d;text-decoration:none;">${escapeHtml(verifyUrl)}</a>
-            </p>
-          </div>
-        </td></tr>
-        <tr><td align="center" style="padding-top:24px;font-size:11px;line-height:1.6;color:#8d857c;">© ${new Date().getFullYear()} ${escapeHtml(store)} · <a href="${escapeHtml(site)}" style="color:#8f714d;text-decoration:none;">${escapeHtml(site.replace(/^https?:\/\//, ''))}</a></td></tr>
-      </table>
-    </td></tr>
+<body class="force-light" style="margin:0;padding:0;background:#f7f3ed;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#111111;-webkit-text-size-adjust:100%;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
+    Confirm your ${escapeHtml(store)} email — link expires in ${minutes} minutes.
+  </div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="force-light" style="background:#f7f3ed;padding:48px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:540px;">
+          <tr>
+            <td align="center" style="padding:0 0 28px;">
+              <a href="${escapeHtml(site)}" style="text-decoration:none;border:0;">
+                <img
+                  src="${escapeHtml(site)}/images/logo/splaro-logo-email.png"
+                  alt="${escapeHtml(store)}"
+                  width="148"
+                  height="auto"
+                  style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;max-width:148px;height:auto;"
+                />
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td class="force-card" style="overflow:hidden;background:#ffffff;border:1px solid rgba(17,17,17,0.08);border-radius:28px;box-shadow:0 24px 70px rgba(39,29,18,0.08);">
+              <div style="height:4px;line-height:4px;font-size:0;background:linear-gradient(90deg,#111111 0%,#c8a97e 50%,#111111 100%);">&nbsp;</div>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="padding:40px 36px 36px;">
+                    <p style="margin:0 0 14px;font-size:10px;font-weight:700;letter-spacing:0.28em;text-transform:uppercase;color:#9b7a50;">
+                      Email verification
+                    </p>
+                    <h1 class="force-ink" style="margin:0 0 16px;font-family:Georgia,'Times New Roman',serif;font-size:30px;font-weight:500;line-height:1.2;color:#111111;letter-spacing:-0.02em;">
+                      Confirm your email
+                    </h1>
+                    <p class="force-muted" style="margin:0 0 28px;font-size:15px;line-height:1.75;color:#66615b;">
+                      Hi ${escapeHtml(name)}, verification is optional. Use the button below to confirm your email for ${escapeHtml(store)} — no code to type. This link expires in <strong style="color:#111111;font-weight:600;">${minutes} minutes</strong>.
+                    </p>
+                    <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 28px;">
+                      <tr>
+                        <td class="force-btn" align="center" style="border-radius:999px;background:#111111;">
+                          <a href="${escapeHtml(verifyUrl)}" class="force-btn" style="display:inline-block;padding:15px 32px;color:#ffffff;text-decoration:none;font-size:12px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;line-height:1.2;">
+                            Verify email
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                    <div class="force-rule" style="height:1px;line-height:1px;font-size:0;background:#ece7df;margin:0 0 22px;">&nbsp;</div>
+                    <p class="force-soft" style="margin:0 0 18px;font-size:13px;line-height:1.65;color:#8a837b;">
+                      If you didn&apos;t request this, you can safely ignore this email.
+                    </p>
+                    <p class="force-soft" style="margin:0;font-size:11px;line-height:1.6;color:#9a938a;">
+                      Button not working? Paste this link into your browser:<br />
+                      <a href="${escapeHtml(verifyUrl)}" style="color:#8f714d;text-decoration:none;word-break:break-all;">${escapeHtml(verifyUrl)}</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:28px 12px 0;font-size:11px;line-height:1.7;color:#8d857c;">
+              © ${year} ${escapeHtml(store)}
+              <span style="color:#cfc8bd;"> · </span>
+              <a href="${escapeHtml(site)}" style="color:#8f714d;text-decoration:none;">${escapeHtml(host)}</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
   </table>
 </body>
 </html>`
@@ -84,13 +162,7 @@ export function generateEmailVerificationHTML(input: EmailVerificationInput): st
 export function generateEmailVerificationText(input: EmailVerificationInput): string {
   const name = input.firstName?.trim() || 'there'
   const minutes = input.expiresInMinutes ?? 120
-  return `Hi ${name},\n\nVerify your SPLARO email (optional) by opening this link:\n${input.verifyUrl}\n\nThis link expires in ${minutes} minutes. No code needed.\n\nIf you did not request this, ignore this email.`
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+  const site = resolvePublicSite(input.siteUrl)
+  const verifyUrl = resolveVerifyUrl(input.verifyUrl, site)
+  return `Hi ${name},\n\nVerify your SPLARO email (optional):\n${verifyUrl}\n\nThis link expires in ${minutes} minutes. No code needed.\n\nIf you did not request this, ignore this email.`
 }

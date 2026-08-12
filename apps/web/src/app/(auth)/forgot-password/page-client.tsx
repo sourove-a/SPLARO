@@ -52,7 +52,9 @@ export default function ForgotPasswordPageClient() {
 
       setMessage(
         data.message ??
-          'If that account exists, a reset link has been sent to its email address.',
+          (email.includes('@')
+            ? 'Reset link sent — check your email inbox'
+            : 'Reset link sent to the email linked to this phone number'),
       )
     } catch {
       setError('Network error. Please check your connection and try again.')
@@ -70,10 +72,7 @@ export default function ForgotPasswordPageClient() {
               <Mail className="auth-recover__seal-icon" strokeWidth={1.55} />
             </span>
             <h1 className="auth-card__title">Forgot your password?</h1>
-            <p className="auth-card__subtitle">
-              Enter your email or the phone number you order with — we&apos;ll send a reset
-              link to the email on that account.
-            </p>
+            <p className="auth-card__subtitle">Enter your phone or email.</p>
           </motion.div>
         </motion.div>
 

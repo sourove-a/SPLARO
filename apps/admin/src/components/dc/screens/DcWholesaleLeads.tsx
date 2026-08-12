@@ -22,6 +22,7 @@ import {
   type WholesaleStatus,
 } from '@/lib/api/wholesale'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { resolveMediaUrl } from '@/lib/media-url'
 
 const card = {
   border: '1px solid var(--line)',
@@ -310,6 +311,39 @@ function DcWholesaleLeadsBody() {
               <DetailRow label="Monthly quantity" value={open.monthlyQuantity} />
             ) : null}
             {open.message ? <DetailRow label="Message" value={open.message} /> : null}
+            {(open.imageUrls?.length ?? 0) > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <span style={capsLabel}>Product photos</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: 8 }}>
+                  {open.imageUrls!.map((url) => {
+                    const src = resolveMediaUrl(url)
+                    return (
+                    <a
+                      key={url}
+                      href={src}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'block',
+                        aspectRatio: '1',
+                        borderRadius: 12,
+                        overflow: 'hidden',
+                        border: '1px solid var(--line)',
+                        background: 'var(--surface)',
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={src}
+                        alt=""
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    </a>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : null}
             <DetailRow label="Received" value={`${waitedLabel(open.createdAt)} · ${open.sourcePath ?? '/wholesale'}`} />
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>

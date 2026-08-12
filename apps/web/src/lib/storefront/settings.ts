@@ -17,6 +17,8 @@ import {
   DEFAULT_STORE_ADDRESS,
   DEFAULT_STORE_LABEL,
   DEFAULT_SUPPORT_EMAIL,
+  DEFAULT_SUPPORT_PHONE_E164,
+  beautifyStoreAddress,
 } from '@/lib/storefront/defaults'
 import {
   ACCESSORIES_MEGA_CATEGORIES,
@@ -170,7 +172,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
     name: 'SPLARO',
     logo: '/images/logo/splaro-logo-black-premium.webp',
     email: process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? DEFAULT_SUPPORT_EMAIL,
-    phone: process.env.NEXT_PUBLIC_SUPPORT_PHONE ?? '',
+    phone: process.env.NEXT_PUBLIC_SUPPORT_PHONE ?? DEFAULT_SUPPORT_PHONE_E164,
     address: DEFAULT_STORE_ADDRESS,
   },
   social: {
@@ -637,7 +639,7 @@ function applyStoreDefaults(settings: StorefrontSettings): StorefrontSettings {
     ...settings,
     store: {
       ...settings.store,
-      address: settings.store.address?.trim() || DEFAULT_STORE_ADDRESS,
+      address: beautifyStoreAddress(settings.store.address?.trim() || DEFAULT_STORE_ADDRESS),
     },
     config: {
       ...settings.config,

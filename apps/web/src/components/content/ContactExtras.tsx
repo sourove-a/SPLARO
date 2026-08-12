@@ -9,7 +9,7 @@ import { useStorefrontSettings } from '@/components/providers/StorefrontSettings
 import { MotionAnchor, MotionPressable } from '@/components/ui/MotionPressable'
 import { submitContactForm } from '@/lib/api/contact'
 import { resolveWhatsAppNumber, resolveSupportPhone, whatsAppHref } from '@/lib/storefront/contact'
-import { DEFAULT_STORE_ADDRESS, DEFAULT_SUPPORT_EMAIL } from '@/lib/storefront/defaults'
+import { DEFAULT_STORE_ADDRESS, DEFAULT_SUPPORT_EMAIL, formatStoreAddressLines, beautifyStoreAddress } from '@/lib/storefront/defaults'
 import { cn } from '@/lib/utils/cn'
 
 type SubmitStatus = 'idle' | 'loading' | 'success' | 'error'
@@ -25,7 +25,8 @@ export function ContactExtras() {
     settings.store.email?.trim() ||
     process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() ||
     DEFAULT_SUPPORT_EMAIL
-  const address = settings.store.address?.trim() || DEFAULT_STORE_ADDRESS
+  const address = beautifyStoreAddress(settings.store.address?.trim() || DEFAULT_STORE_ADDRESS)
+  const addressDisplay = formatStoreAddressLines(address).join('\n')
   const whatsappNumber = resolveWhatsAppNumber(settings)
   const whatsappLink = whatsAppHref(whatsappNumber)
 
@@ -79,7 +80,7 @@ export function ContactExtras() {
           icon: MapPin,
           kicker: 'Studio',
           label: 'Visit us',
-          value: address,
+          value: addressDisplay,
           tone: 'studio' as const,
         },
       ].filter(Boolean) as Array<{
@@ -92,7 +93,7 @@ export function ContactExtras() {
         value: string
         tone: 'phone' | 'email' | 'whatsapp' | 'studio'
       }>,
-    [address, email, hasPhone, hasWhatsApp, phone, whatsappLink],
+    [addressDisplay, email, hasPhone, hasWhatsApp, phone, whatsappLink],
   )
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {

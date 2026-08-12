@@ -8,7 +8,7 @@ import { FONT, MONO } from '@/components/dc/tokens'
 import { downloadCsv } from '@/lib/admin/admin-actions'
 import { CATALOG_HEADERS } from '@/lib/admin/product-catalog-sheet'
 import { downloadSheet } from '@/lib/admin/sheet-io'
-import { toastOk, toastFail } from '@/lib/admin/feedback'
+import { toastOk, toastFail, toastWarn } from '@/lib/admin/feedback'
 import { isNetworkOrServerError } from '@/lib/api/offline-defaults'
 import { fetchCustomers } from '@/lib/api/customers'
 import { fetchOrders } from '@/lib/api/orders'
@@ -52,6 +52,7 @@ export function DcExportCenterBody() {
         const rows: string[][] = [['Invoice', 'Customer', 'Status', 'Total', 'Created']]
         let page = 1
         let totalPages = 1
+        const maxPages = 200
         do {
           const data = await fetchOrders({ limit: 100, page })
           for (const o of data.orders) {
@@ -65,25 +66,53 @@ export function DcExportCenterBody() {
           }
           totalPages = data.totalPages ?? 1
           page += 1
-        } while (page <= totalPages && page <= 50)
+        } while (page <= totalPages && page <= maxPages)
+        if (totalPages > maxPages) {
+          toastWarn(
+            `Orders export stopped at ${rows.length - 1} rows (page cap). Narrow filters or use Finance reports for a date range.`,
+            'export-orders-cap',
+          )
+        }
         if (format === 'xlsx') downloadSheet('splaro-orders.xlsx', rows, 'xlsx')
         else downloadCsv('splaro-orders.csv', rows)
+        toastOk(
+          `Orders exported — ${rows.length - 1} row${rows.length === 2 ? '' : 's'} (${format.toUpperCase()}).`,
+          `export-orders-${format}`,
+        )
+        return
       } else if (kind === 'customers') {
-        const data = await fetchCustomers({ limit: 100 })
-        // Customers API is single-page today — pull max available page size repeatedly if totalPages appears later.
-        const rows = [
-          ['Name', 'Phone', 'Email', 'Orders', 'Total spent', 'Tier'],
-          ...data.customers.map((c) => [
-            `${c.firstName} ${c.lastName}`,
-            c.phone,
-            c.email ?? '',
-            String(c.totalOrders),
-            String(c.totalSpent),
-            c.loyaltyTier,
-          ]),
-        ]
+        const rows: string[][] = [['Name', 'Phone', 'Email', 'Orders', 'Total spent', 'Tier']]
+        let page = 1
+        let totalPages = 1
+        const maxPages = 200
+        do {
+          const data = await fetchCustomers({ limit: 100, page })
+          for (const c of data.customers) {
+            rows.push([
+              `${c.firstName} ${c.lastName}`.trim(),
+              c.phone,
+              c.email ?? '',
+              String(c.totalOrders),
+              String(c.totalSpent),
+              c.loyaltyTier,
+            ])
+          }
+          totalPages = data.totalPages ?? Math.max(1, Math.ceil((data.total || 0) / 100))
+          page += 1
+        } while (page <= totalPages && page <= maxPages)
+        if (totalPages > maxPages) {
+          toastWarn(
+            `Customers export stopped at ${rows.length - 1} rows (page cap).`,
+            'export-customers-cap',
+          )
+        }
         if (format === 'xlsx') downloadSheet('splaro-customers.xlsx', rows, 'xlsx')
         else downloadCsv('splaro-customers.csv', rows)
+        toastOk(
+          `All customers exported — ${rows.length - 1} row${rows.length === 2 ? '' : 's'} (${format.toUpperCase()}).`,
+          `export-customers-${format}`,
+        )
+        return
       } else {
         const data = await fetchProductsExport()
         const rows: string[][] = [
@@ -95,11 +124,12 @@ export function DcExportCenterBody() {
           rows,
           format,
         )
+        toastOk(
+          `All products exported — ${data.total} variant row${data.total === 1 ? '' : 's'} (${format.toUpperCase()}).`,
+          `export-products-${format}`,
+        )
+        return
       }
-      toastOk(
-        `${kind} exported as ${format.toUpperCase()}.`,
-        `export-${kind}-${format}`,
-      )
     } catch {
       toastFail('Export failed — is the API running?', 'export-fail')
     } finally {
@@ -111,21 +141,21 @@ export function DcExportCenterBody() {
     {
       label: 'Orders',
       kind: 'orders' as const,
-      desc: 'Orders (paginated export)',
+      desc: 'All orders (paginated; warns if store is huge)',
       icon: 'icon-shopping-bag',
       excel: true,
     },
     {
       label: 'Customers',
       kind: 'customers' as const,
-      desc: 'Customer CRM export',
+      desc: 'ALL customers — name, phone, spend, tier',
       icon: 'icon-users',
       excel: true,
     },
     {
       label: 'Products',
       kind: 'products' as const,
-      desc: 'Full catalog — Bangla, images, collections',
+      desc: 'ALL products (draft + live) — Bangla, images, collections, variants',
       icon: 'icon-package',
       excel: true,
     },

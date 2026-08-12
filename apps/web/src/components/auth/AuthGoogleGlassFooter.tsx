@@ -1,12 +1,18 @@
 'use client'
 
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google'
-import { Loader2 } from 'lucide-react'
+import { ExternalLink, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useAuthGoogleBridge } from '@/components/auth/auth-google-bridge'
 import { useStorefrontAuthConfig } from '@/hooks/useStorefrontAuthConfig'
 import { useGoogleOAuthOriginEligibility } from '@/hooks/useGoogleOAuthOriginEligibility'
+import {
+  copyTextToClipboard,
+  detectInAppBrowser,
+  openInExternalBrowser,
+  type InAppBrowserInfo,
+} from '@/lib/auth/in-app-browser'
 
 const BAKED_GOOGLE =
   process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID?.trim() ||
@@ -17,6 +23,8 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
   const googleHostRef = useRef<HTMLDivElement>(null)
   /** 0 until measured — avoids mounting GIS at a stale width (right-side gap in the pill). */
   const [googleButtonWidth, setGoogleButtonWidth] = useState(0)
+  const [inApp, setInApp] = useState<InAppBrowserInfo | null>(null)
+  const [copied, setCopied] = useState(false)
   const {
     googleSignInEnabled,
     googleClientId: runtimeGoogleClientId,
@@ -27,6 +35,10 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
   const googleClientId = runtimeGoogleClientId || BAKED_GOOGLE
   const configured = Boolean(googleClientId)
   const originEligible = useGoogleOAuthOriginEligibility()
+
+  useEffect(() => {
+    setInApp(detectInAppBrowser())
+  }, [])
 
   useLayoutEffect(() => {
     const host = googleHostRef.current
@@ -66,7 +78,7 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
     const observer = new ResizeObserver(updateWidth)
     observer.observe(target)
     return () => observer.disconnect()
-  }, [configured, originEligible])
+  }, [configured, originEligible, inApp?.inApp])
 
   const handleCredential = useCallback(
     (response: CredentialResponse) => {
@@ -79,6 +91,16 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
     [runGoogleSignIn, setGoogleError],
   )
 
+  const handleOpenBrowser = useCallback(() => {
+    openInExternalBrowser(window.location.href)
+  }, [])
+
+  const handleCopyLink = useCallback(async () => {
+    const ok = await copyTextToClipboard(window.location.href)
+    setCopied(ok)
+    if (ok) window.setTimeout(() => setCopied(false), 2500)
+  }, [])
+
   if (step === 'google-phone') return null
   // Hide ONLY when config confirms disabled AND no client id exists (baked or runtime).
   // Never unmount a visible button — flash-then-vanish is worse than a brief loading state.
@@ -88,7 +110,11 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
   const localBlocked = configured && originEligible === false
   // Still resolving hostname — keep layout stable with measuring shell, no GIS yet.
   const awaitingOrigin = configured && originEligible === null
-  const showGoogle = configured && originEligible === true
+  // Never mount GIS inside WhatsApp / Instagram / Telegram WebViews — Google shows a blank white page.
+  const blockedByInApp = Boolean(inApp?.inApp)
+  const showGoogle = configured && originEligible === true && !blockedByInApp
+
+  const appLabel = inApp?.label ?? 'this app'
 
   return (
     <div
@@ -116,6 +142,31 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
         </p>
       ) : null}
 
+      {blockedByInApp && configured && !localBlocked ? (
+        <div className="auth-google-inapp" role="status">
+          <p className="auth-google-inapp__title">Open in Safari or Chrome</p>
+          <p className="auth-google-inapp__body">
+            Google doesn&apos;t work inside {appLabel}. Open this page in your phone browser, then
+            continue with Google.
+          </p>
+          <p className="auth-google-inapp__body auth-google-inapp__body--bn" lang="bn">
+            {appLabel}-এর ভিতরে Google কাজ করে না। Safari বা Chrome-এ খুলে Continue with Google
+            চাপুন।
+          </p>
+          <button
+            type="button"
+            className="auth-google-inapp__cta"
+            onClick={handleOpenBrowser}
+          >
+            <ExternalLink className="auth-google-inapp__cta-icon" strokeWidth={2.2} aria-hidden />
+            Open in Safari / Chrome
+          </button>
+          <button type="button" className="auth-google-inapp__copy" onClick={() => void handleCopyLink()}>
+            {copied ? 'Link copied · লিংক কপি হয়েছে' : 'Copy link · লিংক কপি করুন'}
+          </button>
+        </div>
+      ) : null}
+
       {showGoogle ? (
         <div
           ref={googleHostRef}
@@ -140,6 +191,8 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
               width={googleButtonWidth}
               locale="en"
               ux_mode="popup"
+              // FedCM path blanks / fails on several mobile browsers — classic button is reliable.
+              use_fedcm_for_button={false}
             />
           ) : null}
           {googleLoading ? (
@@ -151,7 +204,7 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
         </div>
       ) : null}
 
-      {awaitingOrigin ? (
+      {awaitingOrigin && !blockedByInApp ? (
         <p className="auth-google-glass__hint auth-google-glass__hint--quiet" aria-live="polite">
           Preparing Google sign-in…
         </p>

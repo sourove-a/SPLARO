@@ -1967,6 +1967,15 @@ html[data-os='windows'] .home-dept-tile:hover .home-dept-tile__img {
   opacity: 1;
 }
 
+/* Chromium on Windows (ANGLE/D3D11): large transform on a <video> layer can
+   composite as a blank/black surface while Edge/Firefox still paint frames.
+   Keep Ken Burns on the poster image only; video stays identity scale. */
+html[data-os='windows'] .home-hero-slider .hero-bg-video,
+html[data-os='windows'] .home-hero-slider .hero-slide__media video.hero-bg-video,
+html[data-os='windows'] .home-hero-slider:not([data-transitioning]) .hero-slide[data-active='true'] .hero-bg-video {
+  transform: none !important;
+}
+
 .home-hero-slider .hero-bg-image {
   z-index: 0;
 }
@@ -2502,9 +2511,10 @@ html[data-home-hero='top'] .home-hero-slider .hero-content {
   }
 
   html[data-home-hero='scrolled'] .site-topbar {
-    background: rgba(255, 255, 255, 0.98);
-    border-bottom-color: rgba(0, 0, 0, 0.06);
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+    transform: translateY(-100%);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
   }
 
   html[data-home-hero='scrolled'] .site-topbar__inner,

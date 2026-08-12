@@ -553,8 +553,12 @@ export class AuthService {
       throw new ForbiddenException('This account uses Telegram code sign-in')
     }
 
-    await this.prisma.user.update({
-      where: { id: user.id },
+    const consumed = await this.prisma.user.updateMany({
+      where: {
+        id: user.id,
+        resetToken: tokenHash,
+        resetTokenExp: { gt: new Date() },
+      },
       data: {
         passwordHash: hashPassword(password.trim()),
         resetToken: null,
@@ -562,6 +566,9 @@ export class AuthService {
         emailVerified: true,
       },
     })
+    if (consumed.count !== 1) {
+      throw new BadRequestException('Invalid or expired reset link')
+    }
 
     return { ok: true }
   }

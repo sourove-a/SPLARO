@@ -583,7 +583,7 @@ export class StorefrontController {
 
   @Public()
   @Post('auth/forgot-password')
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   async authForgotPassword(
     @Query('storeId') storeId: string,
     @Body() body: StorefrontForgotPasswordDto,
@@ -594,7 +594,7 @@ export class StorefrontController {
 
   @Public()
   @Post('auth/reset-password')
-  @Throttle({ default: { limit: 8, ttl: 60_000 } })
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async authResetPassword(@Body() body: StorefrontResetPasswordDto) {
     return this.storefrontAuth.resetPassword(body.token, body.password)
   }
@@ -1109,7 +1109,7 @@ export class StorefrontController {
 
     if (!sent) {
       const store = await this.prisma.store.findUnique({ where: { id: sid } })
-      const supportEmail = store?.email?.trim() || 'support@splaro.co'
+      const supportEmail = store?.email?.trim() || 'info@splaro.co'
       const subjectLine = subject
         ? `[Contact] ${subject} — ${name}`
         : `[Contact] Website message — ${name}`

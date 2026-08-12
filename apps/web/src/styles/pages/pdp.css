@@ -793,11 +793,15 @@
   font-size: 0.6875rem;
 }
 
-.pp-lang__opt:hover {
-  color: rgba(16, 17, 20, 0.75);
+.pp-lang__opt:hover:not(.pp-lang__opt--on) {
+  color: rgba(16, 17, 20, 0.78);
+  background: rgba(16, 17, 20, 0.05);
 }
 
-.pp-lang__opt--on {
+.pp-lang__opt--on,
+.pp-lang__opt--on:hover,
+.pp-lang__opt--on:active,
+.pp-lang__opt--on:focus-visible {
   background: rgba(16, 17, 20, 0.92);
   color: #fff;
 }

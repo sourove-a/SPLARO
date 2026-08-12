@@ -1079,12 +1079,12 @@ html[data-scroll-profile='mobile'].lenis [data-lenis-prevent] {
 }
 
 @media (min-width: 1024px) {
-  /* Desktop utility topbar stays mounted across storefront routes. Keeping one
-     chrome offset prevents the header jumping 48px during client navigation. */
+  /* Default: header-only chrome. Top utility bar appears only on home over-hero
+     (html[data-topbar=visible]) — prevents Shop/PDP padding + header jump. */
   :root {
-    --site-header-offset: calc(var(--header-height) + var(--topbar-height));
-    --site-content-pad: calc(var(--header-height) + var(--topbar-height) + var(--header-gap));
-    --page-content-top: calc(var(--site-header-offset) + 0.35rem);
+    --site-header-offset: var(--header-height);
+    --site-content-pad: calc(var(--header-height) + var(--header-gap));
+    --page-content-top: calc(var(--header-height) + 0.35rem);
   }
 
   html[data-topbar='visible'] {
@@ -7875,8 +7875,13 @@ html[data-chrome-pin='1'] .site-header-glass {
 }
 
 @media (min-width: 1024px) {
-  /* Stable desktop chrome: primary header always sits below utility topbar. */
+  /* Header sits under the utility topbar only while that bar is visible (home over-hero). */
   .site-header-glass {
+    top: 0;
+  }
+
+  html[data-topbar='visible'] .site-header-glass,
+  html:has(.home-hero-slider):not([data-topbar='hidden']):not([data-home-hero='scrolled']) .site-header-glass {
     top: var(--topbar-height);
   }
 }

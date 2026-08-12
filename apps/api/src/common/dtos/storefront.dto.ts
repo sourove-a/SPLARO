@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -18,16 +19,19 @@ import {
 export class StorefrontOtpSendDto {
   @IsString()
   @MinLength(6)
+  @MaxLength(20)
   phone!: string
 }
 
 export class StorefrontOtpVerifyDto {
   @IsString()
   @MinLength(6)
+  @MaxLength(20)
   phone!: string
 
   @IsString()
   @MinLength(4)
+  @MaxLength(12)
   code!: string
 }
 
@@ -214,43 +218,55 @@ export class NewsletterSubscribeDto {
 export class StorefrontSignupDto {
   @IsString()
   @MinLength(2)
+  @MaxLength(120)
   name!: string
 
   @IsEmail()
+  @MaxLength(160)
   email!: string
 
   @IsString()
   @MinLength(6)
+  @MaxLength(20)
   phone!: string
 
   @IsString()
   @MinLength(8)
+  @MaxLength(128)
+  @Matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, {
+    message: 'Password must include at least one letter and one number',
+  })
   password!: string
 }
 
 export class StorefrontLoginDto {
   @IsString()
   @MinLength(3)
+  @MaxLength(160)
   email!: string
 
   @IsString()
   @MinLength(4)
+  @MaxLength(128)
   password!: string
 }
 
 export class StorefrontGoogleAuthDto {
   @IsString()
   @MinLength(20)
+  @MaxLength(8192)
   credential!: string
 }
 
 export class StorefrontCompletePhoneDto {
   @IsString()
   @MinLength(6)
+  @MaxLength(20)
   phone!: string
 
   @IsOptional()
   @IsString()
+  @MaxLength(12)
   code?: string
 }
 
@@ -258,6 +274,7 @@ export class StorefrontForgotPasswordDto {
   /** Email or BD phone number — the reset link always goes to the account's email. */
   @IsString()
   @MinLength(3)
+  @MaxLength(160)
   email!: string
 }
 
@@ -316,15 +333,28 @@ export class WholesaleInquiryDto {
   @IsString()
   @MaxLength(200)
   sourcePath?: string
+
+  /** Public /uploads/wholesale/* URLs from the storefront image uploader. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(4)
+  @IsString({ each: true })
+  @MaxLength(500, { each: true })
+  imageUrls?: string[]
 }
 
 export class StorefrontResetPasswordDto {
   @IsString()
-  @MinLength(8)
+  @MinLength(32)
+  @MaxLength(128)
   token!: string
 
   @IsString()
   @MinLength(8)
+  @MaxLength(128)
+  @Matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, {
+    message: 'Password must include at least one letter and one number',
+  })
   password!: string
 }
 

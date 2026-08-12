@@ -37,6 +37,24 @@ export function buildLocalBusinessJsonLd({
   telephone,
   email,
 }: LocalBusinessInput): string {
+  const normalized = address.replace(/\s+/g, ' ').trim()
+  const isCanonicalStudio = /House\s*#?\s*84/i.test(normalized)
+  const postal = isCanonicalStudio
+    ? {
+        streetAddress: 'House 84, Road 12, Sector 13',
+        addressLocality: 'Uttara, Dhaka',
+        addressRegion: 'Dhaka',
+        postalCode: '1230',
+        addressCountry: 'BD',
+      }
+    : {
+        streetAddress: normalized || 'House 84, Road 12, Sector 13',
+        addressLocality: 'Dhaka',
+        addressRegion: 'Dhaka',
+        postalCode: '1230',
+        addressCountry: 'BD',
+      }
+
   return serializeJsonLd({
     '@context': 'https://schema.org',
     '@type': ['ClothingStore', 'LocalBusiness'],
@@ -48,11 +66,7 @@ export function buildLocalBusinessJsonLd({
       'SPLARO studio in Uttara, Dhaka — premium fashion for men, women, and kids with nationwide online delivery across Bangladesh.',
     address: {
       '@type': 'PostalAddress',
-      streetAddress: address,
-      addressLocality: 'Dhaka',
-      addressRegion: 'Dhaka',
-      postalCode: '1230',
-      addressCountry: 'BD',
+      ...postal,
     },
     areaServed: { '@type': 'Country', name: 'Bangladesh' },
     priceRange: '৳৳',

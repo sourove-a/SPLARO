@@ -30,6 +30,26 @@ import {
   SPLARO_ORG_DESCRIPTION,
 } from '@/lib/seo/brand-positioning'
 import { serializeJsonLd } from '@/lib/seo/json-ld'
+import { DEFAULT_SUPPORT_EMAIL, DEFAULT_SUPPORT_PHONE_E164 } from '@/lib/storefront/defaults'
+
+function resolvePublicCarePhone(): string {
+  const candidates = [
+    process.env.NEXT_PUBLIC_SUPPORT_PHONE,
+    process.env.NEXT_PUBLIC_WHATSAPP_NUMBER,
+    DEFAULT_SUPPORT_PHONE_E164,
+  ]
+  for (const raw of candidates) {
+    const value = raw?.trim()
+    if (!value) continue
+    const digits = value.replace(/\D/g, '')
+    // Reject empty / obvious placeholders (01700000000 family).
+    if (digits.length < 10) continue
+    if (/^880?170{5,}/.test(digits) || /^0170{5,}/.test(digits)) continue
+    if (value.includes('X')) continue
+    return value.startsWith('+') ? value : digits.startsWith('880') ? `+${digits}` : value
+  }
+  return DEFAULT_SUPPORT_PHONE_E164
+}
 
 const inter = Inter({
   subsets: ['latin'],
@@ -268,7 +288,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               ],
               contactPoint: {
                 '@type': 'ContactPoint',
-                telephone: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER,
+                telephone: resolvePublicCarePhone(),
+                email: process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || DEFAULT_SUPPORT_EMAIL,
                 contactType: 'customer service',
                 areaServed: 'BD',
                 availableLanguage: ['English', 'Bengali'],

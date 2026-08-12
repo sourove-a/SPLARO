@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import {
   ADMIN_SESSION_COOKIE,
+  ADMIN_SESSION_TTL_MS,
+  createAdminSessionToken,
   sessionCookieOptions,
   verifyAdminSessionToken,
+  type AdminSessionPayload,
 } from '@/lib/auth/session'
 import { probeLiveAdminSession } from '@/lib/auth/live-session'
 import { getAdminRequestOrigin } from '@/lib/auth/request-origin'
@@ -25,6 +28,27 @@ function dashboardPermissionAction(pathname: string): PermissionAction {
 function clearSessionRedirect(url: URL) {
   const res = NextResponse.redirect(url)
   res.cookies.set(ADMIN_SESSION_COOKIE, '', { ...sessionCookieOptions(0), maxAge: 0 })
+  return res
+}
+
+async function attachSlidingRefresh(
+  res: NextResponse,
+  session: AdminSessionPayload,
+  live: 'ok' | 'rejected' | 'unreachable',
+): Promise<NextResponse> {
+  // Only refresh when API confirmed the account is still live — never on blips.
+  if (live !== 'ok') return res
+  if (session.exp - Date.now() >= ADMIN_SESSION_TTL_MS / 2) return res
+
+  const refreshed = await createAdminSessionToken({
+    userId: session.userId,
+    email: session.email,
+    name: session.name,
+    role: session.role,
+    ...(session.storeId ? { storeId: session.storeId } : {}),
+    permissions: session.permissions ?? [],
+  })
+  res.cookies.set(ADMIN_SESSION_COOKIE, refreshed, sessionCookieOptions())
   return res
 }
 
@@ -50,7 +74,7 @@ export async function middleware(request: NextRequest) {
     }
 
     if (pathname === '/dashboard/access-denied') {
-      return NextResponse.next()
+      return attachSlidingRefresh(NextResponse.next(), session, live)
     }
 
     const moduleHref =
@@ -65,20 +89,31 @@ export async function middleware(request: NextRequest) {
         : hasPermission(session.role, session.permissions, permModule, action)
 
     if (!allowed) {
-      return NextResponse.redirect(new URL('/dashboard/access-denied', origin))
+      return attachSlidingRefresh(
+        NextResponse.redirect(new URL('/dashboard/access-denied', origin)),
+        session,
+        live,
+      )
     }
+
+    return attachSlidingRefresh(NextResponse.next(), session, live)
   }
 
   if (pathname === '/login') {
     const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value
-    if (token && (await verifyAdminSessionToken(token))) {
+    const session = token ? await verifyAdminSessionToken(token) : null
+    if (token && session) {
       const live = await probeLiveAdminSession(token)
       if (live === 'rejected') {
         const res = NextResponse.next()
         res.cookies.set(ADMIN_SESSION_COOKIE, '', { ...sessionCookieOptions(0), maxAge: 0 })
         return res
       }
-      return NextResponse.redirect(new URL('/dashboard', origin))
+      return attachSlidingRefresh(
+        NextResponse.redirect(new URL('/dashboard', origin)),
+        session,
+        live,
+      )
     }
   }
 

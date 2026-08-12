@@ -21,6 +21,7 @@ export interface ApiWholesaleInquiry {
   productInterest?: string | null
   monthlyQuantity?: string | null
   message?: string | null
+  imageUrls?: string[]
   status: WholesaleStatus
   adminNotes?: string | null
   handledAt?: string | null
@@ -67,4 +68,39 @@ export function updateWholesaleInquiry(
 
 export function deleteWholesaleInquiry(id: string) {
   return apiFetch<{ ok: true }>(`/admin/wholesale-inquiries/${id}`, { method: 'DELETE' })
+}
+
+export interface ApiWholesaleStockImage {
+  id: string
+  url: string
+  title?: string | null
+  sortOrder: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export function fetchWholesaleStock() {
+  return apiFetch<{ images: ApiWholesaleStockImage[] }>('/admin/wholesale-stock')
+}
+
+export function createWholesaleStockImage(input: { url: string; title?: string }) {
+  return apiFetch<ApiWholesaleStockImage>('/admin/wholesale-stock', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateWholesaleStockImage(
+  id: string,
+  input: { title?: string | null; sortOrder?: number; isActive?: boolean },
+) {
+  return apiFetch<ApiWholesaleStockImage>(`/admin/wholesale-stock/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+}
+
+export function deleteWholesaleStockImage(id: string) {
+  return apiFetch<{ ok: true }>(`/admin/wholesale-stock/${id}`, { method: 'DELETE' })
 }

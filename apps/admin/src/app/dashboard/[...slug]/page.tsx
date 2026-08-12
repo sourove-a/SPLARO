@@ -3,6 +3,8 @@ import { notFound, redirect } from 'next/navigation'
 import { DcOrders } from '@/components/orders/DcOrders'
 import { DcProducts } from '@/components/products/DcProducts'
 import { DcCustomers } from '@/components/customers/DcCustomers'
+import { DcWholesaleLeads } from '@/components/dc/screens/DcWholesaleLeads'
+import { DcWholesaleStock } from '@/components/dc/screens/DcWholesaleStock'
 import { DcCustomer360 } from '@/components/dc/screens/DcCustomer360'
 import { DcProductEdit } from '@/components/dc/screens/DcProductEdit'
 import { DcProductNew } from '@/components/dc/screens/DcProductNew'
@@ -19,7 +21,6 @@ import { DcLegalPages } from '@/components/dc/screens/DcLegalPages'
 import { DcHeroSlider } from '@/components/dc/screens/DcHeroSlider'
 import { DcMenuControl } from '@/components/dc/screens/DcMenuControl'
 import { DcProductReviews } from '@/components/dc/screens/DcProductReviews'
-import { DcWholesaleLeads } from '@/components/dc/screens/DcWholesaleLeads'
 import { DcCollections } from '@/components/dc/screens/DcCollections'
 import { DcCategories } from '@/components/dc/screens/DcCategories'
 import { DcInventory } from '@/components/dc/screens/DcInventory'
@@ -75,6 +76,8 @@ const DC_BESPOKE: Record<string, () => React.ReactElement> = {
   '/dashboard/orders': () => <DcOrders />,
   '/dashboard/products': () => <DcProducts />,
   '/dashboard/customers': () => <DcCustomers />,
+  '/dashboard/wholesale-leads': () => <DcWholesaleLeads />,
+  '/dashboard/wholesale-stock': () => <DcWholesaleStock />,
   '/dashboard/packing-station': () => <DcPackingStation />,
   '/dashboard/courier-hub': () => <DcCourierHub />,
   '/dashboard/finance/partner-accounts': () => <DcPartnerHub />,
@@ -87,7 +90,6 @@ const DC_BESPOKE: Record<string, () => React.ReactElement> = {
   '/dashboard/hero-slider': () => <DcHeroSlider />,
   '/dashboard/menu-control': () => <DcMenuControl />,
   '/dashboard/product-reviews': () => <DcProductReviews />,
-  '/dashboard/wholesale-leads': () => <DcWholesaleLeads />,
   '/dashboard/collections': () => <DcCollections />,
   '/dashboard/categories': () => <DcCategories />,
   '/dashboard/inventory': () => <DcInventory />,

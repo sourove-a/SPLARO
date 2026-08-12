@@ -8,6 +8,10 @@ import { dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
 import { cliSpawnOpts, killProcessTree, loopbackUrl, spawnCli } from './spawn-utils.mjs'
 import { checkApiHealth, cleanupOrphanApiProcesses, getApiPort, getNextDevPorts, reclaimNextDevPorts, reclaimPort, waitForPortFree } from './api-port.mjs'
+import { loadRootEnv } from './load-env.mjs'
+
+// Admin HMAC sessions must share ADMIN_SESSION_SECRET with the API process.
+loadRootEnv()
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const port = getApiPort()

@@ -28,6 +28,11 @@ export const LEGAL_PAGE_SLUGS = [
 
 export type LegalPageSlug = (typeof LEGAL_PAGE_SLUGS)[number]
 
+/** Public care contacts — keep in sync with storefront Visit-store / settings. */
+const CARE_EMAIL = 'info@splaro.co'
+const CARE_PHONE = '01905010205'
+const STUDIO_ADDRESS = 'House 84, Road 12, Sector 13, Uttara, Dhaka 1230, Bangladesh'
+
 export const LEGAL_PAGE_CATALOG: { slug: LegalPageSlug; label: string; path: string }[] = [
   { slug: 'terms', label: 'Terms & Conditions', path: '/terms' },
   { slug: 'privacy', label: 'Privacy Policy', path: '/privacy' },
@@ -75,11 +80,11 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
       },
       {
         heading: 'Your rights',
-        body: 'You may request access, correction, or deletion of personal data by emailing support@splaro.co. We respond within 15 business days. You may opt out of promotional messages via the unsubscribe link or by replying STOP to SMS.',
+        body: `You may request access, correction, or deletion of personal data by emailing ${CARE_EMAIL}. We respond within 15 business days. You may opt out of promotional messages via the unsubscribe link or by replying STOP to SMS.`,
       },
       {
         heading: 'Contact',
-        body: 'For privacy questions, contact SPLARO Customer Care at support@splaro.co or 09666-774577, Sector 13, Road 12, Uttara, Dhaka 1230, Bangladesh.',
+        body: `For privacy questions, email ${CARE_EMAIL} or call ${CARE_PHONE}. Studio: ${STUDIO_ADDRESS}.`,
       },
     ],
   },
@@ -165,7 +170,7 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
       },
       {
         heading: 'How to initiate a return',
-        body: 'Email support@splaro.co or message us on WhatsApp with your order number, item name, and reason. Our team will provide a return authorisation and pickup or drop-off instructions within 1 business day.',
+        body: `Email ${CARE_EMAIL} or message us on WhatsApp with your order number, item name, and reason. Our team will provide a return authorisation and pickup or drop-off instructions within 1 business day.`,
       },
       {
         heading: 'Exchanges',
@@ -191,7 +196,7 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
       },
       {
         heading: 'Studio address',
-        body: 'SPLARO Flagship Studio, Sector 13, Road 12, Uttara, Dhaka 1230, Bangladesh. Walk-ins welcome during store hours. Parking available on Road 12.',
+        body: `SPLARO Flagship Studio — ${STUDIO_ADDRESS}. Walk-ins welcome during store hours. Parking available on Road 12.`,
       },
       {
         heading: 'Order support',
@@ -257,7 +262,7 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
       },
       {
         heading: 'Visit us',
-        body: 'Experience SPLARO in person at our Uttara studio — Sector 13, Road 12, Dhaka 1230. Open Saturday–Thursday, 10:00 AM – 8:00 PM. Prefer online? Shop with COD nationwide, or message care before you visit.',
+        body: `Experience SPLARO in person at our Uttara studio — ${STUDIO_ADDRESS}. Open Saturday–Thursday, 10:00 AM – 8:00 PM. Prefer online? Shop with COD nationwide, or message care before you visit.`,
       },
     ],
   },
@@ -336,7 +341,7 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
       },
       {
         heading: 'Failed payments',
-        body: 'If a digital payment fails but funds are deducted, contact your provider first, then email support@splaro.co with transaction ID. We will release or confirm your order once verified.',
+        body: `If a digital payment fails but funds are deducted, contact your provider first, then email ${CARE_EMAIL} with transaction ID. We will release or confirm your order once verified.`,
       },
       {
         heading: 'Invoices',
@@ -378,7 +383,7 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
       },
       {
         heading: 'How do I contact support?',
-        body: 'Email support@splaro.co, call 09666-774577, or message us on WhatsApp. Hours: Saturday–Thursday 10:00 AM – 8:00 PM (BST).',
+        body: `Email ${CARE_EMAIL}, call ${CARE_PHONE}, or message us on WhatsApp. Hours: Saturday–Thursday 10:00 AM – 8:00 PM (BST).`,
       },
     ],
   },

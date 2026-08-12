@@ -8,7 +8,7 @@ import {
   resolveWhatsAppNumber,
   whatsAppHref,
 } from '@/lib/storefront/contact'
-import { DEFAULT_STORE_ADDRESS, DEFAULT_SUPPORT_EMAIL } from '@/lib/storefront/defaults'
+import { DEFAULT_STORE_ADDRESS, DEFAULT_SUPPORT_EMAIL, formatStoreAddressLines, beautifyStoreAddress } from '@/lib/storefront/defaults'
 import { buildLocalBusinessJsonLd } from '@/lib/seo/geo-json-ld'
 import { createRouteMetadata } from '@/lib/seo/route-metadata'
 
@@ -29,7 +29,8 @@ function mapsHref(address: string): string {
  */
 export default async function StoresPage() {
   const settings = await getStorefrontSettings()
-  const address = settings.store.address?.trim() || DEFAULT_STORE_ADDRESS
+  const address = beautifyStoreAddress(settings.store.address?.trim() || DEFAULT_STORE_ADDRESS)
+  const addressLines = formatStoreAddressLines(address)
   const label = settings.store.name?.trim() || 'SPLARO Studio'
   const phone = resolveSupportPhone(settings)
   const email =
@@ -81,7 +82,11 @@ export default async function StoresPage() {
                   </span>
                   <div className="content-page__contact-copy">
                     <strong>{label}</strong>
-                    <span>{address}</span>
+                    <span className="content-page__address-lines">
+                      {addressLines.map((line) => (
+                        <span key={line}>{line}</span>
+                      ))}
+                    </span>
                   </div>
                 </div>
 

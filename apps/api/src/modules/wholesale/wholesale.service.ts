@@ -14,6 +14,7 @@ export interface WholesaleInquiryInput {
   monthlyQuantity?: string
   message?: string
   sourcePath?: string
+  imageUrls?: string[]
 }
 
 const WHOLESALE_STATUSES: WholesaleInquiryStatus[] = [
@@ -30,6 +31,20 @@ const DUPLICATE_WINDOW_MS = 10 * 60 * 1000
 function clean(value?: string | null): string | undefined {
   const trimmed = value?.trim()
   return trimmed ? trimmed : undefined
+}
+
+/** Only same-origin wholesale uploads — never accept arbitrary remote URLs. */
+function sanitizeImageUrls(urls?: string[]): string[] {
+  if (!urls?.length) return []
+  const out: string[] = []
+  for (const raw of urls) {
+    const value = raw?.trim()
+    if (!value) continue
+    if (!/^\/uploads\/wholesale\/[a-zA-Z0-9._-]+\.(jpe?g|png|webp)$/i.test(value)) continue
+    if (!out.includes(value)) out.push(value)
+    if (out.length >= 4) break
+  }
+  return out
 }
 
 @Injectable()
@@ -63,6 +78,7 @@ export class WholesaleService {
 
     const phone = this.normalizePhone(rawPhone, country)
     const email = clean(input.email)?.toLowerCase()
+    const imageUrls = sanitizeImageUrls(input.imageUrls)
 
     // Double submit (slow network, impatient tap) must not create a second lead.
     const recent = await this.prisma.wholesaleInquiry.findFirst({
@@ -85,6 +101,7 @@ export class WholesaleService {
         industry,
         country,
         phone,
+        imageUrls,
         ...(clean(input.companyName) ? { companyName: clean(input.companyName)! } : {}),
         ...(email ? { email } : {}),
         ...(clean(input.productInterest) ? { productInterest: clean(input.productInterest)! } : {}),
@@ -191,6 +208,74 @@ export class WholesaleService {
     if (!existing) throw new NotFoundException('Enquiry not found')
     await this.prisma.wholesaleInquiry.delete({ where: { id } })
     return { ok: true as const }
+  }
+
+  /** Public gallery for /wholesale — only active rows, display order. */
+  async listStockImages(storeId: string, opts: { activeOnly?: boolean } = {}) {
+    const activeOnly = opts.activeOnly !== false
+    return this.prisma.wholesaleStockImage.findMany({
+      where: { storeId, ...(activeOnly ? { isActive: true } : {}) },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    })
+  }
+
+  async createStockImage(storeId: string, input: { url: string; title?: string }) {
+    const url = this.sanitizeStockUrl(input.url)
+    if (!url) throw new BadRequestException('Upload a wholesale stock image first')
+
+    const last = await this.prisma.wholesaleStockImage.findFirst({
+      where: { storeId },
+      orderBy: { sortOrder: 'desc' },
+      select: { sortOrder: true },
+    })
+
+    return this.prisma.wholesaleStockImage.create({
+      data: {
+        storeId,
+        url,
+        sortOrder: (last?.sortOrder ?? -1) + 1,
+        ...(clean(input.title) ? { title: clean(input.title)! } : {}),
+      },
+    })
+  }
+
+  async updateStockImage(
+    storeId: string,
+    id: string,
+    input: { title?: string | null; sortOrder?: number; isActive?: boolean },
+  ) {
+    const existing = await this.prisma.wholesaleStockImage.findFirst({
+      where: { id, storeId },
+      select: { id: true },
+    })
+    if (!existing) throw new NotFoundException('Stock image not found')
+
+    return this.prisma.wholesaleStockImage.update({
+      where: { id },
+      data: {
+        ...(input.title !== undefined ? { title: clean(input.title) ?? null } : {}),
+        ...(typeof input.sortOrder === 'number' ? { sortOrder: input.sortOrder } : {}),
+        ...(typeof input.isActive === 'boolean' ? { isActive: input.isActive } : {}),
+      },
+    })
+  }
+
+  async removeStockImage(storeId: string, id: string) {
+    const existing = await this.prisma.wholesaleStockImage.findFirst({
+      where: { id, storeId },
+      select: { id: true },
+    })
+    if (!existing) throw new NotFoundException('Stock image not found')
+    await this.prisma.wholesaleStockImage.delete({ where: { id } })
+    return { ok: true as const }
+  }
+
+  private sanitizeStockUrl(raw?: string): string | null {
+    const value = raw?.trim()
+    if (!value) return null
+    if (/^\/uploads\/wholesale\/[a-zA-Z0-9._/-]+\.(jpe?g|png|webp)$/i.test(value)) return value
+    if (/^\/images\/[a-zA-Z0-9._/-]+\.(jpe?g|png|webp)$/i.test(value)) return value
+    return null
   }
 
   private parseStatus(value?: string): WholesaleInquiryStatus | undefined {

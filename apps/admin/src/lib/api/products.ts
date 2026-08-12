@@ -369,12 +369,14 @@ export interface CatalogExportRow {
   [key: string]: string
 }
 
+/** Full-catalog export — no status filter = every product (draft + published). Long timeout for large stores. */
 export function fetchProductsExport(params?: { status?: 'published' | 'draft' }) {
   const qs = new URLSearchParams()
   if (params?.status) qs.set('status', params.status)
   const query = qs.toString()
   return apiFetch<{ rows: CatalogExportRow[]; total: number }>(
     `/admin/products/export${query ? `?${query}` : ''}`,
+    { timeoutMs: 120_000 },
   )
 }
 
@@ -387,5 +389,6 @@ export function bulkUpsertCatalog(rows: CatalogUpsertRow[]) {
   }>('/admin/products/bulk/catalog', {
     method: 'POST',
     body: JSON.stringify({ rows }),
+    timeoutMs: 120_000,
   })
 }

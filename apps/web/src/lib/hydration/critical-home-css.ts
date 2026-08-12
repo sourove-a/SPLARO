@@ -18,8 +18,9 @@ html,body{background:#fff;color:#111;scroll-behavior:auto!important}
 .home-hero-slider .hero-slide{position:absolute;inset:0}
 .home-hero-slider .hero-bg-image,.home-hero-slider .hero-bg-video{width:100%;height:100%;object-fit:cover}
 @media (min-width:1024px){
-html:has(.home-hero-slider) .site-header-glass{top:var(--topbar-height,3rem)}
-html[data-topbar=hidden] .site-header-glass{top:0}
+html:has(.home-hero-slider):not([data-topbar=hidden]):not([data-home-hero=scrolled]) .site-header-glass{top:var(--topbar-height,3rem)}
+html[data-topbar=hidden] .site-header-glass,html[data-home-hero=scrolled] .site-header-glass{top:0}
+html[data-home-hero=scrolled] .site-topbar{transform:translateY(-100%);opacity:0;visibility:hidden;pointer-events:none}
 html:not([data-home-hero=scrolled]):has(.home-hero-slider) .site-topbar{
 background:rgba(12,12,14,.88)!important;border-bottom:1px solid rgba(255,255,255,.1)!important;box-shadow:none!important
 }

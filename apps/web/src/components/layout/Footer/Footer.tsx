@@ -22,6 +22,8 @@ import { useStorefrontSettings } from '@/components/providers/StorefrontSettings
 import {
   DEFAULT_STORE_ADDRESS,
   DEFAULT_SUPPORT_EMAIL,
+  DEFAULT_SUPPORT_PHONE_E164,
+  splitStoreAddressForDisplay,
 } from '@/lib/storefront/defaults'
 import { getStorefrontSocialLinks } from '@/lib/storefront/social-links'
 import { cn } from '@/lib/utils/cn'
@@ -33,22 +35,6 @@ const ACCORDION_ICONS: Record<string, ComponentType<{ className?: string; stroke
   care: Headphones,
   company: Building2,
   policies: FileText,
-}
-
-function splitStoreAddress(address: string) {
-  const parts = address
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean)
-  if (parts.length < 2) return { place: address, locality: '', country: '' }
-  if (parts.length === 2) {
-    return { place: parts[0] ?? address, locality: '', country: parts[1] ?? '' }
-  }
-  return {
-    place: parts.slice(0, -2).join(', '),
-    locality: parts[parts.length - 2] ?? '',
-    country: parts[parts.length - 1] ?? '',
-  }
 }
 
 function FooterColumn({
@@ -191,25 +177,25 @@ export function Footer() {
   const reduceMotion = useReducedMotion() ?? false
   const [openSection, setOpenSection] = useState<string>('')
 
-  const phone = settings.store.phone || process.env.NEXT_PUBLIC_SUPPORT_PHONE || ''
+  const phone = settings.store.phone || process.env.NEXT_PUBLIC_SUPPORT_PHONE || DEFAULT_SUPPORT_PHONE_E164
   const email = settings.store.email || process.env.NEXT_PUBLIC_SUPPORT_EMAIL || DEFAULT_SUPPORT_EMAIL
   // 1:1 with admin Contact & Social → WhatsApp; falls back to store phone when empty.
-  const whatsapp = settings.social.whatsapp || settings.store.phone || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ''
+  const whatsapp = settings.social.whatsapp || settings.store.phone || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || DEFAULT_SUPPORT_PHONE_E164
   const tagline = settings.config.footerTagline?.trim() ?? ''
   const copyright =
     settings.config.footerCopyright?.trim() ||
     `© ${CURRENT_YEAR} ${settings.store.name}. All rights reserved.`
   const linkGroups = settings.config.footerGroups ?? []
-  // Same full store address on every page (home / journal / shipping) — never shorten.
-  const address = (settings.store.address?.trim() || DEFAULT_STORE_ADDRESS)
+  // Same studio on every page — quiet display lines (no “#”); full string for maps/title.
+  const rawAddress = (settings.store.address?.trim() || DEFAULT_STORE_ADDRESS)
     .replace(/\s+/g, ' ')
     .replace(/^SPLARO,?\s*/i, '')
     .trim()
-  const { place, locality, country } = splitStoreAddress(address)
+  const { place, locality, country, full: address } = splitStoreAddressForDisplay(rawAddress)
 
   const socialLinks = getStorefrontSocialLinks(settings)
   const visitStoreLabel = `Visit store — ${address}`
-  const localityLine = [locality, country].filter(Boolean).join(', ')
+  const localityLine = [locality, country].filter(Boolean).join(' · ')
 
   return (
     <footer data-site-chrome className="site-footer site-footer--luxury" aria-label="Site footer">

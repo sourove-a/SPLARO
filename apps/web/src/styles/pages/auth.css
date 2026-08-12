@@ -401,6 +401,83 @@ body.auth-page .auth-google-glass__native iframe {
   pointer-events: none;
 }
 
+.auth-google-inapp {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 1rem 1.05rem;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(16, 17, 20, 0.1);
+  background: linear-gradient(180deg, #ffffff 0%, #f7f5f1 100%);
+  text-align: left;
+}
+
+.auth-google-inapp__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #1a1814;
+}
+
+.auth-google-inapp__body {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: #5c574f;
+}
+
+.auth-google-inapp__body--bn {
+  font-size: 0.82rem;
+  color: #6b655c;
+}
+
+.auth-google-inapp__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 2.75rem;
+  margin-top: 0.15rem;
+  border: 1px solid #101114;
+  border-radius: 999px;
+  background: #101114;
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+
+.auth-google-inapp__cta:hover {
+  background: #1a1b1f;
+}
+
+.auth-google-inapp__cta-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.auth-google-inapp__copy {
+  align-self: center;
+  border: 0;
+  background: transparent;
+  color: #6b655c;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+}
+
+.auth-google-inapp__copy:hover {
+  color: #1a1814;
+}
+
 .auth-google-glass__loading-cover {
   position: absolute;
   inset: 0;
@@ -1258,6 +1335,7 @@ body.auth-page .auth-google-glass__native iframe {
   background: #ffffff;
   padding: 0.95rem 1.35rem;
   color: var(--auth-ink);
+  -webkit-text-fill-color: var(--auth-ink);
   font-size: 0.98rem;
   font-weight: 900;
   letter-spacing: 0.02em;
@@ -1303,7 +1381,8 @@ body.auth-page .auth-google-glass__native iframe {
   }
 }
 
-.auth-submit:hover {
+/* Outline/secondary only — never paint primary black buttons white on hover. */
+.auth-submit:hover:not(.auth-submit--primary) {
   transform: translateY(-1px);
   background: #ffffff;
   border-color: rgba(16, 17, 20, 0.3);
@@ -1314,10 +1393,15 @@ body.auth-page .auth-google-glass__native iframe {
     inset 0 -1px 0 rgba(16, 17, 20, 0.05);
 }
 
-.auth-submit--primary {
+.auth-submit.auth-submit--primary,
+.auth-submit.auth-submit--primary:hover,
+.auth-submit.auth-submit--primary:active,
+.auth-submit.auth-submit--primary:focus-visible,
+.auth-submit.auth-submit--primary:disabled {
   border-color: #101114;
   background: #101114;
   color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
   text-shadow: none;
   box-shadow:
     0 18px 40px rgba(16, 17, 20, 0.22),
@@ -1327,10 +1411,11 @@ body.auth-page .auth-google-glass__native iframe {
   -webkit-backdrop-filter: none;
 }
 
-.auth-submit--primary:hover:not(:disabled) {
+.auth-submit.auth-submit--primary:hover:not(:disabled) {
   background: #1a1b1f;
   border-color: #1a1b1f;
   color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
   box-shadow:
     0 22px 48px rgba(16, 17, 20, 0.28),
     0 8px 18px rgba(16, 17, 20, 0.14),
