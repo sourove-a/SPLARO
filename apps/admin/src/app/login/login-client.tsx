@@ -222,6 +222,8 @@ export default function AdminLoginPage() {
         setToken('')
         setLoading(false)
         verifyInFlight.current = false
+        // Allow a fresh paste of a newly resent code (or the same digits after Resend).
+        autoSubmittedRef.current = null
         window.setTimeout(() => tokenInputRef.current?.focus(), 0)
         return
       }
@@ -234,6 +236,7 @@ export default function AdminLoginPage() {
       setError('Unable to connect. Please try again.')
       setLoading(false)
       verifyInFlight.current = false
+      autoSubmittedRef.current = null
     }
   }
 

@@ -2,7 +2,7 @@
   "name": "splaro-brand",
   "version": "1.0.0",
   "private": true,
-  "description": "SPLARO — Luxury Women's Fashion eCommerce Platform",
+  "description": "SPLARO — Luxury Fashion & Lifestyle eCommerce Platform",
   "scripts": {
     "preinstall": "node scripts/only-pnpm.mjs",
     "dev": "turbo run dev --parallel",
@@ -52,6 +52,7 @@
     "print:start": "cd tools/print-service && pnpm build && pnpm start",
     "invoice:test": "cd tools/invoice-generator && pnpm build && pnpm test",
     "mcp:start": "pnpm --filter @splaro/mcp-server start",
+    "mcp:sse": "pnpm --filter @splaro/mcp-server start:sse",
     "mcp:smoke": "pnpm --filter @splaro/mcp-server smoke",
     "deploy": "bash infrastructure/scripts/deploy.sh",
     "deploy:hostinger": "bash infrastructure/hostinger/push-deploy.sh",

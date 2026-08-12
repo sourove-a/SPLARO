@@ -146,6 +146,8 @@ import { FulfillmentService } from './modules/fulfillment/fulfillment.service'
 import { PosService } from './modules/pos/pos.service'
 import { SaasController, SaasService } from './modules/saas'
 import { DatabaseConnectionService, SecurityController, SecurityService } from './modules/security'
+import { McpController } from './modules/mcp/mcp.controller'
+import { McpTokenService } from './modules/mcp/mcp-token.service'
 import { WebhooksController, WebhooksService } from './modules/webhooks'
 import { PrintController, PrintService } from './modules/print'
 import {
@@ -272,6 +274,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     RmaController,
     SaasController,
     SecurityController,
+    McpController,
     WebhooksController,
     PrintController,
     TelegramWebhookController,
@@ -318,6 +321,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     CacheService,
     PresenceService,
     AdminSessionResolver,
+    McpTokenService,
     MetaCapiService,
     DashboardService,
     CommerceFinanceService,

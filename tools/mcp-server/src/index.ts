@@ -1,38 +1,46 @@
 #!/usr/bin/env node
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import { createHash } from 'node:crypto'
 import { log } from './env.ts'
 import { prisma, storeId } from './prisma.ts'
-import { registerAnalyticsTools } from './tools/analytics.ts'
-import { registerCatalogTools } from './tools/catalog.ts'
-import { registerOperationsTools } from './tools/operations.ts'
-import { registerOrderTools } from './tools/orders.ts'
-
-const server = new McpServer(
-  { name: 'splaro', version: '1.0.0' },
-  {
-    instructions:
-      'Read-only access to the SPLARO store database (catalog, orders, customers, sales). ' +
-      'All amounts are BDT and all day boundaries are Asia/Dhaka. ' +
-      'Start with store_overview for broad questions, then drill in with the specific tools. ' +
-      'This server cannot change anything — for edits, use the admin panel.',
-  },
-)
-
-registerCatalogTools(server)
-registerOrderTools(server)
-registerOperationsTools(server)
-registerAnalyticsTools(server)
+import { startHttpServer } from './server-http.ts'
+import { createSplaroMcpServer } from './create-server.ts'
+import { setStdioAuthFallback } from './auth-context.ts'
 
 async function main(): Promise<void> {
-  // Fail loudly at startup rather than on the first tool call, so a bad
-  // DATABASE_URL shows up as a connection error in the client instead of a
-  // confusing mid-conversation failure.
+  const transportMode = process.env.MCP_TRANSPORT ?? 'stdio'
+
+  if (transportMode === 'sse' || transportMode === 'http') {
+    const port = Number.parseInt(process.env.MCP_PORT ?? '4005', 10)
+    // Bind HTTP first so /health works even while DB warms (deploy probes).
+    await startHttpServer(port)
+    void storeId()
+      .then(() => log('store resolved for HTTP tools'))
+      .catch((err: unknown) => {
+        log(`store resolve failed (tools will error until DB is up): ${err instanceof Error ? err.message : String(err)}`)
+      })
+    return
+  }
+
   await storeId()
 
+  // Local Cursor / Claude Desktop — process-level auth for Nest writes.
+  const stdioToken =
+    process.env['MCP_API_KEY']?.trim() || process.env['SPLARO_MCP_SERVICE_TOKEN']?.trim() || ''
+  setStdioAuthFallback({
+    token: stdioToken,
+    ...(stdioToken
+      ? { tokenHash: createHash('sha256').update(stdioToken).digest('hex') }
+      : {}),
+    storeId: process.env['SPLARO_MCP_STORE_ID']?.trim() || null,
+    scopes: ['mcp:read', 'mcp:write', '*'],
+    source: 'stdio',
+  })
+
+  const server = createSplaroMcpServer()
   const transport = new StdioServerTransport()
   await server.connect(transport)
-  log('ready on stdio (read-only)')
+  log('ready on stdio (read/write & intelligence enabled)')
 }
 
 async function shutdown(): Promise<void> {

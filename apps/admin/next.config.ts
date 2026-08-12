@@ -31,6 +31,14 @@ const config: NextConfig = {
   async rewrites() {
     return [
       {
+        source: '/mcp',
+        destination: '/api/mcp/mcp',
+      },
+      {
+        source: '/mcp/:path*',
+        destination: '/api/mcp/:path*',
+      },
+      {
         source: '/uploads/:path*',
         destination: `${web}/uploads/:path*`,
       },

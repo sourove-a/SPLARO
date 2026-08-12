@@ -36,6 +36,12 @@ function DcAiCommandBrainBody() {
             onClick: () =>
               document.getElementById('ai-guardrails')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
           },
+          {
+            label: 'MCP link',
+            icon: 'icon-key-round',
+            onClick: () =>
+              document.getElementById('mcp-link-token')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+          },
         ]}
       />
       <AiCommandCenterPanel embedded />

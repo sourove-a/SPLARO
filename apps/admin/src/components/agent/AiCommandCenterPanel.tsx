@@ -24,6 +24,7 @@ import {
 } from '@/lib/api/agent'
 import { useAiIntegration, useTelegramIntegration, useUpdateAiIntegration } from '@/lib/api/integration-hooks'
 import { useAdminUiStore } from '@/store/uiStore'
+import { McpLinkTokenPanel } from '@/components/agent/McpLinkTokenPanel'
 
 const MODELS: { id: AgentModelId; label: string; keyLabel: string; placeholder: string; envHint: string }[] = [
   { id: 'claude', label: 'Claude (Anthropic)', keyLabel: 'Anthropic API Key', placeholder: 'sk-ant-...', envHint: 'ANTHROPIC_API_KEY' },
@@ -1006,6 +1007,8 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
           </div>
         )}
       </section>
+
+      <McpLinkTokenPanel />
 
       {/* Save bar */}
       <div

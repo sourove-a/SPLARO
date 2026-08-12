@@ -1,4 +1,4 @@
-# SPLARO — Luxury Women's Fashion Platform
+# SPLARO — Luxury Fashion & Lifestyle Platform
 
 <div align="center">
   <img src="docs/assets/splaro-logo.png" alt="SPLARO Logo" width="200" />
@@ -54,7 +54,7 @@ SPLARO is a quiet-luxury lifestyle brand for the Bangladesh market with internat
 
 **Visual Direction:** Fashion magazine + high-end boutique.
 
-**Target Audience:** Women aged 18–45 in Bangladesh and international markets.
+**Target Audience:** Men & Women aged 18–45 in Bangladesh and international markets.
 
 **Platform Type:** Full-stack eCommerce + SaaS-ready + Admin + AI + Automation.
 
@@ -1190,7 +1190,7 @@ Pending → Confirmed → Processing → Courier Booked
 ```
 ┌─────────────────────────────────────────┐
 │           SPLARO                        │
-│    Luxury Women's Fashion               │
+│    Luxury Fashion & Lifestyle           │
 │─────────────────────────────────────────│
 │  INVOICE #: SPL-2026-00001              │
 │  Date: 21 June 2026                     │
@@ -1521,8 +1521,8 @@ This codebase is proprietary and confidential. Unauthorized copying, modificatio
 
 <div align="center">
   
-  **Built with precision for the modern woman.**
+  **Built with precision for modern fashion & lifestyle.**
   
-  SPLARO — Timeless. Feminine. You.
+  SPLARO — Timeless. Elegant. You.
 
 </div>

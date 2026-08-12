@@ -4,20 +4,20 @@
  *
  *   pnpm --filter @splaro/mcp-server smoke
  */
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { registerAnalyticsTools } from '../src/tools/analytics.ts'
-import { registerCatalogTools } from '../src/tools/catalog.ts'
-import { registerOperationsTools } from '../src/tools/operations.ts'
-import { registerOrderTools } from '../src/tools/orders.ts'
+import { createSplaroMcpServer } from '../src/create-server.ts'
 import { prisma, storeId } from '../src/prisma.ts'
+import { setStdioAuthFallback } from '../src/auth-context.ts'
 
 type ToolEntry = { handler: (args: unknown, extra: unknown) => Promise<unknown> }
 
-const server = new McpServer({ name: 'splaro-smoke', version: '1.0.0' })
-registerCatalogTools(server)
-registerOrderTools(server)
-registerOperationsTools(server)
-registerAnalyticsTools(server)
+setStdioAuthFallback({
+  token: '',
+  scopes: ['mcp:read', 'mcp:write', '*'],
+  storeId: null,
+  source: 'stdio',
+})
+
+const server = createSplaroMcpServer()
 
 // _registeredTools is internal to the SDK; the smoke test is the only caller.
 const registry = (server as unknown as { _registeredTools: Record<string, ToolEntry> })
@@ -28,15 +28,20 @@ const registry = (server as unknown as { _registeredTools: Record<string, ToolEn
  * the database instead of being hard-coded.
  */
 async function fixtures(store: string) {
-  const [product, order, customer] = await Promise.all([
+  const [product, order, customer, variant] = await Promise.all([
     prisma().product.findFirst({ where: { storeId: store }, select: { slug: true } }),
-    prisma().order.findFirst({ where: { storeId: store }, select: { invoiceNumber: true } }),
+    prisma().order.findFirst({ where: { storeId: store }, select: { invoiceNumber: true, id: true } }),
     prisma().customer.findFirst({ where: { storeId: store }, select: { id: true } }),
+    prisma().productVariant.findFirst({
+      where: { product: { storeId: store } },
+      select: { id: true },
+    }),
   ])
   return {
     productSlug: product?.slug ?? null,
-    invoice: order?.invoiceNumber ?? null,
+    invoice: order?.invoiceNumber ?? order?.id ?? null,
     customerId: customer?.id ?? null,
+    variantId: variant?.id ?? null,
   }
 }
 
@@ -59,6 +64,13 @@ function buildCases(f: Awaited<ReturnType<typeof fixtures>>): Array<[string, Rec
     ['courier_watch', { limit: 5 }],
     ['abandoned_carts', { limit: 3 }],
     ['list_taxonomy', {}],
+    ['assess_cod_risk', { phone: '01712345678', district: 'Dhaka' }],
+    ['calculate_unit_economics', { orderId: f.invoice ?? '__missing__' }],
+    ['generate_cart_recovery_message', { cartId: '__test_cart_id__' }],
+    ...(f.variantId
+      ? ([['update_inventory_stock', { variantId: f.variantId, newStock: 10, confirm: false }]] as Array<[string, Record<string, unknown>]>)
+      : []),
+    ['update_order_status', { orderId: f.invoice ?? '__missing__', newStatus: 'CONFIRMED', confirm: false }],
     ...(f.productSlug
       ? ([
           ['get_product', { ref: f.productSlug }],
@@ -83,6 +95,7 @@ async function run(): Promise<void> {
 
   const cases = buildCases(await fixtures(store))
   const covered = new Set(cases.map(([name]) => name))
+  // Smoke still uses one shared McpServer (same as stdio) — fine for sequential tests.
   const uncovered = Object.keys(registry).filter((name) => !covered.has(name))
 
   let failed = 0
@@ -104,24 +117,6 @@ async function run(): Promise<void> {
     } catch (error) {
       failed += 1
       console.error(`✗ ${name}: ${error instanceof Error ? error.stack : String(error)}\n`)
-    }
-  }
-
-  // The read-only proxy is the only thing standing between this server and
-  // production data, so assert it actually refuses a write.
-  try {
-    await (prisma().product as unknown as { deleteMany: (a: unknown) => Promise<unknown> }).deleteMany(
-      {},
-    )
-    console.error('✗ read-only guard: product.deleteMany was NOT blocked')
-    failed += 1
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    if (message.includes('refused a write operation')) {
-      console.log('✓ read-only guard blocks product.deleteMany')
-    } else {
-      console.error(`✗ read-only guard: unexpected error — ${message}`)
-      failed += 1
     }
   }
 

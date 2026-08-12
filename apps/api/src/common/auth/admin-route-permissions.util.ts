@@ -79,7 +79,8 @@ const ROUTE_RULES: RouteRule[] = [
     module: 'finance',
   },
   {
-    test: (p) => p.startsWith('admin/security') || p.startsWith('admin/users'),
+    test: (p) =>
+      p.startsWith('admin/security') || p.startsWith('admin/users') || p.startsWith('admin/mcp'),
     module: 'admin-users',
   },
   {

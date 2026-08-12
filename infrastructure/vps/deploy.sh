@@ -53,7 +53,7 @@ on_exit() {
         # Existing PM2 definitions keep fixed /var/www/splaro paths. After the
         # directory rollback, targeted reloads return every process to old code
         # without trusting config naming from either release.
-        for app in splaro-web-live splaro-web splaro-admin splaro-api splaro-worker splaro-print; do
+        for app in splaro-web-live splaro-web splaro-admin splaro-api splaro-worker splaro-print splaro-mcp; do
           pm2 describe "$app" >/dev/null 2>&1 || continue
           pm2 reload "$app" --update-env 2>/dev/null || pm2 restart "$app" --update-env 2>/dev/null || true
         done
@@ -445,6 +445,7 @@ fi
 wait_for_local_health "http://127.0.0.1:3000/" "web" 20 2 || true
 wait_for_local_health "http://127.0.0.1:3001/login" "admin" 30 2 || true
 wait_for_local_health "http://127.0.0.1:4000/api/v1/health" "api" 40 3 || die "Health check failed — pm2 logs splaro-api"
+wait_for_local_health "http://127.0.0.1:4005/health" "mcp" 20 2 || log "WARN: splaro-mcp health missed — check pm2 logs splaro-mcp"
 
 maybe_purge_demo_catalog
 maybe_seed_demo_catalog
@@ -454,8 +455,9 @@ maybe_revalidate_storefront
 WEB="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3000/ 2>/dev/null || echo 000)"
 ADMIN="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3001/login 2>/dev/null || echo 000)"
 API="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:4000/api/v1/health 2>/dev/null || echo 000)"
+MCP="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:4005/health 2>/dev/null || echo 000)"
 
-log "Health — web:$WEB admin:$ADMIN api:$API"
+log "Health — web:$WEB admin:$ADMIN api:$API mcp:$MCP"
 log "========== VPS DEPLOY COMPLETE =========="
 log "Tip: install watchdog cron — see infrastructure/vps/splaro-watchdog.sh"
 
