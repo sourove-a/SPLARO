@@ -55,19 +55,40 @@ export function Header() {
   }, [])
 
   useEffect(() => {
-    // Warm common destinations so first click isn't a multi-second Next compile.
-    const routes = [
-      '/shop',
-      '/c/men',
-      '/c/women',
-      '/c/kids',
-      '/c/footwear',
-      '/accessories',
-      '/cart',
-      '/account',
-    ]
-    for (const href of routes) router.prefetch(href)
-    if (!user) router.prefetch('/login')
+    // Warms common destinations so the first click is instant. This fired on
+    // mount, which put nine route payloads (and their chunks) on the wire while
+    // the page the shopper asked for was still loading — the "multi-second Next
+    // compile" it was written for only happens in dev. Wait for idle instead.
+    const warm = () => {
+      const routes = [
+        '/shop',
+        '/c/men',
+        '/c/women',
+        '/c/kids',
+        '/c/footwear',
+        '/accessories',
+        '/cart',
+        '/account',
+      ]
+      for (const href of routes) router.prefetch(href)
+      if (!user) router.prefetch('/login')
+    }
+
+    const win = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
+      cancelIdleCallback?: (id: number) => void
+    }
+
+    let idleId: number | undefined
+    const timer = window.setTimeout(() => {
+      if (win.requestIdleCallback) idleId = win.requestIdleCallback(warm, { timeout: 4000 })
+      else warm()
+    }, 3000)
+
+    return () => {
+      window.clearTimeout(timer)
+      if (idleId !== undefined) win.cancelIdleCallback?.(idleId)
+    }
   }, [user, router])
 
   // Home hero chrome stays DOM-only (no Header re-render).
