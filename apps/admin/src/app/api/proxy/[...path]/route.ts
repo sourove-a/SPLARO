@@ -10,9 +10,24 @@ export const runtime = 'nodejs'
 const PROXY_TIMEOUT_MS = 30_000
 /** Agent turns stream for minutes; the normal timeout would abort them mid-flight. */
 const PROXY_STREAM_TIMEOUT_MS = 600_000
+const SAFE_TRANSPORT_ATTEMPTS = 2
+const SAFE_RETRY_DELAY_MS = 150
 
 interface RouteContext {
   params: Promise<{ path: string[] }>
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function proxyResponseHeaders(upstream: Response): Headers {
+  const headers = new Headers()
+  for (const name of ['content-type', 'retry-after', 'cache-control', 'etag', 'last-modified']) {
+    const value = upstream.headers.get(name)
+    if (value) headers.set(name, value)
+  }
+  return headers
 }
 
 async function proxyToApi(request: NextRequest, context: RouteContext): Promise<NextResponse> {
@@ -50,42 +65,61 @@ async function proxyToApi(request: NextRequest, context: RouteContext): Promise<
   const method = request.method.toUpperCase()
   const hasBody = !['GET', 'HEAD'].includes(method)
   const wantsStream = (headers.Accept ?? '').includes('text/event-stream')
+  const requestBody = hasBody ? await request.arrayBuffer() : undefined
+  const transportAttempts = ['GET', 'HEAD'].includes(method) ? SAFE_TRANSPORT_ATTEMPTS : 1
+  let lastError: unknown
 
-  try {
-    const upstream = await fetch(upstreamUrl, {
-      method,
-      headers,
-      cache: 'no-store',
-      signal: AbortSignal.timeout(wantsStream ? PROXY_STREAM_TIMEOUT_MS : PROXY_TIMEOUT_MS),
-      ...(hasBody ? { body: await request.arrayBuffer() } : {}),
-    })
+  for (let attempt = 0; attempt < transportAttempts; attempt += 1) {
+    try {
+      const upstream = await fetch(upstreamUrl, {
+        method,
+        headers,
+        cache: 'no-store',
+        signal: AbortSignal.timeout(wantsStream ? PROXY_STREAM_TIMEOUT_MS : PROXY_TIMEOUT_MS),
+        ...(requestBody ? { body: requestBody } : {}),
+      })
 
-    const responseHeaders = new Headers()
-    const upstreamType = upstream.headers.get('content-type')
-    if (upstreamType) responseHeaders.set('Content-Type', upstreamType)
+      const responseHeaders = proxyResponseHeaders(upstream)
+      const upstreamType = upstream.headers.get('content-type')
 
-    if (upstreamType?.includes('text/event-stream')) {
-      // Without these, nginx (and any intermediate cache) buffers the whole SSE
-      // response instead of forwarding each chunk.
-      responseHeaders.set('Cache-Control', 'no-cache, no-transform')
-      responseHeaders.set('Connection', 'keep-alive')
-      responseHeaders.set('X-Accel-Buffering', 'no')
+      if (upstreamType?.includes('text/event-stream')) {
+        // Without these, nginx (and any intermediate cache) buffers the whole SSE
+        // response instead of forwarding each chunk.
+        responseHeaders.set('Cache-Control', 'no-cache, no-transform')
+        responseHeaders.set('Connection', 'keep-alive')
+        responseHeaders.set('X-Accel-Buffering', 'no')
+
+        return new NextResponse(upstream.body, {
+          status: upstream.status,
+          headers: responseHeaders,
+        })
+      }
+
+      // Normal admin API payloads are JSON. Buffer them before returning so a
+      // mid-body upstream disconnect is caught here instead of surfacing later
+      // as an unhandled Next.js "failed to pipe response" error.
+      const statusForbidsBody = [204, 205, 304].includes(upstream.status)
+      const responseBody = method === 'HEAD' || statusForbidsBody ? null : await upstream.arrayBuffer()
+      return new NextResponse(responseBody, {
+        status: upstream.status,
+        headers: responseHeaders,
+      })
+    } catch (err) {
+      lastError = err
+      if (attempt + 1 < transportAttempts) {
+        await sleep(SAFE_RETRY_DELAY_MS)
+      }
     }
-
-    return new NextResponse(upstream.body, {
-      status: upstream.status,
-      headers: responseHeaders,
-    })
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'API unreachable'
-    return NextResponse.json(
-      {
-        message: `Admin API proxy failed — ${message}. Start: pnpm dev:api (or pnpm dev:stack)`,
-        statusCode: 503,
-      },
-      { status: 503 },
-    )
   }
+
+  const message = lastError instanceof Error ? lastError.message : 'API unreachable'
+  return NextResponse.json(
+    {
+      message: `Admin API proxy failed — ${message}. Start: pnpm dev:api (or pnpm dev:stack)`,
+      statusCode: 503,
+    },
+    { status: 503 },
+  )
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {

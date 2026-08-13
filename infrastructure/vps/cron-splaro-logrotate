@@ -1,0 +1,2 @@
+# Enforce maxsize throughout the day; system logrotate timer is daily.
+17 * * * * root /usr/sbin/logrotate /etc/logrotate.d/splaro >/dev/null 2>&1

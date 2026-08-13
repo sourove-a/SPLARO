@@ -245,6 +245,16 @@ else
   git reset --hard "origin/$BRANCH"
 fi
 
+# Install bounded app-log retention on every release. Hourly invocation makes
+# maxsize effective during error spikes instead of waiting for next daily run.
+if command -v logrotate >/dev/null 2>&1; then
+  install -m 0644 infrastructure/vps/logrotate-splaro.conf /etc/logrotate.d/splaro
+  install -m 0644 infrastructure/vps/cron-splaro-logrotate /etc/cron.d/splaro-logrotate
+  log "Hourly app log rotation ready (50M/file, 7 rotations)"
+else
+  log "WARNING: logrotate unavailable — app logs are not size-bounded"
+fi
+
 # API-only releases never rebuild, move, stop, or reload storefront/admin.
 # Documentation and this deploy script itself are neutral for scope detection,
 # allowing uptime hardening to ship beside an API change without forcing Next.
@@ -258,7 +268,7 @@ if [ -n "$PREVIOUS_SHA" ] && git cat-file -e "${PREVIOUS_SHA}^{commit}" 2>/dev/n
     [ -n "$changed_file" ] || continue
     case "$changed_file" in
       apps/api/*) API_CHANGE=1 ;;
-      docs/*|infrastructure/vps/deploy.sh) ;;
+      docs/*|infrastructure/vps/deploy.sh|infrastructure/vps/logrotate-splaro.conf|infrastructure/vps/cron-splaro-logrotate) ;;
       *) API_ONLY=0 ;;
     esac
   done <<<"$CHANGED_FILES"

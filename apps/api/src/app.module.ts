@@ -16,6 +16,7 @@ import { validateEnv } from './common/config/env.validation'
 import { PrismaService } from './common/prisma.service'
 import { FinanceAuditService } from './common/finance-audit.service'
 import { RedisService } from './common/redis.service'
+import { bullmqConnectionOptions } from './common/bullmq-connection-options'
 import { PresenceService } from './common/presence.service'
 import { CacheService } from './common/cache.service'
 import { RequestIdMiddleware } from './common/request-id.middleware'
@@ -199,17 +200,7 @@ const queueImports = redisQueuesEnabled()
   ? [
       BullModule.forRootAsync({
         useFactory: () => ({
-          connection: {
-            host: process.env['REDIS_HOST'] ?? 'localhost',
-            port: parseInt(process.env['REDIS_PORT'] ?? '6379'),
-            password: process.env['REDIS_PASSWORD'] || undefined,
-            // BullMQ requires this to be null (it manages retries itself for
-            // blocking connections) and forcibly overrides + warns on every
-            // connection otherwise — set it to what it wants.
-            maxRetriesPerRequest: null,
-            lazyConnect: true,
-            enableOfflineQueue: false,
-          },
+          connection: bullmqConnectionOptions(),
         }),
       }),
       BullModule.registerQueue(
