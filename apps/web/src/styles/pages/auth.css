@@ -363,7 +363,7 @@ html[data-os='windows'] .auth-google-glass__backdrop {
   position: relative;
   display: flex;
   align-items: stretch;
-  justify-content: flex-start;
+  justify-content: center;
   width: 100%;
   /* GIS paints its own 1px pill border. Clipping to this wrapper sliced that
      border off at the top, bottom and corners — the button looked half-drawn,
@@ -387,10 +387,18 @@ body.auth-page .auth-google-glass__native iframe {
   pointer-events: auto !important;
 }
 
-.auth-google-glass__native > div,
-.auth-google-glass__native iframe {
+.auth-google-glass__native > div {
   width: 100% !important;
   max-width: none !important;
+}
+
+/* GIS ships its button iframe with margin-left:-10px, so forcing it to the
+   container width pushed the pill 10px past the left edge and left it 10px
+   short on the right — the outline looked unfinished. Let the iframe keep its
+   own width and sit flush instead. */
+.auth-google-glass__native iframe {
+  margin-left: 0 !important;
+  max-width: 100% !important;
 }
 
 /* Force GIS outline pill to the same edge as Sign in — ignores stale intrinsic width. */
