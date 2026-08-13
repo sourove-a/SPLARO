@@ -64,8 +64,12 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
         target.clientWidth -
         (parseFloat(styles.paddingLeft) || 0) -
         (parseFloat(styles.paddingRight) || 0)
-      // GIS width is integer px; round so the pill matches the Sign in button edge.
-      return Math.max(200, Math.min(400, Math.round(inner)))
+      // GIS draws the pill at exactly `width` but its iframe carries ~10px of
+      // transparent bleed (hence margin-left:-10px), so asking for the full
+      // container width leaves the right cap outside the iframe and the outline
+      // never closes. Give that bleed its room.
+      const GIS_BLEED = 12
+      return Math.max(200, Math.min(400, Math.round(inner) - GIS_BLEED))
     }
     const updateWidth = () => {
       const width = measure()
