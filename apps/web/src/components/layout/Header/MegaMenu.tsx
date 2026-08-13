@@ -55,6 +55,7 @@ function MegaMenuHeroCard({
     <Link
       href={hero.href}
       scroll={false}
+      prefetch={false}
       className="mega-menu-hero-card"
       onClick={() => onClose?.()}
     >
@@ -243,6 +244,7 @@ export function MegaMenu({ config, isOpen, menuKey, onClose }: MegaMenuProps) {
                           ) : null}
                           <Link
                             href={cat.href}
+                            prefetch={false}
                             scroll={false}
                             className={cn(
                               'mega-menu-cat-item',
@@ -270,6 +272,7 @@ export function MegaMenu({ config, isOpen, menuKey, onClose }: MegaMenuProps) {
                   <div key={active.href} className="mega-menu-sub-swap">
                       <Link
                         href={active.href}
+                        prefetch={false}
                         scroll={false}
                         className="mega-menu-section-title"
                         onClick={() => onClose?.()}
@@ -280,6 +283,7 @@ export function MegaMenu({ config, isOpen, menuKey, onClose }: MegaMenuProps) {
                         <li>
                           <Link
                             href={active.href}
+                            prefetch={false}
                             scroll={false}
                             className="mega-menu-sub-item"
                             onClick={() => onClose?.()}
@@ -291,6 +295,7 @@ export function MegaMenu({ config, isOpen, menuKey, onClose }: MegaMenuProps) {
                           <li key={sub.href}>
                             <Link
                               href={sub.href}
+                              prefetch={false}
                               scroll={false}
                               className="mega-menu-sub-item"
                               onClick={() => onClose?.()}
