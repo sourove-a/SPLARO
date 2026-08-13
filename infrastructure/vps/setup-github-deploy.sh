@@ -63,7 +63,7 @@ fi
 # Install the thin wrapper, not a snapshot of the full deploy.sh — a snapshot
 # goes stale the moment deploy.sh changes in the repo (this bit us once: the
 # VPS was still running a copy from setup time that predated a fix). The
-# wrapper always delegates to the current repo checkout.
+# wrapper fetches and executes deploy.sh from the CI-approved commit.
 if [ -f "$APP_DIR/infrastructure/vps/deploy-wrapper.sh" ]; then
   cp "$APP_DIR/infrastructure/vps/deploy-wrapper.sh" /opt/splaro/deploy.sh
   chmod +x /opt/splaro/deploy.sh
