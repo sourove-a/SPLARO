@@ -94,12 +94,33 @@ export function MobileBottomNav() {
 
   useEffect(() => setMounted(true), [])
 
+  // Warming these routes on mount pulled four RSC payloads and their chunks
+  // into the first load, competing with what the shopper is actually reading.
+  // Wait for the page to go idle — the tap is still instant afterwards.
   useEffect(() => {
-    router.prefetch('/cart')
-    router.prefetch('/shop')
-    if (signedIn) return
-    router.prefetch('/login')
-    router.prefetch(LOGIN_HREF)
+    const warm = () => {
+      router.prefetch('/cart')
+      router.prefetch('/shop')
+      if (signedIn) return
+      router.prefetch('/login')
+      router.prefetch(LOGIN_HREF)
+    }
+
+    const win = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
+      cancelIdleCallback?: (id: number) => void
+    }
+
+    let idleId: number | undefined
+    const timer = window.setTimeout(() => {
+      if (win.requestIdleCallback) idleId = win.requestIdleCallback(warm, { timeout: 3000 })
+      else warm()
+    }, 2500)
+
+    return () => {
+      window.clearTimeout(timer)
+      if (idleId !== undefined) win.cancelIdleCallback?.(idleId)
+    }
   }, [router, signedIn])
 
   const hiddenRoute = HIDDEN_PREFIXES.some(
