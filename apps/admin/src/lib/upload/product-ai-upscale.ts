@@ -67,6 +67,7 @@ export function aiUpscaleStatus(): {
 
 export function uploadRoot() {
   if (process.env.UPLOAD_DIR) return process.env.UPLOAD_DIR
+  if (process.env.NODE_ENV === 'production') return '/var/www/splaro-shared/uploads'
   return path.join(process.cwd(), '..', 'web', 'public', 'uploads')
 }
 

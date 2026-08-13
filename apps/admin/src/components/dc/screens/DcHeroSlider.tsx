@@ -1,8 +1,8 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { DcContentNav } from '@/components/dc/DcContentNav'
 import { DcIcon } from '@/components/dc/DcIcon'
@@ -23,6 +23,7 @@ import {
 import { revalidateWebCache } from '@/lib/api/revalidate'
 import { resolveMediaUrl } from '@/lib/media-url'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { DcMediaPickModal } from '@/components/dc/product/DcMediaPickModal'
 
 const HERO_POSITION = 'hero'
 
@@ -53,6 +54,8 @@ export function DcHeroSlider() {
 }
 
 function DcHeroSliderBody() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useDcScreen()
   const qc = useQueryClient()
   const { api } = useAdminConnection(25_000)
@@ -61,6 +64,16 @@ function DcHeroSliderBody() {
   const [createOpen, setCreateOpen] = useState(false)
   const [removing, setRemoving] = useState<BannerRow | null>(null)
   const [form, setForm] = useState<Form>(EMPTY_FORM)
+  const consumedImage = useRef<string | null>(null)
+
+  useEffect(() => {
+    const image = searchParams.get('image')?.trim()
+    if (!image || consumedImage.current === image) return
+    consumedImage.current = image
+    setForm({ ...EMPTY_FORM, image })
+    setCreateOpen(true)
+    router.replace('/dashboard/hero-slider', { scroll: false })
+  }, [router, searchParams])
 
   const banners = useQuery({
     queryKey: ['banners', HERO_POSITION],
@@ -378,38 +391,7 @@ function DcHeroSliderBody() {
                     borderBottom: '1px solid var(--line)',
                   }}
                 >
-                  {cover ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- R2/upload URLs, next/image is not wired for these
-                    <img
-                      src={cover}
-                      alt=""
-                      style={{
-                        width: 82,
-                        height: 54,
-                        flex: 'none',
-                        objectFit: 'cover',
-                        borderRadius: 8,
-                        border: '1px solid var(--line)',
-                      }}
-                    />
-                  ) : (
-                    <span
-                      style={{
-                        display: 'grid',
-                        placeItems: 'center',
-                        width: 82,
-                        height: 54,
-                        flex: 'none',
-                        borderRadius: 8,
-                        border: '1px dashed var(--line-2)',
-                        background:
-                          'repeating-linear-gradient(135deg, var(--surface-2), var(--surface-2) 6px, var(--surface-3) 6px, var(--surface-3) 12px)',
-                        color: 'var(--ink-3)',
-                      }}
-                    >
-                      <DcIcon name="icon-image" size={14} />
-                    </span>
-                  )}
+                  <HeroImagePreview url={cover} width={82} height={54} label={`${b.title || 'Hero'} preview`} />
 
                   <span
                     style={{
@@ -601,16 +583,37 @@ function SlideFields({
   form: Form
   setForm: (f: Form | ((prev: Form) => Form)) => void
 }) {
+  const [pickerTarget, setPickerTarget] = useState<'image' | 'mobileImage' | null>(null)
+
   return (
     <>
+      <div style={{ display: 'grid', gridTemplateColumns: form.mobileImage.trim() ? '2fr 1fr' : '1fr', gap: 10 }}>
+        <HeroImagePreview
+          url={form.image.trim() ? resolveMediaUrl(form.image.trim()) : null}
+          width="100%"
+          height={150}
+          label="Desktop hero preview"
+        />
+        {form.mobileImage.trim() ? (
+          <HeroImagePreview
+            url={resolveMediaUrl(form.mobileImage.trim())}
+            width="100%"
+            height={150}
+            label="Mobile hero preview"
+          />
+        ) : null}
+      </div>
       <DcField
         label="Image URL"
         value={form.image}
         onChange={(v) => setForm((f) => ({ ...f, image: v }))}
         placeholder="/uploads/hero/eid-edit.webp"
         mono
-        hint="Upload in Media Library first, then paste the path here."
+        hint="Paste a public URL or pick a reusable image from Media Library."
       />
+      <button type="button" onClick={() => setPickerTarget('image')} style={pickerButton}>
+        <DcIcon name="icon-image" size={13} /> Pick desktop image from library
+      </button>
       <DcField
         label="Mobile image URL (optional)"
         value={form.mobileImage}
@@ -619,6 +622,9 @@ function SlideFields({
         mono
         hint="For the same full desktop frame on mobile, leave blank or use a 16:9 image (828 × 466)."
       />
+      <button type="button" onClick={() => setPickerTarget('mobileImage')} style={pickerButton}>
+        <DcIcon name="icon-smartphone" size={13} /> Pick mobile image from library
+      </button>
       <DcField
         label="Headline"
         value={form.title}
@@ -638,9 +644,86 @@ function SlideFields({
         placeholder="/collections/eid-edit"
         mono
       />
+      <DcMediaPickModal
+        open={pickerTarget !== null}
+        onClose={() => setPickerTarget(null)}
+        onPick={(url) => {
+          if (!pickerTarget) return
+          setForm((current) => ({ ...current, [pickerTarget]: url }))
+        }}
+      />
     </>
   )
 }
+
+function HeroImagePreview({
+  url,
+  width,
+  height,
+  label,
+}: {
+  url: string | null
+  width: number | string
+  height: number
+  label: string
+}) {
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => setFailed(false), [url])
+
+  const frameStyle = {
+    display: 'grid',
+    placeItems: 'center',
+    width,
+    height,
+    minWidth: typeof width === 'number' ? width : 0,
+    flex: 'none',
+    overflow: 'hidden',
+    borderRadius: 8,
+    border: failed ? '1px dashed var(--bad)' : '1px solid var(--line)',
+    background:
+      'repeating-linear-gradient(135deg, var(--surface-2), var(--surface-2) 6px, var(--surface-3) 6px, var(--surface-3) 12px)',
+    color: failed ? 'var(--bad)' : 'var(--ink-3)',
+  } as const
+
+  if (!url || failed) {
+    return (
+      <span role="img" aria-label={failed ? `${label} unavailable` : `${label} not selected`} style={frameStyle}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, font: `600 11px/1 ${FONT}` }}>
+          <DcIcon name="icon-image" size={14} /> {failed ? 'Preview unavailable' : 'Choose image'}
+        </span>
+      </span>
+    )
+  }
+
+  return (
+    <span style={frameStyle}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- dynamic storefront/upload URLs */}
+      <img
+        src={url}
+        alt={label}
+        onError={() => setFailed(true)}
+        style={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }}
+      />
+    </span>
+  )
+}
+
+const pickerButton = {
+  alignSelf: 'flex-start',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 7,
+  minHeight: 32,
+  padding: '0 11px',
+  marginTop: -5,
+  borderRadius: 8,
+  border: '1px solid var(--line)',
+  background: 'var(--surface-2)',
+  color: 'var(--ink-2)',
+  cursor: 'pointer',
+  font: `600 11.5px/1 ${FONT}`,
+} as const
 
 function Dot({ color, label }: { color: string; label: string }) {
   return (

@@ -269,6 +269,9 @@ export function ShopFilterBar({
           </div>
 
           <div className="shop-filter-bar__controls">
+            <span className="shop-filter-bar__result-count" aria-live="polite">
+              <strong>{resultCount}</strong> {resultCount === 1 ? 'piece' : 'pieces'}
+            </span>
             {shopFilters.showColorFilter ? (
               <ShopFilterDropdown
                 label={shopFilters.labels.color}
@@ -279,6 +282,7 @@ export function ShopFilterBar({
                 onToggle={() => onOpenFilterChange('color')}
                 onClose={() => onOpenFilterChange(null)}
                 onChange={onColorChange}
+                active={selectedColor !== 'All'}
               />
             ) : null}
             {shopFilters.showSizeFilter ? (
@@ -291,6 +295,7 @@ export function ShopFilterBar({
                 onToggle={() => onOpenFilterChange('size')}
                 onClose={() => onOpenFilterChange(null)}
                 onChange={onSizeChange}
+                active={selectedSize !== 'All'}
               />
             ) : null}
             {shopFilters.showPriceFilter ? (
@@ -303,6 +308,7 @@ export function ShopFilterBar({
                 onToggle={() => onOpenFilterChange('price')}
                 onClose={() => onOpenFilterChange(null)}
                 onChange={onPriceChange}
+                active={mobilePriceRangeActive || selectedPrice !== defaultPriceLabel}
               />
             ) : null}
             {shopFilters.showSortFilter ? (
@@ -317,6 +323,7 @@ export function ShopFilterBar({
                 onToggle={() => onOpenFilterChange('sort')}
                 onClose={() => onOpenFilterChange(null)}
                 onChange={(value) => onSortChange(value as CatalogSortOption)}
+                active={!isDefaultSort(sortBy, shopFilters)}
               />
             ) : null}
           </div>

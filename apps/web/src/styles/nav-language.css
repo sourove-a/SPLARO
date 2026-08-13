@@ -126,7 +126,7 @@
 }
 
 .mobile-filter-drawer__surface {
-  /* Left sheet — float radius on the open (right) edge */
+  /* Compact filter enters from left; open edge faces catalog on right. */
   border-radius: 0 var(--nav-glass-radius) var(--nav-glass-radius) 0 !important;
   border: 1px solid var(--nav-glass-edge) !important;
   border-left: none !important;

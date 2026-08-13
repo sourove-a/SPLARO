@@ -116,6 +116,8 @@ import { BannersController } from './modules/banners/banners.controller'
 import { RedirectsController } from './modules/redirects/redirects.controller'
 import { PlatformController } from './modules/platform/platform.controller'
 import { PlatformService } from './modules/platform/platform.service'
+import { MediaController } from './modules/media/media.controller'
+import { MediaService } from './modules/media/media.service'
 import { CouponsController, StorefrontCouponsController, StorefrontPromosController } from './modules/coupons/coupons.controller'
 import { CommerceOsService } from './modules/commerce-os/commerce-os.service'
 import {
@@ -292,6 +294,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     BannersController,
     RedirectsController,
     PlatformController,
+    MediaController,
     CouponsController,
     StorefrontCouponsController,
     StorefrontPromosController,
@@ -393,6 +396,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     PrintService,
     CommerceOsService,
     PlatformService,
+    MediaService,
     StorefrontOrdersService,
     StorefrontAuthService,
     GoogleIdTokenService,

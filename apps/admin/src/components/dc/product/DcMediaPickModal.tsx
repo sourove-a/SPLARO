@@ -5,35 +5,28 @@ import Image from 'next/image'
 
 import { DcModal } from '@/components/dc/DcModal'
 import { FONT } from '@/components/dc/tokens'
-import { MEDIA_DEPT_FOLDERS, mediaDeptKeyFromUrl } from '@/lib/admin/size-presets'
+import { MEDIA_DEPT_FOLDERS } from '@/lib/admin/size-presets'
 import { useMedia } from '@/lib/api/hooks'
 import { resolveMediaUrl } from '@/lib/media-url'
 import { DcIcon } from '@/components/dc/DcIcon'
+import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
 
-/** Enough to browse without turning the modal into an endless scroll. */
-const PAGE_SIZE = 60
+const PICKER_FOLDERS = [
+  { key: 'all', label: 'All media' },
+  { key: 'media', label: 'General / Hero' },
+  ...MEDIA_DEPT_FOLDERS.filter((folder) => folder.key !== 'all').map((folder) => ({
+    key: folder.key,
+    label: folder.label,
+  })),
+] as const
 
 interface MediaAsset {
   id: string
   name: string
   url: string
   altText?: string
-}
-
-/** A dept tab also shows the shared `/uploads/products/` pool, which has key `all`. */
-function inFolder(asset: MediaAsset, folderKey: string): boolean {
-  if (folderKey === 'all') return true
-  const key = mediaDeptKeyFromUrl(asset.url)
-  return key === folderKey || key === 'all'
-}
-
-function matchesQuery(asset: MediaAsset, q: string): boolean {
-  if (!q) return true
-  return (
-    asset.name.toLowerCase().includes(q) ||
-    (asset.altText ?? '').toLowerCase().includes(q) ||
-    asset.url.toLowerCase().includes(q)
-  )
+  folder?: string
+  type?: string
 }
 
 export function DcMediaPickModal({
@@ -47,45 +40,29 @@ export function DcMediaPickModal({
   onPick: (url: string) => void
   preferredFolder?: string
 }) {
-  const media = useMedia()
-  const preferredKey = MEDIA_DEPT_FOLDERS.find((f) => f.folder === preferredFolder)?.key ?? 'all'
+  const preferredKey = preferredFolder === 'media'
+    ? 'media'
+    : MEDIA_DEPT_FOLDERS.find((folder) => folder.folder === preferredFolder)?.key ?? 'all'
   const [folderKey, setFolderKey] = useState(preferredKey)
   const [query, setQuery] = useState('')
-  const [shown, setShown] = useState(PAGE_SIZE)
+  const deferredQuery = useDebouncedValue(query)
+  const media = useMedia({
+    limit: 60,
+    q: deferredQuery,
+    folder: folderKey as 'all' | 'media' | 'men' | 'women' | 'kids' | 'footwear' | 'accessories',
+  })
 
   useEffect(() => {
     if (!open) return
     setFolderKey(preferredKey)
     setQuery('')
-    setShown(PAGE_SIZE)
   }, [open, preferredKey])
 
-  // A new filter should start from the top of the list, not mid-page.
-  useEffect(() => {
-    setShown(PAGE_SIZE)
-  }, [folderKey, query])
-
   const assets = useMemo(
-    () => ((media.data?.assets ?? []) as MediaAsset[]).filter((a) => Boolean(a.url)),
+    () => (media.data?.pages.flatMap((page) => page.assets) ?? []).filter((a) => Boolean(a.url)) as MediaAsset[],
     [media.data],
   )
-
-  /** Tab counts come from the folder alone — the search box narrows within a tab. */
-  const folderCounts = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const f of MEDIA_DEPT_FOLDERS) {
-      counts[f.key] = assets.filter((a) => inFolder(a, f.key)).length
-    }
-    return counts
-  }, [assets])
-
-  const rows = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return assets.filter((a) => inFolder(a, folderKey) && matchesQuery(a, q))
-  }, [assets, folderKey, query])
-
-  const visible = rows.slice(0, shown)
-  const folderLabel = MEDIA_DEPT_FOLDERS.find((f) => f.key === folderKey)?.label ?? 'All products'
+  const folderLabel = PICKER_FOLDERS.find((f) => f.key === folderKey)?.label ?? 'All media'
 
   return (
     <DcModal
@@ -99,9 +76,8 @@ export function DcMediaPickModal({
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minHeight: 0, flex: 1 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {MEDIA_DEPT_FOLDERS.map((f) => {
+          {PICKER_FOLDERS.map((f) => {
             const on = folderKey === f.key
-            const count = folderCounts[f.key] ?? 0
             return (
               <button
                 key={f.key}
@@ -123,16 +99,6 @@ export function DcMediaPickModal({
                 }}
               >
                 <span>{f.label}</span>
-                {/* A zero count tells you the folder is empty before you click it. */}
-                <span
-                  style={{
-                    font: `600 10px/1 ${FONT}`,
-                    color: on ? 'var(--violet)' : 'var(--ink-3)',
-                    opacity: 0.85,
-                  }}
-                >
-                  {count}
-                </span>
               </button>
             )
           })}
@@ -203,7 +169,7 @@ export function DcMediaPickModal({
               <div key={i} className="dc-skeleton dc-media-pick__skeleton" />
             ))}
           </div>
-        ) : rows.length === 0 ? (
+        ) : assets.length === 0 ? (
           <div
             style={{
               display: 'flex',
@@ -259,16 +225,16 @@ export function DcMediaPickModal({
               }}
             >
               <span>
-                Showing {visible.length} of {rows.length} · {folderLabel}
+                Showing {assets.length} · {folderLabel}
               </span>
             </div>
 
             <div className="dc-media-pick__grid">
-              {visible.map((a) => {
+              {assets.map((a) => {
                 const src = resolveMediaUrl(a.url)
                 return (
                   <button
-                    key={a.id}
+                    key={`${a.type ?? 'media'}-${a.id}`}
                     type="button"
                     title={a.name}
                     onClick={() => {
@@ -312,10 +278,11 @@ export function DcMediaPickModal({
               })}
             </div>
 
-            {rows.length > visible.length ? (
+            {media.hasNextPage ? (
               <button
                 type="button"
-                onClick={() => setShown((n) => n + PAGE_SIZE)}
+                disabled={media.isFetchingNextPage}
+                onClick={() => void media.fetchNextPage()}
                 className="dc-hover-line"
                 style={{
                   alignSelf: 'center',
@@ -325,11 +292,11 @@ export function DcMediaPickModal({
                   border: '1px solid var(--line-2)',
                   background: 'var(--surface-2)',
                   color: 'var(--ink-2)',
-                  cursor: 'pointer',
+                  cursor: media.isFetchingNextPage ? 'wait' : 'pointer',
                   font: `600 12px/1 ${FONT}`,
                 }}
               >
-                Show {Math.min(PAGE_SIZE, rows.length - visible.length)} more
+                {media.isFetchingNextPage ? 'Loading…' : 'Load more media'}
               </button>
             ) : null}
           </>

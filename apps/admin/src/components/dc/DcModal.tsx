@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 
 import { DcIcon } from './DcIcon'
 import { FONT } from './tokens'
@@ -15,6 +15,8 @@ export interface DcModalProps {
   danger?: boolean | undefined
   busy?: boolean | undefined
   busyLabel?: string | undefined
+  disabled?: boolean | undefined
+  disabledLabel?: string | undefined
   /** CSS width for the panel. Browsing modals (media library) need more room than a confirm. */
   width?: string | undefined
   onClose: () => void
@@ -31,24 +33,61 @@ export function DcModal({
   danger,
   busy,
   busyLabel = 'Saving…',
+  disabled,
+  disabledLabel,
   width = 'min(460px, 100%)',
   onClose,
   onConfirm,
   children,
 }: DcModalProps) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
   useEffect(() => {
     if (!open) return
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const focusTimer = window.setTimeout(() => {
+      const focusable = rootRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )
+      focusable?.focus()
+    }, 0)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]')
+      if (dialogs.item(dialogs.length - 1) !== rootRef.current) return
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onCloseRef.current()
+        return
+      }
+      if (e.key !== 'Tab') return
+      const focusable = Array.from(rootRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ) ?? []).filter((element) => element.offsetParent !== null)
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last?.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first?.focus()
+      }
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+    return () => {
+      window.clearTimeout(focusTimer)
+      window.removeEventListener('keydown', onKey)
+      previouslyFocused?.focus()
+    }
+  }, [open])
 
   if (!open) return null
 
   return (
     <div
+      ref={rootRef}
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -166,21 +205,21 @@ export function DcModal({
           </button>
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || disabled}
             onClick={onConfirm}
             style={{
               height: 34,
               padding: '0 15px',
               borderRadius: 9,
-              cursor: busy ? 'not-allowed' : 'pointer',
+              cursor: busy || disabled ? 'not-allowed' : 'pointer',
               font: `600 12.5px/1 ${FONT}`,
               border: `1px solid ${danger ? 'var(--bad-bd)' : 'var(--violet-solid)'}`,
               background: danger ? 'var(--bad-soft)' : 'var(--violet-solid)',
               color: danger ? 'var(--bad)' : 'var(--on-violet)',
-              opacity: busy ? 0.7 : 1,
+              opacity: busy || disabled ? 0.58 : 1,
             }}
           >
-            {busy ? busyLabel : confirmLabel}
+            {busy ? busyLabel : disabled && disabledLabel ? disabledLabel : confirmLabel}
           </button>
         </div>
       </div>

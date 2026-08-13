@@ -18,8 +18,21 @@ export class PlatformController {
   }
 
   @Get('media')
-  getMedia(@Query('storeId') storeId: string) {
-    return this.platform.getMedia(storeId)
+  getMedia(
+    @Query('storeId') storeId: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+    @Query('q') q?: string,
+    @Query('type') type?: string,
+    @Query('folder') folder?: string,
+  ) {
+    return this.platform.getMedia(storeId, {
+      cursor,
+      limit: limit ? Number(limit) : undefined,
+      q,
+      type,
+      folder,
+    })
   }
 
   @RequireFeature('vendor')

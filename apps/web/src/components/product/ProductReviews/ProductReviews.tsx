@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion } from '@/lib/motion/react'
-import { BadgeCheck, ChevronDown, MessageSquareQuote, Star, ThumbsUp } from 'lucide-react'
+import {
+  ArrowUpRight,
+  BadgeCheck,
+  ChevronDown,
+  MessageSquareQuote,
+  Star,
+  ThumbsUp,
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils/cn'
 import type { ProductReview } from '@/lib/catalog/live'
@@ -192,14 +199,10 @@ export function ProductReviews({
       ? `${displayRating.toFixed(1)} · ${displayCount} review${displayCount === 1 ? '' : 's'}`
       : 'Bought this? Tell the next shopper how it fits'
   const triggerAriaLabel = `${triggerEyebrow}. ${triggerTitle}. ${triggerHint}`
-  const formTitle = isLoggedIn
-    ? 'রিভিউ লিখুন · Write a review'
-    : 'রিভিউ দিতে সাইন আপ করুন'
-  const formHint = isLoggedIn
-    ? displayCount > 0
-      ? 'ক্লিক করে ফর্ম খুলুন · Tap to open the form'
-      : 'ফিট ও ফিল এক লাইনে · A short honest note helps'
-    : 'অ্যাকাউন্ট লাগবে · Account required'
+  const formTitle = 'রিভিউ লিখুন · Write a review'
+  const formHint = displayCount > 0
+    ? 'ক্লিক করে ফর্ম খুলুন · Tap to open the form'
+    : 'ফিট ও ফিল এক লাইনে · A short honest note helps'
 
   return (
     <section className="pp-reviews" aria-labelledby="product-reviews-heading">
@@ -242,11 +245,11 @@ export function ProductReviews({
               transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
             >
               <div className="pp-reviews__panel-inner">
-                <p className="pp-reviews__subtitle">
-                  {displayCount > 0
-                    ? 'আসল ক্রেতাদের অভিজ্ঞতা — Bangla বা English এ লিখতে পারবেন'
-                    : 'We only show real buyer notes — fabric, fit, and finish after wear'}
-                </p>
+                {displayCount > 0 ? (
+                  <p className="pp-reviews__subtitle">
+                    আসল ক্রেতাদের অভিজ্ঞতা — Bangla বা English এ লিখতে পারবেন
+                  </p>
+                ) : null}
 
                 {displayCount > 0 ? (
                   <div className="pp-reviews__summary">
@@ -327,40 +330,45 @@ export function ProductReviews({
                   </>
                 ) : (
                   <div className="pp-reviews__empty">
-                    <MessageSquareQuote strokeWidth={1.5} />
-                    <p>এই পিসের জন্য এখনো রিভিউ নেই</p>
-                    <p className="pp-reviews__empty-sub">
-                      পরে থাকলে ফিট, কাপড় আর ফিনিশিং নিয়ে এক লাইন লিখুন — অন্যদের সাহায্য হবে
-                    </p>
-                    <p className="pp-reviews__empty-sub pp-reviews__empty-sub--en">
-                      After you wear it, share how it fits and feels — we keep every note real.
-                    </p>
+                    <span className="pp-reviews__empty-icon" aria-hidden>
+                      <MessageSquareQuote strokeWidth={1.5} />
+                    </span>
+                    <div className="pp-reviews__empty-copy">
+                      <p>এখনও কোনো ক্রেতার রিভিউ নেই</p>
+                      <p className="pp-reviews__empty-sub">
+                        পরে থাকলে ফিট, কাপড় ও ফিনিশিং নিয়ে ছোট্ট অভিজ্ঞতা লিখুন।
+                      </p>
+                      <p className="pp-reviews__empty-sub pp-reviews__empty-sub--en">
+                        Your note helps the next shopper choose with confidence.
+                      </p>
+                    </div>
                   </div>
                 )}
 
                 <div className="pp-reviews__form-wrap">
-                  <button
-                    type="button"
-                    className={cn('pp-reviews__form-toggle', formOpen && 'pp-reviews__form-toggle--open')}
-                    onClick={() => setFormOpen((value) => !value)}
-                    aria-expanded={formOpen}
-                    aria-controls="product-review-form-panel"
-                    aria-label={`${formTitle}. ${formHint}`}
-                  >
-                    <div className="pp-reviews__form-toggle-copy">
-                      <p className="pp-reviews__form-toggle-title">{formTitle}</p>
-                      {'\n'}
-                      <p className="pp-reviews__form-toggle-hint">{formHint}</p>
-                    </div>
-                    <ChevronDown className="pp-reviews__form-toggle-icon" strokeWidth={2} aria-hidden />
-                  </button>
+                  {isLoggedIn ? (
+                    <>
+                      <button
+                        type="button"
+                        className={cn('pp-reviews__form-toggle', formOpen && 'pp-reviews__form-toggle--open')}
+                        onClick={() => setFormOpen((value) => !value)}
+                        aria-expanded={formOpen}
+                        aria-controls="product-review-form-panel"
+                        aria-label={`${formTitle}. ${formHint}`}
+                      >
+                        <div className="pp-reviews__form-toggle-copy">
+                          <p className="pp-reviews__form-toggle-title">{formTitle}</p>
+                          {'\n'}
+                          <p className="pp-reviews__form-toggle-hint">{formHint}</p>
+                        </div>
+                        <ChevronDown className="pp-reviews__form-toggle-icon" strokeWidth={2} aria-hidden />
+                      </button>
 
-                  <div
-                    id="product-review-form-panel"
-                    className={cn('pp-reviews__form-panel', formOpen && 'pp-reviews__form-panel--open')}
-                  >
-                    <div className="pp-reviews__form-panel-inner">
-                      {isLoggedIn ? (
+                      <div
+                        id="product-review-form-panel"
+                        className={cn('pp-reviews__form-panel', formOpen && 'pp-reviews__form-panel--open')}
+                      >
+                        <div className="pp-reviews__form-panel-inner">
                         <form className="pp-reviews__form" onSubmit={submitReview}>
                           <p className="pp-reviews__form-hint">
                             {productName} — ছবি লাগবে না, শুধু আপনার অভিজ্ঞতা
@@ -419,20 +427,20 @@ export function ProductReviews({
                             {submitting ? 'জমা হচ্ছে…' : 'রিভিউ জমা দিন · Submit review'}
                           </button>
                         </form>
-                      ) : (
-                        <div className="pp-reviews__guest">
-                          <p className="pp-reviews__guest-text">
-                            রিভিউ দেখতে পারবেন, কিন্তু লিখতে হলে অ্যাকাউন্ট লাগবে।
-                            <br />
-                            You can read reviews as a guest — sign up to share yours.
-                          </p>
-                          <Link href={signupHref} className="pp-reviews__guest-cta">
-                            অ্যাকাউন্ট তৈরি করুন · Create account
-                          </Link>
                         </div>
-                      )}
-                    </div>
-                  </div>
+                      </div>
+                    </>
+                  ) : (
+                    <Link href={signupHref} className="pp-reviews__guest-invite">
+                      <span className="pp-reviews__guest-invite-copy">
+                        <strong>আপনার অভিজ্ঞতা শেয়ার করুন</strong>
+                        <small>Sign up to write a verified buyer note</small>
+                      </span>
+                      <span className="pp-reviews__guest-invite-icon" aria-hidden>
+                        <ArrowUpRight strokeWidth={1.8} />
+                      </span>
+                    </Link>
+                  )}
                 </div>
               </div>
             </motion.div>

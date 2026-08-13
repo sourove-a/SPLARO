@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type TouchEvent } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, PackageCheck, Search, UserRound } from 'lucide-react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap'
 import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
@@ -104,19 +104,26 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             onTouchStart={handleDrawerTouchStart}
             onTouchEnd={handleDrawerTouchEnd}
           >
-            <p className="mm-drawer__eyebrow">Menu</p>
+            <header className="mm-drawer__intro">
+              <p className="mm-drawer__eyebrow">SPLARO collections</p>
+              <h2 className="mm-drawer__title">Discover your next edit.</h2>
+              <p className="mm-drawer__intro-copy">Quiet luxury for men, women and kids.</p>
+            </header>
 
             <nav className="mm-drawer__nav" data-lenis-prevent aria-label="Mobile navigation">
               <ul className="mm-drawer__list">
                 <li className="mm-drawer__group">
                   <button
                     type="button"
-                    className="mm-drawer__glass mm-drawer__glass--btn mm-drawer__glass--quiet"
+                    className="mm-drawer__search"
                     onClick={openSearch}
                   >
-                    <span className="mm-drawer__glass-label">Search</span>
+                    <Search className="mm-drawer__search-icon" strokeWidth={1.7} aria-hidden />
+                    <span>Search catalog</span>
+                    <ChevronRight className="mm-drawer__search-arrow" strokeWidth={1.7} aria-hidden />
                   </button>
                 </li>
+                <li className="mm-drawer__section-label" aria-hidden>Discover</li>
                 {navItems.map((navItem) => {
                   const subs = navItem.megaMenu?.categories ?? []
                   const expanded = openLabel === navItem.label
@@ -215,6 +222,22 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                   )
                 })}
               </ul>
+
+              <div className="mm-drawer__utility" aria-label="Account and order links">
+                <p className="mm-drawer__section-label">Your SPLARO</p>
+                <div className="mm-drawer__utility-grid">
+                  <Link href="/login?next=%2Faccount" onClick={onClose} className="mm-drawer__utility-link">
+                    <UserRound strokeWidth={1.6} aria-hidden />
+                    <span>Account</span>
+                    <ChevronRight strokeWidth={1.6} aria-hidden />
+                  </Link>
+                  <Link href="/track-order" onClick={onClose} className="mm-drawer__utility-link">
+                    <PackageCheck strokeWidth={1.6} aria-hidden />
+                    <span>Track order</span>
+                    <ChevronRight strokeWidth={1.6} aria-hidden />
+                  </Link>
+                </div>
+              </div>
             </nav>
           </motion.aside>
         </>

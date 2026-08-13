@@ -21,6 +21,7 @@ interface ShopFilterDropdownProps {
   onChange: (value: string) => void
   labelVariant?: 'default' | 'sort'
   sortDisplay?: string
+  active?: boolean
 }
 
 type PanelPosition = { top: number; left: number; width: number }
@@ -53,6 +54,7 @@ export function ShopFilterDropdown({
   onChange,
   labelVariant = 'default',
   sortDisplay,
+  active = false,
 }: ShopFilterDropdownProps) {
   const reducedMotion = useReducedMotion()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -163,6 +165,7 @@ export function ShopFilterDropdown({
         className={cn(
           'shop-filter-dropdown__trigger shop-filter-dropdown__trigger--glass',
           open && 'shop-filter-dropdown__trigger--open',
+          active && 'shop-filter-dropdown__trigger--selected',
         )}
         aria-expanded={open}
         aria-haspopup="listbox"
@@ -181,6 +184,7 @@ export function ShopFilterDropdown({
             <span className="shop-filter-dropdown__trigger-value">{displayValue}</span>
           </span>
         )}
+        {active ? <span className="shop-filter-dropdown__active-dot" aria-hidden /> : null}
         <m.span
           className="shop-filter-dropdown__chevron"
           aria-hidden

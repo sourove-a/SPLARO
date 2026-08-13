@@ -301,8 +301,8 @@ export function MobileFilterDrawer({
     if (!open) return
     const next = new Set<FilterSectionId>()
     if (selectedColor !== 'All') next.add('color')
-    if (selectedSize !== 'All') next.add('size')
-    if (priceRangeActive) next.add('price')
+    else if (selectedSize !== 'All') next.add('size')
+    else if (priceRangeActive) next.add('price')
     if (!next.size) {
       if (shopFilters.showColorFilter) next.add('color')
       else if (shopFilters.showSizeFilter) next.add('size')
@@ -317,10 +317,7 @@ export function MobileFilterDrawer({
 
   const toggleSection = (id: FilterSectionId) => {
     setExpandedSections((current) => {
-      const next = new Set(current)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
+      return current.has(id) ? new Set<FilterSectionId>() : new Set<FilterSectionId>([id])
     })
   }
 
@@ -376,17 +373,17 @@ export function MobileFilterDrawer({
               <header className="mobile-filter-drawer__header">
                 <div className="mobile-filter-drawer__header-main">
                   <div className="mobile-filter-drawer__header-copy">
-                    <p className="mobile-filter-drawer__eyebrow">Refine collection</p>
+                    <p className="mobile-filter-drawer__eyebrow">Collection filters</p>
                     <div className="mobile-filter-drawer__title-row">
-                      <h2 className="mobile-filter-drawer__title">Filters</h2>
+                      <h2 className="mobile-filter-drawer__title">Refine your edit</h2>
                       {activeCount > 0 ? (
                         <span className="mobile-filter-drawer__count-badge">{activeCount}</span>
                       ) : null}
                     </div>
                     <p className="mobile-filter-drawer__meta">
                       {activeCount > 0
-                        ? `${activeCount} active · ${activeCategory} · ${resultCount}`
-                        : `${activeCategory} · ${resultCount} available`}
+                        ? `${activeCount} active · ${pluralize(resultCount, 'piece')}`
+                        : `${activeCategory} · ${pluralize(resultCount, 'piece')}`}
                     </p>
                   </div>
                   <button

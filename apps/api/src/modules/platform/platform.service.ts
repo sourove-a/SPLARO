@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common'
+import { BadRequestException, Injectable } from '@nestjs/common'
+import { resolvePublicSiteUrl } from '@splaro/config'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 
@@ -12,6 +13,29 @@ function relTime(date: Date | null | undefined): string {
   if (hrs < 24) return `${hrs}h ago`
   const days = Math.floor(hrs / 24)
   return `${days}d ago`
+}
+
+type MediaCursor = { at: Date; id: string }
+
+function parseMediaCursor(value?: string): MediaCursor | null {
+  if (!value) return null
+  try {
+    const decoded = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as { at?: string; id?: string }
+    const at = new Date(decoded.at ?? '')
+    if (!decoded.id || Number.isNaN(at.getTime())) throw new Error('invalid')
+    return { at, id: decoded.id }
+  } catch {
+    throw new BadRequestException('Invalid media cursor')
+  }
+}
+
+function encodeMediaCursor(at: Date, id: string): string {
+  return Buffer.from(JSON.stringify({ at: at.toISOString(), id })).toString('base64url')
+}
+
+function absoluteMediaUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url
+  return `${resolvePublicSiteUrl()}${url.startsWith('/') ? url : `/${url}`}`
 }
 
 const CEO_EMAIL = 'splaro.bd@gmail.com'
@@ -218,34 +242,146 @@ export class PlatformService {
     }
   }
 
-  async getMedia(storeIdOrSlug: string) {
+  async getMedia(
+    storeIdOrSlug: string,
+    options: { cursor?: string; limit?: number; q?: string; type?: string; folder?: string } = {},
+  ) {
     const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
-    const [images, banners, categories] = await Promise.all([
-      this.prisma.productImage.findMany({
-        where: { product: { storeId } },
-        include: { product: { select: { name: true, slug: true } } },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-      }),
-      this.prisma.banner.findMany({
-        where: { storeId },
-        orderBy: { sortOrder: 'asc' },
-      }),
-      this.prisma.category.findMany({
-        where: { storeId, image: { not: null } },
-        select: { id: true, name: true, image: true, slug: true },
-      }),
+    const cursor = parseMediaCursor(options.cursor)
+    const requestedLimit = options.limit ?? 60
+    if (!Number.isFinite(requestedLimit)) throw new BadRequestException('Invalid media limit')
+    const limit = Math.min(100, Math.max(1, Math.trunc(requestedLimit)))
+    const q = options.q?.trim().slice(0, 120) ?? ''
+    const selectedType = options.type?.trim().toLowerCase() ?? 'all'
+    const selectedFolder = options.folder?.trim().toLowerCase() ?? 'all'
+    const allowedTypes = new Set(['all', 'library', 'product', 'banner', 'category'])
+    const allowedFolders = new Set(['all', 'media', 'men', 'women', 'kids', 'footwear', 'accessories'])
+    if (!allowedTypes.has(selectedType)) throw new BadRequestException('Unsupported media type')
+    if (!allowedFolders.has(selectedFolder)) throw new BadRequestException('Unsupported media folder')
+
+    const updatedBoundary = cursor
+      ? [{ OR: [{ updatedAt: { lt: cursor.at } }, { updatedAt: cursor.at, id: { lt: cursor.id } }] }]
+      : []
+    const createdBoundary = cursor
+      ? [{ OR: [{ createdAt: { lt: cursor.at } }, { createdAt: cursor.at, id: { lt: cursor.id } }] }]
+      : []
+    const includeType = (type: string) => selectedType === 'all' || selectedType === type
+    const productFolder = selectedFolder === 'all'
+      ? undefined
+      : selectedFolder === 'media'
+        ? '/uploads/products/'
+        : `/uploads/products-${selectedFolder}/`
+
+    const [mediaAssets, images, banners, categories, libraryCount, productCount, bannerCount, categoryCount, libraryMissingAlt, productMissingAlt, bannerMissingAlt] = await Promise.all([
+      includeType('library')
+        ? this.prisma.mediaAsset.findMany({
+            where: {
+              storeId,
+              ...(selectedFolder !== 'all' ? { folder: selectedFolder } : {}),
+              AND: [
+                ...updatedBoundary,
+                ...(q ? [{ OR: [
+                  { name: { contains: q, mode: 'insensitive' as const } },
+                  { altText: { contains: q, mode: 'insensitive' as const } },
+                  { path: { contains: q, mode: 'insensitive' as const } },
+                ] }] : []),
+              ],
+            },
+            orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+            take: limit + 1,
+          })
+        : Promise.resolve([]),
+      includeType('product') && selectedFolder !== 'media'
+        ? this.prisma.productImage.findMany({
+            where: {
+              product: { storeId },
+              ...(productFolder ? { url: { contains: productFolder } } : {}),
+              AND: [
+                ...createdBoundary,
+                ...(q ? [{ OR: [
+                  { url: { contains: q, mode: 'insensitive' as const } },
+                  { altText: { contains: q, mode: 'insensitive' as const } },
+                  { product: { name: { contains: q, mode: 'insensitive' as const } } },
+                ] }] : []),
+              ],
+            },
+            include: { product: { select: { name: true, slug: true } } },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: limit + 1,
+          })
+        : Promise.resolve([]),
+      includeType('banner') && (selectedFolder === 'all' || selectedFolder === 'media')
+        ? this.prisma.banner.findMany({
+            where: {
+              storeId,
+              position: { not: 'library' },
+              AND: [
+                ...updatedBoundary,
+                ...(q ? [{ OR: [
+                  { title: { contains: q, mode: 'insensitive' as const } },
+                  { image: { contains: q, mode: 'insensitive' as const } },
+                  { mobileImage: { contains: q, mode: 'insensitive' as const } },
+                ] }] : []),
+              ],
+            },
+            orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+            take: limit + 1,
+          })
+        : Promise.resolve([]),
+      includeType('category') && (selectedFolder === 'all' || selectedFolder === 'media')
+        ? this.prisma.category.findMany({
+            where: {
+              storeId,
+              image: { not: null },
+              AND: [
+                ...updatedBoundary,
+                ...(q ? [{ OR: [
+                  { name: { contains: q, mode: 'insensitive' as const } },
+                  { image: { contains: q, mode: 'insensitive' as const } },
+                ] }] : []),
+              ],
+            },
+            select: { id: true, name: true, image: true, slug: true, updatedAt: true },
+            orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+            take: limit + 1,
+          })
+        : Promise.resolve([]),
+      this.prisma.mediaAsset.count({ where: { storeId } }),
+      this.prisma.productImage.count({ where: { product: { storeId } } }),
+      this.prisma.banner.count({ where: { storeId, position: { not: 'library' } } }),
+      this.prisma.category.count({ where: { storeId, image: { not: null } } }),
+      this.prisma.mediaAsset.count({ where: { storeId, OR: [{ altText: null }, { altText: '' }] } }),
+      this.prisma.productImage.count({ where: { product: { storeId }, OR: [{ altText: null }, { altText: '' }] } }),
+      this.prisma.banner.count({ where: { storeId, position: { not: 'library' }, OR: [{ title: null }, { title: '' }] } }),
     ])
 
-    const assets = [
+    const candidates = [
+      ...mediaAssets.map((asset) => ({
+        id: asset.id,
+        type: 'library' as const,
+        name: asset.name,
+        url: asset.path,
+        publicUrl: absoluteMediaUrl(asset.path),
+        altText: asset.altText ?? '',
+        source: 'Media library',
+        folder: asset.folder,
+        mimeType: asset.mimeType,
+        sizeBytes: asset.sizeBytes,
+        width: asset.width,
+        height: asset.height,
+        updated: relTime(asset.updatedAt),
+        sortAt: asset.updatedAt,
+      })),
       ...images.map((img) => ({
         id: img.id,
         type: 'product' as const,
         name: img.product.name,
         url: img.url,
+        publicUrl: absoluteMediaUrl(img.url),
         altText: img.altText ?? '',
         source: `Product · ${img.product.slug}`,
         updated: relTime(img.createdAt),
+        sortAt: img.createdAt,
         productId: img.productId,
         productSlug: img.product.slug,
       })),
@@ -254,9 +390,11 @@ export class PlatformService {
         type: 'banner' as const,
         name: b.title ?? 'Hero banner',
         url: b.image,
+        publicUrl: absoluteMediaUrl(b.image),
         altText: b.title ?? '',
         source: b.position === 'library' ? 'Media library' : `Banner · ${b.position}`,
         updated: relTime(b.updatedAt),
+        sortAt: b.updatedAt,
       })),
       ...categories
         .filter((c) => c.image)
@@ -265,20 +403,37 @@ export class PlatformService {
           type: 'category' as const,
           name: c.name,
           url: c.image!,
+          publicUrl: absoluteMediaUrl(c.image!),
           altText: c.name,
           source: `Category · ${c.slug}`,
-          updated: '—',
+          updated: relTime(c.updatedAt),
+          sortAt: c.updatedAt,
         })),
     ]
 
+    candidates.sort((a, b) => {
+      const timeDiff = b.sortAt.getTime() - a.sortAt.getTime()
+      return timeDiff || b.id.localeCompare(a.id)
+    })
+    const page = candidates.slice(0, limit)
+    const last = page.at(-1)
+    const hasMore = candidates.length > limit || mediaAssets.length > limit || images.length > limit || banners.length > limit || categories.length > limit
+    const assets = page.map(({ sortAt: _sortAt, ...asset }) => asset)
+
     return {
       stats: {
-        total: assets.length,
-        products: images.length,
-        banners: banners.length,
-        categories: categories.filter((c) => c.image).length,
+        total: libraryCount + productCount + bannerCount + categoryCount,
+        library: libraryCount,
+        products: productCount,
+        banners: bannerCount,
+        categories: categoryCount,
+        missingAlt: libraryMissingAlt + productMissingAlt + bannerMissingAlt,
       },
       assets,
+      pageInfo: {
+        hasMore,
+        nextCursor: hasMore && last ? encodeMediaCursor(last.sortAt, last.id) : null,
+      },
     }
   }
 

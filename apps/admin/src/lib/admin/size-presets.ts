@@ -38,7 +38,7 @@ export function sizeDeptFromSlugOrName(nameOrSlug: string | null | undefined): S
 
 /** Upload / library folder for department-separated media. */
 export const MEDIA_DEPT_FOLDERS = [
-  { key: 'all', label: 'All products', folder: 'products' },
+  { key: 'all', label: 'All media', folder: 'products' },
   { key: 'men', label: 'Men', folder: 'products-men' },
   { key: 'women', label: 'Women', folder: 'products-women' },
   { key: 'kids', label: 'Kids', folder: 'products-kids' },

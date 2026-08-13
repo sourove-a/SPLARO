@@ -8,8 +8,23 @@ export function fetchSecurity() {
   return apiFetch<SecurityData>('/admin/security')
 }
 
-export function fetchMedia() {
-  return apiFetch<MediaData>('/admin/platform/media')
+export type MediaQuery = {
+  cursor?: string
+  limit?: number
+  q?: string
+  type?: 'all' | 'library' | 'product' | 'banner' | 'category'
+  folder?: 'all' | 'media' | 'men' | 'women' | 'kids' | 'footwear' | 'accessories'
+}
+
+export function fetchMedia(query: MediaQuery = {}) {
+  const params = new URLSearchParams()
+  if (query.cursor) params.set('cursor', query.cursor)
+  if (query.limit) params.set('limit', String(query.limit))
+  if (query.q?.trim()) params.set('q', query.q.trim())
+  if (query.type && query.type !== 'all') params.set('type', query.type)
+  if (query.folder && query.folder !== 'all') params.set('folder', query.folder)
+  const suffix = params.toString()
+  return apiFetch<MediaData>(`/admin/platform/media${suffix ? `?${suffix}` : ''}`)
 }
 
 export function fetchMarketplace() {
@@ -81,7 +96,7 @@ export interface SecurityData {
 }
 
 export interface MediaData {
-  stats: { total: number; products: number; banners: number; categories: number }
+  stats: { total: number; library: number; products: number; banners: number; categories: number; missingAlt?: number }
   assets: {
     id: string
     type: string
@@ -90,9 +105,16 @@ export interface MediaData {
     altText: string
     source: string
     updated: string
+    publicUrl?: string
+    folder?: string
+    mimeType?: string | null
+    sizeBytes?: number | null
+    width?: number | null
+    height?: number | null
     productId?: string
     productSlug?: string
   }[]
+  pageInfo?: { nextCursor: string | null; hasMore: boolean }
 }
 
 export interface MarketplaceData {

@@ -23,7 +23,7 @@ export async function DELETE(request: Request) {
   }
 
   const url = String(body.url ?? '').trim()
-  if (!url || !url.includes('/uploads/products/')) {
+  if (!url || !/\/uploads\/products(?:-[a-z]+)?\//.test(url)) {
     return NextResponse.json({ error: 'Product upload URL required' }, { status: 400 })
   }
 

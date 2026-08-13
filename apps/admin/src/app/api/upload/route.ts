@@ -1,7 +1,8 @@
 import path from 'path'
-import { mkdir, rename, unlink, writeFile } from 'fs/promises'
+import { mkdir, rename, stat, unlink, writeFile } from 'fs/promises'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { resolvePublicSiteUrl } from '@splaro/config'
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from '@/lib/auth/session'
 import {
   MIN_PRODUCT_WIDTH,
@@ -10,6 +11,7 @@ import {
   uploadRoot,
 } from '@/lib/upload/product-ai-upscale'
 import { withProductPipelineSlot } from '@/lib/upload/product-pipeline-queue'
+import { deleteProductPipelineFiles } from '@/lib/upload/product-pipeline-cleanup'
 
 /** Admin upload can wait for Sharp + queue; keep ≥60s. */
 export const maxDuration = 90
@@ -52,6 +54,23 @@ const MIME_EXT: Record<string, string> = {
   'image/gif': 'gif',
 }
 
+function sniffImageMime(bytes: Buffer): string | null {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return 'image/jpeg'
+  }
+  if (bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+    return 'image/png'
+  }
+  if (bytes.length >= 12 && bytes.subarray(0, 4).toString('ascii') === 'RIFF' && bytes.subarray(8, 12).toString('ascii') === 'WEBP') {
+    return 'image/webp'
+  }
+  if (bytes.length >= 6) {
+    const signature = bytes.subarray(0, 6).toString('ascii')
+    if (signature === 'GIF87a' || signature === 'GIF89a') return 'image/gif'
+  }
+  return null
+}
+
 /** Env master kill switch — default ON. */
 function envPipelineEnabled(): boolean {
   const raw = (process.env.PRODUCT_IMAGE_PIPELINE ?? 'true').trim().toLowerCase()
@@ -92,6 +111,7 @@ type PipelineResult = {
   avifVariants: Record<string, string>
   pipeline: boolean
   sourceWidth: number
+  sourceHeight: number
   warning?: string
   aiUpscaled?: boolean
 }
@@ -112,6 +132,7 @@ async function runProductPipeline(
   const sharp = (await import('sharp')).default
   const meta = await sharp(bytes).metadata()
   const width = meta.width ?? 0
+  const height = meta.height ?? 0
   const sourceForVariants = variantSource ?? bytes
   const variantMeta = await sharp(sourceForVariants).metadata()
   const variantWidth = variantMeta.width ?? 0
@@ -202,6 +223,7 @@ async function runProductPipeline(
       avifVariants,
       pipeline: true,
       sourceWidth: width,
+      sourceHeight: height,
       ...(qualityNote ? { warning: qualityNote } : {}),
       ...(variantSource ? { aiUpscaled: true } : {}),
     }
@@ -220,6 +242,7 @@ async function runProductPipeline(
       avifVariants: {},
       pipeline: false,
       sourceWidth: width,
+      sourceHeight: height,
       warning: 'Image optimization failed; original was saved.',
       ...(variantSource ? { aiUpscaled: true } : {}),
     }
@@ -242,11 +265,19 @@ export async function POST(request: Request) {
   }
 
   const file = form.get('file')
-  const requestedFolder = String(form.get('folder') ?? 'general').replace(/[^a-z0-9-_]/gi, '')
-  const folder = ALLOWED_FOLDERS.has(requestedFolder) ? requestedFolder : 'general'
+  const rawFolder = String(form.get('folder') ?? 'general').trim()
+  const requestedFolder = rawFolder.replace(/[^a-z0-9-_]/gi, '')
+  if (requestedFolder !== rawFolder || !ALLOWED_FOLDERS.has(requestedFolder)) {
+    return NextResponse.json({ error: 'Unsupported upload folder' }, { status: 400 })
+  }
+  const folder = requestedFolder
   const optimize = form.get('optimize') === '1'
   const pipelineRequested = form.get('pipeline') !== '0' && form.get('pipeline') !== 'false'
   const upscalePreviewId = String(form.get('upscalePreviewId') ?? '').trim()
+  const requestedUploadId = String(form.get('uploadId') ?? '').trim().toLowerCase()
+  if (requestedUploadId && !/^[0-9]{10,}-[a-z0-9]{8,32}$/.test(requestedUploadId)) {
+    return NextResponse.json({ error: 'Invalid upload id' }, { status: 400 })
+  }
   const useProductPipeline =
     isProductFolder(folder) &&
     envPipelineEnabled() &&
@@ -274,14 +305,21 @@ export async function POST(request: Request) {
     )
   }
 
-  let ext = MIME_EXT[file.type] ?? 'jpg'
   let bytes = Buffer.from(await file.arrayBuffer()) as Buffer
+  const detectedMime = sniffImageMime(bytes)
+  if (!detectedMime || detectedMime !== file.type) {
+    return NextResponse.json({ error: 'File content does not match its image type' }, { status: 400 })
+  }
+  let ext = MIME_EXT[detectedMime] ?? 'jpg'
   const dir = path.join(uploadRoot(), folder)
   await mkdir(dir, { recursive: true })
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const id = requestedUploadId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const pendingMarker = path.join(dir, `${id}.pending`)
+  await writeFile(pendingMarker, '')
 
-  if (useProductPipeline) {
-    try {
+  try {
+    if (useProductPipeline) {
+      try {
       const result = await withProductPipelineSlot(async () => {
         let variantSource: Buffer | undefined
         if (upscalePreviewId) {
@@ -294,25 +332,80 @@ export async function POST(request: Request) {
         return runProductPipeline(bytes, ext, dir, id, variantSource, folder)
       })
       if (upscalePreviewId) await clearUpscalePreview(upscalePreviewId)
+      if (request.signal.aborted) {
+        await deleteProductPipelineFiles(result.url)
+        return NextResponse.json({ error: 'Upload cancelled' }, { status: 499 })
+      }
+      const outputPath = path.join(dir, path.basename(result.url))
+      let outputSize = file.size
+      let outputWidth = result.sourceWidth
+      let outputHeight = result.sourceHeight
+      try {
+        const [outputStat, outputMeta] = await Promise.all([
+          stat(outputPath),
+          (async () => {
+            const sharp = (await import('sharp')).default
+            return sharp(outputPath).metadata()
+          })(),
+        ])
+        outputSize = outputStat.size
+        outputWidth = outputMeta.width ?? outputWidth
+        outputHeight = outputMeta.height ?? outputHeight
+      } catch {
+        // Output already exists; source metadata is safer than reporting upload failure and orphaning it.
+      }
       return NextResponse.json({
         ...result,
         path: result.url,
+        publicUrl: `${resolvePublicSiteUrl()}${result.url}`,
+        width: outputWidth,
+        height: outputHeight,
+        sizeBytes: outputSize,
+        mimeType: result.url.endsWith('.webp') ? 'image/webp' : file.type,
       })
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Product image processing failed'
-      return NextResponse.json({ error: message }, { status: 400 })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Product image processing failed'
+        return NextResponse.json({ error: message }, { status: 400 })
+      }
     }
-  }
 
-  // Legacy path — banners / partners / media / pipeline OFF / gif
-  if (optimize && file.type !== 'image/gif') {
-    const result = await optimizeImageLegacy(bytes, ext)
-    bytes = Buffer.from(result.buffer)
-    ext = result.ext
-  }
+    // Legacy path — banners / partners / media / pipeline OFF / gif
+    if (optimize && file.type !== 'image/gif') {
+      const result = await optimizeImageLegacy(bytes, ext)
+      bytes = Buffer.from(result.buffer)
+      ext = result.ext
+    }
 
-  const safeName = `${id}.${ext}`
-  await writeFile(path.join(dir, safeName), bytes)
-  const url = `/uploads/${folder}/${safeName}`
-  return NextResponse.json({ url, path: url, pipeline: false })
+    const safeName = `${id}.${ext}`
+    const outputFile = path.join(dir, safeName)
+    await writeFile(outputFile, bytes)
+    if (request.signal.aborted) {
+      await unlink(outputFile).catch(() => undefined)
+      return NextResponse.json({ error: 'Upload cancelled' }, { status: 499 })
+    }
+    const url = `/uploads/${folder}/${safeName}`
+    let width: number | null = null
+    let height: number | null = null
+    try {
+      const sharp = (await import('sharp')).default
+      const metadata = await sharp(bytes).metadata()
+      width = metadata.width ?? null
+      height = metadata.height ?? null
+    } catch {
+      // GIF/decoder metadata is optional; upload itself already succeeded.
+    }
+    const mimeType = ext === 'webp' ? 'image/webp' : ext === 'png' ? 'image/png' : file.type
+    return NextResponse.json({
+      url,
+      path: url,
+      publicUrl: `${resolvePublicSiteUrl()}${url}`,
+      pipeline: false,
+      width,
+      height,
+      sizeBytes: bytes.length,
+      mimeType,
+    })
+  } finally {
+    await unlink(pendingMarker).catch(() => undefined)
+  }
 }

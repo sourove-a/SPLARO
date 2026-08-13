@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   fetchConversionFunnel,
   fetchDailyGoal,
@@ -69,6 +69,7 @@ import {
   fetchIntegrations,
   fetchSystemLogs,
   fetchTelegramLogs,
+  type MediaQuery,
 } from './platform'
 import {
   fetchWmsOverview,
@@ -1618,8 +1619,15 @@ export function useSecuritySessions(enabled = true) {
   })
 }
 
-export function useMedia() {
-  return useQuery({ queryKey: ['platform-media'], queryFn: fetchMedia, staleTime: 30_000, retry: 1 })
+export function useMedia(query: Omit<MediaQuery, 'cursor'> = {}) {
+  return useInfiniteQuery({
+    queryKey: ['platform-media', query],
+    queryFn: ({ pageParam }) => fetchMedia({ ...query, ...(pageParam ? { cursor: pageParam } : {}) }),
+    initialPageParam: '',
+    getNextPageParam: (lastPage) => lastPage.pageInfo?.hasMore ? lastPage.pageInfo.nextCursor ?? undefined : undefined,
+    staleTime: 30_000,
+    retry: 1,
+  })
 }
 
 export function useMarketplace() {

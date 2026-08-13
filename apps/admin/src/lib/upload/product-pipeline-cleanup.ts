@@ -11,7 +11,7 @@ export function productPipelineAssetId(url: string): string | null {
   try {
     const pathname = url.startsWith('http') ? new URL(url).pathname : url
     const match = pathname.match(
-      /\/uploads\/products\/([^/]+?)(?:\.original|\.upscaled|\.w\d+(?:\.tmp)?)\.[a-z0-9]+$/i,
+      /\/uploads\/products(?:-[a-z]+)?\/([^/]+?)(?:\.original|\.upscaled|\.w\d+(?:\.tmp)?)\.[a-z0-9]+$/i,
     )
     return match?.[1] ?? null
   } catch {
@@ -27,7 +27,14 @@ export async function deleteProductPipelineFiles(urlOrId: string): Promise<{
   const id = productPipelineAssetId(urlOrId) ?? (/^[a-zA-Z0-9._-]+$/.test(urlOrId) ? urlOrId : null)
   if (!id) return { deleted: [], id: null }
 
-  const dir = path.join(uploadRoot(), 'products')
+  let folder = 'products'
+  try {
+    const pathname = urlOrId.startsWith('http') ? new URL(urlOrId).pathname : urlOrId
+    folder = pathname.match(/\/uploads\/(products(?:-[a-z]+)?)\//i)?.[1] ?? folder
+  } catch {
+    // Invalid URLs already fail asset-id parsing above.
+  }
+  const dir = path.join(uploadRoot(), folder)
   let names: string[] = []
   try {
     names = await readdir(dir)
@@ -48,7 +55,7 @@ export async function deleteProductPipelineFiles(urlOrId: string): Promise<{
     }
     try {
       await unlink(path.join(dir, name))
-      deleted.push(`/uploads/products/${name}`)
+      deleted.push(`/uploads/${folder}/${name}`)
     } catch {
       /* ignore missing */
     }

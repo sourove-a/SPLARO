@@ -20,6 +20,19 @@ RELEASE_CANDIDATE=""
 PREVIOUS_RELEASE="${RELEASE_ROOT}/previous"
 TEMP_WEB_PID=""
 TEMP_ADMIN_PID=""
+NGINX_BACKUP_DIR=""
+UPLOAD_SMOKE_FILE=""
+NGINX_CONFIG_PATHS=(
+  /etc/nginx/snippets/splaro-uploads.conf
+  /etc/nginx/sites-available/splaro.co.conf
+  /etc/nginx/sites-enabled/splaro.co.conf
+  /etc/nginx/sites-available/splaro-web.conf
+  /etc/nginx/sites-enabled/splaro-web.conf
+  /etc/nginx/sites-available/splaro-admin.conf
+  /etc/nginx/sites-enabled/splaro-admin.conf
+  /etc/nginx/sites-available/splaro-api.conf
+  /etc/nginx/sites-enabled/splaro-api.conf
+)
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
 die() { log "ERROR: $*"; exit 1; }
@@ -30,6 +43,35 @@ touch_deploy_lock() {
   echo "$$ $(date -Is)" >"$DEPLOY_LOCK"
 }
 
+backup_nginx_config() {
+  NGINX_BACKUP_DIR="$(mktemp -d)"
+  local config_path backup_path
+  for config_path in "${NGINX_CONFIG_PATHS[@]}"; do
+    backup_path="$NGINX_BACKUP_DIR$config_path"
+    mkdir -p "$(dirname "$backup_path")"
+    if [ -e "$config_path" ] || [ -L "$config_path" ]; then
+      cp -a "$config_path" "$backup_path"
+    else
+      : >"$backup_path.splaro-missing"
+    fi
+  done
+}
+
+restore_nginx_config() {
+  [ -n "$NGINX_BACKUP_DIR" ] && [ -d "$NGINX_BACKUP_DIR" ] || return 0
+  local config_path backup_path
+  for config_path in "${NGINX_CONFIG_PATHS[@]}"; do
+    backup_path="$NGINX_BACKUP_DIR$config_path"
+    if [ -f "$backup_path.splaro-missing" ]; then
+      rm -f "$config_path"
+    elif [ -e "$backup_path" ] || [ -L "$backup_path" ]; then
+      install -d -m 0755 "$(dirname "$config_path")"
+      rm -f "$config_path"
+      cp -a "$backup_path" "$config_path"
+    fi
+  done
+}
+
 # Safety net — if this script dies AFTER web/admin were stopped for the build
 # (to free RAM) but BEFORE the new build finishes and PM2 reloads, the site
 # is left down until someone notices and fixes it by hand. Restart whatever
@@ -38,10 +80,16 @@ touch_deploy_lock() {
 on_exit() {
   local code=$?
   rm -f "$DEPLOY_LOCK"
+  [ -z "$UPLOAD_SMOKE_FILE" ] || rm -f "$UPLOAD_SMOKE_FILE"
   [ -z "$TEMP_WEB_PID" ] || kill "$TEMP_WEB_PID" 2>/dev/null || true
   [ -z "$TEMP_ADMIN_PID" ] || kill "$TEMP_ADMIN_PID" 2>/dev/null || true
   if [ "$code" -ne 0 ]; then
     log "Deploy failed (exit $code) — rolling back so the site stays up."
+    if [ -n "$NGINX_BACKUP_DIR" ]; then
+      restore_nginx_config
+      nginx -t >/dev/null 2>&1 && systemctl reload nginx 2>/dev/null || true
+      log "Restored previous Nginx configuration"
+    fi
     if [ "$RELEASE_SWITCHED" = "1" ] && [ -d "$PREVIOUS_RELEASE" ]; then
       local failed_release="${RELEASE_ROOT}/failed-$(date +%Y%m%d%H%M%S)"
       cd /
@@ -64,6 +112,9 @@ on_exit() {
       rm -rf "$RELEASE_CANDIDATE"
       log "Removed failed blue/green candidate"
     fi
+  fi
+  if [ -n "$NGINX_BACKUP_DIR" ] && [ -d "$NGINX_BACKUP_DIR" ]; then
+    rm -rf "$NGINX_BACKUP_DIR"
   fi
 }
 trap on_exit EXIT
@@ -111,6 +162,33 @@ fi
 export SPLARO_APP_DIR="$APP_DIR"
 export SPLARO_LOG_DIR="${SPLARO_LOG_DIR:-/var/log/splaro}"
 export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=3072"
+
+# Uploads must survive blue/green directory swaps. Recover files written by
+# older standalone builds before previous release is replaced.
+SHARED_UPLOAD_DIR="${UPLOAD_DIR:-/var/www/splaro-shared/uploads}"
+install -d -m 0755 "$SHARED_UPLOAD_DIR"
+for legacy_upload_dir in \
+  "$APP_DIR/apps/web/public/uploads" \
+  "$APP_DIR/apps/web/.next/standalone/apps/web/public/uploads" \
+  "$APP_DIR/apps/admin/.next/standalone/apps/web/public/uploads" \
+  "$PREVIOUS_RELEASE/apps/web/public/uploads" \
+  "$PREVIOUS_RELEASE/apps/web/.next/standalone/apps/web/public/uploads" \
+  "$PREVIOUS_RELEASE/apps/admin/.next/standalone/apps/web/public/uploads"; do
+  [ -d "$legacy_upload_dir" ] || continue
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --ignore-existing --chmod=D755,F644 "$legacy_upload_dir/" "$SHARED_UPLOAD_DIR/"
+  else
+    while IFS= read -r -d '' legacy_file; do
+      relative_file="${legacy_file#"$legacy_upload_dir"/}"
+      shared_file="$SHARED_UPLOAD_DIR/$relative_file"
+      [ -e "$shared_file" ] && continue
+      install -d -m 0755 "$(dirname "$shared_file")"
+      install -m 0644 "$legacy_file" "$shared_file"
+    done < <(find "$legacy_upload_dir" -type f -print0)
+  fi
+done
+export UPLOAD_DIR="$SHARED_UPLOAD_DIR"
+log "Persistent uploads ready: $SHARED_UPLOAD_DIR"
 
 ensure_swap() {
   if swapon --show 2>/dev/null | grep -q .; then
@@ -321,6 +399,9 @@ else
 fi
 
 # ── Meilisearch + Nginx performance (idempotent, safe reload) ─
+backup_nginx_config
+install -d -m 0755 /etc/nginx/snippets
+install -m 0644 infrastructure/nginx/snippets/splaro-uploads.conf /etc/nginx/snippets/splaro-uploads.conf
 if [ -f infrastructure/vps/setup-meilisearch.sh ]; then
   bash infrastructure/vps/setup-meilisearch.sh || log "WARN: Meilisearch setup skipped"
 fi
@@ -328,7 +409,13 @@ if [ -f infrastructure/vps/setup-nginx-performance.sh ]; then
   bash infrastructure/vps/setup-nginx-performance.sh || log "WARN: nginx performance skipped"
 fi
 
-if [ -f infrastructure/hostinger/splaro-co-web.conf ]; then
+if [ -f /etc/nginx/sites-enabled/splaro.co.conf ] || [ -f /etc/nginx/sites-available/splaro.co.conf ]; then
+  cp infrastructure/vps/nginx-splaro.co.conf /etc/nginx/sites-available/splaro.co.conf
+  ln -sf /etc/nginx/sites-available/splaro.co.conf /etc/nginx/sites-enabled/splaro.co.conf
+  rm -f /etc/nginx/sites-enabled/splaro-web.conf \
+    /etc/nginx/sites-enabled/splaro-admin.conf \
+    /etc/nginx/sites-enabled/splaro-api.conf
+elif [ -f infrastructure/hostinger/splaro-co-web.conf ]; then
   cp infrastructure/hostinger/splaro-co-web.conf /etc/nginx/sites-available/splaro-web.conf
   cp infrastructure/hostinger/splaro-co-admin.conf /etc/nginx/sites-available/splaro-admin.conf
   cp infrastructure/hostinger/splaro-co-api.conf /etc/nginx/sites-available/splaro-api.conf
@@ -338,9 +425,22 @@ if [ -f infrastructure/hostinger/splaro-co-web.conf ]; then
 fi
 
 # ── Nginx ────────────────────────────────────────────────────
-if nginx -t 2>/dev/null; then
-  systemctl reload nginx
+nginx -t || die "Nginx config validation failed"
+systemctl reload nginx || die "Nginx reload failed"
+
+UPLOAD_SMOKE_FILE="$SHARED_UPLOAD_DIR/.splaro-upload-smoke.webp"
+printf 'RIFF\x04\x00\x00\x00WEBP' > "$UPLOAD_SMOKE_FILE"
+chmod 0644 "$UPLOAD_SMOKE_FILE"
+SMOKE_HEADERS="$(curl -ksSI --resolve splaro.co:443:127.0.0.1 https://splaro.co/uploads/.splaro-upload-smoke.webp)"
+rm -f "$UPLOAD_SMOKE_FILE"
+grep -qi '^content-type: image/webp' <<<"$SMOKE_HEADERS" || die "Upload smoke returned wrong MIME"
+grep -qi '^cache-control: public, max-age=31536000, immutable' <<<"$SMOKE_HEADERS" || die "Upload smoke missing immutable cache"
+MISSING_HEADERS="$(curl -ksSI --resolve splaro.co:443:127.0.0.1 https://splaro.co/uploads/.splaro-upload-missing.webp)"
+grep -qi '^HTTP/.* 404' <<<"$MISSING_HEADERS" || die "Missing upload smoke did not return 404"
+if grep -qi '^cache-control:.*immutable' <<<"$MISSING_HEADERS"; then
+  die "Missing upload response is incorrectly immutable"
 fi
+log "Upload delivery smoke passed"
 
 maybe_purge_demo_catalog() {
   if [ "${SPLARO_PURGE_DEMO_ON_DEPLOY:-0}" != "1" ]; then

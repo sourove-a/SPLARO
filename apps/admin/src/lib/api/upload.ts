@@ -5,6 +5,12 @@ export type UploadAdminImageOptions = {
   optimize?: boolean
   /** Approved AI upscale preview id — variants built from upscaled buffer; original file kept. */
   upscalePreviewId?: string
+  /** Browser upload progress. Server optimization starts after this reaches 100. */
+  onProgress?: (percent: number) => void
+  /** Cancels browser upload/processing wait when modal closes or user retries. */
+  signal?: AbortSignal
+  /** Client-known safe id lets failed/cancelled uploads clean up without a response body. */
+  uploadId?: string
 }
 
 export type UploadAdminImageResult = {
@@ -14,6 +20,11 @@ export type UploadAdminImageResult = {
   sourceWidth?: number
   aiUpscaled?: boolean
   originalUrl?: string
+  publicUrl?: string
+  width?: number | null
+  height?: number | null
+  sizeBytes?: number
+  mimeType?: string
 }
 
 export type UpscaleStatus = {
@@ -82,6 +93,7 @@ export async function uploadAdminImage(
   form.append('file', file)
   form.append('folder', folder)
   form.append('optimize', options.optimize === false ? '0' : '1')
+  if (options.uploadId) form.append('uploadId', options.uploadId)
   if (folder === 'products' || folder.startsWith('products-')) {
     form.append('pipeline', options.pipeline === false ? '0' : '1')
     if (options.upscalePreviewId) {
@@ -89,21 +101,20 @@ export async function uploadAdminImage(
     }
   }
 
+  if (options.onProgress && typeof XMLHttpRequest !== 'undefined') {
+    return uploadWithProgress(form, options.onProgress, options.signal)
+  }
+
   const controller = new AbortController()
+  const abortFromCaller = () => controller.abort()
+  options.signal?.addEventListener('abort', abortFromCaller, { once: true })
   const timeout = setTimeout(() => controller.abort(), 90_000)
   try {
     const res = await fetch('/api/upload', { method: 'POST', body: form, signal: controller.signal })
     const data = (await res.json()) as UploadAdminImageResult & { error?: string }
     if (!res.ok) throw new Error(data.error ?? 'Upload failed')
     if (!data.url) throw new Error('Upload failed')
-    return {
-      url: data.url,
-      ...(data.pipeline !== undefined ? { pipeline: data.pipeline } : {}),
-      ...(data.warning ? { warning: data.warning } : {}),
-      ...(data.sourceWidth !== undefined ? { sourceWidth: data.sourceWidth } : {}),
-      ...(data.aiUpscaled !== undefined ? { aiUpscaled: data.aiUpscaled } : {}),
-      ...(data.originalUrl ? { originalUrl: data.originalUrl } : {}),
-    }
+    return data
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
       throw new Error('Upload timed out — try a smaller image or wait and retry.')
@@ -111,7 +122,67 @@ export async function uploadAdminImage(
     throw err
   } finally {
     clearTimeout(timeout)
+    options.signal?.removeEventListener('abort', abortFromCaller)
   }
+}
+
+function uploadWithProgress(
+  form: FormData,
+  onProgress: (percent: number) => void,
+  signal?: AbortSignal,
+): Promise<UploadAdminImageResult> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    const abort = () => xhr.abort()
+    if (signal?.aborted) {
+      reject(new Error('Upload cancelled'))
+      return
+    }
+    signal?.addEventListener('abort', abort, { once: true })
+    const finish = () => signal?.removeEventListener('abort', abort)
+    xhr.open('POST', '/api/upload')
+    xhr.timeout = 90_000
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return
+      onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)))
+    }
+    xhr.onerror = () => {
+      finish()
+      reject(new Error('Network error while uploading image'))
+    }
+    xhr.onabort = () => {
+      finish()
+      reject(new Error('Upload cancelled'))
+    }
+    xhr.ontimeout = () => {
+      finish()
+      reject(new Error('Upload timed out — try a smaller image or wait and retry.'))
+    }
+    xhr.onload = () => {
+      let data: UploadAdminImageResult & { error?: string }
+      try {
+        data = JSON.parse(xhr.responseText) as UploadAdminImageResult & { error?: string }
+      } catch {
+        finish()
+        reject(new Error('Upload returned an invalid response'))
+        return
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        finish()
+        reject(new Error(data.error ?? 'Upload failed'))
+        return
+      }
+      if (!data.url) {
+        finish()
+        reject(new Error('Upload failed'))
+        return
+      }
+      onProgress(100)
+      finish()
+      resolve(data)
+    }
+    xhr.send(form)
+  })
 }
 
 /** Read image pixel size in the browser (no upload). */

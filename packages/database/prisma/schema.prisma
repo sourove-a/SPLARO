@@ -530,6 +530,7 @@ model Store {
   customers        Customer[]
   coupons          Coupon[]
   banners          Banner[]
+  mediaAssets      MediaAsset[]
   staff            StaffRole[]
   vendors          Vendor[]
   subscription     Subscription?
@@ -1655,6 +1656,27 @@ model Banner {
   updatedAt   DateTime @updatedAt
 
   @@index([storeId, isActive])
+}
+
+// Dedicated reusable media records. Product/category/banner references keep
+// portable /uploads/* paths; this table owns library metadata and file lifecycle.
+model MediaAsset {
+  id        String   @id @default(cuid())
+  storeId   String
+  name      String
+  path      String
+  altText   String?
+  folder    String   @default("media")
+  mimeType  String?
+  sizeBytes Int?
+  width     Int?
+  height    Int?
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeId, path])
+  @@index([storeId, folder, createdAt])
 }
 
 // ── CONTENT BLOCKS (Homepage/Page Builder) ────────────────────
