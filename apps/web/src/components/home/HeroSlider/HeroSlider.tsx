@@ -20,7 +20,7 @@ const HERO_AUTOPLAY_ENABLED =
   process.env.NEXT_PUBLIC_HERO_AUTOPLAY?.trim().toLowerCase() !== 'false'
 // Must match --hero-swipe in globals.css — this is the lock window that blocks
 // re-triggering a transition mid-animation. Kept snappy (was 2000ms, felt janky).
-const SWIPE_MS = 850
+const SWIPE_MS = 520
 
 type SlideDirection = 'forward' | 'backward'
 
@@ -554,7 +554,7 @@ function HeroBackground({
         src={slide.image}
         mobileSrc={slide.mobileImage}
         priority={priority}
-        eager
+        eager={isActive}
       />
       {mountVideo ? (
         <video
