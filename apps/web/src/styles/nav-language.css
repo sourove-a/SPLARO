@@ -132,11 +132,12 @@
   border-left: none !important;
 }
 
-/* ── Drawer — menu + bag ── */
+/* ── Drawer — menu + bag ──
+   The menu drawer is a full-bleed sheet now, so it keeps square edges; the
+   floating-glass radius here only applied to the old inset card. */
 .mm-drawer {
-  border-radius: 0 var(--nav-glass-radius) var(--nav-glass-radius) 0 !important;
-  border: 1px solid var(--nav-glass-edge) !important;
-  border-left: none !important;
+  border: none !important;
+  border-radius: 0 !important;
 }
 
 .cart-drawer__panel {
@@ -189,4 +190,12 @@ html[data-os='windows'] .cart-drawer__panel {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   background: rgba(255, 255, 255, 0.97) !important;
+}
+
+/* Menu and bag are modal surfaces, not floating chips: the last 3% of
+   transparency left the page legible straight through the open menu. */
+html[data-perf='lite'] .mm-drawer,
+html[data-os='windows'] .mm-drawer,
+.mm-drawer {
+  background: #fff !important;
 }

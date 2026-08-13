@@ -4,22 +4,7 @@ import { useEffect, useRef, useState, type TouchEvent } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
-import {
-  Baby,
-  ChevronRight,
-  Footprints,
-  Gem,
-  Home,
-  Search,
-  ShoppingBag,
-  Sparkles,
-  Sun,
-  Users,
-  X,
-  type LucideIcon,
-} from 'lucide-react'
-import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
-import { PremiumIcon } from '@/components/ui/PremiumIcon'
+import { ChevronRight } from 'lucide-react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap'
 import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
@@ -32,24 +17,6 @@ import { useUiStore } from '@/store/uiStore'
 interface MobileMenuProps {
   isOpen: boolean
   onClose: () => void
-}
-
-function navIcon(label: string, href: string): LucideIcon {
-  const key = `${label} ${href}`.toLowerCase()
-  if (key.includes('home') || href === '/') return Home
-  if (key.includes('summer')) return Sun
-  if (key.includes('footwear') || key.includes('shoe')) return Footprints
-  if (key.includes('accessor') || key.includes('jewel')) return Gem
-  if (key.includes('kid') || key.includes('child') || key.includes('baby')) return Baby
-  if (key.includes('women') || key.includes('woman')) return Sparkles
-  if (key.includes('men') || key.includes('man')) return Users
-  if (key.includes('shop')) return ShoppingBag
-  return ShoppingBag
-}
-
-function GlassNavIcon({ label, href }: { label: string; href: string }) {
-  const Icon = navIcon(label, href)
-  return <PremiumIcon icon={Icon} size="sm" className="mm-drawer__glass-icon" />
 }
 
 export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
@@ -137,38 +104,6 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             onTouchStart={handleDrawerTouchStart}
             onTouchEnd={handleDrawerTouchEnd}
           >
-            <div className="mm-drawer__sheen" aria-hidden />
-            <div className="mm-drawer__shine" aria-hidden />
-            <div className="mm-drawer__sweep" aria-hidden />
-
-            <header className="mm-drawer__head">
-              <SplaroBrandLogo
-                href="/"
-                size="header"
-                tone="light"
-                onClick={onClose}
-                className="mm-drawer__logo"
-              />
-              <div className="mm-drawer__head-actions">
-                <button
-                  type="button"
-                  onClick={openSearch}
-                  aria-label="Search"
-                  className="mm-drawer__icon-btn"
-                >
-                  <Search className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  aria-label="Close menu"
-                  className="mm-drawer__icon-btn"
-                >
-                  <X className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </div>
-            </header>
-
             <p className="mm-drawer__eyebrow">Menu</p>
 
             <nav className="mm-drawer__nav" data-lenis-prevent aria-label="Mobile navigation">
@@ -176,14 +111,10 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 <li className="mm-drawer__group">
                   <button
                     type="button"
-                    className="mm-drawer__glass mm-drawer__glass--btn"
+                    className="mm-drawer__glass mm-drawer__glass--btn mm-drawer__glass--quiet"
                     onClick={openSearch}
                   >
-                    <PremiumIcon icon={Search} size="sm" className="mm-drawer__glass-icon" />
                     <span className="mm-drawer__glass-label">Search</span>
-                    <span className="mm-drawer__chevron" aria-hidden>
-                      <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
-                    </span>
                   </button>
                 </li>
                 {navItems.map((navItem) => {
@@ -206,7 +137,6 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                             aria-expanded={expanded}
                             aria-current={active ? 'page' : undefined}
                           >
-                            <GlassNavIcon label={navItem.label} href={navItem.href} />
                             <span className="mm-drawer__glass-label">{navItem.label}</span>
                             <span
                               className="mm-drawer__chevron"
@@ -278,12 +208,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                           className={cn('mm-drawer__glass', active && 'mm-drawer__glass--active')}
                           aria-current={active ? 'page' : undefined}
                         >
-                          <GlassNavIcon label={navItem.label} href={navItem.href} />
                           <span className="mm-drawer__glass-label">{navItem.label}</span>
-                          <ChevronRight
-                            className="mm-drawer__chevron-icon h-3.5 w-3.5"
-                            strokeWidth={2}
-                          />
                         </Link>
                       )}
                     </li>
