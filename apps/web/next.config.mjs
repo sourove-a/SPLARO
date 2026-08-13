@@ -37,6 +37,10 @@ const cspImgSrc = [
   'https://*.r2.cloudflarestorage.com',
   'https://images.unsplash.com',
   'https://images.pexels.com',
+  'https://i.ytimg.com',
+  'https://img.youtube.com',
+  'https://vumbnail.com',
+  'https://i.vimeocdn.com',
   'https://media.aarong.com',
   'https://placehold.co',
   'https://cdn.jsdelivr.net',
@@ -167,7 +171,7 @@ const nextConfig = {
               // section (SocialReelsDropdown → ReelCard iframe) — 'none' silently
               // blocked every reel video with no visible error, just a dead player.
               // accounts.google.com: Google Identity Services button iframe (login/signup).
-              "frame-src 'self' https://www.youtube-nocookie.com https://accounts.google.com",
+              "frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://accounts.google.com",
               // Belt-and-suspenders: auto-upgrade accidental http:// subresources on HTTPS pages.
               'upgrade-insecure-requests',
             ].join('; '),

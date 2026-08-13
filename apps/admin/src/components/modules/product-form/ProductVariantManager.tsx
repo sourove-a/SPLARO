@@ -1,9 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { Archive, Loader2, Plus } from 'lucide-react'
+import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import Image from 'next/image'
+import { DcIcon } from '@/components/dc/DcIcon'
+import { DcField, DcInput } from '@/components/dc/product/DcProductFormPrimitives'
+import { FONT } from '@/components/dc/tokens'
 import { useCreateProductVariant, useUpdateProductVariant, useArchiveProductVariant } from '@/lib/api/hooks'
 import { toastFail, toastApiSaved, toastOk, toastWarn } from '@/lib/admin/feedback'
+import { printVariantStickers } from '@/lib/admin/variant-stickers'
 import {
   confirmVariantArchived,
   confirmVariantCreated,
@@ -14,18 +18,153 @@ import {
   verifyVariantPersisted,
   verifyVariantResponse,
 } from '@/lib/admin/catalog-mutation-verify'
-import { cn } from '@/lib/utils/cn'
 import type { ApiProduct } from '@/lib/api/products'
+import { resolveMediaUrl } from '@/lib/media-url'
 import {
   colourInputValue,
   DEFAULT_COLOUR_HEX,
   eyeDropperSupported,
+  isValidHex,
   nearestColourName,
   normalizeHex,
   pickColourWithEyeDropper,
+  sanitizeHexTyping,
   swatchCss,
 } from '@/lib/admin/colour-names'
 import { sizeChipsForDept, sizeDeptFromSlugOrName } from '@/lib/admin/size-presets'
+
+const btnPrimary: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  height: 36,
+  padding: '0 14px',
+  borderRadius: 9,
+  border: '1px solid var(--violet-bd)',
+  background: 'var(--violet-solid)',
+  color: 'var(--on-violet)',
+  cursor: 'pointer',
+  font: `600 12.5px/1 ${FONT}`,
+}
+
+const btnGhost: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  height: 36,
+  padding: '0 14px',
+  borderRadius: 9,
+  border: '1px solid var(--line)',
+  background: 'var(--surface)',
+  color: 'var(--ink-2)',
+  cursor: 'pointer',
+  font: `600 12.5px/1 ${FONT}`,
+}
+
+const btnLink: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  height: 32,
+  padding: 0,
+  border: 0,
+  background: 'transparent',
+  color: 'var(--violet)',
+  cursor: 'pointer',
+  font: `600 12px/1 ${FONT}`,
+}
+
+const selectStyle: CSSProperties = {
+  height: 38,
+  padding: '0 11px',
+  borderRadius: 9,
+  border: '1px solid var(--line)',
+  background: 'var(--surface-2)',
+  color: 'var(--ink)',
+  outline: 'none',
+  width: '100%',
+  boxSizing: 'border-box',
+  font: `500 13px/1 ${FONT}`,
+}
+
+const thStyle: CSSProperties = {
+  textAlign: 'left',
+  padding: '9px 12px',
+  font: `600 10.5px/1 ${FONT}`,
+  letterSpacing: '.09em',
+  textTransform: 'uppercase',
+  color: 'var(--ink-3)',
+  borderBottom: '1px solid var(--line)',
+  background: 'var(--surface-2)',
+  position: 'sticky',
+  top: 0,
+  zIndex: 1,
+  whiteSpace: 'nowrap',
+}
+
+function SizeChip({
+  label,
+  on,
+  taken,
+  disabled,
+  onClick,
+}: {
+  label: string
+  on: boolean
+  taken?: boolean
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      title={taken ? 'Already exists for every selected colour' : undefined}
+      onClick={onClick}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 7,
+        height: 34,
+        padding: '0 13px',
+        borderRadius: 9,
+        border: `1px solid ${on ? 'var(--violet-bd)' : 'var(--line)'}`,
+        background: on ? 'var(--violet-soft)' : taken ? 'var(--surface-2)' : 'var(--surface)',
+        color: on ? 'var(--violet)' : taken ? 'var(--ink-3)' : 'var(--ink-2)',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        font: `600 12px/1 ${FONT}`,
+        opacity: taken ? 0.5 : 1,
+      }}
+    >
+      {on ? <DcIcon name="icon-check" size={12} /> : null}
+      {label}
+    </button>
+  )
+}
+
+function ImageThumb({ url }: { url: string }) {
+  if (!url.trim()) return null
+  return (
+    <Image
+      src={resolveMediaUrl(url)}
+      alt=""
+      width={28}
+      height={36}
+      unoptimized
+      style={{
+        width: 28,
+        height: 36,
+        objectFit: 'cover',
+        borderRadius: 6,
+        border: '1px solid var(--line)',
+        flex: 'none',
+        background: 'var(--surface-2)',
+      }}
+    />
+  )
+}
 
 type Variant = NonNullable<ApiProduct['variants']>[number]
 
@@ -33,6 +172,7 @@ interface ProductVariantManagerProps {
   productId: string
   variants: Variant[]
   productImages: string[]
+  productName?: string
   /** Menu slug/name so size chips switch (footwear ≠ M/L/XL). */
   departmentHint?: string
 }
@@ -44,6 +184,7 @@ interface RowDraft {
   colorHex: string
   image: string
   sku: string
+  barcode: string
   price: string
   compareAtPrice: string
   stock: string
@@ -76,6 +217,7 @@ function draftFromVariant(v: Variant): RowDraft {
     colorHex: v.colorHex ?? '',
     image: v.image ?? '',
     sku: v.sku ?? '',
+    barcode: v.barcode ?? '',
     price: v.price != null ? String(v.price) : '',
     compareAtPrice: v.compareAtPrice != null ? String(v.compareAtPrice) : '',
     stock: String(serverStock(v)),
@@ -91,6 +233,7 @@ const EMPTY_DRAFT: RowDraft = {
   colorHex: DEFAULT_COLOUR_HEX,
   image: '',
   sku: '',
+  barcode: '',
   price: '',
   compareAtPrice: '',
   stock: '10',
@@ -113,10 +256,82 @@ function existingSizeKey(size: string, colorHex: string) {
   return `${size.trim().toLowerCase()}::${colorHex.trim().toLowerCase() || 'default'}`
 }
 
+interface ColourDraft {
+  id: string
+  name: string
+  hex: string
+  image: string
+}
+
+let colourSeq = 0
+function nextColourId(): string {
+  colourSeq += 1
+  return `c-${colourSeq}`
+}
+
+function colourRowsFromVariants(rows: Variant[]): ColourDraft[] {
+  const seen = new Set<string>()
+  const out: ColourDraft[] = []
+  for (const v of rows) {
+    const hex = normalizeHex(v.colorHex || '') ?? DEFAULT_COLOUR_HEX
+    if (seen.has(hex)) continue
+    seen.add(hex)
+    out.push({
+      id: `c-seed-${hex.replace('#', '')}`,
+      name: (v.colorName || v.color || 'Default').trim() || 'Default',
+      hex,
+      image: (v.image || '').trim(),
+    })
+  }
+  return out.length
+    ? out
+    : [{ id: 'c-seed-default', name: 'Default', hex: DEFAULT_COLOUR_HEX, image: '' }]
+}
+
+function isRowDirty(v: Variant, d: RowDraft): boolean {
+  const base = draftFromVariant(v)
+  return (
+    d.size !== base.size ||
+    d.colorName !== base.colorName ||
+    d.colorHex !== base.colorHex ||
+    d.image !== base.image ||
+    d.sku !== base.sku ||
+    d.barcode !== base.barcode ||
+    d.price !== base.price ||
+    d.compareAtPrice !== base.compareAtPrice ||
+    d.stock !== base.stock
+  )
+}
+
+function stockStatus(qty: number): { label: string; fg: string; bg: string; bd: string } {
+  if (qty <= 0) {
+    return { label: 'Out', fg: 'var(--bad)', bg: 'var(--bad-soft)', bd: 'var(--bad-bd)' }
+  }
+  if (qty < 5) {
+    return { label: 'Low', fg: 'var(--warn)', bg: 'var(--warn-soft)', bd: 'var(--warn-bd)' }
+  }
+  return { label: 'In', fg: 'var(--ok)', bg: 'var(--ok-soft)', bd: 'var(--ok-bd)' }
+}
+
+async function copyText(label: string, value: string) {
+  const text = value.trim()
+  if (!text) {
+    toastFail(`No ${label.toLowerCase()} to copy.`)
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(text)
+    toastOk(`${label} copied`)
+  } catch {
+    toastFail(`Could not copy ${label.toLowerCase()}.`)
+  }
+}
+
 export function ProductVariantManager({
   productId,
   variants,
   productImages,
+  productName,
   departmentHint,
 }: ProductVariantManagerProps) {
   const updateVariant = useUpdateProductVariant()
@@ -136,19 +351,18 @@ export function ProductVariantManager({
   })
   const [selectedSizes, setSelectedSizes] = useState<string[]>([])
   const [customSize, setCustomSize] = useState('')
-  const [bulk, setBulk] = useState({
-    price: '',
-    stock: '10',
-    colorName: 'Default',
-    colorHex: DEFAULT_COLOUR_HEX,
-    image: '',
-  })
+  const [colorRows, setColorRows] = useState<ColourDraft[]>(() => colourRowsFromVariants(variants))
+  const [bulk, setBulk] = useState({ price: '', stock: '10', compareAt: '' })
   const [bulkBusy, setBulkBusy] = useState(false)
   const [bulkAllPrice, setBulkAllPrice] = useState('')
   const [skuPrefix, setSkuPrefix] = useState('')
-  const [bulkAllBusy, setBulkAllBusy] = useState<'price' | 'sku' | null>(null)
+  const [bulkAllBusy, setBulkAllBusy] = useState<'price' | 'sku' | 'save' | null>(null)
   const [showManual, setShowManual] = useState(false)
   const [addDraft, setAddDraft] = useState<RowDraft>(EMPTY_DRAFT)
+  const [query, setQuery] = useState('')
+  const [stockFilter, setStockFilter] = useState<'all' | 'in' | 'low' | 'out'>('all')
+  const [colourFilter, setColourFilter] = useState('all')
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
   const busyId = pendingVariantId(
     updateVariant.isPending,
@@ -196,6 +410,88 @@ export function ProductVariantManager({
       [id]: { ...(prev[id] || draftFromVariant(variants.find((row) => row.id === id)!)), [key]: value },
     }))
 
+  const readyColours = useMemo(
+    () =>
+      colorRows.filter((row) => row.name.trim() && (normalizeHex(row.hex) || isValidHex(row.hex))),
+    [colorRows],
+  )
+
+  const generatePlan = useMemo(() => {
+    const combos = selectedSizes.flatMap((size) =>
+      readyColours.map((colour) => ({
+        size,
+        colour,
+        key: existingSizeKey(size, normalizeHex(colour.hex) ?? colour.hex),
+      })),
+    )
+    const fresh = combos.filter((row) => !existingKeys.has(row.key))
+    return { total: combos.length, fresh: fresh.length, skip: combos.length - fresh.length, rows: fresh }
+  }, [selectedSizes, readyColours, existingKeys])
+
+  const dirtyIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const v of variants) {
+      if (!v.id) continue
+      if (isRowDirty(v, drafts[v.id] || draftFromVariant(v))) ids.add(v.id)
+    }
+    return ids
+  }, [variants, drafts])
+
+  const colourOptions = useMemo(() => {
+    const map = new Map<string, { hex: string; name: string }>()
+    for (const v of variants) {
+      const d = v.id && drafts[v.id] ? drafts[v.id] : draftFromVariant(v)
+      const hex = (d?.colorHex || DEFAULT_COLOUR_HEX).trim().toLowerCase()
+      if (!map.has(hex)) {
+        map.set(hex, { hex, name: d?.colorName || v.colorName || v.color || 'Default' })
+      }
+    }
+    return [...map.values()]
+  }, [variants, drafts])
+
+  const filteredVariants = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return variants.filter((v) => {
+      const d = (v.id && drafts[v.id]) || draftFromVariant(v)
+      const qty = Number(d.stock)
+      if (stockFilter === 'out' && qty > 0) return false
+      if (stockFilter === 'low' && (qty <= 0 || qty >= 5)) return false
+      if (stockFilter === 'in' && qty < 5) return false
+      if (colourFilter !== 'all' && d.colorHex.trim().toLowerCase() !== colourFilter) return false
+      if (!q) return true
+      const hay = [d.size, d.colorName, d.sku, d.barcode, d.price].join(' ').toLowerCase()
+      return hay.includes(q)
+    })
+  }, [variants, drafts, query, stockFilter, colourFilter])
+
+  const groupedVariants = useMemo(() => {
+    const groups: Array<{ key: string; hex: string; name: string; rows: Variant[] }> = []
+    const index = new Map<string, number>()
+    for (const v of filteredVariants) {
+      const d = (v.id && drafts[v.id]) || draftFromVariant(v)
+      const hex = (d.colorHex || DEFAULT_COLOUR_HEX).trim().toLowerCase()
+      const name = d.colorName || 'Default'
+      const key = hex || name.toLowerCase()
+      const existing = index.get(key)
+      if (existing == null) {
+        index.set(key, groups.length)
+        groups.push({ key, hex, name, rows: [v] })
+      } else {
+        groups[existing]?.rows.push(v)
+      }
+    }
+    for (const group of groups) {
+      group.rows.sort((a, b) => {
+        const sa = ((a.id && drafts[a.id]) || draftFromVariant(a)).size
+        const sb = ((b.id && drafts[b.id]) || draftFromVariant(b)).size
+        const ia = sizeChips.indexOf(sa)
+        const ib = sizeChips.indexOf(sb)
+        return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib) || sa.localeCompare(sb)
+      })
+    }
+    return groups
+  }, [filteredVariants, drafts, sizeChips])
+
   const syncDraftFromServer = (variantId: string, row: Variant) => {
     setDrafts((prev) => ({ ...prev, [variantId]: draftFromVariant(row) }))
   }
@@ -213,54 +509,87 @@ export function ProductVariantManager({
     setCustomSize('')
   }
 
+  const updateColourRow = (id: string, patch: Partial<ColourDraft>) => {
+    setColorRows((rows) => rows.map((row) => (row.id === id ? { ...row, ...patch } : row)))
+  }
+
+  const addColourRow = () => {
+    setColorRows((rows) => [
+      ...rows,
+      { id: nextColourId(), name: '', hex: DEFAULT_COLOUR_HEX, image: '' },
+    ])
+  }
+
+  const removeColourRow = (id: string) => {
+    setColorRows((rows) => (rows.length <= 1 ? rows : rows.filter((row) => row.id !== id)))
+  }
+
+  const pickColourForRow = async (id: string) => {
+    if (!eyeDropperSupported()) {
+      toastWarn('Eyedropper needs Chrome or Edge')
+      return
+    }
+    const picked = await pickColourWithEyeDropper()
+    if (!picked) return
+    updateColourRow(id, { hex: picked.hex, name: picked.name })
+    toastOk(`${picked.name} · ${picked.hex}`)
+  }
+
   const createSizesBulk = async () => {
     if (!selectedSizes.length) {
       toastFail('Select at least one size.')
       return
     }
+    if (!readyColours.length) {
+      toastFail('Add at least one named colour.')
+      return
+    }
     const price = Number(bulk.price)
     const stock = Number(bulk.stock || '0')
+    const compareAt = bulk.compareAt.trim() ? Number(bulk.compareAt) : null
     if (!bulk.price.trim() || Number.isNaN(price) || price < 0) {
-      toastFail('Enter a price for the new sizes.')
+      toastFail('Enter a price for the new variants.')
       return
     }
     if (Number.isNaN(stock) || stock < 0) {
       toastFail('Enter a valid quantity.')
       return
     }
-
-    const colorName = bulk.colorName.trim() || 'Default'
-    const colorHex = normalizeHex(bulk.colorHex) ?? DEFAULT_COLOUR_HEX
-    const toCreate = selectedSizes.filter(
-      (size) => !existingKeys.has(existingSizeKey(size, colorHex)),
-    )
-    if (!toCreate.length) {
-      toastFail('Those sizes already exist for this colour.')
+    if (compareAt != null && (Number.isNaN(compareAt) || compareAt < 0)) {
+      toastFail('Compare-at must be a valid price.')
+      return
+    }
+    if (!generatePlan.fresh) {
+      toastFail('Those size × colour combos already exist.')
       return
     }
 
     setBulkBusy(true)
     let created = 0
     try {
-      for (const size of toCreate) {
+      for (const row of generatePlan.rows) {
+        const colorName = row.colour.name.trim() || 'Default'
+        const colorHex = normalizeHex(row.colour.hex) ?? DEFAULT_COLOUR_HEX
         const payload = {
           productId,
           price,
           stock,
-          size,
+          size: row.size,
           color: colorName,
           colorName,
           colorHex,
-          ...(bulk.image.trim() ? { image: bulk.image.trim() } : {}),
+          ...(row.colour.image.trim() ? { image: row.colour.image.trim() } : {}),
+          ...(compareAt != null ? { compareAtPrice: compareAt } : {}),
         }
         try {
           const saved = await createVariant.mutateAsync(payload)
-          if (!verifyVariantResponse(saved, { price, stock, size })) continue
-          const id = saved && typeof saved === 'object' && 'id' in saved ? String((saved as { id: string }).id) : ''
-          if (!id || !(await verifyVariantCreated(productId, id, { price, stock, size }))) continue
+          if (!verifyVariantResponse(saved, { price, stock, size: row.size })) continue
+          const id =
+            saved && typeof saved === 'object' && 'id' in saved ? String((saved as { id: string }).id) : ''
+          if (!id || !(await verifyVariantCreated(productId, id, { price, stock, size: row.size }))) continue
           created += 1
         } catch (err) {
-          toastFail(err instanceof Error ? err.message : `Could not add size ${size}.`)
+          toastFail(err instanceof Error ? err.message : `Could not add ${row.size} / ${colorName}.`)
         }
       }
       if (created > 0) {
@@ -269,6 +598,78 @@ export function ProductVariantManager({
       }
     } finally {
       setBulkBusy(false)
+    }
+  }
+
+  const saveAllDirty = async () => {
+    const targets = variants.filter((v) => v.id && dirtyIds.has(v.id))
+    if (!targets.length) return
+    setBulkAllBusy('save')
+    let saved = 0
+    let failed = 0
+    try {
+      for (const v of targets) {
+        if (!v.id) continue
+        const d = draftFor(v)
+        const price = Number(d.price)
+        const stock = Number(d.stock)
+        if (Number.isNaN(price) || price < 0 || Number.isNaN(stock) || stock < 0) {
+          failed += 1
+          continue
+        }
+        const stockChanged = stock !== serverStock(v)
+        try {
+          const result = await updateVariant.mutateAsync({
+            productId,
+            variantId: v.id,
+            size: d.size.trim(),
+            color: d.color.trim() || d.colorName.trim(),
+            colorName: d.colorName.trim(),
+            colorHex: d.colorHex.trim(),
+            image: d.image.trim(),
+            sku: d.sku.trim(),
+            barcode: d.barcode.trim(),
+            price,
+            compareAtPrice: d.compareAtPrice.trim() ? Number(d.compareAtPrice) : null,
+            stock,
+            ...(stockChanged
+              ? {
+                  stockReason: d.stockReason.trim() || 'Admin manual update',
+                  ...(d.stockNote.trim() ? { stockNote: d.stockNote.trim() } : {}),
+                }
+              : {}),
+          })
+          if (!verifyVariantResponse(result, { price, stock, size: d.size.trim() })) {
+            failed += 1
+            continue
+          }
+          if (!(await verifyVariantPersisted(productId, v.id, { price, stock, size: d.size.trim() }))) {
+            failed += 1
+            continue
+          }
+          saved += 1
+          syncDraftFromServer(v.id, {
+            ...v,
+            size: d.size.trim(),
+            colorName: d.colorName.trim(),
+            colorHex: d.colorHex.trim(),
+            image: d.image.trim(),
+            sku: d.sku.trim(),
+            barcode: d.barcode.trim(),
+            price,
+            compareAtPrice: d.compareAtPrice.trim() ? Number(d.compareAtPrice) : null,
+            stock,
+            stockQuantity: stock,
+          })
+        } catch {
+          failed += 1
+        }
+      }
+      if (saved && failed) toastFail(`Saved ${saved}, ${failed} failed`)
+      else if (saved) toastApiSaved(`${saved} variant${saved === 1 ? '' : 's'} saved`)
+      else toastFail('Could not save unsaved variants.')
+    } finally {
+      setBulkAllBusy(null)
     }
   }
 
@@ -378,6 +779,7 @@ export function ProductVariantManager({
       colorHex: d.colorHex.trim(),
       image: d.image.trim(),
       sku: d.sku.trim(),
+      barcode: d.barcode.trim(),
       price,
       compareAtPrice: d.compareAtPrice.trim() ? Number(d.compareAtPrice) : null,
       stock,
@@ -595,6 +997,7 @@ export function ProductVariantManager({
       ...(addDraft.colorHex.trim() ? { colorHex: addDraft.colorHex.trim() } : {}),
       ...(addDraft.image.trim() ? { image: addDraft.image.trim() } : {}),
       ...(addDraft.sku.trim() ? { sku: addDraft.sku.trim() } : {}),
+      ...(addDraft.barcode.trim() ? { barcode: addDraft.barcode.trim() } : {}),
       ...(addDraft.compareAtPrice.trim() ? { compareAtPrice: Number(addDraft.compareAtPrice) } : {}),
     }
     const id = await confirmVariantCreated(
@@ -611,328 +1014,742 @@ export function ProductVariantManager({
   const rowBusy = (id?: string) => id != null && busyId === id
 
   return (
-    <div className="sf-variants">
-      {/* Shopify-style option builder */}
-      <section className="sf-variants__block">
-        <header className="sf-variants__block-head">
-          <div>
-            <h4 className="sf-variants__block-title">Options</h4>
-            <p className="sf-variants__block-desc">
-              Select sizes once, set price & quantity, then generate variants — like Shopify.
-            </p>
-          </div>
-        </header>
-
-        <div className="sf-variants__option">
-          <div className="sf-variants__option-label">
-            <span className="sf-variants__option-name">Size</span>
-            <span className="sf-variants__option-meta">Option values</span>
-          </div>
-
-          <div className="sf-variants__chips">
-            {sizeChips.map((size) => {
-              const taken = existingKeys.has(existingSizeKey(size, bulk.colorHex))
-              const active = selectedSizes.includes(size)
-              return (
-                <button
-                  key={size}
-                  type="button"
-                  disabled={taken || bulkBusy}
-                  className={cn(
-                    'sf-variants__chip',
-                    active && 'sf-variants__chip--on',
-                    taken && 'sf-variants__chip--taken',
-                  )}
-                  onClick={() => toggleSizeChip(size)}
-                >
-                  {size}
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="sf-variants__custom-row">
-            <input
-              className="sf-variants__input"
-              placeholder="Custom size"
-              value={customSize}
-              onChange={(e) => setCustomSize(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  addCustomSize()
-                }
-              }}
-            />
-            <button type="button" className="sf-variants__btn sf-variants__btn--ghost" onClick={addCustomSize} disabled={!customSize.trim()}>
-              Add
-            </button>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div
+        style={{
+          border: '1px solid var(--line)',
+          borderRadius: 12,
+          background: 'var(--surface-2)',
+          padding: 14,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ font: `600 13px/1.3 ${FONT}`, color: 'var(--ink)' }}>Size × colour matrix</span>
+          <span style={{ font: `400 12px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
+            Pick sizes + colours, then generate only the missing combos.
+          </span>
         </div>
 
-        <div className="sf-variants__defaults">
-          <label className="sf-variants__field">
-            <span>Price</span>
-            <div className="sf-variants__input-affix">
-              <span>৳</span>
-              <input
-                type="number"
-                min={0}
-                className="sf-variants__input"
-                value={bulk.price}
-                placeholder="0.00"
-                onChange={(e) => setBulk((p) => ({ ...p, price: e.target.value }))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" style={btnLink} onClick={() => setSelectedSizes([...sizeChips])}>
+            Select all sizes
+          </button>
+          <button type="button" style={btnLink} onClick={() => setSelectedSizes([])} disabled={!selectedSizes.length}>
+            Clear
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {sizeChips.map((size) => {
+            const taken =
+              readyColours.length > 0 &&
+              readyColours.every((c) =>
+                existingKeys.has(existingSizeKey(size, normalizeHex(c.hex) ?? c.hex)),
+              )
+            return (
+              <SizeChip
+                key={size}
+                label={size}
+                on={selectedSizes.includes(size)}
+                taken={taken}
+                disabled={bulkBusy}
+                onClick={() => toggleSizeChip(size)}
               />
+            )
+          })}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 360 }}>
+          <DcInput
+            placeholder="Custom size"
+            value={customSize}
+            onChange={(e) => setCustomSize(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                addCustomSize()
+              }
+            }}
+          />
+          <button type="button" style={{ ...btnGhost, flex: 'none' }} onClick={addCustomSize} disabled={!customSize.trim()}>
+            Add
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {colorRows.map((row) => (
+            <div
+              key={row.id}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'auto auto minmax(120px, 1fr) minmax(110px, 140px) minmax(140px, 1fr) auto',
+                gap: 8,
+                alignItems: 'center',
+                padding: 10,
+                borderRadius: 10,
+                border: '1px solid var(--line)',
+                background: 'var(--surface)',
+              }}
+            >
+              <label
+                title="Pick colour"
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 9,
+                  border: '1px solid var(--line-2)',
+                  background: swatchCss(row.hex),
+                  cursor: 'pointer',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  flex: 'none',
+                }}
+              >
+                <input
+                  type="color"
+                  value={colourInputValue(row.hex)}
+                  onChange={(e) => {
+                    const hex = normalizeHex(e.target.value) ?? e.target.value
+                    updateColourRow(row.id, {
+                      hex,
+                      name:
+                        !row.name.trim() || row.name === nearestColourName(row.hex)
+                          ? nearestColourName(e.target.value)
+                          : row.name,
+                    })
+                  }}
+                  style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', border: 0 }}
+                />
+              </label>
+              <button
+                type="button"
+                title="Eyedropper"
+                onClick={() => void pickColourForRow(row.id)}
+                style={{ ...btnGhost, width: 34, height: 34, padding: 0 }}
+              >
+                <DcIcon name="icon-pipette" size={14} />
+              </button>
+              <DcInput
+                placeholder="Colour name"
+                value={row.name}
+                onChange={(e) => updateColourRow(row.id, { name: e.target.value })}
+                style={{ height: 34 }}
+              />
+              <DcInput
+                mono
+                placeholder="#RRGGBB"
+                value={row.hex}
+                onChange={(e) => {
+                  const typed = sanitizeHexTyping(e.target.value)
+                  const n = normalizeHex(typed)
+                  updateColourRow(row.id, {
+                    hex: n ?? typed,
+                    ...(n && (!row.name.trim() || row.name === nearestColourName(row.hex))
+                      ? { name: nearestColourName(n) }
+                      : {}),
+                  })
+                }}
+                style={{
+                  height: 34,
+                  ...(row.hex && !isValidHex(row.hex) ? { borderColor: 'var(--bad)', color: 'var(--bad)' } : {}),
+                }}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                <ImageThumb url={row.image} />
+                <select
+                  style={{ ...selectStyle, height: 34 }}
+                  value={row.image}
+                  onChange={(e) => updateColourRow(row.id, { image: e.target.value })}
+                >
+                  <option value="">Image</option>
+                  {productImages.filter(Boolean).map((url, idx) => (
+                    <option key={url} value={url}>
+                      Image {idx + 1}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                title="Remove colour"
+                onClick={() => removeColourRow(row.id)}
+                disabled={colorRows.length <= 1}
+                style={{ ...btnGhost, width: 34, height: 34, padding: 0, opacity: colorRows.length <= 1 ? 0.4 : 1 }}
+              >
+                <DcIcon name="icon-trash-2" size={13} />
+              </button>
             </div>
-          </label>
-          <label className="sf-variants__field">
-            <span>Quantity</span>
-            <input
+          ))}
+          <button type="button" onClick={addColourRow} style={{ ...btnGhost, alignSelf: 'flex-start', borderStyle: 'dashed' }}>
+            <DcIcon name="icon-plus" size={13} />
+            Add colour
+          </button>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: 10,
+          }}
+        >
+          <DcField label="Price">
+            <DcInput
+              mono
               type="number"
               min={0}
-              className="sf-variants__input"
+              value={bulk.price}
+              placeholder="0"
+              onChange={(e) => setBulk((p) => ({ ...p, price: e.target.value }))}
+            />
+          </DcField>
+          <DcField label="Compare-at">
+            <DcInput
+              mono
+              type="number"
+              min={0}
+              value={bulk.compareAt}
+              placeholder="optional"
+              onChange={(e) => setBulk((p) => ({ ...p, compareAt: e.target.value }))}
+            />
+          </DcField>
+          <DcField label="Quantity">
+            <DcInput
+              mono
+              type="number"
+              min={0}
               value={bulk.stock}
               onChange={(e) => setBulk((p) => ({ ...p, stock: e.target.value }))}
             />
-          </label>
-          <label className="sf-variants__field">
-            <span>Colour</span>
-            <input
-              className="sf-variants__input"
-              value={bulk.colorName}
-              onChange={(e) => setBulk((p) => ({ ...p, colorName: e.target.value }))}
-            />
-          </label>
-          <label className="sf-variants__field">
-            <span>Swatch</span>
-            <div className="sf-variants__swatch-row">
-              <span className="sf-variants__swatch" style={{ background: colourInputValue(bulk.colorHex) }} />
-              <input
-                type="color"
-                className="sf-variants__color"
-                value={colourInputValue(bulk.colorHex)}
-                onChange={(e) =>
-                  setBulk((p) => ({
-                    ...p,
-                    colorHex: normalizeHex(e.target.value) ?? e.target.value,
-                    colorName:
-                      !p.colorName.trim() || p.colorName === 'Default' || p.colorName === nearestColourName(p.colorHex)
-                        ? nearestColourName(e.target.value)
-                        : p.colorName,
-                  }))
-                }
-              />
-              <button
-                type="button"
-                className="sf-variants__link"
-                title="Eyedropper — pick colour from product photo"
-                onClick={() => {
-                  void (async () => {
-                    if (!eyeDropperSupported()) {
-                      toastWarn('Eyedropper needs Chrome or Edge')
-                      return
-                    }
-                    const picked = await pickColourWithEyeDropper()
-                    if (!picked) return
-                    setBulk((p) => ({
-                      ...p,
-                      colorHex: picked.hex,
-                      colorName: picked.name,
-                    }))
-                    toastOk(`${picked.name} · ${picked.hex}`)
-                  })()
-                }}
-              >
-                Pen
-              </button>
-            </div>
-          </label>
-          <label className="sf-variants__field">
-            <span>Image</span>
-            <select
-              className="sf-variants__input"
-              value={bulk.image}
-              onChange={(e) => setBulk((p) => ({ ...p, image: e.target.value }))}
-            >
-              <option value="">None</option>
-              {productImages.map((url, idx) => (
-                <option key={url} value={url}>Image {idx + 1}</option>
-              ))}
-            </select>
-          </label>
+          </DcField>
         </div>
 
-        <div className="sf-variants__toolbar">
+        <div
+          className="dc-variant-summary"
+          style={{ margin: 0 }}
+        >
+          <DcIcon name="icon-layers" size={14} color="var(--ink-3)" />
+          <span style={{ flex: 1, font: `500 12.5px/1.35 ${FONT}`, color: 'var(--ink-2)' }}>
+            {selectedSizes.length} sizes × {readyColours.length} colours → {generatePlan.fresh} new
+            {generatePlan.skip ? ` · ${generatePlan.skip} already exist` : ''}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <button
             type="button"
-            className="sf-variants__btn sf-variants__btn--primary"
-            disabled={bulkBusy || selectedSizes.length === 0}
+            style={{
+              ...btnPrimary,
+              opacity: bulkBusy || !generatePlan.fresh ? 0.55 : 1,
+              cursor: bulkBusy || !generatePlan.fresh ? 'not-allowed' : 'pointer',
+            }}
+            disabled={bulkBusy || !generatePlan.fresh}
             onClick={() => void createSizesBulk()}
           >
-            {bulkBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            {selectedSizes.length
-              ? `Generate ${selectedSizes.length} variant${selectedSizes.length === 1 ? '' : 's'}`
-              : 'Generate variants'}
+            <DcIcon name="icon-plus" size={14} />
+            {bulkBusy
+              ? 'Generating…'
+              : generatePlan.fresh
+                ? `Generate ${generatePlan.fresh} variant${generatePlan.fresh === 1 ? '' : 's'}`
+                : 'Generate variants'}
           </button>
-          <div className="sf-variants__toolbar-links">
-            <button type="button" className="sf-variants__link" disabled={bulkBusy || !variants.length} onClick={() => void applyPriceToAll()}>
-              Apply price to all
-            </button>
-            <button type="button" className="sf-variants__link" disabled={bulkBusy || !variants.length} onClick={() => void applyStockToAll()}>
-              Apply quantity to all
-            </button>
-          </div>
+          <button
+            type="button"
+            style={{ ...btnLink, opacity: bulkBusy || !variants.length || !bulk.price.trim() ? 0.4 : 1 }}
+            disabled={bulkBusy || !variants.length || !bulk.price.trim()}
+            onClick={() => void applyPriceToAll()}
+          >
+            Apply price to all
+          </button>
+          <button
+            type="button"
+            style={{ ...btnLink, opacity: bulkBusy || !variants.length ? 0.4 : 1 }}
+            disabled={bulkBusy || !variants.length}
+            onClick={() => void applyStockToAll()}
+          >
+            Apply quantity to all
+          </button>
+          <button
+            type="button"
+            style={{ ...btnLink, opacity: !variants.length ? 0.4 : 1 }}
+            disabled={!variants.length}
+            onClick={() =>
+              printVariantStickers(
+                variants.map((v) => {
+                  const d = draftFor(v)
+                  return {
+                    name: [productName?.trim(), d.colorName.trim() || d.color.trim()]
+                      .filter(Boolean)
+                      .join(' · ') || 'SPLARO',
+                    size: d.size.trim() || v.size || '',
+                    sku: d.sku.trim() || v.sku || '',
+                    barcode: d.barcode.trim() || v.barcode || '',
+                  }
+                }),
+              )
+            }
+          >
+            Print stickers
+          </button>
         </div>
-      </section>
+      </div>
 
-      {/* Shopify-style variants table */}
-      <section className="sf-variants__block">
-        <header className="sf-variants__block-head sf-variants__block-head--row">
-          <div>
-            <h4 className="sf-variants__block-title">Variants</h4>
-            <p className="sf-variants__block-desc">
-              {variants.length} variant{variants.length === 1 ? '' : 's'} · {totalAvailable} available
-            </p>
-          </div>
-        </header>
+      <div className="dc-variant-summary">
+        <DcIcon name="icon-layers" size={14} color="var(--ink-3)" />
+        <span style={{ flex: 1, minWidth: 160, font: `500 12.5px/1.35 ${FONT}`, color: 'var(--ink-2)' }}>
+          {variants.length} variant{variants.length === 1 ? '' : 's'} · {totalAvailable} available
+          {dirtyIds.size ? ` · ${dirtyIds.size} unsaved` : ''}
+        </span>
+        {dirtyIds.size ? (
+          <button
+            type="button"
+            style={{ ...btnPrimary, height: 32, opacity: bulkAllBusy === 'save' ? 0.55 : 1 }}
+            disabled={bulkAllBusy === 'save'}
+            onClick={() => void saveAllDirty()}
+          >
+            {bulkAllBusy === 'save' ? 'Saving…' : `Save ${dirtyIds.size} unsaved`}
+          </button>
+        ) : null}
+      </div>
 
-        {variants.length === 0 ? (
-          <div className="sf-variants__empty">
-            <p>No variants yet</p>
-            <span>Select size values above and generate variants.</span>
+      {variants.length === 0 ? (
+        <div
+          style={{
+            border: '1px dashed var(--line-2)',
+            borderRadius: 12,
+            padding: '28px 16px',
+            textAlign: 'center',
+            color: 'var(--ink-3)',
+            font: `400 12.5px/1.5 ${FONT}`,
+          }}
+        >
+          No variants yet. Select sizes + colours above and generate.
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+            <DcInput
+              placeholder="Search size, colour, SKU…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              style={{ maxWidth: 240, height: 34 }}
+            />
+            {(['all', 'in', 'low', 'out'] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setStockFilter(key)}
+                style={{
+                  height: 30,
+                  padding: '0 10px',
+                  borderRadius: 8,
+                  border: `1px solid ${stockFilter === key ? 'var(--violet-bd)' : 'var(--line)'}`,
+                  background: stockFilter === key ? 'var(--violet-soft)' : 'var(--surface)',
+                  color: stockFilter === key ? 'var(--violet)' : 'var(--ink-2)',
+                  cursor: 'pointer',
+                  font: `600 11.5px/1 ${FONT}`,
+                }}
+              >
+                {key === 'all' ? 'All stock' : key === 'in' ? 'In stock' : key === 'low' ? 'Low' : 'Out'}
+              </button>
+            ))}
+            {colourOptions.length > 1
+              ? [
+                  <button
+                    key="all-c"
+                    type="button"
+                    onClick={() => setColourFilter('all')}
+                    style={{
+                      height: 30,
+                      padding: '0 10px',
+                      borderRadius: 8,
+                      border: `1px solid ${colourFilter === 'all' ? 'var(--violet-bd)' : 'var(--line)'}`,
+                      background: colourFilter === 'all' ? 'var(--violet-soft)' : 'var(--surface)',
+                      color: colourFilter === 'all' ? 'var(--violet)' : 'var(--ink-2)',
+                      cursor: 'pointer',
+                      font: `600 11.5px/1 ${FONT}`,
+                    }}
+                  >
+                    All colours
+                  </button>,
+                  ...colourOptions.map((c) => (
+                    <button
+                      key={c.hex}
+                      type="button"
+                      onClick={() => setColourFilter(c.hex)}
+                      title={c.name}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        height: 30,
+                        padding: '0 10px',
+                        borderRadius: 8,
+                        border: `1px solid ${colourFilter === c.hex ? 'var(--violet-bd)' : 'var(--line)'}`,
+                        background: colourFilter === c.hex ? 'var(--violet-soft)' : 'var(--surface)',
+                        cursor: 'pointer',
+                        font: `600 11.5px/1 ${FONT}`,
+                        color: 'var(--ink-2)',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 99,
+                          background: swatchCss(c.hex),
+                          border: '1px solid var(--line-2)',
+                        }}
+                      />
+                      {c.name}
+                    </button>
+                  )),
+                ]
+              : null}
           </div>
-        ) : (
-          <div className="sf-variants__table-wrap">
-            {/* Repricing or numbering a 50-cell matrix one row at a time was the
-                only option before this. */}
-            <div className="sf-variants__bulkbar">
-              <label>
-                <span>Set all price</span>
-                <input
+
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 10,
+              alignItems: 'end',
+              padding: '12px 13px',
+              borderRadius: 11,
+              border: '1px solid var(--line)',
+              background: 'var(--surface)',
+            }}
+          >
+            <DcField label="Set all price">
+              <div style={{ display: 'flex', gap: 8, minWidth: 220 }}>
+                <DcInput
+                  mono
                   value={bulkAllPrice}
                   onChange={(e) => setBulkAllPrice(e.target.value.replace(/[^0-9.]/g, ''))}
                   placeholder="4500"
                   inputMode="decimal"
                 />
-              </label>
-              <button
-                type="button"
-                onClick={() => void handleSetAllPrice()}
-                disabled={bulkAllBusy !== null || !bulkAllPrice.trim()}
-              >
-                {bulkAllBusy === 'price' ? 'Applying…' : `Apply to ${variants.length}`}
-              </button>
-
-              <span className="sf-variants__bulkbar-sep" aria-hidden />
-
-              <label>
-                <span>SKU prefix</span>
-                <input
+                <button
+                  type="button"
+                  style={{
+                    ...btnGhost,
+                    flex: 'none',
+                    opacity: bulkAllBusy !== null || !bulkAllPrice.trim() ? 0.5 : 1,
+                  }}
+                  disabled={bulkAllBusy !== null || !bulkAllPrice.trim()}
+                  onClick={() => void handleSetAllPrice()}
+                >
+                  {bulkAllBusy === 'price' ? 'Applying…' : `Apply to ${variants.length}`}
+                </button>
+              </div>
+            </DcField>
+            <DcField label="SKU prefix">
+              <div style={{ display: 'flex', gap: 8, minWidth: 240 }}>
+                <DcInput
+                  mono
                   value={skuPrefix}
                   onChange={(e) => setSkuPrefix(e.target.value)}
                   placeholder="SPL-SHIRT"
                 />
-              </label>
-              <button
-                type="button"
-                onClick={() => void handleAutoSku()}
-                disabled={bulkAllBusy !== null || !skuPrefix.trim()}
-                title="PREFIX-SIZE-COLOUR for every variant"
-              >
-                {bulkAllBusy === 'sku' ? 'Generating…' : 'Auto SKUs'}
-              </button>
-            </div>
+                <button
+                  type="button"
+                  style={{
+                    ...btnGhost,
+                    flex: 'none',
+                    opacity: bulkAllBusy !== null || !skuPrefix.trim() ? 0.5 : 1,
+                  }}
+                  disabled={bulkAllBusy !== null || !skuPrefix.trim()}
+                  title="PREFIX-SIZE-COLOUR for every variant"
+                  onClick={() => void handleAutoSku()}
+                >
+                  {bulkAllBusy === 'sku' ? 'Generating…' : 'Auto SKUs'}
+                </button>
+              </div>
+            </DcField>
+          </div>
 
-            <table className="sf-variants__table">
+          <div className="dc-variant-matrix" style={{ maxHeight: 520 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 860 }}>
               <thead>
                 <tr>
-                  <th>Variant</th>
-                  <th>Price</th>
-                  <th>Available</th>
-                  <th>SKU</th>
-                  <th>Image</th>
-                  <th />
+                  <th style={thStyle}>Variant</th>
+                  <th style={thStyle}>Price</th>
+                  <th style={thStyle}>Compare</th>
+                  <th style={thStyle}>Available</th>
+                  <th style={thStyle}>SKU</th>
+                  <th style={thStyle}>Barcode</th>
+                  <th style={thStyle}>Image</th>
+                  <th style={thStyle} />
                 </tr>
               </thead>
               <tbody>
-                {variants.map((v, i) => {
+                {filteredVariants.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ padding: 24, textAlign: 'center', font: `400 12.5px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
+                      No variants match this filter.
+                    </td>
+                  </tr>
+                ) : null}
+                {groupedVariants.map((group) => {
+                  const open = !collapsed[group.key]
+                  const groupQty = group.rows.reduce((sum, row) => sum + Number(draftFor(row).stock || 0), 0)
+                  return (
+                    <Fragment key={group.key}>
+                      <tr>
+                        <td
+                          colSpan={8}
+                          style={{
+                            padding: '8px 12px',
+                            background: 'var(--surface-2)',
+                            borderBottom: '1px solid var(--line)',
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setCollapsed((prev) => ({ ...prev, [group.key]: !prev[group.key] }))}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              border: 0,
+                              background: 'transparent',
+                              cursor: 'pointer',
+                              padding: 0,
+                              font: `600 12.5px/1 ${FONT}`,
+                              color: 'var(--ink)',
+                            }}
+                          >
+                            <DcIcon name={open ? 'icon-chevron-down' : 'icon-chevron-right'} size={14} />
+                            <span
+                              style={{
+                                width: 14,
+                                height: 14,
+                                borderRadius: 4,
+                                border: '1px solid var(--line-2)',
+                                background: swatchCss(group.hex),
+                              }}
+                            />
+                            {group.name}
+                            <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                              {group.rows.length} · {groupQty} pcs
+                            </span>
+                          </button>
+                        </td>
+                      </tr>
+                      {open
+                        ? group.rows.map((v, i) => {
                   const d = draftFor(v)
                   const active = v.isActive ?? true
                   const busy = rowBusy(v.id)
                   const stockChanged = Number(d.stock) !== serverStock(v)
+                  const low = Number(d.stock) < 5
+                  const dirty = Boolean(v.id && dirtyIds.has(v.id))
+                  const status = stockStatus(Number(d.stock))
+                  const onEnter = (e: { key: string; preventDefault: () => void }) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      void saveRow(v)
+                    }
+                  }
                   return (
-                    <tr key={v.id ?? i} className={cn(!active && 'sf-variants__row--off')}>
-                      <td>
-                        <div className="sf-variants__variant-cell">
+                    <tr
+                      key={v.id ?? `${group.key}-${i}`}
+                      style={{
+                        borderBottom: '1px solid var(--line)',
+                        opacity: active ? 1 : 0.55,
+                        background: dirty ? 'var(--violet-soft)' : active ? undefined : 'var(--surface-2)',
+                        boxShadow: dirty ? 'inset 3px 0 0 var(--violet)' : undefined,
+                      }}
+                    >
+                      <td style={{ padding: '10px 12px', minWidth: 140 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <button
                             type="button"
-                            className={cn('sf-variants__status', active ? 'sf-variants__status--on' : 'sf-variants__status--off')}
                             disabled={busy}
                             onClick={() => void toggleActive(v)}
                             title={active ? 'Active — click to deactivate' : 'Inactive — click to activate'}
+                            style={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: 99,
+                              border: 0,
+                              padding: 0,
+                              background: active ? 'var(--ok)' : 'var(--ink-3)',
+                              cursor: busy ? 'not-allowed' : 'pointer',
+                              flex: 'none',
+                            }}
                           />
-                          <span className="sf-variants__swatch" style={{ background: swatchCss(d.colorHex) }} />
-                          <div className="sf-variants__variant-meta">
-                            <strong>{d.size || '—'}</strong>
-                            <span>{d.colorName || 'Default'}</span>
-                          </div>
+                          <span
+                            style={{
+                              width: 14,
+                              height: 14,
+                              borderRadius: 4,
+                              border: '1px solid var(--line-2)',
+                              background: swatchCss(d.colorHex),
+                              flex: 'none',
+                            }}
+                          />
+                          <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+                            <strong style={{ font: `600 12.5px/1 ${FONT}`, color: 'var(--ink)' }}>
+                              {d.size || '—'}
+                            </strong>
+                            <span style={{ font: `400 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                              {d.colorName || 'Default'}
+                            </span>
+                          </span>
                         </div>
                       </td>
-                      <td>
-                        <div className="sf-variants__input-affix sf-variants__input-affix--compact">
-                          <span>৳</span>
-                          <input
-                            type="number"
-                            min={0}
-                            className="sf-variants__input"
-                            value={d.price}
-                            onChange={(e) => v.id && setField(v.id, 'price', e.target.value)}
-                          />
-                        </div>
-                      </td>
-                      <td>
-                        <input
+                      <td style={{ padding: '8px 12px', width: 100 }}>
+                        <DcInput
+                          mono
                           type="number"
                           min={0}
-                          className={cn('sf-variants__input sf-variants__input--qty', Number(d.stock) < 5 && 'sf-variants__input--warn')}
-                          value={d.stock}
-                          onChange={(e) => v.id && setField(v.id, 'stock', e.target.value)}
+                          value={d.price}
+                          onChange={(e) => v.id && setField(v.id, 'price', e.target.value)}
+                          onKeyDown={onEnter}
+                          style={{ height: 34 }}
                         />
                       </td>
-                      <td>
-                        <input
-                          className="sf-variants__input sf-variants__input--sku"
-                          placeholder="SKU"
-                          value={d.sku}
-                          onChange={(e) => v.id && setField(v.id, 'sku', e.target.value)}
+                      <td style={{ padding: '8px 12px', width: 90 }}>
+                        <DcInput
+                          mono
+                          type="number"
+                          min={0}
+                          placeholder="—"
+                          value={d.compareAtPrice}
+                          onChange={(e) => v.id && setField(v.id, 'compareAtPrice', e.target.value)}
+                          onKeyDown={onEnter}
+                          style={{ height: 34 }}
                         />
                       </td>
-                      <td>
-                        <select
-                          className="sf-variants__input"
-                          value={d.image}
-                          onChange={(e) => v.id && setField(v.id, 'image', e.target.value)}
-                        >
-                          <option value="">—</option>
-                          {productImages.map((url, idx) => (
-                            <option key={url} value={url}>Img {idx + 1}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <div className="sf-variants__row-actions">
+                      <td style={{ padding: '8px 12px', width: 148 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <button
                             type="button"
-                            className="sf-variants__btn sf-variants__btn--small sf-variants__btn--primary"
+                            disabled={busy}
+                            onClick={() =>
+                              v.id && setField(v.id, 'stock', String(Math.max(0, Number(d.stock || 0) - 1)))
+                            }
+                            style={{ ...btnGhost, width: 28, height: 28, padding: 0, flex: 'none' }}
+                          >
+                            −
+                          </button>
+                          <DcInput
+                            mono
+                            type="number"
+                            min={0}
+                            value={d.stock}
+                            onChange={(e) => v.id && setField(v.id, 'stock', e.target.value)}
+                            onKeyDown={onEnter}
+                            style={{
+                              height: 34,
+                              borderColor: low ? 'var(--warn)' : undefined,
+                              color: low ? 'var(--warn)' : undefined,
+                            }}
+                          />
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => v.id && setField(v.id, 'stock', String(Number(d.stock || 0) + 1))}
+                            style={{ ...btnGhost, width: 28, height: 28, padding: 0, flex: 'none' }}
+                          >
+                            +
+                          </button>
+                          <span
+                            style={{
+                              flex: 'none',
+                              padding: '3px 7px',
+                              borderRadius: 6,
+                              border: `1px solid ${status.bd}`,
+                              background: status.bg,
+                              color: status.fg,
+                              font: `600 10px/1 ${FONT}`,
+                            }}
+                          >
+                            {status.label}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '8px 12px', minWidth: 120 }}>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <DcInput
+                            mono
+                            placeholder="SKU"
+                            value={d.sku}
+                            onChange={(e) => v.id && setField(v.id, 'sku', e.target.value)}
+                            onKeyDown={onEnter}
+                            style={{ height: 34 }}
+                          />
+                          <button
+                            type="button"
+                            title="Copy SKU"
+                            onClick={() => void copyText('SKU', d.sku)}
+                            style={{ ...btnGhost, width: 28, height: 34, padding: 0, flex: 'none' }}
+                          >
+                            <DcIcon name="icon-copy" size={12} />
+                          </button>
+                        </div>
+                      </td>
+                      <td style={{ padding: '8px 12px', minWidth: 120 }}>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <DcInput
+                            mono
+                            placeholder="EAN / UPC"
+                            value={d.barcode}
+                            onChange={(e) => v.id && setField(v.id, 'barcode', e.target.value)}
+                            onKeyDown={onEnter}
+                            style={{ height: 34 }}
+                          />
+                          <button
+                            type="button"
+                            title="Copy barcode"
+                            onClick={() => void copyText('Barcode', d.barcode)}
+                            style={{ ...btnGhost, width: 28, height: 34, padding: 0, flex: 'none' }}
+                          >
+                            <DcIcon name="icon-copy" size={12} />
+                          </button>
+                        </div>
+                      </td>
+                      <td style={{ padding: '8px 12px', minWidth: 140 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <ImageThumb url={d.image} />
+                          <select
+                            style={{ ...selectStyle, height: 34 }}
+                            value={d.image}
+                            onChange={(e) => v.id && setField(v.id, 'image', e.target.value)}
+                          >
+                            <option value="">—</option>
+                            {productImages.filter(Boolean).map((url, idx) => (
+                              <option key={url} value={url}>
+                                Img {idx + 1}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </td>
+                      <td style={{ padding: '8px 12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            style={{
+                              ...btnPrimary,
+                              height: 32,
+                              padding: '0 12px',
+                              font: `600 12px/1 ${FONT}`,
+                              opacity: busy ? 0.55 : 1,
+                            }}
                             disabled={busy}
                             onClick={() => void saveRow(v)}
                           >
-                            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Save'}
+                            {busy ? 'Saving…' : dirty ? 'Save*' : 'Save'}
                           </button>
                           {d.image ? (
                             <button
                               type="button"
-                              className="sf-variants__link"
+                              style={{ ...btnLink, opacity: busy ? 0.4 : 1 }}
                               disabled={busy}
                               onClick={() => void applyImageToColour(v)}
                             >
@@ -941,69 +1758,175 @@ export function ProductVariantManager({
                           ) : null}
                           <button
                             type="button"
-                            className="sf-variants__icon-btn"
-                            disabled={busy || !active}
                             title="Archive"
+                            disabled={busy || !active}
                             onClick={() => void archiveRow(v)}
+                            style={{
+                              ...btnGhost,
+                              height: 32,
+                              width: 32,
+                              padding: 0,
+                              opacity: busy || !active ? 0.4 : 1,
+                            }}
                           >
-                            <Archive className="h-3.5 w-3.5" />
+                            <DcIcon name="icon-archive" size={14} />
                           </button>
                         </div>
                         {stockChanged ? (
-                          <div className="sf-variants__stock-note">
+                          <div style={{ display: 'grid', gap: 6, marginTop: 8, minWidth: 180 }}>
                             <select
-                              className="sf-variants__input"
+                              style={{ ...selectStyle, height: 34 }}
                               value={d.stockReason}
                               onChange={(e) => v.id && setField(v.id, 'stockReason', e.target.value)}
                             >
                               {STOCK_REASONS.map((r) => (
-                                <option key={r} value={r}>{r}</option>
+                                <option key={r} value={r}>
+                                  {r}
+                                </option>
                               ))}
                             </select>
-                            <input
-                              className="sf-variants__input"
+                            <DcInput
                               placeholder="Note (optional)"
                               value={d.stockNote}
                               onChange={(e) => v.id && setField(v.id, 'stockNote', e.target.value)}
+                              style={{ height: 34 }}
                             />
                           </div>
                         ) : null}
                       </td>
                     </tr>
                   )
+                        })
+                        : null}
+                    </Fragment>
+                  )
                 })}
               </tbody>
             </table>
           </div>
-        )}
+        </>
+      )}
 
-        <div className="sf-variants__footer">
-          {showManual ? (
-            <div className="sf-variants__manual">
-              <p className="sf-variants__manual-title">Add one variant</p>
-              <div className="sf-variants__manual-grid">
-                <input className="sf-variants__input" placeholder="Size" value={addDraft.size} onChange={(e) => setAddDraft((p) => ({ ...p, size: e.target.value }))} />
-                <input className="sf-variants__input" placeholder="Colour" value={addDraft.colorName} onChange={(e) => setAddDraft((p) => ({ ...p, colorName: e.target.value, color: e.target.value }))} />
-                <input type="number" min={0} className="sf-variants__input" placeholder="Price" value={addDraft.price} onChange={(e) => setAddDraft((p) => ({ ...p, price: e.target.value }))} />
-                <input type="number" min={0} className="sf-variants__input" placeholder="Qty" value={addDraft.stock} onChange={(e) => setAddDraft((p) => ({ ...p, stock: e.target.value }))} />
-              </div>
-              <div className="sf-variants__manual-actions">
-                <button type="button" className="sf-variants__btn sf-variants__btn--primary" disabled={createVariant.isPending} onClick={() => void submitAdd()}>
-                  {createVariant.isPending ? 'Adding…' : 'Add variant'}
-                </button>
-                <button type="button" className="sf-variants__btn sf-variants__btn--ghost" onClick={() => { setShowManual(false); setAddDraft(EMPTY_DRAFT) }}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button type="button" className="sf-variants__add-one" onClick={() => setShowManual(true)}>
-              <Plus className="h-4 w-4" />
-              Add another variant
+      {showManual ? (
+        <div
+          style={{
+            border: '1px solid var(--line)',
+            borderRadius: 12,
+            padding: 14,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            background: 'var(--surface)',
+          }}
+        >
+          <span style={{ font: `600 13px/1 ${FONT}`, color: 'var(--ink)' }}>Add one variant</span>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gap: 10,
+            }}
+          >
+            <DcField label="Size">
+              <DcInput
+                value={addDraft.size}
+                onChange={(e) => setAddDraft((p) => ({ ...p, size: e.target.value }))}
+              />
+            </DcField>
+            <DcField label="Colour">
+              <DcInput
+                value={addDraft.colorName}
+                onChange={(e) =>
+                  setAddDraft((p) => ({ ...p, colorName: e.target.value, color: e.target.value }))
+                }
+              />
+            </DcField>
+            <DcField label="Price">
+              <DcInput
+                mono
+                type="number"
+                min={0}
+                value={addDraft.price}
+                onChange={(e) => setAddDraft((p) => ({ ...p, price: e.target.value }))}
+              />
+            </DcField>
+            <DcField label="Compare-at">
+              <DcInput
+                mono
+                type="number"
+                min={0}
+                value={addDraft.compareAtPrice}
+                onChange={(e) => setAddDraft((p) => ({ ...p, compareAtPrice: e.target.value }))}
+              />
+            </DcField>
+            <DcField label="Qty">
+              <DcInput
+                mono
+                type="number"
+                min={0}
+                value={addDraft.stock}
+                onChange={(e) => setAddDraft((p) => ({ ...p, stock: e.target.value }))}
+              />
+            </DcField>
+            <DcField label="SKU">
+              <DcInput
+                mono
+                value={addDraft.sku}
+                onChange={(e) => setAddDraft((p) => ({ ...p, sku: e.target.value }))}
+              />
+            </DcField>
+            <DcField label="Barcode">
+              <DcInput
+                mono
+                value={addDraft.barcode}
+                onChange={(e) => setAddDraft((p) => ({ ...p, barcode: e.target.value }))}
+              />
+            </DcField>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              style={{ ...btnPrimary, opacity: createVariant.isPending ? 0.55 : 1 }}
+              disabled={createVariant.isPending}
+              onClick={() => void submitAdd()}
+            >
+              {createVariant.isPending ? 'Adding…' : 'Add variant'}
             </button>
-          )}
+            <button
+              type="button"
+              style={btnGhost}
+              onClick={() => {
+                setShowManual(false)
+                setAddDraft(EMPTY_DRAFT)
+              }}
+            >
+              Cancel
+            </button>
+          </div>
         </div>
-      </section>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowManual(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 7,
+            height: 38,
+            padding: '0 14px',
+            borderRadius: 9,
+            border: '1px dashed var(--line-2)',
+            background: 'transparent',
+            color: 'var(--ink-2)',
+            cursor: 'pointer',
+            font: `600 12.5px/1 ${FONT}`,
+            alignSelf: 'flex-start',
+          }}
+        >
+          <DcIcon name="icon-plus" size={14} />
+          Add another variant
+        </button>
+      )}
     </div>
   )
 }

@@ -25,12 +25,19 @@ const HEX_ALLOW_FILES = new Set([
   // admin UI. Design tokens do not exist there, and a receipt printer needs
   // true black rather than an ink-ramp variable.
   join(adminSrc, 'lib/admin/pos-receipt.ts').replace(/\\/g, '/'),
+  // Variant barcode stickers — same standalone print document as receipts.
+  join(adminSrc, 'lib/admin/variant-stickers.ts').replace(/\\/g, '/'),
 ])
 const HEX_RE = /#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/g
 
 function isHexAllowed(file) {
   const norm = file.replace(/\\/g, '/')
-  return HEX_ALLOW_FILES.has(norm) || norm.endsWith('lib/admin/colour-names.ts') || norm.endsWith('lib/admin/pos-receipt.ts')
+  return (
+    HEX_ALLOW_FILES.has(norm) ||
+    norm.endsWith('lib/admin/colour-names.ts') ||
+    norm.endsWith('lib/admin/pos-receipt.ts') ||
+    norm.endsWith('lib/admin/variant-stickers.ts')
+  )
 }
 
 /** Expand #rgb → #rrggbb (lowercase). Drop alpha-only 8-digit if last 2 are not meaningful for token id. */

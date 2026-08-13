@@ -178,14 +178,23 @@ a.admin-btn {
   color: var(--admin-c-fafafa);
 }
 
-.admin-btn--sm {
+/*
+ * The base rule above is element-qualified (`button.admin-btn`), so a bare
+ * `.admin-btn--sm` loses the specificity contest and every size renders at the
+ * base 40px. The size modifiers have to carry the same qualification to win.
+ */
+.admin-btn--sm,
+button.admin-btn--sm,
+a.admin-btn--sm {
   min-height: var(--admin-control-height-sm);
   padding: 0 0.7rem;
   font-size: 0.75rem;
   border-radius: var(--admin-radius-compact);
 }
 
-.admin-btn--lg {
+.admin-btn--lg,
+button.admin-btn--lg,
+a.admin-btn--lg {
   min-height: var(--admin-control-height-lg);
   padding: 0 1.1rem;
   font-size: 0.875rem;

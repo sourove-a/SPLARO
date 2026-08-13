@@ -57,6 +57,7 @@ import { fetchCourierShipments, fetchCourierStats } from './courier'
 import { fetchInvoices, fetchInvoiceHealth, fetchInvoiceStats, fetchTransactions, fetchTransactionHealth, fetchTransaction, fetchReturns, updateReturnStatus, createReturn, type RmaApiStatus } from './commerce-finance'
 import { fetchSettings, updateSettings, fetchNewsletterSubscribers, fetchCatalogChannelStats, type AdminSettingsData } from './settings'
 import { revalidateWebCache } from './revalidate'
+import { fetchMediaFolders } from './media'
 import { hasPermission, type PermissionAction, type PermissionModule } from '@/lib/auth/permissions'
 import { setAdminApiToken } from '@/lib/auth/api-token'
 import {
@@ -1625,6 +1626,16 @@ export function useMedia(query: Omit<MediaQuery, 'cursor'> = {}) {
     queryFn: ({ pageParam }) => fetchMedia({ ...query, ...(pageParam ? { cursor: pageParam } : {}) }),
     initialPageParam: '',
     getNextPageParam: (lastPage) => lastPage.pageInfo?.hasMore ? lastPage.pageInfo.nextCursor ?? undefined : undefined,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+/** Library folders the store can file media under — built-ins plus its own. */
+export function useMediaFolders() {
+  return useQuery({
+    queryKey: ['media-folders'],
+    queryFn: fetchMediaFolders,
     staleTime: 30_000,
     retry: 1,
   })

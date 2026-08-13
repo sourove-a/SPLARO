@@ -19,7 +19,9 @@ function mcpConnectUrl(): string {
     process.env['NEXT_PUBLIC_ADMIN_URL'] ||
     'https://admin.splaro.co'
   ).replace(/\/+$/, '')
-  return `${base}/mcp/sse`
+  // Streamable HTTP. The deprecated HTTP+SSE transport still answers on
+  // `${base}/mcp/sse`, but connectors should be pointed at `/mcp`.
+  return `${base}/mcp`
 }
 
 export type McpTokenRecord = {

@@ -91,7 +91,7 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     group: 'Catalog',
     items: [
-      item('Products', 'products', 'Package', 'Product catalog and variant management'),
+      item('Products', 'products', 'Package', 'Catalog list and homepage Men / Women tiles'),
       item('Product Reviews', 'product-reviews', 'MessageSquareQuote', 'Approve, reject, and moderate customer reviews'),
       item('Collections', 'collections', 'Layers', 'Curated product collections'),
       item('Categories', 'categories', 'FolderTree', 'Category hierarchy and navigation'),

@@ -1,5 +1,8 @@
+import type { HomepageCatalogConfig, HomepageCatalogTile } from '@splaro/config'
 import { apiFetch } from './client'
 import type { CatalogChannel, ShopFiltersConfig } from '@splaro/types'
+
+export type { HomepageCatalogConfig, HomepageCatalogTile }
 
 export interface NavLink {
   label: string
@@ -200,6 +203,7 @@ export interface AdminSettingsData {
   newsletter: NewsletterConfig
   ourStory: OurStoryConfig
   homepage: HomepageSectionsConfig
+  homepageCatalog?: HomepageCatalogConfig
   catalogChannels: CatalogChannel[]
   shopFilters: ShopFiltersConfig
   catalog: {

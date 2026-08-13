@@ -11,8 +11,52 @@ import {
 } from './label.template'
 
 type LabelOrder = Order & {
-  items: (OrderItem & { variant?: ProductVariant | null })[]
+  items: (OrderItem & {
+    variant?: ProductVariant | null
+    product?: { name: string; sku?: string | null; barcode?: string | null; images?: { url: string }[] } | null
+  })[]
   courier: CourierShipment | null
+}
+
+const productStationSelect = {
+  name: true,
+  sku: true,
+  barcode: true,
+  images: { where: { isDefault: true }, take: 1, select: { url: true } },
+} as const
+
+export interface FulfillmentStationItem {
+  id: string
+  name: string
+  sku: string
+  barcode: string | null
+  size: string
+  color: string
+  quantity: number
+  image: string | null
+}
+
+export interface FulfillmentStationOrder {
+  orderId: string
+  invoiceNumber: string
+  status: string
+  customerName: string
+  customerPhone: string
+  city: string
+  district: string
+  address: string
+  paymentMethod: string
+  paymentStatus: string
+  total: number
+  itemCount: number
+  isCodRisk: boolean
+  items: FulfillmentStationItem[]
+  courier: {
+    provider: string | null
+    consignmentId: string | null
+    trackingCode: string | null
+    status: string | null
+  } | null
 }
 
 @Injectable()
@@ -29,7 +73,12 @@ export class FulfillmentService {
         ...(storeId ? { storeId } : {}),
       },
       include: {
-        items: { include: { variant: true } },
+        items: {
+          include: {
+            variant: true,
+            product: { select: productStationSelect },
+          },
+        },
         courier: true,
       },
     })
@@ -119,10 +168,15 @@ export class FulfillmentService {
     const order = await this.loadOrder(idOrInvoice, opts.storeId)
     const stickers: ProductStickerModel[] = order.items.map((item) => {
       const { size, color } = this.parseVariant(item)
+      const sku = item.sku?.trim() || item.variant?.sku?.trim() || item.product?.sku?.trim() || '—'
+      const barcode = item.variant?.barcode?.trim() || item.product?.barcode?.trim() || ''
+      const scanCode = barcode || (sku !== '—' ? sku : order.invoiceNumber)
       return {
         invoiceNumber: order.invoiceNumber,
         productName: item.productName,
-        sku: item.sku?.trim() || '—',
+        sku,
+        barcode: barcode || undefined,
+        scanCode,
         size,
         color,
         quantity: item.quantity,
@@ -170,12 +224,22 @@ export class FulfillmentService {
 
     const invoiceList = [...candidates]
 
+    const stationInclude = {
+      items: {
+        include: {
+          variant: true,
+          product: { select: productStationSelect },
+        },
+      },
+      courier: true,
+    } as const
+
     const byInvoice = await this.prisma.order.findFirst({
       where: {
         invoiceNumber: { in: invoiceList, mode: 'insensitive' },
         ...(storeId ? { storeId } : {}),
       },
-      include: { items: { include: { variant: true } }, courier: true },
+      include: stationInclude,
     })
     if (byInvoice) return byInvoice
 
@@ -184,7 +248,7 @@ export class FulfillmentService {
         id: raw,
         ...(storeId ? { storeId } : {}),
       },
-      include: { items: { include: { variant: true } }, courier: true },
+      include: stationInclude,
     })
     if (byId) return byId
 
@@ -197,7 +261,7 @@ export class FulfillmentService {
         ...(storeId ? { order: { storeId } } : {}),
       },
       include: {
-        order: { include: { items: { include: { variant: true } }, courier: true } },
+        order: { include: stationInclude },
       },
     })
     if (shipment?.order) return shipment.order as LabelOrder
@@ -205,21 +269,68 @@ export class FulfillmentService {
     throw new NotFoundException(`No order found for scan code: ${raw}`)
   }
 
+  toStationOrder(order: LabelOrder): FulfillmentStationOrder {
+    const items: FulfillmentStationItem[] = order.items.map((item) => {
+      const { size, color } = this.parseVariant(item)
+      const image =
+        item.image?.trim() ||
+        item.variant?.image?.trim() ||
+        item.product?.images?.[0]?.url?.trim() ||
+        null
+      return {
+        id: item.id || `line-${items.length}`,
+        name: item.productName || item.product?.name || 'Item',
+        sku: item.sku?.trim() || item.variant?.sku?.trim() || item.product?.sku?.trim() || '—',
+        barcode: item.variant?.barcode?.trim() || item.product?.barcode?.trim() || null,
+        size,
+        color,
+        quantity: item.quantity,
+        image,
+      }
+    })
+    return {
+      orderId: order.id,
+      invoiceNumber: order.invoiceNumber,
+      status: order.status,
+      customerName: order.shippingName,
+      customerPhone: order.shippingPhone ?? '',
+      city: order.shippingCity ?? '',
+      district: order.shippingDistrict ?? '',
+      address: this.formatAddress(order),
+      paymentMethod: String(order.paymentMethod ?? ''),
+      paymentStatus: String(order.paymentStatus ?? ''),
+      total: Number(order.total ?? 0),
+      itemCount: items.reduce((n, i) => n + i.quantity, 0),
+      isCodRisk: Boolean(order.isCodRisk),
+      items,
+      courier: order.courier
+        ? {
+            provider: order.courier.provider ?? null,
+            consignmentId: order.courier.consignmentId ?? null,
+            trackingCode: order.courier.trackingCode ?? null,
+            status: order.courier.status ?? null,
+          }
+        : null,
+    }
+  }
+
+  async lookup(code: string, storeId?: string): Promise<FulfillmentStationOrder> {
+    const order = await this.findOrderByScanCode(code, storeId)
+    return this.toStationOrder(order)
+  }
+
   async scan(
     code: string,
     action: 'pack' | 'dispatch',
     storeId?: string,
-  ): Promise<{
-    ok: boolean
-    action: 'pack' | 'dispatch'
-    orderId: string
-    invoiceNumber: string
-    customerName: string
-    previousStatus: string
-    status: string
-    itemCount: number
-    message: string
-  }> {
+  ): Promise<
+    FulfillmentStationOrder & {
+      ok: boolean
+      action: 'pack' | 'dispatch'
+      previousStatus: string
+      message: string
+    }
+  > {
     if (action !== 'pack' && action !== 'dispatch') {
       throw new BadRequestException('action must be pack or dispatch')
     }
@@ -233,14 +344,10 @@ export class FulfillmentService {
 
     if (order.status === target) {
       return {
+        ...this.toStationOrder(order),
         ok: true,
         action,
-        orderId: order.id,
-        invoiceNumber: order.invoiceNumber,
-        customerName: order.shippingName,
         previousStatus: order.status,
-        status: order.status,
-        itemCount: order.items.reduce((n, i) => n + i.quantity, 0),
         message: `Already ${target}`,
       }
     }
@@ -253,14 +360,11 @@ export class FulfillmentService {
     )
 
     return {
+      ...this.toStationOrder({ ...order, status: updated.status }),
       ok: true,
       action,
-      orderId: updated.id,
-      invoiceNumber: updated.invoiceNumber,
-      customerName: updated.shippingName,
       previousStatus: order.status,
       status: updated.status,
-      itemCount: order.items.reduce((n, i) => n + i.quantity, 0),
       message: `${order.invoiceNumber}: ${order.status} → ${updated.status}`,
     }
   }

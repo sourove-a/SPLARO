@@ -28,6 +28,10 @@ export interface ProductStickerModel {
   invoiceNumber: string
   productName: string
   sku: string
+  /** Variant/product barcode when present — shown on the sticker. */
+  barcode?: string
+  /** Value encoded in the barcode (barcode → SKU → invoice fallback). */
+  scanCode?: string
   size: string
   color: string
   quantity: number
@@ -257,13 +261,15 @@ export function generateProductStickersHtml(stickers: ProductStickerModel[], aut
       const meta = [s.size !== '—' ? s.size : '', s.color !== '—' ? s.color : '']
         .filter(Boolean)
         .join(' · ')
+      const scanCode = (s.scanCode || s.barcode || (s.sku !== '—' ? s.sku : s.invoiceNumber)).trim()
       return `<article class="sticker">
         <div class="sticker__brand">SPLARO</div>
         <div class="sticker__order">${escapeLabelHtml(s.invoiceNumber)}</div>
-        ${barcodeBlock(s.invoiceNumber, 'barcode', 8)}
+        ${barcodeBlock(scanCode, 'barcode', 8)}
         <div class="sticker__name">${escapeLabelHtml(s.productName)}</div>
         <div class="sticker__meta">
           <span>SKU: ${escapeLabelHtml(s.sku)}</span>
+          ${s.barcode ? `<span>BC: ${escapeLabelHtml(s.barcode)}</span>` : ''}
           ${meta ? `<span>${escapeLabelHtml(meta)}</span>` : ''}
           <span>Qty: ${s.quantity}</span>
         </div>

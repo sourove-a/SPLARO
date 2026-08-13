@@ -17,6 +17,8 @@ import { uploadAdminImage } from '@/lib/api/upload'
  */
 const SLOT_RATIO = '4 / 5'
 
+const SLOT_DRAG_TYPE = 'application/x-splaro-media-slot'
+
 const SLOT_META = [
   { key: 'main', label: 'Main card thumbnail', hint: 'Upload · URL · library', ratio: SLOT_RATIO },
   { key: 'front', label: 'Front', hint: 'Upload · URL · library', ratio: SLOT_RATIO },
@@ -25,6 +27,17 @@ const SLOT_META = [
   { key: 'model', label: 'On model', hint: 'Upload · URL · library', ratio: SLOT_RATIO },
   { key: 'fabric', label: 'Fabric close-up', hint: 'Upload · URL · library', ratio: SLOT_RATIO },
 ] as const
+
+function padSlots(urls: string[]): string[] {
+  return Array.from({ length: SLOT_META.length }, (_, i) => urls[i] ?? '')
+}
+
+function compactSlots(slots: string[]): string[] {
+  let last = -1
+  for (let i = 0; i < slots.length; i++) if (slots[i]) last = i
+  if (last < 0) return []
+  return slots.slice(0, last + 1)
+}
 
 export function DcProductMediaSlots({
   imageUrls,
@@ -35,6 +48,11 @@ export function DcProductMediaSlots({
   onAltChange,
   disabled,
   uploadFolder = 'products',
+  categoryId,
+  categoryName,
+  categoryImage,
+  onSetHomepageImage,
+  homepageBusy = false,
 }: {
   imageUrls: string[]
   videoUrl: string
@@ -45,26 +63,50 @@ export function DcProductMediaSlots({
   disabled?: boolean
   /** Department folder e.g. products-men — keeps library organised. */
   uploadFolder?: string
+  categoryId?: string
+  categoryName?: string
+  categoryImage?: string | null
+  onSetHomepageImage?: (url: string) => void | Promise<void>
+  homepageBusy?: boolean
 }) {
   const [busyIdx, setBusyIdx] = useState<number | null>(null)
   const [urlDrafts, setUrlDrafts] = useState<Record<number, string>>({})
   const [librarySlot, setLibrarySlot] = useState<number | null>(null)
+  const [draggingFrom, setDraggingFrom] = useState<number | null>(null)
+  const [dropTarget, setDropTarget] = useState<number | null>(null)
   const inputRefs = useRef<Array<HTMLInputElement | null>>([])
-  const filled = imageUrls.filter(Boolean).length
+  const slots = padSlots(imageUrls)
+  const filled = slots.filter(Boolean).length
+  const homepageUrl = (categoryImage ?? '').trim()
+
+  const emit = useCallback(
+    (next: string[]) => {
+      onImageUrlsChange(compactSlots(padSlots(next)))
+    },
+    [onImageUrlsChange],
+  )
 
   const writeSlot = useCallback(
     (index: number, url: string | null) => {
-      const slots = Array.from({ length: 6 }, (_, i) => imageUrls[i] ?? '')
-      slots[index] = url ?? ''
-      let last = -1
-      for (let i = 0; i < slots.length; i++) if (slots[i]) last = i
-      if (last < 0) {
-        onImageUrlsChange([])
-        return
-      }
-      onImageUrlsChange(slots.slice(0, last + 1).filter(Boolean))
+      const next = padSlots(imageUrls)
+      next[index] = url ?? ''
+      emit(next)
     },
-    [imageUrls, onImageUrlsChange],
+    [emit, imageUrls],
+  )
+
+  const moveSlot = useCallback(
+    (from: number, to: number) => {
+      if (from === to || from < 0 || to < 0 || from >= SLOT_META.length || to >= SLOT_META.length) return
+      const next = padSlots(imageUrls)
+      const fromUrl = next[from]
+      if (!fromUrl) return
+      const toUrl = next[to]
+      next[from] = toUrl ?? ''
+      next[to] = fromUrl
+      emit(next)
+    },
+    [emit, imageUrls],
   )
 
   const uploadTo = async (index: number, file: File) => {
@@ -76,11 +118,7 @@ export function DcProductMediaSlots({
         (res as { url?: string; publicUrl?: string }).url ??
         (res as { publicUrl?: string }).publicUrl
       if (!url) throw new Error('Upload returned no URL')
-      const slots = Array.from({ length: 6 }, (_, i) => imageUrls[i] ?? '')
-      slots[index] = url
-      let last = -1
-      for (let i = 0; i < slots.length; i++) if (slots[i]) last = i
-      onImageUrlsChange(slots.slice(0, last + 1).filter(Boolean))
+      writeSlot(index, url)
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Image upload failed')
     } finally {
@@ -102,24 +140,69 @@ export function DcProductMediaSlots({
     setUrlDrafts((prev) => ({ ...prev, [index]: '' }))
   }
 
+  const setHomepage = (url: string) => {
+    if (!onSetHomepageImage) return
+    if (!categoryId) {
+      toastWarn('Pick a category first', 'Homepage tile is saved on the category (Polo Shirt, Panjabi, …).')
+      return
+    }
+    void onSetHomepageImage(url)
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div className="dc-media-grid">
         {SLOT_META.map((slot, index) => {
-          const url = imageUrls[index]
+          const url = slots[index]
           const busy = busyIdx === index
+          const isHomepage = Boolean(url && homepageUrl && url === homepageUrl)
+          const isDrop = dropTarget === index && draggingFrom !== null && draggingFrom !== index
           return (
             <div key={slot.key} style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
               <button
                 type="button"
                 disabled={disabled || busy}
-                onClick={() => inputRefs.current[index]?.click()}
+                draggable={Boolean(url) && !disabled}
+                onClick={() => {
+                  if (url) return
+                  inputRefs.current[index]?.click()
+                }}
+                onDragStart={(e) => {
+                  if (!url || disabled) {
+                    e.preventDefault()
+                    return
+                  }
+                  e.dataTransfer.setData(SLOT_DRAG_TYPE, String(index))
+                  e.dataTransfer.setData('text/plain', `splaro-slot:${index}`)
+                  e.dataTransfer.effectAllowed = 'move'
+                  setDraggingFrom(index)
+                }}
+                onDragEnd={() => {
+                  setDraggingFrom(null)
+                  setDropTarget(null)
+                }}
                 onDragOver={(e) => {
                   e.preventDefault()
-                  e.dataTransfer.dropEffect = 'copy'
+                  const hasSlot =
+                    e.dataTransfer.types.includes(SLOT_DRAG_TYPE) ||
+                    e.dataTransfer.types.includes('text/plain')
+                  e.dataTransfer.dropEffect = hasSlot && draggingFrom !== null ? 'move' : 'copy'
+                  if (hasSlot) setDropTarget(index)
+                }}
+                onDragLeave={() => {
+                  setDropTarget((current) => (current === index ? null : current))
                 }}
                 onDrop={(e) => {
                   e.preventDefault()
+                  setDropTarget(null)
+                  setDraggingFrom(null)
+                  const slotRaw =
+                    e.dataTransfer.getData(SLOT_DRAG_TYPE) || e.dataTransfer.getData('text/plain')
+                  const fromMatch = slotRaw.match(/^(?:splaro-slot:)?(\d+)$/)
+                  if (fromMatch) {
+                    moveSlot(Number(fromMatch[1]), index)
+                    return
+                  }
                   const file = e.dataTransfer.files?.[0]
                   if (file) void uploadTo(index, file)
                 }}
@@ -130,12 +213,17 @@ export function DcProductMediaSlots({
                   width: '100%',
                   aspectRatio: slot.ratio,
                   borderRadius: 12,
-                  border: url ? '1px solid var(--line)' : '1px dashed var(--line-2)',
+                  border: isDrop
+                    ? '2px solid var(--violet-solid)'
+                    : url
+                      ? '1px solid var(--line)'
+                      : '1px dashed var(--line-2)',
                   background: 'var(--surface-2)',
-                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  cursor: disabled ? 'not-allowed' : url ? 'grab' : 'pointer',
                   overflow: 'hidden',
                   padding: 0,
                   color: 'var(--ink-3)',
+                  opacity: draggingFrom === index ? 0.55 : 1,
                 }}
               >
                 <input
@@ -154,6 +242,43 @@ export function DcProductMediaSlots({
                 {url ? (
                   <>
                     <Image src={url} alt={slot.label} fill sizes="180px" style={{ objectFit: 'cover' }} unoptimized />
+                    <span
+                      aria-hidden
+                      style={{
+                        position: 'absolute',
+                        left: 8,
+                        top: 8,
+                        zIndex: 1,
+                        display: 'grid',
+                        placeItems: 'center',
+                        width: 26,
+                        height: 26,
+                        borderRadius: 8,
+                        background: 'rgba(10,10,12,.72)',
+                        color: 'var(--on-violet)',
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      <DcIcon name="icon-grip-vertical" size={13} />
+                    </span>
+                    {isHomepage ? (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          left: 8,
+                          bottom: 8,
+                          zIndex: 1,
+                          padding: '3px 7px',
+                          borderRadius: 6,
+                          background: 'rgba(10,10,12,.78)',
+                          color: 'var(--on-violet)',
+                          font: `700 9px/1 ${FONT}`,
+                          letterSpacing: '.06em',
+                        }}
+                      >
+                        HOMEPAGE
+                      </span>
+                    ) : null}
                     <span
                       role="button"
                       tabIndex={0}
@@ -227,6 +352,56 @@ export function DcProductMediaSlots({
                   {index === 0 ? 'MAIN' : String(index + 1).padStart(2, '0')}
                 </span>
               </span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <select
+                  aria-label={`Use ${slot.label} as`}
+                  disabled={disabled || !url}
+                  value={index}
+                  onChange={(e) => moveSlot(index, Number(e.target.value))}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    height: 30,
+                    padding: '0 6px',
+                    borderRadius: 8,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface)',
+                    color: 'var(--ink-2)',
+                    font: `600 10.5px/1 ${FONT}`,
+                  }}
+                >
+                  {SLOT_META.map((option, optionIndex) => (
+                    <option key={option.key} value={optionIndex}>
+                      {optionIndex === index ? option.label : `Move to ${option.label}`}
+                    </option>
+                  ))}
+                </select>
+                {onSetHomepageImage ? (
+                  <button
+                    type="button"
+                    disabled={disabled || !url || homepageBusy || isHomepage}
+                    onClick={() => url && setHomepage(url)}
+                    title={
+                      categoryName
+                        ? `Use this photo as the ${categoryName} homepage tile`
+                        : 'Use this photo as the homepage category tile'
+                    }
+                    style={{
+                      height: 30,
+                      padding: '0 8px',
+                      borderRadius: 8,
+                      border: `1px solid ${isHomepage ? 'var(--violet-solid)' : 'var(--line)'}`,
+                      background: isHomepage ? 'var(--violet-soft)' : 'var(--surface)',
+                      cursor: disabled || !url || isHomepage ? 'default' : 'pointer',
+                      font: `600 10px/1 ${FONT}`,
+                      color: isHomepage ? 'var(--violet)' : 'var(--ink-2)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {isHomepage ? 'Homepage' : 'Set homepage'}
+                  </button>
+                ) : null}
+              </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <input
                   value={urlDrafts[index] ?? ''}
@@ -310,7 +485,9 @@ export function DcProductMediaSlots({
       </div>
 
       <span style={{ font: `400 11px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
-        {filled} of 6 filled · first image is the storefront card thumbnail · uploads go to{' '}
+        {filled} of 6 filled · drag a photo onto another slot (or use Move to) to swap Main / Front /
+        Back · first image is the shop card
+        {categoryName ? ` · Set homepage saves the tile for ${categoryName}` : ''} · uploads go to{' '}
         <code style={{ fontFamily: MONO }}>{uploadFolder}</code>
       </span>
 

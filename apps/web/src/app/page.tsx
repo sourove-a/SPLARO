@@ -7,6 +7,7 @@ import { HeroSlider } from '@/components/home/HeroSlider'
 import { fetchHeroBanners } from '@/lib/api/banners'
 import { resolveHeroBanners } from '@/lib/api/hero-banners'
 import { resolveLocalHeroVariants } from '@/lib/assets/hero-cdn'
+import { classifyHeroMedia } from '@splaro/config'
 import { getHomepageDepartmentRows } from '@/lib/catalog/homepage-department-rows'
 import {
   SPLARO_HOME_DESCRIPTION,
@@ -39,6 +40,7 @@ async function HomeCatalog() {
       ? getHomepageDepartmentRows(
           settings.config.catalogChannels,
           settings.config.headerNav,
+          settings.config.homepageCatalog,
         )
       : Promise.resolve([]),
     showStory && story.customerStories.enabled
@@ -64,7 +66,13 @@ export default async function HomePage() {
   // + push revalidation from the API) and falls back to curated local WebP
   // defaults when no active slides exist or the API is unreachable.
   const heroBanners = resolveHeroBanners(await fetchHeroBanners(), [])
-  const lcp = resolveLocalHeroVariants(heroBanners[0]?.image)
+  const firstMedia = heroBanners[0]?.image ?? ''
+  const firstClassified = classifyHeroMedia(firstMedia)
+  const lcpSource =
+    firstClassified.kind === 'image'
+      ? firstMedia
+      : (firstClassified.poster ?? heroBanners[0]?.mobileImage ?? '')
+  const lcp = resolveLocalHeroVariants(lcpSource)
 
   return (
     <>

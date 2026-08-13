@@ -4,7 +4,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
 import { DcContentNav } from '@/components/dc/DcContentNav'
 import { DcIcon } from '@/components/dc/DcIcon'
@@ -15,13 +15,17 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
-import { useMedia, useProducts } from '@/lib/api/hooks'
+import { useMedia, useMediaFolders, useProducts } from '@/lib/api/hooks'
 import {
   createMediaAsset,
   deleteMediaAsset,
   deleteOrphanUpload,
+  BUILT_IN_MEDIA_FOLDERS,
+  mediaFolderLabel,
+  normalizeMediaFolder,
   updateMediaAsset,
   type MediaFolder,
+  type MediaFolderSummary,
   type MediaUsage,
 } from '@/lib/api/media'
 import { ApiError } from '@/lib/api/client'
@@ -119,15 +123,6 @@ async function cleanupOrphanWithRetry(path: string): Promise<void> {
   throw lastError
 }
 
-const LIBRARY_FOLDERS: Array<{ value: MediaFolder; label: string }> = [
-  { value: 'media', label: 'General / Hero' },
-  { value: 'men', label: 'Men' },
-  { value: 'women', label: 'Women' },
-  { value: 'kids', label: 'Kids' },
-  { value: 'footwear', label: 'Footwear' },
-  { value: 'accessories', label: 'Accessories' },
-]
-
 const MEDIA_LIBRARY_FILTER_FOLDERS = [
   { key: 'all', label: 'All media', value: 'all' },
   { key: 'media', label: 'General / Hero', value: 'media' },
@@ -138,8 +133,113 @@ const MEDIA_LIBRARY_FILTER_FOLDERS = [
   })),
 ] as const
 
+const DEPT_FOLDERS = new Set(['men', 'women', 'kids', 'footwear', 'accessories'])
+
+/**
+ * Library folder → the folder the file physically lands in. Only the five
+ * department buckets have a matching product directory on disk; a folder the
+ * store invented is a library label, so its files go to the default product
+ * directory rather than a path the upload endpoint would reject.
+ */
 function productFolder(folder: MediaFolder): MediaDeptFolder {
-  return folder === 'media' ? 'products' : (`products-${folder}` as MediaDeptFolder)
+  return DEPT_FOLDERS.has(folder) ? (`products-${folder}` as MediaDeptFolder) : 'products'
+}
+
+const NEW_FOLDER_OPTION = '__new__'
+
+/**
+ * Folder picker that can also create one. The store's existing folders come
+ * from the API; picking "New folder…" swaps in a text field and reports the
+ * slugified name up as it is typed, so the caller always holds the exact value
+ * the API will store.
+ */
+function FolderSelect({
+  value,
+  onChange,
+  folders,
+  selectStyle,
+  inputStyle,
+}: {
+  value: MediaFolder
+  onChange: (next: MediaFolder) => void
+  folders: MediaFolderSummary[]
+  selectStyle: CSSProperties
+  inputStyle: CSSProperties
+}) {
+  const [creating, setCreating] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  const options = useMemo(() => {
+    const names = folders.map((folder) => folder.name)
+    // Keep the current value selectable even before the folder list resolves.
+    return [...new Set(value ? [...names, value] : names)]
+  }, [folders, value])
+
+  const slug = normalizeMediaFolder(draft)
+
+  if (creating) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <input
+          autoFocus
+          value={draft}
+          onChange={(event) => {
+            setDraft(event.target.value)
+            onChange(normalizeMediaFolder(event.target.value))
+          }}
+          placeholder="Eid Campaign"
+          maxLength={40}
+          style={inputStyle}
+        />
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+          <span style={{ font: `400 11px/1.4 ${FONT}`, color: slug ? 'var(--ink-3)' : 'var(--bad)' }}>
+            {slug ? `Saved as “${slug}”` : 'Enter a folder name'}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setCreating(false)
+              setDraft('')
+              onChange(options[0] ?? 'media')
+            }}
+            style={{
+              border: 'none',
+              background: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              font: `600 11px/1 ${FONT}`,
+              color: 'var(--violet)',
+            }}
+          >
+            Pick an existing folder
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <select
+      value={value}
+      onChange={(event) => {
+        if (event.target.value === NEW_FOLDER_OPTION) {
+          setCreating(true)
+          setDraft('')
+          onChange('')
+          return
+        }
+        onChange(event.target.value)
+      }}
+      style={selectStyle}
+    >
+      {options.map((name) => (
+        <option key={name} value={name}>
+          {mediaFolderLabel(name)}
+        </option>
+      ))}
+      <option value={NEW_FOLDER_OPTION}>+ New folder…</option>
+    </select>
+  )
 }
 
 function assetOwnerHref(asset: MediaAsset): string | null {
@@ -202,6 +302,11 @@ function DcMediaLibraryBody() {
     ? 'all'
     : (deptFolder.replace(/^products-?/, '') || 'media') as 'media' | 'men' | 'women' | 'kids' | 'footwear' | 'accessories'
   const media = useMedia({ limit: 60, q: deferredQuery, type: mediaType, folder: mediaFolder })
+  const folderQuery = useMediaFolders()
+  const libraryFolders = useMemo(
+    () => folderQuery.data?.folders ?? BUILT_IN_MEDIA_FOLDERS.map((f) => ({ name: f.value, count: 0, builtIn: true })),
+    [folderQuery.data],
+  )
 
   useEffect(() => {
     if (!pendingFile) {
@@ -912,10 +1017,11 @@ function DcMediaLibraryBody() {
             <span style={{ font: `600 11px/1 ${FONT}`, color: 'var(--ink-3)', letterSpacing: '.06em' }}>
               MENU
             </span>
-            <select
+            <FolderSelect
               value={uploadFolder}
-              onChange={(e) => setUploadFolder(e.target.value as MediaFolder)}
-              style={{
+              onChange={setUploadFolder}
+              folders={libraryFolders}
+              selectStyle={{
                 height: 38,
                 borderRadius: 9,
                 border: '1px solid var(--line)',
@@ -924,13 +1030,8 @@ function DcMediaLibraryBody() {
                 padding: '0 10px',
                 font: `500 13px/1 ${FONT}`,
               }}
-            >
-              {LIBRARY_FOLDERS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
+              inputStyle={modalInput}
+            />
           </label>
 
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1056,11 +1157,13 @@ function DcMediaLibraryBody() {
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={capsLabel}>Folder</span>
-            <select value={editFolder} onChange={(event) => setEditFolder(event.target.value as MediaFolder)} style={modalInput}>
-              {LIBRARY_FOLDERS.map((folder) => (
-                <option key={folder.value} value={folder.value}>{folder.label}</option>
-              ))}
-            </select>
+            <FolderSelect
+              value={editFolder}
+              onChange={setEditFolder}
+              folders={libraryFolders}
+              selectStyle={modalInput}
+              inputStyle={modalInput}
+            />
           </label>
         </div>
       </DcModal>

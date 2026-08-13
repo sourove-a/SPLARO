@@ -8,7 +8,7 @@ export const SIZE_PRESETS: Record<SizeDeptKey, string> = {
   men: 'S, M, L, XL, XXL, 3XL',
   footwear: '36, 37, 38, 39, 40, 41, 42, 43, 44',
   accessories: 'One Size',
-  default: 'S, M, L, XL',
+  default: 'S, M, L, XL, XXL',
 }
 
 export function sizeChipsForDept(key: SizeDeptKey): string[] {

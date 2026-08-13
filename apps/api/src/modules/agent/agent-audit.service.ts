@@ -29,13 +29,19 @@ export class AgentAuditService {
     })
   }
 
+  /**
+   * First writer wins. The streaming loop finishes a run on its own success and
+   * error paths, and again from a `finally` that fires when the client hangs up
+   * mid-stream — scoping the update to rows still `running` makes that backstop
+   * a no-op instead of overwriting a completed run with `failed`.
+   */
   async finishRun(
     runId: string,
     status: 'completed' | 'failed' | 'budget_refused',
     totals: { tokenInEst: number; tokenOutEst: number; costEstUsd: number },
   ) {
-    return this.prisma.agentRun.update({
-      where: { id: runId },
+    return this.prisma.agentRun.updateMany({
+      where: { id: runId, status: 'running' },
       data: {
         status,
         tokenInEst: totals.tokenInEst,
@@ -43,6 +49,23 @@ export class AgentAuditService {
         costEstUsd: new Prisma.Decimal(totals.costEstUsd),
         finishedAt: new Date(),
       },
+    })
+  }
+
+  /**
+   * A run whose generator was garbage-collected never gets its `finally`, so it
+   * sits at `running` forever. Anything older than this is not still streaming.
+   */
+  private static readonly STALE_RUN_MS = 15 * 60 * 1000
+
+  async reapStaleRuns(storeId: string) {
+    return this.prisma.agentRun.updateMany({
+      where: {
+        storeId,
+        status: 'running',
+        startedAt: { lt: new Date(Date.now() - AgentAuditService.STALE_RUN_MS) },
+      },
+      data: { status: 'failed', finishedAt: new Date() },
     })
   }
 
@@ -73,6 +96,8 @@ export class AgentAuditService {
   }
 
   async listActivity(storeId: string, limit = 50) {
+    // Self-heal on read — the activity table is the only place these are seen.
+    await this.reapStaleRuns(storeId)
     const runs = await this.prisma.agentRun.findMany({
       where: { storeId },
       orderBy: { startedAt: 'desc' },

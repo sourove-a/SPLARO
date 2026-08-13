@@ -192,6 +192,8 @@ export interface StorefrontConfig {
   newsletter?: NewsletterConfig
   ourStory?: OurStoryConfig
   homepage?: HomepageSectionsConfig
+  /** Optional Men/Women tile curator. Empty + curated:false = auto rails. */
+  homepageCatalog?: HomepageCatalogConfig
   smtp?: SmtpConfig
   smtpAccounts?: SmtpAccountConfig[]
   catalogChannels?: CatalogChannel[]
@@ -211,6 +213,11 @@ export interface StorefrontConfig {
 export type { CatalogChannel }
 export { DEFAULT_CATALOG_CHANNELS, mergeCatalogChannels }
 
+import {
+  DEFAULT_HOMEPAGE_CATALOG,
+  mergeHomepageCatalog,
+  type HomepageCatalogConfig,
+} from '@splaro/config'
 import {
   DEFAULT_HOMEPAGE_SECTIONS,
   DEFAULT_OUR_STORY,
@@ -391,6 +398,7 @@ export function emptyStorefrontConfig(): StorefrontConfig {
     },
     ourStory: DEFAULT_OUR_STORY,
     homepage: DEFAULT_HOMEPAGE_SECTIONS,
+    homepageCatalog: { ...DEFAULT_HOMEPAGE_CATALOG, tiles: [] },
     catalogChannels: DEFAULT_CATALOG_CHANNELS.map((channel) => ({ ...channel })),
     shopFilters: mergeShopFilters(undefined),
     shippingZones: { dhakaSameDay: true, outsideDhaka: true },
@@ -439,6 +447,7 @@ export function mergeStorefrontConfig(raw: unknown): StorefrontConfig {
       },
     },
     homepage: { ...base.homepage!, ...input.homepage },
+    homepageCatalog: mergeHomepageCatalog(input.homepageCatalog ?? base.homepageCatalog),
     smtp: { ...base.smtp!, ...input.smtp },
     smtpAccounts: Array.isArray(input.smtpAccounts) ? input.smtpAccounts : [],
     catalogChannels: mergeCatalogChannels(input.catalogChannels ?? base.catalogChannels),

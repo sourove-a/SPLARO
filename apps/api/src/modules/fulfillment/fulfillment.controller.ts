@@ -67,6 +67,14 @@ export class FulfillmentController {
     })
   }
 
+  /** Preview an order from invoice / tracking without changing status */
+  @Get('fulfillment/lookup')
+  async lookup(@Query('code') code: string | undefined, @Req() req: AdminRequest) {
+    const trimmed = code?.trim()
+    if (!trimmed) throw new BadRequestException('code is required')
+    return this.fulfillment.lookup(trimmed, req.adminUser?.storeId)
+  }
+
   /** Scan barcode / tracking → pack or dispatch */
   @Post('fulfillment/scan')
   async scan(

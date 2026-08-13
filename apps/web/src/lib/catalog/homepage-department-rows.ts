@@ -1,4 +1,8 @@
-import { CATEGORY_SUBCATEGORIES } from '@splaro/config'
+import {
+  CATEGORY_SUBCATEGORIES,
+  mergeHomepageCatalog,
+  type HomepageCatalogConfig,
+} from '@splaro/config'
 import {
   DEFAULT_CATALOG_CHANNELS,
   isCatalogChannelPublished,
@@ -7,6 +11,7 @@ import {
 } from '@splaro/types'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import {
+  fetchLiveCategories,
   fetchLiveCollections,
   fetchStorefrontProductListing,
   type CatalogProduct,
@@ -70,7 +75,9 @@ function groupProductsByCategorySlug(products: CatalogProduct[]): Map<string, Ca
 function tileImage(
   products: CatalogProduct[],
   liveImage: string | null | undefined,
+  categoryImage?: string | null,
 ): string | null {
+  if (isRealImage(categoryImage)) return categoryImage.trim()
   if (isRealImage(liveImage)) return liveImage.trim()
   for (const product of products) {
     if (isRealImage(product.image)) return product.image.trim()
@@ -89,6 +96,7 @@ function buildTilesForDepartment(
   deptSlug: string,
   products: CatalogProduct[],
   liveBySlug: Map<string, LiveCollectionMeta>,
+  categoryImageBySlug: Map<string, string>,
 ): HomepageCategoryTile[] {
   const groups = groupProductsByCategorySlug(products)
   const known = subMeta(deptSlug)
@@ -103,7 +111,11 @@ function buildTilesForDepartment(
 
   // Department-only products (no child slug) → single dept tile when no children
   if (!slugOrder.length && products.length) {
-    const image = tileImage(products, liveBySlug.get(deptSlug)?.imageUrl)
+    const image = tileImage(
+      products,
+      liveBySlug.get(deptSlug)?.imageUrl,
+      categoryImageBySlug.get(deptSlug),
+    )
     if (!image) return []
     const live = liveBySlug.get(deptSlug)
     return [
@@ -123,7 +135,7 @@ function buildTilesForDepartment(
     const live = liveBySlug.get(slug)
     const count = bucket.length || live?.productCount || 0
     if (count <= 0) continue
-    const image = tileImage(bucket, live?.imageUrl)
+    const image = tileImage(bucket, live?.imageUrl, categoryImageBySlug.get(slug))
     if (!image) continue
     const label =
       known.get(slug) ??
@@ -184,12 +196,79 @@ function isDepartmentHiddenInHeaderNav(
   return match?.hidden === true
 }
 
+async function buildCuratedDepartmentRows(
+  catalog: HomepageCatalogConfig,
+  channels: CatalogChannel[],
+  headerNav: Array<{ href?: string; label?: string; hidden?: boolean }> | null | undefined,
+  categoryImageBySlug: Map<string, string>,
+  liveBySlug: Map<string, LiveCollectionMeta>,
+): Promise<HomepageDepartmentRow[]> {
+  const settled = await Promise.all(
+    DEPARTMENT_ORDER.map(async (slug): Promise<HomepageDepartmentRow | null> => {
+      if (!isCatalogChannelPublished(channels, slug)) return null
+      if (isDepartmentHiddenInHeaderNav(slug, headerNav)) return null
+      const channel = channelForSlug(channels, slug)
+      const deptTiles = catalog.tiles.filter((tile) => tile.department === slug)
+      if (!deptTiles.length) return null
+      const products = await loadDepartmentProducts(slug)
+      const extra = await Promise.all(
+        deptTiles
+          .filter((tile) => !products.some((product) => product.id === tile.productId))
+          .map((tile) =>
+            fetchStorefrontProductListing({
+              page: 1,
+              limit: TILE_PRODUCT_LIMIT,
+              categorySlug: tile.categorySlug,
+            }).then((res) => res.products),
+          ),
+      )
+      const byId = new Map<string, CatalogProduct>()
+      for (const product of [...products, ...extra.flat()]) byId.set(product.id, product)
+      const known = subMeta(slug)
+      const tiles: HomepageCategoryTile[] = []
+      for (const tile of deptTiles) {
+        const product = byId.get(tile.productId)
+        const live = liveBySlug.get(tile.categorySlug)
+        const image =
+          (product && isRealImage(product.image) ? product.image.trim() : null) ||
+          (product && isRealImage(product.hoverImage) ? product.hoverImage.trim() : null) ||
+          tileImage([], live?.imageUrl, categoryImageBySlug.get(tile.categorySlug))
+        if (!image) continue
+        tiles.push({
+          slug: tile.categorySlug,
+          label:
+            known.get(tile.categorySlug) ??
+            live?.name ??
+            product?.categoryName ??
+            tile.categorySlug.replace(/-/g, ' '),
+          image,
+          href: collectionHref(tile.categorySlug),
+          count: product ? 1 : live?.productCount || 0,
+        })
+      }
+      if (!tiles.length) return null
+      return {
+        slug,
+        title: channel?.label ?? slug.charAt(0).toUpperCase() + slug.slice(1),
+        exploreHref: exploreHrefFor(channel, slug),
+        tiles,
+      }
+    }),
+  )
+  return settled.filter((row): row is HomepageDepartmentRow => row != null)
+}
+
 export async function getHomepageDepartmentRows(
   catalogChannels?: unknown,
   headerNav?: Array<{ href?: string; label?: string; hidden?: boolean }> | null,
+  homepageCatalog?: HomepageCatalogConfig | unknown,
 ): Promise<HomepageDepartmentRow[]> {
   const channels = mergeCatalogChannels(catalogChannels ?? DEFAULT_CATALOG_CHANNELS)
-  const liveCollections = await fetchLiveCollections().catch(() => [])
+  const curated = mergeHomepageCatalog(homepageCatalog)
+  const [liveCollections, liveCategories] = await Promise.all([
+    fetchLiveCollections().catch(() => []),
+    fetchLiveCategories().catch(() => []),
+  ])
   const liveBySlug = new Map<string, LiveCollectionMeta>(
     liveCollections.map((row) => [
       row.slug,
@@ -200,6 +279,21 @@ export async function getHomepageDepartmentRows(
       },
     ]),
   )
+  const categoryImageBySlug = new Map<string, string>()
+  for (const row of liveCategories) {
+    const image = row.imageUrl?.trim()
+    if (image) categoryImageBySlug.set(row.slug, image)
+  }
+
+  if (curated.curated) {
+    return buildCuratedDepartmentRows(
+      curated,
+      channels,
+      headerNav,
+      categoryImageBySlug,
+      liveBySlug,
+    )
+  }
 
   const settled = await Promise.all(
     DEPARTMENT_ORDER.map(async (slug): Promise<HomepageDepartmentRow | null> => {
@@ -208,7 +302,7 @@ export async function getHomepageDepartmentRows(
       if (isDepartmentHiddenInHeaderNav(slug, headerNav)) return null
       const channel = channelForSlug(channels, slug)
       const products = await loadDepartmentProducts(slug)
-      const tiles = buildTilesForDepartment(slug, products, liveBySlug)
+      const tiles = buildTilesForDepartment(slug, products, liveBySlug, categoryImageBySlug)
       if (!tiles.length) return null
       return {
         slug,

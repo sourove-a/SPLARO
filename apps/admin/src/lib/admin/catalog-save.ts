@@ -1,3 +1,4 @@
+import { updateCategory } from '@/lib/api/categories'
 import { toastApiSaved, toastFail } from './feedback'
 import {
   verifyBannerDeleted,
@@ -75,6 +76,19 @@ export async function confirmCategoryDeleted(
     toastFail(err instanceof Error ? err.message : 'Could not delete category.')
     return false
   }
+}
+
+export async function confirmCategoryHomepageImage(
+  id: string,
+  image: string,
+  categoryName: string,
+): Promise<boolean> {
+  return confirmCategoryUpdated(
+    id,
+    { image },
+    () => updateCategory(id, { image }),
+    `Homepage tile · ${categoryName}`,
+  )
 }
 
 export async function confirmCategoryUpdated(

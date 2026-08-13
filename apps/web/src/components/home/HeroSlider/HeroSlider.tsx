@@ -7,7 +7,19 @@ import Link from 'next/link'
 import type { HeroBanner } from '@/lib/api/banners'
 import { LiquidGlassNavButton } from '@/components/ui/LiquidGlass/LiquidGlassNavButton'
 import { cn } from '@/lib/utils/cn'
-import { HERO_DEFAULT_SLIDES, HERO_DEFAULT_VIDEO } from '@splaro/config'
+import {
+  HERO_DEFAULT_SLIDES,
+  HERO_DEFAULT_VIDEO,
+  classifyHeroMedia,
+  isDirectVideoUrl,
+  isHeroVideoUrl,
+  normalizeHeroVideoUrl,
+  pexelsVideoPosterUrl,
+  youtubeEmbedUrl,
+  youtubePosterUrl,
+  vimeoEmbedUrl,
+  vimeoPosterUrl,
+} from '@splaro/config'
 import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import { preferLocalHeroSrc, resolveLocalHeroVariants } from '@/lib/assets/hero-cdn'
 import { isConfirmedSoftwareRenderer, isWindowsOS } from '@/lib/earth/globe-performance'
@@ -44,6 +56,8 @@ export interface HeroSlide {
   video?: string
   /** Lighter rendition served to viewports ≤ 768px. */
   videoMobile?: string
+  youtubeId?: string
+  vimeoId?: string
   eyebrow: string
   title: string
   subtitle: string
@@ -53,34 +67,13 @@ export interface HeroSlide {
   secondaryLabel: string
 }
 
-function isVideoUrl(url: string): boolean {
-  return /\.(mp4|webm|ogg)(\?|$)/i.test(url.trim())
-}
-
 /** Same-origin WebP when available; else Unsplash/CDN at sane width (never force 1920). */
 function heroImageSrc(url: string): string {
   const trimmed = url.trim()
-  if (!trimmed || isVideoUrl(trimmed)) return trimmed
+  if (!trimmed || isHeroVideoUrl(trimmed)) return trimmed
   const local = preferLocalHeroSrc(trimmed)
   if (local.startsWith('/')) return local
   return optimizeImageSrc(local, 'hero', local, { allowStockMedia: true })
-}
-
-/** For Pexels-hosted videos, derive a lightweight ~360p rendition for mobile. */
-function mobileVideoFallback(url: string): string | undefined {
-  if (!url.includes('videos.pexels.com')) return undefined
-
-  const legacy = url.replace(/(uhd|hd)_\d+_\d+_(\d+fps)/, 'sd_960_540_$2')
-  if (legacy !== url) return legacy
-
-  const numeric = url.match(/video-files\/(\d+)\/(\d+)_1920_1080_(\d+fps\.mp4)/)
-  if (numeric) {
-    const [, folderId, assetId, rest] = numeric
-    const mobileId = String(Number(assetId) - 3)
-    return `https://videos.pexels.com/video-files/${folderId}/${mobileId}_640_360_${rest}`
-  }
-
-  return undefined
 }
 
 function isBrandLogoPoster(url: string) {
@@ -91,22 +84,6 @@ function isBrandLogoPoster(url: string) {
     /splaro-logo-(white|dark)\.svg/i.test(trimmed) ||
     /placeholder-product\.(jpg|jpeg|png|svg|webp)/i.test(trimmed)
   )
-}
-
-/** Pexels hosts a cinematic still for every video — use preview-0 (free-video-* 404s on newer IDs). */
-function pexelsVideoPoster(url: string): string | undefined {
-  const m = url.match(/videos\.pexels\.com\/video-files\/(\d+)\//)
-  if (!m) return undefined
-  return `https://images.pexels.com/videos/${m[1]}/pictures/preview-0.jpg?auto=compress&cs=tinysrgb&w=1600`
-}
-
-/** Prefer HD/1080p renditions — admin may store the 31MB UHD Pexels URL. */
-function normalizeHeroVideoUrl(url: string): { video: string; videoMobile?: string } {
-  const mobile = mobileVideoFallback(url)
-  const video = url.includes('uhd_2560_1440')
-    ? url.replace('uhd_2560_1440', 'hd_1920_1080')
-    : url
-  return mobile ? { video, videoMobile: mobile } : { video }
 }
 
 function isLightweightHeroVideo(url: string): boolean {
@@ -126,29 +103,30 @@ function heroVideoSources(slide: HeroSlide, _mobile = false, _lightweight = fals
 }
 
 function resolveSlideVideo(media: string, index: number) {
-  // Only autoplay a background video when THIS slide's own media is a video URL,
-  // or when an explicit NEXT_PUBLIC_HERO_VIDEO override is set. Previously the
-  // heavy default Pexels clip was force-played on slide 0 regardless of the
-  // slide's real image — an ocean video behind a sneaker, plus ~12MB of lag.
-  // Third-party hosts (Pexels) are blocked here too — they hang on BD links.
-  if (isVideoUrl(media) && !/videos\.pexels\.com/i.test(media)) {
-    return normalizeHeroVideoUrl(media)
-  }
+  const classified = classifyHeroMedia(media)
+  if (classified.youtubeId) return { youtubeId: classified.youtubeId }
+  if (classified.vimeoId) return { vimeoId: classified.vimeoId }
+  if (isDirectVideoUrl(media)) return normalizeHeroVideoUrl(media)
   if (index === 0 && process.env.NEXT_PUBLIC_HERO_VIDEO?.trim()) {
     const override = HERO_VIDEO
-    if (/videos\.pexels\.com/i.test(override)) return {}
-    return normalizeHeroVideoUrl(override)
+    const ov = classifyHeroMedia(override)
+    if (ov.youtubeId) return { youtubeId: ov.youtubeId }
+    if (ov.vimeoId) return { vimeoId: ov.vimeoId }
+    if (isDirectVideoUrl(override)) return normalizeHeroVideoUrl(override)
   }
   return {}
 }
 
 function resolveSlidePoster(media: string, index: number, banner: HeroBanner) {
-  if (!isVideoUrl(media)) return heroImageSrc(media)
+  const classified = classifyHeroMedia(media)
+  if (classified.kind === 'image') return heroImageSrc(media)
 
   const mobilePoster = banner.mobileImage?.trim()
-  if (mobilePoster && !isVideoUrl(mobilePoster)) return heroImageSrc(mobilePoster)
+  if (mobilePoster && !isHeroVideoUrl(mobilePoster)) return heroImageSrc(mobilePoster)
 
-  const pexelsPoster = pexelsVideoPoster(media)
+  if (classified.youtubeId) return youtubePosterUrl(classified.youtubeId)
+  if (classified.vimeoId) return vimeoPosterUrl(classified.vimeoId)
+  const pexelsPoster = classified.poster ?? pexelsVideoPosterUrl(media)
   if (pexelsPoster) return pexelsPoster
 
   const defaultPoster = HERO_DEFAULT_SLIDES[index]?.image ?? HERO_DEFAULT_SLIDES[0]?.image
@@ -180,7 +158,7 @@ function mapBannerToSlide(banner: HeroBanner, index: number): HeroSlide {
   return {
     id: banner.id,
     image: poster,
-    ...(!isVideoUrl(mobileMedia) && mobileMedia
+    ...(!isHeroVideoUrl(mobileMedia) && mobileMedia
       ? { mobileImage: heroImageSrc(mobileMedia) }
       : {}),
     ...videoConfig,
@@ -428,6 +406,11 @@ function HeroBackground({
     [slide, mobileActive, windowsActive],
   )
   const videoSrc = sourceChain[sourceIndex]
+  const embedSrc = slide.youtubeId
+    ? youtubeEmbedUrl(slide.youtubeId)
+    : slide.vimeoId
+      ? vimeoEmbedUrl(slide.vimeoId)
+      : null
   const posterCandidate = mobileActive && slide.mobileImage?.trim() ? slide.mobileImage : slide.image
   const poster =
     posterCandidate.trim() && !isBrandLogoPoster(posterCandidate) ? posterCandidate : undefined
@@ -441,9 +424,11 @@ function HeroBackground({
     setVideoUnlocked(true)
   }, [allowVideo, isActive, slide.id])
 
+  const mountEmbed = Boolean(mounted && embedSrc && allowVideo && videoUnlocked && isActive)
   const mountVideo = Boolean(
     mounted &&
       videoSrc &&
+      !embedSrc &&
       !videoFailed &&
       allowVideo &&
       videoUnlocked &&
@@ -556,6 +541,22 @@ function HeroBackground({
         priority={priority}
         eager={isActive}
       />
+      {mountEmbed && embedSrc ? (
+        <div
+          className={cn('hero-bg-video hero-bg-embed', videoReady && isActive && 'hero-bg-video--ready')}
+          aria-hidden={!isActive}
+        >
+          <iframe
+            src={embedSrc}
+            title=""
+            allow="autoplay; encrypted-media"
+            loading="eager"
+            referrerPolicy="strict-origin-when-cross-origin"
+            tabIndex={-1}
+            onLoad={markVideoReady}
+          />
+        </div>
+      ) : null}
       {mountVideo ? (
         <video
           key={videoSrc}

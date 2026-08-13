@@ -622,6 +622,7 @@ export async function fetchLiveCollections(): Promise<
         id: string
         name: string
         slug: string
+        image?: string | null
         imageUrl?: string | null
         _count?: { products?: number }
       }>
@@ -631,7 +632,44 @@ export async function fetchLiveCollections(): Promise<
       name: row.name,
       slug: row.slug,
       productCount: row._count?.products ?? 0,
-      imageUrl: row.imageUrl ?? null,
+      imageUrl: row.imageUrl ?? row.image ?? null,
+    }))
+  } catch {
+    return []
+  }
+}
+
+export async function fetchLiveCategories(): Promise<
+  Array<{
+    slug: string
+    name: string
+    imageUrl?: string | null
+    productCount: number
+  }>
+> {
+  if (isCiOrProductionBuild()) return []
+
+  const base = getServerApiBaseUrl()
+  const url = `${base}/storefront/categories?storeId=${encodeURIComponent(STORE_ID)}`
+
+  try {
+    const res = await liveFetch(url, {
+      next: { revalidate: 60, tags: ['storefront-categories'] },
+    })
+    if (!res?.ok) return []
+    const data = (await res.json()) as {
+      categories?: Array<{
+        slug: string
+        name: string
+        image?: string | null
+        _count?: { products?: number }
+      }>
+    }
+    return (data.categories ?? []).map((row) => ({
+      slug: row.slug,
+      name: row.name,
+      imageUrl: row.image ?? null,
+      productCount: row._count?.products ?? 0,
     }))
   } catch {
     return []

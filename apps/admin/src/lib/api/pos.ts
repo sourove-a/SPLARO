@@ -18,6 +18,7 @@ export interface PosProduct {
   id: string
   name: string
   sku: string | null
+  barcode: string | null
   image: string | null
   basePrice: number
   variants: PosVariant[]

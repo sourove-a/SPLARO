@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Loader2, AlertTriangle } from 'lucide-react'
 import { DcIcon } from '@/components/dc/DcIcon'
 import {
@@ -24,11 +25,13 @@ import {
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
 import {
+  confirmCategoryHomepageImage,
   confirmProductArchived,
   confirmProductCreated,
   confirmProductRestored,
   confirmProductSaved,
 } from '@/lib/admin/catalog-save'
+import { revalidateWebCache } from '@/lib/api/revalidate'
 import { buildCloneProductPayload } from '@/lib/admin/product-clone'
 import { copyProductStorefrontUrl, productStorefrontUrl } from '@/lib/admin/product-storefront-url'
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
@@ -74,6 +77,7 @@ function toDatetimeLocalValue(value: string | Date | null | undefined): string {
 
 export function ProductEditPanel({ productId, moduleHref, embedded = false }: ProductEditPanelProps) {
   const { navigate } = useAdminNavigate()
+  const qc = useQueryClient()
   const { data: product, isLoading, isError, refetch } = useProduct(productId)
   const { data: categoryTreeData } = useCategoryTree()
   const categories = useMemo(
@@ -97,6 +101,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
   const [aiLoading, setAiLoading] = useState(false)
   const [fillAllLoading, setFillAllLoading] = useState(false)
   const [visibilityBusy, setVisibilityBusy] = useState<string | null>(null)
+  const [homepageBusy, setHomepageBusy] = useState(false)
   const [slugEdited, setSlugEdited] = useState(false)
   const [departmentId, setDepartmentId] = useState('')
   const [subDepartmentId, setSubDepartmentId] = useState('')
@@ -172,6 +177,36 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
   const mediaUploadFolder = useMemo(
     () => mediaFolderForDept(departmentHint),
     [departmentHint],
+  )
+
+  const selectedCategory = useMemo(
+    () => categories.find((c) => c.id === form.categoryId),
+    [categories, form.categoryId],
+  )
+
+  const setHomepageTile = useCallback(
+    async (url: string) => {
+      if (!form.categoryId || !selectedCategory) {
+        toastFail('Pick a category first')
+        return
+      }
+      setHomepageBusy(true)
+      try {
+        const ok = await confirmCategoryHomepageImage(
+          form.categoryId,
+          url,
+          selectedCategory.name,
+        )
+        if (ok) {
+          void qc.invalidateQueries({ queryKey: ['categories'] })
+          void qc.invalidateQueries({ queryKey: ['categories', 'tree'] })
+          void revalidateWebCache(['storefront-categories', 'storefront-products'])
+        }
+      } finally {
+        setHomepageBusy(false)
+      }
+    },
+    [form.categoryId, qc, selectedCategory],
   )
 
   // English and Bangla are saved apart — nothing merges them back together.
@@ -814,7 +849,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
                 Polish Bangla
               </button>
             </DcField>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
               <DcField label="Base price">
                 <DcInput mono value={form.basePrice} onChange={(e) => set('basePrice', e.target.value)} placeholder="0" />
               </DcField>
@@ -828,6 +863,14 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
               </DcField>
               <DcField label="Parent SKU">
                 <DcInput mono value={form.sku} onChange={(e) => set('sku', e.target.value)} />
+              </DcField>
+              <DcField label="Barcode" hint="EAN / UPC — POS, Create Order, Packing scan this.">
+                <DcInput
+                  mono
+                  value={form.barcode}
+                  onChange={(e) => set('barcode', e.target.value)}
+                  placeholder="EAN / UPC"
+                />
               </DcField>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -960,7 +1003,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
             id="pe-media"
             num="02"
             title="Media"
-            hint="Upload, paste a link, or pick from the library. Saves under the selected menu folder."
+            hint="Drag a photo onto another slot to swap Main / Front / Back. Set homepage saves that photo on the category tile."
             badge={<DcPill>{`${form.imageUrls.filter(Boolean).length} of 6 filled`}</DcPill>}
           >
             <DcProductMediaSlots
@@ -978,6 +1021,13 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
               onAltChange={setMediaAlt}
               disabled={!canEditProducts}
               uploadFolder={mediaUploadFolder}
+              {...(form.categoryId ? { categoryId: form.categoryId } : {})}
+              {...(selectedCategory?.name ? { categoryName: selectedCategory.name } : {})}
+              {...(selectedCategory?.image !== undefined
+                ? { categoryImage: selectedCategory.image }
+                : {})}
+              onSetHomepageImage={setHomepageTile}
+              homepageBusy={homepageBusy}
             />
           </DcSectionCard>
 
@@ -992,6 +1042,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
               productId={productId}
               variants={product.variants ?? []}
               productImages={form.imageUrls}
+              productName={form.name || product.name}
               {...(departmentHint ? { departmentHint } : {})}
             />
           </DcSectionCard>

@@ -24,6 +24,7 @@ import { revalidateWebCache } from '@/lib/api/revalidate'
 import { resolveMediaUrl } from '@/lib/media-url'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { DcMediaPickModal } from '@/components/dc/product/DcMediaPickModal'
+import { canonicalizeHeroMediaUrl, classifyHeroMedia, isHeroVideoUrl } from '@splaro/config'
 
 const HERO_POSITION = 'hero'
 
@@ -155,7 +156,7 @@ function DcHeroSliderBody() {
   const create = useMutation({
     mutationFn: async () => {
       const expected = {
-        image: form.image.trim(),
+        image: canonicalizeHeroMediaUrl(form.image.trim()),
         mobileImage: form.mobileImage.trim(),
         position: HERO_POSITION,
         isActive: false,
@@ -198,7 +199,7 @@ function DcHeroSliderBody() {
         title: form.title.trim(),
         subtitle: form.subtitle.trim(),
         linkUrl: form.linkUrl.trim(),
-        image: form.image.trim(),
+        image: canonicalizeHeroMediaUrl(form.image.trim()),
         mobileImage: form.mobileImage.trim(),
       }
       await updateBanner(editing.id, expected)
@@ -391,7 +392,7 @@ function DcHeroSliderBody() {
                     borderBottom: '1px solid var(--line)',
                   }}
                 >
-                  <HeroImagePreview url={cover} width={82} height={54} label={`${b.title || 'Hero'} preview`} />
+                  <HeroMediaPreview url={cover} width={82} height={54} label={`${b.title || 'Hero'} preview`} />
 
                   <span
                     style={{
@@ -529,13 +530,13 @@ function DcHeroSliderBody() {
       <DcModal
         open={createOpen}
         title="Add hero slide"
-        subtitle="Created hidden. Publish it once the image and copy are right."
+        subtitle="Created hidden. Publish it once the image or video and copy are right."
         confirmLabel="Create slide"
         busy={create.isPending}
         onClose={() => setCreateOpen(false)}
         onConfirm={() => {
           if (!form.image.trim()) {
-            toast('warn', 'Image is required', 'A hero slide is the image — it cannot be empty.')
+            toast('warn', 'Media is required', 'Paste an image, .mp4, YouTube, or Vimeo link.')
             return
           }
           create.mutate()
@@ -553,7 +554,7 @@ function DcHeroSliderBody() {
         onClose={() => setEditing(null)}
         onConfirm={() => {
           if (!form.image.trim()) {
-            toast('warn', 'Image is required', 'A hero slide is the image — it cannot be empty.')
+            toast('warn', 'Media is required', 'Paste an image, .mp4, YouTube, or Vimeo link.')
             return
           }
           save.mutate()
@@ -588,28 +589,34 @@ function SlideFields({
   return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: form.mobileImage.trim() ? '2fr 1fr' : '1fr', gap: 10 }}>
-        <HeroImagePreview
+        <HeroMediaPreview
           url={form.image.trim() ? resolveMediaUrl(form.image.trim()) : null}
           width="100%"
           height={150}
           label="Desktop hero preview"
         />
         {form.mobileImage.trim() ? (
-          <HeroImagePreview
+          <HeroMediaPreview
             url={resolveMediaUrl(form.mobileImage.trim())}
             width="100%"
             height={150}
-            label="Mobile hero preview"
+            label="Mobile poster preview"
           />
         ) : null}
       </div>
       <DcField
-        label="Image URL"
+        label="Image or video URL"
         value={form.image}
         onChange={(v) => setForm((f) => ({ ...f, image: v }))}
-        placeholder="/uploads/hero/eid-edit.webp"
+        placeholder="https://youtu.be/…  or  /uploads/hero/eid.mp4"
         mono
-        hint="Paste a public URL or pick a reusable image from Media Library."
+        hint={
+          isHeroVideoUrl(form.image)
+            ? classifyHeroMedia(form.image).kind === 'pexels-page'
+              ? 'Pexels page detected — poster will show. For playback paste the direct .mp4 (video-files) link.'
+              : 'Video link detected — homepage will play this (YouTube / Vimeo / mp4). Add a mobile image as the loading poster.'
+            : 'Paste a photo, .mp4 / .webm, YouTube, Vimeo, or Pexels video-files URL.'
+        }
       />
       <button type="button" onClick={() => setPickerTarget('image')} style={pickerButton}>
         <DcIcon name="icon-image" size={13} /> Pick desktop image from library
@@ -620,7 +627,7 @@ function SlideFields({
         onChange={(v) => setForm((f) => ({ ...f, mobileImage: v }))}
         placeholder="/uploads/hero/eid-edit-mobile.webp"
         mono
-        hint="For the same full desktop frame on mobile, leave blank or use a 16:9 image (828 × 466)."
+        hint="Optional poster while video loads. 16:9 still (828 × 466) works best on phones."
       />
       <button type="button" onClick={() => setPickerTarget('mobileImage')} style={pickerButton}>
         <DcIcon name="icon-smartphone" size={13} /> Pick mobile image from library
@@ -656,7 +663,7 @@ function SlideFields({
   )
 }
 
-function HeroImagePreview({
+function HeroMediaPreview({
   url,
   width,
   height,
@@ -668,10 +675,14 @@ function HeroImagePreview({
   label: string
 }) {
   const [failed, setFailed] = useState(false)
+  const classified = classifyHeroMedia(url ?? '')
+  const poster = classified.poster ?? null
+  const isVideo = classified.kind !== 'image'
 
   useEffect(() => setFailed(false), [url])
 
   const frameStyle = {
+    position: 'relative' as const,
     display: 'grid',
     placeItems: 'center',
     width,
@@ -686,25 +697,69 @@ function HeroImagePreview({
     color: failed ? 'var(--bad)' : 'var(--ink-3)',
   } as const
 
+  const badge =
+    isVideo && !failed ? (
+      <span
+        style={{
+          position: 'absolute',
+          left: 6,
+          bottom: 6,
+          zIndex: 1,
+          padding: '2px 6px',
+          borderRadius: 4,
+          background: 'rgba(10,10,12,.78)',
+          color: 'var(--on-violet)',
+          font: `700 9px/1 ${FONT}`,
+          letterSpacing: '.06em',
+        }}
+      >
+        {classified.kind === 'youtube'
+          ? 'YOUTUBE'
+          : classified.kind === 'vimeo'
+            ? 'VIMEO'
+            : 'VIDEO'}
+      </span>
+    ) : null
+
   if (!url || failed) {
     return (
       <span role="img" aria-label={failed ? `${label} unavailable` : `${label} not selected`} style={frameStyle}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, font: `600 11px/1 ${FONT}` }}>
-          <DcIcon name="icon-image" size={14} /> {failed ? 'Preview unavailable' : 'Choose image'}
+          <DcIcon name={isVideo ? 'icon-play' : 'icon-image'} size={14} />{' '}
+          {failed ? 'Preview unavailable' : isVideo ? 'Video URL' : 'Choose image'}
         </span>
       </span>
     )
   }
 
+  if (classified.kind === 'file-video') {
+    return (
+      <span style={frameStyle}>
+        <video
+          src={url}
+          muted
+          playsInline
+          preload="metadata"
+          poster={poster ?? undefined}
+          onError={() => setFailed(true)}
+          style={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }}
+        />
+        {badge}
+      </span>
+    )
+  }
+
+  const imgSrc = poster || url
   return (
     <span style={frameStyle}>
       {/* eslint-disable-next-line @next/next/no-img-element -- dynamic storefront/upload URLs */}
       <img
-        src={url}
+        src={imgSrc}
         alt={label}
         onError={() => setFailed(true)}
         style={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }}
       />
+      {badge}
     </span>
   )
 }

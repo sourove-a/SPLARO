@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common'
 import { FulfillmentService } from './fulfillment.service'
+import { generateProductStickersHtml } from './label.template'
 import type { OrderStatusService } from '../orders/order-status.service'
 import type { PrismaService } from '../../common/prisma.service'
 
@@ -8,8 +9,18 @@ const baseOrder = {
   storeId: 'store-1',
   invoiceNumber: 'SPL-1001',
   shippingName: 'Test Buyer',
+  shippingPhone: '01700000000',
+  shippingCity: 'Dhaka',
+  shippingDistrict: 'Dhaka',
+  shippingAddress: 'House 1',
+  shippingDivision: 'Dhaka',
+  shippingPostal: null,
+  paymentMethod: 'CASH_ON_DELIVERY',
+  paymentStatus: 'UNPAID',
+  total: 1200,
+  isCodRisk: false,
   status: 'PROCESSING' as string,
-  items: [{ quantity: 2 }],
+  items: [{ id: 'li-1', quantity: 2, productName: 'Polo', sku: 'SPL-POLO' }],
   courier: null,
 }
 
@@ -117,6 +128,63 @@ describe('FulfillmentService.scan', () => {
     } as unknown as PrismaService
     const service = new FulfillmentService(prisma, orderStatus)
     await expect(service.scan('MISSING', 'pack')).rejects.toBeInstanceOf(NotFoundException)
+  })
+})
+
+describe('FulfillmentService.toStationOrder', () => {
+  it('exposes variant barcode for pick-list scans', () => {
+    const service = new FulfillmentService(
+      {} as PrismaService,
+      {} as OrderStatusService,
+    )
+    const station = service.toStationOrder({
+      ...baseOrder,
+      items: [
+        {
+          id: 'li-1',
+          quantity: 2,
+          productName: 'Polo',
+          sku: 'SPL-POLO',
+          variant: {
+            sku: 'SPL-POLO-M',
+            barcode: '8901234567890',
+            size: 'M',
+            colorName: 'Black',
+          },
+          product: { name: 'Polo', sku: 'SPL-POLO', barcode: null, images: [] },
+        },
+      ],
+    } as never)
+    expect(station.items[0]).toMatchObject({
+      sku: 'SPL-POLO',
+      barcode: '8901234567890',
+      size: 'M',
+      color: 'Black',
+    })
+  })
+})
+
+describe('product stickers', () => {
+  it('encodes SKU/barcode instead of invoice', () => {
+    const html = generateProductStickersHtml(
+      [
+        {
+          invoiceNumber: 'SPL-1001',
+          productName: 'Polo',
+          sku: 'SPL-POLO-M',
+          barcode: '8901234567890',
+          scanCode: '8901234567890',
+          size: 'M',
+          color: 'Black',
+          quantity: 1,
+          autoPrint: false,
+        },
+      ],
+      false,
+    )
+    expect(html).toContain('8901234567890')
+    expect(html).toContain('SKU: SPL-POLO-M')
+    expect(html).toContain('BC: 8901234567890')
   })
 })
 

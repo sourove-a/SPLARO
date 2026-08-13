@@ -183,6 +183,11 @@ export function verifySettingsApplied(
     if (!r.ok) return r
   }
 
+  if (patch.homepageCatalog) {
+    const r = verifyDeepBlock(patch.homepageCatalog, saved.homepageCatalog, 'Homepage category tiles')
+    if (!r.ok) return r
+  }
+
   if (patch.marquee) {
     const r = verifyDeepBlock(patch.marquee, saved.marquee, 'Marquee')
     if (!r.ok) return r

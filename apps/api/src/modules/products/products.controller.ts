@@ -197,7 +197,7 @@ export class ProductsController {
             orderBy: { position: 'asc' },
             take: 1,
           },
-          category: { select: { name: true } },
+          category: { select: { id: true, name: true, slug: true } },
           variants: { select: { id: true, stock: true, reservedStock: true, sku: true, size: true, color: true, colorName: true, price: true } },
           _count: { select: { variants: true } },
         },
@@ -725,6 +725,7 @@ export class ProductsController {
       colorHex?: string
       image?: string
       sku?: string
+      barcode?: string
       price: number
       compareAtPrice?: number
       stock?: number
@@ -755,6 +756,13 @@ export class ProductsController {
       const skuClash = await this.prisma.productVariant.findFirst({ where: { productId, sku } })
       if (skuClash) throw new BadRequestException(`SKU "${sku}" already used by another variant on this product`)
     }
+    const barcode = body.barcode?.trim() || undefined
+    if (barcode) {
+      const barcodeClash = await this.prisma.productVariant.findFirst({ where: { productId, barcode } })
+      if (barcodeClash) {
+        throw new BadRequestException(`Barcode "${barcode}" already used by another variant on this product`)
+      }
+    }
 
     const variant = await this.prisma.productVariant.create({
       data: {
@@ -765,6 +773,7 @@ export class ProductsController {
         colorHex: body.colorHex?.trim() ? productHexOrDefault(body.colorHex) : null,
         image: body.image?.trim() || null,
         sku: sku ?? null,
+        barcode: barcode ?? null,
         price: body.price,
         compareAtPrice: body.compareAtPrice ?? null,
         stock,
@@ -801,6 +810,7 @@ export class ProductsController {
       compareAtPrice?: number | null
       isActive?: boolean
       sku?: string
+      barcode?: string
       size?: string
       color?: string
       colorName?: string
@@ -830,6 +840,15 @@ export class ProductsController {
       })
       if (clash) throw new BadRequestException(`SKU "${sku}" already used by another variant on this product`)
     }
+    const barcode = body.barcode !== undefined ? body.barcode.trim() : undefined
+    if (barcode) {
+      const barcodeClash = await this.prisma.productVariant.findFirst({
+        where: { productId, barcode, NOT: { id: variantId } },
+      })
+      if (barcodeClash) {
+        throw new BadRequestException(`Barcode "${barcode}" already used by another variant on this product`)
+      }
+    }
 
     const nextSize = body.size !== undefined ? body.size.trim() || null : variant.size
     const nextColor = body.color !== undefined ? body.color.trim() || null : variant.color
@@ -852,6 +871,7 @@ export class ProductsController {
         ...(body.compareAtPrice !== undefined ? { compareAtPrice: body.compareAtPrice } : {}),
         ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
         ...(body.sku !== undefined ? { sku: sku || null } : {}),
+        ...(body.barcode !== undefined ? { barcode: barcode || null } : {}),
         ...(body.size !== undefined ? { size: nextSize } : {}),
         ...(body.color !== undefined ? { color: nextColor } : {}),
         ...(body.colorName !== undefined ? { colorName: body.colorName.trim() || null } : {}),

@@ -93,40 +93,46 @@ export class AgentLoopService {
         userMessage: `confirm:${confirmed.toolName}`,
       })
 
-      yield { type: 'tool_start', toolName: confirmed.toolName }
-      let toolResult: unknown
+      // Same abandonment risk as the main loop below — a client that hangs up
+      // between these yields would otherwise leave the run stuck at `running`.
       try {
-        toolResult = await this.tools.execute(
-          storeId,
-          sessionId,
-          confirmed.toolName,
-          confirmed.arguments,
-          createdBy,
-          { confirmed: true, previousValues: confirmed.previousValues },
-        )
-      } catch (err) {
-        toolResult = { ok: false, error: err instanceof Error ? err.message : 'Tool failed' }
+        yield { type: 'tool_start', toolName: confirmed.toolName }
+        let toolResult: unknown
+        try {
+          toolResult = await this.tools.execute(
+            storeId,
+            sessionId,
+            confirmed.toolName,
+            confirmed.arguments,
+            createdBy,
+            { confirmed: true, previousValues: confirmed.previousValues },
+          )
+        } catch (err) {
+          toolResult = { ok: false, error: err instanceof Error ? err.message : 'Tool failed' }
+        }
+
+        const tier = getToolTier(confirmed.toolName)
+        const truncated = truncateToolResult(confirmed.toolName, toolResult)
+        await this.audit.logToolCall({
+          runId: run.id,
+          toolName: confirmed.toolName,
+          tier,
+          input: confirmed.arguments,
+          resultSummary: truncated,
+          previousValues: confirmed.previousValues,
+          confirmed: true,
+        })
+
+        yield { type: 'tool_end', toolName: confirmed.toolName, toolResult }
+        finalText = this.tools.summarizeResult(toolResult)
+        for (const char of finalText) yield { type: 'token', content: char }
+        yield* this.emitCost(tokenInEst, tokenOutEst, costEstUsd)
+        await this.audit.finishRun(run.id, 'completed', { tokenInEst, tokenOutEst, costEstUsd })
+        yield { type: 'done' }
+        return { finalText, tokenInEst, tokenOutEst, costEstUsd }
+      } finally {
+        await this.audit.finishRun(run.id, 'failed', { tokenInEst, tokenOutEst, costEstUsd })
       }
-
-      const tier = getToolTier(confirmed.toolName)
-      const truncated = truncateToolResult(confirmed.toolName, toolResult)
-      await this.audit.logToolCall({
-        runId: run.id,
-        toolName: confirmed.toolName,
-        tier,
-        input: confirmed.arguments,
-        resultSummary: truncated,
-        previousValues: confirmed.previousValues,
-        confirmed: true,
-      })
-
-      yield { type: 'tool_end', toolName: confirmed.toolName, toolResult }
-      finalText = this.tools.summarizeResult(toolResult)
-      for (const char of finalText) yield { type: 'token', content: char }
-      yield* this.emitCost(tokenInEst, tokenOutEst, costEstUsd)
-      await this.audit.finishRun(run.id, 'completed', { tokenInEst, tokenOutEst, costEstUsd })
-      yield { type: 'done' }
-      return { finalText, tokenInEst, tokenOutEst, costEstUsd }
     }
 
     if (isCancelMessage(trimmed)) {
@@ -367,6 +373,12 @@ export class AgentLoopService {
       costEstUsd = this.cost.estimateCostUsd(modelId, tokenInEst, tokenOutEst)
       await this.audit.finishRun(run.id, 'failed', { tokenInEst, tokenOutEst, costEstUsd })
       throw err
+    } finally {
+      // This is an async generator: if the client hangs up mid-stream the body
+      // is suspended at a `yield` and neither the success nor the catch path
+      // ever runs, leaving the run stuck at `running` forever. `finishRun` only
+      // touches rows still `running`, so this is a no-op on a finished run.
+      await this.audit.finishRun(run.id, 'failed', { tokenInEst, tokenOutEst, costEstUsd })
     }
   }
 

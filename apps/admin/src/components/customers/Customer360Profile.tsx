@@ -178,8 +178,8 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
 
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:flex-col sm:items-end">
             {customer.phone ? (
-              <AdminButton size="sm" variant="ghost" onClick={() => window.open(`tel:${customer.phone.replace(/\D/g, '')}`, '_self')}>
-                <Phone className="h-3.5 w-3.5" /> Message
+              <AdminButton size="sm" variant="ghost" onClick={() => window.open(telHref(customer.phone), '_self')}>
+                <Phone className="h-3.5 w-3.5" /> Call
               </AdminButton>
             ) : null}
             {onToggleBlock ? (

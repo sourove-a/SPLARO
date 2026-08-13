@@ -175,13 +175,14 @@ export function DcShell({
         {banner}
 
         <div className="dc-main-row" style={{ flex: 1, display: 'flex', minWidth: 0 }}>
-          <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <main
+            className="dc-page-body"
+            style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}
+          >
             {pageHead}
-            {/*
-              Do not wrap {children} in an extra Client div. Dashboard layout
-              (Server) owns `.dc-page-body` around the loading Suspense slot —
-              wrapping here caused hydration: server Suspense vs client div.
-            */}
+            {/* Page slot must stay unwrapped — Next loading.tsx is a Suspense
+                boundary. An extra div here or in the Server layout hydrates as
+                Suspense vs div. */}
             {children}
           </main>
 

@@ -90,7 +90,15 @@ export interface MarketingOverview {
   whatsappCampaigns: { id: string; name: string; status: string; totalSent: number }[]
   emailCampaigns: { id: string; name: string; status: string; totalSent: number }[]
   emailLogs: { id: string; recipient: string; subject: string | null; body: string | null; status: string; createdAt: string }[]
-  smsLogs: { id: string; recipient: string; subject: string | null; body: string | null; status: string; createdAt: string }[]
+  smsLogs: {
+    id: string
+    recipient: string
+    subject: string | null
+    body: string | null
+    status: string
+    errorMsg?: string | null
+    createdAt: string
+  }[]
   socialChannels?: MarketingSocialChannel[]
   socialSummary?: MarketingSocialSummary
 }

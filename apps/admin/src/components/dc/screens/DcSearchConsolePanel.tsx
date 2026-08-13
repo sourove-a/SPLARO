@@ -384,6 +384,7 @@ function DisconnectedStrip({ status, onRefetch }: { status: GscStatus | null; on
         {status?.message ??
           'Google ranking and crawl data stay empty until Workspace OAuth includes webmasters.readonly and a splaro.co property.'}
         {' '}
+        Rankings are never invented. SEO daily brief still uses onsite search until this connects.
         Reuses the existing Google Workspace client — no second OAuth app. Hint account: splaro.bd@gmail.com.
       </span>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

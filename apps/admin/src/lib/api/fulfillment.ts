@@ -2,21 +2,55 @@ import { apiFetch } from './client'
 
 export type FulfillmentScanAction = 'pack' | 'dispatch'
 
-export interface FulfillmentScanResult {
-  ok: boolean
-  action: FulfillmentScanAction
+export interface FulfillmentStationItem {
+  id: string
+  name: string
+  sku: string
+  barcode: string | null
+  size: string
+  color: string
+  quantity: number
+  image: string | null
+}
+
+export interface FulfillmentStationOrder {
   orderId: string
   invoiceNumber: string
-  customerName: string
-  previousStatus: string
   status: string
+  customerName: string
+  customerPhone: string
+  city: string
+  district: string
+  address: string
+  paymentMethod: string
+  paymentStatus: string
+  total: number
   itemCount: number
+  isCodRisk: boolean
+  items: FulfillmentStationItem[]
+  courier: {
+    provider: string | null
+    consignmentId: string | null
+    trackingCode: string | null
+    status: string | null
+  } | null
+}
+
+export interface FulfillmentScanResult extends FulfillmentStationOrder {
+  ok: boolean
+  action: FulfillmentScanAction
+  previousStatus: string
   message: string
 }
 
 export interface FulfillmentTodayStats {
   packed: number
   shipped: number
+}
+
+export function lookupFulfillment(code: string) {
+  const qs = new URLSearchParams({ code: code.trim() })
+  return apiFetch<FulfillmentStationOrder>(`/admin/fulfillment/lookup?${qs}`)
 }
 
 export function scanFulfillment(code: string, action: FulfillmentScanAction) {

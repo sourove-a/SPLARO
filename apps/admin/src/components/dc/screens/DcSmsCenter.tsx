@@ -1,7 +1,7 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
 
 import { DcIcon } from '@/components/dc/DcIcon'
 import { DcPageHead } from '@/components/dc/DcPageHead'
@@ -11,7 +11,14 @@ import { DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { toastApiSaved, toastFail, toastIntegrationTestResult, toastWarn } from '@/lib/admin/feedback'
 import { useMarketingOverview } from '@/lib/api/hooks'
+import {
+  useSmsIntegration,
+  useTestSmsIntegration,
+  useUpdateSmsIntegration,
+} from '@/lib/api/integration-hooks'
+import type { SmsGateway } from '@/lib/api/integrations'
 import { sendTestSms } from '@/lib/api/notifications'
 import { formatBdPhone, localBdNumber, operatorOf, telHref } from '@/lib/format/bd-phone'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
@@ -48,6 +55,13 @@ const TAKA_PER_SEGMENT = 0.35
 const GSM_PER_SEGMENT = 160
 const UCS2_PER_SEGMENT = 70
 
+/**
+ * Stand-in for the store's own payment number. Kept as a token instead of a
+ * literal number: a wrong number in this template sends the customer's advance
+ * payment to a stranger, so the send is blocked until it is filled in.
+ */
+const PAYMENT_NUMBER_TOKEN = '[আপনার বিকাশ নম্বর]'
+
 const TEMPLATES: Array<{ label: string; body: string; why: string }> = [
   {
     label: 'Order confirmed',
@@ -61,8 +75,8 @@ const TEMPLATES: Array<{ label: string; body: string; why: string }> = [
   },
   {
     label: 'Advance payment needed',
-    body: 'COD ঝুঁকির কারণে অর্ডারটি কনফার্ম করতে অগ্রিম পেমেন্ট লাগবে। বিকাশ: 01711-204556',
-    why: 'Used on flagged COD orders instead of cancelling them outright.',
+    body: `COD ঝুঁকির কারণে অর্ডারটি কনফার্ম করতে অগ্রিম পেমেন্ট লাগবে। বিকাশ: ${PAYMENT_NUMBER_TOKEN}`,
+    why: `Used on flagged COD orders instead of cancelling them outright. Replace ${PAYMENT_NUMBER_TOKEN} with your own bKash number — sending is blocked until you do.`,
   },
   {
     label: 'Back in stock',
@@ -96,29 +110,42 @@ function segmentsOf(text: string): {
  * set, so this screen states the order and marks only what it can prove — the
  * provider that answered the last send from here.
  */
-const PROVIDER_CHAIN: Array<{ id: string; title: string; sub: string }> = [
+const GATEWAYS: Array<{ id: SmsGateway; title: string; hint: string; defaultUrl: string }> = [
   {
     id: 'bdbulksms',
-    title: 'BDBulkSMS · first choice',
-    sub: 'bulksmsbd.net · needs BDBULKSMS_API_KEY on the API',
+    title: 'BDBulkSMS',
+    hint: 'Most common BD gateway. Paste API key + sender ID.',
+    defaultUrl: 'https://bulksmsbd.net/api/smsapi',
   },
   {
     id: 'elitbuzz',
-    title: 'ElitBuzz · fallback',
-    sub: 'msg.elitbuzz-bd.com · needs ELITBUZZ_API_TOKEN',
+    title: 'ElitBuzz',
+    hint: 'Token + sender ID. POST JSON to the API URL.',
+    defaultUrl: 'https://msg.elitbuzz-bd.com/smsapi',
   },
   {
     id: 'greenweb',
-    title: 'GreenWeb · last resort',
-    sub: 'api.greenweb.com.bd · needs GREENWEB_SMS_USER and PASS',
+    title: 'GreenWeb',
+    hint: 'Needs username + password, not an API key.',
+    defaultUrl: 'https://api.greenweb.com.bd/api.php',
+  },
+  {
+    id: 'custom',
+    title: 'Custom URL',
+    hint: 'Any BD SMS HTTP API — paste the full send link.',
+    defaultUrl: '',
   },
 ]
+
+function isMaskedValue(v: string) {
+  return v === '••••••••' || /^•+$/.test(v) || v.includes('••••')
+}
 
 const FACTS: Array<{ icon: string; title: string; sub: string; tag: string }> = [
   {
     icon: 'icon-phone',
     title: 'Numbers are normalised to 880…',
-    sub: '01711-204556 and +880 1711-204556 both become 8801711204556 before sending.',
+    sub: '01905-010205 and +880 1905-010205 both become 8801905010205 before sending.',
     tag: 'AUTO',
   },
   {
@@ -161,18 +188,48 @@ export function DcSmsCenter() {
 function DcSmsCenterBody() {
   const { toast } = useDcScreen()
   const overview = useMarketingOverview()
+  const smsCfg = useSmsIntegration()
+  const saveSms = useUpdateSmsIntegration()
+  const testSms = useTestSmsIntegration()
   const { api } = useAdminConnection(25_000)
 
-  const [phone, setPhone] = useState('01711-204556')
+  // Empty on purpose — a pre-filled number is a real value, and one click would
+  // send a paid SMS to whoever it belongs to.
+  const [phone, setPhone] = useState('')
   const [draft, setDraft] = useState(TEMPLATES[0]?.body ?? '')
   const [confirmSend, setConfirmSend] = useState(false)
   const [sending, setSending] = useState(false)
-  /** Which link in the provider chain served the last send from this screen. */
+  /** Which gateway accepted the last send from this screen. */
   const [lastProvider, setLastProvider] = useState<string | null>(null)
+
+  const [gateway, setGateway] = useState<SmsGateway>('bdbulksms')
+  const [apiUrl, setApiUrl] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [senderId, setSenderId] = useState('SPLARO')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [method, setMethod] = useState<'GET' | 'POST'>('GET')
+  const [enabled, setEnabled] = useState(true)
+
+  useEffect(() => {
+    const cfg = smsCfg.data
+    if (!cfg) return
+    const gw = (GATEWAYS.find((g) => g.id === cfg.fields.gateway)?.id ?? 'bdbulksms') as SmsGateway
+    setGateway(gw)
+    setApiUrl(cfg.fields.apiUrl || GATEWAYS.find((g) => g.id === gw)?.defaultUrl || '')
+    setApiKey(cfg.fields.apiKey || '')
+    setSenderId(cfg.fields.senderId || 'SPLARO')
+    setUsername(cfg.fields.username || '')
+    setPassword(cfg.fields.password || '')
+    setMethod(cfg.fields.method === 'POST' ? 'POST' : 'GET')
+    setEnabled(cfg.enabled)
+  }, [smsCfg.data])
 
   const logs = useMemo(() => overview.data?.smsLogs ?? [], [overview.data])
   const seg = useMemo(() => segmentsOf(draft), [draft])
-  const pageStatus = dcPageStatus([overview], api.pulse)
+  const pageStatus = dcPageStatus([overview, smsCfg], api.pulse)
+  const configured = Boolean(smsCfg.data?.configured)
+  const source = smsCfg.data?.source ?? 'none'
 
   const sent = logs.filter((l) => ['SENT', 'DELIVERED'].includes(l.status.toUpperCase()))
   const failed = logs.filter((l) =>
@@ -182,6 +239,9 @@ function DcSmsCenterBody() {
   const digits = localBdNumber(phone)
   const phoneValid = digits.length === 11 && digits.startsWith('01')
   const operator = operatorOf(phone)
+  /** An unfilled payment-number token would tell the customer to pay nobody. */
+  const draftHasToken = draft.includes(PAYMENT_NUMBER_TOKEN)
+  const canSend = phoneValid && seg.segments > 0 && !draftHasToken && configured && enabled
 
   const skeleton: DcBlock[] = [
     { t: 'kpis' } as DcBlock,
@@ -220,6 +280,51 @@ function DcSmsCenterBody() {
       .finally(() => setSending(false))
   }
 
+  const pickGateway = (next: SmsGateway) => {
+    const prevDefault = GATEWAYS.find((g) => g.id === gateway)?.defaultUrl ?? ''
+    setGateway(next)
+    if (!apiUrl.trim() || apiUrl.trim() === prevDefault) {
+      setApiUrl(GATEWAYS.find((g) => g.id === next)?.defaultUrl ?? '')
+    }
+    if (next === 'elitbuzz') setMethod('POST')
+    else if (next !== 'custom') setMethod('GET')
+  }
+
+  const saveGateway = async () => {
+    try {
+      const res = await saveSms.mutateAsync({
+        gateway,
+        apiUrl,
+        apiKey,
+        senderId,
+        username,
+        password,
+        method,
+        enabled,
+      })
+      if ((res.saved?.length ?? 0) > 0 || (res.cleared?.length ?? 0) > 0) {
+        toastApiSaved(
+          res.configured
+            ? `SMS gateway saved · ${gateway}`
+            : 'SMS settings saved — still missing API key or URL',
+        )
+        return
+      }
+      toastWarn(res.skipped?.length ? 'Nothing new to save (masked keys unchanged).' : 'Nothing was saved.')
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'SMS credentials were not saved.')
+    }
+  }
+
+  const testGateway = async () => {
+    try {
+      const res = await testSms.mutateAsync()
+      toastIntegrationTestResult(res, 'SMS gateway test')
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'SMS gateway test failed.')
+    }
+  }
+
   return (
     <>
       <DcPageHead
@@ -232,8 +337,11 @@ function DcSmsCenterBody() {
             ? 'syncing…'
             : `${logs.length} log${logs.length === 1 ? '' : 's'} · ${deliveryRate.toFixed(0)}% delivered`
         }
-        syncing={overview.isFetching}
-        onSync={() => void overview.refetch()}
+        syncing={overview.isFetching || smsCfg.isFetching}
+        onSync={() => {
+          void overview.refetch()
+          void smsCfg.refetch()
+        }}
       />
 
       <div
@@ -274,6 +382,243 @@ function DcSmsCenterBody() {
           sentence in Bangla can cost three times what it costs in English — the segment count under
           the composer is the real billing unit, not the character count.
         </span>
+      </div>
+
+      <div style={{ ...card, overflow: 'hidden' }}>
+        <div
+          style={{
+            padding: '12px 15px',
+            borderBottom: '1px solid var(--line)',
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: 9,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ flex: 1, minWidth: 140, font: `600 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+            Gateway credentials
+          </span>
+          <span style={{ font: `500 11.5px/1 ${FONT}`, color: configured ? 'var(--ok)' : 'var(--warn)' }}>
+            {configured
+              ? enabled
+                ? `Live · ${gateway} · ${source === 'database' ? 'saved here' : 'from .env'}`
+                : 'Keys saved · SMS is off'
+              : 'No API key / link saved yet'}
+          </span>
+        </div>
+        <div style={{ padding: 15, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(e) => setEnabled(e.target.checked)}
+            />
+            <span style={{ font: `600 13px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+              SMS sending on
+            </span>
+            <span style={{ font: `400 12px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>
+              off = nothing sends, including order SMS
+            </span>
+          </label>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {GATEWAYS.map((g) => {
+              const on = gateway === g.id
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => pickGateway(g.id)}
+                  style={{
+                    height: 34,
+                    padding: '0 12px',
+                    borderRadius: 9,
+                    border: `1px solid ${on ? 'var(--violet)' : 'var(--line)'}`,
+                    background: on ? 'var(--violet-soft)' : 'var(--surface-2)',
+                    color: on ? 'var(--violet)' : 'var(--ink-2)',
+                    cursor: 'pointer',
+                    font: `600 12px/1 ${FONT}`,
+                  }}
+                >
+                  {g.title}
+                </button>
+              )
+            })}
+          </div>
+          <p style={{ margin: 0, font: `400 12px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
+            {GATEWAYS.find((g) => g.id === gateway)?.hint}
+          </p>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={capsLabel}>API URL / link</span>
+            <input
+              value={apiUrl}
+              onChange={(e) => setApiUrl(e.target.value)}
+              placeholder="https://bulksmsbd.net/api/smsapi"
+              style={{
+                height: 40,
+                padding: '0 12px',
+                borderRadius: 9,
+                border: '1px solid var(--line)',
+                background: 'var(--surface-2)',
+                outline: 'none',
+                color: 'var(--ink)',
+                font: `400 13px/1 ${MONO}`,
+              }}
+            />
+          </label>
+
+          {gateway === 'greenweb' ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={capsLabel}>Username</span>
+                <input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="off"
+                  style={{
+                    height: 40,
+                    padding: '0 12px',
+                    borderRadius: 9,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface-2)',
+                    outline: 'none',
+                    color: 'var(--ink)',
+                    font: `400 13px/1 ${MONO}`,
+                  }}
+                />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={capsLabel}>Password</span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={isMaskedValue(password) ? undefined : '••••••••'}
+                  autoComplete="new-password"
+                  style={{
+                    height: 40,
+                    padding: '0 12px',
+                    borderRadius: 9,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface-2)',
+                    outline: 'none',
+                    color: 'var(--ink)',
+                    font: `400 13px/1 ${MONO}`,
+                  }}
+                />
+              </label>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={capsLabel}>API key / token</span>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Paste key from the SMS panel"
+                  autoComplete="new-password"
+                  style={{
+                    height: 40,
+                    padding: '0 12px',
+                    borderRadius: 9,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface-2)',
+                    outline: 'none',
+                    color: 'var(--ink)',
+                    font: `400 13px/1 ${MONO}`,
+                  }}
+                />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={capsLabel}>Sender ID</span>
+                <input
+                  value={senderId}
+                  onChange={(e) => setSenderId(e.target.value)}
+                  placeholder="SPLARO"
+                  style={{
+                    height: 40,
+                    padding: '0 12px',
+                    borderRadius: 9,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface-2)',
+                    outline: 'none',
+                    color: 'var(--ink)',
+                    font: `400 13px/1 ${MONO}`,
+                  }}
+                />
+              </label>
+            </div>
+          )}
+
+          {gateway === 'custom' ? (
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={capsLabel}>HTTP method</span>
+              <select
+                value={method}
+                onChange={(e) => setMethod(e.target.value === 'POST' ? 'POST' : 'GET')}
+                style={{
+                  height: 40,
+                  padding: '0 12px',
+                  borderRadius: 9,
+                  border: '1px solid var(--line)',
+                  background: 'var(--surface-2)',
+                  color: 'var(--ink)',
+                  font: `500 13px/1 ${FONT}`,
+                }}
+              >
+                <option value="GET">GET (query string — BDBulkSMS style)</option>
+                <option value="POST">POST JSON</option>
+              </select>
+            </label>
+          ) : null}
+
+          {smsCfg.data?.lastTestMessage ? (
+            <p style={{ margin: 0, font: `400 12px/1.45 ${FONT}`, color: smsCfg.data.lastTestStatus === 'success' ? 'var(--ok)' : 'var(--ink-3)' }}>
+              Last test: {smsCfg.data.lastTestMessage}
+            </p>
+          ) : null}
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              disabled={saveSms.isPending}
+              onClick={() => void saveGateway()}
+              style={{
+                height: 34,
+                padding: '0 14px',
+                borderRadius: 9,
+                border: '1px solid var(--violet-solid)',
+                background: 'var(--violet-solid)',
+                color: 'var(--on-violet)',
+                cursor: saveSms.isPending ? 'not-allowed' : 'pointer',
+                opacity: saveSms.isPending ? 0.6 : 1,
+                font: `600 12.5px/1 ${FONT}`,
+              }}
+            >
+              {saveSms.isPending ? 'Saving…' : 'Save credentials'}
+            </button>
+            <button
+              type="button"
+              disabled={testSms.isPending || !configured}
+              onClick={() => void testGateway()}
+              style={{
+                height: 34,
+                padding: '0 14px',
+                borderRadius: 9,
+                border: '1px solid var(--line-2)',
+                background: 'var(--surface)',
+                color: 'var(--ink-2)',
+                cursor: testSms.isPending || !configured ? 'not-allowed' : 'pointer',
+                opacity: testSms.isPending || !configured ? 0.55 : 1,
+                font: `600 12.5px/1 ${FONT}`,
+              }}
+            >
+              {testSms.isPending ? 'Testing…' : 'Test connection'}
+            </button>
+          </div>
+        </div>
       </div>
 
       {overview.isLoading ? (
@@ -365,7 +710,7 @@ function DcSmsCenterBody() {
                     <input
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      placeholder="01711-204556"
+                      placeholder="01905-010205"
                       inputMode="tel"
                       style={{
                         height: 40,
@@ -476,11 +821,37 @@ function DcSmsCenterBody() {
                     </span>
                   </div>
 
+                  {draftHasToken ? (
+                    <p
+                      style={{
+                        margin: 0,
+                        padding: '9px 12px',
+                        borderRadius: 9,
+                        border: '1px solid var(--warn-bd)',
+                        background: 'var(--warn-soft)',
+                        color: 'var(--warn)',
+                        font: `600 12px/1.5 ${FONT}`,
+                      }}
+                    >
+                      This template still says {PAYMENT_NUMBER_TOKEN}. Put your own bKash number in
+                      before sending — otherwise the customer pays a number that is not yours.
+                    </p>
+                  ) : null}
+
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button
                       type="button"
-                      disabled={sending || !phoneValid || seg.segments === 0}
+                      disabled={sending || !canSend}
                       onClick={() => setConfirmSend(true)}
+                      title={
+                        !configured
+                          ? 'Save API key and URL first'
+                          : !enabled
+                            ? 'Turn SMS sending on first'
+                            : draftHasToken
+                              ? `Replace ${PAYMENT_NUMBER_TOKEN} with your own bKash number first`
+                              : undefined
+                      }
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -492,8 +863,8 @@ function DcSmsCenterBody() {
                         background: 'var(--violet-solid)',
                         color: 'var(--on-violet)',
                         cursor:
-                          sending || !phoneValid || seg.segments === 0 ? 'not-allowed' : 'pointer',
-                        opacity: sending || !phoneValid || seg.segments === 0 ? 0.55 : 1,
+                          sending || !canSend ? 'not-allowed' : 'pointer',
+                        opacity: sending || !canSend ? 0.55 : 1,
                         font: `600 12.5px/1 ${FONT}`,
                       }}
                     >
@@ -617,13 +988,14 @@ function DcSmsCenterBody() {
                   <span
                     style={{ flex: 1, minWidth: 110, font: `600 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}
                   >
-                    Provider chain
+                    Active gateway
                   </span>
                   <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
-                    tried in this order
+                    {configured ? (enabled ? 'will send' : 'keys saved · off') : 'not configured'}
                   </span>
                 </div>
-                {PROVIDER_CHAIN.map((p, i) => {
+                {GATEWAYS.map((p) => {
+                  const active = gateway === p.id
                   const served = lastProvider === p.id
                   return (
                     <div
@@ -643,13 +1015,13 @@ function DcSmsCenterBody() {
                           height: 28,
                           flex: 'none',
                           borderRadius: 8,
-                          border: '1px solid var(--line)',
-                          background: 'var(--surface-2)',
-                          color: served ? 'var(--ok)' : 'var(--ink-3)',
+                          border: `1px solid ${active ? 'var(--ok-bd)' : 'var(--line)'}`,
+                          background: active ? 'var(--ok-soft)' : 'var(--surface-2)',
+                          color: active ? 'var(--ok)' : 'var(--ink-3)',
                           font: `600 11px/1 ${MONO}`,
                         }}
                       >
-                        {i + 1}
+                        {active ? '●' : '○'}
                       </span>
                       <span
                         style={{
@@ -670,7 +1042,7 @@ function DcSmsCenterBody() {
                             wordBreak: 'break-word',
                           }}
                         >
-                          {p.sub}
+                          {p.defaultUrl || 'paste any HTTPS send URL'}
                         </span>
                       </span>
                       {served ? (
@@ -688,7 +1060,24 @@ function DcSmsCenterBody() {
                             whiteSpace: 'nowrap',
                           }}
                         >
-                          SERVED LAST SEND
+                          LAST SEND
+                        </span>
+                      ) : active ? (
+                        <span
+                          style={{
+                            flex: 'none',
+                            alignSelf: 'flex-start',
+                            padding: '3px 8px',
+                            borderRadius: 6,
+                            border: '1px solid var(--violet-bd)',
+                            background: 'var(--violet-soft)',
+                            color: 'var(--violet)',
+                            font: `700 9px/1.4 ${FONT}`,
+                            letterSpacing: '.08em',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          SELECTED
                         </span>
                       ) : null}
                     </div>
@@ -705,9 +1094,8 @@ function DcSmsCenterBody() {
                     color: 'var(--ink-3)',
                   }}
                 >
-                  No endpoint reports which of these keys are set on the API, so this screen will
-                  not claim one is active. Send a message — whichever provider answers is marked
-                  above.
+                  Keys are encrypted on the server. Save above, then send a test SMS — green only
+                  when the provider actually accepts it.
                 </div>
               </div>
             </div>
@@ -848,7 +1236,12 @@ function DcSmsCenterBody() {
                           </a>
                         </td>
                         <td style={{ ...td, maxWidth: 380 }}>
-                          {l.body ?? l.subject ?? '—'}
+                          <span style={{ display: 'block' }}>{l.body ?? '—'}</span>
+                          {l.subject || l.errorMsg ? (
+                            <span style={{ font: `500 11px/1.4 ${MONO}`, color: 'var(--ink-3)' }}>
+                              {[l.subject, l.errorMsg].filter(Boolean).join(' · ')}
+                            </span>
+                          ) : null}
                         </td>
                         <td
                           style={{

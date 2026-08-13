@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { getServerApiBaseUrl, SPLARO_DOMAINS } from '@splaro/config'
+import { getServerApiBaseUrl, getStorefrontProbeOrigin } from '@splaro/config'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,7 +48,9 @@ async function pingApiCore(base: string): Promise<{ ok: boolean; latencyMs: numb
 }
 
 async function pingWebShop(): Promise<ServiceHealthCheck> {
-  const url = `${SPLARO_DOMAINS.site}/api/products`
+  const base = getStorefrontProbeOrigin()
+  // limit=1 hits the listing BFF — never dump the full catalog just to see if :3000 is up.
+  const url = `${base}/api/products?limit=1`
   const start = Date.now()
   try {
     const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) })
@@ -249,7 +251,7 @@ export async function GET(request: NextRequest) {
             c.id === 'postgresql'
               ? 'Install PostgreSQL or run: pnpm infra:up. Then: pnpm db:push && pnpm db:seed'
               : c.id === 'redis'
-                ? 'Run: brew services start redis — or: pnpm infra:up (Docker)'
+                ? 'Run: pnpm infra:redis'
                 : 'Run: pnpm db:push && pnpm db:seed'
         }
         return row
@@ -277,6 +279,11 @@ export async function GET(request: NextRequest) {
   }
 
   const payload = { timestamp: new Date().toISOString(), summary, checks }
-  healthCache = { at: Date.now(), key: cacheKey, payload }
+  // Don't cache a down overall — otherwise starting `pnpm dev:web` still shows DOWN for 45s.
+  if (summary.overall !== 'down') {
+    healthCache = { at: Date.now(), key: cacheKey, payload }
+  } else {
+    healthCache = null
+  }
   return NextResponse.json(payload)
 }

@@ -21,6 +21,7 @@ import {
   type ApiWholesaleInquiry,
   type WholesaleStatus,
 } from '@/lib/api/wholesale'
+import { telHref, whatsappHref } from '@/lib/format/bd-phone'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { resolveMediaUrl } from '@/lib/media-url'
 
@@ -535,11 +536,11 @@ function LeadCard({
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-        <a href={`tel:${lead.phone}`} style={{ ...chipButton, textDecoration: 'none' }}>
+        <a href={telHref(lead.phone)} style={{ ...chipButton, textDecoration: 'none' }}>
           Call
         </a>
         <a
-          href={`https://wa.me/${lead.phone.replace(/[^\d]/g, '')}`}
+          href={whatsappHref(lead.phone)}
           target="_blank"
           rel="noopener noreferrer"
           style={{ ...chipButton, textDecoration: 'none' }}

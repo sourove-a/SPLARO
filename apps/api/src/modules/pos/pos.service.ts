@@ -46,6 +46,14 @@ export class PosService {
     const q = query?.trim()
     const skuQ = sku?.trim()
 
+    const catalogInclude = {
+      images: { orderBy: { position: 'asc' as const }, take: 1 },
+      variants: {
+        where: { isActive: true },
+        orderBy: [{ colorName: 'asc' as const }, { size: 'asc' as const }],
+      },
+    }
+
     if (skuQ) {
       const variant = await this.prisma.productVariant.findFirst({
         where: {
@@ -57,22 +65,32 @@ export class PosService {
           isActive: true,
         },
         include: {
-          product: {
-            include: {
-              images: { orderBy: { position: 'asc' }, take: 1 },
-              variants: {
-                where: { isActive: true },
-                orderBy: [{ colorName: 'asc' }, { size: 'asc' }],
-              },
-            },
-          },
+          product: { include: catalogInclude },
         },
       })
-      if (!variant) return { products: [], matchedVariantId: null as string | null }
+      if (variant) {
+        return {
+          products: [this.mapProductForPos(variant.product)],
+          matchedVariantId: variant.id,
+        }
+      }
+
+      const product = await this.prisma.product.findFirst({
+        where: {
+          storeId: sid,
+          isPublished: true,
+          OR: [
+            { sku: { equals: skuQ, mode: 'insensitive' } },
+            { barcode: { equals: skuQ, mode: 'insensitive' } },
+          ],
+        },
+        include: catalogInclude,
+      })
+      if (!product) return { products: [], matchedVariantId: null as string | null }
 
       return {
-        products: [this.mapProductForPos(variant.product)],
-        matchedVariantId: variant.id,
+        products: [this.mapProductForPos(product)],
+        matchedVariantId: product.variants.length === 1 ? product.variants[0]!.id : null,
       }
     }
 
@@ -84,7 +102,9 @@ export class PosService {
             OR: [
               { name: { contains: q, mode: 'insensitive' } },
               { sku: { contains: q, mode: 'insensitive' } },
+              { barcode: { contains: q, mode: 'insensitive' } },
               { variants: { some: { sku: { contains: q, mode: 'insensitive' } } } },
+              { variants: { some: { barcode: { contains: q, mode: 'insensitive' } } } },
             ],
           }
         : {}),
@@ -92,18 +112,22 @@ export class PosService {
 
     const products = await this.prisma.product.findMany({
       where,
-      include: {
-        images: { orderBy: { position: 'asc' }, take: 1 },
-        variants: {
-          where: { isActive: true },
-          orderBy: [{ colorName: 'asc' }, { size: 'asc' }],
-        },
-      },
+      include: catalogInclude,
       orderBy: { name: 'asc' },
       take: q ? 40 : 24,
     })
 
-    return { products: products.map((p) => this.mapProductForPos(p)), matchedVariantId: null as string | null }
+    let matchedVariantId: string | null = null
+    if (q && products.length === 1) {
+      const needle = q.toLowerCase()
+      const exact = products[0]!.variants.filter(
+        (v) => v.sku?.toLowerCase() === needle || v.barcode?.toLowerCase() === needle,
+      )
+      if (exact.length === 1) matchedVariantId = exact[0]!.id
+      else if (products[0]!.variants.length === 1) matchedVariantId = products[0]!.variants[0]!.id
+    }
+
+    return { products: products.map((p) => this.mapProductForPos(p)), matchedVariantId }
   }
 
   async getTodayStats(storeId: string | undefined) {
@@ -337,6 +361,7 @@ export class PosService {
       name: string
       basePrice: Prisma.Decimal
       sku: string | null
+      barcode: string | null
       images: { url: string }[]
       variants: {
         id: string
@@ -356,6 +381,7 @@ export class PosService {
       id: product.id,
       name: product.name,
       sku: product.sku,
+      barcode: product.barcode,
       image: product.images[0]?.url ?? null,
       basePrice: Number(product.basePrice),
       variants: product.variants.map((v) => ({

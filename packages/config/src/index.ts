@@ -1,4 +1,6 @@
 export * from './hero-default-slides'
+export * from './hero-media'
+export * from './homepage-catalog'
 export * from './local-placeholders'
 export * from './brand-icons'
 export * from './delivery-zones'

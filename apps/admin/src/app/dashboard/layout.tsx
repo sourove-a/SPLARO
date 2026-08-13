@@ -22,11 +22,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <AdminTokenHydrator token={token} />
       <DcAdminShell banner={<TelegramLinkBanner />}>
         {/*
-          Server-owned page canvas. Next wraps page segments in Suspense for
-          loading.tsx — wrapping that slot in a Client Component div made
-          hydration see Suspense on the server and div on the client.
+          Pass the page slot unwrapped. Next injects loading.tsx as <Suspense>
+          here — any extra wrapper (even in this Server layout) hydrates as
+          Suspense vs div once it crosses DcAdminShell (Client).
+          Canvas padding lives on DcShell <main className="dc-page-body">.
         */}
-        <div className="dc-page-body">{children}</div>
+        {children}
       </DcAdminShell>
       {/* The DC shell renders its own "Ask SPLARO" launcher. */}
       <AgentShell hideFab />

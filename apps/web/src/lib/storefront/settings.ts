@@ -26,8 +26,11 @@ import {
 } from '@/lib/storefront/accessories-nav'
 import { EDITORIAL } from '@/lib/assets/editorial-images'
 import {
+  DEFAULT_HOMEPAGE_CATALOG,
   DEFAULT_HOMEPAGE_SECTIONS,
   DEFAULT_OUR_STORY,
+  mergeHomepageCatalog,
+  type HomepageCatalogConfig,
   type HomepageSectionsConfig,
   type OurStoryConfig,
   resolveHomepageSections,
@@ -158,6 +161,7 @@ export interface StorefrontSettings {
     newsletter?: NewsletterConfig
     ourStory?: OurStoryConfig
     homepage?: HomepageSectionsConfig
+    homepageCatalog?: HomepageCatalogConfig
     catalogChannels?: CatalogChannel[]
     shopFilters?: ShopFiltersConfig
   }
@@ -662,6 +666,9 @@ function applyStoreDefaults(settings: StorefrontSettings): StorefrontSettings {
       },
       ourStory: resolveOurStory(settings.config.ourStory),
       homepage: resolveHomepageSections(settings.config.homepage),
+      homepageCatalog: mergeHomepageCatalog(
+        settings.config.homepageCatalog ?? DEFAULT_HOMEPAGE_CATALOG,
+      ),
     },
   }
 }

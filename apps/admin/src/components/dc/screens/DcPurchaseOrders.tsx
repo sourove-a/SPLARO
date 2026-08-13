@@ -888,7 +888,7 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
           label="Phone"
           value={supplierForm.phone}
           onChange={(v) => setSupplierForm((f) => ({ ...f, phone: v }))}
-          placeholder="01711-204556"
+          placeholder="01905-010205"
           mono
         />
         <DcField

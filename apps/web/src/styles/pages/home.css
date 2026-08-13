@@ -683,7 +683,7 @@
   }
 
   .home-dept-row .home-dept-tile:not(.is-active) {
-    opacity: 0.78;
+    opacity: 0.94;
   }
 
   .home-dept-row .home-dept-tile.is-active {
@@ -721,13 +721,16 @@
   }
 
   .home-dept-row .home-dept-tile:not(.is-active) .home-dept-tile__label {
-    opacity: 0.82;
-    transform: translateX(-50%) scale(0.96);
+    opacity: 1;
+    transform: translateX(-50%) scale(0.98);
+    background: rgba(12, 12, 16, 0.72);
+    border-color: rgba(255, 255, 255, 0.4);
   }
 
   .home-dept-row .home-dept-tile.is-active .home-dept-tile__label {
     opacity: 1;
     transform: translateX(-50%) scale(1);
+    background: rgba(12, 12, 16, 0.78);
   }
 
   .home-dept-row .home-dept-tile__label,
@@ -944,8 +947,8 @@ html[data-perf='lite'] .home-dept-tile__label,
 html[data-os='windows'] .home-dept-tile__label {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  background: rgba(16, 17, 20, 0.42);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(12, 12, 16, 0.78);
+  border-color: rgba(255, 255, 255, 0.42);
 }
 
 @media (max-width: 767px) {
@@ -1918,6 +1921,23 @@ html[data-os='windows'] .home-dept-tile:hover .home-dept-tile__img {
   max-height: none !important;
 }
 
+.home-hero-slider .hero-bg-embed {
+  overflow: hidden;
+  pointer-events: none;
+}
+.home-hero-slider .hero-bg-embed iframe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 177.78vh;
+  height: 56.25vw;
+  min-width: 100%;
+  min-height: 100%;
+  border: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
 .home-hero-slider .hero-bg-video,
 .home-hero-slider .hero-bg-image,
 .home-hero-slider .hero-bg-fallback,
@@ -1973,6 +1993,13 @@ html[data-os='windows'] .home-dept-tile:hover .home-dept-tile__img {
 html[data-os='windows'] .home-hero-slider .hero-bg-video,
 html[data-os='windows'] .home-hero-slider .hero-slide__media video.hero-bg-video,
 html[data-os='windows'] .home-hero-slider:not([data-transitioning]) .hero-slide[data-active='true'] .hero-bg-video {
+  transform: none !important;
+}
+html[data-os='windows'] .home-hero-slider .hero-bg-embed iframe {
+  transform: translate(-50%, -50%) !important;
+}
+.home-hero-slider .hero-bg-embed,
+.home-hero-slider:not([data-transitioning]) .hero-slide[data-active='true'] .hero-bg-embed {
   transform: none !important;
 }
 

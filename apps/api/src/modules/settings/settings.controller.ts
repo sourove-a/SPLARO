@@ -4,7 +4,7 @@ import { CacheService } from '../../common/cache.service'
 import { fireAndForget } from '../../common/fire-and-forget'
 import { EmailService } from '../email/email.service'
 import { OrderNotificationsService } from '../notifications/order-notifications.service'
-import { resolvePublicSiteUrl } from '@splaro/config'
+import { mergeHomepageCatalog, resolvePublicSiteUrl } from '@splaro/config'
 import { DEFAULT_CATALOG_CHANNELS, mergeShopFilters } from '@splaro/types'
 import {
   emptyStorefrontConfig,
@@ -119,6 +119,7 @@ export class SettingsController {
       newsletter: config.newsletter ?? emptyStorefrontConfig().newsletter,
       ourStory: config.ourStory ?? emptyStorefrontConfig().ourStory,
       homepage: config.homepage ?? emptyStorefrontConfig().homepage,
+      homepageCatalog: config.homepageCatalog ?? emptyStorefrontConfig().homepageCatalog,
       catalogChannels: mergeCatalogChannels(config.catalogChannels),
       shopFilters: mergeShopFilters(config.shopFilters),
       catalog: {
@@ -280,6 +281,7 @@ export class SettingsController {
       newsletter?: StorefrontConfig['newsletter']
       ourStory?: StorefrontConfig['ourStory']
       homepage?: StorefrontConfig['homepage']
+      homepageCatalog?: StorefrontConfig['homepageCatalog']
       catalogChannels?: StorefrontConfig['catalogChannels']
       shopFilters?: StorefrontConfig['shopFilters']
       catalog?: StorefrontConfig['catalog']
@@ -407,6 +409,9 @@ export class SettingsController {
           }
         : {}),
       ...(body.homepage ? { homepage: { ...currentConfig.homepage!, ...body.homepage } } : {}),
+      ...(body.homepageCatalog !== undefined
+        ? { homepageCatalog: mergeHomepageCatalog(body.homepageCatalog) }
+        : {}),
       ...(body.catalogChannels
         ? { catalogChannels: mergeCatalogChannels(body.catalogChannels) }
         : {}),
@@ -475,7 +480,7 @@ export class SettingsController {
     const socialPatch = body.social
     const contactPatch = body.contact
 
-    if (paymentPatch || shippingPatch || socialPatch || contactPatch || body.marquee || body.specialOffer || body.newsletter || body.ourStory || body.homepage || body.catalogChannels || body.shopFilters || body.catalog || body.navigation || body.branding || body.smtp || body.smtpAccounts || body.emailEnabled !== undefined || body.marketing) {
+    if (paymentPatch || shippingPatch || socialPatch || contactPatch || body.marquee || body.specialOffer || body.newsletter || body.ourStory || body.homepage || body.homepageCatalog || body.catalogChannels || body.shopFilters || body.catalog || body.navigation || body.branding || body.smtp || body.smtpAccounts || body.emailEnabled !== undefined || body.marketing) {
       await this.prisma.siteSettings.upsert({
         where: { storeId: store.id },
         create: {

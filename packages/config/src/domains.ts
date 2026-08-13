@@ -81,6 +81,24 @@ export const SPLARO_PORTS = {
   api: Number(env('PORT_API', env('API_PORT', '4000'))),
 } as const
 
+/**
+ * Admin health/ping “is the storefront process up?”
+ *
+ * Local Next loads root `.env` where NEXT_PUBLIC_SITE_URL is often https://splaro.co.
+ * Probing that host from `:3001` reports production, not `pnpm dev:web`.
+ * Non-production always uses IPv4 loopback (Windows `localhost` → ::1 stalls).
+ */
+export function getStorefrontProbeOrigin(
+  nodeEnv: string | undefined = process.env.NODE_ENV,
+  port: string | undefined = process.env.PORT_WEB,
+): string {
+  if (nodeEnv === 'production') {
+    return SPLARO_DOMAINS.site.replace(/\/+$/, '')
+  }
+  const webPort = (port ?? '').trim() || String(SPLARO_PORTS.web)
+  return `http://127.0.0.1:${webPort}`
+}
+
 function isLoopbackHostname(hostname: string): boolean {
   const h = hostname.replace(/^www\./, '').toLowerCase()
   return (

@@ -1,7 +1,7 @@
 /**
  * Bangladesh phone formatting.
  *
- * House format is `01711-204556` — 11 digits, hyphen after the operator prefix.
+ * House format is `01905-010205` — 11 digits, hyphen after the operator prefix.
  * The public support number is the only one shown internationally.
  * Search must be digit-aware, so `digitsOf` is exported alongside.
  */
@@ -21,13 +21,13 @@ export function digitsOf(value: string | null | undefined): string {
   return String(value ?? '').replace(/\D/g, '')
 }
 
-/** Local 11-digit form (`01711204556`), or the raw digits when it is not a BD mobile. */
+/** Local 11-digit form (`01905010205`), or the raw digits when it is not a BD mobile. */
 export function localBdNumber(value: string | null | undefined): string {
   const d = digitsOf(value).replace(/^880/, '')
   return d.length === 10 ? `0${d}` : d
 }
 
-/** `01711-204556`. Returns the input untouched when it is not an 11-digit BD number. */
+/** `01905-010205`. Returns the input untouched when it is not an 11-digit BD number. */
 export function formatBdPhone(value: string | null | undefined): string {
   const local = localBdNumber(value)
   if (local.length !== 11) return String(value ?? '')
@@ -38,6 +38,19 @@ export function formatBdPhone(value: string | null | undefined): string {
 export function telHref(value: string | null | undefined): string {
   const local = localBdNumber(value)
   return `tel:+880${local.replace(/^0/, '')}`
+}
+
+/**
+ * `wa.me` target — `880` + the local number without its leading zero, which is
+ * the same shape the API builds for invoice share links. Returns `''` when
+ * there is no number to dial, so callers can hide the button instead of
+ * opening a broken chat.
+ */
+export function whatsappHref(value: string | null | undefined, text?: string): string {
+  const local = localBdNumber(value)
+  if (!local) return ''
+  const query = text ? `?text=${encodeURIComponent(text)}` : ''
+  return `https://wa.me/880${local.replace(/^0/, '')}${query}`
 }
 
 /** Carrier behind the prefix — useful when a delivery keeps failing. */

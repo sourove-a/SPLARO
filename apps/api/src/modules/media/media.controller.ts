@@ -14,6 +14,13 @@ export class MediaController {
     return this.media.list(storeId, query, folder)
   }
 
+  // Declared before `@Delete(':id')`/`@Patch(':id')` siblings so `folders` is
+  // never captured as an id param.
+  @Get('folders')
+  folders(@Query('storeId') storeId: string) {
+    return this.media.listFolders(storeId)
+  }
+
   @Post()
   create(
     @Query('storeId') storeId: string,

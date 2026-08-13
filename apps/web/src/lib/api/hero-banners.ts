@@ -1,7 +1,7 @@
 import type { HeroBanner } from '@/lib/api/banners'
 import { productSlug } from '@/lib/catalog/index'
 import type { StorefrontProduct } from '@/data/storefront'
-import { HERO_DEFAULT_SLIDES } from '@splaro/config'
+import { HERO_DEFAULT_SLIDES, canonicalizeHeroMediaUrl, isHeroVideoUrl } from '@splaro/config'
 import { preferLocalHeroSrc } from '@/lib/assets/hero-cdn'
 
 /**
@@ -54,10 +54,6 @@ export function heroBannersFromCatalog(
   }))
 }
 
-function isHeroVideoUrl(url: string): boolean {
-  return /\.(mp4|webm|ogg)(\?|$)/i.test(url) || /videos\.pexels\.com\/video-files/i.test(url)
-}
-
 /** Remap retired women-only default hero copy → family lifestyle positioning. */
 function alignHeroBrandCopy(banner: HeroBanner): HeroBanner {
   const title = banner.title?.trim() ?? ''
@@ -101,23 +97,21 @@ function sanitizeHeroBanner(
   options?: { allowVideo?: boolean },
 ): HeroBanner {
   const aligned = alignHeroBrandCopy(banner)
-  const image = aligned.image?.trim() || ''
+  const image = canonicalizeHeroMediaUrl(aligned.image?.trim() || '')
   if (!image) return aligned
+  const withCanonical = image === aligned.image ? aligned : { ...aligned, image }
 
   if (isHeroVideoUrl(image)) {
-    // Remote Pexels (and other third-party mp4) stalls Bangladesh networks —
-    // homepage looks stuck on a tiny poster. Only same-origin clips may stay video.
-    const sameOriginVideo =
-      Boolean(options?.allowVideo) &&
-      (image.startsWith('/') || /^(https?:)?\/\/(www\.)?splaro\.co\//i.test(image))
-    if (sameOriginVideo) return aligned
+    // Keep the URL the merchant pasted (YouTube / Vimeo / mp4 / Pexels). HeroSlider
+    // plays SD-first and falls back to poster if the clip stalls.
+    if (options?.allowVideo) return withCanonical
     const local =
       HERO_DEFAULT_SLIDES[index % HERO_DEFAULT_SLIDES.length]?.image ??
       HERO_DEFAULT_SLIDES[0]?.image
-    return local ? { ...aligned, image: local } : aligned
+    return local ? { ...withCanonical, image: local } : withCanonical
   }
 
-  return { ...aligned, image: preferLocalHeroSrc(image) }
+  return { ...withCanonical, image: preferLocalHeroSrc(image) }
 }
 
 export function resolveHeroBanners(

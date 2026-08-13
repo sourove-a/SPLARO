@@ -230,3 +230,47 @@ export function testInfrastructureIntegration(provider: 'steadfast' | 'pathao' |
     method: 'POST',
   })
 }
+
+export type SmsGateway = 'bdbulksms' | 'elitbuzz' | 'greenweb' | 'custom'
+
+export interface SmsIntegrationConfig {
+  provider: 'sms'
+  configured: boolean
+  source: 'database' | 'env' | 'none'
+  adminManaged?: boolean
+  enabled: boolean
+  fields: {
+    gateway: string
+    apiUrl: string
+    apiKey: string
+    senderId: string
+    username: string
+    password: string
+    method: string
+    enabled: string
+  }
+  fieldSources?: Record<string, 'database' | 'env' | 'none'>
+  lastTestedAt?: string | null
+  lastTestStatus?: string | null
+  lastTestMessage?: string | null
+  saved?: string[]
+  cleared?: string[]
+  skipped?: { key: string; reason: string }[]
+}
+
+export function fetchSmsIntegration() {
+  return apiFetch<SmsIntegrationConfig>('/admin/integrations/sms')
+}
+
+export function updateSmsIntegration(body: Record<string, string | boolean>) {
+  return apiFetch<SmsIntegrationConfig>('/admin/integrations/sms', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+export function testSmsIntegration() {
+  return apiFetch<{ ok: boolean; message: string; provider?: string }>('/admin/integrations/sms/test', {
+    method: 'POST',
+  })
+}

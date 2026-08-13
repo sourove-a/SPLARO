@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { DcIcon } from '@/components/dc/DcIcon'
 import {
   DcChip,
@@ -17,7 +18,8 @@ import {
 import { DcProductMediaSlots } from '@/components/dc/product/DcProductMediaSlots'
 import { FONT, MONO, formatTaka } from '@/components/dc/tokens'
 import { toastOk, toastFail, toastWarn } from '@/lib/admin/feedback'
-import { confirmProductCreated } from '@/lib/admin/catalog-save'
+import { confirmCategoryHomepageImage, confirmProductCreated } from '@/lib/admin/catalog-save'
+import { revalidateWebCache } from '@/lib/api/revalidate'
 import { buildCategoryPicker, menuIconFor } from '@/lib/admin/category-picker'
 import {
   colourInputValue,
@@ -55,6 +57,10 @@ import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { generateAIProduct } from '@/lib/api/finance'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
+import {
+  CreateVariantMatrix,
+  type CreateVariantLine,
+} from '@/components/modules/product-form/CreateVariantMatrix'
 
 interface ProductCreatePanelProps {
   moduleHref: string
@@ -80,6 +86,7 @@ function newColorId() {
 
 export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const { navigate } = useAdminNavigate()
+  const qc = useQueryClient()
   const { api } = useAdminConnection(30_000)
   const apiOffline = api.pulse === 'offline'
   const createProduct = useCreateProduct()
@@ -93,8 +100,8 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const collections = collectionsData?.collections ?? []
   const [aiLoading, setAiLoading] = useState(false)
   const [railOpen, setRailOpen] = useState(false)
-  const [matrixExpanded, setMatrixExpanded] = useState(false)
   const [activeJump, setActiveJump] = useState('np-menu')
+  const [variantLines, setVariantLines] = useState<CreateVariantLine[]>([])
   const [altText, setAltText] = useState('')
   const [colorRows, setColorRows] = useState<ColorRow[]>([
     { id: newColorId(), name: '', hex: DEFAULT_COLOUR_HEX, imageUrl: '' },
@@ -103,6 +110,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const [departmentId, setDepartmentId] = useState('')
   const [subDepartmentId, setSubDepartmentId] = useState('')
   const [handleOverride, setHandleOverride] = useState('')
+  const [homepageBusy, setHomepageBusy] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -135,7 +143,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     categoryId: '',
     imageUrls: [] as string[],
     videoUrl: '',
-    sizes: '4Y, 6Y, 8Y, 10Y',
+    sizes: 'S, M, L, XL, XXL',
     isPublished: true,
     status: 'PUBLISHED',
     isHidden: false,
@@ -200,6 +208,31 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     const dept = categories.find((c) => c.id === departmentId)
     return mediaFolderForDept(dept ? `${dept.name} ${dept.slug}` : selectedCategory?.slug)
   }, [categories, departmentId, selectedCategory])
+
+  const setHomepageTile = useCallback(
+    async (url: string) => {
+      if (!form.categoryId || !selectedCategory) {
+        toastFail('Pick a category first')
+        return
+      }
+      setHomepageBusy(true)
+      try {
+        const ok = await confirmCategoryHomepageImage(
+          form.categoryId,
+          url,
+          selectedCategory.name,
+        )
+        if (ok) {
+          void qc.invalidateQueries({ queryKey: ['categories'] })
+          void qc.invalidateQueries({ queryKey: ['categories', 'tree'] })
+          void revalidateWebCache(['storefront-categories', 'storefront-products'])
+        }
+      } finally {
+        setHomepageBusy(false)
+      }
+    },
+    [form.categoryId, qc, selectedCategory],
+  )
 
   const activeColors = useMemo(
     () => colorRows.filter((row) => row.name.trim()),
@@ -462,6 +495,14 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
       toastFail('Select at least one size.')
       return
     }
+    if (!variantLines.length) {
+      toastFail('Add at least one size × colour variant.')
+      return
+    }
+    if (form.isPublished && !variantLines.some((v) => v.isActive && v.price > 0)) {
+      toastFail('Each published product needs an active variant with a price.')
+      return
+    }
 
     if (activeColors.length > 0) {
       const badHex = activeColors.find((row) => !isValidHex(row.hex))
@@ -564,6 +605,18 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         ...(form.videoUrl.trim() ? { videoUrl: form.videoUrl.trim() } : {}),
         ...(colorsPayload ? { colors: colorsPayload } : {}),
         ...(form.defaultStock ? { defaultStock: Number(form.defaultStock) || 10 } : {}),
+        variants: variantLines.map((line) => ({
+          size: line.size,
+          colorName: line.colorName,
+          colorHex: line.colorHex,
+          ...(line.image ? { image: line.image } : {}),
+          ...(line.sku ? { sku: line.sku } : {}),
+          ...(line.barcode ? { barcode: line.barcode } : {}),
+          price: line.price > 0 ? line.price : sellingPrice,
+          compareAtPrice: line.compareAtPrice ?? compareAt ?? null,
+          stock: line.stock,
+          isActive: true,
+        })),
       }
       const productId = await confirmProductCreated(
         {
@@ -700,25 +753,6 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const costNum = Number(form.costPrice) || 0
   const margin = priceNum > 0 && costNum > 0 ? priceNum - costNum : 0
   const marginPct = priceNum > 0 && costNum > 0 ? Math.round((margin / priceNum) * 100) : 0
-
-  const matrixRows = useMemo(() => {
-    const colors = activeColors.length ? activeColors : [{ id: 'x', name: 'Default', hex: 'var(--ink-3)', imageUrl: '' }]
-    const sizes = sizeList.length ? sizeList : ['—']
-    const rows: Array<{ label: string; sku: string; price: string; stock: string; hex: string }> = []
-    for (const c of colors) {
-      for (const s of sizes) {
-        const seg = (c.name || 'DEF').slice(0, 3).toUpperCase()
-        rows.push({
-          label: `${c.name || 'Default'} / ${s}`,
-          sku: form.sku.trim() ? `${form.sku.trim()}-${seg}-${s}` : `SPL-${seg}-${s}`,
-          price: priceNum > 0 ? formatTaka(priceNum) : '—',
-          stock: form.defaultStock || '0',
-          hex: c.hex,
-        })
-      }
-    }
-    return rows.slice(0, 24)
-  }, [activeColors, sizeList, form.sku, form.defaultStock, priceNum])
 
   const publishLive = () => {
     set('isPublished', true)
@@ -1044,6 +1078,13 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
               onAltChange={setAltText}
               disabled={aiLoading}
               uploadFolder={mediaUploadFolder}
+              {...(form.categoryId ? { categoryId: form.categoryId } : {})}
+              {...(selectedCategory?.name ? { categoryName: selectedCategory.name } : {})}
+              {...(selectedCategory?.image !== undefined
+                ? { categoryImage: selectedCategory.image }
+                : {})}
+              onSetHomepageImage={setHomepageTile}
+              homepageBusy={homepageBusy}
             />
           </DcSectionCard>
 
@@ -1236,158 +1277,27 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             id="np-matrix"
             num="04"
             title="Variants"
-            hint={
-              sizeDeptKey === 'footwear'
-                ? 'Footwear size run (EU) — switches automatically when you pick Footwear menu.'
-                : sizeDeptKey === 'kids'
-                  ? 'Kids size run — switches when you pick Kids menu.'
-                  : sizeDeptKey === 'accessories'
-                    ? 'Accessories default to One Size — add custom if needed.'
-                    : 'Size run follows Men / Women / Kids / Footwear menu.'
-            }
-            badge={<DcPill>{matrixRows.length} variants</DcPill>}
+            hint="1) tap sizes  2) type price, stock, SKU once  3) check the table. Kids / Footwear menu switches the size chips."
+            badge={<DcPill>{variantLines.length || variantCount} variants</DcPill>}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <span
-                style={{
-                  font: `600 10.5px/1 ${FONT}`,
-                  letterSpacing: '.09em',
-                  textTransform: 'uppercase',
-                  color: 'var(--ink-3)',
-                }}
-              >
-                Size run
-                {sizeDeptKey !== 'default' ? ` · ${sizeDeptKey}` : ''}
-              </span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {sizeChips.map((sz) => {
-                  const on = sizeList.includes(sz)
-                  return (
-                    <DcChip
-                      key={sz}
-                      on={on}
-                      onClick={() => {
-                        const next = on
-                          ? sizeList.filter((s) => s !== sz)
-                          : [...sizeList, sz]
-                        set('sizes', next.join(', '))
-                      }}
-                    >
-                      {sz}
-                    </DcChip>
-                  )
-                })}
-              </div>
-              <DcField label="Sizes · comma separated">
-                <DcInput mono value={form.sizes} onChange={(e) => set('sizes', e.target.value)} />
-              </DcField>
-            </div>
-
-            {matrixRows.length > 0 ? (
-              <>
-                <div className="dc-variant-summary">
-                  <DcIcon name="icon-layers" size={14} color="var(--ink-3)" />
-                  <span style={{ flex: 1, minWidth: 160, font: `500 12.5px/1.35 ${FONT}`, color: 'var(--ink-2)' }}>
-                    {matrixRows.length} variants · {activeColors.filter((c) => c.name.trim()).length || 1} colours ×{' '}
-                    {sizeList.length || 0} sizes
-                  </span>
-                  {matrixRows.length > 4 ? (
-                    <button
-                      type="button"
-                      onClick={() => setMatrixExpanded((v) => !v)}
-                      style={{
-                        height: 30,
-                        padding: '0 12px',
-                        borderRadius: 8,
-                        border: '1px solid var(--line-2)',
-                        background: 'var(--surface)',
-                        color: 'var(--ink)',
-                        cursor: 'pointer',
-                        font: `600 11.5px/1 ${FONT}`,
-                      }}
-                    >
-                      {matrixExpanded ? 'Show less' : 'Show all'}
-                    </button>
-                  ) : null}
-                </div>
-                <div className="dc-variant-matrix" style={matrixExpanded ? undefined : { maxHeight: 220 }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
-                    <thead>
-                      <tr>
-                        {['Variant', 'SKU', 'Price', 'Stock'].map((h) => (
-                          <th
-                            key={h}
-                            style={{
-                              textAlign: h === 'Price' || h === 'Stock' ? 'right' : 'left',
-                              padding: '9px 13px',
-                              font: `600 10.5px/1 ${FONT}`,
-                              letterSpacing: '.09em',
-                              textTransform: 'uppercase',
-                              color: 'var(--ink-3)',
-                              borderBottom: '1px solid var(--line)',
-                              background: 'var(--surface-2)',
-                              position: 'sticky',
-                              top: 0,
-                              zIndex: 1,
-                            }}
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(matrixExpanded ? matrixRows : matrixRows.slice(0, 4)).map((v) => (
-                        <tr key={v.label + v.sku} style={{ borderBottom: '1px solid var(--line)' }}>
-                          <td style={{ padding: '9px 13px' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span
-                                style={{
-                                  width: 13,
-                                  height: 13,
-                                  flex: 'none',
-                                  borderRadius: 4,
-                                  border: '1px solid var(--line-2)',
-                                  background: swatchCss(v.hex),
-                                }}
-                              />
-                              <span style={{ font: `500 12.5px/1 ${FONT}`, color: 'var(--ink)' }}>{v.label}</span>
-                            </span>
-                          </td>
-                          <td style={{ padding: '9px 13px', font: `500 11.5px/1 ${MONO}`, color: 'var(--ink-3)' }}>
-                            {v.sku}
-                          </td>
-                          <td
-                            style={{
-                              padding: '9px 13px',
-                              textAlign: 'right',
-                              font: `600 12.5px/1 ${MONO}`,
-                              color: 'var(--ink)',
-                            }}
-                          >
-                            {v.price}
-                          </td>
-                          <td
-                            style={{
-                              padding: '9px 13px',
-                              textAlign: 'right',
-                              font: `600 12.5px/1 ${MONO}`,
-                              color: 'var(--ink)',
-                            }}
-                          >
-                            {v.stock}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              <span style={{ font: `400 12px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
-                Add a colour name and at least one size to preview variants.
-              </span>
-            )}
+            <CreateVariantMatrix
+              productName={form.name}
+              sizeChips={sizeChips}
+              sizeDeptKey={sizeDeptKey}
+              colors={colorRows}
+              sizes={form.sizes}
+              onSizesChange={(next) => set('sizes', next)}
+              baseSku={form.sku}
+              onBaseSkuChange={(next) => set('sku', next)}
+              defaultStock={form.defaultStock}
+              onDefaultStockChange={(next) => set('defaultStock', next)}
+              basePrice={form.basePrice}
+              onBasePriceChange={(next) => set('basePrice', next)}
+              compareAtPrice={form.compareAtPrice}
+              productBarcode={form.barcode}
+              onProductBarcodeChange={(next) => set('barcode', next)}
+              onVariantsChange={setVariantLines}
+            />
           </DcSectionCard>
 
           <DcSectionCard
@@ -1529,6 +1439,12 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
               </DcField>
               <DcField label="Barcode">
                 <DcInput mono value={form.barcode} onChange={(e) => set('barcode', e.target.value)} placeholder="EAN / UPC" />
+              </DcField>
+              <DcField label="QR code">
+                <DcInput mono value={form.qrCode} onChange={(e) => set('qrCode', e.target.value)} placeholder="QR / URL" />
+              </DcField>
+              <DcField label="RM code">
+                <DcInput mono value={form.rmCode} onChange={(e) => set('rmCode', e.target.value)} />
               </DcField>
               <DcField label="Reorder point" hint="Low-stock alert fires here.">
                 <DcInput

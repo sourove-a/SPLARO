@@ -170,11 +170,19 @@ function DcPosCounterBody() {
     try {
       const res = await searchPosCatalog({ sku: code })
       const product = res.products[0]
-      const variant = product?.variants.find((v) => v.id === res.matchedVariantId)
+      const variant =
+        product?.variants.find((v) => v.id === res.matchedVariantId) ??
+        (product?.variants.length === 1 ? product.variants[0] : undefined)
       if (product && variant) {
         addVariant(product, variant)
         setTerm('')
         setQuery('')
+        return
+      }
+      // Product hit without a single variant (size/color) — show picker.
+      if (product) {
+        setQuery(code)
+        setTerm('')
         return
       }
       // Not a barcode — fall back to a name search.
@@ -401,7 +409,7 @@ function DcPosCounterBody() {
                 <input
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="01711-204556"
+                  placeholder="01905-010205"
                   style={{ ...input, fontFamily: MONO }}
                 />
               </label>

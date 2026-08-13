@@ -1,8 +1,9 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
+import { DcHomepageCatalogPanel } from '@/components/dc/screens/DcHomepageCatalogPanel'
 import { DcIcon } from '@/components/dc/DcIcon'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { dcPageStatus } from '@/components/dc/page-status'
@@ -77,12 +78,40 @@ export function DcProducts() {
   )
 }
 
+function isHomepageTilesLocation() {
+  if (typeof window === 'undefined') return false
+  if (window.location.hash === '#homepage-tiles') return true
+  const tab = new URLSearchParams(window.location.search).get('tab')
+  return tab === 'homepage-tiles' || tab === 'homepage'
+}
+
 function DcProductsBody() {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('All')
+  const [view, setView] = useState<'list' | 'homepage'>('list')
   const [query, setQuery] = useState('')
   const [removeTarget, setRemoveTarget] = useState<ApiProduct | null>(null)
   const [removing, setRemoving] = useState(false)
+
+  useEffect(() => {
+    const sync = () => setView(isHomepageTilesLocation() ? 'homepage' : 'list')
+    sync()
+    window.addEventListener('hashchange', sync)
+    window.addEventListener('popstate', sync)
+    return () => {
+      window.removeEventListener('hashchange', sync)
+      window.removeEventListener('popstate', sync)
+    }
+  }, [])
+
+  const openList = () => {
+    setView('list')
+    window.history.replaceState(null, '', '/dashboard/products')
+  }
+  const openHomepage = () => {
+    setView('homepage')
+    window.history.replaceState(null, '', '/dashboard/products?tab=homepage-tiles#homepage-tiles')
+  }
 
   const products = useProducts({ limit: 200 })
   const { api } = useAdminConnection(25_000)
@@ -187,16 +216,67 @@ function DcProductsBody() {
           hint="The shell is fine — only the catalog list failed to load."
           onRetry={() => void products.refetch()}
         />
-      ) : all.length === 0 ? (
-        <DcEmptyState
-          icon="icon-package"
-          title="No products yet"
-          body="The storefront has nothing to sell until the first product is published. Add one product with a photo, price and stock to open the shop."
-          cta="Add product"
-          onCta={() => router.push('/dashboard/products/new')}
-        />
       ) : (
         <>
+          <div
+            style={{
+              display: 'flex',
+              gap: 6,
+              padding: 4,
+              borderRadius: 12,
+              border: '1px solid var(--line)',
+              background: 'var(--surface-2)',
+              alignSelf: 'flex-start',
+            }}
+          >
+            {(
+              [
+                ['list', 'Catalog list', 'icon-package'],
+                ['homepage', 'Homepage tiles', 'icon-layout-grid'],
+              ] as const
+            ).map(([id, label, icon]) => {
+              const on = view === id
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => (id === 'homepage' ? openHomepage() : openList())}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    height: 34,
+                    padding: '0 12px',
+                    borderRadius: 9,
+                    border: 0,
+                    background: on ? 'var(--surface)' : 'transparent',
+                    color: on ? 'var(--ink)' : 'var(--ink-3)',
+                    cursor: 'pointer',
+                    font: `600 12.5px/1 ${FONT}`,
+                    boxShadow: on ? '0 0 0 1px var(--line)' : 'none',
+                  }}
+                >
+                  <DcIcon name={icon} size={14} />
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+
+          {view === 'homepage' ? <DcHomepageCatalogPanel /> : null}
+
+          {view === 'list' && all.length === 0 ? (
+            <DcEmptyState
+              icon="icon-package"
+              title="No products yet"
+              body="The storefront has nothing to sell until the first product is published. Add one product with a photo, price and stock to open the shop."
+              cta="Add product"
+              onCta={() => router.push('/dashboard/products/new')}
+            />
+          ) : null}
+
+          {view === 'list' && all.length > 0 ? (
+          <>
           <MobileProductsList
             products={rows}
             tab={tab}
@@ -515,6 +595,8 @@ function DcProductsBody() {
             </div>
           </div>
           </div>
+          </>
+          ) : null}
         </>
       )}
 

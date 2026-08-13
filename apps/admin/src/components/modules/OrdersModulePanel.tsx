@@ -39,6 +39,7 @@ import {
 import { useInfrastructureConfig } from '@/lib/api/integration-hooks'
 import { mapPaymentMethod, mapOrderStatus, type OrderPaymentStatus } from '@/lib/api/orders'
 import { formatBDT } from '@/lib/utils/currency'
+import { whatsappHref } from '@/lib/format/bd-phone'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 import { useAdminUiStore } from '@/store/uiStore'
 
@@ -153,7 +154,10 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
     )
   }
 
-  const items = order.items?.map((item) => ({
+  const items = order.items?.map((item, index) => ({
+    // Two lines can carry the same product name (same SKU split across sizes,
+    // or a re-add), so the row key comes from the line id, never the name.
+    key: item.id || `line-${index}`,
     name: `${item.product?.name ?? item.productName ?? 'Item'}${item.variant?.size ? ` · ${item.variant.size}` : ''}`,
     qty: item.quantity,
     price: Number(item.price ?? 0),
@@ -187,7 +191,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
       const result = await deleteOrderMutation.mutateAsync(order.id)
       if (!verifyDeleteSuccess(result)) return
       toastApiSaved(`Order ${order.invoiceNumber}`)
-      window.location.href = moduleHref
+      navigate(moduleHref)
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Could not delete order.')
     }
@@ -204,20 +208,29 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
     }
   }
 
-  const handleCodRiskToggle = async () => {
-    const next = !order.isCodRisk
+  const persistCodRisk = async (isCodRisk: boolean, advance: boolean) => {
     try {
       const saved = await setCodRisk.mutateAsync({
         id: order.id,
-        isCodRisk: next,
-        requireAdvancePayment: next ? requireAdvance : false,
+        isCodRisk,
+        requireAdvancePayment: isCodRisk ? advance : false,
       })
-      if (!verifyCodRisk(saved, next)) return
+      if (!verifyCodRisk(saved, isCodRisk)) return
       toastApiSaved(`Order ${order.invoiceNumber} COD risk`)
       void refetch()
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Could not update COD risk flag.')
     }
+  }
+
+  const handleCodRiskToggle = () => persistCodRisk(!order.isCodRisk, requireAdvance)
+
+  const handleRequireAdvanceChange = (checked: boolean) => {
+    setRequireAdvance(checked)
+    // Once the order is flagged, this checkbox is the only control for the
+    // field — the button below it clears the flag rather than saving it, so
+    // the change has to persist here or it silently does nothing.
+    if (order.isCodRisk) void persistCodRisk(true, checked)
   }
 
   const handleAddNote = async () => {
@@ -402,8 +415,15 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
                 </tr>
               </thead>
               <tbody>
+                {items.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} style={{ padding: '14px', fontSize: 12, fontWeight: 600, color: 'var(--ink-3)' }}>
+                      No line items on this order.
+                    </td>
+                  </tr>
+                ) : null}
                 {items.map((item) => (
-                  <tr key={item.name}>
+                  <tr key={item.key}>
                     <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--ink)', borderBottom: '1px solid var(--line)' }}>{item.name}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--ink-2)', borderBottom: '1px solid var(--line)', fontFamily: 'var(--dc-mono, ui-monospace, monospace)' }}>{item.qty}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--ink-2)', borderBottom: '1px solid var(--line)', fontFamily: 'var(--dc-mono, ui-monospace, monospace)' }}>{formatBDT(item.price)}</td>
@@ -442,7 +462,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
             <button
               type="button"
               className="mt-2.5 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[var(--violet-bd)] bg-[var(--violet-soft)] py-1.5 text-xs font-extrabold text-[var(--violet)]"
-              onClick={() => { const p = order.shippingPhone.replace(/\D/g, ''); window.open(`https://wa.me/88${p.startsWith('0') ? p.slice(1) : p}`, '_blank') }}
+              onClick={() => window.open(whatsappHref(order.shippingPhone), '_blank', 'noopener,noreferrer')}
             >
               <MessageSquare className="h-3.5 w-3.5" /> WhatsApp customer
             </button>
@@ -527,7 +547,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
                 <input
                   type="checkbox"
                   checked={requireAdvance}
-                  onChange={(e) => setRequireAdvance(e.target.checked)}
+                  onChange={(e) => handleRequireAdvanceChange(e.target.checked)}
                   disabled={setCodRisk.isPending}
                 />
                 Require advance payment when flagged

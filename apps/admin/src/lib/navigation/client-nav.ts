@@ -100,7 +100,14 @@ export function useAdminNavigate() {
       }
 
       const targetPath = adminHrefPath(href)
-      if (pathname === targetPath) return
+      if (pathname === targetPath) {
+        if (href.includes('#') || href.includes('?')) {
+          window.history.replaceState(null, '', href)
+          window.dispatchEvent(new Event('hashchange'))
+          window.dispatchEvent(new PopStateEvent('popstate'))
+        }
+        return
+      }
 
       setPendingAdminNav(href)
       prefetchRoute(router, href)

@@ -6,5 +6,8 @@ export function formatBDT(amount: number): string {
 }
 
 export function calcDiscountPercent(original: number, sale: number): number {
+  // A zero/absent compare-at price would divide to Infinity and render as
+  // "Infinity%", so anything that is not a real markdown reports 0.
+  if (!original || original <= sale) return 0
   return Math.round(((original - sale) / original) * 100)
 }

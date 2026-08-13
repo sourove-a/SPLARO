@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useSearchParams } from 'next/navigation'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { DcCustomers } from '@/components/customers/DcCustomers'
 import { DcDashboard } from '@/components/dashboard/DcDashboard'
@@ -22,6 +22,9 @@ import { DcPurchaseOrders } from '@/components/dc/screens/DcPurchaseOrders'
 import { DcReturnsRma } from '@/components/dc/screens/DcReturnsRma'
 import { DcSmsCenter } from '@/components/dc/screens/DcSmsCenter'
 import { DcWarehouseStock } from '@/components/dc/screens/DcWarehouseStock'
+import { EMPTY_SETTINGS } from '@/components/settings/SettingsShell'
+import { PaymentsSection } from '@/components/settings/sections/PaymentsSection'
+import type { AdminSettingsData } from '@/lib/api/settings'
 import * as fx from './fixtures'
 
 /** Every screen the harness can mount, keyed by the `?screen=` value. */
@@ -48,6 +51,28 @@ const SCREENS: Record<string, { label: string; render: () => React.ReactElement 
   analytics: { label: 'Analytics', render: () => <DcAnalytics /> },
   'ai-agent': { label: 'AI Command Brain', render: () => <DcAiCommandBrain /> },
   pos: { label: 'POS Counter', render: () => <DcPosCounter /> },
+  payments: { label: 'Settings · Payments', render: () => <PaymentsHarness /> },
+}
+
+/**
+ * Settings sections take their draft from `SettingsShell`, which the harness has
+ * no session for. This holds the draft locally so the section is interactive —
+ * toggles flip, cards expand — while every save path stays a no-op.
+ */
+function PaymentsHarness() {
+  const [draft, setDraft] = useState<AdminSettingsData>(() => ({
+    ...EMPTY_SETTINGS,
+    payments: { cod: true, bkash: true, sslcommerz: false, nagad: false },
+  }))
+  return (
+    <PaymentsSection
+      draft={draft}
+      setDraft={setDraft}
+      save={() => undefined}
+      saving={false}
+      apiOnline
+    />
+  )
 }
 
 export const HARNESS_SCREENS = Object.keys(SCREENS)
@@ -173,6 +198,7 @@ function buildClient(state: string): QueryClient {
     recentFailed: [],
   })
   seed(['courier-stats'], fx.courierStats, { byStatus: [], byProvider: [], recentFailed: [] })
+  seed(['payment-integrations'], fx.paymentIntegrations, { items: [] })
   seed(['notifications-overview'], fx.notificationsOverview, {
     logs: [],
     summary: { total: 0, sent: 0, failed: 0, pending: 0, critical: 0, deliveredRate: 0 },

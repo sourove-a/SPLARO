@@ -60,6 +60,12 @@ export interface OurStoryConfig {
   customerStories: CustomerStoriesConfig
 }
 
+export type {
+  HomepageCatalogConfig,
+  HomepageCatalogTile,
+} from '@splaro/config'
+export { DEFAULT_HOMEPAGE_CATALOG, mergeHomepageCatalog } from '@splaro/config'
+
 export interface HomepageSectionsConfig {
   hero: boolean
   marquee: boolean

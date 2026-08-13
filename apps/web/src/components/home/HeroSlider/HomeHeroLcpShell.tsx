@@ -5,13 +5,19 @@ import type { HeroBanner } from '@/lib/api/banners'
 import { heroBannersFromDefaults } from '@/lib/api/hero-banners'
 import { resolveLocalHeroVariants } from '@/lib/assets/hero-cdn'
 import { optimizeImageSrc } from '@/lib/assets/image-optimize'
+import { classifyHeroMedia } from '@splaro/config'
 
 /** Static first-slide shell — paints LCP before HeroSlider JS hydrates. */
 export function HomeHeroLcpShell({ banners = [] }: { banners?: HeroBanner[] }) {
   const slide = banners[0] ?? heroBannersFromDefaults()[0]
   if (!slide) return null
 
-  const variants = resolveLocalHeroVariants(slide.image)
+  const classified = classifyHeroMedia(slide.image)
+  const poster =
+    classified.kind === 'image'
+      ? slide.image
+      : (classified.poster ?? slide.mobileImage?.trim() ?? '')
+  const variants = resolveLocalHeroVariants(poster)
   const mobileImage = slide.mobileImage?.trim()
     ? optimizeImageSrc(slide.mobileImage.trim(), 'hero', slide.mobileImage.trim(), {
         allowStockMedia: true,
@@ -38,14 +44,14 @@ export function HomeHeroLcpShell({ banners = [] }: { banners?: HeroBanner[] }) {
           >
             <div className="hero-slide__media">
               <div className="hero-slide__media-shell">
-                {variants || mobileImage ? (
+                {variants || mobileImage || poster ? (
                   <picture>
                     {mobileImage ? (
                       <source media="(max-width: 768px)" srcSet={mobileImage} />
                     ) : null}
                     <img
                       className="hero-bg-image"
-                      src={variants?.desktop ?? slide.image}
+                      src={variants?.desktop ?? poster}
                       alt=""
                       width={1600}
                       height={900}

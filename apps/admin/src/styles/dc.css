@@ -4,9 +4,8 @@
  * Theme switches on <html data-t="dark">. Light is the default.
  */
 
-/* Page canvas inside DcShell <main> — kept in CSS so the Server layout can
-   wrap the Next.js loading Suspense boundary without a Client Component
-   inserting a sibling that hydrates as Suspense vs div. */
+/* Page canvas on DcShell <main>. Do not wrap the Next.js page slot in an extra
+   div — loading.tsx Suspense vs wrapper div is a hydration mismatch. */
 .dc-page-body {
   flex: 1;
   display: flex;

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getServerApiBaseUrl, SPLARO_DOMAINS } from '@splaro/config'
+import { getServerApiBaseUrl, getStorefrontProbeOrigin } from '@splaro/config'
 
 export const dynamic = 'force-dynamic'
 
@@ -73,7 +73,8 @@ export async function GET() {
     databaseMessage = 'API offline'
   }
 
-  const storefrontUrl = `${SPLARO_DOMAINS.site.replace(/\/+$/, '')}/api/products`
+  const storefrontOrigin = getStorefrontProbeOrigin()
+  const storefrontUrl = `${storefrontOrigin}/api/products?limit=1`
   const storefrontProbe = await probe(storefrontUrl, 6000)
 
   const services = {
@@ -89,7 +90,7 @@ export async function GET() {
       message: storefrontProbe.ok
         ? `HTTP ${storefrontProbe.status}`
         : storefrontProbe.message ?? offlineHint('storefront'),
-      url: SPLARO_DOMAINS.site,
+      url: storefrontOrigin,
     },
     database: {
       online: databaseOnline,

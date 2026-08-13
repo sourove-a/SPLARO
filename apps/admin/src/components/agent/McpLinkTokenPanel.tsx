@@ -14,16 +14,27 @@ import {
 import { FONT, MONO } from '@/components/dc/tokens'
 import { useAdminSession } from '@/lib/api/hooks'
 
-const DEFAULT_CONNECT_URL = 'https://admin.splaro.co/mcp/sse'
+/**
+ * Streamable HTTP (`/mcp`) is what ChatGPT and Claude connectors ask for. The
+ * older HTTP+SSE transport still answers on `/mcp/sse`, but it is deprecated in
+ * the MCP spec, so it is offered as a fallback rather than the headline URL.
+ */
+const DEFAULT_CONNECT_URL = 'https://admin.splaro.co/mcp'
+
+/** Older records (and the API default) may still carry the `/sse` suffix. */
+function toStreamableUrl(value: string): string {
+  return value.replace(/\/+$/, '').replace(/\/sse$/, '')
+}
 
 function preferLocalConnectUrl(serverUrl: string | undefined): string {
   if (typeof window !== 'undefined') {
     const host = window.location.hostname
     if (host === 'localhost' || host === '127.0.0.1') {
-      return `${window.location.origin}/mcp/sse`
+      return `${window.location.origin}/mcp`
     }
   }
-  return serverUrl?.trim() || DEFAULT_CONNECT_URL
+  const fromServer = serverUrl?.trim()
+  return fromServer ? toStreamableUrl(fromServer) : DEFAULT_CONNECT_URL
 }
 
 export function McpLinkTokenPanel() {
@@ -35,6 +46,7 @@ export function McpLinkTokenPanel() {
   const [busy, setBusy] = useState(false)
   const [fresh, setFresh] = useState<McpTokenCreated | null>(null)
   const [upstreamOk, setUpstreamOk] = useState<boolean | null>(null)
+  const legacyConnectUrl = `${connectUrl}/sse`
 
   useEffect(() => {
     setConnectUrl(preferLocalConnectUrl(undefined))
@@ -197,7 +209,13 @@ export function McpLinkTokenPanel() {
       >
         <li>Generate a link token (shown once).</li>
         <li>
-          In ChatGPT / Claude connector set URL to the connect URL below and header{' '}
+          In the ChatGPT / Claude connector set Authentication to{' '}
+          <strong>access token / API key</strong> — not OAuth. This server is token-authenticated
+          and publishes no OAuth discovery document, so the OAuth option will always report that it
+          is unsupported.
+        </li>
+        <li>
+          Set URL to the connect URL below and header{' '}
           <code style={{ fontFamily: MONO }}>Authorization: Bearer …</code>
         </li>
         <li>Ask for orders, products, COD risk — writes need explicit confirm.</li>
@@ -213,7 +231,7 @@ export function McpLinkTokenPanel() {
         }}
       >
         <p style={{ margin: 0, font: `600 10px/1 ${FONT}`, letterSpacing: '0.06em', color: 'var(--ink-3)' }}>
-          CONNECT URL
+          CONNECT URL · STREAMABLE HTTP
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 6 }}>
           <code style={{ flex: 1, minWidth: 0, font: `500 12px/1.4 ${MONO}`, color: 'var(--ink)', wordBreak: 'break-all' }}>
@@ -223,6 +241,17 @@ export function McpLinkTokenPanel() {
             Copy URL
           </button>
         </div>
+        <p
+          style={{
+            margin: '10px 0 0',
+            font: `400 11px/1.5 ${FONT}`,
+            color: 'var(--ink-3)',
+          }}
+        >
+          Only if a client cannot speak Streamable HTTP, the deprecated HTTP+SSE transport still
+          answers at{' '}
+          <code style={{ fontFamily: MONO, wordBreak: 'break-all' }}>{legacyConnectUrl}</code>.
+        </p>
       </div>
 
       {fresh ? (

@@ -177,6 +177,7 @@ import {
   AiIntegrationService,
   PaymentIntegrationService,
   InfrastructureIntegrationService,
+  SmsIntegrationService,
   IntegrationAuditService,
 } from './modules/integrations'
 import {
@@ -413,6 +414,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     AiIntegrationService,
     PaymentIntegrationService,
     InfrastructureIntegrationService,
+    SmsIntegrationService,
     IntegrationAuditService,
     GoogleWorkspaceService,
     GoogleSearchConsoleService,

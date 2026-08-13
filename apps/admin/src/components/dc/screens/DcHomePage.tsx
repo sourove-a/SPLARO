@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
 import { DcContentNav } from '@/components/dc/DcContentNav'
+import { DcHomepageCatalogTiles } from '@/components/dc/screens/DcHomepageCatalogTiles'
 import { DcIcon } from '@/components/dc/DcIcon'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcSaveBar } from '@/components/dc/DcSaveBar'
@@ -13,7 +14,8 @@ import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, toneStyle } from '@/components/dc/tokens'
 import { useSettings, useUpdateSettings } from '@/lib/api/hooks'
-import type { HomepageSectionsConfig } from '@/lib/api/settings'
+import type { HomepageCatalogConfig, HomepageSectionsConfig } from '@/lib/api/settings'
+import { DEFAULT_HOMEPAGE_CATALOG, mergeHomepageCatalog } from '@splaro/config'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { verifySettingsApplied } from '@/lib/admin/settings-save'
 import { getStorefrontOrigin } from '@/lib/storefront-origin'
@@ -58,9 +60,9 @@ const SECTIONS: Array<{
   {
     key: 'catalog',
     label: 'Catalog grid',
-    sub: 'the browse-everything block',
-    editHref: '/dashboard/products',
-    editLabel: 'Open catalog',
+    sub: 'Men / Women rails — pick products under Products → Homepage tiles',
+    editHref: '/dashboard/products?tab=homepage-tiles#homepage-tiles',
+    editLabel: 'Pick homepage tiles',
   },
   { key: 'specialOffer', label: 'Special offer band', sub: 'campaign strip with its own window' },
   { key: 'ourStory', label: 'Our Story', sub: 'brand section with pillars and customer stories' },
@@ -88,26 +90,45 @@ function DcHomePageBody() {
   const { api } = useAdminConnection(25_000)
 
   const [draft, setDraft] = useState<HomepageSectionsConfig | null>(null)
+  const [catalogDraft, setCatalogDraft] = useState<HomepageCatalogConfig | null>(null)
 
   const baseline = useMemo(() => settings.data?.homepage ?? null, [settings.data])
+  const catalogBaseline = useMemo(
+    () => mergeHomepageCatalog(settings.data?.homepageCatalog ?? DEFAULT_HOMEPAGE_CATALOG),
+    [settings.data?.homepageCatalog],
+  )
 
   useEffect(() => {
     if (baseline) setDraft({ ...baseline })
   }, [baseline])
 
-  const dirty = !!draft && !!baseline && !same(draft, baseline)
+  useEffect(() => {
+    setCatalogDraft(catalogBaseline)
+  }, [catalogBaseline])
+
+  const dirty =
+    (!!draft && !!baseline && !same(draft, baseline)) ||
+    (!!catalogDraft && JSON.stringify(catalogDraft) !== JSON.stringify(catalogBaseline))
   const pageStatus = dcPageStatus([settings], api.pulse)
 
   const shown = draft ? SECTIONS.filter((s) => draft[s.key]).length : 0
   const hidden = SECTIONS.length - shown
 
   const runSave = () => {
-    if (!draft) return
+    if (!draft || !catalogDraft) return
+    const catalog = mergeHomepageCatalog(catalogDraft)
+    if (
+      catalogDraft.curated &&
+      catalogDraft.tiles.some((tile) => !tile.categorySlug.trim() || !tile.productId.trim())
+    ) {
+      toast('warn', 'Incomplete tiles skipped', 'Each custom tile needs a category and a product.')
+    }
+    const patch = { homepage: draft, homepageCatalog: catalog }
     update.mutate(
-      { homepage: draft },
+      patch,
       {
         onSuccess: (saved) => {
-          const verified = verifySettingsApplied({ homepage: draft }, saved)
+          const verified = verifySettingsApplied(patch, saved)
           if (!verified.ok) {
             toast('bad', 'Save not verified', verified.reason)
             void settings.refetch()
@@ -179,7 +200,10 @@ function DcHomePageBody() {
             saving={update.isPending}
             hint="Section visibility applies to the storefront only after this save."
             cleanNote="No unsaved changes. The storefront is rendering exactly the sections below."
-            onReset={() => baseline && setDraft({ ...baseline })}
+            onReset={() => {
+              if (baseline) setDraft({ ...baseline })
+              setCatalogDraft(catalogBaseline)
+            }}
             onSave={runSave}
           />
 
@@ -389,6 +413,10 @@ function DcHomePageBody() {
               )
             })}
           </div>
+
+          {catalogDraft ? (
+            <DcHomepageCatalogTiles value={catalogDraft} onChange={setCatalogDraft} />
+          ) : null}
 
           {/* The design puts brand, contact, footer and offer copy behind tabs on
               this screen. Those all live in Settings, which owns the verified

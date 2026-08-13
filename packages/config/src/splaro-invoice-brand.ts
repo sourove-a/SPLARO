@@ -64,6 +64,17 @@ export function sanitizeWebsiteDisplay(raw: string | undefined, fallbackHost: st
   return candidate.toLowerCase().startsWith('www.') ? `www.${host}` : host
 }
 
+/**
+ * `wa.me` and the invoice footer both want bare digits. `COMPANY_PHONE_E164` is
+ * routinely written as `+8801905010205`, and a `+` in a wa.me path produces a
+ * link WhatsApp cannot open — so the country-code form is normalised once here
+ * instead of at each call site.
+ */
+function normalizeE164Digits(raw: string | undefined, fallback: string): string {
+  const digits = (raw ?? '').replace(/\D/g, '')
+  return digits || fallback
+}
+
 const host = siteHostname()
 
 /** Official SPLARO invoice / print / email brand constants */
@@ -71,7 +82,7 @@ export const SPLARO_INVOICE_BRAND = {
   name: 'SPLARO',
   tagline: 'Modesty. Refined.',
   phone: process.env.COMPANY_PHONE ?? process.env.NEXT_PUBLIC_SUPPORT_PHONE ?? '01905010205',
-  phoneE164: process.env.COMPANY_PHONE_E164 ?? '8801905010205',
+  phoneE164: normalizeE164Digits(process.env.COMPANY_PHONE_E164, '8801905010205'),
   email: publicSupportEmail(host),
   website: process.env.COMPANY_WEBSITE?.startsWith('http')
     ? sanitizePublicHostname(process.env.COMPANY_WEBSITE)

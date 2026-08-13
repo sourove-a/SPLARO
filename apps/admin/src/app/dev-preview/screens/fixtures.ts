@@ -857,3 +857,38 @@ export const courierStats = {
     },
   ],
 }
+
+/** Settings → Payments: one gateway live, one with keys but off, one untouched. */
+export const paymentIntegrations = {
+  items: [
+    {
+      provider: 'bkash',
+      configured: true,
+      source: 'database' as const,
+      adminManaged: true,
+      fields: {
+        appKey: '••••••••',
+        appSecret: '••••••••',
+        username: 'splaro_live',
+        password: '••••••••',
+      },
+    },
+    {
+      provider: 'nagad',
+      configured: true,
+      source: 'env' as const,
+      fields: {
+        merchantId: '683002007104225',
+        merchantNumber: '01905010205',
+        publicKey: '••••••••',
+        privateKey: '••••••••',
+      },
+    },
+    {
+      provider: 'sslcommerz',
+      configured: false,
+      source: 'none' as const,
+      fields: {},
+    },
+  ],
+}

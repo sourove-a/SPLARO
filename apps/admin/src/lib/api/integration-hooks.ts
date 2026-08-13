@@ -15,12 +15,15 @@ import {
   testInfrastructureIntegration,
   testMetaIntegration,
   testPaymentIntegration,
+  testSmsIntegration,
   testTelegramIntegration,
   unlinkTelegramAdmin,
   updateAiIntegration,
   updateInfrastructureConfig,
   updatePaymentIntegration,
+  updateSmsIntegration,
   updateTelegramIntegration,
+  fetchSmsIntegration,
 } from '@/lib/api/integrations'
 import { testGoogleConnection } from '@/lib/api/google-workspace'
 
@@ -231,6 +234,37 @@ export function useTestInfrastructureIntegration() {
     mutationFn: (provider: 'steadfast' | 'pathao' | 'redx') => testInfrastructureIntegration(provider),
     onSuccess: async (_, provider) => {
       await qc.invalidateQueries({ queryKey: ['infrastructure-config', provider] })
+      await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })
+    },
+  })
+}
+
+export function useSmsIntegration() {
+  return useQuery({
+    queryKey: ['sms-integration'],
+    queryFn: fetchSmsIntegration,
+    staleTime: 10_000,
+  })
+}
+
+export function useUpdateSmsIntegration() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Record<string, string | boolean>) => updateSmsIntegration(body),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['sms-integration'] })
+      await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })
+      await qc.invalidateQueries({ queryKey: ['admin-settings'] })
+    },
+  })
+}
+
+export function useTestSmsIntegration() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: testSmsIntegration,
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['sms-integration'] })
       await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })
     },
   })

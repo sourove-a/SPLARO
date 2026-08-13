@@ -18,7 +18,7 @@ export interface ApiProduct {
   status: string
   description?: string | null
   categoryId?: string | null
-  category?: { id: string; name: string } | null
+  category?: { id: string; name: string; slug?: string } | null
   collections?: { collectionId: string; collection?: { id: string; name: string } }[]
   _count?: { variants: number }
   variants?: {
@@ -191,6 +191,7 @@ export interface ProductVariantWriteInput {
   compareAtPrice?: number | null
   isActive?: boolean
   sku?: string
+  barcode?: string
   size?: string
   color?: string
   colorName?: string
@@ -218,6 +219,7 @@ export interface CreateProductVariantInput {
   colorHex?: string
   image?: string
   sku?: string
+  barcode?: string
   price: number
   compareAtPrice?: number
   stock?: number

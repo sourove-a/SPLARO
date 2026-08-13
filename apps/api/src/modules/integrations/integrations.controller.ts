@@ -8,6 +8,7 @@ import { PrismaService } from '../../common/prisma.service'
 import { GoogleWorkspaceService } from '../google-workspace/google-workspace.service'
 import { AiIntegrationService, type AiIntegrationDto } from './ai-integration.service'
 import { InfrastructureIntegrationService } from './infrastructure-integration.service'
+import { SmsIntegrationService } from './sms-integration.service'
 import { IntegrationsService } from './integrations.service'
 import { PaymentIntegrationService, type PaymentProvider } from './payment-integration.service'
 import { TelegramIntegrationService, type TelegramIntegrationDto } from './telegram-integration.service'
@@ -35,7 +36,7 @@ const INTEGRATION_CATALOG: {
   { id: 'redx', name: 'RedX', configurePath: '/dashboard/settings?section=infrastructure', provider: 'redx' },
   { id: 'cloudflare_r2', name: 'Cloudflare R2', configurePath: '/dashboard/settings?section=infrastructure', provider: 'cloudflare_r2' },
   { id: 'smtp', name: 'SMTP Email', configurePath: '/dashboard/settings?section=notifications', provider: 'smtp' },
-  { id: 'sms', name: 'SMS Gateway', configurePath: '/dashboard/email-sms', provider: 'sms' },
+  { id: 'sms', name: 'SMS Gateway', configurePath: '/dashboard/sms', provider: 'sms' },
   { id: 'meta_pixel', name: 'Meta Pixel', configurePath: '/dashboard/settings?section=marketing', provider: 'meta_pixel' },
   { id: 'google_analytics', name: 'Google Analytics', configurePath: '/dashboard/settings?section=marketing', provider: 'google_analytics' },
   { id: 'search_console', name: 'Search Console', configurePath: '/dashboard/seo-health', provider: 'search_console' },
@@ -52,6 +53,7 @@ export class IntegrationsController {
     private readonly config: ConfigService,
     private readonly payments: PaymentIntegrationService,
     private readonly infra: InfrastructureIntegrationService,
+    private readonly sms: SmsIntegrationService,
     private readonly metaCapi: MetaCapiService,
   ) {}
 
@@ -84,9 +86,24 @@ export class IntegrationsController {
       steadfastConfigured: boolean
       pathaoConfigured: boolean
       redxConfigured: boolean
+      smsConfigured: boolean
+      smsDetail: string | null
     },
   ): { connected: boolean; detail: string | null } {
-    const { telegramCfg, aiCfg, store, googleStatus, meta, paymentByProvider, r2Configured, steadfastConfigured, pathaoConfigured, redxConfigured } = ctx
+    const {
+      telegramCfg,
+      aiCfg,
+      store,
+      googleStatus,
+      meta,
+      paymentByProvider,
+      r2Configured,
+      steadfastConfigured,
+      pathaoConfigured,
+      redxConfigured,
+      smsConfigured,
+      smsDetail,
+    } = ctx
     const settings = store?.settings
 
     if (provider === 'telegram') {
@@ -245,8 +262,10 @@ export class IntegrationsController {
       }
     }
     if (provider === 'sms') {
-      const connected = meta.lastTestStatus === 'success'
-      return { connected, detail: connected ? 'Gateway tested OK' : 'Configure in Email & SMS' }
+      return {
+        connected: smsConfigured,
+        detail: smsDetail ?? (smsConfigured ? 'SMS gateway keys saved' : 'Add API key + URL in SMS Center'),
+      }
     }
 
     const connected = meta.lastTestStatus === 'success'
@@ -261,16 +280,18 @@ export class IntegrationsController {
       include: { settings: true, telegramConfig: true },
     })
 
-    const [telegramCfg, aiCfg, googleStatus, paymentAll, r2Cfg, steadfastCfg, pathaoCfg, redxCfg] = await Promise.all([
-      this.telegram.get(sid),
-      this.ai.get(sid),
-      this.google.getStatus(storeId).catch(() => null),
-      this.payments.getAll(storeId),
-      this.infra.getConfig(storeId, 'cloudflare_r2'),
-      this.infra.getConfig(storeId, 'steadfast'),
-      this.infra.getConfig(storeId, 'pathao'),
-      this.infra.getConfig(storeId, 'redx'),
-    ])
+    const [telegramCfg, aiCfg, googleStatus, paymentAll, r2Cfg, steadfastCfg, pathaoCfg, redxCfg, smsCfg] =
+      await Promise.all([
+        this.telegram.get(sid),
+        this.ai.get(sid),
+        this.google.getStatus(storeId).catch(() => null),
+        this.payments.getAll(storeId),
+        this.infra.getConfig(storeId, 'cloudflare_r2'),
+        this.infra.getConfig(storeId, 'steadfast'),
+        this.infra.getConfig(storeId, 'pathao'),
+        this.infra.getConfig(storeId, 'redx'),
+        this.sms.getConfig(storeId).catch(() => null),
+      ])
 
     const paymentByProvider = new Map(paymentAll.items.map((p) => [p.provider, p]))
 
@@ -288,6 +309,14 @@ export class IntegrationsController {
           steadfastConfigured: steadfastCfg.configured,
           pathaoConfigured: pathaoCfg.configured,
           redxConfigured: redxCfg.configured,
+          smsConfigured: Boolean(smsCfg?.configured && smsCfg.enabled),
+          smsDetail: smsCfg
+            ? smsCfg.configured
+              ? smsCfg.enabled
+                ? `Live · ${smsCfg.fields.gateway} · ${smsCfg.source === 'database' ? 'saved in admin' : 'from .env'}`
+                : 'Keys saved · SMS switched off'
+              : 'Add API key + URL in SMS Center'
+            : 'Add API key + URL in SMS Center',
         })
 
         const tokenIssue =
@@ -466,6 +495,29 @@ export class IntegrationsController {
   ) {
     this.assertWrite(req)
     return this.infra.test(storeId, provider, req.adminUser?.userId)
+  }
+
+  /* ─── SMS gateway (BDBulkSMS / ElitBuzz / GreenWeb / custom URL) ─── */
+
+  @Get('sms')
+  getSms(@Query('storeId') storeId: string) {
+    return this.sms.getConfig(storeId)
+  }
+
+  @Put('sms')
+  updateSms(
+    @Query('storeId') storeId: string,
+    @Body() body: Record<string, string | boolean>,
+    @Req() req: AdminRequest,
+  ) {
+    const userId = this.assertWrite(req)
+    return this.sms.update(storeId, body, userId)
+  }
+
+  @Post('sms/test')
+  testSms(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
+    this.assertWrite(req)
+    return this.sms.test(storeId, req.adminUser?.userId)
   }
 
   /* ─── Google Sheets sync status ──────────────────────────── */

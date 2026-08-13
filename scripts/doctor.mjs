@@ -205,6 +205,18 @@ try {
   } else {
     console.log('  ⚠️  Redis offline — run: pnpm infra:redis')
   }
+
+  const googleLocalOn = [resolve(ROOT, '.env'), resolve(ROOT, 'apps/web/.env.local')].some((file) => {
+    if (!existsSync(file)) return false
+    return /^NEXT_PUBLIC_GOOGLE_OAUTH_LOCAL_ENABLED=true\s*$/m.test(readFileSync(file, 'utf8'))
+  })
+  if (googleLocalOn) {
+    console.log('  ✅ Local Google OAuth flag on — origins must still be in Google Cloud')
+  } else {
+    console.log(
+      '  ⚠️  Local Google sign-in off. Register http://localhost:3000 + http://127.0.0.1:3000 in Google Cloud, then set NEXT_PUBLIC_GOOGLE_OAUTH_LOCAL_ENABLED=true in apps/web/.env.local',
+    )
+  }
 } catch (e) {
   console.log(`  ⚠️  Runtime check skipped: ${e instanceof Error ? e.message : e}`)
 }

@@ -7,6 +7,11 @@ import {
 import { resolvePublicSiteUrl, toStoredMediaUrl } from '@splaro/config'
 import { readdir, unlink } from 'node:fs/promises'
 import path from 'node:path'
+import {
+  BUILT_IN_MEDIA_FOLDERS,
+  normalizeMediaFolder,
+  resolveMediaFolderFilter,
+} from '../../common/media-folder.util'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 
@@ -43,8 +48,6 @@ type CreateMediaInput = {
   width?: number | null
   height?: number | null
 }
-
-const FOLDERS = new Set(['media', 'men', 'women', 'kids', 'footwear', 'accessories'])
 
 function cleanText(value: unknown, max: number): string {
   return String(value ?? '').trim().slice(0, max)
@@ -90,11 +93,11 @@ export class MediaService {
   async list(storeIdOrSlug: string, query?: string, folder?: string) {
     const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
     const q = cleanText(query, 120)
-    const selectedFolder = cleanText(folder, 40).toLowerCase()
+    const selectedFolder = resolveMediaFolderFilter(folder)
     const assets = await this.prisma.mediaAsset.findMany({
       where: {
         storeId,
-        ...(selectedFolder && selectedFolder !== 'all' ? { folder: selectedFolder } : {}),
+        ...(selectedFolder ? { folder: selectedFolder } : {}),
         ...(q
           ? {
               OR: [
@@ -113,13 +116,40 @@ export class MediaService {
     }
   }
 
+  /**
+   * Every folder the picker should offer: the built-in buckets plus any folder
+   * the store has actually filed media under. Counts let the UI show which are
+   * empty, and drive the "delete only when empty" rule in the admin.
+   */
+  async listFolders(storeIdOrSlug: string) {
+    const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
+    const grouped = await this.prisma.mediaAsset.groupBy({
+      by: ['folder'],
+      where: { storeId },
+      _count: { _all: true },
+    })
+    const counts = new Map(grouped.map((row) => [row.folder, row._count._all]))
+    const names = [...new Set<string>([...BUILT_IN_MEDIA_FOLDERS, ...counts.keys()])].sort((a, b) => {
+      // The general bucket is the default upload target — keep it first.
+      if (a === 'media') return -1
+      if (b === 'media') return 1
+      return a.localeCompare(b)
+    })
+    return {
+      folders: names.map((name) => ({
+        name,
+        count: counts.get(name) ?? 0,
+        builtIn: (BUILT_IN_MEDIA_FOLDERS as readonly string[]).includes(name),
+      })),
+    }
+  }
+
   async create(storeIdOrSlug: string, input: CreateMediaInput) {
     const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
     const mediaPath = storedUploadPath(input.path)
     const name = cleanText(input.name, 160)
     if (!name) throw new BadRequestException('Media name is required')
-    const folder = cleanText(input.folder, 40).toLowerCase() || 'media'
-    if (!FOLDERS.has(folder)) throw new BadRequestException('Unsupported media folder')
+    const folder = normalizeMediaFolder(input.folder)
 
     const asset = await this.prisma.mediaAsset.upsert({
       where: { storeId_path: { storeId, path: mediaPath } },
@@ -156,8 +186,7 @@ export class MediaService {
     if (!name) throw new BadRequestException('Media name is required')
     const folder = input.folder === undefined
       ? existing.folder
-      : cleanText(input.folder, 40).toLowerCase()
-    if (!FOLDERS.has(folder)) throw new BadRequestException('Unsupported media folder')
+      : normalizeMediaFolder(input.folder, existing.folder)
 
     const asset = await this.prisma.mediaAsset.update({
       where: { id },

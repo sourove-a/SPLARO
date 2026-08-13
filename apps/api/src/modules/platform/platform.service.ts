@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common'
 import { resolvePublicSiteUrl } from '@splaro/config'
+import { isMediaDeptFolder, resolveMediaFolderFilter } from '../../common/media-folder.util'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import { admin2faPosture } from './admin-2fa-posture'
+import { httpsEnforcedPosture } from './https-posture'
 
 function relTime(date: Date | null | undefined): string {
   if (!date) return 'Never'
@@ -234,10 +237,14 @@ export class PlatformService {
       auditLogs: logs,
       threats,
       posture: [
-        { label: 'HTTPS enforced', value: process.env.NODE_ENV === 'production' ? 'Active' : 'Dev mode', ok: process.env.NODE_ENV === 'production' },
+        httpsEnforcedPosture(resolvePublicSiteUrl(), process.env.NODE_ENV),
         { label: 'Admin session timeout', value: '12 hours', ok: true },
         { label: 'Failed login lockout', value: failedLogins > 0 ? `${failedLogins} in 24h` : 'None recent', ok: failedLogins < 5 },
-        { label: '2FA coverage', value: `${adminUsers.length ? Math.round((twoFaCount / adminUsers.length) * 100) : 0}%`, ok: twoFaCount > 0 },
+        admin2faPosture({
+          staffTotal: adminUsers.length,
+          telegramOrTotpCount: twoFaCount,
+          passwordLoginAllowed: process.env.ALLOW_ADMIN_PASSWORD_LOGIN === 'true',
+        }),
       ],
     }
   }
@@ -253,11 +260,13 @@ export class PlatformService {
     const limit = Math.min(100, Math.max(1, Math.trunc(requestedLimit)))
     const q = options.q?.trim().slice(0, 120) ?? ''
     const selectedType = options.type?.trim().toLowerCase() ?? 'all'
-    const selectedFolder = options.folder?.trim().toLowerCase() ?? 'all'
     const allowedTypes = new Set(['all', 'library', 'product', 'banner', 'category'])
-    const allowedFolders = new Set(['all', 'media', 'men', 'women', 'kids', 'footwear', 'accessories'])
     if (!allowedTypes.has(selectedType)) throw new BadRequestException('Unsupported media type')
-    if (!allowedFolders.has(selectedFolder)) throw new BadRequestException('Unsupported media folder')
+    // Folders are store-defined, so this filter normalizes rather than
+    // allowlists — an allowlist here would 400 on every folder the store made.
+    // Empty means "all"; the queries below keep using that sentinel.
+    const folderFilter = resolveMediaFolderFilter(options.folder)
+    const selectedFolder = folderFilter || 'all'
 
     const updatedBoundary = cursor
       ? [{ OR: [{ updatedAt: { lt: cursor.at } }, { updatedAt: cursor.at, id: { lt: cursor.id } }] }]
@@ -271,6 +280,11 @@ export class PlatformService {
       : selectedFolder === 'media'
         ? '/uploads/products/'
         : `/uploads/products-${selectedFolder}/`
+    // Only the department buckets have a product directory on disk. A folder the
+    // store invented has none, so product images can never belong to it — skip
+    // that query rather than let it fall through to "any product image".
+    const folderHasProductImages =
+      selectedFolder === 'all' || selectedFolder === 'media' || isMediaDeptFolder(selectedFolder)
 
     const [mediaAssets, images, banners, categories, libraryCount, productCount, bannerCount, categoryCount, libraryMissingAlt, productMissingAlt, bannerMissingAlt] = await Promise.all([
       includeType('library')
@@ -291,7 +305,7 @@ export class PlatformService {
             take: limit + 1,
           })
         : Promise.resolve([]),
-      includeType('product') && selectedFolder !== 'media'
+      includeType('product') && selectedFolder !== 'media' && folderHasProductImages
         ? this.prisma.productImage.findMany({
             where: {
               product: { storeId },
