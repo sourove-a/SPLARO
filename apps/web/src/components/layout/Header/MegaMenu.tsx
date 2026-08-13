@@ -19,6 +19,7 @@ import {
   Lamp,
   type LucideIcon,
 } from 'lucide-react'
+import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import { cn } from '@/lib/utils/cn'
 import { useHorizontalWheelScroll } from '@/hooks/useHorizontalWheelScroll'
 import type { MegaMenuConfig, MegaMenuHero } from '@/lib/storefront/settings'
@@ -46,11 +47,9 @@ interface MegaMenuProps {
 function MegaMenuHeroCard({
   hero,
   onClose,
-  priority = false,
 }: {
   hero: MegaMenuHero
   onClose?: () => void
-  priority?: boolean
 }) {
   return (
     <Link
@@ -61,12 +60,14 @@ function MegaMenuHeroCard({
     >
       {hero.image ? (
         <Image
-          src={hero.image}
+          src={optimizeImageSrc(hero.image, 'tile', hero.image)}
           alt={hero.label}
           fill
           sizes="(min-width: 1280px) 320px, 28vw"
           quality={88}
-          priority={priority}
+          // Never priority: this panel is closed until the shopper opens the menu,
+          // so preloading it only stole bandwidth from what is actually on screen.
+          loading="lazy"
           className="object-cover object-top"
         />
       ) : (
@@ -158,13 +159,9 @@ function MegaMenuHeroSlider({
         <ChevronLeft size={16} strokeWidth={2} />
       </button>
       <div ref={trackRef} className="mega-menu-heroes-slider__track" data-h-scroll="true">
-        {heroes.map((hero, index) => (
+        {heroes.map((hero) => (
           <div key={hero.href} className="mega-menu-heroes-slider__slide">
-            <MegaMenuHeroCard
-              hero={hero}
-              priority={index < 3}
-              {...(onClose ? { onClose } : {})}
-            />
+            <MegaMenuHeroCard hero={hero} {...(onClose ? { onClose } : {})} />
           </div>
         ))}
       </div>

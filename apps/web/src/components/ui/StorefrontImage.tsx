@@ -80,6 +80,7 @@ export function StorefrontImage({
     hero: IMAGE_SIZES.hero,
     heroMobile: IMAGE_SIZES.heroMobile,
     thumb: IMAGE_SIZES.thumb,
+    tile: IMAGE_SIZES.tile,
     lightbox: IMAGE_SIZES.lightbox,
   }
 

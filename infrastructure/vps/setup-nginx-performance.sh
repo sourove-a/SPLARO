@@ -21,13 +21,34 @@ has_rate_zones() {
   grep -rq 'limit_req_zone.*zone=general' /etc/nginx/nginx.conf /etc/nginx/conf.d/ 2>/dev/null
 }
 
+has_proxy_buffers() {
+  grep -rq '^client_max_body_size' /etc/nginx/conf.d/ 2>/dev/null
+}
+
+# Stock Ubuntu nginx.conf ships `gzip on;`. Leaving it there while this snippet
+# also sets it makes nginx -t fail with "gzip directive is duplicate", so the
+# snippet never loads and every JS/CSS chunk ships uncompressed.
+disable_stock_gzip() {
+  grep -qE '^[[:space:]]*gzip on;' /etc/nginx/nginx.conf || return 0
+  cp /etc/nginx/nginx.conf "/etc/nginx/nginx.conf.bak.$(date +%s)"
+  sed -i 's|^\([[:space:]]*\)gzip on;|\1# gzip lives in conf.d/splaro-performance.conf (SPLARO)|' /etc/nginx/nginx.conf
+  log "Commented stock gzip in nginx.conf — conf.d snippet owns compression"
+}
+
 install_perf_snippet() {
+  disable_stock_gzip
+  # Only ever write directives this box does not already declare elsewhere:
+  # duplicates of gzip / client_max_body_size are hard nginx -t errors.
+  local filter='1'
   if has_rate_zones; then
-    log "Rate-limit zones already defined — installing gzip-only snippet"
-    awk '!/^limit_req_zone/' "$PERF_SRC" > "$PERF_DST"
+    log "Rate-limit zones already defined — dropping them from the snippet"
+    filter='!/^limit_req_zone/'
+  fi
+  if has_proxy_buffers; then
+    log "Proxy buffers already defined — installing gzip-only snippet"
+    awk '/^gzip|^[[:space:]]{4}[a-z]/ || /^#/ || /^$/' "$PERF_SRC" > "$PERF_DST"
   else
-    log "Installing gzip + rate-limit zones"
-    cp "$PERF_SRC" "$PERF_DST"
+    awk "$filter" "$PERF_SRC" > "$PERF_DST"
   fi
 }
 

@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import type { HomepageCategoryTile } from '@/lib/catalog/homepage-department-rows'
+import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import { cn } from '@/lib/utils/cn'
 
 interface HomeCategoryTileProps {
@@ -21,8 +22,10 @@ export function HomeCategoryTile({
       scroll={false}
     >
       <div className="home-dept-tile__media">
+        {/* The VPS runs next/image unoptimized (sharp would peg the CPU), so the
+            remote URL is what the browser downloads — ask the host for tile size. */}
         <Image
-          src={tile.image}
+          src={optimizeImageSrc(tile.image, 'tile', tile.image)}
           alt={tile.label}
           fill
           sizes="(max-width: 767px) 72vw, (max-width: 1279px) 28vw, 22vw"

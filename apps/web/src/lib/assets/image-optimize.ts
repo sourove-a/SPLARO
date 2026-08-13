@@ -15,6 +15,8 @@ export const IMAGE_QUALITY = {
   hero: 80,
   heroMobile: 72,
   thumb: 82,
+  /** Category tiles and menu heroes render 260–320px — a card-width fetch is 3x too big. */
+  tile: 78,
   lightbox: 92,
 } as const
 
@@ -26,6 +28,7 @@ export const IMAGE_SIZES = {
   hero: '100vw',
   heroMobile: '100vw',
   thumb: '72px',
+  tile: '(max-width: 767px) 72vw, (max-width: 1279px) 28vw, 22vw',
   collection: '(max-width: 768px) 50vw, 25vw',
   lightbox: 'min(100vw, 1400px)',
 } as const
@@ -37,6 +40,9 @@ const REMOTE_WIDTH: Record<ImageProfile, number> = {
   // 2x DPI at typical widths without re-fetching a near-full 900-1000px photo.
   card: 720,
   cardMobile: 480,
+  // Rendered at 267px desktop / ~72vw mobile. 480 covers 2x DPI on a phone and
+  // still beats the 900px original these images ship with by ~3.5x in bytes.
+  tile: 480,
   gallery: 1200,
   galleryMobile: 828,
   hero: 1600,
@@ -48,6 +54,7 @@ const REMOTE_WIDTH: Record<ImageProfile, number> = {
 /** Prebuilt product pipeline widths (admin upload). */
 const PRODUCT_VARIANT_WIDTH: Record<ImageProfile, number> = {
   thumb: 160,
+  tile: 480,
   cardMobile: 480,
   card: 828,
   galleryMobile: 828,
