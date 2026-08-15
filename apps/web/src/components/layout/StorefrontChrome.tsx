@@ -196,10 +196,18 @@ function StorefrontChromeInner({ children }: { children: ReactNode }) {
   )
 }
 
-/** Minimal fallback — never duplicate Header/Footer while Inner mounts. */
+function ChromeSuspenseFallback() {
+  return (
+    <div className="min-h-[40vh] w-full" aria-busy="true" aria-live="polite" aria-label="Loading page">
+      <div className="mx-auto mt-16 h-40 max-w-md rounded-2xl bg-[var(--bg-secondary,#f4f4f5)]" />
+    </div>
+  )
+}
+
+/** Visible fallback — never blank the storefront while Inner suspends. */
 export function StorefrontChrome({ children }: { children: ReactNode }) {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<ChromeSuspenseFallback />}>
       <StorefrontPresence />
       <StorefrontChromeInner>{children}</StorefrontChromeInner>
     </Suspense>

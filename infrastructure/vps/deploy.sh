@@ -385,6 +385,9 @@ else
   # in-flight HTML from old workers never points at a suddenly missing file.
   cp -an "$APP_DIR/apps/web/.next/static/." apps/web/.next/static/ 2>/dev/null || true
   cp -an "$APP_DIR/apps/web/public/." apps/web/public/ 2>/dev/null || true
+  # Nginx aliases apps/web/.next/static; standalone Node must serve the same merged tree.
+  node scripts/prepare-next-standalone.mjs apps/web
+  node scripts/prepare-next-standalone.mjs apps/admin
 
   log "Switching blue/green release…"
   cd /
@@ -405,7 +408,12 @@ else
   wait_for_local_health "http://127.0.0.1:3000/" "web" 30 2 || die "Web failed after release switch"
   wait_for_local_health "http://127.0.0.1:3001/login" "admin" 30 2 || die "Admin failed after release switch"
   wait_for_local_health "http://127.0.0.1:4000/api/v1/health" "api" 40 3 || die "API failed after release switch"
-  log "Blue/green release active; previous release retained at $PREVIOUS_RELEASE"
+  EXPECTED_BUILD="$(tr -d '\n' < "$APP_DIR/apps/web/.next/BUILD_ID" 2>/dev/null || true)"
+  LIVE_BUILD="$(curl -s --max-time 5 http://127.0.0.1:3000/api/build-id 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('buildId',''))" 2>/dev/null || true)"
+  if [ -n "$EXPECTED_BUILD" ] && [ "$LIVE_BUILD" != "$EXPECTED_BUILD" ]; then
+    die "Web BUILD_ID mismatch after reload (disk=$EXPECTED_BUILD live=$LIVE_BUILD)"
+  fi
+  log "Blue/green release active; previous release retained at $PREVIOUS_RELEASE (web BUILD_ID=$LIVE_BUILD)"
 fi
 
 # ── Meilisearch + Nginx performance (idempotent, safe reload) ─

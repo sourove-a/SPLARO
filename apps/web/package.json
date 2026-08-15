@@ -13,7 +13,8 @@
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
-    "check": "tsc --noEmit && next lint"
+    "check": "tsc --noEmit && next lint",
+    "test:unit": "npx tsx --test src/lib/navigation/navigation-recovery.test.ts src/lib/api/session.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

@@ -66,7 +66,7 @@ export const CHUNK_RECOVERY_SCRIPT = `(function(){
     });
   }
 
-  function isChunkMsg(m){return/loading chunk|chunkloaderror|failed to fetch dynamically imported module/i.test(m||"")}
+  function isChunkMsg(m){return/loading chunk|chunkloaderror|failed to fetch dynamically imported module|invalid response|application-error/i.test(m||"")}
   function isChunkUrl(u){return/\\/_next\\/static\\//.test(u||"")}
 
   window.addEventListener("error",function(e){

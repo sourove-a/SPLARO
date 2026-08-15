@@ -16,7 +16,7 @@ import {
 } from '@/lib/auth/auth-motion'
 import { authFetch } from '@/lib/auth/auth-fetch'
 import { invalidateAuthSessionReconcile } from '@/lib/api/session'
-import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
+import { navigateAfterAuth, safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 import { resolvePostAuthDestination } from '@/lib/auth/post-auth-destination'
 import {
   buildSignupPhonePath,
@@ -112,7 +112,7 @@ export function AuthExperience() {
     const destination = resolvePostAuthDestination(nextPath, mode)
     setSuccessCopy('Already signed in — taking you there…')
     setRedirecting(true)
-    safeClientNavigate(router, destination, 'replace')
+    navigateAfterAuth(destination)
   }, [authHydrated, user, nextPath, mode, router])
 
   useEffect(() => {
@@ -192,18 +192,18 @@ export function AuthExperience() {
       invalidateAuthSessionReconcile()
       signIn(payload.user)
 
-      if (payload.user.needsPhone) {
+        if (payload.user.needsPhone) {
         setGoogleName(payload.user.name)
         setPhone('')
         setGoogleStep('google-phone')
-        safeClientNavigate(router, buildSignupPhonePath(nextPath), 'replace')
+        navigateAfterAuth(buildSignupPhonePath(nextPath))
         return
       }
 
       const destination = resolvePostAuthDestination(nextPath, 'login')
       setSuccessCopy('Signed in — taking you there…')
       setRedirecting(true)
-      safeClientNavigate(router, destination, 'replace')
+      navigateAfterAuth(destination)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error. Please try again.')
     } finally {
@@ -232,9 +232,9 @@ export function AuthExperience() {
       }
       const destination = resolvePostAuthDestination(nextPath, authMode)
       setRedirecting(true)
-      safeClientNavigate(router, destination, 'replace')
+      navigateAfterAuth(destination)
     },
-    [nextPath, router, setGoogleStep, signIn, signUp],
+    [nextPath, setGoogleStep, signIn, signUp],
   )
 
   const handleGoogle = useCallback(
@@ -277,7 +277,7 @@ export function AuthExperience() {
           if (typeof window !== 'undefined') {
             const here = `${window.location.pathname}${window.location.search}`
             if (here !== phonePath) {
-              safeClientNavigate(router, phonePath, 'replace')
+              navigateAfterAuth(phonePath)
             }
           }
           return
@@ -290,7 +290,7 @@ export function AuthExperience() {
         setGoogleError(message)
       }
     },
-    [finishAuth, mode, nextPath, router, setGoogleError, setGoogleStep, signIn],
+    [finishAuth, mode, nextPath, setGoogleError, setGoogleStep, signIn],
   )
 
   useEffect(() => {
@@ -430,7 +430,7 @@ export function AuthExperience() {
       )
       setSuccessCopy(`Welcome, ${payload.user.name.split(' ')[0]}!`)
       setRedirecting(true)
-      safeClientNavigate(router, resolvePostAuthDestination(nextPath, 'signup'), 'replace')
+      navigateAfterAuth(resolvePostAuthDestination(nextPath, 'signup'))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error. Please try again.')
     } finally {

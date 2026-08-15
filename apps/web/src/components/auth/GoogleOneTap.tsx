@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import toast from 'react-hot-toast'
 import {
   useGoogleOneTapLogin,
@@ -27,7 +27,7 @@ import { authFetch } from '@/lib/auth/auth-fetch'
 import { isAuthPath } from '@/lib/auth/auth-return'
 import { buildSignupPhonePath } from '@/lib/auth/signup-phone-path'
 import { invalidateAuthSessionReconcile } from '@/lib/api/session'
-import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
+import { navigateAfterAuth } from '@/lib/navigation/safe-client-navigate'
 import { useAuthStore } from '@/store/authStore'
 
 const BAKED_GOOGLE =
@@ -95,7 +95,6 @@ function GoogleOneTapPrompt({
   enabled: boolean
   onDismissed: () => void
 }) {
-  const router = useRouter()
   const signIn = useAuthStore((s) => s.signIn)
   const busyRef = useRef(false)
   const { scriptLoadedSuccessfully } = useGoogleOAuth()
@@ -138,7 +137,9 @@ function GoogleOneTapPrompt({
         signIn(payload.user)
 
         if (payload.needsPhone || payload.user.needsPhone) {
-          safeClientNavigate(router, buildSignupPhonePath('/account'), 'replace')
+          navigateAfterAuth(buildSignupPhonePath('/account'))
+        } else {
+          navigateAfterAuth('/account')
         }
       } catch {
         // Network failure — leave dismiss untouched so One Tap can retry.
@@ -149,7 +150,7 @@ function GoogleOneTapPrompt({
         busyRef.current = false
       }
     },
-    [onDismissed, router, signIn],
+    [onDismissed, signIn],
   )
 
   const handlePromptMoment = useCallback(
