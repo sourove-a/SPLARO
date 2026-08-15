@@ -531,6 +531,7 @@ model Store {
   coupons          Coupon[]
   banners          Banner[]
   mediaAssets      MediaAsset[]
+  mediaFolders     MediaFolder[]
   staff            StaffRole[]
   vendors          Vendor[]
   subscription     Subscription?
@@ -1673,14 +1674,38 @@ model MediaAsset {
   folder    String   @default("media")
   mimeType  String?
   sizeBytes Int?
-  width     Int?
-  height    Int?
-  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  width       Int?
+  height      Int?
+  contentHash String?
+  kind        String?
+  focalX      Float?
+  focalY      Float?
+  watermarked Boolean   @default(false)
+  deletedAt   DateTime?
+  store       Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@unique([storeId, path])
   @@index([storeId, folder, createdAt])
+  @@index([storeId, deletedAt])
+  @@index([storeId, contentHash])
+}
+
+model MediaFolder {
+  id        String        @id @default(cuid())
+  storeId   String
+  slug      String
+  label     String
+  parentId  String?
+  parent    MediaFolder?  @relation("MediaFolderNest", fields: [parentId], references: [id], onDelete: SetNull)
+  children  MediaFolder[] @relation("MediaFolderNest")
+  store     Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+
+  @@unique([storeId, slug])
+  @@index([storeId, createdAt])
+  @@index([parentId])
 }
 
 // ── CONTENT BLOCKS (Homepage/Page Builder) ────────────────────

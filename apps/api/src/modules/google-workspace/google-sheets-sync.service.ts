@@ -37,6 +37,63 @@ import {
 import { GoogleClientService } from './google-client.service'
 import { GoogleAuditService } from './google-audit.service'
 
+/**
+ * Rewrite a loopback address in an outgoing cell to the customer-facing origin.
+ *
+ * The spreadsheet is shared with people who are not on the machine that ran the
+ * sync, so a `http://localhost:3000/...` link there is broken by definition —
+ * and it also tells a reader which internal port the box listens on.
+ */
+export function externalizeCell(cell: string | number, siteUrl: string): string | number {
+  if (typeof cell !== 'string' || !cell) return cell
+  const cleanSite = siteUrl.replace(/\/$/, '')
+  const host = (() => {
+    try {
+      return new URL(cleanSite).host
+    } catch {
+      return 'splaro.co'
+    }
+  })()
+
+  // 1. Replace full URL loopback origins (e.g. http://localhost:3000/xyz -> https://splaro.co/xyz)
+  let result = cell.replace(
+    /\bhttps?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?/gi,
+    cleanSite,
+  )
+
+  // 2. Replace remaining bare host:port loopbacks (e.g. localhost:3000 -> splaro.co)
+  result = result.replace(/\b(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?/gi, host)
+
+  // 3. Replace any standalone localhost or loopback word
+  result = result.replace(/\blocalhost\b/gi, host)
+
+  return result
+}
+
+/** Locate the first loopback cell in a read-back or payload, so the guard can name it. */
+export function findLoopbackCell(
+  ranges: Array<{ range?: string | null; values?: unknown[][] | null }>,
+): { range: string; row: number; column: number; sample: string } | null {
+  const loopbackTest = /\b(?:localhost|127\.0\.0\.1|0\.0\.0\.0)\b/i
+  for (const range of ranges) {
+    const rows = range.values ?? []
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+      const row = rows[rowIndex] ?? []
+      for (let columnIndex = 0; columnIndex < row.length; columnIndex += 1) {
+        const text = String(row[columnIndex] ?? '')
+        if (!loopbackTest.test(text)) continue
+        return {
+          range: range.range ?? 'unknown range',
+          row: rowIndex + 1,
+          column: columnIndex + 1,
+          sample: text.length > 120 ? `${text.slice(0, 120)}…` : text,
+        }
+      }
+    }
+  }
+  return null
+}
+
 @Injectable()
 export class GoogleSheetsSyncService {
   private readonly logger = new Logger(GoogleSheetsSyncService.name)
@@ -789,96 +846,105 @@ export class GoogleSheetsSyncService {
       },
     })
 
+    const sheetData: Array<{ range: string; values: (string | number)[][] }> = [
+      {
+        range: `'Dashboard'!A1`,
+        values: dashboardValues,
+      },
+      {
+        range: `'Orders'!A1`,
+        values: [titleRow('Orders'), [...SHEET_HEADERS.Orders], ...orderRows],
+      },
+      {
+        range: `'Customers'!A1`,
+        values: [titleRow('Customers'), [...SHEET_HEADERS.Customers], ...customerRows],
+      },
+      {
+        range: `'Subscribers'!A1`,
+        values: [titleRow('Subscribers'), [...SHEET_HEADERS.Subscribers], ...subscriberRows],
+      },
+      {
+        range: `'Products & Stock'!A1`,
+        values: [titleRow('Products & Stock'), [...SHEET_HEADERS['Products & Stock']], ...productRows],
+      },
+      {
+        range: `'Partner Accounts'!A1`,
+        values: [
+          titleRow('Partner Accounts'),
+          [...SHEET_HEADERS['Partner Accounts']],
+          ...partnerRows,
+        ],
+      },
+      {
+        range: `'Expenses'!A1`,
+        values: [titleRow('Expenses'), [...SHEET_HEADERS.Expenses], ...expenseRows],
+      },
+      {
+        range: `'Profit & Loss'!A1`,
+        values: [
+          titleRow('Profit & Loss'),
+          [...SHEET_HEADERS['Profit & Loss']],
+          ...profitLossRows,
+        ],
+      },
+      {
+        range: `'Courier'!A1`,
+        values: [titleRow('Courier'), [...SHEET_HEADERS.Courier], ...courierRows],
+      },
+      {
+        range: `'Payments'!A1`,
+        values: [titleRow('Payments'), [...SHEET_HEADERS.Payments], ...paymentRows],
+      },
+      {
+        range: `'Daily Summary'!A1`,
+        values: [
+          titleRow('Daily Summary'),
+          [...SHEET_HEADERS['Daily Summary']],
+          ...dailySummaryRows,
+        ],
+      },
+      {
+        range: `'Telegram Logs'!A1`,
+        values: [
+          titleRow('Telegram Logs'),
+          [...SHEET_HEADERS['Telegram Logs']],
+          ...telegramLogRows,
+        ],
+      },
+      {
+        range: `'AI Jobs'!A1`,
+        values: [titleRow('AI Jobs'), [...SHEET_HEADERS['AI Jobs']], ...aiJobRows],
+      },
+    ]
+
+    // Product links are built from the customer-facing origin already, but free
+    // text is not: a Telegram log line, a courier tracking URL or an expense note
+    // can carry whatever the local environment pasted into it. Rewrite loopback
+    // hosts across every outgoing cell so a dev-run sync cannot publish a link
+    // that only resolves on the machine that ran it.
+    const externalized = sheetData.map((entry) => ({
+      ...entry,
+      values: entry.values.map((row) => row.map((cell) => externalizeCell(cell, storefrontUrl))),
+    }))
+
+    try {
+      await sheets.spreadsheets.values.batchClear({
+        spreadsheetId,
+        requestBody: {
+          ranges: BUSINESS_SHEET_TABS.map((tab) => `'${tab}'!A:Z`),
+        },
+      })
+    } catch {
+      /* ignore clear failure on fresh empty sheets */
+    }
+
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId,
       requestBody: {
         valueInputOption: 'USER_ENTERED',
-        data: [
-          {
-            range: `'Dashboard'!A1`,
-            values: dashboardValues,
-          },
-          {
-            range: `'Orders'!A1`,
-            values: [titleRow('Orders'), [...SHEET_HEADERS.Orders], ...orderRows],
-          },
-          {
-            range: `'Customers'!A1`,
-            values: [titleRow('Customers'), [...SHEET_HEADERS.Customers], ...customerRows],
-          },
-          {
-            range: `'Subscribers'!A1`,
-            values: [titleRow('Subscribers'), [...SHEET_HEADERS.Subscribers], ...subscriberRows],
-          },
-          {
-            range: `'Products & Stock'!A1`,
-            values: [titleRow('Products & Stock'), [...SHEET_HEADERS['Products & Stock']], ...productRows],
-          },
-          {
-            range: `'Partner Accounts'!A1`,
-            values: [
-              titleRow('Partner Accounts'),
-              [...SHEET_HEADERS['Partner Accounts']],
-              ...partnerRows,
-            ],
-          },
-          {
-            range: `'Expenses'!A1`,
-            values: [titleRow('Expenses'), [...SHEET_HEADERS.Expenses], ...expenseRows],
-          },
-          {
-            range: `'Profit & Loss'!A1`,
-            values: [
-              titleRow('Profit & Loss'),
-              [...SHEET_HEADERS['Profit & Loss']],
-              ...profitLossRows,
-            ],
-          },
-          {
-            range: `'Courier'!A1`,
-            values: [titleRow('Courier'), [...SHEET_HEADERS.Courier], ...courierRows],
-          },
-          {
-            range: `'Payments'!A1`,
-            values: [titleRow('Payments'), [...SHEET_HEADERS.Payments], ...paymentRows],
-          },
-          {
-            range: `'Daily Summary'!A1`,
-            values: [
-              titleRow('Daily Summary'),
-              [...SHEET_HEADERS['Daily Summary']],
-              ...dailySummaryRows,
-            ],
-          },
-          {
-            range: `'Telegram Logs'!A1`,
-            values: [
-              titleRow('Telegram Logs'),
-              [...SHEET_HEADERS['Telegram Logs']],
-              ...telegramLogRows,
-            ],
-          },
-          {
-            range: `'AI Jobs'!A1`,
-            values: [titleRow('AI Jobs'), [...SHEET_HEADERS['AI Jobs']], ...aiJobRows],
-          },
-        ],
+        data: externalized,
       },
     })
-
-    const written = await sheets.spreadsheets.values.batchGet({
-      spreadsheetId,
-      ranges: BUSINESS_SHEET_TABS.map((tab) => `'${tab}'!A:Z`),
-      valueRenderOption: 'FORMULA',
-    })
-    const leakedLoopback = written.data.valueRanges?.some((range) =>
-      range.values?.some((row) =>
-        row.some((cell) => /(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?/i.test(String(cell))),
-      ),
-    )
-    if (leakedLoopback) {
-      throw new Error('Google Sheets sync blocked: a localhost URL remained after canonicalization.')
-    }
 
     return {
       orders: orders.length,

@@ -12,7 +12,8 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import { DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
-import { toastApiSaved, toastFail, toastOk } from '@/lib/admin/feedback'
+import { toastApiSaved, toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
+import { downloadCsv } from '@/lib/admin/admin-actions'
 import { verifyPersisted } from '@/lib/admin/mutation-verify'
 import {
   deleteReview,
@@ -168,6 +169,38 @@ function DcProductReviewsBody() {
 
   const pageStatus = dcPageStatus([reviews], api.pulse)
 
+  const exportCsv = () => {
+    if (all.length === 0) {
+      toastWarn('No product reviews to export')
+      return
+    }
+    const headers = [
+      'Product Name',
+      'Customer',
+      'Rating',
+      'Verified Purchase',
+      'Title',
+      'Comment',
+      'Status',
+      'Created At',
+    ]
+    const csvRows = [
+      headers,
+      ...all.map((r) => [
+        r.product?.name ?? 'Unknown product',
+        r.customer ? `${r.customer.firstName} ${r.customer.lastName}`.trim() : 'Anonymous',
+        String(r.rating),
+        r.verifiedPurchase ? 'Yes' : 'No',
+        r.title || '',
+        r.body || '',
+        r.status,
+        new Date(r.createdAt).toISOString().slice(0, 10),
+      ]),
+    ]
+    downloadCsv(`splaro-product-reviews-${new Date().toISOString().slice(0, 10)}.csv`, csvRows)
+    toastOk(`Exported ${all.length} product reviews`)
+  }
+
   return (
     <>
       <DcPageHead
@@ -180,6 +213,13 @@ function DcProductReviewsBody() {
         }
         syncing={reviews.isFetching}
         onSync={() => void reviews.refetch()}
+        actions={[
+          {
+            label: 'Export CSV',
+            icon: 'icon-download',
+            onClick: exportCsv,
+          },
+        ]}
       />
 
       {reviews.isLoading ? (

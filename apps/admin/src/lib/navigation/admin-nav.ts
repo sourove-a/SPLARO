@@ -156,7 +156,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     items: [
       item('All Integrations', 'all-integrations', 'Plug', 'Connected apps and services'),
       item('SMS Center', 'sms', 'MessageSquare', 'BD SMS providers, Bangla segment costing, templates & logs'),
-      item('Google Sheets', 'automation/google-sheets-sync', 'Sheet', 'One-way SPLARO → Sheets sync (Orders, Hisab, Partners, Stock)'),
+      item('Google Sheets', 'automation/google-sheets-sync', 'Sheet', 'Optional backup export — not the store database'),
       item('Telegram Bot', 'telegram-bot', 'Send', 'Bot token, chat ID & alerts — verified Telegram integration'),
       item('API Health', 'api-health', 'Activity', 'API uptime and response monitoring'),
       item('Webhooks', 'webhooks', 'Webhook', 'Webhook endpoints and event logs'),

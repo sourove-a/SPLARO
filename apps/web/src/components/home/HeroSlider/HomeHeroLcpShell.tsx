@@ -2,14 +2,13 @@
 
 import Link from 'next/link'
 import type { HeroBanner } from '@/lib/api/banners'
-import { heroBannersFromDefaults } from '@/lib/api/hero-banners'
 import { resolveLocalHeroVariants } from '@/lib/assets/hero-cdn'
 import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import { classifyHeroMedia } from '@splaro/config'
 
 /** Static first-slide shell — paints LCP before HeroSlider JS hydrates. */
 export function HomeHeroLcpShell({ banners = [] }: { banners?: HeroBanner[] }) {
-  const slide = banners[0] ?? heroBannersFromDefaults()[0]
+  const slide = banners[0]
   if (!slide) return null
 
   const classified = classifyHeroMedia(slide.image)

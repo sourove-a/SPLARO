@@ -57,7 +57,7 @@ import { fetchCourierShipments, fetchCourierStats } from './courier'
 import { fetchInvoices, fetchInvoiceHealth, fetchInvoiceStats, fetchTransactions, fetchTransactionHealth, fetchTransaction, fetchReturns, updateReturnStatus, createReturn, type RmaApiStatus } from './commerce-finance'
 import { fetchSettings, updateSettings, fetchNewsletterSubscribers, fetchCatalogChannelStats, type AdminSettingsData } from './settings'
 import { revalidateWebCache } from './revalidate'
-import { fetchMediaFolders } from './media'
+import { fetchMediaFolders, fetchMediaOrphans, fetchMediaStorage } from './media'
 import { hasPermission, type PermissionAction, type PermissionModule } from '@/lib/auth/permissions'
 import { setAdminApiToken } from '@/lib/auth/api-token'
 import {
@@ -66,6 +66,8 @@ import {
   fetchMedia,
   fetchMarketplace,
   fetchDeveloper,
+  createApiKey,
+  revokeApiKey,
   fetchObservability,
   fetchIntegrations,
   fetchSystemLogs,
@@ -127,6 +129,18 @@ import { fetchRolePermissions, fetchSecuritySessions, fetchStaffTelegramLinkToke
 import { fetchLegalPage, fetchLegalPages, saveLegalPage } from './legal-pages'
 import { fetchFootwearConfig } from './footwear-config'
 import type { LegalPageContent, LegalPageSlug } from '@splaro/types'
+import {
+  fetchWebhooks,
+  createWebhook,
+  updateWebhook,
+  deleteWebhook,
+  testWebhook,
+  dispatchWebhook,
+  fetchWebhookLogs,
+  fetchWebhookStats,
+  fetchWebhookEvents,
+  type WebhookEventType,
+} from './webhooks'
 
 export function useDashboardStats(periodLabel: string) {
   const period = periodFromLabel(periodLabel)
@@ -1641,12 +1655,51 @@ export function useMediaFolders() {
   })
 }
 
+export function useMediaStorage() {
+  return useQuery({
+    queryKey: ['media-storage'],
+    queryFn: () => fetchMediaStorage(),
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useMediaOrphans(enabled = true) {
+  return useQuery({
+    queryKey: ['media-orphans'],
+    queryFn: () => fetchMediaOrphans(),
+    staleTime: 30_000,
+    retry: 1,
+    enabled,
+  })
+}
+
 export function useMarketplace() {
   return useQuery({ queryKey: ['platform-marketplace'], queryFn: fetchMarketplace, staleTime: 60_000, retry: 1 })
 }
 
 export function useDeveloper() {
   return useQuery({ queryKey: ['platform-developer'], queryFn: fetchDeveloper, staleTime: 60_000, retry: 1 })
+}
+
+export function useCreateApiKey() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { name: string; scopes?: string[] }) => createApiKey(data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform-developer'] })
+    },
+  })
+}
+
+export function useRevokeApiKey() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => revokeApiKey(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform-developer'] })
+    },
+  })
 }
 
 export function useObservability() {
@@ -1849,3 +1902,106 @@ export function useRevokeSecuritySession() {
     },
   })
 }
+
+export function useWebhooks() {
+  return useQuery({
+    queryKey: ['webhooks'],
+    queryFn: fetchWebhooks,
+    staleTime: 15_000,
+    retry: 1,
+  })
+}
+
+export function useWebhookEvents() {
+  return useQuery({
+    queryKey: ['webhook-events'],
+    queryFn: fetchWebhookEvents,
+    staleTime: 60_000,
+    retry: 1,
+  })
+}
+
+export function useWebhookLogs(params?: { page?: number; limit?: number; event?: string }) {
+  return useQuery({
+    queryKey: ['webhook-logs', params],
+    queryFn: () => fetchWebhookLogs(params),
+    staleTime: 15_000,
+    retry: 1,
+  })
+}
+
+export function useWebhookStats(days?: number) {
+  return useQuery({
+    queryKey: ['webhook-stats', days],
+    queryFn: () => fetchWebhookStats(days),
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useCreateWebhook() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { url: string; secret?: string; events: WebhookEventType[]; isActive?: boolean }) =>
+      createWebhook(data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['webhooks'] })
+      void qc.invalidateQueries({ queryKey: ['platform-developer'] })
+    },
+  })
+}
+
+export function useUpdateWebhook() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      url,
+      ...data
+    }: {
+      url: string
+      newUrl?: string
+      secret?: string
+      events?: WebhookEventType[]
+      isActive?: boolean
+    }) => updateWebhook(url, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['webhooks'] })
+      void qc.invalidateQueries({ queryKey: ['platform-developer'] })
+    },
+  })
+}
+
+export function useDeleteWebhook() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (url: string) => deleteWebhook(url),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['webhooks'] })
+      void qc.invalidateQueries({ queryKey: ['platform-developer'] })
+    },
+  })
+}
+
+export function useTestWebhook() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (event?: WebhookEventType) => testWebhook(event),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['webhook-logs'] })
+      void qc.invalidateQueries({ queryKey: ['webhook-stats'] })
+    },
+  })
+}
+
+export function useDispatchWebhook() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ event, data }: { event: WebhookEventType; data?: Record<string, unknown> }) =>
+      dispatchWebhook(event, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['webhook-logs'] })
+      void qc.invalidateQueries({ queryKey: ['webhook-stats'] })
+    },
+  })
+}
+

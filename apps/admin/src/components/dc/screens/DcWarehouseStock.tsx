@@ -20,6 +20,7 @@ import {
   useWmsOverview,
 } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { downloadCsv } from '@/lib/admin/admin-actions'
 
 const card = {
   border: '1px solid var(--line)',
@@ -174,6 +175,44 @@ function DcWarehouseStockBody() {
     { t: 'form', w: 'side', title: '', fields: [] } as DcBlock,
   ]
 
+  const exportCsv = () => {
+    if (movements.length === 0 && warehouses.length === 0) {
+      toast('warn', 'Nothing to export', 'No warehouse movements on file.')
+      return
+    }
+    const headers = [
+      'Movement Date',
+      'SKU',
+      'Reason',
+      'Delta',
+      'Quantity Before',
+      'Quantity After',
+      'Note',
+    ]
+    const csvRows = [
+      headers,
+      ...movements.map((m) => [
+        new Date(m.createdAt).toISOString().slice(0, 10),
+        m.sku || '—',
+        m.reason,
+        String(m.delta),
+        String(m.quantityBefore),
+        String(m.quantityAfter),
+        m.note || '',
+      ]),
+      [],
+      ['Warehouse Name', 'Code', 'City', 'Status'],
+      ...warehouses.map((w) => [
+        w.name,
+        w.code,
+        w.city || '—',
+        w.isActive ? 'Active' : 'Inactive',
+      ]),
+    ]
+    downloadCsv(`splaro-warehouse-stock-${new Date().toISOString().slice(0, 10)}.csv`, csvRows)
+    toast('ok', 'Export complete', `Exported ${movements.length} movements and ${warehouses.length} warehouses.`)
+  }
+
   return (
     <>
       <DcPageHead
@@ -188,6 +227,13 @@ function DcWarehouseStockBody() {
         }
         syncing={wms.isFetching}
         onSync={() => void wms.refetch()}
+        actions={[
+          {
+            label: 'Export CSV',
+            icon: 'icon-download',
+            onClick: exportCsv,
+          },
+        ]}
       />
 
       {wms.isLoading ? (

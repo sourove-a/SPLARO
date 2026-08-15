@@ -8,7 +8,6 @@ import type { HeroBanner } from '@/lib/api/banners'
 import { LiquidGlassNavButton } from '@/components/ui/LiquidGlass/LiquidGlassNavButton'
 import { cn } from '@/lib/utils/cn'
 import {
-  HERO_DEFAULT_SLIDES,
   HERO_DEFAULT_VIDEO,
   classifyHeroMedia,
   isDirectVideoUrl,
@@ -128,21 +127,10 @@ function resolveSlidePoster(media: string, index: number, banner: HeroBanner) {
   if (classified.vimeoId) return vimeoPosterUrl(classified.vimeoId)
   const pexelsPoster = classified.poster ?? pexelsVideoPosterUrl(media)
   if (pexelsPoster) return pexelsPoster
-
-  const defaultPoster = HERO_DEFAULT_SLIDES[index]?.image ?? HERO_DEFAULT_SLIDES[0]?.image
-  return defaultPoster ? heroImageSrc(defaultPoster) : ''
+  return ''
 }
 
-function resolveSlideEyebrow(banner: HeroBanner, index: number, subtitle: string): string {
-  const fromDefaults = HERO_DEFAULT_SLIDES[index]?.eyebrow
-  if (fromDefaults?.trim()) return fromDefaults.trim()
-
-  const collectionMatch = subtitle.match(/^(.+?)\s+collection$/i)
-  if (collectionMatch?.[1]) {
-    return 'SPLARO'
-  }
-
-  // Brand is the hero signal — never rotate generic “FEATURED EDIT” as eyebrow.
+function resolveSlideEyebrow(_banner: HeroBanner, _index: number, _subtitle: string): string {
   return 'SPLARO'
 }
 
@@ -179,6 +167,99 @@ interface HeroSliderProps {
 const HERO_MEDIA_STYLE = {
   objectFit: 'cover' as const,
   objectPosition: 'center center',
+}
+
+function youtubeCommand(win: Window | null, func: string, args: unknown[] = []) {
+  if (!win) return
+  win.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
+}
+
+/** Muted looping backdrop — YouTube chrome is cropped + the player is forced to stay playing. */
+function YouTubeAmbientEmbed({
+  videoId,
+  src,
+  ready,
+  active,
+  onReady,
+}: {
+  videoId: string
+  src: string
+  ready: boolean
+  active: boolean
+  onReady: () => void
+}) {
+  const frameRef = useRef<HTMLIFrameElement>(null)
+
+  const keepPlaying = useCallback(() => {
+    const win = frameRef.current?.contentWindow ?? null
+    youtubeCommand(win, 'mute')
+    youtubeCommand(win, 'playVideo')
+  }, [])
+
+  useEffect(() => {
+    if (!active) return
+    const onMessage = (event: MessageEvent) => {
+      if (typeof event.origin !== 'string' || !event.origin.includes('youtube')) return
+      let payload: { event?: string; info?: number | { playerState?: number } } | null = null
+      try {
+        payload =
+          typeof event.data === 'string'
+            ? (JSON.parse(event.data) as { event?: string; info?: number | { playerState?: number } })
+            : null
+      } catch {
+        return
+      }
+      if (!payload) return
+      if (payload.event === 'onReady' || payload.event === 'initialDelivery') {
+        onReady()
+        keepPlaying()
+        return
+      }
+      const state =
+        typeof payload.info === 'number' ? payload.info : payload.info?.playerState
+      // 0 ended · 2 paused — both surface YouTube's pause/prev overlay.
+      if (state === 0 || state === 2) keepPlaying()
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [active, keepPlaying, onReady])
+
+  useEffect(() => {
+    if (!active) return
+    keepPlaying()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') keepPlaying()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [active, keepPlaying, src])
+
+  return (
+    <div
+      className={cn('hero-bg-video hero-bg-embed', ready && active && 'hero-bg-video--ready')}
+      aria-hidden={!active}
+    >
+      <iframe
+        ref={frameRef}
+        src={src}
+        title=""
+        allow="autoplay; encrypted-media"
+        loading="eager"
+        referrerPolicy="strict-origin-when-cross-origin"
+        tabIndex={-1}
+        onLoad={() => {
+          onReady()
+          keepPlaying()
+          frameRef.current?.contentWindow?.postMessage(
+            JSON.stringify({ event: 'listening', id: videoId }),
+            '*',
+          )
+        }}
+      />
+    </div>
+  )
 }
 
 function useAllowHeroVideo(): boolean {
@@ -407,7 +488,7 @@ function HeroBackground({
   )
   const videoSrc = sourceChain[sourceIndex]
   const embedSrc = slide.youtubeId
-    ? youtubeEmbedUrl(slide.youtubeId)
+    ? youtubeEmbedUrl(slide.youtubeId, typeof window === 'undefined' ? undefined : window.location.origin)
     : slide.vimeoId
       ? vimeoEmbedUrl(slide.vimeoId)
       : null
@@ -541,7 +622,15 @@ function HeroBackground({
         priority={priority}
         eager={isActive}
       />
-      {mountEmbed && embedSrc ? (
+      {mountEmbed && embedSrc && slide.youtubeId ? (
+        <YouTubeAmbientEmbed
+          videoId={slide.youtubeId}
+          src={embedSrc}
+          ready={videoReady && isActive}
+          active={isActive}
+          onReady={markVideoReady}
+        />
+      ) : mountEmbed && embedSrc ? (
         <div
           className={cn('hero-bg-video hero-bg-embed', videoReady && isActive && 'hero-bg-video--ready')}
           aria-hidden={!isActive}
@@ -809,17 +898,7 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   }, [resumeAfterTouch])
 
   if (!slides.length || !slide) {
-    return (
-      <section className="home-hero-slider home-hero-slider--empty" data-section="hero" aria-label="Hero">
-        <div className="home-hero-slider__stage">
-          <div className="hero-content">
-            <p className="hero-eyebrow">SPLARO</p>
-            <h1>Premium Everyday Luxury.</h1>
-            <p className="hero-subtitle">Discover curated fashion for Bangladesh.</p>
-          </div>
-        </div>
-      </section>
-    )
+    return null
   }
 
   const progressPaused = paused || !sliderActive

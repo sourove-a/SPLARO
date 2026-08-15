@@ -14,9 +14,9 @@ import type {
   ProductVariantData,
 } from '@splaro/types'
 
-/** Bundled demo catalog — dev-only; never customer-facing in production. */
+/** Bundled fixture catalog — off for official storefront (Postgres only). */
 export function staticCatalogEnabled(): boolean {
-  return process.env.NODE_ENV === 'development'
+  return false
 }
 
 function bundledProducts(): StorefrontProduct[] {

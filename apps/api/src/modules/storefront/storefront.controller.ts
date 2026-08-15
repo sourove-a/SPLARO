@@ -7,6 +7,7 @@ import {
   Header,
   Headers,
   Inject,
+  ForbiddenException,
   NotFoundException,
   Param,
   Post,
@@ -67,7 +68,6 @@ import { InvoiceService } from '../invoices/invoice.service'
 import { LegalPagesService } from '../content/legal-pages.service'
 import { FootwearConfigService } from '../content/footwear-config.service'
 import { PurgeDemoCatalogService } from '../catalog/purge-demo-catalog.service'
-import { SeedDemoCatalogService } from '../catalog/seed-demo-catalog.service'
 import { PaymentIntegrationService } from '../integrations/payment-integration.service'
 import { PresenceService } from '../../common/presence.service'
 
@@ -141,7 +141,6 @@ export class StorefrontController {
     private readonly legalPages: LegalPagesService,
     private readonly footwearConfig: FootwearConfigService,
     private readonly purgeDemoCatalog: PurgeDemoCatalogService,
-    private readonly seedDemoCatalog: SeedDemoCatalogService,
     private readonly navBuilder: NavBuilderService,
     private readonly paymentIntegration: PaymentIntegrationService,
     private readonly presence: PresenceService,
@@ -1647,23 +1646,11 @@ export class StorefrontController {
     return { ok: true, ...result }
   }
 
-  /** Deploy hook — seed demo catalog when store has zero products (requires INTERNAL_HEALTH_SECRET). */
+  /** Disabled for official launch — demo SKUs must never land in a live catalog. */
   @Post('deploy/seed-demo')
-  async deploySeedDemo(@Query('storeId') storeId: string, @Req() req: Request) {
-    const secret = process.env['INTERNAL_HEALTH_SECRET']
-    const header = req.headers['x-splaro-internal']
-    if (!secret || header !== secret) {
-      throw new UnauthorizedException('Invalid internal token')
-    }
-    const sid = await resolveStoreId(
-      this.prisma,
-      (storeId?.trim() || process.env['NEXT_PUBLIC_STORE_ID'] || 'splaro').trim(),
-    )
-    const result = await this.seedDemoCatalog.seedIfEmpty(sid)
-    if (result.productsCreated > 0) {
-      await this.cache.invalidateCatalog(sid)
-    }
-    return { ok: true, ...result }
+  async deploySeedDemo(@Req() req: Request) {
+    this.assertInternalEventAuth(req)
+    throw new ForbiddenException('Demo catalog seed is disabled. Add real products in admin.')
   }
 
   /** Storefront visitor heartbeat — powers admin header "online now" count. */

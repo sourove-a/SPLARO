@@ -14,6 +14,8 @@ import { useInventoryAlerts, useProducts } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { AdminButton } from '@/components/ui/AdminButton'
 import type { ApiProduct } from '@/lib/api/products'
+import { downloadCsv } from '@/lib/admin/admin-actions'
+import { toastOk, toastWarn } from '@/lib/admin/feedback'
 
 const card = {
   border: '1px solid var(--line)',
@@ -106,15 +108,7 @@ function DcInventoryBody() {
     )
   }, [all, skuFocus])
 
-  const tableRows = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    const filtered = needle
-      ? all.filter((p) =>
-          `${p.name} ${p.sku ?? ''} ${p.category?.name ?? ''}`.toLowerCase().includes(needle),
-        )
-      : all
-    return [...filtered].sort((a, b) => stockOf(a) - stockOf(b) || a.name.localeCompare(b.name))
-  }, [all, query])
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'OK' | 'LOW' | 'OUT'>('ALL')
 
   const stockStatus = (p: ApiProduct): { label: string; tone: DcTone } => {
     const onHand = stockOf(p)
@@ -124,6 +118,22 @@ function DcInventoryBody() {
     return { label: 'OK', tone: 'ok' }
   }
 
+  const tableRows = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    let filtered = needle
+      ? all.filter((p) =>
+          `${p.name} ${p.sku ?? ''} ${p.category?.name ?? ''}`.toLowerCase().includes(needle),
+        )
+      : all
+    if (statusFilter !== 'ALL') {
+      filtered = filtered.filter((p) => {
+        const s = stockStatus(p).label.toUpperCase()
+        return s === statusFilter
+      })
+    }
+    return [...filtered].sort((a, b) => stockOf(a) - stockOf(b) || a.name.localeCompare(b.name))
+  }, [all, query, statusFilter])
+
   const pageStatus = dcPageStatus([products, alerts], api.pulse)
 
   const skeleton: DcBlock[] = [
@@ -131,6 +141,44 @@ function DcInventoryBody() {
     { t: 'decide', title: '', items: [] } as DcBlock,
     { t: 'table', title: '', cols: [], rows: [] } as DcBlock,
   ]
+
+  const exportCsv = () => {
+    if (all.length === 0) {
+      toastWarn('No inventory records to export')
+      return
+    }
+    const headers = [
+      'Product Name',
+      'SKU',
+      'Category',
+      'On Hand',
+      'Reserved',
+      'Reorder At',
+      'List Price (BDT)',
+      'Total Value (BDT)',
+      'Status',
+    ]
+    const csvRows = [
+      headers,
+      ...all.map((p) => {
+        const onHand = stockOf(p)
+        const price = Number(p.basePrice || 0)
+        return [
+          p.name,
+          p.sku ?? '—',
+          p.category?.name ?? 'Uncategorised',
+          String(onHand),
+          String(reservedOf(p)),
+          String(p.lowStockThreshold ?? 5),
+          String(price),
+          String(onHand * price),
+          stockStatus(p).label,
+        ]
+      }),
+    ]
+    downloadCsv(`splaro-inventory-${new Date().toISOString().slice(0, 10)}.csv`, csvRows)
+    toastOk(`Exported ${all.length} inventory records`)
+  }
 
   return (
     <>
@@ -162,8 +210,12 @@ function DcInventoryBody() {
           {
             label: 'Restock PO',
             icon: 'icon-plus',
-            variant: 'primary',
             onClick: () => router.push('/dashboard/procurement/purchase-orders'),
+          },
+          {
+            label: 'Export CSV',
+            icon: 'icon-download',
+            onClick: exportCsv,
           },
         ]}
       />
@@ -621,12 +673,35 @@ function DcInventoryBody() {
                   flexWrap: 'wrap',
                 }}
               >
-                <span style={{ flex: 1, minWidth: 140, font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)' }}>
-                  All SKUs
-                  <span style={{ marginLeft: 8, font: `500 11px/1 ${MONO}`, color: 'var(--ink-3)' }}>
-                    {tableRows.length}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 200, flexWrap: 'wrap' }}>
+                  <span style={{ font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)', marginRight: 6 }}>
+                    All SKUs
+                    <span style={{ marginLeft: 6, font: `500 11px/1 ${MONO}`, color: 'var(--ink-3)' }}>
+                      {tableRows.length}
+                    </span>
                   </span>
-                </span>
+                  {(['ALL', 'OK', 'LOW', 'OUT'] as const).map((st) => {
+                    const active = statusFilter === st
+                    return (
+                      <button
+                        key={st}
+                        type="button"
+                        onClick={() => setStatusFilter(st)}
+                        style={{
+                          padding: '4px 9px',
+                          borderRadius: 7,
+                          border: `1px solid ${active ? 'var(--violet-bd)' : 'var(--line)'}`,
+                          background: active ? 'var(--violet-soft)' : 'var(--surface-2)',
+                          color: active ? 'var(--violet)' : 'var(--ink-2)',
+                          font: `600 11px/1 ${FONT}`,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {st === 'ALL' ? 'ALL' : st === 'OK' ? 'IN STOCK' : st === 'LOW' ? 'LOW STOCK' : 'OUT OF STOCK'}
+                      </button>
+                    )
+                  })}
+                </div>
                 <label
                   style={{
                     width: 'min(260px, 100%)',

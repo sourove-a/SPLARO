@@ -237,3 +237,39 @@ export const BUTTON_ROUTES: Record<string, string> = {
   [TG_BTN.GROUP_LINK]: TG_CALLBACK.LINK_GROUP,
   [TG_BTN.GROUP_INFO]: TG_CALLBACK.GROUP_INFO,
 }
+
+export function formatTelegramAiReply(raw: string): string {
+  if (!raw) return ''
+  const lines = raw.split('\n')
+  const formatted: string[] = []
+  let tableHeaders: string[] = []
+  let inTable = false
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      const cells = trimmed.split('|').map((s) => s.trim()).filter(Boolean)
+      if (!inTable) {
+        tableHeaders = cells.map((c) => c.replace(/\*\*/g, ''))
+        inTable = true
+      } else if (trimmed.includes('---')) {
+        // Skip markdown separator
+      } else {
+        const rowStr = cells
+          .map((cell, idx) => {
+            const h = tableHeaders[idx] || `Item ${idx + 1}`
+            return `• <b>${h}</b>: ${cell}`
+          })
+          .join('\n')
+        formatted.push(rowStr)
+      }
+    } else {
+      inTable = false
+      tableHeaders = []
+      formatted.push(line)
+    }
+  }
+
+  return formatted.join('\n')
+}
+

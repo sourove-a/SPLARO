@@ -1,4 +1,5 @@
 import path from 'path'
+import { createHash } from 'crypto'
 import { mkdir, rename, stat, unlink, writeFile } from 'fs/promises'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
@@ -18,7 +19,11 @@ export const maxDuration = 90
 
 const MAX_BYTES = 8 * 1024 * 1024
 const MAX_PRODUCT_PIPELINE_BYTES = 12 * 1024 * 1024
-const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+const MAX_PDF_BYTES = 20 * 1024 * 1024
+const MAX_VIDEO_BYTES = 40 * 1024 * 1024
+const RASTER = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'])
+const LIBRARY_ONLY = new Set(['image/svg+xml', 'application/pdf', 'video/mp4', 'video/webm'])
+const ALLOWED = new Set([...RASTER, ...LIBRARY_ONLY])
 const ALLOWED_FOLDERS = new Set([
   'general',
   'products',
@@ -52,9 +57,14 @@ const MIME_EXT: Record<string, string> = {
   'image/png': 'png',
   'image/webp': 'webp',
   'image/gif': 'gif',
+  'image/avif': 'avif',
+  'image/svg+xml': 'svg',
+  'application/pdf': 'pdf',
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
 }
 
-function sniffImageMime(bytes: Buffer): string | null {
+function sniffMime(bytes: Buffer): string | null {
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
     return 'image/jpeg'
   }
@@ -68,7 +78,51 @@ function sniffImageMime(bytes: Buffer): string | null {
     const signature = bytes.subarray(0, 6).toString('ascii')
     if (signature === 'GIF87a' || signature === 'GIF89a') return 'image/gif'
   }
+  if (bytes.length >= 12 && bytes.subarray(4, 8).toString('ascii') === 'ftyp') {
+    const brand = bytes.subarray(8, 12).toString('ascii')
+    if (brand.startsWith('avif') || brand.startsWith('avis')) return 'image/avif'
+    if (brand.startsWith('isom') || brand.startsWith('mp41') || brand.startsWith('mp42') || brand.startsWith('M4V')) {
+      return 'video/mp4'
+    }
+  }
+  if (bytes.length >= 4 && bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) {
+    return 'video/webm'
+  }
+  if (bytes.length >= 5 && bytes.subarray(0, 5).toString('ascii') === '%PDF-') return 'application/pdf'
+  const head = bytes.subarray(0, Math.min(bytes.length, 256)).toString('utf8').trimStart().toLowerCase()
+  if (head.startsWith('<svg') || (head.startsWith('<?xml') && head.includes('<svg'))) return 'image/svg+xml'
   return null
+}
+
+function sanitizeSvg(bytes: Buffer): Buffer {
+  const text = bytes.toString('utf8')
+  if (/<script|javascript:|on\w+\s*=/i.test(text)) {
+    throw new Error('SVG contains executable markup and was rejected')
+  }
+  return bytes
+}
+
+async function maybeWatermark(bytes: Buffer, ext: string): Promise<Buffer> {
+  if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext)) return bytes
+  try {
+    const { readFile } = await import('fs/promises')
+    const logo = path.resolve(process.cwd(), '..', 'web', 'public', 'images', 'logo', 'splaro-logo-dark.svg')
+    const mark = await readFile(logo)
+    const sharp = (await import('sharp')).default
+    const base = sharp(bytes).rotate()
+    const meta = await base.metadata()
+    const width = meta.width ?? 800
+    const overlay = await sharp(mark)
+      .resize(Math.max(48, Math.round(width * 0.18)), null, { fit: 'inside' })
+      .png()
+      .toBuffer()
+    return await base
+      .composite([{ input: overlay, gravity: 'southeast', blend: 'over' }])
+      .toFormat(ext === 'png' ? 'png' : 'webp')
+      .toBuffer()
+  } catch {
+    return bytes
+  }
 }
 
 /** Env master kill switch — default ON. */
@@ -278,39 +332,53 @@ export async function POST(request: Request) {
   if (requestedUploadId && !/^[0-9]{10,}-[a-z0-9]{8,32}$/.test(requestedUploadId)) {
     return NextResponse.json({ error: 'Invalid upload id' }, { status: 400 })
   }
+  const watermark = form.get('watermark') === '1' || form.get('watermark') === 'true'
   const useProductPipeline =
     isProductFolder(folder) &&
     envPipelineEnabled() &&
     pipelineRequested &&
     file instanceof File &&
-    file.type !== 'image/gif'
+    (file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/webp')
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: 'File is required' }, { status: 400 })
   }
 
-  if (!ALLOWED.has(file.type)) {
-    return NextResponse.json({ error: 'Only JPG, PNG, WebP or GIF allowed' }, { status: 400 })
-  }
-
-  const maxBytes = useProductPipeline ? MAX_PRODUCT_PIPELINE_BYTES : MAX_BYTES
-  if (file.size > maxBytes) {
-    return NextResponse.json(
-      {
-        error: useProductPipeline
-          ? 'Max product image size is 12MB'
-          : 'Max file size is 8MB',
-      },
-      { status: 400 },
-    )
-  }
-
   let bytes = Buffer.from(await file.arrayBuffer()) as Buffer
-  const detectedMime = sniffImageMime(bytes)
-  if (!detectedMime || detectedMime !== file.type) {
-    return NextResponse.json({ error: 'File content does not match its image type' }, { status: 400 })
+  const detectedMime = sniffMime(bytes)
+  if (!detectedMime || !ALLOWED.has(detectedMime)) {
+    return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 })
   }
-  let ext = MIME_EXT[detectedMime] ?? 'jpg'
+  if (file.type && file.type !== detectedMime && !(file.type === 'image/svg+xml' && detectedMime === 'image/svg+xml')) {
+    if (file.type !== 'application/octet-stream' && file.type !== detectedMime) {
+      return NextResponse.json({ error: 'File content does not match its type' }, { status: 400 })
+    }
+  }
+  if (isProductFolder(folder) && !RASTER.has(detectedMime)) {
+    return NextResponse.json({ error: 'Product photos must be JPG, PNG, WebP or GIF' }, { status: 400 })
+  }
+  if (detectedMime === 'image/svg+xml') {
+    try {
+      bytes = Buffer.from(sanitizeSvg(bytes))
+    } catch (err) {
+      return NextResponse.json({ error: err instanceof Error ? err.message : 'Invalid SVG' }, { status: 400 })
+    }
+  }
+
+  const maxBytes = useProductPipeline
+    ? MAX_PRODUCT_PIPELINE_BYTES
+    : detectedMime === 'application/pdf'
+      ? MAX_PDF_BYTES
+      : detectedMime.startsWith('video/')
+        ? MAX_VIDEO_BYTES
+        : MAX_BYTES
+  if (file.size > maxBytes) {
+    return NextResponse.json({ error: `Max file size is ${Math.round(maxBytes / (1024 * 1024))}MB` }, { status: 400 })
+  }
+
+  const contentHash = createHash('sha256').update(bytes).digest('hex')
+  let ext = MIME_EXT[detectedMime] ?? 'bin'
+  const raster = RASTER.has(detectedMime) && detectedMime !== 'image/gif' && detectedMime !== 'image/avif'
   const dir = path.join(uploadRoot(), folder)
   await mkdir(dir, { recursive: true })
   const id = requestedUploadId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -362,6 +430,9 @@ export async function POST(request: Request) {
         height: outputHeight,
         sizeBytes: outputSize,
         mimeType: result.url.endsWith('.webp') ? 'image/webp' : file.type,
+        contentHash,
+        kind: 'image',
+        watermarked: false,
       })
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Product image processing failed'
@@ -369,11 +440,20 @@ export async function POST(request: Request) {
       }
     }
 
-    // Legacy path — banners / partners / media / pipeline OFF / gif
-    if (optimize && file.type !== 'image/gif') {
+    // Legacy path — banners / partners / media / pipeline OFF / gif / files
+    let watermarked = false
+    if (optimize && raster) {
       const result = await optimizeImageLegacy(bytes, ext)
       bytes = Buffer.from(result.buffer)
       ext = result.ext
+    }
+    if (watermark && raster) {
+      const marked = await maybeWatermark(bytes, ext === 'jpeg' ? 'jpg' : ext)
+      if (marked !== bytes && marked.length > 0) {
+        bytes = Buffer.from(marked)
+        watermarked = true
+        if (ext !== 'png') ext = 'webp'
+      }
     }
 
     const safeName = `${id}.${ext}`
@@ -386,15 +466,30 @@ export async function POST(request: Request) {
     const url = `/uploads/${folder}/${safeName}`
     let width: number | null = null
     let height: number | null = null
-    try {
-      const sharp = (await import('sharp')).default
-      const metadata = await sharp(bytes).metadata()
-      width = metadata.width ?? null
-      height = metadata.height ?? null
-    } catch {
-      // GIF/decoder metadata is optional; upload itself already succeeded.
+    if (raster || detectedMime === 'image/gif' || detectedMime === 'image/avif') {
+      try {
+        const sharp = (await import('sharp')).default
+        const metadata = await sharp(bytes).metadata()
+        width = metadata.width ?? null
+        height = metadata.height ?? null
+      } catch {
+        // decoder metadata is optional
+      }
     }
-    const mimeType = ext === 'webp' ? 'image/webp' : ext === 'png' ? 'image/png' : file.type
+    const mimeType =
+      ext === 'webp' ? 'image/webp' : ext === 'png' ? 'image/png' : detectedMime
+    const kind =
+      mimeType === 'image/gif'
+        ? 'gif'
+        : mimeType === 'image/svg+xml'
+          ? 'svg'
+          : mimeType === 'application/pdf'
+            ? 'pdf'
+            : mimeType.startsWith('video/')
+              ? 'video'
+              : mimeType.startsWith('image/')
+                ? 'image'
+                : 'other'
     return NextResponse.json({
       url,
       path: url,
@@ -404,6 +499,9 @@ export async function POST(request: Request) {
       height,
       sizeBytes: bytes.length,
       mimeType,
+      contentHash,
+      kind,
+      watermarked,
     })
   } finally {
     await unlink(pendingMarker).catch(() => undefined)

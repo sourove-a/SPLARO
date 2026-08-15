@@ -58,9 +58,90 @@ const TRIGGERS = [
 
 const ACTIONS = [
   { value: 'SEND_SMS', label: 'Send SMS', hint: 'Uses connected SMS provider' },
+  { value: 'SEND_EMAIL', label: 'Send Email', hint: 'Sends via store SMTP / Gmail' },
   { value: 'SEND_TELEGRAM', label: 'Send Telegram', hint: 'Notifies linked admin channel' },
-  { value: 'NOTIFY_ADMIN', label: 'Notify admin', hint: 'Creates admin notification' },
+  { value: 'BOOK_COURIER', label: 'Book Courier', hint: 'Dispatches parcel to courier' },
+  { value: 'NOTIFY_ADMIN', label: 'Notify Admin', hint: 'Creates in-app notification' },
+  { value: 'UPDATE_ORDER_STATUS', label: 'Update Order Status', hint: 'Transitions order status' },
+  { value: 'APPLY_TAG', label: 'Apply Customer Tag', hint: 'Tags customer profile' },
+  { value: 'REMOVE_TAG', label: 'Remove Customer Tag', hint: 'Removes customer tag' },
+  { value: 'REQUIRE_ADVANCE_PAYMENT', label: 'Require Advance Payment', hint: 'Flags order for COD risk' },
+  { value: 'HIDE_PRODUCT', label: 'Hide Product', hint: 'Unpublishes low-stock product' },
+  { value: 'ADD_LOYALTY_POINTS', label: 'Add Loyalty Points', hint: 'Credits loyalty balance' },
+  { value: 'CUSTOM_WEBHOOK', label: 'Custom Webhook', hint: 'Posts payload to external URL' },
 ] as const
+
+const OPERATORS = [
+  { value: 'EQUALS', label: 'Equals (==)' },
+  { value: 'NOT_EQUALS', label: 'Not equals (!=)' },
+  { value: 'GREATER_THAN', label: 'Greater than (>)' },
+  { value: 'LESS_THAN', label: 'Less than (<)' },
+  { value: 'CONTAINS', label: 'Contains text' },
+  { value: 'NOT_CONTAINS', label: 'Does not contain' },
+  { value: 'IN', label: 'In list (comma separated)' },
+  { value: 'NOT_IN', label: 'Not in list' },
+] as const
+
+const TRIGGER_FIELDS: Record<string, Array<{ value: string; label: string }>> = {
+  ORDER_PLACED: [
+    { value: 'total', label: 'Order Total (BDT)' },
+    { value: 'city', label: 'Shipping City / District' },
+    { value: 'paymentMethod', label: 'Payment Method (COD, BKASH, etc.)' },
+    { value: 'isCodRisk', label: 'Is COD Risk (true/false)' },
+    { value: 'customerName', label: 'Customer Name' },
+    { value: 'email', label: 'Customer Email' },
+    { value: 'phone', label: 'Customer Phone' },
+  ],
+  ORDER_CONFIRMED: [
+    { value: 'total', label: 'Order Total (BDT)' },
+    { value: 'city', label: 'Shipping City / District' },
+    { value: 'paymentMethod', label: 'Payment Method' },
+    { value: 'isCodRisk', label: 'Is COD Risk (true/false)' },
+  ],
+  ORDER_DELIVERED: [
+    { value: 'total', label: 'Order Total (BDT)' },
+    { value: 'city', label: 'Shipping City / District' },
+  ],
+  ORDER_CANCELLED: [
+    { value: 'total', label: 'Order Total (BDT)' },
+    { value: 'city', label: 'Shipping City / District' },
+    { value: 'paymentMethod', label: 'Payment Method' },
+  ],
+  PAYMENT_FAILED: [
+    { value: 'total', label: 'Order Total (BDT)' },
+    { value: 'paymentMethod', label: 'Payment Method' },
+  ],
+  STOCK_LOW: [
+    { value: 'stock', label: 'Current Stock Quantity' },
+    { value: 'threshold', label: 'Product Low Stock Threshold' },
+    { value: 'productName', label: 'Product Name' },
+    { value: 'sku', label: 'Variant SKU' },
+  ],
+  ABANDONED_CART: [
+    { value: 'total', label: 'Cart Total (BDT)' },
+    { value: 'itemCount', label: 'Total Item Count' },
+    { value: 'customerName', label: 'Customer Name' },
+    { value: 'email', label: 'Customer Email' },
+    { value: 'phone', label: 'Customer Phone' },
+  ],
+  CUSTOMER_SIGNUP: [
+    { value: 'customerName', label: 'Customer Name' },
+    { value: 'email', label: 'Customer Email' },
+    { value: 'phone', label: 'Customer Phone' },
+  ],
+}
+
+export type DraftCondition = {
+  field: string
+  operator: string
+  value: string
+}
+
+export type DraftAction = {
+  action: string
+  params: Record<string, unknown>
+  sortOrder: number
+}
 
 const TRIGGER_LABELS: Record<string, string> = {
   ORDER_PLACED: 'Order placed',
@@ -81,6 +162,20 @@ const TRIGGER_LABELS: Record<string, string> = {
 
 function actionLabel(value?: string) {
   return ACTIONS.find((item) => item.value === value)?.label ?? value?.replace(/_/g, ' ') ?? 'No action'
+}
+
+function operatorSymbol(op?: string) {
+  switch (op) {
+    case 'EQUALS': return '=='
+    case 'NOT_EQUALS': return '!='
+    case 'GREATER_THAN': return '>'
+    case 'LESS_THAN': return '<'
+    case 'CONTAINS': return 'contains'
+    case 'NOT_CONTAINS': return '!contains'
+    case 'IN': return 'in'
+    case 'NOT_IN': return '!in'
+    default: return op ?? '=='
+  }
 }
 
 function stableTime(value: string | null) {
@@ -119,12 +214,21 @@ function DcAutomationRulesBody() {
   const [deleting, setDeleting] = useState<ApiAutomationRule | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({
+  const initialForm = {
     name: '',
+    description: '',
     trigger: 'ORDER_PLACED',
-    action: 'SEND_SMS',
-    message: 'SPLARO: Your order update from automation.',
-  })
+    conditions: [] as DraftCondition[],
+    actions: [
+      {
+        action: 'SEND_SMS',
+        params: { message: 'SPLARO: Your order update from automation.' },
+        sortOrder: 0,
+      },
+    ] as DraftAction[],
+  }
+
+  const [form, setForm] = useState(initialForm)
 
   const rows = useMemo(() => rules.data ?? [], [rules.data])
   const active = rows.filter((row) => row.isActive).length
@@ -172,45 +276,79 @@ function DcAutomationRulesBody() {
 
   const handleCreate = async () => {
     const name = form.name.trim()
-    const message = form.message.trim()
     if (!name) {
       toastFail('Rule name is required')
       return
     }
-    if (!message) {
-      toastFail('Action message is required')
+
+    if (form.actions.length === 0) {
+      toastFail('At least one action is required')
       return
+    }
+
+    // Validate actions
+    for (let i = 0; i < form.actions.length; i += 1) {
+      const act = form.actions[i]
+      if (!act) continue
+      if (act.action === 'SEND_SMS' || act.action === 'SEND_TELEGRAM') {
+        const msg = String(act.params['message'] ?? '').trim()
+        if (!msg) {
+          toastFail(`Action ${i + 1} (${actionLabel(act.action)}): Message is required`)
+          return
+        }
+      }
+      if (act.action === 'SEND_EMAIL') {
+        const subj = String(act.params['subject'] ?? '').trim()
+        if (!subj) {
+          toastFail(`Action ${i + 1} (Send Email): Subject is required`)
+          return
+        }
+      }
+      if (act.action === 'CUSTOM_WEBHOOK') {
+        const url = String(act.params['url'] ?? '').trim()
+        if (!url || !url.startsWith('http')) {
+          toastFail(`Action ${i + 1} (Custom Webhook): Valid HTTP URL is required`)
+          return
+        }
+      }
+    }
+
+    // Validate conditions
+    for (let i = 0; i < form.conditions.length; i += 1) {
+      const cond = form.conditions[i]
+      if (!cond || !cond.field.trim() || !cond.value.trim()) {
+        toastFail(`Condition ${i + 1} requires both a field and a comparison value`)
+        return
+      }
     }
 
     setSaving(true)
     try {
+      const formattedActions = form.actions.map((act, idx) => ({
+        action: act.action,
+        params: act.params,
+        sortOrder: idx,
+      }))
+
+      const desc = form.description.trim()
       const saved = await createAutomationRule({
         name,
+        ...(desc ? { description: desc } : {}),
         trigger: form.trigger,
-        conditions: [],
-        actions: [
-          {
-            action: form.action,
-            params:
-              form.action === 'NOTIFY_ADMIN'
-                ? { subject: name, message }
-                : { message },
-            sortOrder: 0,
-          },
-        ],
+        conditions: form.conditions.map((c) => ({
+          field: c.field.trim(),
+          operator: c.operator,
+          value: c.value.trim(),
+        })),
+        actions: formattedActions,
       })
       if (!verifyStringEquals(saved.name, name, 'Automation rule name')) return
       if (!verifyStringEquals(saved.trigger, form.trigger, 'Automation trigger')) return
       if (!verifyBooleanEquals(saved.isActive, true, 'Automation rule active state')) return
-      if (!verifyPersisted(Boolean(saved.id && saved.actions[0]), 'Automation rule action did not persist')) return
+      if (!verifyPersisted(Boolean(saved.id && saved.actions?.length), 'Automation rule action did not persist')) return
       toastApiSaved('Automation rule created')
       setCreateOpen(false)
-      setForm({
-        name: '',
-        trigger: 'ORDER_PLACED',
-        action: 'SEND_SMS',
-        message: 'SPLARO: Your order update from automation.',
-      })
+      setForm(initialForm)
       await invalidate()
     } catch (error) {
       toastFail(error instanceof Error ? error.message : 'Could not create automation rule')
@@ -417,94 +555,134 @@ function RuleGroup({
         <span style={{ font: `500 10.5px/1 ${MONO}`, color: 'var(--ink-3)' }}>{rows.length} rules</span>
       </div>
       <div style={{ padding: '3px 14px' }}>
-        {rows.map((row, index) => (
-          <div
-            key={row.id}
-            style={{
-              minHeight: 72,
-              padding: '10px 0',
-              display: 'flex',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: 11,
-              borderBottom: index === rows.length - 1 ? 0 : '1px solid var(--line)',
-              opacity: row.isActive ? 1 : 0.65,
-            }}
-          >
-            <span
+        {rows.map((row, index) => {
+          const actionSummary = row.actions?.length
+            ? row.actions.map((a) => actionLabel(a.action)).join(' ➔ ')
+            : 'No actions'
+          const conditionSummary = row.conditions?.length
+            ? row.conditions.map((c) => `${c.field} ${operatorSymbol(c.operator)} "${c.value}"`).join(' AND ')
+            : 'Every matching event'
+
+          return (
+            <div
+              key={row.id}
               style={{
-                width: 32,
-                height: 32,
-                display: 'grid',
-                placeItems: 'center',
-                border: '1px solid var(--violet-bd)',
-                borderRadius: 9,
-                background: 'var(--violet-soft)',
-                color: 'var(--violet)',
-              }}
-            >
-              <DcIcon name="icon-zap" size={14} />
-            </span>
-            <span style={{ flex: '1 1 250px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <strong style={{ font: `600 12px/1.2 ${FONT}`, color: 'var(--ink)' }}>{row.name}</strong>
-              <span style={{ font: `400 10.5px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>
-                {TRIGGER_LABELS[row.trigger] ?? row.trigger} → {actionLabel(row.actions[0]?.action)}
-                {row.conditions.length ? ` · ${row.conditions.length} conditions` : ' · every event'}
-              </span>
-              <span style={{ font: `400 10px/1 ${MONO}`, color: 'var(--ink-3)' }}>
-                {row.runCount} runs · last {stableTime(row.lastRunAt)}
-              </span>
-            </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={row.isActive}
-              aria-label={`${row.isActive ? 'Pause' : 'Activate'} ${row.name}`}
-              disabled={busyId !== null}
-              onClick={() => void onToggle(row)}
-              style={{
-                width: 38,
-                height: 22,
-                padding: 2,
-                border: `1px solid ${row.isActive ? 'var(--ok-bd)' : 'var(--line-2)'}`,
-                borderRadius: 99,
-                background: row.isActive ? 'var(--ok-soft)' : 'var(--surface-3)',
-                cursor: busyId ? 'wait' : 'pointer',
+                minHeight: 72,
+                padding: '10px 0',
+                display: 'flex',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 11,
+                borderBottom: index === rows.length - 1 ? 0 : '1px solid var(--line)',
+                opacity: row.isActive ? 1 : 0.65,
               }}
             >
               <span
                 style={{
-                  display: 'block',
-                  width: 16,
-                  height: 16,
-                  borderRadius: 99,
-                  background: row.isActive ? 'var(--ok)' : 'var(--ink-3)',
-                  transform: row.isActive ? 'translateX(16px)' : 'translateX(0)',
-                  transition: 'transform .16s ease',
+                  width: 32,
+                  height: 32,
+                  display: 'grid',
+                  placeItems: 'center',
+                  border: '1px solid var(--violet-bd)',
+                  borderRadius: 9,
+                  background: 'var(--violet-soft)',
+                  color: 'var(--violet)',
                 }}
-              />
-            </button>
-            <button
-              type="button"
-              aria-label={`Delete ${row.name}`}
-              disabled={busyId !== null}
-              onClick={() => onDelete(row)}
-              style={{
-                width: 30,
-                height: 30,
-                display: 'grid',
-                placeItems: 'center',
-                border: '1px solid var(--line)',
-                borderRadius: 8,
-                background: 'var(--surface-2)',
-                color: 'var(--ink-3)',
-                cursor: busyId ? 'not-allowed' : 'pointer',
-              }}
-            >
-              <DcIcon name="icon-trash-2" size={13} />
-            </button>
-          </div>
-        ))}
+              >
+                <DcIcon name="icon-zap" size={14} />
+              </span>
+              <span style={{ flex: '1 1 250px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <strong style={{ font: `600 12px/1.2 ${FONT}`, color: 'var(--ink)' }}>{row.name}</strong>
+                  {row.conditions?.length ? (
+                    <span
+                      style={{
+                        padding: '1px 6px',
+                        borderRadius: 4,
+                        background: 'var(--surface-3)',
+                        font: `500 9.5px/1.3 ${MONO}`,
+                        color: 'var(--ink-2)',
+                      }}
+                    >
+                      {row.conditions.length} condition{row.conditions.length > 1 ? 's' : ''}
+                    </span>
+                  ) : null}
+                  {row.actions?.length > 1 ? (
+                    <span
+                      style={{
+                        padding: '1px 6px',
+                        borderRadius: 4,
+                        background: 'var(--violet-soft)',
+                        font: `500 9.5px/1.3 ${MONO}`,
+                        color: 'var(--violet)',
+                      }}
+                    >
+                      {row.actions.length} steps
+                    </span>
+                  ) : null}
+                </div>
+                <span style={{ font: `400 10.5px/1.35 ${FONT}`, color: 'var(--ink-2)' }}>
+                  <strong style={{ color: 'var(--ink)' }}>WHEN</strong> {TRIGGER_LABELS[row.trigger] ?? row.trigger}
+                  {' · '}
+                  <strong style={{ color: 'var(--ink)' }}>IF</strong> {conditionSummary}
+                  {' · '}
+                  <strong style={{ color: 'var(--ink)' }}>THEN</strong> {actionSummary}
+                </span>
+                <span style={{ font: `400 10px/1 ${MONO}`, color: 'var(--ink-3)' }}>
+                  {row.runCount} runs · last {stableTime(row.lastRunAt)}
+                </span>
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={row.isActive}
+                aria-label={`${row.isActive ? 'Pause' : 'Activate'} ${row.name}`}
+                disabled={busyId !== null}
+                onClick={() => void onToggle(row)}
+                style={{
+                  width: 38,
+                  height: 22,
+                  padding: 2,
+                  border: `1px solid ${row.isActive ? 'var(--ok-bd)' : 'var(--line-2)'}`,
+                  borderRadius: 99,
+                  background: row.isActive ? 'var(--ok-soft)' : 'var(--surface-3)',
+                  cursor: busyId ? 'wait' : 'pointer',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'block',
+                    width: 16,
+                    height: 16,
+                    borderRadius: 99,
+                    background: row.isActive ? 'var(--ok)' : 'var(--ink-3)',
+                    transform: row.isActive ? 'translateX(16px)' : 'translateX(0)',
+                    transition: 'transform .16s ease',
+                  }}
+                />
+              </button>
+              <button
+                type="button"
+                aria-label={`Delete ${row.name}`}
+                disabled={busyId !== null}
+                onClick={() => onDelete(row)}
+                style={{
+                  width: 30,
+                  height: 30,
+                  display: 'grid',
+                  placeItems: 'center',
+                  border: '1px solid var(--line)',
+                  borderRadius: 8,
+                  background: 'var(--surface-2)',
+                  color: 'var(--ink-3)',
+                  cursor: busyId ? 'not-allowed' : 'pointer',
+                }}
+              >
+                <DcIcon name="icon-trash-2" size={13} />
+              </button>
+            </div>
+          )
+        })}
       </div>
     </section>
   )
@@ -624,86 +802,503 @@ function CreateRuleModal({
 }: {
   open: boolean
   busy: boolean
-  form: { name: string; trigger: string; action: string; message: string }
-  onChange: (next: { name: string; trigger: string; action: string; message: string }) => void
+  form: {
+    name: string
+    description: string
+    trigger: string
+    conditions: DraftCondition[]
+    actions: DraftAction[]
+  }
+  onChange: (next: {
+    name: string
+    description: string
+    trigger: string
+    conditions: DraftCondition[]
+    actions: DraftAction[]
+  }) => void
   onClose: () => void
   onConfirm: () => void
 }) {
   const inputStyle = {
     width: '100%',
-    minHeight: 36,
-    padding: '8px 10px',
+    minHeight: 34,
+    padding: '7px 10px',
     border: '1px solid var(--line)',
-    borderRadius: 9,
+    borderRadius: 8,
     outline: 0,
     background: 'var(--surface-2)',
     color: 'var(--ink)',
     font: `400 12px/1.4 ${FONT}`,
-  } as const
+    boxSizing: 'border-box' as const,
+  }
+
+  const fieldsForTrigger = TRIGGER_FIELDS[form.trigger] ?? [
+    { value: 'total', label: 'Order Total' },
+    { value: 'city', label: 'City / District' },
+    { value: 'customerName', label: 'Customer Name' },
+    { value: 'email', label: 'Email' },
+    { value: 'phone', label: 'Phone' },
+  ]
+
+  const addCondition = () => {
+    const defaultField = fieldsForTrigger[0]?.value ?? 'total'
+    onChange({
+      ...form,
+      conditions: [...form.conditions, { field: defaultField, operator: 'GREATER_THAN', value: '' }],
+    })
+  }
+
+  const updateCondition = (index: number, patch: Partial<DraftCondition>) => {
+    const next = [...form.conditions]
+    const item = next[index]
+    if (!item) return
+    next[index] = { ...item, ...patch }
+    onChange({ ...form, conditions: next })
+  }
+
+  const removeCondition = (index: number) => {
+    onChange({ ...form, conditions: form.conditions.filter((_, i) => i !== index) })
+  }
+
+  const addAction = () => {
+    onChange({
+      ...form,
+      actions: [
+        ...form.actions,
+        {
+          action: 'NOTIFY_ADMIN',
+          params: { subject: 'Automated alert', message: 'SPLARO automation triggered.' },
+          sortOrder: form.actions.length,
+        },
+      ],
+    })
+  }
+
+  const updateAction = (index: number, actionType: string) => {
+    const next = [...form.actions]
+    let defaultParams: Record<string, unknown> = {}
+    if (actionType === 'SEND_SMS' || actionType === 'SEND_TELEGRAM') {
+      defaultParams = { message: 'SPLARO: Update on your request.' }
+    } else if (actionType === 'SEND_EMAIL') {
+      defaultParams = { subject: 'Order Update from SPLARO', message: 'Thank you for your order with SPLARO.' }
+    } else if (actionType === 'BOOK_COURIER') {
+      defaultParams = { provider: 'STEADFAST' }
+    } else if (actionType === 'UPDATE_ORDER_STATUS') {
+      defaultParams = { status: 'CONFIRMED' }
+    } else if (actionType === 'APPLY_TAG' || actionType === 'REMOVE_TAG') {
+      defaultParams = { tag: 'VIP' }
+    } else if (actionType === 'ADD_LOYALTY_POINTS') {
+      defaultParams = { points: 50 }
+    } else if (actionType === 'CUSTOM_WEBHOOK') {
+      defaultParams = { url: 'https://example.com/webhook' }
+    } else {
+      defaultParams = { subject: 'Rule triggered', message: 'Automation notification' }
+    }
+
+    next[index] = { action: actionType, params: defaultParams, sortOrder: index }
+    onChange({ ...form, actions: next })
+  }
+
+  const updateActionParam = (index: number, paramKey: string, val: unknown) => {
+    const next = [...form.actions]
+    const current = next[index]
+    if (!current) return
+    next[index] = {
+      ...current,
+      params: { ...current.params, [paramKey]: val },
+    }
+    onChange({ ...form, actions: next })
+  }
+
+  const moveAction = (index: number, delta: number) => {
+    const target = index + delta
+    if (target < 0 || target >= form.actions.length) return
+    const next = [...form.actions]
+    const temp = next[index]!
+    next[index] = next[target]!
+    next[target] = temp
+    onChange({ ...form, actions: next.map((a, i) => ({ ...a, sortOrder: i })) })
+  }
+
+  const removeAction = (index: number) => {
+    if (form.actions.length <= 1) {
+      toastFail('At least one action is required')
+      return
+    }
+    onChange({
+      ...form,
+      actions: form.actions.filter((_, i) => i !== index).map((a, i) => ({ ...a, sortOrder: i })),
+    })
+  }
 
   return (
     <DcModal
       open={open}
-      title="New automation rule"
-      subtitle="Rule starts active. Every run is written to server log."
+      title="Create automation rule"
+      subtitle="Define conditions and multiple actions. Verified before save."
       confirmLabel="Create rule"
       busy={busy}
       onClose={onClose}
       onConfirm={onConfirm}
     >
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span style={capsLabel}>Rule name</span>
-        <input
-          value={form.name}
-          onChange={(event) => onChange({ ...form, name: event.target.value })}
-          placeholder="Confirm paid orders"
-          style={inputStyle}
-        />
-      </label>
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span style={capsLabel}>When this happens</span>
-        <select
-          value={form.trigger}
-          onChange={(event) => onChange({ ...form, trigger: event.target.value })}
-          style={inputStyle}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '68vh', overflowY: 'auto', paddingRight: 4 }}>
+        {/* Rule basic info */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={capsLabel}>Rule Name *</span>
+            <input
+              value={form.name}
+              onChange={(event) => onChange({ ...form, name: event.target.value })}
+              placeholder="e.g. VIP Order Courier & Email"
+              style={inputStyle}
+            />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={capsLabel}>When Event Fires (Trigger)</span>
+            <select
+              value={form.trigger}
+              onChange={(event) => onChange({ ...form, trigger: event.target.value })}
+              style={inputStyle}
+            >
+              {TRIGGERS.map((trigger) => (
+                <option key={trigger} value={trigger}>{TRIGGER_LABELS[trigger]}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {/* Live readable summary banner */}
+        <div
+          style={{
+            padding: '10px 12px',
+            border: '1px solid var(--violet-bd)',
+            borderRadius: 9,
+            background: 'var(--violet-soft)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+          }}
         >
-          {TRIGGERS.map((trigger) => (
-            <option key={trigger} value={trigger}>{TRIGGER_LABELS[trigger]}</option>
+          <span style={{ ...capsLabel, color: 'var(--violet)' }}>Rule flow preview</span>
+          <div style={{ font: `500 11.5px/1.45 ${FONT}`, color: 'var(--ink)' }}>
+            <strong>WHEN</strong> {TRIGGER_LABELS[form.trigger] ?? form.trigger}{' '}
+            <strong>IF</strong>{' '}
+            {form.conditions.length
+              ? form.conditions
+                  .map((c) => `${c.field || 'field'} ${operatorSymbol(c.operator)} "${c.value || '?'}"`)
+                  .join(' AND ')
+              : 'all events match'}{' '}
+            <strong>THEN</strong>{' '}
+            {form.actions.length
+              ? form.actions.map((a, i) => `${i + 1}. ${actionLabel(a.action)}`).join(' ➔ ')
+              : 'No action'}
+          </div>
+        </div>
+
+        {/* Conditions Section */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={capsLabel}>Conditions (All must match)</span>
+            <button
+              type="button"
+              onClick={addCondition}
+              style={{
+                border: '1px solid var(--line-2)',
+                borderRadius: 6,
+                background: 'var(--surface-2)',
+                color: 'var(--ink)',
+                padding: '3px 8px',
+                font: `600 11px/1 ${FONT}`,
+                cursor: 'pointer',
+              }}
+            >
+              + Add condition
+            </button>
+          </div>
+
+          {form.conditions.length === 0 ? (
+            <div
+              style={{
+                padding: '9px 11px',
+                border: '1px dashed var(--line)',
+                borderRadius: 8,
+                background: 'var(--surface)',
+                font: `400 11px/1.4 ${FONT}`,
+                color: 'var(--ink-3)',
+              }}
+            >
+              No conditions set. This rule will execute on every trigger event.
+            </div>
+          ) : (
+            form.conditions.map((cond, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1.4fr 1.2fr 1.6fr 32px',
+                  gap: 6,
+                  alignItems: 'center',
+                  background: 'var(--surface)',
+                  padding: '7px 8px',
+                  border: '1px solid var(--line)',
+                  borderRadius: 8,
+                }}
+              >
+                <select
+                  value={cond.field}
+                  onChange={(e) => updateCondition(idx, { field: e.target.value })}
+                  style={inputStyle}
+                >
+                  {fieldsForTrigger.map((f) => (
+                    <option key={f.value} value={f.value}>{f.label}</option>
+                  ))}
+                </select>
+                <select
+                  value={cond.operator}
+                  onChange={(e) => updateCondition(idx, { operator: e.target.value })}
+                  style={inputStyle}
+                >
+                  {OPERATORS.map((op) => (
+                    <option key={op.value} value={op.value}>{op.label}</option>
+                  ))}
+                </select>
+                <input
+                  value={cond.value}
+                  onChange={(e) => updateCondition(idx, { value: e.target.value })}
+                  placeholder="e.g. 5000 or Dhaka"
+                  style={inputStyle}
+                />
+                <button
+                  type="button"
+                  aria-label="Remove condition"
+                  onClick={() => removeCondition(idx)}
+                  style={{
+                    height: 32,
+                    border: '1px solid var(--line)',
+                    borderRadius: 6,
+                    background: 'var(--surface-2)',
+                    color: 'var(--bad)',
+                    cursor: 'pointer',
+                    display: 'grid',
+                    placeItems: 'center',
+                  }}
+                >
+                  <DcIcon name="icon-x" size={13} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Actions Section */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={capsLabel}>Actions (Executed in sequence)</span>
+            <button
+              type="button"
+              onClick={addAction}
+              style={{
+                border: '1px solid var(--violet-bd)',
+                borderRadius: 6,
+                background: 'var(--violet-soft)',
+                color: 'var(--violet)',
+                padding: '3px 8px',
+                font: `600 11px/1 ${FONT}`,
+                cursor: 'pointer',
+              }}
+            >
+              + Add action
+            </button>
+          </div>
+
+          {form.actions.map((act, idx) => (
+            <div
+              key={idx}
+              style={{
+                border: '1px solid var(--line)',
+                borderRadius: 9,
+                background: 'var(--surface)',
+                padding: '10px 11px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: 99,
+                    background: 'var(--surface-3)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    font: `600 10.5px/1 ${MONO}`,
+                    color: 'var(--ink-2)',
+                  }}
+                >
+                  {idx + 1}
+                </span>
+                <select
+                  value={act.action}
+                  onChange={(e) => updateAction(idx, e.target.value)}
+                  style={{ ...inputStyle, flex: 1 }}
+                >
+                  {ACTIONS.map((actionOption) => (
+                    <option key={actionOption.value} value={actionOption.value}>
+                      {actionOption.label} · {actionOption.hint}
+                    </option>
+                  ))}
+                </select>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button
+                    type="button"
+                    disabled={idx === 0}
+                    onClick={() => moveAction(idx, -1)}
+                    title="Move up"
+                    style={{
+                      width: 28,
+                      height: 28,
+                      border: '1px solid var(--line)',
+                      borderRadius: 6,
+                      background: 'var(--surface-2)',
+                      color: idx === 0 ? 'var(--ink-4)' : 'var(--ink-2)',
+                      cursor: idx === 0 ? 'not-allowed' : 'pointer',
+                      display: 'grid',
+                      placeItems: 'center',
+                    }}
+                  >
+                    <DcIcon name="icon-arrow-up" size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={idx === form.actions.length - 1}
+                    onClick={() => moveAction(idx, 1)}
+                    title="Move down"
+                    style={{
+                      width: 28,
+                      height: 28,
+                      border: '1px solid var(--line)',
+                      borderRadius: 6,
+                      background: 'var(--surface-2)',
+                      color: idx === form.actions.length - 1 ? 'var(--ink-4)' : 'var(--ink-2)',
+                      cursor: idx === form.actions.length - 1 ? 'not-allowed' : 'pointer',
+                      display: 'grid',
+                      placeItems: 'center',
+                    }}
+                  >
+                    <DcIcon name="icon-arrow-down" size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={form.actions.length <= 1}
+                    onClick={() => removeAction(idx)}
+                    title="Remove action"
+                    style={{
+                      width: 28,
+                      height: 28,
+                      border: '1px solid var(--line)',
+                      borderRadius: 6,
+                      background: 'var(--surface-2)',
+                      color: form.actions.length <= 1 ? 'var(--ink-4)' : 'var(--bad)',
+                      cursor: form.actions.length <= 1 ? 'not-allowed' : 'pointer',
+                      display: 'grid',
+                      placeItems: 'center',
+                    }}
+                  >
+                    <DcIcon name="icon-trash-2" size={12} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Parameter Inputs */}
+              {act.action === 'SEND_EMAIL' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <input
+                    value={String(act.params['subject'] ?? '')}
+                    onChange={(e) => updateActionParam(idx, 'subject', e.target.value)}
+                    placeholder="Email Subject (e.g. Order {{invoiceNumber}} Update)"
+                    style={inputStyle}
+                  />
+                  <textarea
+                    rows={2}
+                    value={String(act.params['message'] ?? act.params['body'] ?? '')}
+                    onChange={(e) => updateActionParam(idx, 'message', e.target.value)}
+                    placeholder="Email message content (supports {{customerName}}, {{invoiceNumber}}, {{total}})"
+                    style={{ ...inputStyle, resize: 'vertical' }}
+                  />
+                </div>
+              ) : act.action === 'SEND_SMS' || act.action === 'SEND_TELEGRAM' ? (
+                <textarea
+                  rows={2}
+                  value={String(act.params['message'] ?? '')}
+                  onChange={(e) => updateActionParam(idx, 'message', e.target.value)}
+                  placeholder="Notification text (supports {{customerName}}, {{invoiceNumber}}, {{total}})"
+                  style={{ ...inputStyle, resize: 'vertical' }}
+                />
+              ) : act.action === 'BOOK_COURIER' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>Provider:</span>
+                  <select
+                    value={String(act.params['provider'] ?? 'STEADFAST')}
+                    onChange={(e) => updateActionParam(idx, 'provider', e.target.value)}
+                    style={inputStyle}
+                  >
+                    <option value="STEADFAST">Steadfast Courier</option>
+                    <option value="PATHAO">Pathao Courier</option>
+                    <option value="REDX">REDX</option>
+                    <option value="PAPERFLY">Paperfly</option>
+                    <option value="SUNDARBAN">Sundarban Courier</option>
+                  </select>
+                </div>
+              ) : act.action === 'UPDATE_ORDER_STATUS' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>New Status:</span>
+                  <select
+                    value={String(act.params['status'] ?? 'CONFIRMED')}
+                    onChange={(e) => updateActionParam(idx, 'status', e.target.value)}
+                    style={inputStyle}
+                  >
+                    <option value="CONFIRMED">CONFIRMED</option>
+                    <option value="PROCESSING">PROCESSING</option>
+                    <option value="SHIPPED">SHIPPED</option>
+                    <option value="DELIVERED">DELIVERED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                  </select>
+                </div>
+              ) : act.action === 'APPLY_TAG' || act.action === 'REMOVE_TAG' ? (
+                <input
+                  value={String(act.params['tag'] ?? '')}
+                  onChange={(e) => updateActionParam(idx, 'tag', e.target.value)}
+                  placeholder="Customer tag name (e.g. VIP, HIGH_VALUE)"
+                  style={inputStyle}
+                />
+              ) : act.action === 'ADD_LOYALTY_POINTS' ? (
+                <input
+                  type="number"
+                  value={Number(act.params['points'] ?? 0)}
+                  onChange={(e) => updateActionParam(idx, 'points', Number(e.target.value))}
+                  placeholder="Points to award (e.g. 50)"
+                  style={inputStyle}
+                />
+              ) : act.action === 'CUSTOM_WEBHOOK' ? (
+                <input
+                  value={String(act.params['url'] ?? '')}
+                  onChange={(e) => updateActionParam(idx, 'url', e.target.value)}
+                  placeholder="https://your-api.com/automation-endpoint"
+                  style={inputStyle}
+                />
+              ) : (
+                <input
+                  value={String(act.params['message'] ?? '')}
+                  onChange={(e) => updateActionParam(idx, 'message', e.target.value)}
+                  placeholder="Notification message"
+                  style={inputStyle}
+                />
+              )}
+            </div>
           ))}
-        </select>
-      </label>
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span style={capsLabel}>Do this</span>
-        <select
-          value={form.action}
-          onChange={(event) => onChange({ ...form, action: event.target.value })}
-          style={inputStyle}
-        >
-          {ACTIONS.map((action) => (
-            <option key={action.value} value={action.value}>{action.label} · {action.hint}</option>
-          ))}
-        </select>
-      </label>
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span style={capsLabel}>Message</span>
-        <textarea
-          rows={3}
-          value={form.message}
-          onChange={(event) => onChange({ ...form, message: event.target.value })}
-          style={{ ...inputStyle, resize: 'vertical' }}
-        />
-      </label>
-      <div
-        style={{
-          padding: '10px 11px',
-          border: '1px solid var(--info-bd)',
-          borderRadius: 9,
-          background: 'var(--info-soft)',
-          font: `400 11px/1.45 ${FONT}`,
-          color: 'var(--ink-2)',
-        }}
-      >
-        No conditions means action runs for every matching event. Pause rule anytime from list.
+        </div>
       </div>
     </DcModal>
   )

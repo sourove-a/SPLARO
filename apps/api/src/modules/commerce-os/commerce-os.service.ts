@@ -284,8 +284,8 @@ export class CommerceOsService {
       this.prisma.department.findMany({ where: { storeId } }),
       this.prisma.employee.findMany({ where: { storeId }, orderBy: { createdAt: 'desc' } }),
       this.prisma.task.findMany({
-        where: { storeId, status: { not: 'DONE' } },
-        orderBy: { dueDate: 'asc' },
+        where: { storeId, status: { not: 'CANCELLED' } },
+        orderBy: [{ status: 'asc' }, { dueDate: 'asc' }],
         take: 50,
       }),
       this.prisma.companyDocument.findMany({

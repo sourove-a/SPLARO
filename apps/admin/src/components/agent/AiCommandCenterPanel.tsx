@@ -617,7 +617,7 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
       </section>
 
       {/* Active model + API keys */}
-      <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))' }}>
+      <div id="ai-models" style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))' }}>
         <section style={{ ...dcCard, padding: 16 }}>
           <p style={{ ...dcCaps, margin: 0 }}>Active model</p>
           <div
@@ -936,7 +936,7 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
       </section>
 
       {/* Agent activity */}
-      <section style={{ ...dcCard, padding: 16 }}>
+      <section id="ai-activity" style={{ ...dcCard, padding: 16 }}>
         <p style={{ ...dcCaps, margin: 0 }}>Agent activity</p>
         <p style={{ margin: '8px 0 0', font: `400 12px/1.5 ${FONT}`, color: 'var(--ink-2)' }}>
           Recent AI runs, tool calls, tiers and estimated cost — last 50 sessions.

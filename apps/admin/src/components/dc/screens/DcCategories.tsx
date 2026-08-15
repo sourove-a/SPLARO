@@ -18,6 +18,7 @@ import {
   confirmCategorySaved,
   confirmCategoryUpdated,
 } from '@/lib/admin/catalog-save'
+import { downloadCsv } from '@/lib/admin/admin-actions'
 import {
   createCategory,
   deleteCategory,
@@ -199,6 +200,36 @@ function DcCategoriesBody() {
 
   const pageStatus = dcPageStatus([tree], api.pulse)
 
+  const exportCsv = () => {
+    if (rows.length === 0) {
+      toast('warn', 'Nothing to export', 'No categories to export.')
+      return
+    }
+    const headers = [
+      'Category Name',
+      'Slug',
+      'Level Depth',
+      'URL Path',
+      'Products Count',
+      'Storefront Visibility',
+      'Description',
+    ]
+    const csvRows = [
+      headers,
+      ...rows.map(({ node, depth, path }) => [
+        node.name,
+        node.slug,
+        String(depth + 1),
+        path,
+        String(node._count?.products ?? 0),
+        node.isActive !== false ? 'Visible' : 'Hidden',
+        node.description || '',
+      ]),
+    ]
+    downloadCsv(`splaro-categories-${new Date().toISOString().slice(0, 10)}.csv`, csvRows)
+    toast('ok', 'Categories exported', `Exported ${rows.length} categories to CSV.`)
+  }
+
   return (
     <>
       <DcPageHead
@@ -220,6 +251,11 @@ function DcCategoriesBody() {
               setForm({ name: '', description: '', parentId: '' })
               setCreateOpen(true)
             },
+          },
+          {
+            label: 'Export CSV',
+            icon: 'icon-download',
+            onClick: exportCsv,
           },
         ]}
       />

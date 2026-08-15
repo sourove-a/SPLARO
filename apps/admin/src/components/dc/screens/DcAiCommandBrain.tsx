@@ -8,6 +8,8 @@ import { dcConnectionChip } from '@/components/dc/page-status'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 
+import { useAdminUiStore } from '@/store/uiStore'
+
 export function DcAiCommandBrain() {
   const router = useRouter()
   return (
@@ -18,6 +20,7 @@ export function DcAiCommandBrain() {
 }
 
 function DcAiCommandBrainBody() {
+  const openAgentChat = useAdminUiStore((s) => s.openAgentChat)
   const { api } = useAdminConnection(25_000)
   const connection = dcConnectionChip(api.pulse)
 
@@ -30,6 +33,18 @@ function DcAiCommandBrainBody() {
         statusTone={connection?.tone ?? 'vio'}
         syncLabel="model controls · confirmation gated"
         actions={[
+          {
+            label: 'Open Chat',
+            icon: 'icon-message-square',
+            variant: 'primary',
+            onClick: () => openAgentChat(),
+          },
+          {
+            label: 'Models & Keys',
+            icon: 'icon-cpu',
+            onClick: () =>
+              document.getElementById('ai-models')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+          },
           {
             label: 'Guardrails',
             icon: 'icon-shield',

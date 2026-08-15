@@ -289,7 +289,7 @@ export class GoogleSheetsFinanceService {
       googleEmail: workspaceConn?.googleEmail ?? null,
       autoSyncEnabled: workspace.autoSyncEnabled,
       tokenHealth: workspaceConn?.tokenHealth ?? null,
-      setupHref: '/dashboard/google-workspace/sheets-sync',
+      setupHref: '/dashboard/google-workspace/connect',
     }
 
     return { sheets: byType, stats, recentLogs: logs.slice(0, 20), connection }

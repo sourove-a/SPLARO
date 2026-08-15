@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common'
 import { RequireFeature } from '../../common/auth/require-feature.decorator'
 import { PlatformService } from './platform.service'
 
@@ -44,6 +44,19 @@ export class PlatformController {
   @Get('developer')
   getDeveloper(@Query('storeId') storeId: string) {
     return this.platform.getDeveloper(storeId)
+  }
+
+  @Post('api-keys')
+  createApiKey(
+    @Query('storeId') storeId: string,
+    @Body() body: { name: string; scopes?: string[] },
+  ) {
+    return this.platform.createApiKey(storeId, body)
+  }
+
+  @Delete('api-keys/:id')
+  revokeApiKey(@Query('storeId') storeId: string, @Param('id') id: string) {
+    return this.platform.revokeApiKey(storeId, id)
   }
 
   @Get('observability')

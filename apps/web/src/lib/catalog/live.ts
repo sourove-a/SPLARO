@@ -11,6 +11,8 @@ import {
   splitLegacyBilingualDescription,
 } from '@/lib/catalog/product-copy'
 import {
+  isDemoCatalogCopy,
+  isDemoCatalogSku,
   sanitizeStorefrontDescription,
   sanitizeStorefrontMaterial,
   sanitizeStorefrontProductCode,
@@ -532,9 +534,9 @@ export async function fetchLiveProductsRaw(): Promise<(StorefrontProduct & { slu
   const res = await liveFetch(url, { cache: 'no-store' })
   if (!res?.ok) throw new Error(`Storefront API ${res?.status ?? 'unavailable'}`)
   const data = (await res.json()) as { products: LiveProduct[] }
-  // Show all published API rows — DEMO SKU/copy is sanitized in mapLiveProduct.
-  // Hard-filtering demos emptied production when the DB only had seed inventory.
-  return (data.products ?? []).map(mapLiveProduct)
+  return (data.products ?? [])
+    .filter((product) => !isDemoCatalogSku(product.sku) && !isDemoCatalogCopy(product.description, product.shortDescription))
+    .map(mapLiveProduct)
 }
 
 export async function fetchLiveProducts(): Promise<(StorefrontProduct & { slug: string })[]> {
@@ -550,7 +552,9 @@ export async function fetchProductsByIds(ids: string[]): Promise<(StorefrontProd
   const res = await liveFetch(url, { cache: 'no-store' })
   if (!res?.ok) return []
   const data = (await res.json()) as { products: LiveProduct[] }
-  return (data.products ?? []).map(mapLiveProduct)
+  return (data.products ?? [])
+    .filter((product) => !isDemoCatalogSku(product.sku) && !isDemoCatalogCopy(product.description, product.shortDescription))
+    .map(mapLiveProduct)
 }
 
 export async function fetchLiveProductDetailBySlug(
@@ -565,7 +569,11 @@ export async function fetchLiveProductDetailBySlug(
   if (res.status === 404) return null
   if (!res.ok) throw new Error(`Product API responded ${res.status} for ${slug}`)
   const data = (await res.json()) as { product: LiveProduct | null }
-  return data.product ? mapLiveProductDetail(data.product) : null
+  if (!data.product) return null
+  if (isDemoCatalogSku(data.product.sku) || isDemoCatalogCopy(data.product.description, data.product.shortDescription)) {
+    return null
+  }
+  return mapLiveProductDetail(data.product)
 }
 
 export type CatalogProduct = StorefrontProduct & {
@@ -582,7 +590,9 @@ interface ProductsApiResponse {
 }
 
 function mapProductsResponse(data: ProductsApiResponse) {
-  const products = (data.products ?? []).map(mapLiveProduct)
+  const products = (data.products ?? [])
+    .filter((product) => !isDemoCatalogSku(product.sku) && !isDemoCatalogCopy(product.description, product.shortDescription))
+    .map(mapLiveProduct)
   return {
     products,
     total: data.total ?? products.length,

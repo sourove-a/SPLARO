@@ -13,6 +13,8 @@ import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, formatTaka } from '@/components/dc/tokens'
 import { fetchFinanceDashboard, fetchProfitLoss, type ProfitLossSummary } from '@/lib/api/finance'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { downloadCsv } from '@/lib/admin/admin-actions'
+import { toastOk, toastWarn } from '@/lib/admin/feedback'
 
 const card = {
   border: '1px solid var(--line)',
@@ -57,6 +59,7 @@ export function DcProfitLoss() {
 }
 
 function DcProfitLossBody() {
+  const router = useRouter()
   const [period, setPeriod] = useState<Period>('monthly')
   const { api } = useAdminConnection(25_000)
 
@@ -142,6 +145,29 @@ function DcProfitLossBody() {
               body: `Every order costs you ${formatTaka(Math.abs(perOrderProfit))}. ${biggest ? `Start with ${biggest.label} at ${formatTaka(biggest.amount)}.` : ''}`,
             }
 
+  const exportCsv = () => {
+    if (!t) {
+      toastWarn('No profit/loss data to export')
+      return
+    }
+    const headers = ['Financial Line', 'Amount (BDT)', 'Percent of Gross Revenue (%)', 'Description']
+    const csvRows = [
+      headers,
+      ['Gross Revenue', String(gross), '100.0', `${orderCount} delivered orders in period`],
+      ...rows.map((r) => [r.label, String(-r.amount), `-${r.share.toFixed(1)}`, r.why]),
+      ['Net Profit', String(net), margin.toFixed(1), `${margin.toFixed(1)}% profit margin`],
+      [],
+      ['Partner Share Allocation', 'Share %', 'Estimated Allocation (BDT)'],
+      ...partners.map((p) => [
+        p.name,
+        `${Number(p.sharePercent || 0)}%`,
+        String(Math.round(net * (Number(p.sharePercent || 0) / 100))),
+      ]),
+    ]
+    downloadCsv(`splaro-profit-loss-${period}-${new Date().toISOString().slice(0, 10)}.csv`, csvRows)
+    toastOk(`Profit & Loss report (${period}) exported`)
+  }
+
   return (
     <>
       <DcPageHead
@@ -158,6 +184,23 @@ function DcProfitLossBody() {
         }
         syncing={pl.isFetching}
         onSync={() => void pl.refetch()}
+        actions={[
+          {
+            label: 'Daily hisab',
+            icon: 'icon-calendar',
+            onClick: () => router.push('/dashboard/finance/daily-closing'),
+          },
+          {
+            label: 'Expenses',
+            icon: 'icon-credit-card',
+            onClick: () => router.push('/dashboard/finance-reports/expenses'),
+          },
+          {
+            label: 'Export CSV',
+            icon: 'icon-download',
+            onClick: exportCsv,
+          },
+        ]}
       />
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

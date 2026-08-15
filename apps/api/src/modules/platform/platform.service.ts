@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable } from '@nestjs/common'
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
+import { createHash, randomBytes } from 'crypto'
 import { resolvePublicSiteUrl } from '@splaro/config'
 import { isMediaDeptFolder, resolveMediaFolderFilter } from '../../common/media-folder.util'
 import { PrismaService } from '../../common/prisma.service'
@@ -291,6 +292,7 @@ export class PlatformService {
         ? this.prisma.mediaAsset.findMany({
             where: {
               storeId,
+              deletedAt: null,
               ...(selectedFolder !== 'all' ? { folder: selectedFolder } : {}),
               AND: [
                 ...updatedBoundary,
@@ -360,11 +362,11 @@ export class PlatformService {
             take: limit + 1,
           })
         : Promise.resolve([]),
-      this.prisma.mediaAsset.count({ where: { storeId } }),
+      this.prisma.mediaAsset.count({ where: { storeId, deletedAt: null } }),
       this.prisma.productImage.count({ where: { product: { storeId } } }),
       this.prisma.banner.count({ where: { storeId, position: { not: 'library' } } }),
       this.prisma.category.count({ where: { storeId, image: { not: null } } }),
-      this.prisma.mediaAsset.count({ where: { storeId, OR: [{ altText: null }, { altText: '' }] } }),
+      this.prisma.mediaAsset.count({ where: { storeId, deletedAt: null, OR: [{ altText: null }, { altText: '' }] } }),
       this.prisma.productImage.count({ where: { product: { storeId }, OR: [{ altText: null }, { altText: '' }] } }),
       this.prisma.banner.count({ where: { storeId, position: { not: 'library' }, OR: [{ title: null }, { title: '' }] } }),
     ])
@@ -383,7 +385,14 @@ export class PlatformService {
         sizeBytes: asset.sizeBytes,
         width: asset.width,
         height: asset.height,
+        contentHash: asset.contentHash,
+        kind: asset.kind,
+        focalX: asset.focalX,
+        focalY: asset.focalY,
+        watermarked: asset.watermarked,
         updated: relTime(asset.updatedAt),
+        createdAt: asset.createdAt.toISOString(),
+        updatedAt: asset.updatedAt.toISOString(),
         sortAt: asset.updatedAt,
       })),
       ...images.map((img) => ({
@@ -395,6 +404,7 @@ export class PlatformService {
         altText: img.altText ?? '',
         source: `Product · ${img.product.slug}`,
         updated: relTime(img.createdAt),
+        createdAt: img.createdAt.toISOString(),
         sortAt: img.createdAt,
         productId: img.productId,
         productSlug: img.product.slug,
@@ -408,6 +418,7 @@ export class PlatformService {
         altText: b.title ?? '',
         source: b.position === 'library' ? 'Media library' : `Banner · ${b.position}`,
         updated: relTime(b.updatedAt),
+        updatedAt: b.updatedAt.toISOString(),
         sortAt: b.updatedAt,
       })),
       ...categories
@@ -421,6 +432,7 @@ export class PlatformService {
           altText: c.name,
           source: `Category · ${c.slug}`,
           updated: relTime(c.updatedAt),
+          updatedAt: c.updatedAt.toISOString(),
           sortAt: c.updatedAt,
         })),
     ]
@@ -482,9 +494,14 @@ export class PlatformService {
 
   async getDeveloper(storeIdOrSlug: string) {
     const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
-    const [apiKeys, rules] = await Promise.all([
+    const [apiKeys, rules, settings] = await Promise.all([
       this.prisma.apiKey.findMany({
-        where: { storeId },
+        where: {
+          storeId,
+          NOT: {
+            OR: [{ scopes: { has: 'mcp:read' } }, { scopes: { has: 'mcp:write' } }],
+          },
+        },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.automationRule.findMany({
@@ -492,14 +509,37 @@ export class PlatformService {
         include: { actions: true },
         orderBy: { updatedAt: 'desc' },
       }),
+      this.prisma.siteSettings.findUnique({
+        where: { storeId },
+        select: { storefrontConfig: true },
+      }),
     ])
 
-    const webhooks = rules.filter((r) => r.actions.some((a) => a.action === 'CUSTOM_WEBHOOK'))
+    const cfg = settings?.storefrontConfig as { webhookEndpoints?: Array<{ url: string; events?: string[]; isActive?: boolean }> } | null
+    const dedicatedWebhooks = (cfg?.webhookEndpoints ?? []).map((w, idx) => ({
+      id: `wh-${idx}-${w.url}`,
+      name: w.url,
+      status: w.isActive !== false ? 'active' : 'inactive',
+      trigger: Array.isArray(w.events) && w.events.length > 0 ? w.events.join(', ') : 'All events',
+      updated: 'Configured',
+    }))
+
+    const automationWebhooks = rules
+      .filter((r) => r.actions.some((a) => a.action === 'CUSTOM_WEBHOOK'))
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        status: r.isActive ? 'active' : 'inactive',
+        trigger: r.trigger,
+        updated: relTime(r.updatedAt),
+      }))
+
+    const allWebhooks = [...dedicatedWebhooks, ...automationWebhooks]
 
     return {
       kpis: {
         apiKeys: apiKeys.filter((k) => k.isActive).length,
-        webhooks: webhooks.length,
+        webhooks: allWebhooks.length,
         automationRules: rules.length,
         sandbox: process.env.NODE_ENV !== 'production',
       },
@@ -511,14 +551,63 @@ export class PlatformService {
         scopes: k.scopes.join(', ') || 'Full access',
         lastUsed: relTime(k.lastUsed),
       })),
-      webhooks: rules.map((r) => ({
-        id: r.id,
-        name: r.name,
-        status: r.isActive ? 'active' : 'inactive',
-        trigger: r.trigger,
-        updated: relTime(r.updatedAt),
-      })),
+      webhooks: allWebhooks,
     }
+  }
+
+  async createApiKey(storeIdOrSlug: string, data: { name: string; scopes?: string[] }) {
+    const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
+    if (!data.name?.trim()) throw new BadRequestException('API key name is required')
+
+    const requested = (data.scopes ?? []).filter((s) => typeof s === 'string' && s.trim())
+    if (requested.some((s) => s.startsWith('mcp:'))) {
+      throw new BadRequestException('MCP link tokens are created from Developer → MCP, not API keys')
+    }
+
+    const rawToken = `spl_live_${randomBytes(24).toString('hex')}`
+    const keyHash = createHash('sha256').update(rawToken).digest('hex')
+    const prefix = `${rawToken.slice(0, 14)}...`
+
+    const created = await this.prisma.apiKey.create({
+      data: {
+        storeId,
+        name: data.name.trim(),
+        keyHash,
+        prefix,
+        scopes: requested.length > 0 ? requested : ['read', 'write'],
+        isActive: true,
+      },
+    })
+
+    return {
+      apiKey: {
+        id: created.id,
+        name: created.name,
+        prefix: created.prefix,
+        scopes: created.scopes.join(', ') || 'Full access',
+        status: 'active' as const,
+        lastUsed: 'Never',
+      },
+      rawKey: rawToken,
+    }
+  }
+
+  async revokeApiKey(storeIdOrSlug: string, keyId: string) {
+    const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
+    const existing = await this.prisma.apiKey.findFirst({
+      where: { id: keyId, storeId },
+    })
+    if (!existing) throw new NotFoundException('API key not found')
+    if (existing.scopes.includes('mcp:read') || existing.scopes.includes('mcp:write')) {
+      throw new BadRequestException('Revoke MCP link tokens from Developer → MCP')
+    }
+
+    await this.prisma.apiKey.update({
+      where: { id: keyId },
+      data: { isActive: false },
+    })
+
+    return { ok: true, id: keyId }
   }
 
   async getObservability(storeIdOrSlug: string) {

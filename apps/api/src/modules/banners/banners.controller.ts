@@ -22,7 +22,7 @@ export class BannersController {
 
   private async bustBannerCache(storeId: string) {
     await this.cache.invalidateStoreResource(storeId, 'banners')
-    void revalidateStorefrontWeb(['storefront-banners'])
+    void revalidateStorefrontWeb(['storefront-banners', 'hero-banners'])
   }
 
   @Get()
@@ -106,7 +106,7 @@ export class BannersController {
         this.prisma.banner.update({ where: { id: item.id }, data: { sortOrder: item.sortOrder } }),
       ),
     )
-    void revalidateStorefrontWeb(['storefront-banners'])
+    void revalidateStorefrontWeb(['storefront-banners', 'hero-banners'])
     return { ok: true, updated: body.items.length }
   }
 

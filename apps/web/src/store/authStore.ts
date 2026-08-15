@@ -34,8 +34,8 @@ export const useAuthStore = create<AuthState>()(
       _hydrated: false,
       setHydrated: () => set({ _hydrated: true }),
       setUser: (user) => set({ user }),
-      signIn: (user) => set({ user }),
-      signUp: (user) => set({ user }),
+      signIn: (user) => set({ user, _hydrated: true }),
+      signUp: (user) => set({ user, _hydrated: true }),
       signOut: async () => {
         await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
         set({ user: null })

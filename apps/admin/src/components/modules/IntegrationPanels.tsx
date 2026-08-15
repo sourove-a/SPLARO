@@ -59,7 +59,7 @@ const ICONS: Record<string, typeof Activity> = {
 const PROVIDER_COPY: Record<string, string> = {
   telegram: 'Login codes and order alerts',
   openai: 'AI operations and command tools',
-  google_sheets: 'Daily closing and hisab backup',
+  google_sheets: 'Backup export of orders and hisab — not the live database',
   gmail: 'Transactional email delivery',
   google_drive: 'Files and backup storage',
   meta_pixel: 'Conversion event tracking',

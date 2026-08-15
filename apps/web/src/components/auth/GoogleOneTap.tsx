@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import {
   useGoogleOneTapLogin,
@@ -96,6 +96,7 @@ function GoogleOneTapPrompt({
   onDismissed: () => void
 }) {
   const signIn = useAuthStore((s) => s.signIn)
+  const router = useRouter()
   const busyRef = useRef(false)
   const { scriptLoadedSuccessfully } = useGoogleOAuth()
 
@@ -137,9 +138,9 @@ function GoogleOneTapPrompt({
         signIn(payload.user)
 
         if (payload.needsPhone || payload.user.needsPhone) {
-          navigateAfterAuth(buildSignupPhonePath('/account'))
+          navigateAfterAuth(router, buildSignupPhonePath('/account'))
         } else {
-          navigateAfterAuth('/account')
+          navigateAfterAuth(router, '/account')
         }
       } catch {
         // Network failure — leave dismiss untouched so One Tap can retry.
@@ -150,7 +151,7 @@ function GoogleOneTapPrompt({
         busyRef.current = false
       }
     },
-    [onDismissed, signIn],
+    [onDismissed, router, signIn],
   )
 
   const handlePromptMoment = useCallback(

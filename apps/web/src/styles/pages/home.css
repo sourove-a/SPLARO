@@ -1929,12 +1929,13 @@ html[data-os='windows'] .home-dept-tile:hover .home-dept-tile__img {
   position: absolute;
   top: 50%;
   left: 50%;
+  /* Overscan so YouTube title / pause / prev chrome sits outside the clip. */
   width: 177.78vh;
   height: 56.25vw;
-  min-width: 100%;
-  min-height: 100%;
+  min-width: 130%;
+  min-height: 130%;
   border: 0;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(1.42);
   pointer-events: none;
 }
 
@@ -1996,7 +1997,7 @@ html[data-os='windows'] .home-hero-slider:not([data-transitioning]) .hero-slide[
   transform: none !important;
 }
 html[data-os='windows'] .home-hero-slider .hero-bg-embed iframe {
-  transform: translate(-50%, -50%) !important;
+  transform: translate(-50%, -50%) scale(1.42) !important;
 }
 .home-hero-slider .hero-bg-embed,
 .home-hero-slider:not([data-transitioning]) .hero-slide[data-active='true'] .hero-bg-embed {

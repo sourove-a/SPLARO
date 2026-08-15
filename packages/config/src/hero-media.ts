@@ -96,7 +96,7 @@ export function youtubePosterUrl(id: string): string {
   return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
 }
 
-export function youtubeEmbedUrl(id: string): string {
+export function youtubeEmbedUrl(id: string, origin?: string): string {
   const q = new URLSearchParams({
     autoplay: '1',
     mute: '1',
@@ -109,7 +109,12 @@ export function youtubeEmbedUrl(id: string): string {
     iv_load_policy: '3',
     disablekb: '1',
     fs: '0',
+    cc_load_policy: '0',
+    autohide: '1',
+    showinfo: '0',
+    enablejsapi: '1',
   })
+  if (origin) q.set('origin', origin)
   return `https://www.youtube-nocookie.com/embed/${id}?${q.toString()}`
 }
 
@@ -179,4 +184,11 @@ export function classifyHeroMedia(url: string): {
     return poster ? { kind: 'pexels-page', poster } : { kind: 'pexels-page' }
   }
   return { kind: 'image' }
+}
+
+/** Library / picker thumbnail. Never feed a watch URL into <img> or Next/Image. */
+export function heroMediaPreviewSrc(url: string): string {
+  const classified = classifyHeroMedia(url)
+  if (classified.poster) return classified.poster
+  return canonicalizeHeroMediaUrl(url)
 }

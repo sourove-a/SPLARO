@@ -19,8 +19,26 @@ function buildService(asset: Record<string, unknown> | null = null) {
         createdAt: new Date(),
         updatedAt: new Date(),
       })),
-      update: jest.fn(),
+      update: jest.fn().mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
+        id: 'media-1',
+        storeId: 'store-1',
+        path: '/uploads/media/eid.webp',
+        ...asset,
+        ...data,
+      })),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       delete: jest.fn().mockResolvedValue({ id: 'media-1' }),
+      groupBy: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+      aggregate: jest.fn().mockResolvedValue({ _sum: { sizeBytes: 0 }, _count: { _all: 0 } }),
+    },
+    mediaFolder: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
+      upsert: jest.fn(),
+      update: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     productImage: { findMany: jest.fn().mockResolvedValue([]) },
     productVariant: { findMany: jest.fn().mockResolvedValue([]) },
@@ -38,6 +56,10 @@ function buildService(asset: Record<string, unknown> | null = null) {
     sitePage: { findMany: jest.fn().mockResolvedValue([]) },
     siteSettings: { findUnique: jest.fn().mockResolvedValue(null) },
     menuItem: { findMany: jest.fn().mockResolvedValue([]) },
+    $transaction: jest.fn().mockImplementation(async (ops: unknown) => {
+      if (Array.isArray(ops)) return Promise.all(ops)
+      return ops
+    }),
   }
   return { service: new MediaService(prisma as never), prisma }
 }
@@ -203,6 +225,159 @@ describe('MediaService', () => {
       .rejects.toBeInstanceOf(BadRequestException)
   })
 
+  it('creates a declared folder so empty chips can exist', async () => {
+    const { service, prisma } = buildService()
+    prisma.mediaFolder.upsert.mockResolvedValue({ slug: 'eid-2026', label: 'Eid 2026' })
+
+    const folder = await service.createFolder('splaro', 'Eid 2026')
+
+    expect(folder).toEqual(expect.objectContaining({ name: 'eid-2026', builtIn: false, count: 0 }))
+    expect(prisma.mediaFolder.upsert).toHaveBeenCalled()
+  })
+
+  it('refuses to delete a built-in or non-empty folder', async () => {
+    const { service, prisma } = buildService()
+
+    await expect(service.deleteFolder('splaro', 'media')).rejects.toBeInstanceOf(BadRequestException)
+    prisma.mediaAsset.count.mockResolvedValueOnce(2)
+    await expect(service.deleteFolder('splaro', 'eid-2026')).rejects.toBeInstanceOf(ConflictException)
+  })
+
+  it('reports upload-volume stats without inventing a size when statfs works', async () => {
+    const previousRoot = process.env.UPLOAD_DIR
+    const root = await mkdtemp(path.join(tmpdir(), 'splaro-media-'))
+    process.env.UPLOAD_DIR = root
+    const { service } = buildService()
+    try {
+      const result = await service.storage('splaro')
+      expect(result.libraryBytes).toBe(0)
+      expect(result.libraryAssets).toBe(0)
+      if (result.volume) {
+        expect(result.volume.totalBytes).toBeGreaterThan(0)
+        expect(result.volume.usedBytes).toBeGreaterThanOrEqual(0)
+      }
+    } finally {
+      process.env.UPLOAD_DIR = previousRoot
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('bills pipeline derivatives to the asset that spawned them', async () => {
+    const previousRoot = process.env.UPLOAD_DIR
+    const root = await mkdtemp(path.join(tmpdir(), 'splaro-media-'))
+    process.env.UPLOAD_DIR = root
+    await mkdir(path.join(root, 'products'))
+    const prefix = '1700000000000-abc123'
+    await Promise.all([
+      writeFile(path.join(root, 'products', `${prefix}.webp`), 'x'.repeat(100)),
+      writeFile(path.join(root, 'products', `${prefix}.original.jpg`), 'x'.repeat(400)),
+      writeFile(path.join(root, 'products', `${prefix}.w640.webp`), 'x'.repeat(60)),
+      writeFile(path.join(root, 'products', '1699999999999-zzz999.webp'), 'x'.repeat(30)),
+    ])
+    const { service, prisma } = buildService()
+    prisma.mediaAsset.findMany.mockResolvedValue([
+      {
+        id: 'media-1',
+        name: 'Shirt',
+        path: `/uploads/products/${prefix}.webp`,
+        folder: 'men',
+        kind: 'image',
+        mimeType: 'image/webp',
+        sizeBytes: 100,
+        createdAt: new Date(),
+        deletedAt: null,
+      },
+    ])
+
+    try {
+      const result = await service.storage('splaro')
+      expect(result.split.indexedBytes).toBe(100)
+      expect(result.split.derivativeBytes).toBe(460)
+      // The unindexed upload is the only thing left over.
+      expect(result.split.orphanBytes).toBe(30)
+      expect(result.split.orphanFiles).toBe(1)
+      expect(result.libraryBytes).toBe(560)
+      expect(result.byFolder).toEqual([
+        expect.objectContaining({ slug: 'men', bytes: 560, count: 1 }),
+      ])
+      expect(result.largest[0]).toEqual(expect.objectContaining({ id: 'media-1', bytes: 560 }))
+      expect(result.byMonth).toHaveLength(12)
+      expect(result.byMonth[11]).toEqual(expect.objectContaining({ cumulativeBytes: 560 }))
+    } finally {
+      process.env.UPLOAD_DIR = previousRoot
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('reads a configured quota rather than trusting the host volume size', async () => {
+    const previousRoot = process.env.UPLOAD_DIR
+    const previousQuota = process.env.MEDIA_QUOTA_BYTES
+    const root = await mkdtemp(path.join(tmpdir(), 'splaro-media-'))
+    process.env.UPLOAD_DIR = root
+    process.env.MEDIA_QUOTA_BYTES = '200GB'
+    const { service } = buildService()
+
+    try {
+      const result = await service.storage('splaro')
+      expect(result.volume?.quotaBytes).toBe(200 * 1024 ** 3)
+    } finally {
+      process.env.UPLOAD_DIR = previousRoot
+      process.env.MEDIA_QUOTA_BYTES = previousQuota
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('groups orphan files by upload family and holds back in-flight uploads', async () => {
+    const previousRoot = process.env.UPLOAD_DIR
+    const root = await mkdtemp(path.join(tmpdir(), 'splaro-media-'))
+    process.env.UPLOAD_DIR = root
+    await mkdir(path.join(root, 'products'))
+    await Promise.all([
+      writeFile(path.join(root, 'products', '1700000000000-abc123.webp'), 'x'.repeat(50)),
+      writeFile(path.join(root, 'products', '1700000000000-abc123.w640.webp'), 'x'.repeat(20)),
+      writeFile(path.join(root, 'products', '1700000000001-def456.pending'), 'x'),
+    ])
+    const { service } = buildService()
+
+    try {
+      const result = await service.orphans('splaro')
+      expect(result.total).toBe(2)
+      const family = result.orphans.find((row) => row.familyKey.endsWith('1700000000000-abc123'))
+      expect(family).toEqual(
+        expect.objectContaining({
+          path: '/uploads/products/1700000000000-abc123.webp',
+          bytes: 70,
+          files: 2,
+        }),
+      )
+      const pending = result.orphans.find((row) => row.pending)
+      expect(pending?.purgeSafe).toBe(false)
+    } finally {
+      process.env.UPLOAD_DIR = previousRoot
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('leaves indexed uploads out of the orphan list', async () => {
+    const previousRoot = process.env.UPLOAD_DIR
+    const root = await mkdtemp(path.join(tmpdir(), 'splaro-media-'))
+    process.env.UPLOAD_DIR = root
+    await mkdir(path.join(root, 'media'))
+    await writeFile(path.join(root, 'media', '1700000000000-abc123.webp'), 'x')
+    const { service, prisma } = buildService()
+    prisma.mediaAsset.findMany.mockResolvedValue([
+      { path: '/uploads/media/1700000000000-abc123.webp' },
+    ])
+
+    try {
+      const result = await service.orphans('splaro')
+      expect(result.total).toBe(0)
+    } finally {
+      process.env.UPLOAD_DIR = previousRoot
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it('does not expose assets from another store', async () => {
     const { service } = buildService(null)
 
@@ -210,16 +385,96 @@ describe('MediaService', () => {
       .rejects.toBeInstanceOf(NotFoundException)
   })
 
-  it('removes unlinked records idempotently when physical file is already missing', async () => {
+  it('moves unlinked assets to trash on first delete', async () => {
     const { service, prisma } = buildService({
       id: 'media-1',
       storeId: 'store-1',
       path: '/uploads/media/already-gone.webp',
+      deletedAt: null,
     })
 
     const result = await service.remove('splaro', 'media-1')
 
-    expect(result).toEqual(expect.objectContaining({ deleted: true, fileDeleted: true }))
+    expect(result).toEqual(expect.objectContaining({ deleted: true, trashed: true, fileDeleted: false }))
+    expect(prisma.mediaAsset.update).toHaveBeenCalled()
+    expect(prisma.mediaAsset.delete).not.toHaveBeenCalled()
+  })
+
+  it('permanently deletes a trashed unlinked asset', async () => {
+    const { service, prisma } = buildService({
+      id: 'media-1',
+      storeId: 'store-1',
+      path: '/uploads/media/already-gone.webp',
+      deletedAt: new Date('2026-08-01'),
+    })
+
+    const result = await service.remove('splaro', 'media-1')
+
+    expect(result).toEqual(expect.objectContaining({ deleted: true, trashed: false }))
     expect(prisma.mediaAsset.delete).toHaveBeenCalledWith({ where: { id: 'media-1' } })
+  })
+
+  it('permanently deletes a live asset only when the caller asks for it', async () => {
+    const { service, prisma } = buildService({
+      id: 'media-1',
+      storeId: 'store-1',
+      path: '/uploads/media/already-gone.webp',
+      deletedAt: null,
+    })
+
+    const result = await service.remove('splaro', 'media-1', { permanent: true })
+
+    expect(result).toEqual(expect.objectContaining({ deleted: true, trashed: false }))
+    expect(prisma.mediaAsset.delete).toHaveBeenCalledWith({ where: { id: 'media-1' } })
+  })
+
+  it('still refuses a permanent delete while the asset is linked', async () => {
+    const { service, prisma } = buildService({
+      id: 'media-1',
+      storeId: 'store-1',
+      path: '/uploads/media/eid.webp',
+    })
+    prisma.banner.findMany.mockResolvedValue([{ id: 'hero-1', title: 'Eid Edit', position: 'hero' }])
+
+    await expect(service.remove('splaro', 'media-1', { permanent: true }))
+      .rejects.toBeInstanceOf(ConflictException)
+    expect(prisma.mediaAsset.delete).not.toHaveBeenCalled()
+  })
+
+  it('moves assets only into a folder that exists', async () => {
+    const { service, prisma } = buildService()
+    prisma.mediaAsset.updateMany.mockResolvedValue({ count: 2 })
+    prisma.mediaFolder.findFirst.mockResolvedValue(null)
+
+    await expect(service.bulkMove('splaro', ['a'], 'eid-2026')).rejects.toBeInstanceOf(NotFoundException)
+
+    const moved = await service.bulkMove('splaro', ['a', 'b'], 'men')
+    expect(moved).toEqual({ moved: 2, folder: 'men' })
+    expect(prisma.mediaAsset.updateMany).toHaveBeenCalledWith({
+      where: { storeId: 'store-1', id: { in: ['a', 'b'] }, deletedAt: null },
+      data: { folder: 'men' },
+    })
+  })
+
+  it('restores a trashed asset', async () => {
+    const { service } = buildService({
+      id: 'media-1',
+      storeId: 'store-1',
+      path: '/uploads/media/eid.webp',
+      deletedAt: new Date(),
+    })
+    const restored = await service.restore('splaro', 'media-1')
+    expect(restored.restored).toBe(true)
+  })
+
+  it('lists only duplicate hashes', async () => {
+    const { service, prisma } = buildService()
+    prisma.mediaAsset.findMany.mockResolvedValue([
+      { id: 'a', path: '/uploads/media/a.webp', contentHash: 'abc' },
+      { id: 'b', path: '/uploads/media/b.webp', contentHash: 'abc' },
+      { id: 'c', path: '/uploads/media/c.webp', contentHash: 'zzz' },
+    ])
+    const listed = await service.list('splaro', undefined, undefined, { duplicates: true })
+    expect(listed.assets.map((row) => row.id)).toEqual(['a', 'b'])
   })
 })

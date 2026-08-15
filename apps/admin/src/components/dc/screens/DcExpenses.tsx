@@ -11,7 +11,8 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
-import { toastFail, toastOk } from '@/lib/admin/feedback'
+import { toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
+import { downloadCsv } from '@/lib/admin/admin-actions'
 import {
   approveExpense,
   createExpense,
@@ -229,6 +230,43 @@ function DcExpensesBody() {
 
   const busy = createMut.isPending || updateMut.isPending
 
+  const approvedTotal = rows.filter((r) => r.status === 'APPROVED').reduce((s, r) => s + Number(r.amount || 0), 0)
+  const pendingTotal = rows.filter((r) => r.status === 'PENDING').reduce((s, r) => s + Number(r.amount || 0), 0)
+
+  const exportCsv = () => {
+    if (rows.length === 0) {
+      toastWarn('No expense records to export')
+      return
+    }
+    const headers = [
+      'Date',
+      'Category',
+      'Vendor',
+      'Amount (BDT)',
+      'Payment Method',
+      'Status',
+      'Note',
+      'Receipt URL',
+      'Recurring',
+    ]
+    const csvRows = [
+      headers,
+      ...rows.map((r) => [
+        String(r.expenseDate).slice(0, 10),
+        CATEGORY_LABELS[r.category] ?? r.category,
+        r.vendor || '—',
+        String(r.amount),
+        r.paymentMethod ? PAYMENT_LABELS[r.paymentMethod] ?? r.paymentMethod : '—',
+        r.status,
+        r.note || '',
+        r.attachmentUrl || '',
+        r.recurring ? 'Yes' : 'No',
+      ]),
+    ]
+    downloadCsv(`splaro-expenses-${new Date().toISOString().slice(0, 10)}.csv`, csvRows)
+    toastOk(`Exported ${rows.length} expense records`)
+  }
+
   return (
     <>
       <DcPageHead
@@ -243,11 +281,56 @@ function DcExpensesBody() {
           {
             label: 'Profit & Cash Flow',
             icon: 'icon-file-bar-chart',
-            variant: 'ghost',
             onClick: () => router.push('/dashboard/finance/finance-reports'),
+          },
+          {
+            label: 'Export CSV',
+            icon: 'icon-download',
+            onClick: exportCsv,
           },
         ]}
       />
+
+      {rows.length > 0 ? (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 12,
+            marginBottom: 16,
+          }}
+        >
+          <div style={{ ...card, padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ font: `600 11px/1 ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+              Approved Expenses
+            </span>
+            <span style={{ font: `700 21px/1 ${MONO}`, color: 'var(--ink)' }}>
+              {formatTaka(approvedTotal)}
+            </span>
+            <span style={{ font: `400 11px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>hitting current accounts</span>
+          </div>
+
+          <div style={{ ...card, padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ font: `600 11px/1 ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+              Pending Approval
+            </span>
+            <span style={{ font: `700 21px/1 ${MONO}`, color: pendingTotal > 0 ? 'var(--warn)' : 'var(--ink)' }}>
+              {formatTaka(pendingTotal)}
+            </span>
+            <span style={{ font: `400 11px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>awaiting owner sign-off</span>
+          </div>
+
+          <div style={{ ...card, padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ font: `600 11px/1 ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+              Total Records
+            </span>
+            <span style={{ font: `700 21px/1 ${MONO}`, color: 'var(--ink)' }}>
+              {list.data?.total ?? 0}
+            </span>
+            <span style={{ font: `400 11px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>all recorded entries</span>
+          </div>
+        </div>
+      ) : null}
 
       <div style={{ ...card, padding: 16, marginBottom: 16 }}>
         <div style={{ font: `600 13.5px/1 ${FONT}`, marginBottom: 12 }}>

@@ -9,7 +9,9 @@ export type UploadAdminImageOptions = {
   onProgress?: (percent: number) => void
   /** Cancels browser upload/processing wait when modal closes or user retries. */
   signal?: AbortSignal
-  /** Client-known safe id lets failed/cancelled uploads clean up without a response body. */
+  /** Composite the SPLARO mark on raster library uploads. */
+  watermark?: boolean
+  /** Requested unique upload ID to track pending processing marker. */
   uploadId?: string
 }
 
@@ -25,6 +27,9 @@ export type UploadAdminImageResult = {
   height?: number | null
   sizeBytes?: number
   mimeType?: string
+  contentHash?: string
+  kind?: string
+  watermarked?: boolean
 }
 
 export type UpscaleStatus = {
@@ -93,6 +98,7 @@ export async function uploadAdminImage(
   form.append('file', file)
   form.append('folder', folder)
   form.append('optimize', options.optimize === false ? '0' : '1')
+  if (options.watermark) form.append('watermark', '1')
   if (options.uploadId) form.append('uploadId', options.uploadId)
   if (folder === 'products' || folder.startsWith('products-')) {
     form.append('pipeline', options.pipeline === false ? '0' : '1')

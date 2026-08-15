@@ -16,6 +16,8 @@ import {
   mapCampaignStatus,
   type ApiCampaign,
 } from '@/lib/api/marketing'
+import { downloadCsv } from '@/lib/admin/admin-actions'
+import { toastOk, toastWarn } from '@/lib/admin/feedback'
 import {
   useCampaignStats,
   useCampaigns,
@@ -113,7 +115,21 @@ function DcCampaignsBody() {
   const [confirmSend, setConfirmSend] = useState<ApiCampaign | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<ApiCampaign | null>(null)
 
+  const [channelFilter, setChannelFilter] = useState<string>('ALL')
+  const [stateFilter, setStateFilter] = useState<string>('ALL')
+
   const rows = useMemo(() => campaigns.data ?? [], [campaigns.data])
+  const filteredRows = useMemo(() => {
+    let list = rows
+    if (channelFilter !== 'ALL') {
+      list = list.filter((c) => (c.type || '').toUpperCase() === channelFilter)
+    }
+    if (stateFilter !== 'ALL') {
+      list = list.filter((c) => mapCampaignStatus(c.status).toUpperCase() === stateFilter)
+    }
+    return list
+  }, [rows, channelFilter, stateFilter])
+
   const drafts = rows.filter((c) => mapCampaignStatus(c.status) === 'draft')
   const scheduled = rows.filter((c) => mapCampaignStatus(c.status) === 'scheduled')
 
@@ -259,6 +275,49 @@ function DcCampaignsBody() {
     )
   }
 
+  const exportCsv = () => {
+    if (rows.length === 0) {
+      toastWarn('No campaign records to export')
+      return
+    }
+    const headers = [
+      'Campaign Name',
+      'Subject',
+      'Channel',
+      'Audience',
+      'Sent',
+      'Delivered',
+      'Opened',
+      'Clicked',
+      'State',
+      'Scheduled At',
+      'Sent At',
+    ]
+    const csvRows = [
+      headers,
+      ...rows.map((c) => {
+        const sent = Number(c.totalSent || 0)
+        const opened = Number(c.totalOpened || 0)
+        const clicked = Number(c.totalClicked || 0)
+        return [
+          c.name,
+          c.subject ?? '',
+          c.type,
+          c.recipientType ?? 'ALL',
+          String(sent),
+          String(c.totalDelivered || 0),
+          sent > 0 ? `${((opened / sent) * 100).toFixed(1)}%` : '0%',
+          sent > 0 ? `${((clicked / sent) * 100).toFixed(1)}%` : '0%',
+          mapCampaignStatus(c.status),
+          c.scheduledAt ? new Date(c.scheduledAt).toISOString() : '',
+          c.sentAt ? new Date(c.sentAt).toISOString() : '',
+        ]
+      }),
+    ]
+    downloadCsv(`splaro-campaigns-${new Date().toISOString().slice(0, 10)}.csv`, csvRows)
+    toastOk(`Exported ${rows.length} campaigns to CSV`)
+  }
+
   return (
     <>
       <DcPageHead
@@ -282,6 +341,11 @@ function DcCampaignsBody() {
               setForm(EMPTY_FORM)
               setNewOpen(true)
             },
+          },
+          {
+            label: 'Export CSV',
+            icon: 'icon-download',
+            onClick: exportCsv,
           },
         ]}
       />
@@ -431,20 +495,63 @@ function DcCampaignsBody() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'space-between',
                 gap: 10,
                 flexWrap: 'wrap',
                 padding: '12px 15px',
                 borderBottom: '1px solid var(--line)',
               }}
             >
-              <span
-                style={{ flex: 1, minWidth: 140, font: `600 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}
-              >
-                All campaigns
-              </span>
-              <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
-                {rows.length} record{rows.length === 1 ? '' : 's'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {['ALL', 'EMAIL', 'SMS', 'WHATSAPP', 'PUSH'].map((ch) => {
+                  const active = channelFilter === ch
+                  return (
+                    <button
+                      key={ch}
+                      type="button"
+                      onClick={() => setChannelFilter(ch)}
+                      style={{
+                        padding: '4px 9px',
+                        borderRadius: 7,
+                        border: `1px solid ${active ? 'var(--violet-bd)' : 'var(--line)'}`,
+                        background: active ? 'var(--violet-soft)' : 'var(--surface-2)',
+                        color: active ? 'var(--violet)' : 'var(--ink-2)',
+                        font: `600 11px/1 ${FONT}`,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {ch}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {['ALL', 'DRAFT', 'SCHEDULED', 'LIVE', 'ENDED'].map((st) => {
+                  const active = stateFilter === st
+                  return (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setStateFilter(st)}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: 7,
+                        border: `1px solid ${active ? 'var(--ink)' : 'var(--line)'}`,
+                        background: active ? 'var(--surface-3)' : 'transparent',
+                        color: active ? 'var(--ink)' : 'var(--ink-3)',
+                        font: `500 10.5px/1 ${FONT}`,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {st}
+                    </button>
+                  )
+                })}
+                <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)', marginLeft: 6 }}>
+                  {filteredRows.length} record{filteredRows.length === 1 ? '' : 's'}
+                </span>
+              </div>
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
@@ -462,7 +569,7 @@ function DcCampaignsBody() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((c) => {
+                {filteredRows.map((c) => {
                   const state = mapCampaignStatus(c.status)
                   const tone = toneStyle(STATE_TONE[state])
                   const sent = Number(c.totalSent || 0)

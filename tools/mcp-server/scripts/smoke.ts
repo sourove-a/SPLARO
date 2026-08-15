@@ -67,19 +67,12 @@ function buildCases(f: Awaited<ReturnType<typeof fixtures>>): Array<[string, Rec
     ['assess_cod_risk', { phone: '01712345678', district: 'Dhaka' }],
     ['calculate_unit_economics', { orderId: f.invoice ?? '__missing__' }],
     ['generate_cart_recovery_message', { cartId: '__test_cart_id__' }],
-    ...(f.variantId
-      ? ([['update_inventory_stock', { variantId: f.variantId, newStock: 10, confirm: false }]] as Array<[string, Record<string, unknown>]>)
-      : []),
+    ['update_inventory_stock', { variantId: f.variantId ?? '__missing__', newStock: 10, confirm: false }],
     ['update_order_status', { orderId: f.invoice ?? '__missing__', newStatus: 'CONFIRMED', confirm: false }],
-    ...(f.productSlug
-      ? ([
-          ['get_product', { ref: f.productSlug }],
-          ['inventory_history', { productRef: f.productSlug, limit: 5 }],
-        ] as Array<[string, Record<string, unknown>]>)
-      : []),
+    ['inventory_history', { productRef: f.productSlug ?? '__missing__', limit: 5 }],
     ['get_order', { ref: f.invoice ?? '__missing__' }],
     ['get_customer', { ref: f.customerId ?? '__missing__' }],
-    ['get_product', { ref: '__missing__' }],
+    ['get_product', { ref: f.productSlug ?? '__missing__' }],
   ]
 }
 

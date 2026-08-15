@@ -145,23 +145,33 @@ export class NotificationsController {
   /** Notification preferences for the store */
   @Get('preferences/:storeId')
   async preferences(@Param('storeId') storeId: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
     const settings = await this.prisma.siteSettings.findFirst({
-      where: { store: { OR: [{ id: storeId }, { slug: storeId }] } },
+      where: { store: { OR: [{ id: sid }, { slug: sid }] } },
       select: {
         emailEnabled: true,
         telegramEnabled: true,
         storefrontConfig: true,
       },
     })
-    if (!settings) return { emailEnabled: false, telegramConfigured: false }
-    const cfg = settings.storefrontConfig as Record<string, unknown> | null
+
+    const envTgToken = (process.env.TELEGRAM_BOT_TOKEN || process.env.ADMIN_TELEGRAM_BOT_TOKEN || '').trim()
+    const envTgChat = (process.env.TELEGRAM_CHAT_ID || process.env.ADMIN_TELEGRAM_CHAT_ID || '').trim()
+    const envSmtpHost = (process.env.SMTP_HOST || '').trim()
+
+    const cfg = settings?.storefrontConfig as Record<string, unknown> | null
     const smtp = cfg?.smtp as Record<string, unknown> | null
     const tg = cfg?.telegram as Record<string, unknown> | null
+    const smtpAccounts = Array.isArray(cfg?.smtpAccounts) ? (cfg.smtpAccounts as unknown[]) : []
+
+    const smtpConfigured = Boolean(smtp?.host || envSmtpHost || smtpAccounts.length > 0)
+    const telegramConfigured = Boolean((tg?.botToken && tg?.chatId) || (envTgToken && envTgChat) || envTgToken)
+
     return {
-      emailEnabled: settings.emailEnabled,
-      smtpConfigured: !!(smtp?.host),
-      telegramEnabled: settings.telegramEnabled,
-      telegramConfigured: !!(tg?.botToken && tg?.chatId),
+      emailEnabled: settings?.emailEnabled ?? true,
+      smtpConfigured,
+      telegramEnabled: settings?.telegramEnabled ?? true,
+      telegramConfigured,
     }
   }
 

@@ -307,6 +307,10 @@ async function main() {
   })
 
   let demoProductsSeeded = 0
+  const allowDemoSeed = process.env['ALLOW_DEMO_CATALOG_SEED'] === 'true' && !isProd
+  if (!allowDemoSeed) {
+    console.log('Demo products: skipped (official catalog — set ALLOW_DEMO_CATALOG_SEED=true only for local fixtures)')
+  } else {
   for (const demo of DEMO_PRODUCTS) {
     const categoryId = categories[demo.categorySlug]
     if (!categoryId) {
@@ -369,6 +373,7 @@ async function main() {
   if (demoProductsSeeded === 0) {
     const productCount = await prisma.product.count({ where: { storeId: store.id, isPublished: true } })
     console.log(`Demo products: skipped (${productCount} published product(s) already in DB)`)
+  }
   }
 }
 

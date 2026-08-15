@@ -4,14 +4,16 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
 import { DcIcon } from '@/components/dc/DcIcon'
+import { DcModal } from '@/components/dc/DcModal'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider, useDcScreen } from '@/components/dc/DcScreenContext'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
-import { printInvoice, printOrderLabel, printOrderSticker } from '@/lib/admin/admin-actions'
-import { toastCourierResult, toastFail } from '@/lib/admin/feedback'
+import { printBulkOrderLabels, printInvoice, printOrderLabel, printOrderSticker } from '@/lib/admin/admin-actions'
+import { toastCourierResult, toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
 import { useBookCourier, useFulfillmentTodayStats, useOrders } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import type { CourierProvider } from '@/lib/api/orders'
 import {
   lookupFulfillment,
   scanFulfillment,
@@ -23,12 +25,13 @@ import { resolveMediaUrl } from '@/lib/media-url'
 import { matchStationItem } from '@/lib/scan/match-sku'
 
 const MODES: Array<{ id: FulfillmentScanAction; label: string; sub: string }> = [
-  { id: 'pack', label: 'প্যাকিং', sub: 'Confirmed / Processing → Packed · one scan per parcel' },
-  { id: 'dispatch', label: 'ডিসপ্যাচ', sub: 'Packed → Shipped · label + rider handoff' },
+  { id: 'pack', label: 'প্যাকিং (Pack)', sub: 'Confirmed / Processing → Packed · 1-scan pack' },
+  { id: 'dispatch', label: 'ডিসপ্যাচ (Dispatch)', sub: 'Packed → Shipped · label + courier handoff' },
 ]
 
 const PACK_QUEUE = 'CONFIRMED,PROCESSING,COURIER_BOOKED'
 const HISTORY_KEY = 'splaro.packing.session-history'
+const AUDIO_MUTE_KEY = 'splaro.packing.audio-muted'
 
 interface ScanRow {
   time: string
@@ -54,6 +57,49 @@ const th = {
   textTransform: 'uppercase' as const,
   color: 'var(--ink-3)',
   borderBottom: '1px solid var(--line)',
+}
+
+function playStationSound(type: 'success' | 'item' | 'error', muted: boolean) {
+  if (muted || typeof window === 'undefined') return
+  try {
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    if (!AudioContextClass) return
+    const ctx = new AudioContextClass()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+
+    const now = ctx.currentTime
+    if (type === 'success') {
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(587.33, now) // D5
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.12) // A5
+      gain.gain.setValueAtTime(0.15, now)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22)
+      osc.start(now)
+      osc.stop(now + 0.22)
+    } else if (type === 'item') {
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(659.25, now) // E5
+      osc.frequency.setValueAtTime(783.99, now + 0.05) // G5
+      gain.gain.setValueAtTime(0.12, now)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12)
+      osc.start(now)
+      osc.stop(now + 0.12)
+    } else {
+      osc.type = 'sawtooth'
+      osc.frequency.setValueAtTime(180, now)
+      gain.gain.setValueAtTime(0.18, now)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3)
+      osc.start(now)
+      osc.stop(now + 0.3)
+    }
+  } catch {
+    /* ignore audio error */
+  }
 }
 
 function readHistory(): ScanRow[] {
@@ -88,6 +134,7 @@ function DcPackingBody() {
   const router = useRouter()
   const { toast } = useDcScreen()
   const bookCourier = useBookCourier()
+
   const [mode, setMode] = useState<FulfillmentScanAction>('pack')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
@@ -96,6 +143,12 @@ function DcPackingBody() {
   const [active, setActive] = useState<FulfillmentStationOrder | null>(null)
   const [checked, setChecked] = useState<Record<string, boolean>>({})
   const [autoPrint, setAutoPrint] = useState(true)
+  const [soundMuted, setSoundMuted] = useState(false)
+
+  // Modals
+  const [courierModalOpen, setCourierModalOpen] = useState(false)
+  const [selectedCourierProvider, setSelectedCourierProvider] = useState<CourierProvider>('STEADFAST')
+
   const inputRef = useRef<HTMLInputElement>(null)
   const mobileInputRef = useRef<HTMLInputElement>(null)
 
@@ -107,19 +160,46 @@ function DcPackingBody() {
 
   useEffect(() => {
     setHistory(readHistory())
+    const muted = localStorage.getItem(AUDIO_MUTE_KEY) === 'true'
+    setSoundMuted(muted)
   }, [])
 
   useEffect(() => {
     writeHistory(history)
   }, [history])
 
+  const toggleSound = () => {
+    const next = !soundMuted
+    setSoundMuted(next)
+    localStorage.setItem(AUDIO_MUTE_KEY, String(next))
+    if (!next) playStationSound('success', false)
+  }
+
+  // Keyboard shortcut listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F4') {
+        e.preventDefault()
+        setMode((m) => (m === 'pack' ? 'dispatch' : 'pack'))
+      } else if (e.key === 'F2') {
+        if (active) {
+          e.preventDefault()
+          void printOrderLabel(active.invoiceNumber)
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [active])
+
+  // Focus lock
   useEffect(() => {
     const focus = () => {
       const mobile = window.matchMedia('(max-width: 820px)').matches
       ;(mobile ? mobileInputRef.current : inputRef.current)?.focus()
     }
     focus()
-    const timer = window.setInterval(focus, 1200)
+    const timer = window.setInterval(focus, 1800)
     return () => window.clearInterval(timer)
   }, [])
 
@@ -138,9 +218,11 @@ function DcPackingBody() {
         setChecked({})
         setCode(order.invoiceNumber)
         setBlocked(null)
+        playStationSound('item', soundMuted)
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Lookup failed'
         setBlocked({ id: trimmed, message })
+        playStationSound('error', soundMuted)
         toast('bad', 'Not found', message)
       } finally {
         setBusy(false)
@@ -148,7 +230,7 @@ function DcPackingBody() {
         mobileInputRef.current?.focus()
       }
     },
-    [busy, toast],
+    [busy, soundMuted, toast],
   )
 
   const submit = useCallback(
@@ -173,6 +255,7 @@ function DcPackingBody() {
             message: already ? `Already checked · ${hit.name}` : `Verified ${hit.name}`,
             by: 'you',
           })
+          playStationSound(allDone ? 'success' : 'item', soundMuted)
           toast(
             'ok',
             allDone ? 'Pick list complete' : label,
@@ -204,12 +287,14 @@ function DcPackingBody() {
         })
         if (result.ok) {
           setBlocked(null)
+          playStationSound('success', soundMuted)
           toast('ok', `${result.invoiceNumber} ${mode === 'pack' ? 'packed' : 'dispatched'}`, result.message)
           if (autoPrint && mode === 'pack' && result.previousStatus !== result.status) {
             void printOrderLabel(result.invoiceNumber)
           }
         } else {
           setBlocked({ id: result.invoiceNumber || trimmed, message: result.message })
+          playStationSound('error', soundMuted)
           toast('bad', 'Scan rejected', result.message)
         }
         void todayStats.refetch()
@@ -218,6 +303,7 @@ function DcPackingBody() {
         const message = err instanceof Error ? err.message : 'POST /admin/fulfillment/scan failed'
         pushHistory({ time, id: trimmed, ok: false, message, by: 'you' })
         setBlocked({ id: trimmed, message })
+        playStationSound('error', soundMuted)
         toast('bad', 'Scan failed', message)
       } finally {
         setCode('')
@@ -226,20 +312,55 @@ function DcPackingBody() {
         mobileInputRef.current?.focus()
       }
     },
-    [active, autoPrint, busy, checked, mode, orders, pushHistory, todayStats, toast],
+    [active, autoPrint, busy, checked, mode, orders, pushHistory, soundMuted, todayStats, toast],
   )
 
   const handleBookCourier = async () => {
     if (!active) return
     try {
-      const res = await bookCourier.mutateAsync({ id: active.invoiceNumber })
+      const res = await bookCourier.mutateAsync({ id: active.invoiceNumber, provider: selectedCourierProvider })
       toastCourierResult(res, active.invoiceNumber)
+      setCourierModalOpen(false)
       const refreshed = await lookupFulfillment(active.invoiceNumber)
       setActive(refreshed)
       void orders.refetch()
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Courier booking failed')
     }
+  }
+
+  const handleBulkPrintLabels = async () => {
+    if (queue.length === 0) {
+      toastWarn('Queue is empty')
+      return
+    }
+    const ids = queue.slice(0, 30).map((o) => o.invoiceNumber)
+    await printBulkOrderLabels(ids)
+  }
+
+  const clearHistory = () => {
+    setHistory([])
+    sessionStorage.removeItem(HISTORY_KEY)
+    toastOk('Scan history cleared')
+  }
+
+  const exportHistoryCsv = () => {
+    if (history.length === 0) {
+      toastWarn('No history to export')
+      return
+    }
+    const lines = ['Time,Identifier,Status,Message,By,ItemCount']
+    for (const h of history) {
+      lines.push(`"${h.time}","${h.id}","${h.ok ? 'SUCCESS' : 'FAILED'}","${h.message.replace(/"/g, '""')}","${h.by}","${h.itemCount ?? ''}"`)
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `splaro-packing-session-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toastOk('Session history CSV exported')
   }
 
   const allChecked =
@@ -259,7 +380,7 @@ function DcPackingBody() {
     <>
       <DcPageHead
         crumbGroup="Operations · Packing Station"
-        title="প্যাকিং স্টেশন"
+        title="প্যাকিং স্টেশন (Packing Station)"
         statusLabel={pageStatus.label}
         statusTone={pageStatus.tone}
         syncLabel={`${queue.length} in queue`}
@@ -270,6 +391,16 @@ function DcPackingBody() {
         }}
         actions={[
           {
+            label: soundMuted ? 'Muted' : 'Audio On',
+            icon: soundMuted ? 'icon-volume-x' : 'icon-volume-2',
+            onClick: toggleSound,
+          },
+          {
+            label: 'Bulk Labels',
+            icon: 'icon-printer',
+            onClick: handleBulkPrintLabels,
+          },
+          {
             label: 'End session',
             icon: 'icon-log-out',
             onClick: () => router.push('/dashboard/operations'),
@@ -277,6 +408,7 @@ function DcPackingBody() {
         ]}
       />
 
+      {/* ── MOBILE PACKING VIEW ──────────────────────────────── */}
       <div className="dc-mobile-route-panel" aria-label="Packing station">
         <div className="dc-mobile-kpi-grid">
           <div className="dc-mobile-kpi">
@@ -353,7 +485,13 @@ function DcPackingBody() {
             order={active}
             mode={mode}
             checked={checked}
-            onToggle={(id) => setChecked((c) => ({ ...c, [id]: !c[id] }))}
+            onToggle={(id) => {
+              setChecked((c) => {
+                const next = { ...c, [id]: !c[id] }
+                playStationSound('item', soundMuted)
+                return next
+              })
+            }}
             allChecked={allChecked}
             canAct={Boolean(canActOnActive)}
             busy={busy || bookCourier.isPending}
@@ -361,7 +499,7 @@ function DcPackingBody() {
             onPrintLabel={() => void printOrderLabel(active.invoiceNumber)}
             onPrintSticker={() => void printOrderSticker(active.invoiceNumber)}
             onPrintInvoice={() => void printInvoice(active.invoiceNumber)}
-            onBookCourier={() => void handleBookCourier()}
+            onBookCourier={() => setCourierModalOpen(true)}
             onOpen={() => router.push(`/dashboard/orders?search=${encodeURIComponent(active.invoiceNumber)}`)}
             compact
           />
@@ -405,17 +543,19 @@ function DcPackingBody() {
         </div>
       </div>
 
+      {/* ── DESKTOP PACKING STATION VIEW ────────────────────── */}
       <div
         className="dc-desktop-route-panel"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.15fr) minmax(280px, 380px)',
+          gridTemplateColumns: 'minmax(0, 1.18fr) minmax(300px, 390px)',
           gap: 16,
           alignItems: 'start',
         }}
       >
         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {/* Mode Selector */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {MODES.map((m) => {
               const on = m.id === mode
               return (
@@ -429,7 +569,7 @@ function DcPackingBody() {
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 3,
-                    padding: '11px 13px',
+                    padding: '12px 14px',
                     borderRadius: 11,
                     border: `1px solid ${on ? 'var(--violet-bd)' : 'var(--line)'}`,
                     background: on ? 'var(--violet-soft)' : 'var(--surface)',
@@ -437,15 +577,21 @@ function DcPackingBody() {
                     textAlign: 'left',
                   }}
                 >
-                  <span style={{ font: `600 13px/1 ${FONT}`, color: on ? 'var(--violet)' : 'var(--ink)' }}>
-                    {m.label}
-                  </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ font: `600 13.5px/1 ${FONT}`, color: on ? 'var(--violet)' : 'var(--ink)' }}>
+                      {m.label}
+                    </span>
+                    {on ? (
+                      <span style={{ width: 8, height: 8, borderRadius: 99, background: 'var(--violet)' }} />
+                    ) : null}
+                  </div>
                   <span style={{ font: `400 11.5px/1.35 ${FONT}`, color: 'var(--ink-3)' }}>{m.sub}</span>
                 </button>
               )
             })}
           </div>
 
+          {/* Scanner Input Station Card */}
           <div
             style={{
               border: '1px solid var(--violet-bd)',
@@ -454,6 +600,7 @@ function DcPackingBody() {
               overflow: 'hidden',
             }}
           >
+            {/* Today's Progress Bar Header */}
             <div
               style={{
                 padding: '13px 18px',
@@ -465,7 +612,7 @@ function DcPackingBody() {
                 flexWrap: 'wrap',
               }}
             >
-              <span style={{ font: `600 12px/1 ${FONT}`, color: 'var(--ink)' }}>Today&rsquo;s queue</span>
+              <span style={{ font: `600 12px/1 ${FONT}`, color: 'var(--ink)' }}>Today&rsquo;s fulfillment</span>
               <span
                 style={{
                   flex: 1,
@@ -490,7 +637,7 @@ function DcPackingBody() {
               <span style={{ font: `600 12px/1 ${MONO}`, color: 'var(--ink-2)' }}>
                 {done} / {total}
               </span>
-              <span style={{ font: `400 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>{queue.length} left</span>
+              <span style={{ font: `400 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>{queue.length} in queue</span>
             </div>
 
             <div style={{ padding: '20px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -501,7 +648,6 @@ function DcPackingBody() {
                     height: 7,
                     borderRadius: 99,
                     background: busy ? 'var(--warn)' : 'var(--ok)',
-                    animation: 'dc-pulse 1.8s infinite',
                   }}
                 />
                 <span
@@ -512,17 +658,20 @@ function DcPackingBody() {
                     color: busy ? 'var(--warn)' : 'var(--ok)',
                   }}
                 >
-                  {busy ? 'Working…' : 'Scanner ready'}
+                  {busy ? 'Processing…' : 'Scanner ready'}
                 </span>
                 <span style={{ font: `400 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
-                  USB HID · keyboard wedge · focus locked
+                  USB HID · Keyboard wedge · Focus locked
                 </span>
-                <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, font: `500 12px/1 ${FONT}`, color: 'var(--ink-2)', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={autoPrint} onChange={(e) => setAutoPrint(e.target.checked)} />
-                  Auto-print label on pack
-                </label>
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, font: `500 12px/1 ${FONT}`, color: 'var(--ink-2)', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={autoPrint} onChange={(e) => setAutoPrint(e.target.checked)} />
+                    Auto-print label on pack
+                  </label>
+                </div>
               </div>
 
+              {/* Main Scanner Input Box */}
               <div
                 style={{
                   display: 'flex',
@@ -564,14 +713,14 @@ function DcPackingBody() {
                   disabled={busy || !code.trim()}
                   onClick={() => void loadPreview(code)}
                   style={{
-                    height: 34,
-                    padding: '0 12px',
+                    height: 36,
+                    padding: '0 14px',
                     borderRadius: 8,
                     border: '1px solid var(--line)',
                     background: 'var(--surface)',
-                    color: 'var(--ink-2)',
+                    color: 'var(--ink)',
                     cursor: busy || !code.trim() ? 'not-allowed' : 'pointer',
-                    font: `600 12px/1 ${FONT}`,
+                    font: `600 12.5px/1 ${FONT}`,
                   }}
                 >
                   Preview
@@ -589,23 +738,37 @@ function DcPackingBody() {
                 }}
               >
                 <span>
-                  Preview invoice → scan each item barcode to tick pick list → scan invoice again to
-                  pack. Preview never changes status.
+                  Scan invoice to preview ➔ scan item barcodes to tick pick list ➔ scan invoice again to {mode === 'pack' ? 'Pack' : 'Dispatch'}.
                 </span>
                 <div style={{ flex: 1 }} />
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <Kbd>Esc</Kbd> clear
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Kbd>F4</Kbd> Mode
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Kbd>F2</Kbd> Label
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Kbd>Esc</Kbd> Clear
+                  </span>
+                </div>
               </div>
             </div>
 
+            {/* Active Order Card View */}
             {active ? (
-              <div style={{ borderTop: '1px solid var(--line)', padding: 16 }}>
+              <div style={{ borderTop: '1px solid var(--line)', padding: 18 }}>
                 <ActiveOrderCard
                   order={active}
                   mode={mode}
                   checked={checked}
-                  onToggle={(id) => setChecked((c) => ({ ...c, [id]: !c[id] }))}
+                  onToggle={(id) => {
+                    setChecked((c) => {
+                      const next = { ...c, [id]: !c[id] }
+                      playStationSound('item', soundMuted)
+                      return next
+                    })
+                  }}
                   allChecked={allChecked}
                   canAct={Boolean(canActOnActive)}
                   busy={busy || bookCourier.isPending}
@@ -613,7 +776,7 @@ function DcPackingBody() {
                   onPrintLabel={() => void printOrderLabel(active.invoiceNumber)}
                   onPrintSticker={() => void printOrderSticker(active.invoiceNumber)}
                   onPrintInvoice={() => void printInvoice(active.invoiceNumber)}
-                  onBookCourier={() => void handleBookCourier()}
+                  onBookCourier={() => setCourierModalOpen(true)}
                   onOpen={() => router.push(`/dashboard/orders?search=${encodeURIComponent(active.invoiceNumber)}`)}
                 />
               </div>
@@ -637,31 +800,73 @@ function DcPackingBody() {
                     flex: 'none',
                     borderRadius: 10,
                     background: 'var(--ok)',
-                    color: 'var(--admin-c-04100a)',
+                    color: 'var(--surface)',
                   }}
                 >
                   <DcIcon name="icon-check" size={19} />
                 </span>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
                     <span style={{ font: `700 16px/1 ${MONO}`, color: 'var(--ink)' }}>{history[0].id}</span>
                     <span style={{ font: `500 13px/1 ${FONT}`, color: 'var(--ink-2)' }}>{history[0].message}</span>
                   </div>
+                  <span style={{ font: `400 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                    Handled at {history[0].time} · ready for next scan
+                  </span>
                 </div>
               </div>
             ) : null}
           </div>
 
+          {/* Session History Table */}
           <div style={{ ...card, overflow: 'hidden' }}>
             <div
               style={{
                 padding: '12px 15px',
                 borderBottom: '1px solid var(--line)',
-                font: `600 13px/1 ${FONT}`,
-                color: 'var(--ink)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
               }}
             >
-              Scanned this session
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ font: `600 13px/1 ${FONT}`, color: 'var(--ink)' }}>Scanned this session</span>
+                <span style={{ font: `600 11px/1 ${MONO}`, color: 'var(--ink-3)' }}>({history.length})</span>
+              </div>
+              {history.length > 0 ? (
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    type="button"
+                    onClick={exportHistoryCsv}
+                    style={{
+                      border: '1px solid var(--line)',
+                      borderRadius: 6,
+                      background: 'var(--surface-2)',
+                      padding: '3px 8px',
+                      font: `600 11px/1 ${FONT}`,
+                      color: 'var(--ink-2)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Export CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearHistory}
+                    style={{
+                      border: '1px solid var(--line)',
+                      borderRadius: 6,
+                      background: 'var(--surface-2)',
+                      padding: '3px 8px',
+                      font: `600 11px/1 ${FONT}`,
+                      color: 'var(--ink-3)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              ) : null}
             </div>
             {history.length === 0 ? (
               <div
@@ -672,18 +877,18 @@ function DcPackingBody() {
                   color: 'var(--ink-3)',
                 }}
               >
-                Nothing scanned yet. The first parcel appears here the moment it goes through.
+                Nothing scanned in this session yet. The first parcel appears here instantly.
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse' }}>
+                <table style={{ width: '100%', minWidth: 680, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       <th style={th}>Time</th>
-                      <th style={th}>Order</th>
+                      <th style={th}>Order / SKU</th>
                       <th style={th}>Items</th>
                       <th style={th}>Result</th>
-                      <th style={{ ...th, textAlign: 'right' }}>By</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Handler</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -703,7 +908,7 @@ function DcPackingBody() {
                                 background: 'transparent',
                                 cursor: 'pointer',
                                 font: `600 12.5px/1 ${MONO}`,
-                                color: 'var(--ink)',
+                                color: 'var(--violet)',
                                 padding: 0,
                               }}
                             >
@@ -751,38 +956,41 @@ function DcPackingBody() {
           </div>
         </div>
 
-        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* ── RIGHT SIDEBAR QUEUE & STATUS ────────────────────── */}
+        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* KPI Summary Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <PackKpi icon="icon-package-check" color="var(--ok)" label="Packed today" value={String(stats.packed)} />
             <PackKpi icon="icon-truck" color="var(--info)" label="Shipped today" value={String(stats.shipped)} />
             <PackKpi icon="icon-list-ordered" color="var(--violet)" label="In queue" value={String(queue.length)} />
-            <PackKpi icon="icon-scan-line" color="var(--ink-2)" label="Scans this session" value={String(history.length)} />
+            <PackKpi icon="icon-scan-line" color="var(--ink-2)" label="Scans session" value={String(history.length)} />
           </div>
 
+          {/* Blocked Alert Card */}
           {blocked ? (
             <div
               style={{
                 border: '1px solid var(--bad-bd)',
                 borderRadius: 14,
                 background: 'var(--bad-soft)',
-                padding: '13px 15px',
+                padding: '14px 15px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 9,
+                gap: 10,
               }}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <DcIcon name="icon-triangle-alert" size={13} color="var(--bad)" />
+                <DcIcon name="icon-triangle-alert" size={14} color="var(--bad)" />
                 <span
                   style={{
                     flex: 1,
-                    font: `700 10px/1 ${FONT}`,
-                    letterSpacing: '.1em',
+                    font: `700 10.5px/1 ${FONT}`,
+                    letterSpacing: '.09em',
                     textTransform: 'uppercase',
                     color: 'var(--bad)',
                   }}
                 >
-                  Blocked · needs a decision
+                  Scan Blocked · Action required
                 </span>
               </span>
               <span style={{ font: `500 12.5px/1.5 ${FONT}`, color: 'var(--ink)', textWrap: 'pretty' }}>
@@ -794,7 +1002,7 @@ function DcPackingBody() {
                   onClick={() => router.push(`/dashboard/orders?search=${encodeURIComponent(blocked.id)}`)}
                   style={btnPrimary}
                 >
-                  Open the order
+                  Open Order
                 </button>
                 <button type="button" onClick={() => setBlocked(null)} style={btnGhost}>
                   Dismiss
@@ -803,33 +1011,34 @@ function DcPackingBody() {
             </div>
           ) : null}
 
+          {/* Up Next Orders Queue */}
           <div style={{ ...card, overflow: 'hidden' }}>
             <div
               style={{
-                padding: '11px 14px',
+                padding: '12px 14px',
                 borderBottom: '1px solid var(--line)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 8,
+                justifyContent: 'space-between',
               }}
             >
-              <span style={{ flex: 1, font: `600 12.5px/1 ${FONT}`, color: 'var(--ink)' }}>Up next</span>
+              <span style={{ font: `600 13px/1 ${FONT}`, color: 'var(--ink)' }}>Up next in queue</span>
               <span
                 style={{
-                  padding: '2px 7px',
+                  padding: '2px 8px',
                   borderRadius: 6,
                   border: '1px solid var(--line)',
                   font: `600 10.5px/1 ${MONO}`,
                   color: 'var(--ink-3)',
                 }}
               >
-                {queue.length} queued
+                {queue.length} waiting
               </span>
             </div>
             {queue.length === 0 ? (
               <div
                 style={{
-                  padding: '28px 14px',
+                  padding: '30px 14px',
                   textAlign: 'center',
                   font: `400 12px/1.5 ${FONT}`,
                   color: 'var(--ink-3)',
@@ -838,10 +1047,11 @@ function DcPackingBody() {
                 Queue is clear. Nothing waiting to be {mode === 'pack' ? 'packed' : 'dispatched'}.
               </div>
             ) : (
-              queue.slice(0, 12).map((o, i) => {
+              queue.slice(0, 15).map((o, i) => {
                 const risk = o.isCodRisk
                 const flag = toneStyle(risk ? 'bad' : 'mute')
                 const pcs = o.items?.reduce((n, item) => n + item.quantity, 0) ?? 0
+                const isSelected = active?.invoiceNumber === o.invoiceNumber
                 return (
                   <button
                     key={o.id}
@@ -853,29 +1063,31 @@ function DcPackingBody() {
                       alignItems: 'center',
                       gap: 10,
                       width: '100%',
-                      padding: '9px 14px',
+                      padding: '10px 14px',
                       border: 0,
                       borderBottom: '1px solid var(--line)',
-                      background: active?.invoiceNumber === o.invoiceNumber ? 'var(--violet-soft)' : 'transparent',
+                      background: isSelected ? 'var(--violet-soft)' : 'transparent',
                       cursor: 'pointer',
                       textAlign: 'left',
                     }}
                   >
-                    <span style={{ width: 19, flex: 'none', font: `600 11px/1 ${MONO}`, color: 'var(--ink-3)' }}>
+                    <span style={{ width: 18, flex: 'none', font: `600 11px/1 ${MONO}`, color: 'var(--ink-3)' }}>
                       {i + 1}
                     </span>
                     <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                        <span style={{ font: `600 12px/1 ${MONO}`, color: 'var(--ink)' }}>{o.invoiceNumber}</span>
+                        <span style={{ font: `600 12px/1 ${MONO}`, color: isSelected ? 'var(--violet)' : 'var(--ink)' }}>
+                          {o.invoiceNumber}
+                        </span>
                         {risk ? (
                           <span
                             style={{
-                              padding: '2px 6px',
-                              borderRadius: 5,
+                              padding: '2px 5px',
+                              borderRadius: 4,
                               border: `1px solid ${flag.bd}`,
                               background: flag.bg,
                               font: `700 9px/1 ${FONT}`,
-                              letterSpacing: '.07em',
+                              letterSpacing: '.06em',
                               color: flag.fg,
                             }}
                           >
@@ -892,7 +1104,7 @@ function DcPackingBody() {
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {o.shippingName} · {o.shippingCity}
+                        {o.shippingName} · {o.shippingCity || 'City'}
                         {pcs ? ` · ${pcs} pcs` : ''}
                       </span>
                     </span>
@@ -908,7 +1120,8 @@ function DcPackingBody() {
             )}
           </div>
 
-          <div style={{ ...card, padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {/* Station Diagnostics Card */}
+          <div style={{ ...card, padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             <span
               style={{
                 font: `600 10.5px/1 ${FONT}`,
@@ -917,26 +1130,60 @@ function DcPackingBody() {
                 color: 'var(--ink-3)',
               }}
             >
-              Station
+              Station Diagnostics
             </span>
-            <StationRow tone="ok" label="Scanner input" value="focus locked" />
-            <StationRow tone={busy ? 'warn' : 'ok'} label="Scan endpoint" value="/admin/fulfillment/scan" />
+            <StationRow tone="ok" label="Scanner Input" value="Focus Locked" />
+            <StationRow tone={busy ? 'warn' : 'ok'} label="Scan Endpoint" value="/admin/fulfillment/scan" />
             <StationRow
               tone={orders.error ? 'bad' : 'ok'}
-              label="Queue feed"
-              value={orders.error ? 'failed' : mode === 'pack' ? 'confirmed + processing' : 'packed'}
+              label="Queue Feed"
+              value={orders.error ? 'Failed' : mode === 'pack' ? 'Confirmed / Processing' : 'Packed'}
             />
-            <StationRow tone={autoPrint ? 'ok' : 'mute'} label="Auto label" value={autoPrint ? 'on pack' : 'off'} />
+            <StationRow tone={autoPrint ? 'ok' : 'mute'} label="Auto Label" value={autoPrint ? 'On Pack' : 'Off'} />
+            <StationRow tone={soundMuted ? 'mute' : 'ok'} label="Audio Feedback" value={soundMuted ? 'Muted' : 'Active'} />
           </div>
         </div>
       </div>
+
+      {/* ── COURIER BOOKING MODAL ────────────────────────────── */}
+      <DcModal
+        open={courierModalOpen}
+        title={`Book Courier for ${active?.invoiceNumber ?? ''}`}
+        subtitle="Select courier provider to dispatch this parcel"
+        confirmLabel="Book Courier"
+        busy={bookCourier.isPending}
+        onClose={() => setCourierModalOpen(false)}
+        onConfirm={() => void handleBookCourier()}
+      >
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span style={{ font: `600 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>Courier Provider</span>
+          <select
+            value={selectedCourierProvider}
+            onChange={(e) => setSelectedCourierProvider(e.target.value as CourierProvider)}
+            style={{
+              minHeight: 36,
+              padding: '6px 10px',
+              borderRadius: 8,
+              border: '1px solid var(--line)',
+              background: 'var(--surface-2)',
+              color: 'var(--ink)',
+              font: `400 12px/1.4 ${FONT}`,
+            }}
+          >
+            <option value="STEADFAST">Steadfast Courier (Recommended)</option>
+            <option value="PATHAO">Pathao Courier</option>
+            <option value="REDX">REDX</option>
+            <option value="PAPERFLY">Paperfly</option>
+          </select>
+        </label>
+      </DcModal>
     </>
   )
 }
 
 const btnPrimary: CSSProperties = {
-  height: 30,
-  padding: '0 11px',
+  height: 32,
+  padding: '0 12px',
   borderRadius: 8,
   border: 0,
   background: 'var(--violet-solid)',
@@ -946,8 +1193,8 @@ const btnPrimary: CSSProperties = {
 }
 
 const btnGhost: CSSProperties = {
-  height: 30,
-  padding: '0 11px',
+  height: 32,
+  padding: '0 12px',
   borderRadius: 8,
   border: '1px solid var(--line-2)',
   background: 'var(--surface)',
@@ -990,12 +1237,14 @@ function ActiveOrderCard({
   const risk = toneStyle(order.isCodRisk ? 'bad' : 'mute')
   const booked = Boolean(order.courier?.consignmentId)
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ font: `700 18px/1 ${MONO}`, color: 'var(--ink)' }}>{order.invoiceNumber}</span>
-            <span style={{ font: `600 11px/1 ${FONT}`, color: 'var(--violet)' }}>{order.status}</span>
+            <span style={{ font: `700 19px/1 ${MONO}`, color: 'var(--ink)' }}>{order.invoiceNumber}</span>
+            <span style={{ font: `600 11.5px/1 ${FONT}`, color: 'var(--violet)', background: 'var(--violet-soft)', padding: '2px 7px', borderRadius: 5 }}>
+              {order.status}
+            </span>
             {order.isCodRisk ? (
               <span
                 style={{
@@ -1003,7 +1252,8 @@ function ActiveOrderCard({
                   borderRadius: 5,
                   border: `1px solid ${risk.bd}`,
                   background: risk.bg,
-                  font: `700 9px/1 ${FONT}`,
+                  font: `700 9.5px/1 ${FONT}`,
+                  letterSpacing: '.07em',
                   color: risk.fg,
                 }}
               >
@@ -1011,8 +1261,8 @@ function ActiveOrderCard({
               </span>
             ) : null}
           </div>
-          <p style={{ margin: '6px 0 0', font: `500 13px/1.45 ${FONT}`, color: 'var(--ink-2)' }}>
-            {order.customerName}
+          <p style={{ margin: '7px 0 0', font: `500 13px/1.45 ${FONT}`, color: 'var(--ink-2)' }}>
+            <strong>{order.customerName}</strong>
             {' · '}
             <a href={telHref(order.customerPhone)} style={{ color: 'inherit' }}>
               {formatBdPhone(order.customerPhone)}
@@ -1021,14 +1271,23 @@ function ActiveOrderCard({
           <p style={{ margin: '4px 0 0', font: `400 12px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
             {order.address || [order.city, order.district].filter(Boolean).join(', ')}
           </p>
-          <p style={{ margin: '4px 0 0', font: `500 12px/1.4 ${MONO}`, color: 'var(--ink-2)' }}>
+          <p style={{ margin: '5px 0 0', font: `500 12px/1.4 ${MONO}`, color: 'var(--ink-2)' }}>
             {order.paymentMethod.replace(/_/g, ' ')} · {formatTaka(order.total)} · {order.itemCount} pcs
             {booked ? ` · ${order.courier?.provider} ${order.courier?.consignmentId}` : ''}
           </p>
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* Pick List Items */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ font: `600 11px/1 ${FONT}`, color: 'var(--ink-3)', textTransform: 'uppercase' }}>
+            Pick List Items ({order.items.filter((i) => checked[i.id]).length}/{order.items.length})
+          </span>
+          {allChecked ? (
+            <span style={{ font: `600 11px/1 ${FONT}`, color: 'var(--ok)' }}>All Items Verified</span>
+          ) : null}
+        </div>
         {order.items.map((item) => {
           const on = Boolean(checked[item.id])
           const src = item.image ? resolveMediaUrl(item.image) : ''
@@ -1040,9 +1299,9 @@ function ActiveOrderCard({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 10,
+                gap: 12,
                 width: '100%',
-                padding: compact ? 8 : 10,
+                padding: compact ? 9 : 11,
                 borderRadius: 10,
                 border: `1px solid ${on ? 'var(--ok-bd)' : 'var(--line)'}`,
                 background: on ? 'var(--ok-soft)' : 'var(--surface-2)',
@@ -1052,8 +1311,8 @@ function ActiveOrderCard({
             >
               <span
                 style={{
-                  width: compact ? 36 : 44,
-                  height: compact ? 36 : 44,
+                  width: compact ? 38 : 46,
+                  height: compact ? 38 : 46,
                   borderRadius: 8,
                   overflow: 'hidden',
                   background: 'var(--surface)',
@@ -1067,7 +1326,7 @@ function ActiveOrderCard({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  <DcIcon name="icon-package" size={14} />
+                  <DcIcon name="icon-package" size={16} />
                 )}
               </span>
               <span style={{ flex: 1, minWidth: 0 }}>
@@ -1075,40 +1334,54 @@ function ActiveOrderCard({
                   {item.quantity}× {item.name}
                 </span>
                 <span style={{ font: `500 11.5px/1.35 ${MONO}`, color: 'var(--ink-3)' }}>
-                  {item.sku}
-                  {item.barcode ? ` · BC ${item.barcode}` : ''}
+                  SKU: {item.sku}
+                  {item.barcode ? ` · BC: ${item.barcode}` : ''}
                   {item.size !== '—' ? ` · ${item.size}` : ''}
                   {item.color !== '—' ? ` · ${item.color}` : ''}
                 </span>
               </span>
-              <DcIcon name={on ? 'icon-check' : 'icon-circle'} size={16} color={on ? 'var(--ok)' : 'var(--ink-3)'} />
+              <DcIcon name={on ? 'icon-check' : 'icon-circle'} size={18} color={on ? 'var(--ok)' : 'var(--ink-3)'} />
             </button>
           )
         })}
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+      {/* Primary Actions Bar */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
         {canAct ? (
-          <button type="button" disabled={busy} onClick={onPack} style={{ ...btnPrimary, height: 34, opacity: busy ? 0.6 : 1 }}>
-            {mode === 'pack' ? `Pack${allChecked ? '' : ' anyway'}` : `Dispatch${allChecked ? '' : ' anyway'}`}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onPack}
+            style={{
+              ...btnPrimary,
+              height: 36,
+              padding: '0 16px',
+              fontSize: '12.5px',
+              background: allChecked ? 'var(--ok)' : 'var(--violet-solid)',
+            }}
+          >
+            {mode === 'pack' ? `Pack Order${allChecked ? ' (Verified)' : ' anyway'}` : `Dispatch${allChecked ? ' (Verified)' : ' anyway'}`}
           </button>
         ) : (
-          <span style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center' }}>Already {order.status}</span>
+          <span style={{ ...btnGhost, height: 36, display: 'inline-flex', alignItems: 'center' }}>
+            Status: {order.status}
+          </span>
         )}
-        <button type="button" onClick={onPrintLabel} style={btnGhost}>
-          Shipping label
+        <button type="button" onClick={onPrintLabel} style={{ ...btnGhost, height: 36 }}>
+          Shipping Label
         </button>
-        <button type="button" onClick={onPrintSticker} style={btnGhost}>
+        <button type="button" onClick={onPrintSticker} style={{ ...btnGhost, height: 36 }}>
           Stickers
         </button>
-        <button type="button" onClick={onPrintInvoice} style={btnGhost}>
+        <button type="button" onClick={onPrintInvoice} style={{ ...btnGhost, height: 36 }}>
           Invoice
         </button>
-        <button type="button" disabled={busy || booked} onClick={onBookCourier} style={btnGhost}>
-          {booked ? 'Courier booked' : 'Book courier'}
+        <button type="button" disabled={busy || booked} onClick={onBookCourier} style={{ ...btnGhost, height: 36 }}>
+          {booked ? 'Courier Booked' : 'Book Courier'}
         </button>
-        <button type="button" onClick={onOpen} style={btnGhost}>
-          Open order
+        <button type="button" onClick={onOpen} style={{ ...btnGhost, height: 36 }}>
+          Open Order ↗
         </button>
       </div>
     </div>
@@ -1124,6 +1397,7 @@ function Kbd({ children }: { children: React.ReactNode }) {
         border: '1px solid var(--line)',
         font: `600 10.5px/1 ${MONO}`,
         color: 'var(--ink-2)',
+        background: 'var(--surface-3)',
       }}
     >
       {children}
@@ -1143,7 +1417,7 @@ function PackKpi({
   value: string
 }) {
   return (
-    <div style={{ ...card, padding: '12px 13px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ ...card, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
         <DcIcon name={icon} size={13} color={color} />
         <span

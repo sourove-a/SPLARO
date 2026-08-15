@@ -11,7 +11,8 @@ import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
-import { toastFail, toastOk } from '@/lib/admin/feedback'
+import { toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
+import { downloadCsv } from '@/lib/admin/admin-actions'
 import {
   confirmAdminInvited,
   confirmStaffActiveUpdated,
@@ -224,6 +225,34 @@ function DcAdminUsersBody() {
     { t: 'table' } as DcBlock,
   ]
 
+  const exportCsv = () => {
+    if (rows.length === 0) {
+      toastWarn('No staff members to export')
+      return
+    }
+    const headers = [
+      'Name',
+      'Email',
+      'Role',
+      'Status',
+      'Telegram 2FA Linked',
+      'Scope',
+    ]
+    const csvRows = [
+      headers,
+      ...rows.map((row) => [
+        row.name,
+        row.email,
+        row.role,
+        row.status,
+        row.telegramLinked ? 'Yes' : 'No',
+        roleScope(row.role),
+      ]),
+    ]
+    downloadCsv(`splaro-admin-staff-${new Date().toISOString().slice(0, 10)}.csv`, csvRows)
+    toastOk(`Exported ${rows.length} admin user${rows.length === 1 ? '' : 's'}.`)
+  }
+
   return (
     <>
       <DcPageHead
@@ -238,18 +267,23 @@ function DcAdminUsersBody() {
         }
         syncing={security.isFetching}
         onSync={refresh}
-        actions={
-          actorRole === 'SUPER_ADMIN'
+        actions={[
+          ...(actorRole === 'SUPER_ADMIN'
             ? [
                 {
                   label: 'Invite admin',
                   icon: 'icon-plus',
-                  variant: 'primary',
+                  variant: 'primary' as const,
                   onClick: () => setInviteOpen(true),
                 },
               ]
-            : []
-        }
+            : []),
+          {
+            label: 'Export CSV',
+            icon: 'icon-download',
+            onClick: exportCsv,
+          },
+        ]}
       />
 
       {security.isLoading || session.isLoading ? (

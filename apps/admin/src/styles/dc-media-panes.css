@@ -1,0 +1,196 @@
+/* Duplicate groups and the orphan sweep — list work, not browsing. */
+
+.dc-mpane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dc-mpane__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  background-image: var(--card-sheen);
+}
+
+.dc-mpane__lead {
+  font: 600 12.5px/1.2 var(--dc-font, inherit);
+  color: var(--ink);
+}
+
+.dc-mpane__meta {
+  font: 500 11.5px/1.35 var(--dc-font, inherit);
+  color: var(--ink-3);
+}
+
+.dc-mpane__check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font: 500 12px/1 var(--dc-font, inherit);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.dc-mpane__tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  cursor: pointer;
+  font: 600 12px/1 var(--dc-font, inherit);
+  flex: none;
+}
+
+.dc-mpane__tool:hover:not([disabled]) {
+  border-color: var(--violet-bd);
+  color: var(--violet);
+}
+
+.dc-mpane__tool.is-danger:hover:not([disabled]) {
+  border-color: var(--bad-bd);
+  color: var(--bad);
+}
+
+.dc-mpane__tool[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.dc-mpane__group {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  background-image: var(--card-sheen);
+  overflow: hidden;
+}
+
+.dc-mpane__group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.dc-mpane__name {
+  font: 600 12.5px/1.2 var(--dc-font, inherit);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dc-mpane__group-head .dc-mpane__tool {
+  margin-left: auto;
+}
+
+.dc-mpane__copies,
+.dc-mpane__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dc-mpane__copies li,
+.dc-mpane__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+}
+
+.dc-mpane__copies li:first-child,
+.dc-mpane__rows .dc-mpane__row:first-child {
+  border-top: 0;
+}
+
+.dc-mpane__rows .dc-mpane__row {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  margin-bottom: 6px;
+}
+
+.dc-mpane__copies img,
+.dc-mpane__noimg {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 7px;
+  object-fit: cover;
+  background: var(--surface-3);
+}
+
+.dc-mpane__copy-name {
+  font: 500 12px/1.3 var(--dc-font, inherit);
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 46%;
+}
+
+.dc-mpane__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dc-mpane__body .dc-mpane__copy-name {
+  max-width: 100%;
+}
+
+.dc-mpane__flag {
+  margin-left: auto;
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font: 600 10.5px/1 var(--dc-font, inherit);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.dc-mpane__flag.is-keep {
+  border-color: var(--ok-bd);
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.dc-mpane__copies li.is-keep {
+  background: var(--ok-soft);
+}
+
+@media (max-width: 720px) {
+  .dc-mpane__copies li,
+  .dc-mpane__row {
+    flex-wrap: wrap;
+  }
+
+  .dc-mpane__copy-name {
+    max-width: 100%;
+  }
+
+  .dc-mpane__flag {
+    margin-left: 0;
+  }
+}

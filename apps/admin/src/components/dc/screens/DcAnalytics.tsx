@@ -20,6 +20,8 @@ import {
 } from '@/components/dc/tokens'
 import { useDashboardInsights, useDashboardStats } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { downloadCsv } from '@/lib/admin/admin-actions'
+import { toastOk, toastWarn } from '@/lib/admin/feedback'
 
 const card = {
   border: '1px solid var(--line)',
@@ -185,6 +187,36 @@ function DcAnalyticsBody() {
     void insights.refetch()
   }
 
+  const exportCsv = () => {
+    if (!s) {
+      toastWarn('No analytics data to export')
+      return
+    }
+    const csvRows = [
+      ['Metric', 'Value', 'Change vs Prior Period'],
+      ['Revenue (BDT)', String(revenue), `${s.revenue.change}%`],
+      ['Orders', String(orders), `${s.orders.change}%`],
+      ['Customers', String(s.customers.value || 0), `${s.customers.change}%`],
+      ['Average Order Value (BDT)', String(aov), `${s.avgOrderValue.change}%`],
+      ['COD Risk Orders', String(codRisk), '—'],
+      ['Failed Payments', String(failedPayments), '—'],
+      [],
+      ['Top Products', 'Revenue (BDT)', 'Quantity Sold'],
+      ...topProducts.map((p) => [p.name, String(p.revenue), String(p.sold)]),
+      [],
+      ['Top Categories', 'Revenue (BDT)', 'Orders Count'],
+      ...topCategories.map((c) => [c.name, String(c.revenue), String(c.orders)]),
+      [],
+      ['Payment Method', 'Revenue (BDT)', 'Transaction Count'],
+      ...paymentMix.map((pm) => [pm.name, String(pm.revenue), String(pm.count)]),
+    ]
+    downloadCsv(
+      `splaro-analytics-${period.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`,
+      csvRows,
+    )
+    toastOk(`Analytics report (${period}) exported`)
+  }
+
   return (
     <>
       <DcPageHead
@@ -201,9 +233,9 @@ function DcAnalyticsBody() {
         onSync={refetchAll}
         actions={[
           {
-            label: 'Export Center',
+            label: 'Export CSV',
             icon: 'icon-download',
-            onClick: () => router.push('/dashboard/executive/export-center'),
+            onClick: exportCsv,
           },
           {
             label: 'Profit & Loss',

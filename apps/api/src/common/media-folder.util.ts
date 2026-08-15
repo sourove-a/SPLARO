@@ -40,16 +40,19 @@ export function isMediaDeptFolder(folder: string): boolean {
  * Returns `fallback` when nothing usable is left.
  */
 export function normalizeMediaFolder(value: unknown, fallback = 'media'): string {
-  const slug = String(value ?? '')
-    .trim()
-    .slice(0, 40)
-    .toLowerCase()
-    .replace(/[\s_]+/g, '-')
-    .replace(/[^\p{L}\p{N}\p{M}-]/gu, '')
-    .replace(/-{2,}/g, '-')
-    .replace(/^-+|-+$/g, '')
+  const raw = String(value ?? '').trim().slice(0, 80)
+  const parts = raw.split('/').filter(Boolean).slice(0, 2)
+  const slugs = parts.map((part) =>
+    part
+      .toLowerCase()
+      .replace(/[\s_]+/g, '-')
+      .replace(/[^\p{L}\p{N}\p{M}-]/gu, '')
+      .replace(/-{2,}/g, '-')
+      .replace(/^-+|-+$/g, ''),
+  ).filter(Boolean)
+  const slug = slugs.join('/')
   if (!slug) return fallback
-  if (RESERVED_MEDIA_FOLDERS.has(slug)) {
+  if (slug.split('/').some((seg) => RESERVED_MEDIA_FOLDERS.has(seg))) {
     throw new BadRequestException(`"${slug}" is a reserved folder name`)
   }
   return slug

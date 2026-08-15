@@ -2,9 +2,22 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ChevronDown, ExternalLink, Loader2, RotateCcw, Send, WifiOff, X } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  Copy,
+  ExternalLink,
+  Loader2,
+  Maximize2,
+  Minimize2,
+  RotateCcw,
+  Send,
+  Sparkles,
+  WifiOff,
+  X,
+} from 'lucide-react'
 import { AgentChatLauncher } from '@/components/agent/AgentChatLauncher'
-import { toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
+import { toastFail, toastOk } from '@/lib/admin/feedback'
 import { AGENT_QUICK_COMMANDS } from '@/lib/agent/quick-commands'
 import {
   clearAgentSession,
@@ -20,11 +33,11 @@ import {
 import { cn } from '@/lib/utils/cn'
 
 const MODEL_LABELS: Record<AgentModelId, string> = {
-  claude: 'Claude',
-  openai: 'OpenAI GPT',
-  gemini: 'Gemini',
-  grok: 'Grok',
-  manus: 'Manus',
+  claude: 'Claude 3.5 Sonnet',
+  openai: 'OpenAI GPT-4o',
+  gemini: 'Google Gemini',
+  grok: 'xAI Grok',
+  manus: 'Manus AI',
 }
 
 interface ChatMessage {
@@ -73,6 +86,187 @@ function summarizeToolChip(
   return { text: s.length > 100 ? `${s.slice(0, 97)}…` : s, tone: 'ok' }
 }
 
+/** Markdown parser that renders tables, bold, lists, and code blocks cleanly */
+function FormattedMessageContent({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    void navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  if (!text) return null
+
+  // Check if content contains markdown table
+  const lines = text.split('\n')
+  const isTableLine = (line: string) => line.trim().startsWith('|') && line.trim().endsWith('|')
+
+  const elements: React.ReactNode[] = []
+  let tableRows: string[] = []
+  let inTable = false
+
+  const renderTable = (rows: string[], idx: number) => {
+    if (rows.length < 2) return null
+    const headerCells = rows[0]?.split('|').map((s) => s.trim()).filter(Boolean) ?? []
+    const dataRows = rows
+      .slice(1)
+      .filter((r) => !r.includes('---'))
+      .map((r) => r.split('|').map((s) => s.trim()).filter(Boolean))
+
+    return (
+      <div key={`table-${idx}`} className="my-2.5 overflow-x-auto rounded-xl border border-[var(--line)] bg-[var(--surface-2)] shadow-sm">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr className="border-b border-[var(--line)] bg-[var(--surface-3)]">
+              {headerCells.map((h, i) => (
+                <th key={i} className="px-3 py-2 font-bold text-[var(--ink)] tracking-wider text-[11px] uppercase">
+                  {h.replace(/\*\*/g, '')}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--line)]">
+            {dataRows.map((row, rIdx) => (
+              <tr key={rIdx} className="hover:bg-[var(--surface-3)]/50 transition-colors">
+                {row.map((cell, cIdx) => (
+                  <td key={cIdx} className="px-3 py-2 text-[var(--ink-2)] text-[12px] whitespace-nowrap">
+                    {cell.startsWith('**') && cell.endsWith('**') ? (
+                      <strong className="text-[var(--ink)]">{cell.replace(/\*\*/g, '')}</strong>
+                    ) : cell.includes('[') && cell.includes(']') ? (
+                      <span className="inline-flex rounded bg-[var(--surface)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--violet)] border border-[var(--line)]">
+                        {cell}
+                      </span>
+                    ) : (
+                      cell.replace(/\*\*/g, '')
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? ''
+    if (isTableLine(line)) {
+      inTable = true
+      tableRows.push(line)
+    } else {
+      if (inTable) {
+        elements.push(renderTable(tableRows, i))
+        tableRows = []
+        inTable = false
+      }
+
+      if (!line.trim()) {
+        elements.push(<div key={`br-${i}`} className="h-2" />)
+      } else if (line.startsWith('### ')) {
+        elements.push(
+          <h4 key={`h3-${i}`} className="my-1.5 font-bold text-[13.5px] text-[var(--ink)]">
+            {line.replace('### ', '')}
+          </h4>,
+        )
+      } else if (line.startsWith('## ') || line.startsWith('# ')) {
+        elements.push(
+          <h3 key={`h2-${i}`} className="my-2 font-black text-[14.5px] text-[var(--ink)]">
+            {line.replace(/^#+\s/, '')}
+          </h3>,
+        )
+      } else if (line.trim().startsWith('* ') || line.trim().startsWith('- ')) {
+        const bulletText = line.trim().replace(/^[*]\s|^[-]\s/, '')
+        elements.push(
+          <div key={`li-${i}`} className="my-1 flex items-start gap-2 text-[12.5px] leading-relaxed text-[var(--ink-2)]">
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--violet)]" />
+            <span>{parseInlineMarkdown(bulletText)}</span>
+          </div>,
+        )
+      } else {
+        elements.push(
+          <p key={`p-${i}`} className="my-1 text-[12.5px] leading-relaxed text-[var(--ink)]">
+            {parseInlineMarkdown(line)}
+          </p>,
+        )
+      }
+    }
+  }
+
+  if (inTable && tableRows.length > 0) {
+    elements.push(renderTable(tableRows, lines.length))
+  }
+
+  return (
+    <div className="relative group">
+      <button
+        type="button"
+        onClick={handleCopy}
+        title="Copy response"
+        className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md bg-[var(--surface-2)] text-[var(--ink-3)] hover:text-[var(--ink)] border border-[var(--line)]"
+      >
+        {copied ? <Check className="h-3 w-3 text-[var(--ok)]" /> : <Copy className="h-3 w-3" />}
+      </button>
+      <div className="space-y-0.5">{elements}</div>
+    </div>
+  )
+}
+
+function parseInlineMarkdown(text: string): React.ReactNode {
+  // Replace bold **text** and code `code`
+  const parts: React.ReactNode[] = []
+  const boldRegex = /\*\*(.*?)\*\*/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = boldRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(parseCodeInline(text.substring(lastIndex, match.index)))
+    }
+    parts.push(
+      <strong key={`b-${match.index}`} className="font-bold text-[var(--ink)]">
+        {match[1]}
+      </strong>,
+    )
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(parseCodeInline(text.substring(lastIndex)))
+  }
+
+  return parts.length > 0 ? parts : text
+}
+
+function parseCodeInline(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = []
+  const codeRegex = /`([^`]+)`/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = codeRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.substring(lastIndex, match.index))
+    }
+    parts.push(
+      <code
+        key={`c-${match.index}`}
+        className="rounded px-1.5 py-0.5 font-mono text-[11.5px] font-semibold bg-[var(--surface-2)] text-[var(--violet)] border border-[var(--line)]"
+      >
+        {match[1]}
+      </code>,
+    )
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex))
+  }
+
+  return parts.length > 0 ? parts : text
+}
+
 interface AgentChatPanelProps {
   open: boolean
   onClose?: () => void
@@ -119,6 +313,7 @@ export function AgentChatPanel({
   const [status, setStatus] = useState<AgentStatusResponse | null>(null)
   const [apiOnline, setApiOnline] = useState(true)
   const [quickOpen, setQuickOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const sessionId = useRef(sessionKey())
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -157,146 +352,128 @@ export function AgentChatPanel({
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, activeTool])
+  }, [messages, streaming, activeTool])
 
-  const appendAssistant = useCallback((id: string, chunk: string) => {
-    setMessages((prev) => {
-      const idx = prev.findIndex((m) => m.id === id)
-      if (idx === -1) {
-        return [...prev, { id, role: 'assistant' as const, content: chunk }]
-      }
-      const existing = prev[idx]
-      if (!existing) return prev
-      const next = [...prev]
-      next[idx] = { ...existing, content: existing.content + chunk }
-      return next
-    })
-  }, [])
+  const ready = chatReadyProp ?? (status?.activeModelReady ?? false)
 
-  const ready =
-    chatReadyProp !== undefined
-      ? chatReadyProp && apiOnline
-      : apiOnline && (status?.activeModelReady ?? false)
-
-  const sendMessage = useCallback(
-    async (text: string) => {
-      const trimmed = text.trim()
-      if (!trimmed || streaming) return
-
-      if (!apiOnline) {
-        toastFail('API offline — start pnpm dev:stack')
-        return
-      }
-      if (!ready) {
-        toastFail('AI Command Brain এ API key যোগ করুন')
-        return
-      }
-
-      const budgetPct = status?.budget?.pct ?? 0
-      if (budgetPct >= 0.8 && budgetPct < 1) {
-        toastWarn(
-          `AI budget ~${Math.round(budgetPct * 100)}% used today — soft warn before hard refuse`,
-          'agent-budget-warn',
+  const handleStreamEvent = useCallback((event: AgentStreamEvent, botMsgId: string) => {
+    if (event.type === 'token') {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === botMsgId
+            ? { ...m, content: m.content + (event.content ?? ''), pending: false }
+            : m,
+        ),
+      )
+    } else if (event.type === 'tool_start') {
+      setActiveTool(event.toolName ?? null)
+    } else if (event.type === 'tool_end') {
+      setActiveTool(null)
+      const summary = summarizeToolChip(event.toolName, event.toolResult)
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== botMsgId),
+        {
+          id: `tool_${Date.now()}_${Math.random()}`,
+          role: 'tool',
+          ...(event.toolName ? { toolName: event.toolName } : {}),
+          content: summary.text,
+          tone: summary.tone,
+        },
+        ...prev.filter((m) => m.id === botMsgId),
+      ])
+    } else if (event.type === 'confirm_required') {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `conf_${Date.now()}`,
+          role: 'confirm',
+          content: event.content ?? 'Please confirm action',
+          ...(event.pendingId ? { pendingId: event.pendingId } : {}),
+        },
+      ])
+    } else if (event.type === 'cost') {
+      if (event.costEstUsd != null && event.costEstUsd > 0) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === botMsgId
+              ? { ...m, costLabel: `$${event.costEstUsd?.toFixed(4)}` }
+              : m,
+          ),
         )
       }
+    } else if (event.type === 'budget_exceeded') {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err_${Date.now()}`,
+          role: 'assistant',
+          content: event.content ?? 'Daily AI budget limit reached.',
+          tone: 'warn',
+        },
+      ])
+    } else if (event.type === 'error') {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === botMsgId
+            ? { ...m, content: event.content ?? 'Error', tone: 'error', pending: false }
+            : m,
+        ),
+      )
+    }
+  }, [])
 
-      setMessages((prev) => [...prev, { id: `u_${Date.now()}`, role: 'user', content: trimmed }])
+  const sendMessage = useCallback(
+    async (rawText: string) => {
+      const text = rawText.trim()
+      if (!text || streaming || !ready) return
+
       setInput('')
+      const userMsgId = `usr_${Date.now()}`
+      const botMsgId = `bot_${Date.now()}`
+      setMessages((prev) => [...prev, { id: userMsgId, role: 'user', content: text }])
       setStreaming(true)
+      setActiveTool(null)
 
-      const assistantId = `a_${Date.now()}`
-      setMessages((prev) => [...prev, { id: assistantId, role: 'assistant', content: '', pending: true }])
-
-      abortRef.current?.abort()
       abortRef.current = new AbortController()
 
-      const handleEvent = (event: AgentStreamEvent) => {
-        if (event.type === 'token' && event.content) appendAssistant(assistantId, event.content)
-        if (event.type === 'tool_start' && event.toolName) {
-          const toolName = event.toolName
-          setActiveTool(toolName)
-          setMessages((prev) => [
-            ...prev,
-            { id: `t_${toolName}_${Date.now()}`, role: 'tool' as const, content: '', toolName, pending: true },
-          ])
-        }
-        if (event.type === 'tool_end' && event.toolName) {
-          setActiveTool(null)
-          const summary = summarizeToolChip(event.toolName, event.toolResult)
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.toolName === event.toolName && m.pending
-                ? { ...m, pending: false, content: summary.text, tone: summary.tone }
-                : m,
-            ),
-          )
-          if (summary.tone === 'warn') {
-            toastWarn(summary.text.slice(0, 160), `agent-tool-${event.toolName}`)
-          } else if (summary.tone === 'error') {
-            toastFail(summary.text.slice(0, 160), `agent-tool-${event.toolName}`)
-          }
-        }
-        if (event.type === 'confirm_required') {
-          const confirmMsg: ChatMessage = {
-            id: `c_${event.pendingId ?? Date.now()}`,
-            role: 'confirm',
-            content: event.content ?? 'Confirm this action?',
-          }
-          if (event.pendingId) confirmMsg.pendingId = event.pendingId
-          setMessages((prev) => [...prev, confirmMsg])
-        }
-        if (event.type === 'cost') {
-          const tokens = (event.tokenInEst ?? 0) + (event.tokenOutEst ?? 0)
-          const usd = event.costEstUsd ?? 0
-          const costLabel =
-            tokens > 0
-              ? `~${tokens.toLocaleString()} tokens · ~$${usd < 0.01 ? usd.toFixed(4) : usd.toFixed(3)}`
-              : undefined
-          if (costLabel) {
-            setMessages((prev) =>
-              prev.map((m) => (m.id === assistantId ? { ...m, costLabel } : m)),
-            )
-          }
-        }
-        if (event.type === 'budget_exceeded') {
-          appendAssistant(assistantId, `\n\n⚠ ${event.content ?? 'Daily AI budget exceeded'}`)
-          toastFail(event.content ?? 'Daily AI budget exceeded')
-        }
-        if (event.type === 'error') {
-          appendAssistant(assistantId, `\n\n⚠ ${event.content ?? 'Error'}`)
-          toastFail(event.content ?? 'AI request failed')
-        }
-        if (event.type === 'done') {
-          setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, pending: false } : m)))
-        }
-      }
+      setMessages((prev) => [
+        ...prev,
+        { id: botMsgId, role: 'assistant', content: '', pending: true },
+      ])
 
       try {
         await streamAgentChat({
           sessionId: sessionId.current,
-          message: trimmed,
+          message: text,
           ...(context ? { context } : {}),
-          ...(abortRef.current.signal ? { signal: abortRef.current.signal } : {}),
-          onEvent: handleEvent,
+          ...(abortRef.current ? { signal: abortRef.current.signal } : {}),
+          onEvent: (event) => handleStreamEvent(event, botMsgId),
         })
-      } catch {
-        appendAssistant(assistantId, '\n\n⚠ Connection failed')
-        toastFail('Could not reach AI API')
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Error talking to agent'
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === botMsgId
+              ? { ...m, content: `Error: ${msg}`, tone: 'error', pending: false }
+              : m,
+          ),
+        )
       } finally {
         setStreaming(false)
         setActiveTool(null)
-        setMessages((prev) => prev.map((m) => ({ ...m, pending: false })))
+        abortRef.current = null
+        void refreshStatus()
       }
     },
-    [appendAssistant, apiOnline, context, ready, status?.budget?.pct, streaming],
+    [context, handleStreamEvent, ready, refreshStatus, streaming],
   )
 
   useEffect(() => {
-    if (open && seedMessage) {
+    if (seedMessage && open && ready && !streaming) {
       void sendMessage(seedMessage)
       onSeedConsumed?.()
     }
-  }, [open, seedMessage, sendMessage, onSeedConsumed])
+  }, [seedMessage, open, ready, streaming, sendMessage, onSeedConsumed])
 
   const handleModelSwitch = async (next: AgentModelId) => {
     setModelOpen(false)
@@ -335,109 +512,156 @@ export function AgentChatPanel({
   return (
     <div
       className={cn(
-        'admin-agent-chat flex flex-col overflow-hidden rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[0_24px_60px_rgba(0,0,0,0.12)]',
+        'admin-agent-chat flex flex-col overflow-hidden border border-[var(--line)] bg-[var(--surface)] shadow-[0_32px_100px_rgba(0,0,0,0.7)] transition-all duration-300',
         embedded
-          ? 'admin-agent-chat--embedded relative w-full'
+          ? 'admin-agent-chat--embedded relative w-full rounded-[24px]'
           : setupPage
-            ? 'admin-agent-chat--setup-page fixed z-[75] w-[min(380px,calc(100vw-2rem))]'
-            : 'fixed bottom-5 right-5 z-[80] w-[min(400px,calc(100vw-1.5rem))]',
+            ? cn(
+                'admin-agent-chat--setup-page fixed bottom-5 right-5 z-[85] rounded-[24px]',
+                expanded ? 'w-[min(680px,calc(100vw-2.5rem))]' : 'w-[min(460px,calc(100vw-2rem))]',
+              )
+            : cn(
+                'fixed bottom-5 right-5 z-[85] rounded-[24px]',
+                expanded ? 'w-[min(720px,calc(100vw-2.5rem))]' : 'w-[min(480px,calc(100vw-2rem))]',
+              ),
       )}
+      style={{
+        background: 'var(--surface)',
+        backgroundImage: 'var(--card-sheen)',
+      }}
     >
-      <header className="admin-agent-chat__head flex items-center gap-3 px-4 py-3">
-        <AgentChatLauncher online={ready} size="inline" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-black text-[var(--admin-text)]">
-            {embedded ? 'SPLARO Command' : 'SPLARO AI'}
-          </p>
-          <p className="truncate text-[10px] font-semibold text-[var(--admin-text-muted)]">
-            {!apiOnline
-              ? 'API offline'
-              : ready
-                ? model === 'manus'
-                  ? `Live · Manus · async (15–60s) · pre-reads only`
-                  : `Live · ${MODEL_LABELS[model]} · SPLARO tools`
-                : 'AI Command Brain এ API key দিন'}
-          </p>
-        </div>
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setModelOpen((v) => !v)}
-            className="flex items-center gap-1 rounded-lg border border-[var(--admin-border)] px-2 py-1 text-[10px] font-bold text-[var(--admin-text-secondary)]"
-          >
-            {MODEL_LABELS[model]}
-            <ChevronDown className="h-3 w-3" />
-          </button>
-          {modelOpen ? (
-            <div className="absolute right-0 top-full z-10 mt-1 min-w-[130px] rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] py-1 shadow-lg">
-              {(Object.keys(MODEL_LABELS) as AgentModelId[]).map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  disabled={!status?.models[id]?.configured}
-                  onClick={() => void handleModelSwitch(id)}
-                  className={cn(
-                    'block w-full px-3 py-1.5 text-left text-[11px] font-semibold hover:bg-[var(--admin-surface-hover)] disabled:opacity-40',
-                    model === id && 'text-[var(--admin-color-accent-blue)]',
-                  )}
-                >
-                  {MODEL_LABELS[id]}
-                </button>
-              ))}
+      {/* HEADER */}
+      <header className="admin-agent-chat__head flex items-center justify-between border-b border-[var(--line)] bg-[var(--surface)] px-4 py-3.5">
+        <div className="flex items-center gap-3 min-w-0">
+          <AgentChatLauncher online={ready} size="inline" />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="truncate text-[14px] font-bold text-[var(--ink)]">
+                {embedded ? 'SPLARO Command Brain' : 'SPLARO AI Assistant'}
+              </p>
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--violet-soft)] px-2 py-0.5 text-[10px] font-bold text-[var(--violet)]">
+                <Sparkles className="h-2.5 w-2.5" />
+                LIVE
+              </span>
             </div>
-          ) : null}
+            <p className="truncate text-[11px] font-medium text-[var(--ink-3)]">
+              {!apiOnline
+                ? 'API offline'
+                : ready
+                  ? `Active · ${MODEL_LABELS[model]} · Live DB Tools`
+                  : 'API key required in AI Command Brain'}
+            </p>
+          </div>
         </div>
-        {!embedded && onClose ? (
-          <>
+
+        <div className="flex items-center gap-1.5">
+          {/* MODEL PICKER */}
+          <div className="relative">
             <button
               type="button"
-              title="Clear chat"
-              onClick={() => void handleClearSession()}
-              className="rounded-lg p-1.5 text-[var(--admin-text-muted)] hover:bg-[var(--admin-surface-hover)]"
+              onClick={() => setModelOpen((v) => !v)}
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 py-1 text-[11px] font-semibold text-[var(--ink)] hover:border-[var(--violet)] transition-colors"
             >
-              <RotateCcw className="h-4 w-4" />
+              <span className="truncate max-w-[90px]">{MODEL_LABELS[model].split(' ')[0]}</span>
+              <ChevronDown className="h-3 w-3 text-[var(--ink-3)]" />
             </button>
-            <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-[var(--admin-text-muted)] hover:bg-[var(--admin-surface-hover)]">
+            {modelOpen ? (
+              <div className="absolute right-0 top-full z-20 mt-1 min-w-[170px] rounded-xl border border-[var(--line)] bg-[var(--surface)] py-1.5 shadow-xl">
+                {(Object.keys(MODEL_LABELS) as AgentModelId[]).map((id) => {
+                  const isCfg = status?.models[id]?.configured
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      disabled={!isCfg}
+                      onClick={() => void handleModelSwitch(id)}
+                      className={cn(
+                        'flex w-full items-center justify-between px-3 py-1.5 text-left text-[12px] font-medium hover:bg-[var(--surface-2)] transition-colors disabled:opacity-40',
+                        model === id ? 'text-[var(--violet)] font-bold' : 'text-[var(--ink)]',
+                      )}
+                    >
+                      <span>{MODEL_LABELS[id]}</span>
+                      {model === id ? <Check className="h-3.5 w-3.5 text-[var(--violet)]" /> : null}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : null}
+          </div>
+
+          {/* EXPAND / MINIMIZE BUTTON */}
+          {!embedded ? (
+            <button
+              type="button"
+              title={expanded ? 'Collapse to compact view' : 'Expand full drawer'}
+              onClick={() => setExpanded((v) => !v)}
+              className="rounded-lg p-1.5 text-[var(--ink-3)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] transition-colors"
+            >
+              {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+          ) : null}
+
+          {/* CLEAR HISTORY */}
+          <button
+            type="button"
+            title="Clear chat history"
+            onClick={() => void handleClearSession()}
+            className="rounded-lg p-1.5 text-[var(--ink-3)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] transition-colors"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </button>
+
+          {/* CLOSE BUTTON */}
+          {!embedded && onClose ? (
+            <button
+              type="button"
+              title="Close chat"
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-[var(--ink-3)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] transition-colors"
+            >
               <X className="h-4 w-4" />
             </button>
-          </>
-        ) : null}
+          ) : null}
+        </div>
       </header>
 
+      {/* OFFLINE / MISSING KEY BANNERS */}
       {!apiOnline ? (
-        <div className="flex items-center gap-2 border-b border-amber-200/50 bg-amber-50/90 px-4 py-2 text-[11px] font-semibold text-amber-800 dark:border-amber-900/30 dark:bg-amber-950/40 dark:text-amber-300">
-          <WifiOff className="h-3.5 w-3.5 shrink-0" />
-          Start API — no fake replies
+        <div className="flex items-center gap-2 border-b border-[var(--warn-bd)] bg-[var(--warn-soft)] px-4 py-2.5 text-[12px] font-semibold text-[var(--warn)]">
+          <WifiOff className="h-4 w-4 shrink-0" />
+          API is offline. Start backend with <code>pnpm dev:api</code> to enable AI replies.
         </div>
       ) : !ready ? (
-        <div className="border-b border-[var(--admin-border)] bg-[rgba(16,17,20,0.08)] px-4 py-3 text-[11px] leading-relaxed text-[var(--admin-text-secondary)]">
-          <p className="font-bold text-[var(--admin-text)]">API key লাগবে chat চালাতে</p>
+        <div className="border-b border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-[12px] leading-relaxed text-[var(--ink-2)]">
+          <p className="font-bold text-[var(--ink)]">API key required to activate AI</p>
           <p className="mt-1">
-            Sidebar → <strong>AI Command Brain</strong> → API key save করুন।
+            Navigate to <strong>AI Command Brain</strong> and add your Anthropic, OpenAI, or Gemini key.
           </p>
           <Link
             href="/dashboard/ai-agent"
-            className="mt-2 inline-flex items-center gap-1 font-black text-[var(--admin-c-3f3f46)] hover:underline"
+            className="mt-2 inline-flex items-center gap-1.5 font-bold text-[var(--violet)] hover:underline"
           >
-            AI Command Brain
+            Open AI Command Brain
             <ExternalLink className="h-3 w-3" />
           </Link>
           {configuredModels.length > 0 ? (
-            <p className="mt-2 text-[10px]">
-              Keys saved: {configuredModels.map((id) => MODEL_LABELS[id]).join(', ')}
+            <p className="mt-2 text-[11px] text-[var(--ink-3)]">
+              Configured providers: {configuredModels.map((id) => MODEL_LABELS[id]).join(', ')}
             </p>
           ) : null}
         </div>
       ) : null}
 
+      {/* QUICK COMMANDS */}
       {quickCommands ? (
-        <div className="border-b border-[var(--admin-glass-border-subtle)] px-3 py-2">
+        <div className="border-b border-[var(--line)] bg-[var(--surface-2)]/60 px-4 py-2">
           <button
             type="button"
             onClick={() => setQuickOpen((v) => !v)}
-            className="text-[10px] font-black uppercase tracking-wide text-[var(--admin-text-muted)]"
+            className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-3)] hover:text-[var(--ink)] transition-colors"
           >
-            Quick commands {quickOpen ? '▾' : '▸'}
+            <span>Quick Commands</span>
+            <span className="text-[9px]">{quickOpen ? '▲' : '▼'}</span>
           </button>
           {quickOpen ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -447,7 +671,7 @@ export function AgentChatPanel({
                   type="button"
                   disabled={streaming || !ready}
                   onClick={() => void sendMessage(cmd.message)}
-                  className="ai-command-quick__chip"
+                  className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 text-[11px] font-medium text-[var(--ink)] hover:border-[var(--violet)] hover:text-[var(--violet)] transition-colors disabled:opacity-40 shadow-xs"
                 >
                   {cmd.label}
                 </button>
@@ -457,33 +681,38 @@ export function AgentChatPanel({
         </div>
       ) : null}
 
+      {/* MESSAGES VIEWPORT */}
       <div
         className={cn(
-          'flex min-h-[260px] flex-1 flex-col gap-3 overflow-y-auto px-4 py-3',
-          embedded ? 'max-h-[min(520px,55vh)]' : setupPage ? 'max-h-[min(360px,42vh)]' : 'max-h-[min(440px,52vh)]',
+          'flex min-h-[300px] flex-1 flex-col gap-3 overflow-y-auto px-4 py-4',
+          expanded
+            ? 'max-h-[min(620px,65vh)]'
+            : embedded
+              ? 'max-h-[min(520px,55vh)]'
+              : setupPage
+                ? 'max-h-[min(380px,45vh)]'
+                : 'max-h-[min(480px,55vh)]',
         )}
       >
         {messages.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-2 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(113,46,255,0.1)] ring-1 ring-[rgba(113,46,255,0.2)]">
-              <AgentChatLauncher online={ready} size="inline" />
+          <div className="flex flex-1 flex-col items-center justify-center gap-3.5 px-3 py-6 text-center my-auto">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--violet-soft)] border border-[var(--violet-bd)] shadow-sm">
+              <Sparkles className="h-6 w-6 text-[var(--violet)]" />
             </div>
-            <div className="max-w-[300px]">
-              <p className="text-[13px] font-black text-[var(--admin-text)]">Ask SPLARO</p>
-              <p className="mt-1 text-[11px] font-semibold leading-relaxed text-[var(--admin-text-secondary)]">
-                Order count, low stock, courier, SEO — live DB. Model:{' '}
-                <span className="text-[var(--admin-color-accent-blue)]">{MODEL_LABELS[model]}</span>
-                {model === 'manus' ? ' (slower async).' : '.'}
+            <div className="max-w-[320px]">
+              <p className="text-[14px] font-black text-[var(--ink)]">How can SPLARO AI assist you?</p>
+              <p className="mt-1 text-[12px] font-medium leading-relaxed text-[var(--ink-3)]">
+                Ask about real-time sales, order fulfillment, low stock, customer COD risk, or SEO gaps.
               </p>
             </div>
-            <div className="flex flex-wrap justify-center gap-1.5">
-              {['আজকের order কয়টা?', 'Low stock?', 'SEO missing?'].map((hint) => (
+            <div className="flex flex-wrap justify-center gap-2">
+              {['আজকের সেলস সামারি?', 'Low stock alert', 'SEO gaps check'].map((hint) => (
                 <button
                   key={hint}
                   type="button"
                   disabled={streaming || !ready}
                   onClick={() => void sendMessage(hint)}
-                  className="rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-2,var(--admin-surface))] px-2.5 py-1 text-[10px] font-bold text-[var(--admin-text-secondary)] hover:border-[var(--admin-color-accent-blue)] hover:text-[var(--admin-color-accent-blue)] disabled:opacity-40"
+                  className="rounded-full border border-[var(--line)] bg-[var(--surface-2)] px-3 py-1 text-[11.5px] font-semibold text-[var(--ink)] hover:border-[var(--violet)] hover:text-[var(--violet)] transition-all disabled:opacity-40"
                 >
                   {hint}
                 </button>
@@ -496,23 +725,23 @@ export function AgentChatPanel({
           if (msg.role === 'tool') {
             const warn = msg.tone === 'warn' || msg.tone === 'error'
             return (
-              <div key={msg.id} className="flex flex-col items-center gap-1">
+              <div key={msg.id} className="flex flex-col items-center gap-1 my-1">
                 <span
                   className={cn(
-                    'rounded-full px-3 py-1 text-[10px] font-bold',
+                    'inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-[11px] font-bold border',
                     warn
-                      ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
-                      : 'bg-[rgba(16,17,20,0.12)] text-[var(--admin-c-3f3f46)]',
+                      ? 'border-[var(--warn-bd)] bg-[var(--warn-soft)] text-[var(--warn)]'
+                      : 'border-[var(--line)] bg-[var(--surface-2)] text-[var(--ink-2)]',
                   )}
                 >
-                  {msg.pending ? <Loader2 className="mr-1 inline h-3 w-3 animate-spin" /> : warn ? '⚠ ' : '🔧 '}
+                  {msg.pending ? <Loader2 className="h-3 w-3 animate-spin text-[var(--violet)]" /> : warn ? '⚠ ' : '⚡ '}
                   {msg.toolName?.replace(/_/g, ' ')}
                 </span>
                 {!msg.pending && msg.content ? (
                   <span
                     className={cn(
-                      'max-w-[92%] text-center text-[10px] font-semibold leading-snug',
-                      warn ? 'text-amber-800 dark:text-amber-300' : 'text-[var(--admin-text-muted)]',
+                      'max-w-[90%] text-center text-[11px] font-medium leading-snug',
+                      warn ? 'text-[var(--warn)]' : 'text-[var(--ink-3)]',
                     )}
                   >
                     {msg.content}
@@ -521,27 +750,31 @@ export function AgentChatPanel({
               </div>
             )
           }
+
           if (msg.role === 'confirm') {
             return (
               <div
                 key={msg.id}
-                className="mx-auto max-w-[92%] rounded-2xl border border-amber-300/60 bg-amber-50/80 px-3 py-3 text-[12px] leading-relaxed text-amber-950 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-100"
+                className="mx-auto my-2 w-full max-w-[95%] rounded-2xl border border-[var(--warn-bd)] bg-[var(--warn-soft)] p-3.5 text-[12.5px] leading-relaxed text-[var(--ink)] shadow-md"
               >
-                <p className="whitespace-pre-wrap font-semibold">{msg.content}</p>
-                <div className="mt-2 flex gap-2">
+                <div className="flex items-center gap-2 font-bold text-[var(--warn)] mb-1">
+                  <span>⚠ Confirmation Required</span>
+                </div>
+                <p className="whitespace-pre-wrap font-medium">{msg.content}</p>
+                <div className="mt-3 flex gap-2">
                   <button
                     type="button"
                     disabled={streaming}
                     onClick={() => void sendMessage('confirm')}
-                    className="rounded-lg bg-emerald-600 px-3 py-1 text-[11px] font-black text-white disabled:opacity-40"
+                    className="rounded-lg bg-[var(--ok)] px-3.5 py-1.5 text-[11.5px] font-bold text-[var(--on-primary,var(--admin-color-white))] hover:opacity-90 transition-opacity disabled:opacity-40"
                   >
-                    Confirm
+                    Confirm Action
                   </button>
                   <button
                     type="button"
                     disabled={streaming}
                     onClick={() => void sendMessage('cancel')}
-                    className="rounded-lg border border-amber-400/60 px-3 py-1 text-[11px] font-bold disabled:opacity-40"
+                    className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3.5 py-1.5 text-[11.5px] font-bold text-[var(--ink)] hover:bg-[var(--surface-2)] transition-colors disabled:opacity-40"
                   >
                     Cancel
                   </button>
@@ -549,50 +782,65 @@ export function AgentChatPanel({
               </div>
             )
           }
+
           const isUser = msg.role === 'user'
           return (
             <div
               key={msg.id}
               className={cn(
-                'max-w-[88%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-[13px] leading-relaxed',
-                isUser ? 'ml-auto bg-[var(--admin-color-ink-near)] text-white dark:bg-[var(--admin-color-accent-blue)] dark:text-[var(--admin-color-ink-near)]' : 'bg-[var(--admin-surface-elevated)] text-[var(--admin-text)]',
+                'max-w-[90%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed shadow-xs',
+                isUser
+                  ? 'ml-auto bg-[var(--violet)] text-white font-medium rounded-br-xs'
+                  : 'bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] rounded-bl-xs',
               )}
             >
-              {msg.content || (msg.pending ? <Loader2 className="h-4 w-4 animate-spin opacity-50" /> : null)}
-              {!isUser && msg.costLabel ? (
-                <p className="mt-1.5 text-[10px] font-semibold text-[var(--admin-text-muted)]">{msg.costLabel}</p>
-              ) : null}
+              {isUser ? (
+                <div className="whitespace-pre-wrap">{msg.content}</div>
+              ) : (
+                <>
+                  <FormattedMessageContent text={msg.content} />
+                  {msg.pending ? <Loader2 className="h-4 w-4 animate-spin opacity-60 mt-1 text-[var(--violet)]" /> : null}
+                  {msg.costLabel ? (
+                    <p className="mt-2 text-[10.5px] font-medium text-[var(--ink-3)] border-t border-[var(--line)] pt-1">
+                      {msg.costLabel}
+                    </p>
+                  ) : null}
+                </>
+              )}
             </div>
           )
         })}
+
         {activeTool ? (
-          <div className="flex justify-center">
-            <span className="rounded-full border border-dashed border-[var(--admin-color-accent-blue)]/40 px-3 py-1 text-[10px] font-bold text-[var(--admin-c-3f3f46)]">
-              {activeTool.replace(/_/g, ' ')}…
+          <div className="flex justify-center my-1">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-[var(--violet-bd)] bg-[var(--violet-soft)] px-3 py-1 text-[11px] font-bold text-[var(--violet)]">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Running {activeTool.replace(/_/g, ' ')}…
             </span>
           </div>
         ) : null}
         <div ref={bottomRef} />
       </div>
 
+      {/* INPUT FORM */}
       <form
-        className="flex gap-2 border-t border-[var(--admin-border)] p-3"
+        className="flex items-center gap-2 border-t border-[var(--line)] bg-[var(--surface)] p-3"
         onSubmit={(e) => {
           e.preventDefault()
           void sendMessage(input)
         }}
       >
         <input
-          className="admin-input flex-1 text-sm"
+          className="flex-1 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3.5 py-2.5 text-[13px] text-[var(--ink)] placeholder-[var(--ink-3)] focus:border-[var(--violet)] focus:outline-none transition-colors"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={ready ? 'Bangla, Banglish বা English…' : 'AI Command Brain এ key দিন…'}
+          placeholder={ready ? 'Ask in Bangla, Banglish or English…' : 'Add API key in AI Command Brain…'}
           disabled={streaming || !ready}
         />
         <button
           type="submit"
           disabled={streaming || !input.trim() || !ready}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--admin-color-accent-blue)] text-[var(--admin-color-ink-near)] disabled:opacity-40"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--violet)] text-white hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
         >
           {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </button>
@@ -606,13 +854,13 @@ export function AgentChatFab({ onClick, online }: { onClick: () => void; online?
     <button
       type="button"
       onClick={onClick}
-      title="SPLARO AI Chat"
+      title="Open SPLARO AI Assistant"
       aria-label="Open SPLARO AI chat"
-      className="admin-agent-fab group fixed bottom-5 right-5 z-[70] flex flex-col items-center gap-1.5"
+      className="admin-agent-fab group fixed bottom-5 right-5 z-[70] flex items-center gap-2.5 rounded-full border border-[var(--line)] bg-[var(--surface)] px-4 py-2.5 shadow-2xl hover:border-[var(--violet)] hover:shadow-[0_8px_30px_rgba(113,46,255,0.3)] transition-all"
     >
-      <AgentChatLauncher online={online !== false} />
-      <span className="rounded-full bg-[var(--admin-text)] px-2.5 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-[var(--admin-bg)] shadow-md">
-        Chat
+      <AgentChatLauncher online={online !== false} size="inline" />
+      <span className="font-bold text-[12.5px] text-[var(--ink)] tracking-wide">
+        Ask SPLARO
       </span>
     </button>
   )

@@ -170,26 +170,40 @@ export class OrderEventsService {
   private async checkLowStock(storeId: string, variantIds: string[]): Promise<void> {
     if (variantIds.length === 0) return
     try {
-      const threshold = 5
-      const lowStockVariants = await this.prisma.productVariant.findMany({
-        where: { id: { in: variantIds }, stock: { lte: threshold } },
-        include: { product: { select: { name: true } } },
+      const variants = await this.prisma.productVariant.findMany({
+        where: { id: { in: variantIds }, product: { storeId } },
+        include: { product: { select: { id: true, name: true, lowStockThreshold: true } } },
       })
 
-      for (const variant of lowStockVariants) {
-        await this.notifications?.notifyLowStock(
-          storeId,
-          variant.product.name,
-          variant.sku ?? variant.id,
-          variant.stock,
-        )
-        await this.webhooks?.dispatch(storeId, 'product.low_stock', {
-          storeId,
-          variantId: variant.id,
-          productName: variant.product.name,
-          sku: variant.sku,
-          stock: variant.stock,
-        })
+      for (const variant of variants) {
+        const threshold = variant.product.lowStockThreshold ?? 5
+        if (variant.stock <= threshold) {
+          await this.notifications?.notifyLowStock(
+            storeId,
+            variant.product.name,
+            variant.sku ?? variant.id,
+            variant.stock,
+          )
+          await this.webhooks?.dispatch(storeId, 'product.low_stock', {
+            storeId,
+            productId: variant.product.id,
+            variantId: variant.id,
+            productName: variant.product.name,
+            sku: variant.sku,
+            stock: variant.stock,
+            threshold,
+          })
+          await this.automation?.runTrigger(storeId, 'STOCK_LOW', {
+            storeId,
+            productId: variant.product.id,
+            variantId: variant.id,
+            productName: variant.product.name,
+            sku: variant.sku ?? variant.id,
+            stock: variant.stock,
+            threshold,
+            triggeredBy: 'system',
+          })
+        }
       }
     } catch (err) {
       this.logger.error(`Low stock check failed: ${err instanceof Error ? err.message : 'unknown'}`)

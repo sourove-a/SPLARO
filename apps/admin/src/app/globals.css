@@ -13746,34 +13746,33 @@ a.admin-conn-chip:hover {
 }
 
 /* === AUTH CONTRAST LOCK (must stay last) === */
-/* Surfaces/imports can set white cards; auth type is light-on-dark — lock dark panel.
-   Scoped away from the DC split login, whose form column is deliberately light. */
-body:not(:has(.admin-auth-shell--dc)) .admin-auth-glass-panel,
-body:not(:has(.admin-auth-shell--dc)) .admin-auth-card {
+/* Surfaces/imports can set white cards; auth type is light-on-dark — lock dark panel. */
+.admin-auth-glass-panel,
+.admin-auth-card {
   background: rgba(12, 14, 20, 0.92) !important;
   border-color: rgba(255, 255, 255, 0.14) !important;
   box-shadow: none !important;
   color: rgba(255, 255, 255, 0.96) !important;
 }
-body:not(:has(.admin-auth-shell--dc)) .admin-auth-card__title,
-body:not(:has(.admin-auth-shell--dc)) .admin-auth-title {
+.admin-auth-card__title,
+.admin-auth-title {
   color: rgba(255, 255, 255, 0.96) !important;
 }
-body:not(:has(.admin-auth-shell--dc)) .admin-auth-card__eyebrow,
-body:not(:has(.admin-auth-shell--dc)) .admin-auth-label {
+.admin-auth-card__eyebrow,
+.admin-auth-label {
   color: rgba(255, 255, 255, 0.62) !important;
 }
-body:not(:has(.admin-auth-shell--dc)) .admin-auth-card__subtitle {
+.admin-auth-card__subtitle {
   color: rgba(255, 255, 255, 0.55) !important;
 }
-body:not(:has(.admin-auth-shell--dc)) .admin-auth-submit {
+.admin-auth-submit {
   background: var(--admin-c-712eff) !important;
   background-image: none !important;
   border-color: var(--admin-c-712eff) !important;
   color: var(--admin-color-white) !important;
   box-shadow: none !important;
 }
-body:not(:has(.admin-auth-shell--dc)) .admin-auth-submit:hover:not(:disabled) {
+.admin-auth-submit:hover:not(:disabled) {
   background: var(--admin-c-5b1fd9) !important;
   background-image: none !important;
   border-color: var(--admin-c-5b1fd9) !important;

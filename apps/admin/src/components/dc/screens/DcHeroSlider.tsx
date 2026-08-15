@@ -24,7 +24,7 @@ import { revalidateWebCache } from '@/lib/api/revalidate'
 import { resolveMediaUrl } from '@/lib/media-url'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { DcMediaPickModal } from '@/components/dc/product/DcMediaPickModal'
-import { canonicalizeHeroMediaUrl, classifyHeroMedia, isHeroVideoUrl } from '@splaro/config'
+import { canonicalizeHeroMediaUrl, classifyHeroMedia, heroMediaPreviewSrc, isHeroVideoUrl } from '@splaro/config'
 
 const HERO_POSITION = 'hero'
 
@@ -88,7 +88,7 @@ function DcHeroSliderBody() {
 
   const afterWrite = () => {
     void qc.invalidateQueries({ queryKey: ['banners'] })
-    void revalidateWebCache(['storefront-settings'])
+    void revalidateWebCache(['storefront-banners', 'hero-banners', 'storefront-settings'])
   }
 
   const toggle = useMutation({
@@ -749,7 +749,7 @@ function HeroMediaPreview({
     )
   }
 
-  const imgSrc = poster || url
+  const imgSrc = classified.poster || heroMediaPreviewSrc(url)
   return (
     <span style={frameStyle}>
       {/* eslint-disable-next-line @next/next/no-img-element -- dynamic storefront/upload URLs */}

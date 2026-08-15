@@ -24,6 +24,7 @@ import { RequestIdMiddleware } from './common/request-id.middleware'
 // Feature modules
 import { TelegramService } from './modules/telegram/telegram.service'
 import { AutomationService } from './modules/automation/automation.service'
+import { AutomationCron } from './modules/automation/automation.cron'
 import { CourierService } from './modules/courier/courier.service'
 import { CourierProcessor } from './modules/courier/courier.processor'
 import { OrderSideEffectsProcessor } from './modules/orders/order-side-effects.processor'
@@ -325,6 +326,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     CommerceFinanceService,
     TelegramService,
     AutomationService,
+    AutomationCron,
     CourierService,
     SteadfastWebhookService,
     ...queueWorkerProviders,

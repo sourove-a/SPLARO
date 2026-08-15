@@ -25,6 +25,18 @@ export function storefrontVisibleProductWhere(
     isPublished: true,
     isHidden: false,
     status: { not: 'ARCHIVED' },
-    AND: andClauses,
+    AND: [
+      ...andClauses,
+      {
+        NOT: {
+          OR: [
+            { sku: { startsWith: 'DEMO-', mode: 'insensitive' } },
+            { sku: { contains: '-QA-', mode: 'insensitive' } },
+            { description: { contains: 'seeded demo product', mode: 'insensitive' } },
+            { shortDescription: { contains: 'demo catalog for', mode: 'insensitive' } },
+          ],
+        },
+      },
+    ],
   }
 }

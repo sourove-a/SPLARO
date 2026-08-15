@@ -38,6 +38,38 @@ export interface CourierStatsResponse {
   }[]
 }
 
+export interface CourierWebhookEvent {
+  id: string
+  event: string
+  payload: Record<string, unknown>
+  createdAt: string
+}
+
+export interface CourierShipmentDetail extends CourierShipmentRow {
+  trackingUrl?: string | null
+  pickedUpAt?: string | null
+  deliveredAt?: string | null
+  returnedAt?: string | null
+  order: {
+    invoiceNumber: string
+    shippingName: string
+    shippingPhone: string
+    shippingAddress?: string
+    total?: number
+    paymentMethod?: string
+    status: string
+  }
+  webhookEvents?: CourierWebhookEvent[]
+}
+
+export interface CourierTrackingResult {
+  status: string | null
+  provider: string | null
+  consignmentId: string | null
+  trackingCode: string | null
+  trackingUrl: string | null
+}
+
 export function fetchCourierShipments(params?: {
   status?: string
   provider?: string
@@ -66,6 +98,7 @@ export function bookCourierShipment(orderId: string, provider?: string) {
     consignmentId?: string | null
     trackingCode?: string | null
     simulated?: boolean
+    alreadyBooked?: boolean
   }>(`/admin/courier/${orderId}/book`, {
     method: 'POST',
     body: JSON.stringify(provider ? { provider } : {}),
@@ -80,4 +113,36 @@ export function retryCourierShipment(orderId: string, provider?: string) {
       body: JSON.stringify(provider ? { provider } : {}),
     },
   )
+}
+
+export function fetchCourierTracking(orderId: string) {
+  return apiFetch<CourierTrackingResult>(`/admin/courier/${orderId}/track`)
+}
+
+export function fetchCourierShipmentDetail(orderId: string) {
+  return apiFetch<CourierShipmentDetail>(`/admin/courier/${orderId}`)
+}
+
+export function cancelCourierBookingLocal(orderId: string, note?: string) {
+  return apiFetch<{ id: string; status: string; localOnly: boolean }>(
+    `/admin/courier/${orderId}/cancel-booking`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    },
+  )
+}
+
+export function updateCourierStatus(orderId: string, status: string, note?: string) {
+  return apiFetch<CourierShipmentRow>(`/admin/courier/${orderId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, note }),
+  })
+}
+
+export function bulkUpdateCourierStatus(orderIds: string[], status: string, note?: string) {
+  return apiFetch<{ updated: number }>('/admin/courier/bulk/status', {
+    method: 'POST',
+    body: JSON.stringify({ orderIds, status, note }),
+  })
 }

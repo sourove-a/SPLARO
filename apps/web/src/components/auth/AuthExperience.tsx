@@ -112,13 +112,15 @@ export function AuthExperience() {
     const destination = resolvePostAuthDestination(nextPath, mode)
     setSuccessCopy('Already signed in — taking you there…')
     setRedirecting(true)
-    navigateAfterAuth(destination)
+    navigateAfterAuth(router, destination)
   }, [authHydrated, user, nextPath, mode, router])
 
   useEffect(() => {
-    if (mode !== 'login') return
-    router.prefetch('/forgot-password')
-  }, [mode, router])
+    router.prefetch('/account')
+    const nextPage = nextPath.split('?')[0] ?? '/account'
+    if (nextPage.startsWith('/')) router.prefetch(nextPage)
+    if (mode === 'login') router.prefetch('/forgot-password')
+  }, [mode, router, nextPath])
 
   // Bridge + greeting stay in sync with needsPhone (hydrate / Google / One Tap).
   useEffect(() => {
@@ -196,14 +198,14 @@ export function AuthExperience() {
         setGoogleName(payload.user.name)
         setPhone('')
         setGoogleStep('google-phone')
-        navigateAfterAuth(buildSignupPhonePath(nextPath))
+        navigateAfterAuth(router, buildSignupPhonePath(nextPath))
         return
       }
 
       const destination = resolvePostAuthDestination(nextPath, 'login')
       setSuccessCopy('Signed in — taking you there…')
       setRedirecting(true)
-      navigateAfterAuth(destination)
+      navigateAfterAuth(router, destination)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error. Please try again.')
     } finally {
@@ -232,9 +234,9 @@ export function AuthExperience() {
       }
       const destination = resolvePostAuthDestination(nextPath, authMode)
       setRedirecting(true)
-      navigateAfterAuth(destination)
+      navigateAfterAuth(router, destination)
     },
-    [nextPath, setGoogleStep, signIn, signUp],
+    [nextPath, router, setGoogleStep, signIn, signUp],
   )
 
   const handleGoogle = useCallback(
@@ -277,7 +279,7 @@ export function AuthExperience() {
           if (typeof window !== 'undefined') {
             const here = `${window.location.pathname}${window.location.search}`
             if (here !== phonePath) {
-              navigateAfterAuth(phonePath)
+              navigateAfterAuth(router, phonePath)
             }
           }
           return
@@ -290,7 +292,7 @@ export function AuthExperience() {
         setGoogleError(message)
       }
     },
-    [finishAuth, mode, nextPath, setGoogleError, setGoogleStep, signIn],
+    [finishAuth, mode, nextPath, router, setGoogleError, setGoogleStep, signIn],
   )
 
   useEffect(() => {
@@ -430,7 +432,7 @@ export function AuthExperience() {
       )
       setSuccessCopy(`Welcome, ${payload.user.name.split(' ')[0]}!`)
       setRedirecting(true)
-      navigateAfterAuth(resolvePostAuthDestination(nextPath, 'signup'))
+      navigateAfterAuth(router, resolvePostAuthDestination(nextPath, 'signup'))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error. Please try again.')
     } finally {

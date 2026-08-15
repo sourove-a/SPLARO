@@ -15,6 +15,7 @@ import { DcCampaigns } from '@/components/dc/screens/DcCampaigns'
 import { DcCoupons } from '@/components/dc/screens/DcCoupons'
 import { DcFinanceOverview } from '@/components/dc/screens/DcFinanceOverview'
 import { DcGoogleSheets } from '@/components/dc/screens/DcGoogleSheets'
+import { DcMediaLibrary } from '@/components/dc/screens/DcMediaLibrary'
 import { DcOperationsHub } from '@/components/dc/screens/DcOperationsHub'
 import { DcPosCounter } from '@/components/dc/screens/DcPosCounter'
 import { DcProfitLoss } from '@/components/dc/screens/DcProfitLoss'
@@ -48,6 +49,7 @@ const SCREENS: Record<string, { label: string; render: () => React.ReactElement 
   sms: { label: 'SMS Center', render: () => <DcSmsCenter /> },
   sheets: { label: 'Google Sheets', render: () => <DcGoogleSheets /> },
   bulk: { label: 'Bulk & CSV', render: () => <DcBulkCsv /> },
+  media: { label: 'Media Library', render: () => <DcMediaLibrary /> },
   analytics: { label: 'Analytics', render: () => <DcAnalytics /> },
   'ai-agent': { label: 'AI Command Brain', render: () => <DcAiCommandBrain /> },
   pos: { label: 'POS Counter', render: () => <DcPosCounter /> },
@@ -109,6 +111,33 @@ function buildClient(state: string): QueryClient {
   const empty = state === 'empty'
   const seed = <T,>(key: unknown[], live: T, blank: T) =>
     client.setQueryData(key, empty ? blank : live)
+
+  // Media library: folder rail, storage panel and one page of the infinite list.
+  seed(['media-folders'], fx.mediaFolders, { folders: [], tree: [] })
+  seed(['media-storage'], fx.mediaStorage, {
+    ...fx.mediaStorage,
+    libraryBytes: 0,
+    libraryAssets: 0,
+    split: { indexedBytes: 0, derivativeBytes: 0, trashBytes: 0, orphanBytes: 0, orphanFiles: 0, trashAssets: 0 },
+    byFolder: [],
+    byType: [],
+    largest: [],
+  })
+  seed(['categories'], fx.mediaCategories, [])
+  for (const type of ['all', 'library', 'product', 'banner', 'category'] as const) {
+    for (const folder of ['all', ...fx.mediaFolders.folders.map((row) => row.name)]) {
+      seed(
+        ['platform-media', { limit: 60, q: '', type, folder }],
+        { pages: [fx.mediaLibrary], pageParams: [''] },
+        { pages: [{ ...fx.mediaLibrary, assets: [] }], pageParams: [''] },
+      )
+    }
+  }
+  seed(['media-trash', ''], fx.mediaTrash, { assets: [], total: 0 })
+  seed(['media-orphans'], fx.mediaOrphans, { ...fx.mediaOrphans, orphans: [], total: 0, totalBytes: 0, returned: 0 })
+  for (const folder of ['all', ...fx.mediaFolders.folders.map((row) => row.name)]) {
+    seed(['media-dupes', '', folder], fx.mediaDupes, { assets: [], total: 0 })
+  }
 
   seed(['procurement-overview'], fx.procurementOverview, { suppliers: [], orders: [], grns: [] })
   seed(['returns', undefined], fx.returns, [])

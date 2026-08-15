@@ -20,6 +20,7 @@ import {
 } from '@/lib/api/hooks'
 import { formatBdPhone, telHref } from '@/lib/format/bd-phone'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { downloadCsv } from '@/lib/admin/admin-actions'
 
 const card = {
   border: '1px solid var(--line)',
@@ -202,6 +203,55 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
     { t: 'list', w: 'side', title: '', items: [] } as DcBlock,
   ]
 
+  const exportCsv = () => {
+    if (orders.length === 0 && suppliers.length === 0) {
+      toast('warn', 'Nothing to export', 'No purchase orders or suppliers on file.')
+      return
+    }
+    const headers = [
+      'PO Number',
+      'Supplier',
+      'Items Count',
+      'Total Amount (BDT)',
+      'Status',
+      'Created Date',
+    ]
+    const csvRows = [
+      headers,
+      ...orders.map((o) => [
+        o.poNumber,
+        o.supplier.name,
+        String(o.items?.length ?? 0),
+        String(o.total ?? 0),
+        o.status,
+        new Date(o.createdAt).toISOString().slice(0, 10),
+      ]),
+      [],
+      ['GRN Number', 'PO Number', 'Supplier', 'Received Date', 'Notes'],
+      ...grns.map((g) => [
+        g.grnNumber,
+        g.purchaseOrder?.poNumber || '—',
+        g.purchaseOrder?.supplier?.name || '—',
+        new Date(g.receivedAt).toISOString().slice(0, 10),
+        g.notes || '',
+      ]),
+      [],
+      ['Supplier Name', 'Phone', 'Email', 'Due Amount (BDT)', 'Paid Amount (BDT)'],
+      ...suppliers.map((s) => [
+        s.name,
+        s.phone || '—',
+        s.email || '—',
+        String(s.dueAmount ?? 0),
+        String(s.paidAmount ?? 0),
+      ]),
+    ]
+    downloadCsv(
+      `splaro-${title.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`,
+      csvRows,
+    )
+    toast('ok', 'Export complete', `Exported ${orders.length} POs, ${grns.length} GRNs, and ${suppliers.length} suppliers.`)
+  }
+
   return (
     <>
       <DcPageHead
@@ -241,6 +291,11 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
               resetPo()
               setPoOpen(true)
             },
+          },
+          {
+            label: 'Export CSV',
+            icon: 'icon-download',
+            onClick: exportCsv,
           },
         ]}
       />

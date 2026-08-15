@@ -5,6 +5,7 @@ import Image from 'next/image'
 
 import { DcModal } from '@/components/dc/DcModal'
 import { FONT } from '@/components/dc/tokens'
+import { heroMediaPreviewSrc } from '@splaro/config'
 import { MEDIA_DEPT_FOLDERS } from '@/lib/admin/size-presets'
 import { useMedia } from '@/lib/api/hooks'
 import { resolveMediaUrl } from '@/lib/media-url'
@@ -231,7 +232,7 @@ export function DcMediaPickModal({
 
             <div className="dc-media-pick__grid">
               {assets.map((a) => {
-                const src = resolveMediaUrl(a.url)
+                const src = heroMediaPreviewSrc(resolveMediaUrl(a.url))
                 return (
                   <button
                     key={`${a.type ?? 'media'}-${a.id}`}

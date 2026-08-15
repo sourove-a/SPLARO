@@ -41,6 +41,7 @@ import {
   BUTTON_ROUTES,
   TG_CALLBACK,
   formatLoginTokenDisplay,
+  formatTelegramAiReply,
   inlineFinanceMenu,
   inlineMainMenu,
   inlineOrdersMenu,
@@ -1689,10 +1690,10 @@ ${items}
         text,
         telegramUserId,
       )
-      // Plain text — agent replies often include Markdown/** that break Telegram HTML.
-      const safe = reply.slice(0, 3900)
+      const formatted = formatTelegramAiReply(reply).slice(0, 3900)
       if (confirmRequired) {
-        await this.bot?.sendMessage(chatId, safe, {
+        await this.bot?.sendMessage(chatId, formatted, {
+          parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
               [
@@ -1701,9 +1702,23 @@ ${items}
               ],
             ],
           },
+        }).catch(async () => {
+          // Fallback to plain text if HTML tags fail to parse
+          await this.bot?.sendMessage(chatId, reply.slice(0, 3900), {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '✅ Confirm', callback_data: 'agent:confirm' },
+                  { text: '❌ Cancel', callback_data: 'agent:cancel' },
+                ],
+              ],
+            },
+          })
         })
       } else {
-        await this.bot?.sendMessage(chatId, safe)
+        await this.bot?.sendMessage(chatId, formatted, { parse_mode: 'HTML' }).catch(async () => {
+          await this.bot?.sendMessage(chatId, reply.slice(0, 3900))
+        })
       }
       await this.logCommand(chatId, `AI: ${text.slice(0, 180)}`, telegramUserId)
     } catch (err) {

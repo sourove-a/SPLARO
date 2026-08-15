@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, Optional } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { PrismaService } from '../../common/prisma.service'
 import { isSchedulerInstance } from '../../common/scheduler-instance.util'
 import { findLowStockVariants } from './low-stock.util'
 import { NotificationsService } from './notifications.service'
+import { AutomationService } from '../automation/automation.service'
 
 /** Never alert on more than this many SKUs in one pass — a fresh import can
  *  legitimately leave hundreds at zero, and that must not flood the tray. */
@@ -17,6 +18,7 @@ export class StockAlertsCron {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    @Optional() private readonly automation?: AutomationService,
   ) {}
 
   /**
@@ -44,6 +46,15 @@ export class StockAlertsCron {
             variant.sku,
             variant.stock,
           )
+          await this.automation?.runTrigger(store.id, 'STOCK_LOW', {
+            storeId: store.id,
+            variantId: variant.variantId,
+            productName: variant.productName,
+            sku: variant.sku,
+            stock: variant.stock,
+            threshold: variant.threshold,
+            triggeredBy: 'scheduler',
+          })
         }
       }
     } catch (error) {

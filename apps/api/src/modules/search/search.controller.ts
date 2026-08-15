@@ -17,6 +17,7 @@ import { Public } from '../../common/auth/public.decorator'
 import { SearchService } from './search.service'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
 
 @Controller('search')
 export class SearchController {
@@ -70,12 +71,10 @@ export class SearchController {
 
     const [products, recentSearches] = await Promise.all([
       this.prisma.product.findMany({
-        where: {
+        where: storefrontVisibleProductWhere({
           storeId: sid,
-          isPublished: true,
-          status: { not: 'ARCHIVED' },
           name: { contains: q, mode: 'insensitive' },
-        },
+        }),
         select: { id: true, name: true, slug: true },
         take,
       }),

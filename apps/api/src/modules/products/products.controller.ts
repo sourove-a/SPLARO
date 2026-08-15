@@ -18,6 +18,7 @@ import { Prisma } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
 import { CacheService } from '../../common/cache.service'
 import { ProductAdvancedService } from './product-advanced.service'
+import { MediaService } from '../media/media.service'
 import { SearchService } from '../search/search.service'
 import { assertStoreBrandId } from '../../common/assert-store-brand'
 import { assertStoreCategoryId } from '../../common/assert-store-category'
@@ -153,7 +154,8 @@ export class ProductsController {
     private readonly prisma: PrismaService,
     private readonly productAdvanced: ProductAdvancedService,
     @Inject(CacheService) private readonly cache: CacheService,
-    @Optional() private readonly search: SearchService,
+    @Optional() private readonly search?: SearchService,
+    @Optional() private readonly media?: MediaService,
   ) {}
 
   private async bustProductCache(storeId: string): Promise<void> {
@@ -1153,9 +1155,30 @@ export class ProductsController {
   }
 
   @Delete(':id/images/:imageId')
-  async removeImage(@Param('id') id: string, @Param('imageId') imageId: string) {
+  async removeImage(
+    @Param('id') id: string,
+    @Param('imageId') imageId: string,
+    @Req() req: AdminRequest,
+  ) {
+    await this.assertOwnedProduct(id, req)
+    const image = await this.prisma.productImage.findFirst({
+      where: { id: imageId, productId: id },
+      select: { id: true, url: true, product: { select: { storeId: true } } },
+    })
+    if (!image) throw new NotFoundException('Product image not found')
+
     await this.prisma.productImage.delete({ where: { id: imageId, productId: id } })
-    return { deleted: true }
+    await this.bustProductCache(image.product.storeId)
+
+    let fileDeleted = false
+    let warning: string | undefined
+    if (this.media) {
+      const cleanup = await this.media.deleteUploadIfUnreferenced(image.product.storeId, image.url)
+      fileDeleted = cleanup.fileDeleted
+      warning = cleanup.warning
+    }
+
+    return { deleted: true, fileDeleted, ...(warning ? { warning } : {}) }
   }
 
   // ── Bulk operations ─────────────────────────────────────────

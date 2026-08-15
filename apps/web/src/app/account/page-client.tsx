@@ -618,7 +618,9 @@ export default function AccountDashboard() {
     safeClientNavigate(router, '/shop')
   }
 
-  if (!authHydrated) {
+  // After Google, user is already in the store — don't park on a spinner
+  // while SessionHydrator finishes a redundant /me round-trip.
+  if (!authHydrated && !user) {
     return (
       <div className="account-shell account-shell--loading">
         <AccountGlass center>

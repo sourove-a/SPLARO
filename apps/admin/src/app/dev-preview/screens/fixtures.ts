@@ -892,3 +892,231 @@ export const paymentIntegrations = {
     },
   ],
 }
+
+/** Media library — folder tree, storage measurements and a page of assets. */
+export const mediaFolders = {
+  folders: [
+    { name: 'media', label: 'General / Hero', count: 12, bytes: 1_140_000_000, builtIn: true, parentSlug: null },
+    { name: 'men', label: 'Men', count: 41, bytes: 2_610_000_000, builtIn: true, parentSlug: null },
+    { name: 'women', label: 'Women', count: 33, bytes: 1_940_000_000, builtIn: true, parentSlug: null },
+    { name: 'kids', label: 'Kids', count: 14, bytes: 740_000_000, builtIn: true, parentSlug: null },
+    { name: 'footwear', label: 'Footwear', count: 18, bytes: 512_000_000, builtIn: true, parentSlug: null },
+    { name: 'accessories', label: 'Accessories', count: 8, bytes: 233_000_000, builtIn: true, parentSlug: null },
+    { name: 'eid-2026', label: 'Eid 2026', count: 6, bytes: 96_000_000, builtIn: false, parentSlug: null },
+    { name: 'eid-2026/lookbook', label: 'Lookbook', count: 4, bytes: 41_000_000, builtIn: false, parentSlug: 'eid-2026' },
+    { name: 'winter-sale', label: 'Winter Sale', count: 0, bytes: 0, builtIn: false, parentSlug: null },
+  ],
+  tree: [] as unknown[],
+}
+// The rail rebuilds nesting from `parentSlug` when `tree` is empty, which is the
+// same path an older API takes.
+
+export const mediaStorage = {
+  volume: {
+    path: '/var/www/splaro-shared/uploads',
+    totalBytes: 214_748_364_800,
+    freeBytes: 152_000_000_000,
+    usedBytes: 62_748_364_800,
+    quotaBytes: 214_748_364_800,
+  },
+  disk: {
+    bytes: 7_960_000_000,
+    files: 4812,
+    available: true,
+    truncated: false,
+    scannedAt: new Date(now - 120_000).toISOString(),
+  },
+  libraryBytes: 7_420_000_000,
+  libraryAssets: 132,
+  split: {
+    indexedBytes: 3_140_000_000,
+    derivativeBytes: 4_280_000_000,
+    trashBytes: 612_000_000,
+    orphanBytes: 284_000_000,
+    orphanFiles: 96,
+    trashAssets: 38,
+  },
+  byFolder: [
+    { slug: 'men', label: 'Men', bytes: 2_610_000_000, count: 41 },
+    { slug: 'women', label: 'Women', bytes: 1_940_000_000, count: 33 },
+    { slug: 'media', label: 'General / Hero', bytes: 1_140_000_000, count: 12 },
+    { slug: 'kids', label: 'Kids', bytes: 740_000_000, count: 14 },
+    { slug: 'footwear', label: 'Footwear', bytes: 512_000_000, count: 18 },
+    { slug: 'accessories', label: 'Accessories', bytes: 233_000_000, count: 8 },
+    { slug: 'eid-2026', label: 'Eid 2026', bytes: 96_000_000, count: 6 },
+  ],
+  byType: [
+    { kind: 'image', bytes: 6_100_000_000, count: 118 },
+    { kind: 'video', bytes: 980_000_000, count: 4 },
+    { kind: 'pdf', bytes: 210_000_000, count: 6 },
+    { kind: 'svg', bytes: 12_000_000, count: 4 },
+  ],
+  byMonth: Array.from({ length: 12 }, (_, index) => {
+    const date = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - (11 - index), 1))
+    const cumulative = [1.1, 1.6, 2.0, 2.9, 3.3, 3.8, 4.4, 5.0, 5.4, 6.1, 6.9, 7.42][index] ?? 0
+    return {
+      month: `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`,
+      bytes: Math.round(cumulative * 1e9 * 0.08),
+      count: 6 + index,
+      cumulativeBytes: Math.round(cumulative * 1e9),
+      cumulativeAssets: 20 + index * 9,
+    }
+  }),
+  largest: [
+    {
+      id: 'm1',
+      name: 'Eid hero master',
+      path: '/uploads/media/1700000000000-abc123.webp',
+      url: '/uploads/media/1700000000000-abc123.webp',
+      publicUrl: 'https://splaro.co/uploads/media/1700000000000-abc123.webp',
+      folder: 'media',
+      kind: 'image',
+      bytes: 184_000_000,
+    },
+  ],
+}
+
+export const mediaLibrary = {
+  stats: { total: 132, library: 96, products: 28, banners: 6, categories: 2, missingAlt: 3 },
+  assets: Array.from({ length: 12 }, (_, index) => ({
+    id: `media-${index + 1}`,
+    type: 'library',
+    name: `Studio shot ${index + 1}`,
+    url: `/uploads/media/17000000000${String(index).padStart(2, '0')}-abc123.webp`,
+    altText: index % 4 === 0 ? '' : `Studio shot ${index + 1}`,
+    source: iso(index),
+    updated: iso(index),
+    folder: ['media', 'men', 'women', 'eid-2026', 'kids'][index % 5] ?? 'media',
+    mimeType: 'image/webp',
+    sizeBytes: 420_000 + index * 31_000,
+    width: index % 3 === 0 ? 900 : 2000,
+    height: index % 3 === 0 ? 600 : 1400,
+    kind: 'image',
+  })),
+  pageInfo: { hasMore: false, nextCursor: null },
+}
+
+export const mediaCategories = [
+  { id: 'c1', name: 'Panjabi', slug: 'panjabi', isActive: true },
+  { id: 'c2', name: 'Saree', slug: 'saree', isActive: true },
+  { id: 'c3', name: 'Winter Sale', slug: 'winter-sale', isActive: true },
+  { id: 'c4', name: 'Kids', slug: 'kids', isActive: true },
+]
+
+/** Trash / duplicate / orphan rows for the maintenance panes. */
+export const mediaTrash = {
+  assets: Array.from({ length: 4 }, (_, index) => ({
+    id: `trash-${index + 1}`,
+    storeId: 'store-1',
+    name: `Retired banner ${index + 1}`,
+    path: `/uploads/media/16999999999${index}-old.webp`,
+    url: `/uploads/media/16999999999${index}-old.webp`,
+    publicUrl: `https://splaro.co/uploads/media/16999999999${index}-old.webp`,
+    altText: 'Retired banner',
+    folder: 'media',
+    mimeType: 'image/webp',
+    sizeBytes: 900_000 + index * 40_000,
+    width: 1600,
+    height: 900,
+    contentHash: `old-${index}`,
+    kind: 'image',
+    deletedAt: iso(index * 9 + 1),
+    createdAt: iso(90),
+    updatedAt: iso(index * 9 + 1),
+  })),
+  total: 4,
+}
+
+export const mediaDupes = {
+  assets: [
+    {
+      id: 'dupe-new',
+      storeId: 'store-1',
+      name: 'Eid hero',
+      path: '/uploads/media/1700000001111-aaa.webp',
+      url: '/uploads/media/1700000001111-aaa.webp',
+      publicUrl: '',
+      altText: 'Eid hero',
+      folder: 'media',
+      mimeType: 'image/webp',
+      sizeBytes: 640_000,
+      width: 1600,
+      height: 900,
+      contentHash: 'same-hash',
+      kind: 'image',
+      deletedAt: null,
+      createdAt: iso(1),
+      updatedAt: iso(1),
+    },
+    {
+      id: 'dupe-mid',
+      storeId: 'store-1',
+      name: 'Eid hero copy',
+      path: '/uploads/media/1700000002222-bbb.webp',
+      url: '/uploads/media/1700000002222-bbb.webp',
+      publicUrl: '',
+      altText: 'Eid hero',
+      folder: 'men',
+      mimeType: 'image/webp',
+      sizeBytes: 640_000,
+      width: 1600,
+      height: 900,
+      contentHash: 'same-hash',
+      kind: 'image',
+      deletedAt: null,
+      createdAt: iso(12),
+      updatedAt: iso(12),
+    },
+    {
+      id: 'dupe-old',
+      storeId: 'store-1',
+      name: 'Eid hero old',
+      path: '/uploads/media/1700000003333-ccc.webp',
+      url: '/uploads/media/1700000003333-ccc.webp',
+      publicUrl: '',
+      altText: 'Eid hero',
+      folder: 'women',
+      mimeType: 'image/webp',
+      sizeBytes: 640_000,
+      width: 1600,
+      height: 900,
+      contentHash: 'same-hash',
+      kind: 'image',
+      deletedAt: null,
+      createdAt: iso(40),
+      updatedAt: iso(40),
+    },
+  ],
+  total: 3,
+}
+
+export const mediaOrphans = {
+  orphans: [
+    {
+      familyKey: '/uploads/products/1700000009999-zzz',
+      path: '/uploads/products/1700000009999-zzz.webp',
+      paths: ['/uploads/products/1700000009999-zzz.webp', '/uploads/products/1700000009999-zzz.w640.webp'],
+      bytes: 184_000_000,
+      files: 2,
+      modifiedAt: iso(3),
+      pending: false,
+      purgeSafe: true,
+    },
+    {
+      familyKey: '/uploads/media/1700000008888-yyy',
+      path: '/uploads/media/1700000008888-yyy.pending',
+      paths: ['/uploads/media/1700000008888-yyy.pending'],
+      bytes: 2_400_000,
+      files: 1,
+      modifiedAt: new Date(now - 60_000).toISOString(),
+      pending: true,
+      purgeSafe: false,
+    },
+  ],
+  total: 2,
+  totalBytes: 186_400_000,
+  returned: 2,
+  scannedAt: new Date(now - 120_000).toISOString(),
+  available: true,
+  truncated: false,
+}

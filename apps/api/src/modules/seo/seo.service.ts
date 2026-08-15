@@ -6,6 +6,7 @@ import {
   hasMetaValue,
 } from '../../common/seo-meta.util'
 import type { Prisma } from '@prisma/client'
+import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
 
 export interface SEOAuditResult {
   score: number
@@ -313,7 +314,7 @@ export class SeoService {
     // Blog posts intentionally omitted — no storefront `/blog` route yet (would 404 crawlers).
     const [products, collections, categories] = await Promise.all([
       this.prisma.product.findMany({
-        where: { storeId, isPublished: true },
+        where: storefrontVisibleProductWhere({ storeId }),
         select: { slug: true, updatedAt: true },
       }),
       this.prisma.collection.findMany({

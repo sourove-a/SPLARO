@@ -1,5 +1,6 @@
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime'
 import {
+  AUTH_NAV_FALLBACK_MS,
   DEFAULT_NAV_FALLBACK_MS,
   isRecoverableNavigationError,
 } from '@/lib/navigation/navigation-recovery'
@@ -16,11 +17,12 @@ export function hardNavigate(path: string) {
 }
 
 /**
- * After cookie + signIn, skip App Router RSC. A mixed-build tab always gets
- * current HTML instead of a blank failed flight.
+ * After cookie + signIn, stay in the App Router so Google GIS close does not
+ * dump a full document reload (white flash + account spinner).
+ * If the RSC flight dies, safeClientNavigate still hard-navigates.
  */
-export function navigateAfterAuth(path: string) {
-  hardNavigate(path)
+export function navigateAfterAuth(router: AppRouterInstance, path: string) {
+  safeClientNavigate(router, path, 'replace', { timeoutMs: AUTH_NAV_FALLBACK_MS })
 }
 
 type SafeNavigateOptions = {

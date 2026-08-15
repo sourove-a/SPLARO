@@ -28,6 +28,8 @@ const STAGES = [
   'Packed',
   'Shipped',
   'Delivered',
+  'Cancelled',
+  'Returned',
 ] as const
 type Stage = (typeof STAGES)[number]
 

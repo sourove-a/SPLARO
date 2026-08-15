@@ -62,17 +62,16 @@ async function HomeCatalog() {
 }
 
 export default async function HomePage() {
-  // Admin-managed Banner rows drive the hero; the fetch is ISR-cached (30s tag
-  // + push revalidation from the API) and falls back to curated local WebP
-  // defaults when no active slides exist or the API is unreachable.
-  const heroBanners = resolveHeroBanners(await fetchHeroBanners(), [])
+  const settings = await getStorefrontSettings()
+  const homepage = resolveHomepageSections(settings.config.homepage)
+  const heroBanners = homepage.hero ? resolveHeroBanners(await fetchHeroBanners()) : []
   const firstMedia = heroBanners[0]?.image ?? ''
   const firstClassified = classifyHeroMedia(firstMedia)
   const lcpSource =
     firstClassified.kind === 'image'
       ? firstMedia
       : (firstClassified.poster ?? heroBanners[0]?.mobileImage ?? '')
-  const lcp = resolveLocalHeroVariants(lcpSource)
+  const lcp = heroBanners.length ? resolveLocalHeroVariants(lcpSource) : null
 
   return (
     <>
@@ -96,7 +95,7 @@ export default async function HomePage() {
           />
         </>
       ) : null}
-      <HeroSlider initialBanners={heroBanners} />
+      {heroBanners.length ? <HeroSlider initialBanners={heroBanners} /> : null}
       <Suspense fallback={null}>
         <HomeCatalog />
       </Suspense>

@@ -410,7 +410,7 @@ const SCREENS: Record<string, ScreenDef> = {
 
   sheets: [
     B.kpis([ K('Sheets connected','4','one spreadsheet, four tabs'), K('Rows pushed today','1,284','last at 14:40','var(--ok)'), K('Cron','every 15 min','GoogleSheetsLiveCron'), K('Failed jobs · 7d','2','both retried and passed','var(--warn)') ]),
-    B.banner('info','icon-info','Sheets is one-way: SPLARO writes, the spreadsheet reads. Editing a cell in Google Sheets changes nothing here and will be overwritten on the next run.'),
+    B.banner('info','icon-info','PostgreSQL is the database. Sheets is one-way backup: SPLARO writes, the spreadsheet reads. Editing a cell in Google Sheets changes nothing here and will be overwritten on the next run.'),
     B.table('Sync jobs','last 24 hours',['Job','Tab','Rows','Duration','Ran','Status'],[
       [{s:['Orders export','one row per order, all statuses']},{m:'Orders'},{n:'1,042'},{v:'4.2s'},{v:'14:40'},{c:'Success',tone:'ok'}],
       [{s:['Daily finance','revenue, COD collected, courier fees']},{m:'Hisab'},{n:'31'},{v:'0.9s'},{v:'14:40'},{c:'Success',tone:'ok'}],

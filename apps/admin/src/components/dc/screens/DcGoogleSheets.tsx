@@ -122,6 +122,7 @@ export function DcGoogleSheets() {
 }
 
 function DcGoogleSheetsBody() {
+  const router = useRouter()
   const { toast } = useDcScreen()
   const qc = useQueryClient()
   const { api } = useAdminConnection(25_000)
@@ -369,7 +370,7 @@ function DcGoogleSheetsBody() {
                     ? 'Nothing syncs until a Google account is authorised. Every button below will fail with an auth error.'
                     : !conn.spreadsheetLinked
                       ? 'The account is authorised but no spreadsheet is linked, so there is nowhere to write.'
-                      : `Sync is one-way: SPLARO overwrites the sheet. Editing the sheet never changes SPLARO. Auto-sync is ${conn.autoSyncEnabled ? 'on' : 'off'}${conn.tokenHealth ? ` · token ${conn.tokenHealth.toLowerCase()}` : ''}.`}
+                      : `PostgreSQL is the store database. Sheets is a one-way backup export — editing the sheet never changes SPLARO. Auto-sync is ${conn.autoSyncEnabled ? 'on' : 'off'}${conn.tokenHealth ? ` · token ${conn.tokenHealth.toLowerCase()}` : ''}.`}
               </span>
             </span>
             <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -440,25 +441,46 @@ function DcGoogleSheetsBody() {
                   <span>Open spreadsheet</span>
                 </a>
               ) : null}
-              {conn?.setupHref ? (
-                <a
-                  href={conn.setupHref}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 7,
-                    height: 32,
-                    padding: '0 12px',
-                    borderRadius: 9,
-                    border: '1px solid var(--line-2)',
-                    color: 'var(--ink-2)',
-                    font: `600 12px/1 ${FONT}`,
-                  }}
-                >
-                  <DcIcon name="icon-settings" size={13} />
-                  <span>Connection settings</span>
-                </a>
-              ) : null}
+              <button
+                type="button"
+                onClick={() => setLinkOpen(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  height: 32,
+                  padding: '0 12px',
+                  borderRadius: 9,
+                  border: '1px solid var(--line-2)',
+                  background: 'transparent',
+                  color: 'var(--ink-2)',
+                  font: `600 12px/1 ${FONT}`,
+                  cursor: 'pointer',
+                }}
+              >
+                <DcIcon name="icon-link" size={13} />
+                <span>{conn?.spreadsheetLinked ? 'Change link' : 'Link spreadsheet'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard/google-workspace/connect')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  height: 32,
+                  padding: '0 12px',
+                  borderRadius: 9,
+                  border: '1px solid var(--line-2)',
+                  background: 'transparent',
+                  color: 'var(--ink-2)',
+                  font: `600 12px/1 ${FONT}`,
+                  cursor: 'pointer',
+                }}
+              >
+                <DcIcon name="icon-settings" size={13} />
+                <span>Connection settings</span>
+              </button>
             </span>
           </div>
 

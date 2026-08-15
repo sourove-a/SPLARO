@@ -12,7 +12,8 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, formatTaka } from '@/components/dc/tokens'
-import { toastFail } from '@/lib/admin/feedback'
+import { toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
+import { downloadCsv } from '@/lib/admin/admin-actions'
 import {
   fetchOrderProfitDetail,
   fetchOrderProfitList,
@@ -113,10 +114,68 @@ function DcOrderProfitabilityBody() {
   })
 
   const pageStatus = dcPageStatus([list], api.pulse)
-  const rows = list.data?.items ?? []
+  const rows = useMemo(() => list.data?.items ?? [], [list.data])
   const totalPages = Math.max(1, Math.ceil((list.data?.total ?? 0) / (list.data?.limit ?? 25)))
 
   const skeleton: DcBlock[] = [{ t: 'seg' } as DcBlock, { t: 'table', w: 'main', title: '', cols: [], rows: [] } as DcBlock]
+
+  const totalSelling = useMemo(() => rows.reduce((s, r) => s + Number(r.selling || 0), 0), [rows])
+  const totalNet = useMemo(() => rows.reduce((s, r) => s + Number(r.netProfit || 0), 0), [rows])
+  const totalCost = useMemo(
+    () =>
+      rows.reduce(
+        (s, r) =>
+          s +
+          Number(r.productCost || 0) +
+          Number(r.packaging || 0) +
+          Number(r.courier || 0) +
+          Number(r.paymentFee || 0) +
+          Number(r.allocatedAds || 0),
+        0,
+      ),
+    [rows],
+  )
+  const avgMargin = totalSelling > 0 ? (totalNet / totalSelling) * 100 : 0
+
+  const exportCsv = () => {
+    if (rows.length === 0) {
+      toastWarn('No order profit rows to export')
+      return
+    }
+    const headers = [
+      'Order Number',
+      'Delivered Date',
+      'Selling (BDT)',
+      'Product Cost (BDT)',
+      'Packaging (BDT)',
+      'Courier (BDT)',
+      'Payment Fee (BDT)',
+      'Discount (BDT)',
+      'Allocated Ads (BDT)',
+      'Net Profit (BDT)',
+      'Margin %',
+      'Incomplete Status',
+    ]
+    const csvRows = [
+      headers,
+      ...rows.map((r) => [
+        r.orderNumber,
+        new Date(r.deliveredAt).toISOString().slice(0, 10),
+        String(r.selling),
+        String(r.productCost),
+        String(r.packaging),
+        String(r.courier),
+        String(r.paymentFee),
+        String(r.discount),
+        String(r.allocatedAds),
+        String(r.netProfit),
+        displayMargin(r),
+        r.incompleteReasons.length ? r.incompleteReasons.join('; ') : 'Complete',
+      ]),
+    ]
+    downloadCsv(`splaro-order-profitability-${preset}-${new Date().toISOString().slice(0, 10)}.csv`, csvRows)
+    toastOk(`Exported ${rows.length} order profitability rows`)
+  }
 
   return (
     <>
@@ -132,11 +191,66 @@ function DcOrderProfitabilityBody() {
           {
             label: 'Profit & Cash Flow',
             icon: 'icon-file-bar-chart',
-            variant: 'ghost',
             onClick: () => router.push('/dashboard/finance/finance-reports'),
+          },
+          {
+            label: 'Export CSV',
+            icon: 'icon-download',
+            onClick: exportCsv,
           },
         ]}
       />
+
+      {rows.length > 0 ? (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 12,
+            marginBottom: 16,
+          }}
+        >
+          <div style={{ ...card, padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ font: `600 11px/1 ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+              Total Selling
+            </span>
+            <span style={{ font: `700 21px/1 ${MONO}`, color: 'var(--ink)' }}>
+              {formatTaka(totalSelling)}
+            </span>
+            <span style={{ font: `400 11px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>across {rows.length} page orders</span>
+          </div>
+
+          <div style={{ ...card, padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ font: `600 11px/1 ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+              Total Costs
+            </span>
+            <span style={{ font: `700 21px/1 ${MONO}`, color: 'var(--ink)' }}>
+              {formatTaka(totalCost)}
+            </span>
+            <span style={{ font: `400 11px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>COGS, courier, fees & ads</span>
+          </div>
+
+          <div style={{ ...card, padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ font: `600 11px/1 ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+              Net Profit
+            </span>
+            <span style={{ font: `700 21px/1 ${MONO}`, color: totalNet >= 0 ? 'var(--ok)' : 'var(--bad)' }}>
+              {formatTaka(totalNet)}
+            </span>
+            <span style={{ font: `400 11px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>retained bottom line</span>
+          </div>
+
+          <div style={{ ...card, padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ font: `600 11px/1 ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+              Average Margin
+            </span>
+            <span style={{ font: `700 21px/1 ${MONO}`, color: avgMargin >= 15 ? 'var(--ok)' : avgMargin >= 0 ? 'var(--warn)' : 'var(--bad)' }}>
+              {avgMargin.toFixed(1)}%
+            </span>
+            <span style={{ font: `400 11px/1.3 ${FONT}`, color: 'var(--ink-3)' }}>average profit margin</span>
+          </div>
+        </div>
+      ) : null}
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
         {PRESETS.map((p) => {

@@ -78,13 +78,56 @@ export class WebhooksService {
         signal: AbortSignal.timeout(10_000),
       })
 
-      if (!res.ok) {
-        this.logger.warn(`Webhook ${payload.event} → ${endpoint.url} failed: HTTP ${res.status}`)
+      const status = res.status
+      const ok = res.ok
+
+      if (!ok) {
+        this.logger.warn(`Webhook ${payload.event} → ${endpoint.url} failed: HTTP ${status}`)
       } else {
         this.logger.debug(`Webhook ${payload.event} → ${endpoint.url} delivered`)
       }
+
+      await this.prisma.auditLog
+        .create({
+          data: {
+            module: 'WEBHOOKS',
+            storeId: payload.storeId,
+            action: 'WEBHOOK_SENT',
+            resource: payload.event,
+            resourceId: endpoint.url,
+            newData: {
+              url: endpoint.url,
+              status,
+              ok,
+              timestamp: payload.timestamp,
+              events: endpoint.events,
+            },
+          },
+        })
+        .catch((e) => this.logger.warn(`Failed to log webhook delivery: ${e}`))
     } catch (err) {
-      this.logger.error(`Webhook delivery error (${endpoint.url}): ${err instanceof Error ? err.message : 'unknown'}`)
+      const errorMsg = err instanceof Error ? err.message : 'unknown'
+      this.logger.error(`Webhook delivery error (${endpoint.url}): ${errorMsg}`)
+
+      await this.prisma.auditLog
+        .create({
+          data: {
+            module: 'WEBHOOKS',
+            storeId: payload.storeId,
+            action: 'WEBHOOK_SENT',
+            resource: payload.event,
+            resourceId: endpoint.url,
+            newData: {
+              url: endpoint.url,
+              status: 0,
+              ok: false,
+              error: errorMsg,
+              timestamp: payload.timestamp,
+              events: endpoint.events,
+            },
+          },
+        })
+        .catch((e) => this.logger.warn(`Failed to log webhook delivery: ${e}`))
     }
   }
 
@@ -95,7 +138,13 @@ export class WebhooksService {
     })
     if (!settings?.storefrontConfig) return []
     const cfg = settings.storefrontConfig as { webhookEndpoints?: WebhookEndpoint[] }
-    return cfg.webhookEndpoints ?? []
+    const raw = cfg.webhookEndpoints ?? []
+    return raw.map((e) => ({
+      url: e.url,
+      secret: e.secret,
+      events: Array.isArray(e.events) ? e.events : [],
+      isActive: e.isActive ?? true,
+    }))
   }
 
   async saveEndpoints(storeId: string, endpoints: WebhookEndpoint[]): Promise<void> {
@@ -114,7 +163,14 @@ export class WebhooksService {
 
   async addEndpoint(storeId: string, endpoint: WebhookEndpoint): Promise<WebhookEndpoint[]> {
     const existing = await this.getEndpoints(storeId)
-    const updated = [...existing, endpoint]
+    const idx = existing.findIndex((e) => e.url === endpoint.url)
+    let updated: WebhookEndpoint[]
+    if (idx >= 0) {
+      updated = [...existing]
+      updated[idx] = endpoint
+    } else {
+      updated = [...existing, endpoint]
+    }
     await this.saveEndpoints(storeId, updated)
     return updated
   }

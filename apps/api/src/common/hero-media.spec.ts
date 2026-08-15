@@ -1,7 +1,9 @@
 import {
   canonicalizeHeroMediaUrl,
   classifyHeroMedia,
+  heroMediaPreviewSrc,
   isDirectVideoUrl,
+  youtubeEmbedUrl,
   isHeroVideoUrl,
   parseVimeoId,
   parseYoutubeId,
@@ -37,6 +39,11 @@ describe('hero-media', () => {
     expect(media.kind).toBe('youtube')
     expect(media.youtubeId).toBe('dQw4w9WgXcQ')
     expect(media.poster).toContain('i.ytimg.com/vi/dQw4w9WgXcQ')
+    expect(heroMediaPreviewSrc('https://youtu.be/dQw4w9WgXcQ')).toBe(media.poster)
+    const embed = youtubeEmbedUrl('dQw4w9WgXcQ', 'https://splaro.co')
+    expect(embed).toContain('controls=0')
+    expect(embed).toContain('enablejsapi=1')
+    expect(embed).toContain('youtube-nocookie.com/embed/dQw4w9WgXcQ')
   })
 
   it('adds https to scheme-less known hosts', () => {

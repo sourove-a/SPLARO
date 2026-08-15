@@ -11,8 +11,9 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import { DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
-import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
+import { toastApiSaved, toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
 import { verifyPersisted } from '@/lib/admin/mutation-verify'
+import { downloadCsv } from '@/lib/admin/admin-actions'
 import {
   deleteWholesaleInquiry,
   fetchWholesaleInquiries,
@@ -174,6 +175,46 @@ function DcWholesaleLeadsBody() {
   ]
   const pageStatus = dcPageStatus([leads], api.pulse)
 
+  const exportCsv = () => {
+    if (rows.length === 0) {
+      toastWarn('No wholesale leads to export')
+      return
+    }
+    const headers = [
+      'Company',
+      'Contact Name',
+      'Industry',
+      'Email',
+      'Phone',
+      'Country',
+      'Product Interest',
+      'Monthly Quantity',
+      'Message',
+      'Status',
+      'Created Date',
+      'Admin Notes',
+    ]
+    const csvRows = [
+      headers,
+      ...rows.map((row) => [
+        row.companyName || '—',
+        row.fullName,
+        row.industry || '—',
+        row.email || '—',
+        row.phone,
+        row.country,
+        row.productInterest || '—',
+        row.monthlyQuantity || '—',
+        row.message || '',
+        row.status,
+        new Date(row.createdAt).toISOString().slice(0, 10),
+        row.adminNotes || '',
+      ]),
+    ]
+    downloadCsv(`splaro-wholesale-leads-${new Date().toISOString().slice(0, 10)}.csv`, csvRows)
+    toastOk(`Exported ${rows.length} wholesale lead${rows.length === 1 ? '' : 's'}.`)
+  }
+
   return (
     <>
       <DcPageHead
@@ -186,6 +227,13 @@ function DcWholesaleLeadsBody() {
         }
         syncing={leads.isFetching}
         onSync={() => void leads.refetch()}
+        actions={[
+          {
+            label: 'Export CSV',
+            icon: 'icon-download',
+            onClick: exportCsv,
+          },
+        ]}
       />
 
       {leads.isLoading ? (

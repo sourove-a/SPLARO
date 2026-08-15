@@ -14,6 +14,8 @@ import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/
 import type { ApiRmaRow, RmaApiStatus } from '@/lib/api/commerce-finance'
 import { useCreateReturn, useOrders, useReturns, useUpdateReturnStatus } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { downloadCsv } from '@/lib/admin/admin-actions'
+import { toastOk, toastWarn } from '@/lib/admin/feedback'
 
 const card = {
   border: '1px solid var(--line)',
@@ -135,7 +137,12 @@ function DcReturnsRmaBody() {
     newOpen ? { limit: 20, ...(orderQuery.trim() ? { search: orderQuery.trim() } : {}) } : undefined,
   )
 
+  const [stageFilter, setStageFilter] = useState<string>('ALL')
   const rows = useMemo(() => returns.data ?? [], [returns.data])
+  const filteredRows = useMemo(() => {
+    if (stageFilter === 'ALL') return rows
+    return rows.filter((r) => r.status.toLowerCase() === stageFilter.toLowerCase())
+  }, [rows, stageFilter])
   const open = useMemo(() => rows.filter((r) => OPEN_STATUSES.includes(r.status)), [rows])
   const needsDecision = useMemo(() => rows.filter((r) => NEXT_MOVE[r.status]), [rows])
 
@@ -193,6 +200,30 @@ function DcReturnsRmaBody() {
     )
   }
 
+  const exportCsv = () => {
+    if (rows.length === 0) {
+      toastWarn('No return records to export')
+      return
+    }
+    const headers = ['RMA', 'Order', 'Customer', 'Reason', 'Items', 'Amount', 'Method', 'Status', 'Updated']
+    const csvRows = [
+      headers,
+      ...rows.map((r) => [
+        r.rmaNumber,
+        r.orderNumber,
+        r.customer,
+        r.reason,
+        r.items,
+        String(r.amount || 0),
+        r.method,
+        r.status,
+        r.updated,
+      ]),
+    ]
+    downloadCsv(`splaro-rma-returns-${new Date().toISOString().slice(0, 10)}.csv`, csvRows)
+    toastOk(`Exported ${rows.length} return records`)
+  }
+
   return (
     <>
       <DcPageHead
@@ -217,6 +248,11 @@ function DcReturnsRmaBody() {
               setOrderQuery('')
               setNewOpen(true)
             },
+          },
+          {
+            label: 'Export CSV',
+            icon: 'icon-download',
+            onClick: exportCsv,
           },
         ]}
       />
@@ -511,19 +547,38 @@ function DcReturnsRmaBody() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'space-between',
                 gap: 10,
                 flexWrap: 'wrap',
                 padding: '12px 15px',
                 borderBottom: '1px solid var(--line)',
               }}
             >
-              <span
-                style={{ flex: 1, minWidth: 140, font: `600 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}
-              >
-                All returns
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {['ALL', 'PENDING', 'APPROVED', 'RECEIVED', 'REFUNDED', 'REJECTED'].map((st) => {
+                  const active = stageFilter === st
+                  return (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setStageFilter(st)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 7,
+                        border: `1px solid ${active ? 'var(--violet-bd)' : 'var(--line)'}`,
+                        background: active ? 'var(--violet-soft)' : 'var(--surface-2)',
+                        color: active ? 'var(--violet)' : 'var(--ink-2)',
+                        font: `600 11px/1 ${FONT}`,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {st === 'PENDING' ? 'REQUESTED' : st}
+                    </button>
+                  )
+                })}
+              </div>
               <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
-                {rows.length} record{rows.length === 1 ? '' : 's'}
+                {filteredRows.length} record{filteredRows.length === 1 ? '' : 's'}
               </span>
             </div>
             <div style={{ overflowX: 'auto' }}>
@@ -542,7 +597,7 @@ function DcReturnsRmaBody() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => {
+                {filteredRows.map((r) => {
                   const tone = toneStyle(RMA_TONE[r.status])
                   return (
                     <tr key={r.id} style={{ borderBottom: '1px solid var(--line)' }}>

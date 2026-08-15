@@ -13,7 +13,7 @@ export type MediaQuery = {
   limit?: number
   q?: string
   type?: 'all' | 'library' | 'product' | 'banner' | 'category'
-  folder?: 'all' | 'media' | 'men' | 'women' | 'kids' | 'footwear' | 'accessories'
+  folder?: string
 }
 
 export function fetchMedia(query: MediaQuery = {}) {
@@ -33,6 +33,29 @@ export function fetchMarketplace() {
 
 export function fetchDeveloper() {
   return apiFetch<DeveloperData>('/admin/platform/developer')
+}
+
+export function createApiKey(data: { name: string; scopes?: string[] }) {
+  return apiFetch<{
+    apiKey: {
+      id: string
+      name: string
+      prefix: string
+      scopes: string
+      status: string
+      lastUsed: string
+    }
+    rawKey: string
+  }>('/admin/platform/api-keys', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function revokeApiKey(id: string) {
+  return apiFetch<{ ok: boolean; id: string }>(`/admin/platform/api-keys/${id}`, {
+    method: 'DELETE',
+  })
 }
 
 export function fetchObservability() {
@@ -113,6 +136,13 @@ export interface MediaData {
     height?: number | null
     productId?: string
     productSlug?: string
+    contentHash?: string | null
+    kind?: string | null
+    focalX?: number | null
+    focalY?: number | null
+    watermarked?: boolean
+    createdAt?: string
+    updatedAt?: string
   }[]
   pageInfo?: { nextCursor: string | null; hasMore: boolean }
 }

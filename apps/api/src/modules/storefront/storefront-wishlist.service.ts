@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
+import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
 
 @Injectable()
 export class StorefrontWishlistService {
@@ -25,7 +26,7 @@ export class StorefrontWishlistService {
 
     const wishlist = await this.ensureWishlist(customerId)
     const published = await this.prisma.product.findMany({
-      where: { id: { in: unique }, isPublished: true },
+      where: storefrontVisibleProductWhere({ id: { in: unique } }),
       select: { id: true },
     })
     const validIds = published.map((p) => p.id)
@@ -47,7 +48,7 @@ export class StorefrontWishlistService {
     if (!productId?.trim()) throw new BadRequestException('Product id is required')
 
     const product = await this.prisma.product.findFirst({
-      where: { id: productId, storeId, isPublished: true },
+      where: storefrontVisibleProductWhere({ id: productId, storeId }),
       select: { id: true },
     })
     if (!product) throw new NotFoundException('Product not found')

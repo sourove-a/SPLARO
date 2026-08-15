@@ -12,6 +12,8 @@ import { dcPageStatus } from '@/components/dc/page-status'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { confirmSessionRevoked } from '@/lib/admin/security-save'
+import { downloadCsv } from '@/lib/admin/admin-actions'
+import { toastOk, toastWarn } from '@/lib/admin/feedback'
 import {
   useAdminSession,
   useRevokeSecuritySession,
@@ -129,6 +131,46 @@ function DcSecurityCenterBody() {
     { t: 'toggles', w: 'side' } as DcBlock,
   ]
 
+  const exportCsv = () => {
+    if (auditRows.length === 0 && liveSessions.length === 0) {
+      toastWarn('No security audit records to export')
+      return
+    }
+    const headers = [
+      'Timestamp',
+      'Action',
+      'Actor',
+      'Target',
+      'Resource',
+      'Severity',
+    ]
+    const csvRows = [
+      headers,
+      ...auditRows.map((r) => [
+        r.time,
+        r.action,
+        r.actor || '—',
+        r.target || '—',
+        r.resource || '—',
+        r.severity,
+      ]),
+      [],
+      ['Active Sessions Device', 'User', 'Email', 'IP Address', 'Browser', 'OS', 'Last Active', 'Expires At'],
+      ...liveSessions.map((s) => [
+        sessionDevice(s),
+        `${s.user.firstName} ${s.user.lastName}`.trim(),
+        s.user.email || '—',
+        s.ipAddress || '—',
+        s.browser || '—',
+        s.os || '—',
+        s.lastActive,
+        s.expiresAt,
+      ]),
+    ]
+    downloadCsv(`splaro-security-audit-${new Date().toISOString().slice(0, 10)}.csv`, csvRows)
+    toastOk(`Exported ${auditRows.length} audit event${auditRows.length === 1 ? '' : 's'}.`)
+  }
+
   return (
     <>
       <DcPageHead
@@ -143,6 +185,13 @@ function DcSecurityCenterBody() {
         }
         syncing={syncing}
         onSync={refresh}
+        actions={[
+          {
+            label: 'Export CSV',
+            icon: 'icon-download',
+            onClick: exportCsv,
+          },
+        ]}
       />
 
       {security.isLoading || adminSession.isLoading ? (

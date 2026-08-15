@@ -1,0 +1,306 @@
+/* Media folder rail — tree on desktop, scrolling chip strip on narrow screens. */
+
+.dc-mlib__layout {
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.dc-mlib__main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dc-mfold {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  background-image: var(--card-sheen);
+  position: sticky;
+  /* Clears the sticky shell header (56px) and page head (72px), so scrolling the
+     grid never slides the folder list under them. */
+  top: 136px;
+  max-height: calc(100vh - 152px);
+  overflow: auto;
+}
+
+.dc-mfold__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.dc-mfold__title {
+  font: 600 10px/1 var(--dc-font, inherit);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.dc-mfold__add {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.dc-mfold__add:hover {
+  color: var(--violet);
+  border-color: var(--violet-bd);
+}
+
+.dc-mfold__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.dc-mfold__row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 4px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.dc-mfold__row:hover {
+  background: var(--surface-2);
+}
+
+.dc-mfold__row.is-on {
+  background: var(--violet-soft);
+  border-color: var(--violet-bd);
+}
+
+/* Drop target while cards are being dragged over it. */
+.dc-mfold__row.is-drop {
+  background: var(--violet-soft);
+  border-color: var(--violet);
+  border-style: dashed;
+}
+
+.dc-mfold__twist {
+  width: 18px;
+  height: 26px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  padding: 0;
+}
+
+.dc-mfold__name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  font: 500 12.5px/1 var(--dc-font, inherit);
+  text-align: left;
+}
+
+.dc-mfold__row.is-on .dc-mfold__name {
+  color: var(--violet);
+  font-weight: 600;
+}
+
+.dc-mfold__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dc-mfold__count {
+  flex: none;
+  font: 500 11px/1 var(--dc-font, inherit);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.dc-mfold__menu {
+  position: relative;
+  flex: none;
+}
+
+.dc-mfold__menu summary {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 26px;
+  border-radius: 6px;
+  color: var(--ink-3);
+  cursor: pointer;
+  list-style: none;
+  opacity: 0;
+}
+
+.dc-mfold__menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.dc-mfold__row:hover .dc-mfold__menu summary,
+.dc-mfold__menu[open] summary {
+  opacity: 1;
+}
+
+.dc-mfold__menu[open] summary {
+  background: var(--surface-3);
+}
+
+.dc-mfold__menu div[role='menu'] {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  top: 26px;
+  width: 178px;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.dc-mfold__menu div[role='menu'] button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  font: 500 12px/1 var(--dc-font, inherit);
+  text-align: left;
+}
+
+.dc-mfold__menu div[role='menu'] button:hover:not([disabled]) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.dc-mfold__menu div[role='menu'] button.is-danger:hover:not([disabled]) {
+  color: var(--bad);
+}
+
+.dc-mfold__menu div[role='menu'] button[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.dc-mfold__suggest {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 4px 2px;
+  border-top: 1px solid var(--line);
+}
+
+.dc-mfold__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.dc-mfold__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 25px;
+  padding: 0 8px;
+  border: 1px dashed var(--line-2);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  font: 500 11.5px/1 var(--dc-font, inherit);
+}
+
+.dc-mfold__chip:hover {
+  border-color: var(--violet-bd);
+  border-style: solid;
+  color: var(--violet);
+}
+
+@media (max-width: 900px) {
+  .dc-mlib__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Tree folds into one scrolling strip; nesting reads from the indent. */
+  .dc-mfold {
+    position: static;
+    max-height: none;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+  }
+
+  .dc-mfold__head {
+    flex: none;
+  }
+
+  .dc-mfold__title {
+    display: none;
+  }
+
+  .dc-mfold__list,
+  .dc-mfold li {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .dc-mfold__row {
+    padding-left: 4px !important;
+    border: 1px solid var(--line);
+  }
+
+  .dc-mfold__twist,
+  .dc-mfold__menu {
+    display: none;
+  }
+
+  .dc-mfold__name {
+    white-space: nowrap;
+  }
+
+  .dc-mfold__suggest {
+    display: none;
+  }
+}

@@ -24,9 +24,16 @@ describe('normalizeMediaFolder', () => {
   })
 
   it('strips characters that would be unsafe as a filter key', () => {
-    expect(normalizeMediaFolder('<script>x</script>')).toBe('scriptxscript')
-    expect(normalizeMediaFolder('a//b')).toBe('ab')
+    // A slash now separates a nested folder, so each segment is slugified on its
+    // own and empty segments — the ones traversal relies on — drop out.
+    expect(normalizeMediaFolder('<script>x</script>')).toBe('scriptx/script')
+    expect(normalizeMediaFolder('a//b')).toBe('a/b')
     expect(normalizeMediaFolder('../etc')).toBe('etc')
+  })
+
+  it('keeps nesting to a single level', () => {
+    expect(normalizeMediaFolder('Eid/Men')).toBe('eid/men')
+    expect(normalizeMediaFolder('a/b/c')).toBe('a/b')
   })
 
   it('falls back when nothing usable is left', () => {
