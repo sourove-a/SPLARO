@@ -16,10 +16,10 @@ const PRESS_SELECTOR = [
 ].join(', ')
 
 /** Soft press — opacity only, never scale (no click “jump”). */
-const PRESS_DOWN_OPACITY = 0.95
+const PRESS_DOWN_OPACITY = 0.97
 const PRESS_REST_OPACITY = 1
-const DOWN_MS = 110
-const RELEASE_MS = 220
+const DOWN_MS = 80
+const RELEASE_MS = 80
 const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)'
 
 /** Skip elements that manage their own tap motion (Motion) or opt out. */
@@ -27,6 +27,9 @@ function shouldSkip(el: Element): boolean {
   if ((el as HTMLButtonElement).disabled) return true
   if (el.closest('[data-no-press]')) return true
   if (el.closest('.mm-drawer, .mobile-bottom-nav, .site-header-glass')) return true
+  // Links must navigate on the same tap — opacity press reads as lag vs native shops.
+  if (el.tagName === 'A' && (el as HTMLAnchorElement).href) return true
+  if (el.closest('a[href]')) return true
 
   // Product cards — Motion / CSS hit-layer handles tap
   if (

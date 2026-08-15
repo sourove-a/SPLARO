@@ -37,11 +37,11 @@ export const EASE_IN = [0.4, 0, 1, 1] as const
 
 /** Seconds — mirror --duration-* in globals.css */
 export const DURATION = {
-  press: 0.11,
-  fast: 0.18,
+  press: 0.08,
+  fast: 0.12,
   base: 0.32,
   slow: 0.32,
-  hover: 0.32,
+  hover: 0.12,
   enter: 0.48,
   media: 0.7,
   /** Canonical Motion Language beat */
@@ -77,7 +77,7 @@ export const GENTLE: Transition = {
 /** Buttons, chips, MotionPressable */
 export const MICRO: Transition = {
   type: 'tween',
-  duration: DURATION.base,
+  duration: DURATION.press,
   ease: EASE_LUXURY,
 }
 

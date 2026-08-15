@@ -16,7 +16,7 @@
   --btn-font-size: 0.625rem;
   --btn-font-weight: 700;
   --btn-tracking: 0.18em;
-  --btn-duration: var(--motion-duration, 320ms);
+  --btn-duration: var(--duration-press, 80ms);
   --btn-ease: var(--motion-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 
   /* Shared shadow language */
@@ -59,7 +59,7 @@
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  will-change: transform;
+  will-change: auto;
   transition:
     transform var(--btn-duration) var(--btn-ease),
     box-shadow var(--btn-duration) var(--btn-ease),
