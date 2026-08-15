@@ -363,6 +363,37 @@
   max-width: 36rem;
 }
 
+/* Brand badge — rendered only when the product carries an active brand. */
+.pdp-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid rgba(16, 17, 20, 0.1);
+  border-radius: 0.625rem;
+  background: rgba(255, 255, 255, 0.6);
+}
+.pdp-brand__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(16, 17, 20, 0.52);
+}
+/* Fixed box so a tall or wide logo cannot push the row around. */
+.pdp-brand__mark {
+  position: relative;
+  display: block;
+  width: 5.5rem;
+  height: 1.5rem;
+  flex: none;
+}
+.pdp-brand__name {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #101114;
+}
+
 /* Price */
 .pdp-price-row {
   display: flex;

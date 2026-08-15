@@ -835,6 +835,7 @@ model Product {
   id               String              @id @default(cuid())
   storeId          String
   categoryId       String?
+  brandId          String?
   slug             String
   name             String
   description      String?
@@ -882,6 +883,7 @@ model Product {
   seoScore         Int?
   store            Store               @relation(fields: [storeId], references: [id])
   category         Category?           @relation(fields: [categoryId], references: [id])
+  brand            Brand?              @relation(fields: [brandId], references: [id], onDelete: SetNull)
   collections      CollectionProduct[]
   variants         ProductVariant[]
   images           ProductImage[]
@@ -900,6 +902,7 @@ model Product {
   @@index([storeId, isNewArrival])
   @@index([storeId, isBestSeller])
   @@index([storeId, categoryId])
+  @@index([storeId, brandId])
   @@index([sku])
   @@index([barcode])
 }
@@ -1015,6 +1018,7 @@ model Brand {
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
   store       Store    @relation(fields: [storeId], references: [id])
+  products    Product[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

@@ -1,7 +1,7 @@
 import { getServerApiBaseUrl } from '@splaro/config'
 import { slugFromCategory } from '@/data/storefront'
 import type { ColorOption, StorefrontProduct } from '@/data/storefront'
-import type { ProductDetailData, ProductVariantData } from '@splaro/types'
+import type { ProductBrand, ProductDetailData, ProductVariantData } from '@splaro/types'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
 import {
@@ -103,6 +103,11 @@ interface LiveProduct {
   isBestSeller?: boolean
   schemaMarkup?: Record<string, unknown> | null
   isOnSale?: boolean
+  brand?: {
+    name?: string | null
+    slug?: string | null
+    logo?: string | null
+  } | null
   category?: {
     name: string
     slug?: string
@@ -346,6 +351,20 @@ export function mapLiveProduct(
     isBestSeller: Boolean(p.isBestSeller),
     image: img,
     hoverImage: hover,
+    ...(() => {
+      // Mirrors the detail mapper: a brand needs a name to render, the logo is
+      // optional, and the API has already dropped deactivated brands.
+      const name = p.brand?.name?.trim()
+      if (!name) return {}
+      const logo = p.brand?.logo?.trim()
+      return {
+        brand: {
+          name,
+          slug: p.brand?.slug?.trim() || '',
+          ...(logo ? { logo } : {}),
+        },
+      }
+    })(),
     ...(media.length ? { media } : {}),
     ...(p.fitType?.trim() ? { fit: p.fitType.trim() } : {}),
     ...(() => {
@@ -428,6 +447,18 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
     categorySlug: p.category?.slug,
   })
 
+  // A brand needs a name to be worth rendering; the logo is optional and the
+  // badge falls back to the name without it.
+  const brandName = p.brand?.name?.trim()
+  const brandLogo = p.brand?.logo?.trim()
+  const brand: ProductBrand | null = brandName
+    ? {
+        name: brandName,
+        slug: p.brand?.slug?.trim() || '',
+        ...(brandLogo ? { logo: brandLogo } : {}),
+      }
+    : null
+
   const product: ProductDetailData = {
     id: mapped.id,
     slug: p.slug,
@@ -483,6 +514,9 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
     metaDescription:
       p.metaDescription ??
       `Shop ${p.name} at SPLARO. Price in BDT ${Number(p.basePrice).toLocaleString('en-BD')}.`,
+    // Only carried through when the admin actually set one; the API already
+    // drops brands that were deactivated.
+    ...(brand ? { brand } : {}),
   }
 
   return { product, reviews }

@@ -9,6 +9,10 @@ import { isBrowserAnalyticsAllowed } from '@/lib/analytics/enabled'
 const ENV_GA_ID =
   process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? process.env.NEXT_PUBLIC_GA_ID ?? ''
 const ENV_FB_PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID ?? ''
+const ENV_CLARITY_ID =
+  process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID?.trim() ||
+  process.env.NEXT_PUBLIC_CLARITY_ID?.trim() ||
+  'y2uq43ep6i'
 
 export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
   const { marketing } = useStorefrontSettings()
@@ -23,10 +27,13 @@ export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
   const GA_ID = envGa ? '' : dbGa
   const rawFbPixelId = marketing?.facebookPixelId?.trim() || ENV_FB_PIXEL_ID.trim()
   const FB_PIXEL_ID = /^\d+$/.test(rawFbPixelId) ? rawFbPixelId : ''
+  const rawClarityId = marketing?.clarityProjectId?.trim() || ENV_CLARITY_ID
+  const CLARITY_ID = /^[a-z0-9]+$/i.test(rawClarityId) ? rawClarityId : ''
   const serializedGaId = JSON.stringify(GA_ID)
   const serializedFbPixelId = JSON.stringify(FB_PIXEL_ID)
+  const serializedClarityId = JSON.stringify(CLARITY_ID)
 
-  if (!GA_ID && !FB_PIXEL_ID) return null
+  if (!GA_ID && !FB_PIXEL_ID && !CLARITY_ID) return null
 
   return (
     <>
@@ -91,6 +98,18 @@ export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
             />
           </noscript>
         </>
+      ) : null}
+
+      {CLARITY_ID ? (
+        <Script id="splaro-microsoft-clarity" strategy="lazyOnload">
+          {`
+            (function(c,l,a,r,i,t,y){
+              c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+              t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+              y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+            })(window, document, "clarity", "script", ${serializedClarityId});
+          `}
+        </Script>
       ) : null}
     </>
   )

@@ -19,6 +19,7 @@ import { PrismaService } from '../../common/prisma.service'
 import { CacheService } from '../../common/cache.service'
 import { ProductAdvancedService } from './product-advanced.service'
 import { SearchService } from '../search/search.service'
+import { assertStoreBrandId } from '../../common/assert-store-brand'
 import { assertStoreCategoryId } from '../../common/assert-store-category'
 import { resolveStoreId, slugify } from '../../common/store.util'
 import { resolveAdminPagination } from '../../common/admin-pagination.util'
@@ -319,6 +320,8 @@ export class ProductsController {
     const categoryId = await assertStoreCategoryId(this.prisma, sid, body.categoryId, {
       required: publishState.status !== 'DRAFT',
     })
+    // Optional: most products have no brand. Store scope is still enforced.
+    const brandId = await assertStoreBrandId(this.prisma, sid, body.brandId)
     let slug = slugify(body.slug?.trim() || body.name)
     const clash = await this.prisma.product.findFirst({ where: { storeId: sid, slug } })
     if (clash) slug = `${slug}-${Date.now().toString(36)}`
@@ -478,6 +481,7 @@ export class ProductsController {
         lowStockThreshold: body.lowStockThreshold ?? 5,
         tags: body.tags ?? [],
         categoryId,
+        brandId,
         isPublished: publishState.isPublished,
         isHidden: body.isHidden ?? false,
         status: publishState.status,
@@ -595,6 +599,12 @@ export class ProductsController {
         ? await assertStoreCategoryId(this.prisma, existing.storeId, body.categoryId)
         : undefined
 
+    // `null` clears the brand; omitting the key leaves it untouched.
+    const nextBrandId =
+      body.brandId !== undefined
+        ? await assertStoreBrandId(this.prisma, existing.storeId, body.brandId)
+        : undefined
+
     const product = await this.prisma.product.update({
       where: { id },
       data: {
@@ -617,6 +627,7 @@ export class ProductsController {
         ...(body.tags !== undefined ? { tags: body.tags } : {}),
         ...(schemaMarkup !== undefined ? { schemaMarkup } : {}),
         ...(nextCategoryId !== undefined ? { categoryId: nextCategoryId } : {}),
+        ...(body.brandId !== undefined ? { brandId: nextBrandId } : {}),
         ...(publishPatch
           ? {
               isPublished: publishPatch.isPublished,

@@ -1,3 +1,4 @@
+import type { ProductBrand } from '@splaro/types'
 export type Category = 'All' | 'Summer Edition' | 'Men' | 'Women' | 'Kids' | 'Footwear' | 'Accessories'
 export type ProductStatus = 'Ready' | 'Limited' | 'New'
 
@@ -49,6 +50,8 @@ export interface StorefrontProduct {
   isBestSeller?: boolean
   image: string
   hoverImage: string
+  /** Set only when the product carries an active brand. */
+  brand?: ProductBrand
   media?: { type: 'image' | 'video'; url: string; alt?: string }[]
   /** Real fitType from API — omit when missing (never invent "Regular"). */
   fit?: string

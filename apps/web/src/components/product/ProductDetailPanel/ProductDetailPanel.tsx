@@ -30,6 +30,7 @@ import { resolveSizeOptionUi } from '@/lib/catalog/size-option-ui'
 import { getRecentlyViewed, trackRecentlyViewed } from '@/lib/recentlyViewed'
 import { ProductMiniRow } from '@/components/product/ProductMiniRow/ProductMiniRow'
 import { SizeGuideModal } from '@/components/product/SizeGuideModal/SizeGuideModal'
+import type { ProductBrand } from '@splaro/types'
 import type { ColorOption, Category, StorefrontProduct } from '@/data/storefront'
 
 export interface ProductDetailItem {
@@ -50,6 +51,8 @@ export interface ProductDetailItem {
   fit?: string
   material?: string
   description?: string
+  /** Present only when the admin filed this product under an active brand. */
+  brand?: ProductBrand
 }
 
 interface ProductDetailPanelProps {
@@ -433,6 +436,29 @@ export function ProductDetailPanel({
                 badgeLabelStyle="off"
               />
               </ProductReveal>
+
+              {/* Only for products the admin filed under a brand — own-label
+                  goods render nothing here rather than an empty box. */}
+              {product.brand ? (
+                <ProductReveal>
+                <div className="pdp-brand">
+                  <span className="pdp-brand__label">Brand:</span>
+                  {product.brand.logo ? (
+                    <span className="pdp-brand__mark">
+                      <Image
+                        src={product.brand.logo}
+                        alt={product.brand.name}
+                        fill
+                        sizes="120px"
+                        className="object-contain object-left"
+                      />
+                    </span>
+                  ) : (
+                    <span className="pdp-brand__name">{product.brand.name}</span>
+                  )}
+                </div>
+                </ProductReveal>
+              ) : null}
 
               <ProductReveal>
               <p className="pdp-desc">{productDescription}</p>

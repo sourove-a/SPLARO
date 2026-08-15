@@ -12,6 +12,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator'
 import { PRODUCT_HEX_PATTERN } from '../color-hex.util'
@@ -186,6 +187,12 @@ export class AdminProductPatchDto {
   @IsOptional()
   @IsString()
   categoryId?: string
+
+  /** Optional. `null` clears the brand; omitting the key leaves it unchanged. */
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  brandId?: string | null
 
   @IsOptional()
   @IsBoolean()

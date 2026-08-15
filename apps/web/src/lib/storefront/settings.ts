@@ -168,6 +168,7 @@ export interface StorefrontSettings {
   marketing?: {
     facebookPixelId?: string
     googleAnalyticsId?: string
+    clarityProjectId?: string
   }
 }
 

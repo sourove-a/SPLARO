@@ -97,6 +97,20 @@ export interface ProductDetailData extends ProductCardData {
   tags: string[]
   metaTitle?: string
   metaDescription?: string
+  /**
+   * Set only when the admin picked a brand for this product and that brand is
+   * still active. Absent for own-label goods, which is the common case — the
+   * PDP renders nothing rather than an empty badge.
+   */
+  brand?: ProductBrand
+}
+
+/** The brand badge shown on a product page. */
+export interface ProductBrand {
+  name: string
+  slug: string
+  /** Uploaded mark. When absent the badge falls back to the brand name. */
+  logo?: string
 }
 
 export type SortOption =

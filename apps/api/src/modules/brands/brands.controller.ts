@@ -33,12 +33,20 @@ export class BrandsController {
       })
     }
 
-    const productTotal = await this.prisma.product.count({ where: { storeId: sid } })
+    // Real counts. This used to report every product in the store against
+    // whichever brand was named "splaro" and 0 for the rest, because products
+    // had no brand column to count by.
+    const grouped = await this.prisma.product.groupBy({
+      by: ['brandId'],
+      where: { storeId: sid, brandId: { not: null } },
+      _count: { _all: true },
+    })
+    const counts = new Map(grouped.map((row) => [row.brandId, row._count._all]))
 
     return {
       brands: brands.map((b) => ({
         ...b,
-        productCount: b.slug === 'splaro' || b.name.toLowerCase().includes('splaro') ? productTotal : 0,
+        productCount: counts.get(b.id) ?? 0,
       })),
       total: brands.length,
     }

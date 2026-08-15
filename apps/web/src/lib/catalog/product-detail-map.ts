@@ -20,5 +20,6 @@ export function storefrontToDetailItem(
     ...(product.media ? { media: product.media } : {}),
     ...(product.fit ? { fit: product.fit } : {}),
     ...(product.material ? { material: product.material } : {}),
+    ...(product.brand ? { brand: product.brand } : {}),
   }
 }

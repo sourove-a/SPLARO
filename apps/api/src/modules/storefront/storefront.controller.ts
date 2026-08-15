@@ -433,6 +433,9 @@ export class StorefrontController {
                 parent: { select: { name: true, slug: true } },
               },
             },
+            // Only what the PDP badge renders. An inactive brand is filtered
+            // out below rather than here, so the relation stays a simple join.
+            brand: { select: { name: true, slug: true, logo: true, isActive: true } },
             reviews: {
               where: { status: 'APPROVED' },
               orderBy: { createdAt: 'desc' },
@@ -453,7 +456,10 @@ export class StorefrontController {
           },
         })
         if (!product) throw new NotFoundException('Product not found')
-        return { product }
+        // A deactivated brand disappears from the storefront without having to
+        // unset it on every product that carries it.
+        const { brand, ...rest } = product
+        return { product: { ...rest, brand: brand?.isActive ? brand : null } }
       },
     )
   }
