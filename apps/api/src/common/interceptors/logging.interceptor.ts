@@ -8,6 +8,13 @@ import {
 import type { Request, Response } from 'express'
 import { Observable, tap } from 'rxjs'
 
+const SENSITIVE_QUERY =
+  /([?&](?:token|access_token|refresh_token|password|secret|code|credential|session|key)=)[^&]*/gi
+
+export function sanitizeRequestUrl(url: string): string {
+  return url.replace(SENSITIVE_QUERY, '$1[REDACTED]')
+}
+
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger('HTTP')
@@ -39,7 +46,7 @@ export class LoggingInterceptor implements NestInterceptor {
           if (quietSuccess) return
           const level = status >= 500 ? 'error' : status >= 400 ? 'warn' : 'log'
           this.logger[level](
-            `[${requestId}] ${request.method} ${request.url} ${status} ${ms}ms`,
+            `[${requestId}] ${request.method} ${sanitizeRequestUrl(request.url)} ${status} ${ms}ms`,
           )
         },
         error: (err: unknown) => {
@@ -49,7 +56,7 @@ export class LoggingInterceptor implements NestInterceptor {
               ? Number((err as { status?: number }).status)
               : response.statusCode || 500
           this.logger.error(
-            `[${requestId}] ${request.method} ${request.url} ${status} ${ms}ms (threw)`,
+            `[${requestId}] ${request.method} ${sanitizeRequestUrl(request.url)} ${status} ${ms}ms (threw)`,
           )
         },
       }),

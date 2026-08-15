@@ -48,26 +48,12 @@ export class AppController {
   @Get('health')
   @ApiOperation({ summary: 'Liveness probe (database ping)' })
   async health(@Res({ passthrough: true }) res: Response) {
-    const started = Date.now()
     try {
       await this.prisma.$queryRaw`SELECT 1`
-      return {
-        status: 'ok',
-        database: 'connected',
-        timestamp: new Date().toISOString(),
-        service: 'splaro-api',
-        latencyMs: Date.now() - started,
-      }
-    } catch (err) {
+      return { status: 'ok' }
+    } catch {
       res.status(503)
-      return {
-        status: 'down',
-        database: 'disconnected',
-        timestamp: new Date().toISOString(),
-        service: 'splaro-api',
-        latencyMs: Date.now() - started,
-        message: err instanceof Error ? err.message : 'Database connection failed',
-      }
+      return { status: 'down' }
     }
   }
 

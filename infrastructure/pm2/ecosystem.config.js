@@ -3,6 +3,7 @@ const os = require('node:os')
 
 const APP_ROOT = process.env.SPLARO_APP_DIR || '/var/www/splaro'
 const LOG_DIR = process.env.SPLARO_LOG_DIR || path.join(APP_ROOT, 'logs')
+const ENV_FILE = `${APP_ROOT}/.env`
 
 module.exports = {
   apps: [
@@ -11,10 +12,8 @@ module.exports = {
       // PM2 can then reload cluster workers one at a time on the same port.
       name: 'splaro-web-live',
       cwd: `${APP_ROOT}/apps/web`,
-      // Must be a JS file (not the `node` binary) so PM2 cluster mode can
-      // wrap it and share port 3000 across instances — `script: 'node'`
-      // spawns independent processes that fight over the port (EADDRINUSE).
       script: '.next/standalone/apps/web/server.js',
+      env_file: ENV_FILE,
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
@@ -39,6 +38,7 @@ module.exports = {
       name: 'splaro-admin',
       cwd: `${APP_ROOT}/apps/admin`,
       script: '.next/standalone/apps/admin/server.js',
+      env_file: ENV_FILE,
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
@@ -63,16 +63,17 @@ module.exports = {
       name: 'splaro-api',
       cwd: `${APP_ROOT}/apps/api`,
       script: 'dist/main.js',
+      env_file: ENV_FILE,
       env: {
         NODE_ENV: 'production',
         API_PORT: 4000,
+        API_LISTEN_HOST: '127.0.0.1',
         SPLARO_TELEGRAM_POLLING: '0',
         WEB_URL: process.env.WEB_URL || 'https://splaro.co',
         ADMIN_URL: process.env.ADMIN_URL || 'https://admin.splaro.co',
         API_URL: process.env.API_URL || 'https://api.splaro.co',
         CORS_ORIGINS: process.env.CORS_ORIGINS || 'https://splaro.co,https://admin.splaro.co',
         MEILISEARCH_HOST: process.env.MEILISEARCH_HOST || '',
-        MEILISEARCH_MASTER_KEY: process.env.MEILISEARCH_MASTER_KEY || '',
       },
       instances: 2,
       exec_mode: 'cluster',
@@ -93,6 +94,7 @@ module.exports = {
       name: 'splaro-worker',
       cwd: `${APP_ROOT}/apps/worker`,
       script: 'dist/index.js',
+      env_file: ENV_FILE,
       env: {
         NODE_ENV: 'production',
         REDIS_HOST: '127.0.0.1',
@@ -113,6 +115,7 @@ module.exports = {
       name: 'splaro-print',
       cwd: `${APP_ROOT}/tools/print-service`,
       script: 'dist/index.js',
+      env_file: ENV_FILE,
       env: {
         NODE_ENV: 'production',
         PORT: 5000,
@@ -131,6 +134,7 @@ module.exports = {
       name: 'splaro-mcp',
       cwd: `${APP_ROOT}/tools/mcp-server`,
       script: 'start.mjs',
+      env_file: ENV_FILE,
       env: {
         NODE_ENV: 'production',
         MCP_TRANSPORT: 'sse',
@@ -138,10 +142,6 @@ module.exports = {
         MCP_SSE_MESSAGE_PATH: '/mcp/message',
         SPLARO_MCP_STORE_ID: process.env.SPLARO_MCP_STORE_ID || process.env.NEXT_PUBLIC_STORE_ID || 'splaro',
         SPLARO_API_BASE: process.env.SPLARO_API_BASE || 'http://127.0.0.1:4000/api/v1',
-        // Prefer process env from deploy --update-env; dotenv in src/env.ts also loads repo .env
-        DATABASE_URL: process.env.DATABASE_URL || '',
-        MCP_API_KEY: process.env.MCP_API_KEY || '',
-        SPLARO_MCP_SERVICE_TOKEN: process.env.SPLARO_MCP_SERVICE_TOKEN || '',
       },
       instances: 1,
       exec_mode: 'fork',

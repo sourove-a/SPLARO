@@ -25,7 +25,7 @@ describe('SPLARO API (e2e)', () => {
     const res = await request(app.getHttpServer()).get('/api/v1/health').expect(200)
 
     expect(res.body.status).toBe('ok')
-    expect(res.body.database).toBe('connected')
+    expect(res.body.database).toBeUndefined()
   })
 
   it('GET /api/v1/health/full — requires auth or internal secret', async () => {

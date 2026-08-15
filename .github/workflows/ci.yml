@@ -105,6 +105,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Public env allowlist
+        run: node scripts/check-public-env.mjs
+
       - name: CSS pipeline
         run: node scripts/verify-css.mjs
 

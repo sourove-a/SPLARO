@@ -414,6 +414,12 @@ else
     die "Web BUILD_ID mismatch after reload (disk=$EXPECTED_BUILD live=$LIVE_BUILD)"
   fi
   log "Blue/green release active; previous release retained at $PREVIOUS_RELEASE (web BUILD_ID=$LIVE_BUILD)"
+  # Rollback if this release misbehaves:
+  #   mv /var/www/splaro /var/www/splaro-releases/failed
+  #   mv /var/www/splaro-releases/previous /var/www/splaro
+  #   pm2 startOrReload /var/www/splaro/infrastructure/pm2/ecosystem.config.js --update-env
+  # Previous hashed /_next/static chunks are copied into the candidate (cp -an) then
+  # re-packed into standalone. Older than N-1 builds may be pruned later if disk is tight.
 fi
 
 # ── Meilisearch + Nginx performance (idempotent, safe reload) ─
