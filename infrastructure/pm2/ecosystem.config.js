@@ -67,7 +67,6 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         API_PORT: 4000,
-        API_LISTEN_HOST: '127.0.0.1',
         SPLARO_TELEGRAM_POLLING: '0',
         WEB_URL: process.env.WEB_URL || 'https://splaro.co',
         ADMIN_URL: process.env.ADMIN_URL || 'https://admin.splaro.co',

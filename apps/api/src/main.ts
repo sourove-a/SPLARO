@@ -11,13 +11,11 @@ async function listenWithRetry(
   app: Awaited<ReturnType<typeof NestFactory.create>>,
   port: number | string,
   logger: Logger,
-  host: string | undefined,
   attempts = 12,
 ) {
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      if (host) await app.listen(port, host)
-      else await app.listen(port)
+      await app.listen(port)
       return
     } catch (err: unknown) {
       const code =
@@ -126,11 +124,8 @@ async function bootstrap() {
     logger.log('Swagger UI: /api/v1/docs')
   }
 
-  const listenHost =
-    process.env['API_LISTEN_HOST']?.trim() ||
-    (isProduction() ? '127.0.0.1' : undefined)
-  await listenWithRetry(app, port, logger, listenHost)
-  logger.log(`SPLARO API running on ${listenHost ?? '0.0.0.0'}:${port}`)
+  await listenWithRetry(app, port, logger)
+  logger.log(`SPLARO API running on :${port}`)
   logger.log(`API prefix: /api/v1`)
   logger.log(`CORS origins: ${corsOrigins.join(', ')}`)
   logger.log(`Environment: ${process.env['NODE_ENV'] ?? 'development'}`)
