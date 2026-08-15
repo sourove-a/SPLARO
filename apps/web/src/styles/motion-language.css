@@ -6,10 +6,10 @@
  */
 
 :root {
-  --motion-lift: -2px;
-  --motion-card-scale: 1.02;
+  --motion-lift: 0px;
+  --motion-card-scale: 1;
   --motion-tilt-max: 2deg;
-  --motion-duration: var(--duration-luxury, 320ms);
+  --motion-duration: var(--duration-hover, 120ms);
   --motion-ease: var(--ease-luxury, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
@@ -36,7 +36,7 @@
       transform var(--motion-duration) var(--motion-ease),
       box-shadow var(--motion-duration) var(--motion-ease);
     transform: translate3d(0, var(--motion-y), 0) scale(var(--motion-scale));
-    will-change: transform;
+    will-change: auto;
   }
 
   html:not([data-perf='lite']) .luxury-card:hover,

@@ -506,12 +506,11 @@
 
   .checkout-summary.checkout-glass-panel {
     transition:
-      box-shadow 320ms cubic-bezier(0.16, 1, 0.3, 1),
-      transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow 120ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .checkout-summary.checkout-glass-panel:hover {
-    transform: translateY(-2px);
+    transform: none;
     box-shadow:
       0 38px 100px rgba(16, 17, 20, 0.1),
       0 14px 40px rgba(16, 17, 20, 0.05),

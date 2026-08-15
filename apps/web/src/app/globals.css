@@ -1005,20 +1005,19 @@ html[data-scroll-profile='mobile'].lenis [data-lenis-prevent] {
     overflow: hidden;
     background-color: var(--surface-alt);
     border-radius: var(--r-lg);
-    will-change: transform;
-    transform: translateZ(0);
+    will-change: auto;
+    transform: none;
     transition:
-      transform var(--duration-slow) var(--ease-out-expo),
-      box-shadow var(--duration-slow) var(--ease-out-expo),
+      box-shadow var(--duration-hover) var(--ease-out-expo),
       opacity var(--duration-fast) var(--ease-smooth);
   }
   .product-card-img img {
     transform: none;
-    transition: opacity 400ms var(--ease-out-quart);
+    transition: opacity var(--duration-hover) var(--ease-out-quart);
   }
   .product-card-img:hover img {
     transform: none;
-    opacity: 0.94;
+    opacity: 1;
   }
 
   article.group {

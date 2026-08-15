@@ -32,7 +32,7 @@ function probeCssHealth(): boolean {
 
 /**
  * Detects missing/broken CSS.
- * Production: silent one-shot reload only — never show a customer-facing debug banner.
+ * Production: never auto-reload (false probes looked like a blank refresh).
  * Development: amber banner with pnpm css:fix guidance.
  */
 export function CssHealthGuard() {
@@ -60,16 +60,7 @@ export function CssHealthGuard() {
       }
 
       if (isProd) {
-        const key = 'splaro_css_reload'
-        try {
-          if (!sessionStorage.getItem(key)) {
-            sessionStorage.setItem(key, '1')
-            window.location.reload()
-          }
-        } catch {
-          // ignore storage errors
-        }
-        // Never surface a debug banner on production.
+        // Never hijack the page — a flaky canary used to look like a random reload.
         return
       }
 

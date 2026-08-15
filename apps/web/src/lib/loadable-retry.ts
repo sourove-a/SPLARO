@@ -9,7 +9,7 @@ export function isChunkLoadError(err: unknown): boolean {
 }
 
 /**
- * Wrap dynamic import() — retry once, then hard-reload to fetch fresh chunks.
+ * Wrap dynamic import() — retry once, then throw (never location.reload).
  */
 export function importWithChunkRetry<T>(loader: () => Promise<T>): () => Promise<T> {
   return async () => {
@@ -22,13 +22,6 @@ export function importWithChunkRetry<T>(loader: () => Promise<T>): () => Promise
         return await loader()
       } catch (second) {
         if (!isChunkLoadError(second) || typeof window === 'undefined') throw second
-        const key = 'splaro_chunk_reload'
-        if (!sessionStorage.getItem(key)) {
-          sessionStorage.setItem(key, '1')
-          window.location.reload()
-          await new Promise(() => {})
-        }
-        sessionStorage.removeItem(key)
         throw second
       }
     }
