@@ -160,7 +160,6 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
                     >
                       <Link
                         href={item.href}
-                        scroll={false}
                         // This bar is rendered on phones too (CSS-hidden), where
                         // Next still prefetched every department on load. Hover
                         // and focus prefetch, so desktop navigation is unchanged.

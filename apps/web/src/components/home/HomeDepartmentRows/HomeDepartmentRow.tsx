@@ -159,7 +159,7 @@ export function HomeDepartmentRow({ row, priorityFirst = false }: HomeDepartment
         <h2 id={`home-dept-${row.slug}`} className="home-dept-row__title">
           {row.title}
         </h2>
-        <Link href={row.exploreHref} className="home-dept-row__explore" scroll={false}>
+        <Link href={row.exploreHref} className="home-dept-row__explore">
           Explore All
         </Link>
       </div>

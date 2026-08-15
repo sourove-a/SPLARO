@@ -19,7 +19,6 @@ export function HomeCategoryTile({
     <Link
       href={tile.href}
       className={cn('home-dept-tile', active && 'is-active')}
-      scroll={false}
     >
       <div className="home-dept-tile__media">
         {/* The VPS runs next/image unoptimized (sharp would peg the CPU), so the
