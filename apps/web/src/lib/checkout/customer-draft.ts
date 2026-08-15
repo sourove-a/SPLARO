@@ -67,3 +67,17 @@ export function loadCheckoutCustomerDraft(): CheckoutCustomerDraft {
 
   return defaults
 }
+
+/**
+ * Profile / localStorage hydrate must not wipe fields the shopper already typed.
+ * Skip dirty fields and any value that is already non-empty.
+ */
+export function shouldFillCheckoutField(
+  current: string | undefined,
+  incoming: string | undefined | null,
+  dirty?: boolean,
+): incoming is string {
+  if (dirty) return false
+  if (typeof current === 'string' && current.trim()) return false
+  return typeof incoming === 'string' && incoming.trim().length > 0
+}

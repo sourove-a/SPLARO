@@ -4,23 +4,14 @@ import type { Transition, Variants } from '@/lib/motion/react'
 /** @deprecated Prefer EASE_EXPO_OUT from @/lib/motion/config */
 export const checkoutEase = EASE_EXPO_OUT
 
-/**
- * Checkout page rhythm — unhurried quiet luxury.
- * Settle ~0.78s so sections float in without feeling rushed.
- */
+/** Instant paint on reload — no fade-from-white. Tap/hover still use MICRO. */
 const SETTLE: Transition = {
-  duration: 0.78,
+  duration: 0,
   ease: EASE_EXPO_OUT,
 }
 
-export function checkoutSectionMotion(reduced: boolean | null) {
-  return reduced
-    ? { initial: false as const, animate: { opacity: 1 }, exit: { opacity: 1 } }
-    : {
-        initial: { opacity: 0, y: 16, scale: 0.988 },
-        animate: { opacity: 1, y: 0, scale: 1 },
-        exit: { opacity: 0, y: -8, scale: 0.99 },
-      }
+export function checkoutSectionMotion(_reduced: boolean | null) {
+  return { initial: false as const, animate: { opacity: 1 }, exit: { opacity: 1 } }
 }
 
 export function checkoutMotionTransition(
@@ -31,37 +22,28 @@ export function checkoutMotionTransition(
 }
 
 export function checkoutEnterTransition(
-  reduced: boolean | null,
-  delay = 0,
+  _reduced: boolean | null,
+  _delay = 0,
 ): Transition {
-  if (reduced) return { duration: 0 }
-  return {
-    ...SETTLE,
-    delay,
-  }
+  return { duration: 0 }
 }
 
-export function checkoutChromeMotion(reduced: boolean | null) {
-  return reduced
-    ? { initial: false as const, animate: { opacity: 1 } }
-    : {
-        initial: { opacity: 0, y: 12 },
-        animate: { opacity: 1, y: 0 },
-      }
+export function checkoutChromeMotion(_reduced: boolean | null) {
+  return { initial: false as const, animate: { opacity: 1 } }
 }
 
 export const checkoutStaggerContainer: Variants = {
   hidden: {},
   show: {
     transition: {
-      staggerChildren: 0.12,
-      delayChildren: 0.12,
+      staggerChildren: 0,
+      delayChildren: 0,
     },
   },
 }
 
 export const checkoutStaggerItem: Variants = {
-  hidden: { opacity: 0, y: 12 },
+  hidden: { opacity: 1, y: 0 },
   show: {
     opacity: 1,
     y: 0,

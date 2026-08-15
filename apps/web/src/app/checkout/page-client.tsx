@@ -27,6 +27,7 @@ import {
 import {
   getCheckoutFormDefaults,
   loadCheckoutCustomerDraft,
+  shouldFillCheckoutField,
 } from '@/lib/checkout/customer-draft'
 import { BD_DISTRICTS } from '@/lib/checkout/bd-districts'
 import { getThanasForDistrict } from '@/lib/checkout/bd-thanas'
@@ -183,7 +184,7 @@ export default function CheckoutPageClient() {
     getValues,
     reset,
     trigger,
-    formState: { errors },
+    formState: { errors, dirtyFields },
   } = useForm<CheckoutFormValues>({
     resolver: zodResolver(checkoutFormSchema),
     defaultValues: getCheckoutFormDefaults(),
@@ -214,6 +215,9 @@ export default function CheckoutPageClient() {
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null)
   const [dispatchCeremony, setDispatchCeremony] = useState<DispatchCeremonyState | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
+  const draftApplied = useRef(false)
+  const profileAppliedFor = useRef<string | null>(null)
+  const userKey = user?.id || user?.email || null
 
   const deliveryFields = useMemo(
     () => ({ name, email, phone, address, city, thana }),
@@ -241,9 +245,13 @@ export default function CheckoutPageClient() {
   useEffect(() => {
     if (!pendingThana) return
     if (!thanaOptions.includes(pendingThana)) return
-    setValue('thana', pendingThana, { shouldValidate: true, shouldDirty: true })
+    if (getValues('thana')?.trim()) {
+      setPendingThana(null)
+      return
+    }
+    setValue('thana', pendingThana, { shouldValidate: true, shouldDirty: false })
     setPendingThana(null)
-  }, [pendingThana, thanaOptions, setValue])
+  }, [pendingThana, thanaOptions, setValue, getValues])
 
   const clearSubmitError = () => {
     if (submitError) setSubmitError('')
@@ -372,48 +380,71 @@ export default function CheckoutPageClient() {
     })
   }, [city, items.length, totalBdt, itemCount, analyticsItems, couponApplied, couponCode])
 
+  const fillEmptyCheckoutField = (
+    field: 'name' | 'email' | 'phone' | 'address' | 'city' | 'thana',
+    incoming: string | undefined | null,
+  ) => {
+    const value =
+      field === 'phone' && incoming ? formatBdPhoneInput(incoming) : incoming
+    if (!shouldFillCheckoutField(getValues(field), value, Boolean(dirtyFields[field]))) {
+      return
+    }
+    setValue(field, value, { shouldValidate: true, shouldDirty: false })
+  }
+
   useEffect(() => {
-    reset({ ...getCheckoutFormDefaults(), ...loadCheckoutCustomerDraft() })
+    if (draftApplied.current) return
+    draftApplied.current = true
+    const draft = loadCheckoutCustomerDraft()
+    fillEmptyCheckoutField('name', draft.name)
+    fillEmptyCheckoutField('email', draft.email)
+    fillEmptyCheckoutField('phone', draft.phone)
+    fillEmptyCheckoutField('address', draft.address)
+    fillEmptyCheckoutField('city', draft.city)
+    fillEmptyCheckoutField('thana', draft.thana)
+    if (!dirtyFields.payment && draft.payment) {
+      setValue('payment', draft.payment, { shouldValidate: true, shouldDirty: false })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- draft hydrate once
   }, [reset])
 
   useEffect(() => {
-    if (!authHydrated || !user) return
+    if (!authHydrated || !user || !userKey) return
+    if (profileAppliedFor.current === userKey) return
 
     let cancelled = false
 
     void (async () => {
+      const signedIn = useAuthStore.getState().user
+      if (!signedIn) return
+
       try {
         const data = await fetchAccountProfile()
         if (cancelled) return
 
-        const draft = loadCheckoutCustomerDraft()
+        fillEmptyCheckoutField('name', signedIn.name)
+        fillEmptyCheckoutField('email', signedIn.email)
+        fillEmptyCheckoutField('phone', signedIn.phone)
+
         const apiAddress = data.address
-
-        reset((current) => ({
-          ...current,
-          name: user.name || current.name,
-          email: user.email || current.email,
-          phone: user.phone ? formatBdPhoneInput(user.phone) : current.phone,
-          ...(apiAddress
-            ? {
-                address: apiAddress.address,
-                city: apiAddress.district,
-                thana: apiAddress.thana,
-              }
-            : {
-                address: draft.address || current.address,
-                city: draft.city || current.city,
-                thana: draft.thana || current.thana,
-              }),
-        }))
-
         if (apiAddress) {
+          fillEmptyCheckoutField('address', apiAddress.address)
+          fillEmptyCheckoutField('city', apiAddress.district)
+          if (
+            shouldFillCheckoutField(
+              getValues('thana'),
+              apiAddress.thana,
+              Boolean(dirtyFields.thana),
+            )
+          ) {
+            setPendingThana(apiAddress.thana)
+          }
           window.localStorage.setItem(
             'splaro-customer',
             JSON.stringify({
-              name: user.name,
-              email: user.email,
-              phone: user.phone,
+              name: signedIn.name,
+              email: signedIn.email,
+              phone: signedIn.phone,
               address: apiAddress.address,
               city: apiAddress.district,
               district: apiAddress.district,
@@ -421,21 +452,21 @@ export default function CheckoutPageClient() {
             }),
           )
         }
+        profileAppliedFor.current = userKey
       } catch {
         if (cancelled) return
-        reset((current) => ({
-          ...current,
-          name: user.name || current.name,
-          email: user.email || current.email,
-          phone: user.phone ? formatBdPhoneInput(user.phone) : current.phone,
-        }))
+        fillEmptyCheckoutField('name', signedIn.name)
+        fillEmptyCheckoutField('email', signedIn.email)
+        fillEmptyCheckoutField('phone', signedIn.phone)
+        profileAppliedFor.current = userKey
       }
     })()
 
     return () => {
       cancelled = true
     }
-  }, [authHydrated, user, reset])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per signed-in user
+  }, [authHydrated, userKey])
 
   const isGuest = authHydrated && !user
 

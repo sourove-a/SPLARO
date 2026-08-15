@@ -760,7 +760,6 @@ export function ShopCatalog({
             key={gridFilterKey}
             className={cn(
               'shop-product-grid',
-              !isHomepage && 'shop-product-grid--soft-enter',
               isHomepage && 'shop-product-grid--homepage',
               !isHomepage && gridDensity === 1 && 'shop-product-grid--cols-1',
               !isHomepage && gridDensity === 2 && 'shop-product-grid--cols-2',

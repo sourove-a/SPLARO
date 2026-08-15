@@ -48,7 +48,7 @@ export function ShopExperience({
   )
 
   return (
-    <div className="shop-page-shell shop-page-shell--soft-enter">
+    <div className="shop-page-shell">
       <div className="shop-page-intro">
         <div className="shop-page-intro__top">
           <ShopBreadcrumbs items={breadcrumbs} />
