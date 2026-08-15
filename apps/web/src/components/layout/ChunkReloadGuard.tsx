@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
 import {
   canAttemptChunkReload,
-  isRecoverableNavigationError,
+  shouldSilentFullPageReload,
 } from '@/lib/navigation/navigation-recovery'
 
 declare global {
@@ -74,16 +74,14 @@ export function ChunkReloadGuard() {
 
     const onError = (event: ErrorEvent) => {
       const target = event.target
-      if (target instanceof HTMLScriptElement && /\/_next\/static\//.test(target.src)) {
-        tryRecover()
-        return
-      }
-      if (target instanceof HTMLLinkElement && /\/_next\/static\//.test(target.href)) {
-        tryRecover()
-        return
-      }
+      const assetUrl =
+        target instanceof HTMLScriptElement
+          ? target.src
+          : target instanceof HTMLLinkElement
+            ? target.href
+            : ''
       const msg = event.message ?? ''
-      if (isRecoverableNavigationError(msg) || /\/_next\/static\//.test(msg)) {
+      if (shouldSilentFullPageReload({ message: msg, assetUrl })) {
         tryRecover()
       }
     }
@@ -91,7 +89,7 @@ export function ChunkReloadGuard() {
     const onRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason
       const msg = reason instanceof Error ? reason.message : String(reason ?? '')
-      if (isRecoverableNavigationError(msg) || /\/_next\/(static|data)\//.test(msg)) {
+      if (shouldSilentFullPageReload({ message: msg })) {
         tryRecover()
       }
     }

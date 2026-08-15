@@ -31,3 +31,20 @@ export function shouldHardNavigateAfterTimeout(input: {
 export function canAttemptChunkReload(count: number, maxReloads: number): boolean {
   return count < maxReloads
 }
+
+/**
+ * Full-page reload is only for missing Next static chunks after a deploy.
+ * Generic `Failed to fetch` (presence, GTM, promo) must not reload the storefront.
+ */
+export function shouldSilentFullPageReload(input: {
+  message?: string
+  assetUrl?: string
+}): boolean {
+  const url = input.assetUrl ?? ''
+  if (/\/_next\/static\//.test(url)) return true
+  const message = input.message ?? ''
+  return /chunkloaderror|loading chunk|failed to fetch dynamically imported module/i.test(
+    message,
+  )
+}
+

@@ -66,7 +66,7 @@ export const CHUNK_RECOVERY_SCRIPT = `(function(){
     });
   }
 
-  function isChunkMsg(m){return/loading chunk|chunkloaderror|failed to fetch dynamically imported module|invalid response|application-error/i.test(m||"")}
+  function isChunkMsg(m){return/loading chunk|chunkloaderror|failed to fetch dynamically imported module/i.test(m||"")}
   function isChunkUrl(u){return/\\/_next\\/static\\//.test(u||"")}
 
   window.addEventListener("error",function(e){
@@ -83,19 +83,6 @@ export const CHUNK_RECOVERY_SCRIPT = `(function(){
     if(isChunkMsg(m))reloadOnce();
   });
 
-  window.__splaroBootOk=function(){resetCounter();nukeLegacyBanner()};
-
-  function checkBuildId(){
-    if(IS_DEV||!htmlBuild||htmlBuild==="production")return;
-    fetch("/api/build-id",{cache:"no-store",credentials:"same-origin"})
-      .then(function(r){return r.json()})
-      .then(function(d){
-        if(!d||!d.buildId)return;
-        if(d.buildId==="production"||d.buildId==="development")return;
-        if(htmlBuild!==d.buildId)reloadOnce();
-      })
-      .catch(function(){});
-  }
-  checkBuildId();
+  window.__splaroBootOk=function(){nukeLegacyBanner()};
 })();
 `

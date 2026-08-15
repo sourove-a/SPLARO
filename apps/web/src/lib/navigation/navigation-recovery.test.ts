@@ -4,6 +4,7 @@ import {
   canAttemptChunkReload,
   isRecoverableNavigationError,
   shouldHardNavigateAfterTimeout,
+  shouldSilentFullPageReload,
 } from './navigation-recovery.ts'
 
 describe('navigation-recovery', () => {
@@ -33,5 +34,24 @@ describe('navigation-recovery', () => {
     assert.equal(canAttemptChunkReload(0, 2), true)
     assert.equal(canAttemptChunkReload(1, 2), true)
     assert.equal(canAttemptChunkReload(2, 2), false)
+  })
+
+  it('does not full-page reload on generic network failures', () => {
+    assert.equal(shouldSilentFullPageReload({ message: 'Failed to fetch' }), false)
+    assert.equal(shouldSilentFullPageReload({ message: 'invalid response' }), false)
+    assert.equal(shouldSilentFullPageReload({ message: 'application-error' }), false)
+    assert.equal(shouldSilentFullPageReload({ message: 'Load failed' }), false)
+  })
+
+  it('full-page reloads only for Next static chunk failures', () => {
+    assert.equal(shouldSilentFullPageReload({ message: 'ChunkLoadError' }), true)
+    assert.equal(
+      shouldSilentFullPageReload({ message: 'Failed to fetch dynamically imported module' }),
+      true,
+    )
+    assert.equal(
+      shouldSilentFullPageReload({ assetUrl: 'https://splaro.co/_next/static/chunks/app.js' }),
+      true,
+    )
   })
 })
