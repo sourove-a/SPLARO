@@ -94,7 +94,8 @@ for (const app of apps) {
 
 check('web layout loads next/font on html', () => {
   const layout = readFileSync(resolve(ROOT, 'apps/web/src/app/layout.tsx'), 'utf8')
-  if (!layout.includes('next/font/google')) throw new Error('Missing next/font/google')
+  const fonts = readFileSync(resolve(ROOT, 'apps/web/src/fonts/storefront-fonts.ts'), 'utf8')
+  if (!fonts.includes('next/font/local')) throw new Error('Missing next/font/local storefront fonts')
   if (!layout.includes('inter.variable')) throw new Error('Missing inter.variable on html')
   if (!layout.includes('inter.className')) throw new Error('Missing inter.className on body')
 })

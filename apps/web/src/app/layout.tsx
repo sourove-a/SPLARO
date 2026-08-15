@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Cormorant_Garamond, Inter } from 'next/font/google'
+import { cormorant, inter } from '@/fonts/storefront-fonts'
 import './globals.css'
 import '@/styles/typography.css'
 import '@/styles/motion-language.css'
@@ -50,22 +50,6 @@ function resolvePublicCarePhone(): string {
   }
   return DEFAULT_SUPPORT_PHONE_E164
 }
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-  preload: true,
-  adjustFontFallback: true,
-})
-
-const cormorant = Cormorant_Garamond({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-cormorant',
-  display: 'swap',
-  preload: false,
-})
 
 export const revalidate = 60
 

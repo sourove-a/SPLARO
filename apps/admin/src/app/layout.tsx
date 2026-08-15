@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Noto_Sans_Bengali } from 'next/font/google'
+import { inter, notoBengali } from '@/fonts/admin-fonts'
 import { STRIP_EXTENSION_ATTRS_SCRIPT, splaroMetadataIcons } from '@splaro/config'
 import { Providers } from '@/components/layout/Providers'
 import { DcThemeScript } from '@/components/dc/theme'
@@ -8,18 +8,6 @@ import '@/styles/dc.css'
 // Loaded after globals so the DC login modifiers win over the legacy
 // `.admin-auth-shell` base rules (same specificity — source order decides).
 import '@/styles/admin-login-dc.css'
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-})
-
-const notoBengali = Noto_Sans_Bengali({
-  subsets: ['bengali'],
-  variable: '--font-noto-bengali',
-  display: 'swap',
-})
 
 export const metadata: Metadata = {
   title: { default: 'SPLARO Commerce OS', template: '%s · SPLARO Commerce OS' },
