@@ -97,7 +97,7 @@ export default async function HomePage() {
         </>
       ) : null}
       <HeroSlider initialBanners={heroBanners} />
-      <Suspense fallback={<div className="ed-catalog__loading" aria-hidden style={{ minHeight: 320 }} />}>
+      <Suspense fallback={null}>
         <HomeCatalog />
       </Suspense>
     </>

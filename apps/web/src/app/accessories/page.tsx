@@ -60,7 +60,7 @@ export default async function AccessoriesPage({ searchParams }: AccessoriesPageP
   const pageTitle = slug === 'accessories' ? 'Accessories' : context.title
 
   return (
-    <Suspense fallback={<div className="shop-page-shell min-h-[50vh]" />}>
+    <Suspense fallback={null}>
       <ShopExperience
         key={`accessories:${slug}:${preset ?? 'all'}`}
         initialCategory={context.initialCategory}
