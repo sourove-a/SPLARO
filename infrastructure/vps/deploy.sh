@@ -404,6 +404,17 @@ else
   log "PM2 rolling reload…"
   pm2 startOrReload "$PM2_CONFIG" --update-env
   pm2 save
+  # Reap node workers still running from the previous release directory.
+  # PM2 cluster reload can leave an old API pid attached to :4000 (mixed health/build).
+  if [ -d "$PREVIOUS_RELEASE" ]; then
+    for pid in $(ps -eo pid= -o cmd= | awk '/apps\/(api\/dist\/main\.js|web\/\.next\/standalone\/apps\/web\/server\.js)/ {print $1}'); do
+      [ -r "/proc/$pid/cwd" ] || continue
+      cwd="$(readlink "/proc/$pid/cwd" 2>/dev/null || true)"
+      case "$cwd" in
+        "$PREVIOUS_RELEASE"*) log "Reaping stale pid $pid cwd=$cwd"; kill "$pid" 2>/dev/null || true ;;
+      esac
+    done
+  fi
   touch_deploy_lock
   wait_for_local_health "http://127.0.0.1:3000/" "web" 30 2 || die "Web failed after release switch"
   wait_for_local_health "http://127.0.0.1:3001/login" "admin" 30 2 || die "Admin failed after release switch"
