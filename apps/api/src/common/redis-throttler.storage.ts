@@ -37,7 +37,14 @@ export class RedisThrottlerStorage implements ThrottlerStorage {
     const blockMs = Math.max(0, Math.round(blockDuration))
     const namespaced = `splaro:throttle:${throttlerName}:${key}`
 
-    const shared = await this.redis.throttleHit(namespaced, ttlMs)
+    // Never let a Redis fault reach the caller: this runs inside the global
+    // guard, so a throw here would turn every request into a 500.
+    let shared: { hits: number; expiresInMs: number } | null = null
+    try {
+      shared = await this.redis.throttleHit(namespaced, ttlMs)
+    } catch {
+      shared = null
+    }
     if (!shared) return this.incrementInMemory(namespaced, ttlMs, limit, blockMs)
 
     // A blocked caller keeps hitting the same key, so the counter staying above

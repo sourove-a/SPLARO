@@ -94,3 +94,23 @@ describe('RedisThrottlerStorage', () => {
     })
   })
 })
+
+describe('RedisThrottlerStorage fault tolerance', () => {
+  it('falls back instead of throwing when the Redis call rejects', async () => {
+    const redis = {
+      throttleHit: jest.fn().mockRejectedValue(new Error('ECONNRESET')),
+    } as unknown as RedisService
+    const storage = new RedisThrottlerStorage(redis)
+
+    // This runs inside the global guard — a throw here would 500 every request.
+    const record = await storage.increment('ip:boom', 60_000, 5, 0, 'default')
+    expect(record.totalHits).toBe(1)
+    expect(record.isBlocked).toBe(false)
+  })
+
+  it('falls back when the client has no throttleHit at all', async () => {
+    const storage = new RedisThrottlerStorage({} as unknown as RedisService)
+    const record = await storage.increment('ip:legacy', 60_000, 5, 0, 'default')
+    expect(record.totalHits).toBe(1)
+  })
+})

@@ -189,6 +189,7 @@ describe('Admin mutations (e2e honesty)', () => {
         del: jest.fn().mockResolvedValue(undefined),
         delByPattern: jest.fn().mockResolvedValue(undefined),
         incrWithExpiry: jest.fn().mockResolvedValue(0),
+        throttleHit: jest.fn().mockResolvedValue(null),
         onModuleDestroy: jest.fn().mockResolvedValue(undefined),
       })
       .overrideProvider(CacheService)
