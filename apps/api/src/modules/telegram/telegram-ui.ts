@@ -5,6 +5,7 @@ import type {
   KeyboardButton,
   ReplyKeyboardMarkup,
 } from 'node-telegram-bot-api'
+import { escapeTelegramHtml } from './telegram.util'
 
 /** Reply keyboard button labels — also used as route keys */
 export const TG_BTN = {
@@ -174,7 +175,10 @@ export function welcomeMessage(opts: {
   isGroup: boolean
   storeLinked: boolean
 }): string {
-  const greet = opts.name ? `Hi <b>${opts.name}</b>` : 'Welcome'
+  // A Telegram display name is arbitrary user text. Interpolating it raw into
+  // parse_mode: 'HTML' made Telegram reject the whole message — a real account
+  // named "…<Udman>!" got no /start reply at all, so the bot looked dead.
+  const greet = opts.name ? `Hi <b>${escapeTelegramHtml(opts.name)}</b>` : 'Welcome'
   const mode = opts.isGroup ? 'Group Command Center' : 'Personal Command Center'
   const linkHint = opts.storeLinked
     ? '✅ This chat is linked to SPLARO store notifications.'

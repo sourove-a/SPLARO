@@ -5,6 +5,21 @@ export function escapeTelegramHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+/**
+ * Turn a Telegram HTML message into readable plain text.
+ *
+ * Used only as the fallback when Telegram rejects the markup — the content
+ * still has to reach the operator, just without formatting.
+ */
+export function stripTelegramHtml(value: string): string {
+  return value
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?[a-z][^>]*>/gi, '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+}
+
 /** Mask numeric IDs for admin UI — never expose full chat/user IDs in logs. */
 export function maskTelegramId(id: string): string {
   const s = id.trim()

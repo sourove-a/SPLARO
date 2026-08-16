@@ -27,7 +27,7 @@ import type {
   Message,
   Update,
 } from 'node-telegram-bot-api'
-import { mapStaffRoleToTelegram, maskTelegramId } from './telegram.util'
+import { mapStaffRoleToTelegram, maskTelegramId, stripTelegramHtml } from './telegram.util'
 import {
   formatNewOrderTelegramMessage,
   type TelegramNewOrderPayload,
@@ -207,6 +207,47 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     extras?: { disableWebPagePreview?: boolean },
   ): Promise<void> {
     await this.sendToStoreWithResult(storeId, message, replyMarkup, extras)
+  }
+
+
+  /**
+   * Send with parse_mode HTML, and fall back to plain text when Telegram
+   * rejects the markup.
+   *
+   * Telegram answers 400 "can't parse entities" for the *whole* message if any
+   * interpolated value contains a stray `<` or `&` — a customer named
+   * "…<Udman>!" silently killed every /start reply, so the bot looked dead.
+   * Escaping at the template is the real fix; this is the net that stops one
+   * missed escape from ever losing a message again.
+   */
+  private async sendHtmlWithPlainFallback(
+    chatId: string,
+    html: string,
+    options: Record<string, unknown> = {},
+  ): Promise<boolean> {
+    if (!this.bot) return false
+    try {
+      await this.bot.sendMessage(chatId, html, { parse_mode: 'HTML', ...options })
+      return true
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'unknown'
+      if (!/can't parse entities|unsupported start tag/i.test(message)) {
+        this.logger.error(`Telegram send failed (${maskTelegramId(chatId)}): ${message}`)
+        return false
+      }
+      this.logger.warn(
+        `Telegram HTML rejected (${maskTelegramId(chatId)}): ${message} — resending as plain text`,
+      )
+    }
+    try {
+      await this.bot.sendMessage(chatId, stripTelegramHtml(html), options)
+      return true
+    } catch (err) {
+      this.logger.error(
+        `Telegram plain fallback failed (${maskTelegramId(chatId)}): ${err instanceof Error ? err.message : 'unknown'}`,
+      )
+      return false
+    }
   }
 
   /** Returns whether the message was delivered to the store Telegram chat. */
@@ -876,14 +917,11 @@ ${items}
   private async sendWelcome(ctx: TelegramCtx, firstName?: string): Promise<void> {
     const config = await this.prisma.telegramConfig.findUnique({ where: { id: ctx.configId } })
     const linked = config?.chatId === ctx.chatId
-    await this.bot?.sendMessage(ctx.chatId, welcomeMessage({
-      name: firstName,
-      isGroup: ctx.isGroup,
-      storeLinked: linked,
-    }), {
-      parse_mode: 'HTML',
-      reply_markup: inlineMainMenu(),
-    })
+    await this.sendHtmlWithPlainFallback(
+      ctx.chatId,
+      welcomeMessage({ name: firstName, isGroup: ctx.isGroup, storeLinked: linked }),
+      { reply_markup: inlineMainMenu() },
+    )
     await this.bot?.sendMessage(ctx.chatId, '⌨️ <b>Keyboard shortcuts</b> — use buttons below anytime.', {
       parse_mode: 'HTML',
       reply_markup: mainReplyKeyboard(),
