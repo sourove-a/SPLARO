@@ -130,13 +130,15 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     }
   }
 
+  /**
+   * A token saved in Admin → Telegram Bot wins over TELEGRAM_BOT_TOKEN.
+   *
+   * The order used to be the other way round, so on any deployment that had the
+   * env var set — production does — pasting a token in the admin panel stored it
+   * and then silently kept using the old one. Env is now the bootstrap value for
+   * a fresh install, and the panel is what an operator can actually change.
+   */
   private async resolveBotToken(): Promise<string | null> {
-    const envToken = this.config.get<string>('TELEGRAM_BOT_TOKEN')?.trim()
-    if (envToken) {
-      this.botTokenSource = 'env'
-      return envToken
-    }
-
     const slug = this.config.get<string>('TELEGRAM_STORE_SLUG')?.trim() || 'splaro'
     try {
       const storeId = await resolveStoreId(this.prisma, slug)
@@ -150,8 +152,48 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
       this.logger.warn(`Telegram DB token lookup failed: ${msg}`)
     }
 
+    const envToken = this.config.get<string>('TELEGRAM_BOT_TOKEN')?.trim()
+    if (envToken) {
+      this.botTokenSource = 'env'
+      return envToken
+    }
+
     this.botTokenSource = 'none'
     return null
+  }
+
+  /**
+   * Ask Telegram whether a token is real before anything is stored or used.
+   * A typo previously surfaced only as `ETELEGRAM: 401 Unauthorized` in a log
+   * nobody reads, while the admin panel reported success.
+   */
+  async verifyBotToken(token: string): Promise<
+    { ok: true; username: string; botId: number } | { ok: false; error: string }
+  > {
+    const trimmed = token.trim()
+    if (!trimmed) return { ok: false, error: 'Token is empty' }
+    if (!/^\d+:[A-Za-z0-9_-]{20,}$/.test(trimmed)) {
+      return { ok: false, error: 'Not a Telegram bot token (expected 123456:ABC-DEF…)' }
+    }
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${trimmed}/getMe`, {
+        signal: AbortSignal.timeout(8000),
+      })
+      const body = (await res.json()) as {
+        ok?: boolean
+        description?: string
+        result?: { id?: number; username?: string }
+      }
+      if (!body.ok || !body.result?.username) {
+        return { ok: false, error: body.description ?? `Telegram rejected the token (${res.status})` }
+      }
+      return { ok: true, username: body.result.username, botId: body.result.id ?? 0 }
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : 'Could not reach api.telegram.org',
+      }
+    }
   }
 
   /** Register webhook after HTTP server is listening so Telegram can reach the endpoint. */

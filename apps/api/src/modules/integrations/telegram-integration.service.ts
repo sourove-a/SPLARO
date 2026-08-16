@@ -64,9 +64,21 @@ export class TelegramIntegrationService {
     const storeId = await this.integrations.resolveStore(storeIdRaw)
     const existing = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
     const tokenSaved = await this.integrations.hasSecret(storeId, 'telegram', 'botToken')
+    let verifiedUsername: string | undefined
 
     const newToken = body.botToken?.trim()
     if (newToken && !this.crypto.isMaskedInput(newToken)) {
+      // Verify against Telegram before storing. A typo used to be accepted here
+      // and only showed up later as `ETELEGRAM: 401 Unauthorized` in a log,
+      // while this endpoint reported success.
+      const check = await this.telegramBot.verifyBotToken(newToken)
+      if (!check.ok) {
+        throw new BadRequestException({
+          message: `Telegram rejected this bot token: ${check.error}`,
+          fieldErrors: { botToken: check.error },
+        })
+      }
+      verifiedUsername = check.username
       await this.integrations.upsertSecret({
         storeId,
         provider: 'telegram',
@@ -157,9 +169,11 @@ export class TelegramIntegrationService {
       },
     })
 
-    void this.telegramBot.reinitializeBot()
+    // Awaited: the panel should not report success until the bot is actually
+    // running on the token that was just saved.
+    await this.telegramBot.reinitializeBot()
 
-    return this.get(storeId)
+    return { ...(await this.get(storeId)), ...(verifiedUsername ? { botUsername: verifiedUsername } : {}) }
   }
 
   async resolveRuntimeConfig(storeId: string) {
