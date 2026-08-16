@@ -181,15 +181,19 @@ const nextConfig = {
               // section (SocialReelsDropdown → ReelCard iframe) — 'none' silently
               // blocked every reel video with no visible error, just a dead player.
               // accounts.google.com: Google Identity Services button iframe (login/signup).
-              "frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://accounts.google.com",
+              // www.facebook.com: the Meta Pixel falls back to an iframe + form POST
+              // to /tr/ when the image beacon is unavailable — without it, pixel
+              // events are silently dropped.
+              "frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://accounts.google.com https://www.facebook.com",
               // No <object>/<embed> anywhere in the app — closes a plugin-based XSS vector.
               "object-src 'none'",
               // Stops an injected <base> tag from re-pointing every relative script URL.
               "base-uri 'self'",
               // Modern equivalent of the X-Frame-Options header above (clickjacking).
               "frame-ancestors 'none'",
-              // Only /search posts a form, and it posts to this origin.
-              "form-action 'self'",
+              // Only /search posts a form of ours, and it posts to this origin;
+              // www.facebook.com is the Meta Pixel's /tr/ form fallback.
+              "form-action 'self' https://www.facebook.com",
               // Belt-and-suspenders: auto-upgrade accidental http:// subresources on HTTPS pages.
               'upgrade-insecure-requests',
             ].join('; '),
