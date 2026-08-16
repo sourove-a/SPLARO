@@ -70,6 +70,7 @@ import { FootwearConfigService } from '../content/footwear-config.service'
 import { PurgeDemoCatalogService } from '../catalog/purge-demo-catalog.service'
 import { PaymentIntegrationService } from '../integrations/payment-integration.service'
 import { PresenceService } from '../../common/presence.service'
+import { internalSecretMatches } from '../../common/auth/internal-secret.util'
 
 function bearerToken(authorization?: string): string | undefined {
   return authorization?.replace(/^Bearer\s+/i, '').trim() || undefined
@@ -116,10 +117,10 @@ function deviceIdFromRequest(req: Request): string | undefined {
 
 /** Loopback /health/routes probes send `x-splaro-internal` — never page Telegram/email. */
 function isInternalHealthProbe(req: Request): boolean {
-  const secret = process.env['INTERNAL_HEALTH_SECRET']?.trim()
-  if (!secret) return false
-  const header = req.headers['x-splaro-internal']
-  return typeof header === 'string' && header === secret
+  return internalSecretMatches(
+    req.headers['x-splaro-internal'],
+    process.env['INTERNAL_HEALTH_SECRET'],
+  )
 }
 
 @Public()
@@ -1632,9 +1633,7 @@ export class StorefrontController {
   /** Deploy hook — remove Unsplash/seed demo catalog (requires INTERNAL_HEALTH_SECRET). */
   @Post('deploy/purge-demo')
   async deployPurgeDemo(@Query('storeId') storeId: string, @Req() req: Request) {
-    const secret = process.env['INTERNAL_HEALTH_SECRET']
-    const header = req.headers['x-splaro-internal']
-    if (!secret || header !== secret) {
+    if (!internalSecretMatches(req.headers['x-splaro-internal'], process.env['INTERNAL_HEALTH_SECRET'])) {
       throw new UnauthorizedException('Invalid internal token')
     }
     const sid = await resolveStoreId(
@@ -1673,9 +1672,7 @@ export class StorefrontController {
 
   /** Internal-only storefront events (web server → API). */
   private assertInternalEventAuth(req: Request): void {
-    const secret = process.env['INTERNAL_HEALTH_SECRET']
-    const header = req.headers['x-splaro-internal']
-    if (!secret || header !== secret) {
+    if (!internalSecretMatches(req.headers['x-splaro-internal'], process.env['INTERNAL_HEALTH_SECRET'])) {
       throw new UnauthorizedException('Unauthorized event source')
     }
   }

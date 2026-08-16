@@ -18,6 +18,7 @@ import { SearchService } from './search.service'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
+import { internalSecretMatches } from '../../common/auth/internal-secret.util'
 
 @Controller('search')
 export class SearchController {
@@ -111,9 +112,7 @@ export class SearchController {
   @Public()
   @Post('deploy/reindex')
   async deployReindex(@Query('storeId') storeId: string, @Req() req: Request) {
-    const secret = process.env['INTERNAL_HEALTH_SECRET']
-    const header = req.headers['x-splaro-internal']
-    if (!secret || header !== secret) {
+    if (!internalSecretMatches(req.headers['x-splaro-internal'], process.env['INTERNAL_HEALTH_SECRET'])) {
       throw new UnauthorizedException('Invalid internal token')
     }
     if (!process.env['MEILISEARCH_HOST']) {
