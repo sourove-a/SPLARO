@@ -77,6 +77,8 @@ import { CommerceFinanceController } from './modules/commerce-finance/commerce-f
 import { CommerceFinanceService } from './modules/commerce-finance/commerce-finance.service'
 import { OrdersController } from './modules/orders/orders.controller'
 import { ProductAdvancedService } from './modules/products/product-advanced.service'
+import { VariantSkuService } from './modules/products/variant-sku.service'
+import { BarcodeSequenceService } from './modules/products/barcode-sequence.service'
 import { ProductPublishCron } from './modules/products/product-publish.cron'
 import { ProductsController } from './modules/products/products.controller'
 import { CustomersController } from './modules/customers/customers.controller'
@@ -346,6 +348,8 @@ const queueWorkerProviders = redisQueuesEnabled()
     PaymentConfirmationService,
     StockReservationService,
     ProductAdvancedService,
+    VariantSkuService,
+    BarcodeSequenceService,
     ProductPublishCron,
     NotificationsService,
     StockAlertsCron,

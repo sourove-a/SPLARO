@@ -845,6 +845,11 @@ model Product {
   rmCode           String?             // RM code for internal tracking
   barcode          String?
   qrCode           String?
+  // Stable SPL-{CAT}-{MODEL} identity behind every variant SKU. Allocated once
+  // on first save and never recomputed, so adding a colour/size later keeps the
+  // product's existing model number.
+  skuCategoryCode  String?
+  skuModelNumber   Int?
   basePrice        Decimal             @db.Decimal(10, 2)
   compareAtPrice   Decimal?            @db.Decimal(10, 2)
   costPrice        Decimal?            @db.Decimal(10, 2)
@@ -899,6 +904,7 @@ model Product {
   updatedAt        DateTime            @updatedAt
 
   @@unique([storeId, slug])
+  @@unique([storeId, skuCategoryCode, skuModelNumber])
   @@index([storeId, isPublished])
   @@index([storeId, isNewArrival])
   @@index([storeId, isBestSeller])
@@ -924,8 +930,8 @@ model ProductVersion {
 model ProductVariant {
   id             String         @id @default(cuid())
   productId      String
-  sku            String?
-  barcode        String?
+  sku            String?        @unique
+  barcode        String?        @unique
   qrCode         String?
   size           String?
   color          String?
@@ -3419,4 +3425,19 @@ model GoogleAuditLog {
 
   @@index([storeId, action])
   @@index([createdAt])
+}
+
+// Atomic counters for merchant-facing codes (internal barcodes, per-category
+// product model numbers).
+//
+// `MAX(value) + 1` is not safe here: two admins saving products at the same
+// time read the same max and mint the same code. Callers instead run
+// `UPDATE ... SET "nextValue" = "nextValue" + 1 ... RETURNING "nextValue"`
+// inside the same transaction as the insert, which takes a row lock and hands
+// every caller a distinct number.
+model CodeSequence {
+  /// Scope key, e.g. "barcode" or "model:<storeId>:ABY".
+  key       String   @id
+  nextValue BigInt
+  updatedAt DateTime @updatedAt
 }

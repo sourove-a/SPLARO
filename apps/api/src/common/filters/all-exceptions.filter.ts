@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common'
+import { STATUS_CODES } from 'node:http'
 import type { Request, Response } from 'express'
 
 type ErrorBody = {
@@ -13,6 +14,8 @@ type ErrorBody = {
   message: string | string[]
   error?: string
   code?: string
+  /** Per-field validation messages for admin forms, e.g. { sku: 'Already in use.' }. */
+  fieldErrors?: Record<string, string>
   path: string
   requestId?: string
   timestamp: string
@@ -41,8 +44,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR
     let message: string | string[] = 'Internal server error'
+    // Only a default. Once the status is known it is re-derived below, otherwise
+    // a 400 thrown with a structured payload reported "Internal Server Error".
     let error = 'Internal Server Error'
+    let explicitError = false
     let code: string | undefined
+    let fieldErrors: Record<string, string> | undefined
 
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus()
@@ -56,6 +63,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
         }
         if (typeof record.error === 'string') {
           error = record.error
+          explicitError = true
+        }
+        // Forwarded so admin forms can highlight the offending input rather than
+        // only showing the summary message.
+        if (record.fieldErrors && typeof record.fieldErrors === 'object') {
+          const entries = Object.entries(record.fieldErrors as Record<string, unknown>).filter(
+            (entry): entry is [string, string] => typeof entry[1] === 'string',
+          )
+          if (entries.length) fieldErrors = Object.fromEntries(entries)
         }
         // Carry an explicit reason code through to the client. Only 4xx, and only
         // a slug — never an internal message that could leak query details.
@@ -69,6 +85,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
     } else if (exception instanceof Error) {
       message = exception.message || message
+    }
+
+    if (!explicitError) {
+      error = STATUS_CODES[statusCode] ?? 'Internal Server Error'
     }
 
     if (statusCode >= 500) {
@@ -93,6 +113,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message: clientMessage,
       error,
       ...(code ? { code } : {}),
+      ...(fieldErrors && statusCode < 500 ? { fieldErrors } : {}),
       path: request.url,
       timestamp: new Date().toISOString(),
       ...(requestId ? { requestId } : {}),

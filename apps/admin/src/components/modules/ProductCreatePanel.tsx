@@ -35,6 +35,7 @@ import {
 import {
   mediaFolderForDept,
   SIZE_PRESETS,
+  deptHasNoSize,
   sizeChipsForDept,
   sizeDeptFromSlugOrName,
   type SizeDeptKey,
@@ -56,6 +57,7 @@ import { PERMISSION_DENIED_TITLE } from '@/lib/auth/permissions'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { generateAIProduct } from '@/lib/api/finance'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { fetchSkuIdentity, type SkuIdentity } from '@/lib/admin/variant-sku'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 import {
   CreateVariantMatrix,
@@ -72,6 +74,10 @@ const DESCRIPTION_PLACEHOLDER_BN = 'বাংলায় বিবরণ লি
 
 const DESCRIPTION_HINT_BN = 'কাপড়, ফিট, কখন পরবেন — সংক্ষেপে বাংলায় লিখুন।'
 
+/**
+ * Size run for a category, or `''` for categories that genuinely have none
+ * (saree, wallet, watch). `null` means "leave whatever the operator typed".
+ */
 function sizesForCategory(name: string, slug?: string | null): string | null {
   const key = sizeDeptFromSlugOrName(`${name} ${slug ?? ''}`)
   if (key === 'default') return null
@@ -196,13 +202,43 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   )
 
   const sizeDeptKey: SizeDeptKey = useMemo(() => {
+    // Leaf category wins: "Women > Saree" is sizeless even though the Women
+    // department has a size run.
+    if (selectedCategory) {
+      const leaf = sizeDeptFromSlugOrName(`${selectedCategory.name} ${selectedCategory.slug}`)
+      if (leaf !== 'default') return leaf
+    }
     const dept = categories.find((c) => c.id === departmentId)
     if (dept) return sizeDeptFromSlugOrName(`${dept.name} ${dept.slug}`)
-    if (selectedCategory) return sizeDeptFromSlugOrName(`${selectedCategory.name} ${selectedCategory.slug}`)
     return 'default'
   }, [categories, departmentId, selectedCategory])
 
   const sizeChips = useMemo(() => sizeChipsForDept(sizeDeptKey), [sizeDeptKey])
+  // Saree / wallet / watch: variants are colour-only, so a size run is neither
+  // required nor shown.
+  const sizeless = deptHasNoSize(sizeDeptKey)
+
+  // SPL-{CAT}-{MODEL} for the SKU preview. Read-only peek — no counter is
+  // consumed until the product is actually saved.
+  const [skuIdentity, setSkuIdentity] = useState<SkuIdentity | null>(null)
+  useEffect(() => {
+    if (!form.categoryId) {
+      setSkuIdentity(null)
+      return
+    }
+    let cancelled = false
+    void fetchSkuIdentity({ categoryId: form.categoryId })
+      .then((identity) => {
+        if (!cancelled) setSkuIdentity(identity)
+      })
+      .catch(() => {
+        // Preview only — fall back to the manual base-SKU field.
+        if (!cancelled) setSkuIdentity(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [form.categoryId])
 
   const mediaUploadFolder = useMemo(() => {
     const dept = categories.find((c) => c.id === departmentId)
@@ -360,18 +396,19 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     const deptId = categoryPicker.departmentForCategory(categoryId)
     const dept = categories.find((c) => c.id === deptId)
     const cat = categories.find((c) => c.id === categoryId)
-    const preset = dept
-      ? sizesForCategory(dept.name, dept.slug)
-      : cat
-        ? sizesForCategory(cat.name, cat.slug)
-        : null
-    if (preset) set('sizes', preset)
+    // Prefer the leaf category: "Women > Saree" must resolve to the saree rule,
+    // not to the Women department's XS–XXL run.
+    const preset =
+      (cat ? sizesForCategory(cat.name, cat.slug) : null) ??
+      (dept ? sizesForCategory(dept.name, dept.slug) : null)
+    // `''` is meaningful — it clears the size run for sizeless categories.
+    if (preset !== null) set('sizes', preset)
   }
 
   const applyDepartmentSizes = (deptId: string) => {
     const dept = categories.find((c) => c.id === deptId)
     const preset = dept ? sizesForCategory(dept.name, dept.slug) : null
-    if (preset) set('sizes', preset)
+    if (preset !== null) set('sizes', preset)
   }
 
   const selectCategory = (categoryId: string) => {
@@ -491,7 +528,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
       return
     }
     const costPrice = form.costPrice.trim() ? Number(form.costPrice) : undefined
-    if (!sizeList.length) {
+    if (!sizeless && !sizeList.length) {
       toastFail('Select at least one size.')
       return
     }
@@ -685,9 +722,9 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         sub: 'Colours carry hex + per-size stock',
       },
       {
-        ok: sizeList.length > 0,
-        label: 'Size run',
-        sub: 'Variants are colours × sizes',
+        ok: sizeless || sizeList.length > 0,
+        label: sizeless ? 'One size' : 'Size run',
+        sub: sizeless ? 'This category has no size run' : 'Variants are colours × sizes',
       },
       {
         ok: Number(form.basePrice) > 0,
@@ -720,7 +757,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     { id: 'np-basics', label: 'Basics', done: Boolean(form.name.trim()), active: activeJump === 'np-basics' },
     { id: 'np-media', label: 'Media', done: form.imageUrls.length > 0, active: activeJump === 'np-media' },
     { id: 'np-colours', label: 'Colours', done: activeColors.some((c) => c.name.trim()), active: activeJump === 'np-colours' },
-    { id: 'np-matrix', label: 'Variants', done: variantCount > 0 && sizeList.length > 0, active: activeJump === 'np-matrix' },
+    { id: 'np-matrix', label: 'Variants', done: variantCount > 0 && (sizeless || sizeList.length > 0), active: activeJump === 'np-matrix' },
     { id: 'np-pricing', label: 'Pricing', done: Number(form.basePrice) > 0, active: activeJump === 'np-pricing' },
     { id: 'np-inventory', label: 'Inventory', done: Boolean(form.sku.trim() || form.weight.trim()), active: activeJump === 'np-inventory' },
     { id: 'np-org', label: 'Organize', done: Boolean(form.collectionId || form.tags.trim()), active: activeJump === 'np-org' },
@@ -1277,7 +1314,11 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             id="np-matrix"
             num="04"
             title="Variants"
-            hint="1) tap sizes  2) type price, stock, SKU once  3) check the table. Kids / Footwear menu switches the size chips."
+            hint={
+              sizeless
+                ? '1) name your colours  2) type price and stock  3) check the table. SKU and barcode are generated on save.'
+                : '1) tap sizes  2) type price and stock  3) check the table. Kids / Footwear menu switches the size chips.'
+            }
             badge={<DcPill>{variantLines.length || variantCount} variants</DcPill>}
           >
             <CreateVariantMatrix
@@ -1297,6 +1338,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
               productBarcode={form.barcode}
               onProductBarcodeChange={(next) => set('barcode', next)}
               onVariantsChange={setVariantLines}
+              skuIdentity={skuIdentity}
             />
           </DcSectionCard>
 

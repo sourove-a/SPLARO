@@ -65,3 +65,28 @@ describe('AllExceptionsFilter reason codes', () => {
     expect(json).toHaveBeenCalledWith(expect.not.objectContaining({ code: expect.anything() }))
   })
 })
+
+describe('AllExceptionsFilter status labelling', () => {
+  const filter = new AllExceptionsFilter()
+
+  it('labels a structured 400 as Bad Request, not Internal Server Error', () => {
+    const { host, json, status } = buildHost()
+    filter.catch(
+      new BadRequestException({
+        message: 'SKU already used',
+        fieldErrors: { sku: 'Already in use.' },
+      }),
+      host,
+    )
+
+    expect(status).toHaveBeenCalledWith(400)
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'SKU already used',
+        fieldErrors: { sku: 'Already in use.' },
+      }),
+    )
+  })
+})

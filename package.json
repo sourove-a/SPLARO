@@ -2,7 +2,7 @@
   "name": "splaro-brand",
   "version": "1.0.0",
   "private": true,
-  "description": "SPLARO — Luxury Fashion & Lifestyle eCommerce Platform",
+  "description": "SPLARO \u2014 Luxury Fashion & Lifestyle eCommerce Platform",
   "scripts": {
     "preinstall": "node scripts/only-pnpm.mjs",
     "dev": "turbo run dev --parallel",
@@ -40,6 +40,7 @@
     "db:purge-demo": "node scripts/api-ts-run.mjs scripts/purge-demo-catalog.ts",
     "db:bootstrap-store": "node scripts/api-ts-run.mjs scripts/bootstrap-production-store.ts",
     "db:restore-primary-admin": "node scripts/api-ts-run.mjs scripts/restore-primary-admin.ts",
+    "db:report-variant-codes": "node scripts/api-ts-run.mjs scripts/report-variant-codes.ts",
     "telegram:configure": "node scripts/tsx-run.mjs packages/database prisma/configure-telegram.ts",
     "db:studio": "node scripts/db-run.mjs studio",
     "db:reset": "node scripts/db-run.mjs migrate reset",

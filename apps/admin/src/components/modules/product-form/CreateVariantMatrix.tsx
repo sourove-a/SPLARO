@@ -12,7 +12,8 @@ import {
   normalizeHex,
   swatchCss,
 } from '@/lib/admin/colour-names'
-import type { SizeDeptKey } from '@/lib/admin/size-presets'
+import { deptHasNoSize, type SizeDeptKey } from '@/lib/admin/size-presets'
+import { previewVariantSku, type SkuIdentity } from '@/lib/admin/variant-sku'
 
 export type CreateColourRow = { id: string; name: string; hex: string; imageUrl: string }
 
@@ -119,10 +120,16 @@ function resolveRow(
   compareAtPrice: string,
   productBarcode: string,
   multiColour: boolean,
+  skuIdentity: SkuIdentity | null | undefined,
 ): ResolvedRow {
   const lock = draft?.lock ?? {}
+  // Once the category is known the canonical SPL-{CAT}-{MODEL}-{COLOR}-{SIZE}
+  // preview wins; the free-text base SKU stays as the manual escape hatch.
+  const autoSku = skuIdentity
+    ? previewVariantSku(skuIdentity, { color: color.name, size })
+    : generateSku(baseSku, color.name, size, multiColour)
   return {
-    sku: lock.sku ? (draft?.sku ?? '') : generateSku(baseSku, color.name, size, multiColour),
+    sku: lock.sku ? (draft?.sku ?? '') : autoSku,
     barcode: lock.barcode
       ? (draft?.barcode ?? '')
       : generateBarcode(productBarcode, color.name, size, multiColour),
@@ -149,6 +156,7 @@ export function CreateVariantMatrix({
   productBarcode,
   onProductBarcodeChange,
   onVariantsChange,
+  skuIdentity,
 }: {
   productName?: string
   sizeChips: string[]
@@ -166,11 +174,16 @@ export function CreateVariantMatrix({
   productBarcode: string
   onProductBarcodeChange: (next: string) => void
   onVariantsChange: (lines: CreateVariantLine[]) => void
+  /** SPL-{CAT}-{MODEL} the API will assign — drives the live SKU preview. */
+  skuIdentity?: SkuIdentity | null
 }) {
-  const sizeList = useMemo(
-    () => sizes.split(',').map((s) => s.trim()).filter(Boolean),
-    [sizes],
-  )
+  // Saree / wallet / watch have no size run: the field is hidden and each colour
+  // becomes a single variant whose size stays empty (SKU segment falls back to OS).
+  const sizeless = deptHasNoSize(sizeDeptKey)
+  const sizeList = useMemo(() => {
+    if (sizeless) return ['']
+    return sizes.split(',').map((s) => s.trim()).filter(Boolean)
+  }, [sizes, sizeless])
   const colourRows = useMemo(
     () =>
       colors.filter((c) => c.name.trim()).length
@@ -201,6 +214,7 @@ export function CreateVariantMatrix({
           compareAtPrice,
           productBarcode,
           multiColour,
+          skuIdentity,
         )
       }
     }
@@ -215,6 +229,7 @@ export function CreateVariantMatrix({
     compareAtPrice,
     productBarcode,
     multiColour,
+    skuIdentity,
   ])
 
   const lines = useMemo(() => {
@@ -251,11 +266,16 @@ export function CreateVariantMatrix({
   }, [lines, onVariantsChange])
 
   const exampleSkus = useMemo(() => {
-    if (!baseSku.trim() || sizeList.length === 0) return []
-    return sizeList.slice(0, 5).map((size) =>
-      generateSku(baseSku, colourRows[0]?.name ?? 'Default', size, multiColour),
-    )
-  }, [baseSku, sizeList, colourRows, multiColour])
+    if (sizeList.length === 0) return []
+    const colour = colourRows[0]?.name ?? 'Default'
+    if (skuIdentity) {
+      return sizeList
+        .slice(0, 5)
+        .map((size) => previewVariantSku(skuIdentity, { color: colour, size }))
+    }
+    if (!baseSku.trim()) return []
+    return sizeList.slice(0, 5).map((size) => generateSku(baseSku, colour, size, multiColour))
+  }, [baseSku, sizeList, colourRows, multiColour, skuIdentity])
 
   const toggleSize = (sz: string) => {
     const on = sizeList.includes(sz)
@@ -352,6 +372,16 @@ export function CreateVariantMatrix({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {sizeless ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span style={stepLabel}>1 · Sizes</span>
+          <p style={{ margin: 0, font: `400 12.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
+            This category has no size run — one variant per colour. SKUs end in
+            {' '}
+            <span style={{ font: `600 12.5px/1 ${MONO}`, color: 'var(--ink-2)' }}>OS</span>.
+          </p>
+        </div>
+      ) : (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <span style={stepLabel}>1 · Sizes{sizeDeptKey !== 'default' ? ` · ${deptHint}` : ''}</span>
         <p style={{ margin: 0, font: `400 12.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
@@ -409,11 +439,14 @@ export function CreateVariantMatrix({
           </span>
         )}
       </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <span style={stepLabel}>2 · Same for every size</span>
+        <span style={stepLabel}>2 · Same for every {sizeless ? 'colour' : 'size'}</span>
         <p style={{ margin: 0, font: `400 12.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
-          Fill these four. Table below copies them — SKU/barcode get -S -M -L on the end.
+          {skuIdentity
+            ? 'Fill price and stock. SKU is built from category, model, colour and size; barcodes are issued on save.'
+            : 'Fill these four. Table below copies them — SKU/barcode get -S -M -L on the end.'}
         </p>
         <div
           style={{
@@ -438,15 +471,17 @@ export function CreateVariantMatrix({
               placeholder="10"
             />
           </DcField>
-          <DcField label="SKU">
-            <DcInput
-              mono
-              value={baseSku}
-              onChange={(e) => onBaseSkuChange(e.target.value.toUpperCase())}
-              placeholder="Type SKU"
-              style={{ textTransform: 'uppercase' }}
-            />
-          </DcField>
+          {skuIdentity ? null : (
+            <DcField label="SKU">
+              <DcInput
+                mono
+                value={baseSku}
+                onChange={(e) => onBaseSkuChange(e.target.value.toUpperCase())}
+                placeholder="Type SKU"
+                style={{ textTransform: 'uppercase' }}
+              />
+            </DcField>
+          )}
           <DcField label="Barcode · optional">
             <DcInput
               mono
@@ -460,6 +495,7 @@ export function CreateVariantMatrix({
           <span style={{ font: `500 12px/1.45 ${MONO}`, color: 'var(--violet)' }}>
             Will save as {exampleSkus.join(' · ')}
             {sizeList.length > 5 ? '…' : ''}
+            {skuIdentity && !skuIdentity.exact ? ' (model no. confirmed on save)' : ''}
           </span>
         ) : (
           <span style={{ font: `400 12px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>

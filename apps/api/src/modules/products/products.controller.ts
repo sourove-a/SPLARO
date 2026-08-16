@@ -18,6 +18,8 @@ import { Prisma } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
 import { CacheService } from '../../common/cache.service'
 import { ProductAdvancedService } from './product-advanced.service'
+import { VariantSkuService } from './variant-sku.service'
+import { BarcodeSequenceService } from './barcode-sequence.service'
 import { MediaService } from '../media/media.service'
 import { SearchService } from '../search/search.service'
 import { assertStoreBrandId } from '../../common/assert-store-brand'
@@ -30,7 +32,7 @@ import { revalidateStorefrontWeb } from '../../common/revalidate-web'
 import { mergeStorefrontConfig } from '../settings/storefront-config'
 import { CreateAdminProductDto, AdminProductPatchDto } from '../../common/dtos/admin-products.dto'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
-import { resolveCustomerFacingSiteUrl, toStoredMediaUrl } from '@splaro/config'
+import { categoryCode, resolveCustomerFacingSiteUrl, toStoredMediaUrl } from '@splaro/config'
 import {
   CATALOG_BULK_MAX_ROWS,
   loadCatalogExportRows,
@@ -153,10 +155,58 @@ export class ProductsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly productAdvanced: ProductAdvancedService,
+    private readonly variantSku: VariantSkuService,
+    private readonly barcodes: BarcodeSequenceService,
     @Inject(CacheService) private readonly cache: CacheService,
     @Optional() private readonly search?: SearchService,
     @Optional() private readonly media?: MediaService,
   ) {}
+
+  /**
+   * Give every variant its final SKU and internal barcode.
+   *
+   * The admin panel sends a live SKU preview, but the stored value is always
+   * rebuilt here from the product's own identity — a stale or edited preview
+   * must never decide what lands in the database. A SKU typed by hand is kept
+   * (normalized + uniqueness-checked); a blank one is generated. Barcodes come
+   * from the atomic counter in one batch, so a 6-variant matrix takes one lock.
+   */
+  private async assignVariantCodes<
+    T extends {
+      size?: string | null
+      color?: string | null
+      colorName?: string | null
+      sku?: string | null
+      barcode?: string | null
+    },
+  >(
+    tx: Prisma.TransactionClient,
+    identity: { categoryCode: string; modelNumber: number },
+    variants: T[],
+  ): Promise<T[]> {
+    if (!variants.length) return variants
+
+    const manualSkus = variants.map((variant) => this.variantSku.normalizeManual(variant.sku))
+    const needsBarcode = variants.filter((variant) => !variant.barcode?.trim()).length
+    const minted = await this.barcodes.nextBatch(tx, needsBarcode)
+    let mintedIndex = 0
+
+    const out: T[] = []
+    for (const [index, variant] of variants.entries()) {
+      const manual = manualSkus[index]
+      let sku: string
+      if (manual) {
+        await this.variantSku.assertAvailable(tx, manual)
+        sku = manual
+      } else {
+        sku = await this.variantSku.uniqueGenerated(tx, this.variantSku.build(identity, variant))
+      }
+
+      const barcode = variant.barcode?.trim() || minted[mintedIndex++]!
+      out.push({ ...variant, sku, barcode })
+    }
+    return out
+  }
 
   private async bustProductCache(storeId: string): Promise<void> {
     await Promise.all([
@@ -417,9 +467,9 @@ export class ProductsController {
         stock: variantStock,
         image: color.image ?? primaryImage,
         isActive: true,
-        ...(productSku
-          ? { sku: `${productSku}-${size}-${color.name}`.replace(/\s+/g, '-').slice(0, 80) }
-          : { sku: null }),
+        // Left blank on purpose — assignVariantCodes() mints the canonical
+        // SPL-{CAT}-{MODEL}-{COLOR}-{SIZE} code and the internal barcode.
+        sku: null,
         barcode: null,
       })),
     )
@@ -452,12 +502,28 @@ export class ProductsController {
       }
     }
 
+    const categoryLabel = categoryId
+      ? await this.prisma.category
+          .findUnique({ where: { id: categoryId }, select: { name: true, slug: true } })
+          .then((row) => [row?.name, row?.slug].filter(Boolean).join(' '))
+      : ''
+
     const product = await this.prisma.$transaction(async (tx) => {
+      // Allocate the product's SPL-{CAT}-{MODEL} identity first so every variant
+      // row can be inserted with its final SKU + barcode in one statement.
+      const identity = await this.variantSku.allocateIdentity(tx, {
+        storeId: sid,
+        categoryLabel,
+      })
+      const codedVariants = await this.assignVariantCodes(tx, identity, variants)
+
       const created = await tx.product.create({
         data: {
         storeId: sid,
         name: body.name,
         slug,
+        skuCategoryCode: identity.categoryCode,
+        skuModelNumber: identity.modelNumber,
         description: body.description,
         shortDescription: body.shortDescription,
         basePrice: body.basePrice,
@@ -503,7 +569,7 @@ export class ProductsController {
           ? { create: mediaRows }
           : undefined,
         variants: {
-          create: variants,
+          create: codedVariants,
         },
       },
       include: { images: true, variants: true, category: true },
@@ -524,13 +590,89 @@ export class ProductsController {
     if (this.search) fireAndForget(this.search.indexProducts(sid), 'search.indexProducts')
     await this.bustProductCache(sid)
 
-    // Fill any missing variant SKUs from slug/product SKU (never cuid tails).
-    await this.productAdvanced.ensureVariantSKUs(product.id)
+    // SKUs + barcodes were minted inside the transaction above.
     const refreshed = await this.prisma.product.findUnique({
       where: { id: product.id },
       include: { images: true, variants: true, category: true },
     })
     return refreshed ?? product
+  }
+
+  /**
+   * SKU identity the next product in this category will receive.
+   *
+   * Read-only peek — it never advances the counter, so opening the create form
+   * cannot burn a model number. The value can shift by one if another admin
+   * saves first, which is why this drives a *preview* and the authoritative SKU
+   * is still minted server-side on save.
+   */
+  @Get('sku-preview')
+  async skuPreview(
+    @Query('storeId') storeId: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('productId') productId?: string,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+
+    if (productId?.trim()) {
+      const product = await this.prisma.product.findFirst({
+        where: { id: productId.trim(), storeId: sid },
+        select: {
+          skuCategoryCode: true,
+          skuModelNumber: true,
+          category: { select: { name: true, slug: true } },
+        },
+      })
+      if (product?.skuCategoryCode && product.skuModelNumber) {
+        return {
+          categoryCode: product.skuCategoryCode,
+          modelNumber: product.skuModelNumber,
+          exact: true,
+        }
+      }
+      if (product) {
+        const code = categoryCode(
+          [product.category?.name, product.category?.slug].filter(Boolean).join(' '),
+        )
+        return { categoryCode: code, modelNumber: await this.peekModel(sid, code), exact: false }
+      }
+    }
+
+    const category = categoryId?.trim()
+      ? await this.prisma.category.findFirst({
+          where: { id: categoryId.trim(), storeId: sid },
+          select: { name: true, slug: true },
+        })
+      : null
+    const code = categoryCode([category?.name, category?.slug].filter(Boolean).join(' '))
+    return { categoryCode: code, modelNumber: await this.peekModel(sid, code), exact: false }
+  }
+
+  private async peekModel(storeId: string, code: string): Promise<number> {
+    const [counter, highest] = await Promise.all([
+      this.prisma.codeSequence.findUnique({
+        where: { key: `model:${storeId}:${code}` },
+        select: { nextValue: true },
+      }),
+      this.prisma.product.aggregate({
+        where: { storeId, skuCategoryCode: code },
+        _max: { skuModelNumber: true },
+      }),
+    ])
+    const fromCounter = counter ? Number(counter.nextValue) : 0
+    const fromProducts = (highest._max.skuModelNumber ?? 0) + 1
+    return Math.max(fromCounter, fromProducts, 1)
+  }
+
+  /**
+   * Report-only view of variant code hygiene: how many variants still have no
+   * SKU/barcode, and any duplicates. Read-only on purpose — existing merchant
+   * codes are never rewritten automatically.
+   */
+  @Get('code-audit')
+  async codeAudit(@Query('storeId') storeId: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.variantSku.audit(sid)
   }
 
   @Get('export')
@@ -764,33 +906,40 @@ export class ProductsController {
       )
     }
 
-    const sku = body.sku?.trim() || undefined
-    if (sku) {
-      const skuClash = await this.prisma.productVariant.findFirst({ where: { productId, sku } })
-      if (skuClash) throw new BadRequestException(`SKU "${sku}" already used by another variant on this product`)
-    }
-    const barcode = body.barcode?.trim() || undefined
-    if (barcode) {
-      const barcodeClash = await this.prisma.productVariant.findFirst({ where: { productId, barcode } })
-      if (barcodeClash) {
-        throw new BadRequestException(`Barcode "${barcode}" already used by another variant on this product`)
-      }
-    }
+    const colorName = body.colorName?.trim() || color || null
 
-    const variant = await this.prisma.productVariant.create({
-      data: {
+    // Reuse the product's existing SPL-{CAT}-{MODEL} identity so a colour added
+    // months later still belongs to the same model number.
+    const variant = await this.prisma.$transaction(async (tx) => {
+      const identity = await this.variantSku.ensureProductIdentity(tx, {
         productId,
-        size,
-        color,
-        colorName: body.colorName?.trim() || color || null,
-        colorHex: body.colorHex?.trim() ? productHexOrDefault(body.colorHex) : null,
-        image: body.image?.trim() || null,
-        sku: sku ?? null,
-        barcode: barcode ?? null,
-        price: body.price,
-        compareAtPrice: body.compareAtPrice ?? null,
-        stock,
-      },
+        storeId: product.storeId,
+      })
+      const [coded] = await this.assignVariantCodes(tx, identity, [
+        {
+          size,
+          color,
+          colorName,
+          sku: body.sku ?? null,
+          barcode: body.barcode ?? null,
+        },
+      ])
+
+      return tx.productVariant.create({
+        data: {
+          productId,
+          size,
+          color,
+          colorName,
+          colorHex: body.colorHex?.trim() ? productHexOrDefault(body.colorHex) : null,
+          image: body.image?.trim() || null,
+          sku: coded!.sku,
+          barcode: coded!.barcode,
+          price: body.price,
+          compareAtPrice: body.compareAtPrice ?? null,
+          stock,
+        },
+      })
     })
 
     if (stock > 0) {
@@ -846,25 +995,20 @@ export class ProductsController {
       throw new BadRequestException('Price cannot be negative')
     }
 
-    const sku = body.sku !== undefined ? body.sku.trim() : undefined
-    if (sku) {
-      const clash = await this.prisma.productVariant.findFirst({
-        where: { productId, sku, NOT: { id: variantId } },
-      })
-      if (clash) throw new BadRequestException(`SKU "${sku}" already used by another variant on this product`)
-    }
     const barcode = body.barcode !== undefined ? body.barcode.trim() : undefined
     if (barcode) {
       const barcodeClash = await this.prisma.productVariant.findFirst({
-        where: { productId, barcode, NOT: { id: variantId } },
+        where: { barcode, NOT: { id: variantId } },
       })
       if (barcodeClash) {
-        throw new BadRequestException(`Barcode "${barcode}" already used by another variant on this product`)
+        throw new BadRequestException(`Barcode "${barcode}" is already used by another variant`)
       }
     }
 
     const nextSize = body.size !== undefined ? body.size.trim() || null : variant.size
     const nextColor = body.color !== undefined ? body.color.trim() || null : variant.color
+    const nextColorName =
+      body.colorName !== undefined ? body.colorName.trim() || null : variant.colorName
     if (body.size !== undefined || body.color !== undefined) {
       const comboClash = await this.prisma.productVariant.findFirst({
         where: { productId, size: nextSize, color: nextColor, NOT: { id: variantId } },
@@ -876,23 +1020,49 @@ export class ProductsController {
       }
     }
 
-    const updated = await this.prisma.productVariant.update({
-      where: { id: variantId },
-      data: {
-        ...(body.stock !== undefined ? { stock: body.stock } : {}),
-        ...(body.price !== undefined ? { price: body.price } : {}),
-        ...(body.compareAtPrice !== undefined ? { compareAtPrice: body.compareAtPrice } : {}),
-        ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
-        ...(body.sku !== undefined ? { sku: sku || null } : {}),
-        ...(body.barcode !== undefined ? { barcode: barcode || null } : {}),
-        ...(body.size !== undefined ? { size: nextSize } : {}),
-        ...(body.color !== undefined ? { color: nextColor } : {}),
-        ...(body.colorName !== undefined ? { colorName: body.colorName.trim() || null } : {}),
-        ...(body.colorHex !== undefined
-          ? { colorHex: body.colorHex.trim() ? normalizeProductHex(body.colorHex) : null }
-          : {}),
-        ...(body.image !== undefined ? { image: body.image.trim() || null } : {}),
-      },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // The SKU follows the variant's attributes; the barcode does not. Once a
+      // number is printed on a label it must keep pointing at the same variant,
+      // so it is only ever replaced by an explicit operator-supplied value.
+      const identity = await this.variantSku.ensureProductIdentity(tx, {
+        productId,
+        storeId: product.storeId,
+      })
+      const manualSku = this.variantSku.normalizeManual(body.sku)
+      let nextSku: string | undefined
+      if (manualSku) {
+        await this.variantSku.assertAvailable(tx, manualSku, variantId)
+        nextSku = manualSku
+      } else if (body.sku !== undefined || body.size !== undefined || body.color !== undefined) {
+        nextSku = await this.variantSku.uniqueGenerated(
+          tx,
+          this.variantSku.build(identity, {
+            size: nextSize,
+            color: nextColor,
+            colorName: nextColorName,
+          }),
+          variantId,
+        )
+      }
+
+      return tx.productVariant.update({
+        where: { id: variantId },
+        data: {
+          ...(body.stock !== undefined ? { stock: body.stock } : {}),
+          ...(body.price !== undefined ? { price: body.price } : {}),
+          ...(body.compareAtPrice !== undefined ? { compareAtPrice: body.compareAtPrice } : {}),
+          ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
+          ...(nextSku !== undefined ? { sku: nextSku } : {}),
+          ...(barcode ? { barcode } : {}),
+          ...(body.size !== undefined ? { size: nextSize } : {}),
+          ...(body.color !== undefined ? { color: nextColor } : {}),
+          ...(body.colorName !== undefined ? { colorName: nextColorName } : {}),
+          ...(body.colorHex !== undefined
+            ? { colorHex: body.colorHex.trim() ? normalizeProductHex(body.colorHex) : null }
+            : {}),
+          ...(body.image !== undefined ? { image: body.image.trim() || null } : {}),
+        },
+      })
     })
 
     if (body.stock !== undefined) {

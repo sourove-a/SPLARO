@@ -4,6 +4,13 @@ import { toStoredMediaUrl } from '@splaro/config'
 import { productHexOrDefault } from '../../common/color-hex.util'
 import type { PrismaService } from '../../common/prisma.service'
 import { slugify } from '../../common/store.util'
+import { reserveBarcodes } from './barcode-sequence.service'
+import {
+  allocateProductIdentity,
+  buildSkuForVariant,
+  ensureProductSkuIdentity,
+  uniqueGeneratedSku,
+} from './variant-sku.service'
 
 export const CATALOG_BULK_MAX_ROWS = 200
 const MAX_IMAGES = 10
@@ -611,11 +618,20 @@ export async function upsertCatalogRow(
         if (price === undefined) {
           throw new BadRequestException('price required to add a new variant')
         }
-        const generatedSku =
-          variantSku ||
-          `${product.sku || productSkuHint || 'SPL'}-${size || 'OS'}-${colorName}`
-            .replace(/\s+/g, '-')
-            .slice(0, 80)
+        // Same canonical service the admin panel uses — one SKU format and one
+        // barcode counter, whether a variant arrives by form or by CSV.
+        const identity = await ensureProductSkuIdentity(prisma, {
+          productId: product.id,
+          storeId,
+        })
+        const generatedSku = variantSku
+          ? await uniqueGeneratedSku(prisma, variantSku)
+          : await uniqueGeneratedSku(
+              prisma,
+              buildSkuForVariant(identity, { size, colorName }),
+            )
+        const importedBarcode = row.barcode?.trim()
+        const [mintedBarcode] = importedBarcode ? [importedBarcode] : await reserveBarcodes(prisma, 1)
         const createdVariant = await prisma.productVariant.create({
           data: {
             productId: product.id,
@@ -624,7 +640,7 @@ export async function upsertCatalogRow(
             colorName,
             colorHex,
             sku: generatedSku,
-            barcode: row.barcode?.trim() || null,
+            barcode: mintedBarcode ?? null,
             price,
             compareAtPrice: row.compareAtPrice ?? null,
             stock: stock ?? 0,
@@ -664,9 +680,20 @@ export async function upsertCatalogRow(
 
     const wantPublish = row.published === true
     const canPublish = Boolean(categoryId) && basePrice > 0
-    const variantSkuFinal =
-      variantSku ||
-      `${productSku}-${size || 'OS'}-${colorName}`.replace(/\s+/g, '-').slice(0, 80)
+    // Allocate the SPL-{CAT}-{MODEL} identity before the insert so the first
+    // variant carries its final code, exactly as the admin create path does.
+    const identity = await allocateProductIdentity(prisma, {
+      storeId,
+      categoryLabel: row.category?.trim() ?? '',
+    })
+    const variantSkuFinal = await uniqueGeneratedSku(
+      prisma,
+      variantSku || buildSkuForVariant(identity, { size, colorName }),
+    )
+    const importedBarcode = row.barcode?.trim()
+    const [newVariantBarcode] = importedBarcode
+      ? [importedBarcode]
+      : await reserveBarcodes(prisma, 1)
     const schemaMarkup = mergeSchemaMarkup(null, {
       ...(row.nameBn !== undefined ? { nameBn: row.nameBn } : {}),
       ...(row.descriptionBn !== undefined ? { descriptionBn: row.descriptionBn } : {}),
@@ -685,6 +712,8 @@ export async function upsertCatalogRow(
           row.compareAtPrice != null && Number(row.compareAtPrice) > Number(basePrice),
         costPrice: row.costPrice,
         sku: productSku,
+        skuCategoryCode: identity.categoryCode,
+        skuModelNumber: identity.modelNumber,
         categoryId,
         tags: row.tags ?? [],
         fabricContent: row.fabric,
@@ -721,7 +750,7 @@ export async function upsertCatalogRow(
               colorName,
               colorHex,
               sku: variantSkuFinal,
-              barcode: row.barcode?.trim() || null,
+              barcode: newVariantBarcode ?? null,
               price: price ?? basePrice,
               compareAtPrice: row.compareAtPrice ?? null,
               stock: stock ?? 0,

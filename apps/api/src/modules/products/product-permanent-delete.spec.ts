@@ -43,6 +43,8 @@ function buildController(
   const controller = new ProductsController(
     prisma,
     {} as never,
+    {} as never,
+    {} as never,
     cache,
     search as never,
   )
