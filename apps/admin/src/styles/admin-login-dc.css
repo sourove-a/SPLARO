@@ -641,6 +641,10 @@ body.admin-auth-page:has(.admin-auth-shell--dc) {
 }
 
 /* Google sign-in — second door for admins who already have access. */
+.admin-auth-shell--dc .admin-auth-google[hidden] {
+  display: none;
+}
+
 .admin-auth-shell--dc .admin-auth-google {
   margin-top: 1.15rem;
   display: flex;

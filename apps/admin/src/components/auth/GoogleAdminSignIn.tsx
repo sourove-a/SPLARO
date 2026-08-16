@@ -130,10 +130,11 @@ export function GoogleAdminSignIn({
     }
   }, [onError, onSignedIn])
 
-  if (!enabled) return null
-
+  // The container must exist before the effect runs — `renderButton` needs a
+  // live node, and gating the whole block on `enabled` meant the ref was never
+  // attached, so the button could never appear. Render it hidden instead.
   return (
-    <div className="admin-auth-google">
+    <div className="admin-auth-google" hidden={!enabled}>
       <div className="admin-auth-google__divider">
         <span>or</span>
       </div>
