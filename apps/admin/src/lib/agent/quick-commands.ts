@@ -85,9 +85,40 @@ export const AGENT_QUICK_COMMANDS: AgentQuickCommand[] = [
     category: 'ops',
   },
   {
-    id: 'today-sale',
-    label: 'আজকের sale',
-    message: 'আজ কত order হয়েছে? revenue কত?',
+    id: 'bulk-courier',
+    label: 'বাল্ক কুরিয়ার ডিসপ্যাচ',
+    message: 'সব pending ও confirmed order একসাথে Steadfast courier এ book করো',
     category: 'ops',
   },
+  {
+    id: 'auto-po',
+    label: 'অটো পারচেজ অর্ডার',
+    message: 'কম স্টক থাকা প্রোডাক্টগুলোর জন্য ড্রাফট Purchase Order (PO) তৈরি করো',
+    category: 'catalog',
+  },
+  {
+    id: 'review-reply',
+    label: 'রিভিউ অটো-রিপ্লাই',
+    message: 'নতুন ও পেন্ডিং কাস্টমার রিভিউগুলো অনুমোদন করো এবং ব্র্যান্ড রিপ্লাই পোস্ট করো',
+    category: 'ops',
+  },
+  {
+    id: 'fraud-audit',
+    label: 'COD রিটার্ন ও ফ্রড অডিট',
+    message: 'পেন্ডিং অর্ডারগুলোর মধ্যে কোনো ফেক ফোন বা হাই-রিস্ক COD অর্ডার আছে কিনা চেক করো',
+    category: 'ops',
+  },
+  {
+    id: 'profit-insights',
+    label: 'প্রফিট ও মার্জিন বিশ্লেষণ',
+    message: 'এই মাসের বিক্রয়, প্রোডাক্ট খরচ ও নেট প্রফিট মার্জিনের বিস্তারিত রিপোর্ট দাও',
+    category: 'finance',
+  },
+  {
+    id: 'daily-brief',
+    label: 'এক্সিকিউটিভ ডেইলি ব্রিফ',
+    message: 'আজকের সেলস, কুরিয়ার ও স্টকের সম্পূর্ণ ডেইলি ব্রিফ তৈরি করো এবং টেলিগ্রামে পাঠাও',
+    category: 'health',
+  },
 ]
+

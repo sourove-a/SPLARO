@@ -503,3 +503,116 @@ export class ManusProvider implements ModelProvider {
     if (result.content) yield result.content
   }
 }
+
+export const DEFAULT_OPENROUTER_MODEL = 'openai/gpt-4o-mini'
+
+export class OpenRouterProvider implements ModelProvider {
+  readonly id = 'openrouter'
+
+  private resolveModel(options?: ModelProviderOptions): string {
+    return options?.model ?? process.env['OPENROUTER_MODEL'] ?? DEFAULT_OPENROUTER_MODEL
+  }
+
+  async chat(
+    messages: AgentMessage[],
+    tools: AgentToolDefinition[],
+    apiKey: string,
+    options?: ModelProviderOptions,
+  ): Promise<ModelChatResult> {
+    const model = this.resolveModel(options)
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://splaro.co',
+        'X-Title': 'SPLARO Command',
+      },
+      body: JSON.stringify({
+        model,
+        messages: formatOpenAiMessages(messages),
+        ...(tools.length
+          ? {
+              tools: tools.map((t) => ({
+                type: 'function',
+                function: { name: t.name, description: t.description, parameters: t.parameters },
+              })),
+              tool_choice: 'auto',
+            }
+          : {}),
+      }),
+    })
+
+    if (!res.ok) {
+      const err = await res.text().catch(() => '')
+      throw new Error(`OpenRouter error ${res.status}: ${err || res.statusText}`)
+    }
+
+    const data = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string; tool_calls?: unknown } }>
+    }
+    const message = data.choices?.[0]?.message
+    return {
+      content: message?.content ?? '',
+      toolCalls: parseOpenAiToolCalls(message?.tool_calls),
+    }
+  }
+
+  async *streamText(
+    messages: AgentMessage[],
+    apiKey: string,
+    options?: ModelProviderOptions,
+  ): AsyncGenerator<string> {
+    const model = this.resolveModel(options)
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://splaro.co',
+        'X-Title': 'SPLARO Command',
+      },
+      body: JSON.stringify({
+        model,
+        stream: true,
+        messages: formatOpenAiMessages(messages),
+      }),
+    })
+
+    if (!res.ok) {
+      const err = await res.text().catch(() => '')
+      throw new Error(`OpenRouter stream error ${res.status}: ${err || res.statusText}`)
+    }
+
+    if (!res.body) throw new Error('OpenRouter stream error: empty response body')
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed.startsWith('data:')) continue
+        const payload = trimmed.slice(5).trim()
+        if (payload === '[DONE]') return
+        try {
+          const json = JSON.parse(payload) as {
+            choices?: Array<{ delta?: { content?: string } }>
+          }
+          const token = json.choices?.[0]?.delta?.content
+          if (token) yield token
+        } catch {
+          /* skip */
+        }
+      }
+    }
+  }
+}

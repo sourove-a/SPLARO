@@ -25,8 +25,12 @@ export const AGENT_TOOL_CATALOG: AgentToolCatalogEntry[] = [
   { name: 'create_product_draft', label: 'Product draft', labelBn: 'প্রোডাক্ট ড্রাফট', when: 'নতুন product', tier: 'WRITE' },
   { name: 'update_product', label: 'Update product', labelBn: 'প্রোডাক্ট আপডেট', when: 'meta WRITE; price/publish/stock → confirm', tier: 'WRITE' },
   { name: 'get_integration_status', label: 'Integrations', labelBn: 'ইন্টিগ্রেশন', when: 'connection nai', tier: 'READ' },
-  { name: 'get_api_route_health', label: 'API routes', labelBn: 'API রুট', when: 'API down', tier: 'READ' },
-  { name: 'send_telegram_message', label: 'Telegram send', labelBn: 'টেলিগ্রাম', when: 'message pathao', tier: 'WRITE' },
+  { name: 'book_all_pending_courier', label: 'Bulk courier', labelBn: 'বাল্ক কুরিয়ার ডিসপ্যাচ', when: 'সব অর্ডার স্টেডফাস্ট বুক', tier: 'DANGEROUS' },
+  { name: 'generate_reorder_purchase_order', label: 'Auto PO', labelBn: 'অটো পারচেজ অর্ডার', when: 'স্টক রিস্টক PO তৈরি', tier: 'WRITE' },
+  { name: 'moderate_and_reply_reviews', label: 'Review manager', labelBn: 'রিভিউ অটো-রিপ্লাই', when: 'রিভিউ মডারেশন ও রিপ্লাই', tier: 'WRITE' },
+  { name: 'audit_high_risk_orders', label: 'Risk & Fraud audit', labelBn: 'COD রিটার্ন ও ফ্রড অডিট', when: 'রিস্কি অর্ডার চেক', tier: 'READ' },
+  { name: 'get_profit_insights', label: 'Profit velocity', labelBn: 'প্রফিট ও মার্জিন বিশ্লেষণ', when: 'লাভ ও মার্জিন হিসাব', tier: 'READ' },
+  { name: 'generate_executive_daily_brief', label: 'Executive brief', labelBn: 'ডেইলি এক্সিকিউটিভ ব্রিফ', when: 'দৈনিক ব্যবসার রিপোর্ট', tier: 'READ' },
 ]
 
 export const AGENT_TOOL_TIERS: AgentToolCatalogTier[] = ['READ', 'WRITE', 'DANGEROUS']

@@ -208,4 +208,74 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
       },
     },
   },
+  {
+    name: 'book_all_pending_courier',
+    description:
+      'Bulk courier booking: automatically books Steadfast courier for all CONFIRMED and PROCESSING orders that do not have a consignment yet. Updates orders and returns consignment IDs.',
+    parameters: {
+      type: 'object',
+      properties: {
+        limit: { type: 'number', description: 'Max orders to dispatch (default 20)' },
+      },
+    },
+  },
+  {
+    name: 'generate_reorder_purchase_order',
+    description:
+      'Autonomous PO builder: scans low stock and out of stock products, calculates reorder quantities, associates suppliers and unit costs, and creates a formal draft Purchase Order in the database.',
+    parameters: {
+      type: 'object',
+      properties: {
+        threshold: { type: 'number', description: 'Stock threshold below which to reorder (default 5)' },
+        targetStock: { type: 'number', description: 'Target stock level per variant (default 20)' },
+        supplierName: { type: 'string', description: 'Optional default supplier name (e.g. Dhaka Silk Mill)' },
+      },
+    },
+  },
+  {
+    name: 'moderate_and_reply_reviews',
+    description:
+      'Autonomous review manager: auto-approves unmoderated customer reviews and posts professional brand replies in Bangla / English for positive and constructive feedback.',
+    parameters: {
+      type: 'object',
+      properties: {
+        limit: { type: 'number', description: 'Max reviews to process (default 10)' },
+        autoApprove: { type: 'boolean', description: 'Auto-approve genuine pending reviews (default true)' },
+      },
+    },
+  },
+  {
+    name: 'audit_high_risk_orders',
+    description:
+      'Fraud & COD return risk analyzer: inspects unfulfilled orders for repeat cancellation history, fake numbers, invalid addresses, or high ticket amounts before shipping to prevent courier return losses.',
+    parameters: {
+      type: 'object',
+      properties: {
+        limit: { type: 'number', description: 'Max orders to audit (default 50)' },
+      },
+    },
+  },
+  {
+    name: 'get_profit_insights',
+    description:
+      'Executive profitability analyzer: calculates real-time revenue, product cost (COGS), shipping expenses, net profit, and gross margin % for today, this week, or this month with top profitable products.',
+    parameters: {
+      type: 'object',
+      properties: {
+        period: { type: 'string', enum: ['today', 'week', 'month', 'all_time'], description: 'Time window (default month)' },
+      },
+    },
+  },
+  {
+    name: 'generate_executive_daily_brief',
+    description:
+      'Generates a comprehensive executive business daily brief (revenue, orders to pack, pending shipments, low stock alerts, fraud flags) and optionally sends it directly to Telegram.',
+    parameters: {
+      type: 'object',
+      properties: {
+        sendToTelegram: { type: 'boolean', description: 'Send directly to Telegram admin channel (default false)' },
+      },
+    },
+  },
 ]
+

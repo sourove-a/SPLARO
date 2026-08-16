@@ -14,6 +14,8 @@ export interface AgentHealthSnapshot {
 
 export interface AgentConfigResponse {
   activeModel: AgentModelId
+  openrouterKey?: string | null
+  openrouterModel?: string | null
   openaiKey: string | null
   geminiKey: string | null
   claudeKey: string | null

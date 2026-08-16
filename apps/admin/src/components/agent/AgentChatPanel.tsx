@@ -33,6 +33,8 @@ import {
 import { cn } from '@/lib/utils/cn'
 
 const MODEL_LABELS: Record<AgentModelId, string> = {
+  auto: 'Auto (Smart Fallback)',
+  openrouter: 'OpenRouter Universal',
   claude: 'Claude 3.5 Sonnet',
   openai: 'OpenAI GPT-4o',
   gemini: 'Google Gemini',

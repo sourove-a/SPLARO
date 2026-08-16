@@ -7,7 +7,7 @@ import {
   MinLength,
 } from 'class-validator'
 
-export const AGENT_MODEL_IDS = ['openai', 'gemini', 'claude', 'grok', 'manus'] as const
+export const AGENT_MODEL_IDS = ['auto', 'openrouter', 'openai', 'gemini', 'claude', 'grok', 'manus'] as const
 export type AgentModelIdDto = (typeof AGENT_MODEL_IDS)[number]
 
 export class AgentChatDto {
@@ -40,6 +40,16 @@ export class AgentConfigDto {
   @IsString()
   @MaxLength(20000)
   systemPrompt?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  openrouterKey?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  openrouterModel?: string
 
   @IsOptional()
   @IsString()

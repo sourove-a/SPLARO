@@ -19,6 +19,8 @@ export function routeByDifficulty(message: string): AgentDifficulty {
 
 export function cheapModelForProvider(provider: string): string | undefined {
   switch (provider) {
+    case 'openrouter':
+      return 'openai/gpt-4o-mini'
     case 'openai':
       return 'gpt-4o-mini'
     case 'claude':

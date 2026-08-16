@@ -12,6 +12,7 @@ import {
   GrokProvider,
   ManusProvider,
   OpenAiProvider,
+  OpenRouterProvider,
   type ModelProvider,
   type ModelProviderOptions,
 } from './model.providers'
@@ -20,19 +21,31 @@ import { cheapModelForProvider } from '../agent-difficulty'
 
 const CONFIG_CACHE_MS = 60_000
 
+export type ConcreteModelId = Exclude<AgentModelId, 'auto'>
+
 interface CachedConfig {
   at: number
   storeId: string
   activeModel: AgentModelId
-  keys: Record<AgentModelId, string | null>
+  keys: Record<ConcreteModelId, string | null>
 }
+
+const PROVIDER_PRIORITY: ConcreteModelId[] = [
+  'openrouter',
+  'openai',
+  'gemini',
+  'claude',
+  'grok',
+  'manus',
+]
 
 @Injectable()
 export class ModelRouter {
   private readonly logger = new Logger(ModelRouter.name)
   private cache: CachedConfig | null = null
 
-  private readonly providers: Record<AgentModelId, ModelProvider> = {
+  private readonly providers: Record<ConcreteModelId, ModelProvider> = {
+    openrouter: new OpenRouterProvider(),
     openai: new OpenAiProvider(),
     claude: new ClaudeProvider(),
     gemini: new GeminiProvider(),
@@ -55,46 +68,74 @@ export class ModelRouter {
   }> {
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
     const cfg = await this.loadConfig(storeId)
-    const model = cfg.activeModel
-    const apiKey = cfg.keys[model]
+    let selectedModel: ConcreteModelId
 
-    if (!apiKey) {
-      const configured = (['claude', 'gemini', 'grok', 'openai', 'manus'] as AgentModelId[]).filter(
-        (m) => cfg.keys[m],
-      )
-      const hint =
-        configured.length > 0
-          ? ` Configured: ${configured.join(', ')} — AI Command Brain e active model switch koro.`
-          : ' AI Command Brain e oi model er API key save koro.'
-      const envName =
-        model === 'claude'
-          ? 'ANTHROPIC'
-          : model === 'openai'
-            ? 'OPENAI'
-            : model === 'gemini'
-              ? 'GEMINI'
-              : model === 'manus'
-                ? 'MANUS'
-                : 'GROK'
-      throw new Error(
-        `Active model "${model}" er API key nai.${hint} (env: ${envName}_API_KEY)`,
-      )
+    if (cfg.activeModel === 'auto') {
+      // In auto mode, find the first available provider with a configured key
+      const available = PROVIDER_PRIORITY.find((m) => Boolean(cfg.keys[m]))
+      if (!available) {
+        throw new Error(
+          'No AI API key configured. AI Command Brain (or .env) e OpenRouter, OpenAI, Gemini, Claude, Grok ba Manus API key save koro.',
+        )
+      }
+      selectedModel = available
+      this.logger.log(`[Auto-Agent] Routed to ${selectedModel}`)
+    } else {
+      const target = cfg.activeModel as ConcreteModelId
+      const apiKey = cfg.keys[target]
+      if (apiKey) {
+        selectedModel = target
+      } else {
+        // Fallback: If configured model has no key, look for any ready provider
+        const fallback = PROVIDER_PRIORITY.find((m) => Boolean(cfg.keys[m]))
+        if (fallback) {
+          selectedModel = fallback
+          this.logger.warn(
+            `[Auto-Fallback] Active model "${target}" lacks key — fallback to ${fallback}`,
+          )
+        } else {
+          const envName =
+            target === 'openrouter'
+              ? 'OPENROUTER'
+              : target === 'claude'
+                ? 'ANTHROPIC'
+                : target === 'openai'
+                  ? 'OPENAI'
+                  : target === 'gemini'
+                    ? 'GEMINI'
+                    : target === 'manus'
+                      ? 'MANUS'
+                      : 'GROK'
+          throw new Error(
+            `Active model "${target}" er API key nai. AI Command Brain e oi model er API key save koro (env: ${envName}_API_KEY), ba "Auto" mode select koro.`,
+          )
+        }
+      }
     }
 
-    const providerOptions = await this.resolveProviderOptions(storeId, model)
+    const apiKey = cfg.keys[selectedModel]!
+    const providerOptions = await this.resolveProviderOptions(storeId, selectedModel)
 
-    return { provider: this.providers[model], apiKey, model, providerOptions }
+    return { provider: this.providers[selectedModel], apiKey, model: selectedModel, providerOptions }
   }
 
   private async resolveProviderOptions(
     storeId: string,
-    model: AgentModelId,
+    model: ConcreteModelId,
   ): Promise<ModelProviderOptions | undefined> {
+    if (model === 'openrouter') {
+      const explicit = await this.resolveExplicitModel(storeId, 'openrouter')
+      return { model: explicit ?? process.env['OPENROUTER_MODEL'] ?? 'openai/gpt-4o-mini' }
+    }
     if (model === 'openai') return { model: await this.resolveOpenAiModel(storeId) }
     if (model === 'claude') return { claude: await this.resolveClaudeOptions(storeId) }
     if (model === 'manus') {
       const explicit = await this.resolveExplicitModel(storeId, 'manus')
       return { model: explicit ?? process.env['MANUS_AGENT_PROFILE'] ?? 'manus-1.6-lite' }
+    }
+    if (model === 'gemini' || model === 'grok') {
+      const explicit = await this.resolveExplicitModel(storeId, model)
+      if (explicit) return { model: explicit }
     }
     return undefined
   }
@@ -139,16 +180,23 @@ export class ModelRouter {
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
     const cfg = await this.loadConfig(storeId)
     const models = {
+      auto: { configured: Object.values(cfg.keys).some(Boolean) },
+      openrouter: { configured: Boolean(cfg.keys.openrouter) },
       openai: { configured: Boolean(cfg.keys.openai) },
       claude: { configured: Boolean(cfg.keys.claude) },
       gemini: { configured: Boolean(cfg.keys.gemini) },
       grok: { configured: Boolean(cfg.keys.grok) },
       manus: { configured: Boolean(cfg.keys.manus) },
     }
+    const isReady =
+      cfg.activeModel === 'auto'
+        ? Object.values(cfg.keys).some(Boolean)
+        : Boolean(cfg.keys[cfg.activeModel as ConcreteModelId]) || Object.values(cfg.keys).some(Boolean)
+
     return {
       activeModel: cfg.activeModel,
       models,
-      activeModelReady: Boolean(cfg.keys[cfg.activeModel]),
+      activeModelReady: isReady,
     }
   }
 
@@ -171,19 +219,18 @@ export class ModelRouter {
     const cheap = cheapModelForProvider(base.model)
     if (!cheap) return base
 
-    // An operator-chosen model wins over difficulty routing. Without this the
-    // cheap tier applies to everything except COMPLEX_PATTERN matches, so the
-    // model picked in AI Command Brain almost never takes effect.
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
-    if (await this.resolveExplicitModel(storeId, base.model)) return base
+    if (await this.resolveExplicitModel(storeId, base.model as ConcreteModelId)) return base
 
     const options: ModelProviderOptions = { ...(base.providerOptions ?? {}), model: cheap }
 
     return { ...base, providerOptions: options }
   }
 
-  private envKey(model: AgentModelId): string | null {
+  private envKey(model: ConcreteModelId): string | null {
     switch (model) {
+      case 'openrouter':
+        return this.config.get<string>('OPENROUTER_API_KEY') ?? null
       case 'openai':
         return this.config.get<string>('OPENAI_API_KEY') ?? null
       case 'claude':
@@ -206,24 +253,22 @@ export class ModelRouter {
     return (await this.resolveExplicitModel(storeId, 'openai')) ?? DEFAULT_OPENAI_MODEL
   }
 
-  /**
-   * The model an operator actually chose, or null when we're only falling back to
-   * a default. Difficulty routing must not override an explicit choice.
-   */
-  private async resolveExplicitModel(storeId: string, model: AgentModelId): Promise<string | null> {
+  private async resolveExplicitModel(storeId: string, model: ConcreteModelId): Promise<string | null> {
     const map = await this.integrations.getProviderMap(storeId, model)
     const fromDb = map.model ?? map.defaultModel
     if (fromDb) return String(fromDb)
     const envVar =
-      model === 'openai'
-        ? 'OPENAI_MODEL'
-        : model === 'claude'
-          ? 'ANTHROPIC_MODEL'
-          : model === 'gemini'
-            ? 'GEMINI_MODEL'
-            : model === 'manus'
-              ? 'MANUS_AGENT_PROFILE'
-              : 'GROK_MODEL'
+      model === 'openrouter'
+        ? 'OPENROUTER_MODEL'
+        : model === 'openai'
+          ? 'OPENAI_MODEL'
+          : model === 'claude'
+            ? 'ANTHROPIC_MODEL'
+            : model === 'gemini'
+              ? 'GEMINI_MODEL'
+              : model === 'manus'
+                ? 'MANUS_AGENT_PROFILE'
+                : 'GROK_MODEL'
     return this.config.get<string>(envVar)?.trim() || null
   }
 
@@ -232,13 +277,12 @@ export class ModelRouter {
     try {
       return this.crypto.decrypt(stored)
     } catch {
-      // Never treat ciphertext as a usable API key.
       return stored.startsWith('enc:') ? null : stored
     }
   }
 
-  private async resolveKey(storeId: string, model: AgentModelId, rowKey: string | null): Promise<string | null> {
-    const fromIntegration = await this.integrations.getPlain(storeId, model === 'openai' ? 'openai' : model, 'apiKey')
+  private async resolveKey(storeId: string, model: ConcreteModelId, rowKey: string | null): Promise<string | null> {
+    const fromIntegration = await this.integrations.getPlain(storeId, model, 'apiKey')
     if (fromIntegration) return fromIntegration
     const decrypted = this.decryptKey(rowKey)
     if (decrypted) return decrypted
@@ -251,10 +295,10 @@ export class ModelRouter {
       return this.cache
     }
 
-    // Concurrent health probes can race on first create — use race-safe helper.
     const row = await ensureAgentConfigRow(this.prisma, storeId)
 
-    const keys: Record<AgentModelId, string | null> = {
+    const keys: Record<ConcreteModelId, string | null> = {
+      openrouter: await this.resolveKey(storeId, 'openrouter', (row as unknown as { openrouterKey?: string }).openrouterKey ?? null),
       openai: await this.resolveKey(storeId, 'openai', row.openaiKey),
       claude: await this.resolveClaudeKey(storeId, row.claudeKey),
       gemini: await this.resolveKey(storeId, 'gemini', row.geminiKey),
@@ -262,11 +306,10 @@ export class ModelRouter {
       manus: await this.resolveKey(storeId, 'manus', row.manusKey),
     }
 
-    const activeModel = (row.activeModel as AgentModelId) || 'claude'
-    // Never silently switch providers — Telegram + admin must match AI Command Brain.
-    // Missing key is handled in getProvider() with a clear error.
+    const activeModel = (row.activeModel as AgentModelId) || 'auto'
 
     this.cache = { at: now, storeId, activeModel, keys }
     return this.cache
   }
 }
+

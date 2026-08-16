@@ -100,9 +100,13 @@ export class AgentService {
 
     const claudeMap = await this.integrations.getProviderMap(storeId, 'claude')
     const claudeTokenSaved = await this.integrations.hasSecret(storeId, 'claude', 'authToken')
+    const openrouterKey = await this.integrations.getPlain(storeId, 'openrouter', 'apiKey')
+    const openrouterMap = await this.integrations.getProviderMap(storeId, 'openrouter')
 
     return {
       activeModel: row.activeModel,
+      openrouterKey: maskKey(openrouterKey),
+      openrouterModel: String(openrouterMap.model ?? ''),
       openaiKey: maskKey(row.openaiKey),
       geminiKey: maskKey(row.geminiKey),
       claudeKey: maskKey(row.claudeKey),
@@ -128,8 +132,9 @@ export class AgentService {
     if (body.telegramChatId !== undefined) data.telegramChatId = body.telegramChatId ? String(body.telegramChatId) : null
     if (body.telegramAllowedIds !== undefined) data.telegramAllowedIds = body.telegramAllowedIds ? String(body.telegramAllowedIds) : null
 
-    const keyFields = ['openaiKey', 'geminiKey', 'claudeKey', 'grokKey', 'manusKey', 'telegramBotToken'] as const
+    const keyFields = ['openrouterKey', 'openaiKey', 'geminiKey', 'claudeKey', 'grokKey', 'manusKey', 'telegramBotToken'] as const
     const integrationKeyMap: Partial<Record<(typeof keyFields)[number], string>> = {
+      openrouterKey: 'openrouter',
       openaiKey: 'openai',
       claudeKey: 'claude',
       geminiKey: 'gemini',
@@ -147,7 +152,9 @@ export class AgentService {
         if (field === 'manusKey') {
           await this.assertManusKey(plain)
         }
-        data[field] = this.crypto.encrypt(plain)
+        if (field !== 'openrouterKey') {
+          data[field] = this.crypto.encrypt(plain)
+        }
         const provider = integrationKeyMap[field]
         if (provider) {
           await this.integrations.upsertSecret({
@@ -156,12 +163,12 @@ export class AgentService {
             key: 'apiKey',
             plain,
           })
-          if (provider === 'openai') {
+          if (provider === 'openrouter' || provider === 'openai') {
             await this.integrations.recordTest({
               storeId,
-              provider: 'openai',
+              provider,
               success: true,
-              message: 'API key saved via AI Command Brain',
+              message: `${provider.toUpperCase()} API key saved via AI Command Brain`,
             })
           }
           if (provider === 'manus') {
@@ -176,6 +183,14 @@ export class AgentService {
       }
     }
 
+    if (body.openrouterModel !== undefined) {
+      await this.integrations.upsertPlain({
+        storeId,
+        provider: 'openrouter',
+        key: 'model',
+        value: String(body.openrouterModel).trim(),
+      })
+    }
     if (body.claudeAuthMode !== undefined) {
       await this.integrations.upsertPlain({
         storeId,

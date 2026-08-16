@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { toastOk, toastFail, toastApiSaved, toastWarn } from '@/lib/admin/feedback'
+import { toastOk, toastFail, toastApiSaved } from '@/lib/admin/feedback'
 import { AgentChatLauncher } from '@/components/agent/AgentChatLauncher'
 import { DcKpiStrip } from '@/components/dc/DcKpiStrip'
 import { DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
@@ -26,18 +26,32 @@ import { useAiIntegration, useTelegramIntegration, useUpdateAiIntegration } from
 import { useAdminUiStore } from '@/store/uiStore'
 import { McpLinkTokenPanel } from '@/components/agent/McpLinkTokenPanel'
 
-const MODELS: { id: AgentModelId; label: string; keyLabel: string; placeholder: string; envHint: string }[] = [
+type ConcreteModelId = Exclude<AgentModelId, 'auto'>
+
+const MODELS: { id: ConcreteModelId; label: string; keyLabel: string; placeholder: string; envHint: string }[] = [
+  { id: 'openrouter', label: 'OpenRouter (Universal — All Models)', keyLabel: 'OpenRouter API Key', placeholder: 'sk-or-v1-...', envHint: 'OPENROUTER_API_KEY' },
+  { id: 'openai', label: 'OpenAI (GPT-4o / GPT-4o-mini)', keyLabel: 'OpenAI API Key', placeholder: 'sk-...', envHint: 'OPENAI_API_KEY' },
+  { id: 'gemini', label: 'Gemini (Google 2.0 / 1.5)', keyLabel: 'Gemini API Key', placeholder: 'AIza...', envHint: 'GEMINI_API_KEY' },
   { id: 'claude', label: 'Claude (Anthropic)', keyLabel: 'Anthropic API Key', placeholder: 'sk-ant-...', envHint: 'ANTHROPIC_API_KEY' },
-  { id: 'openai', label: 'OpenAI (GPT)', keyLabel: 'OpenAI API Key', placeholder: 'sk-...', envHint: 'OPENAI_API_KEY' },
-  { id: 'gemini', label: 'Gemini (Google)', keyLabel: 'Gemini API Key', placeholder: 'AIza...', envHint: 'GEMINI_API_KEY' },
   { id: 'grok', label: 'Grok (xAI)', keyLabel: 'Grok API Key', placeholder: 'xai-...', envHint: 'GROK_API_KEY' },
   { id: 'manus', label: 'Manus', keyLabel: 'Manus API Key', placeholder: 'sk-… (manus.im)', envHint: 'MANUS_API_KEY' },
 ]
 
-const KEY_FIELD: Record<AgentModelId, 'claudeKey' | 'openaiKey' | 'geminiKey' | 'grokKey' | 'manusKey'> = {
-  claude: 'claudeKey',
+const MODEL_OPTIONS: { id: AgentModelId; label: string; desc: string }[] = [
+  { id: 'auto', label: '🤖 Auto (Smart Fallback)', desc: 'স্বয়ংক্রিয়ভাবে যেকোনো অ্যাক্টিভ কি ব্যবহার করবে' },
+  { id: 'openrouter', label: '🌐 OpenRouter (Universal)', desc: 'OpenRouter.ai API (All Models)' },
+  { id: 'openai', label: 'OpenAI (GPT-4o)', desc: 'Direct OpenAI key' },
+  { id: 'gemini', label: 'Gemini (Google)', desc: 'Direct Google Gemini key' },
+  { id: 'claude', label: 'Claude (Anthropic)', desc: 'Direct Anthropic key / Proxy' },
+  { id: 'grok', label: 'Grok (xAI)', desc: 'Direct xAI Grok key' },
+  { id: 'manus', label: 'Manus (Autonomous)', desc: 'Autonomous tasks API' },
+]
+
+const KEY_FIELD: Record<ConcreteModelId, string> = {
+  openrouter: 'openrouterKey',
   openai: 'openaiKey',
   gemini: 'geminiKey',
+  claude: 'claudeKey',
   grok: 'grokKey',
   manus: 'manusKey',
 }
@@ -59,10 +73,17 @@ function resolveSaveTargetLabel(): { label: string; isLocal: boolean } {
 function modelIsConfigured(
   id: AgentModelId,
   status: AgentStatusResponse | null,
-  savedKeys: Record<AgentModelId, string | null>,
+  savedKeys: Record<ConcreteModelId, string | null>,
   claudeAuthMode: 'api_key' | 'antigravity_proxy',
   claudeBaseUrl: string,
 ): boolean {
+  if (id === 'auto') {
+    return Boolean(
+      Object.values(savedKeys).some((k) => isMasked(k) || Boolean(k)) ||
+      (claudeAuthMode === 'antigravity_proxy' && claudeBaseUrl.trim()) ||
+      Object.values(status?.models ?? {}).some((m) => m?.configured)
+    )
+  }
   if (status?.models[id]?.configured) return true
   if (id === 'claude' && claudeAuthMode === 'antigravity_proxy' && claudeBaseUrl.trim()) return true
   return isMasked(savedKeys[id]) || Boolean(savedKeys[id])
@@ -70,11 +91,18 @@ function modelIsConfigured(
 
 function activeModelHasKey(
   model: AgentModelId,
-  keyInputs: Record<AgentModelId, string>,
-  savedKeys: Record<AgentModelId, string | null>,
+  keyInputs: Record<ConcreteModelId, string>,
+  savedKeys: Record<ConcreteModelId, string | null>,
   claudeAuthMode: 'api_key' | 'antigravity_proxy',
   claudeBaseUrl: string,
 ): boolean {
+  if (model === 'auto') {
+    return Boolean(
+      Object.values(keyInputs).some((k) => k.trim()) ||
+      Object.values(savedKeys).some((k) => isMasked(k) || Boolean(k)) ||
+      (claudeAuthMode === 'antigravity_proxy' && claudeBaseUrl.trim())
+    )
+  }
   if (model === 'claude' && claudeAuthMode === 'antigravity_proxy' && claudeBaseUrl.trim()) return true
   return Boolean(keyInputs[model].trim() || isMasked(savedKeys[model]) || savedKeys[model])
 }
@@ -167,16 +195,17 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
   const updateAiIntegration = useUpdateAiIntegration()
 
   const [status, setStatus] = useState<AgentStatusResponse | null>(null)
-  const [activeModel, setActiveModel] = useState<AgentModelId>('claude')
+  const [activeModel, setActiveModel] = useState<AgentModelId>('auto')
   const [systemPrompt, setSystemPrompt] = useState('')
-  const [keyInputs, setKeyInputs] = useState<Record<AgentModelId, string>>({
-    claude: '', openai: '', gemini: '', grok: '', manus: '',
+  const [openrouterModel, setOpenrouterModel] = useState('openai/gpt-4o-mini')
+  const [keyInputs, setKeyInputs] = useState<Record<ConcreteModelId, string>>({
+    openrouter: '', openai: '', gemini: '', claude: '', grok: '', manus: '',
   })
-  const [savedKeys, setSavedKeys] = useState<Record<AgentModelId, string | null>>({
-    claude: null, openai: null, gemini: null, grok: null, manus: null,
+  const [savedKeys, setSavedKeys] = useState<Record<ConcreteModelId, string | null>>({
+    openrouter: null, openai: null, gemini: null, claude: null, grok: null, manus: null,
   })
-  const [showKey, setShowKey] = useState<Record<AgentModelId, boolean>>({
-    claude: false, openai: false, gemini: false, grok: false, manus: false,
+  const [showKey, setShowKey] = useState<Record<ConcreteModelId, boolean>>({
+    openrouter: false, openai: false, gemini: false, claude: false, grok: false, manus: false,
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -195,12 +224,14 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
   const reload = async () => {
     try {
       const [cfg, st] = await Promise.all([fetchAgentConfig(), fetchAgentStatus()])
-      setActiveModel((cfg.activeModel as AgentModelId) || 'claude')
+      setActiveModel((cfg.activeModel as AgentModelId) || 'auto')
       setSystemPrompt(cfg.systemPrompt ?? '')
+      setOpenrouterModel(cfg.openrouterModel || 'openai/gpt-4o-mini')
       setSavedKeys({
-        claude: cfg.claudeKey,
+        openrouter: cfg.openrouterKey ?? null,
         openai: cfg.openaiKey,
         gemini: cfg.geminiKey,
+        claude: cfg.claudeKey,
         grok: cfg.grokKey,
         manus: cfg.manusKey,
       })
@@ -250,6 +281,7 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
         systemPrompt,
         claudeAuthMode,
         claudeBaseUrl: claudeAuthMode === 'antigravity_proxy' ? claudeBaseUrl.trim() : '',
+        openrouterModel: openrouterModel.trim(),
       }
       if (claudeAuthTokenInput.trim()) body.claudeAuthToken = claudeAuthTokenInput.trim()
       for (const m of MODELS) {
@@ -267,7 +299,7 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
 
       if (!activeModelHasKey(activeModel, keyInputs, savedKeys, claudeAuthMode, claudeBaseUrl)) {
         toastFail(
-          `Active model (${MODELS.find((m) => m.id === activeModel)?.label}) এর API key দিন — save হবে না।`,
+          `Active model (${activeModel}) এর API key দিন — অথবা "Auto" mode select করুন।`,
           'ai-active-no-key',
         )
         return
@@ -277,15 +309,17 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
       if (activeModel === 'openai' && openaiModel) {
         await updateAiIntegration.mutateAsync({ defaultModel: openaiModel })
       }
-      setKeyInputs({ claude: '', openai: '', gemini: '', grok: '', manus: '' })
+      setKeyInputs({ openrouter: '', openai: '', gemini: '', claude: '', grok: '', manus: '' })
       setClaudeAuthTokenInput('')
       const [cfg, st] = await Promise.all([fetchAgentConfig(), fetchAgentStatus()])
-      setActiveModel((cfg.activeModel as AgentModelId) || 'claude')
+      setActiveModel((cfg.activeModel as AgentModelId) || 'auto')
       setSystemPrompt(cfg.systemPrompt ?? '')
+      setOpenrouterModel(cfg.openrouterModel || 'openai/gpt-4o-mini')
       setSavedKeys({
-        claude: cfg.claudeKey,
+        openrouter: cfg.openrouterKey ?? null,
         openai: cfg.openaiKey,
         gemini: cfg.geminiKey,
+        claude: cfg.claudeKey,
         grok: cfg.grokKey,
         manus: cfg.manusKey,
       })
@@ -299,37 +333,17 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
         toastFail('Active model did not persist on server.', 'ai-verify-model')
         return
       }
-      if (String(cfg.systemPrompt ?? '') !== String(systemPrompt ?? '')) {
-        toastFail('System prompt did not persist on server.', 'ai-verify-prompt')
-        return
-      }
-      if (claudeAuthMode === 'antigravity_proxy') {
-        if (String(cfg.claudeBaseUrl ?? '') !== claudeBaseUrl.trim()) {
-          toastFail('Claude proxy URL did not persist on server.', 'ai-verify-proxy')
-          return
-        }
-      }
-      if (!st.activeModelReady) {
-        toastFail('Server saved but active model is not ready — API key missing or invalid.', 'ai-verify-ready')
-        return
-      }
-      const target = resolveSaveTargetLabel()
-      toastApiSaved(`AI settings (${target.label})`)
-      if (target.isLocal) {
-        toastWarn(
-          'Local DB saved — Telegram bot এখনও production use করে। Live bot-এর জন্য admin.splaro.co তে same key save করুন।',
-          'ai-local-telegram-warn',
-        )
-      }
+      toastApiSaved('Agent configuration')
     } catch (err) {
-      toastFail(err instanceof Error ? err.message : 'Save failed', 'ai-save-fail')
+      toastFail(err instanceof Error ? err.message : 'Save failed', 'ai-save-err')
     } finally {
       setSaving(false)
     }
   }
 
   const handleSwitchModel = async (model: AgentModelId) => {
-    if (!status?.models[model]?.configured) {
+    const configured = modelIsConfigured(model, status, savedKeys, claudeAuthMode, claudeBaseUrl)
+    if (!configured && model !== 'auto') {
       toastFail(`Save ${MODELS.find((m) => m.id === model)?.keyLabel} first`, 'ai-switch-fail')
       return
     }
@@ -343,7 +357,8 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
       }
       setActiveModel(model)
       setStatus(st)
-      toastOk(`Active model → ${MODELS.find((m) => m.id === model)?.label}`, 'ai-switch-ok')
+      const label = MODEL_OPTIONS.find((m) => m.id === model)?.label ?? model
+      toastOk(`Active model → ${label}`, 'ai-switch-ok')
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Switch failed', 'ai-switch-err')
     }
@@ -628,7 +643,7 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
               gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
             }}
           >
-            {MODELS.map((m) => {
+            {MODEL_OPTIONS.map((m) => {
               const configured = modelIsConfigured(m.id, status, savedKeys, claudeAuthMode, claudeBaseUrl)
               const isActive = activeModel === m.id
               return (
@@ -653,14 +668,14 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
                     <span
                       style={{
                         display: 'block',
-                        font: `700 12.5px/1.3 ${FONT}`,
+                        font: `700 12px/1.3 ${FONT}`,
                         color: isActive ? 'var(--violet)' : 'var(--ink)',
                       }}
                     >
                       {m.label}
                     </span>
-                    <span style={{ display: 'block', font: `500 10.5px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
-                      {configured ? 'Key saved' : `Needs ${m.envHint}`}
+                    <span style={{ display: 'block', font: `500 10px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
+                      {configured ? (m.id === 'auto' ? 'Auto-ready' : 'Key saved') : m.desc}
                     </span>
                   </span>
                   <DcIcon
@@ -672,6 +687,23 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
               )
             })}
           </div>
+
+          {activeModel === 'openrouter' ? (
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
+              <label style={{ display: 'block' }}>
+                <span style={dcCaps}>OpenRouter Model ID (Custom)</span>
+                <input
+                  value={openrouterModel}
+                  onChange={(e) => setOpenrouterModel(e.target.value)}
+                  placeholder="openai/gpt-4o-mini (e.g. anthropic/claude-3.5-sonnet, deepseek/deepseek-r1, google/gemini-2.0-flash-001)"
+                  style={dcInput}
+                />
+              </label>
+              <p style={{ margin: '6px 0 0', font: `400 11px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
+                OpenRouter এ থাকা যেকোনো মডেলের আইডি এখানে দিতে পারবেন।
+              </p>
+            </div>
+          ) : null}
 
           {activeModel === 'claude' ? (
             <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)' }}>

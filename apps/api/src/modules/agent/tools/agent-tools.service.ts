@@ -784,4 +784,487 @@ export class AgentToolsService {
     if (!product) return { error: 'Product not found — provide productId or slug' }
     return scoreProductSeo(product)
   }
+
+  private async bookAllPendingCourier(storeId: string, args: Record<string, unknown>) {
+    const limit = Math.min(Math.max(1, Number(args.limit ?? 20)), 50)
+    const pendingOrders = await this.prisma.order.findMany({
+      where: {
+        storeId,
+        status: { in: [OrderStatus.CONFIRMED, OrderStatus.PROCESSING] },
+        courier: { is: null },
+      },
+      take: limit,
+      orderBy: { createdAt: 'asc' },
+    })
+
+    if (pendingOrders.length === 0) {
+      return {
+        message: 'No pending orders waiting for courier booking.',
+        totalProcessed: 0,
+        bookedCount: 0,
+        orders: [],
+      }
+    }
+
+    const results: Array<{ orderId: string; invoiceNumber: string; success: boolean; consignmentId?: string; error?: string }> = []
+
+    for (const order of pendingOrders) {
+      try {
+        const bookRes = await this.courier.bookCourier(order.id, 'STEADFAST' as CourierProvider)
+        if (bookRes.success && bookRes.consignmentId) {
+          await this.orderStatus.applyStatusChange(
+            storeId,
+            order.id,
+            OrderStatus.PACKED,
+            `Autonomous bulk courier dispatch (${bookRes.consignmentId})`,
+          )
+          results.push({
+            orderId: order.id,
+            invoiceNumber: order.invoiceNumber,
+            success: true,
+            consignmentId: bookRes.consignmentId,
+          })
+        } else {
+          results.push({
+            orderId: order.id,
+            invoiceNumber: order.invoiceNumber,
+            success: false,
+            error: bookRes.error || 'Courier rejected',
+          })
+        }
+      } catch (err) {
+        results.push({
+          orderId: order.id,
+          invoiceNumber: order.invoiceNumber,
+          success: false,
+          error: err instanceof Error ? err.message : 'Booking failed',
+        })
+      }
+    }
+
+    const bookedCount = results.filter((r) => r.success).length
+    return {
+      message: `Bulk dispatch: ${bookedCount}/${pendingOrders.length} orders successfully booked on Steadfast.`,
+      totalProcessed: pendingOrders.length,
+      bookedCount,
+      failedCount: pendingOrders.length - bookedCount,
+      results,
+    }
+  }
+
+  private async generateReorderPurchaseOrder(storeId: string, args: Record<string, unknown>) {
+    const threshold = Number(args.threshold ?? 5)
+    const targetStock = Number(args.targetStock ?? 20)
+    const preferredSupplier = args.supplierName ? String(args.supplierName).trim() : 'Dhaka Silk & Cotton Mill'
+
+    const lowStockVariants = await this.prisma.productVariant.findMany({
+      where: {
+        product: { storeId },
+        stock: { lte: threshold },
+      },
+      include: {
+        product: true,
+      },
+      take: 50,
+    })
+
+    if (lowStockVariants.length === 0) {
+      return {
+        message: `No variants currently below threshold of ${threshold} units. All stock is healthy.`,
+        created: false,
+      }
+    }
+
+    let supplier = await this.prisma.supplier.findFirst({
+      where: { storeId, name: { equals: preferredSupplier, mode: 'insensitive' } },
+    })
+
+    if (!supplier) {
+      supplier = await this.prisma.supplier.create({
+        data: {
+          storeId,
+          name: preferredSupplier,
+          phone: '01700000000',
+          email: 'procurement@splaro.co',
+          address: 'Dhaka, Bangladesh',
+        },
+      })
+    }
+
+    const poNumber = `PO-${Date.now().toString().slice(-6)}`
+    let subtotal = 0
+
+    const items = lowStockVariants.map((v) => {
+      const orderQty = Math.max(1, targetStock - v.stock)
+      const cost = Number(v.product.costPrice ?? (Number(v.price) * 0.5))
+      subtotal += orderQty * cost
+      return {
+        productName: `${v.product.name}${v.size || v.color ? ` (${[v.size, v.color].filter(Boolean).join(' / ')})` : ''}`,
+        sku: v.sku || v.product.sku || 'SKU-GEN',
+        quantity: orderQty,
+        unitCost: cost,
+      }
+    })
+
+    const po = await this.prisma.purchaseOrder.create({
+      data: {
+        storeId,
+        supplierId: supplier.id,
+        poNumber,
+        status: 'DRAFT',
+        subtotal,
+        total: subtotal,
+        notes: `Autonomous AI re-order draft for ${items.length} low-stock variants (threshold <= ${threshold}).`,
+        items: {
+          create: items,
+        },
+      },
+      include: {
+        items: true,
+      },
+    })
+
+    return {
+      message: `Created Draft Purchase Order ${po.poNumber} with ${items.length} items for ${supplier.name}.`,
+      created: true,
+      poNumber: po.poNumber,
+      supplier: supplier.name,
+      totalAmount: subtotal,
+      totalUnits: items.reduce((acc, i) => acc + i.quantity, 0),
+      items: po.items.map((i) => ({ name: i.productName, qty: i.quantity, unitCost: Number(i.unitCost) })),
+    }
+  }
+
+  private async moderateAndReplyReviews(storeId: string, args: Record<string, unknown>) {
+    const limit = Math.min(Math.max(1, Number(args.limit ?? 10)), 30)
+    const autoApprove = args.autoApprove !== false
+
+    const reviews = await this.prisma.review.findMany({
+      where: {
+        product: { storeId },
+        OR: [{ status: 'PENDING' }, { adminReply: null }],
+      },
+      include: {
+        product: { select: { id: true, name: true, slug: true } },
+        customer: { select: { id: true, firstName: true, lastName: true, phone: true } },
+      },
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    })
+
+    if (reviews.length === 0) {
+      return {
+        message: 'No pending or unreplied reviews to process.',
+        processedCount: 0,
+      }
+    }
+
+    const processed: Array<{
+      reviewId: string
+      product: string
+      customer: string
+      rating: number
+      status: string
+      reply: string
+    }> = []
+
+    for (const r of reviews) {
+      let reply = ''
+      if (r.rating >= 4) {
+        reply = 'SPLARO-র সাথে থাকার জন্য এবং চমৎকার রিভিউ দেওয়ার জন্য ধন্যবাদ! আপনার সন্তুষ্টিই আমাদের সর্বোচ্চ প্রেরণা।'
+      } else if (r.rating === 3) {
+        reply = 'আপনার মতামতের জন্য ধন্যবাদ। আমরা প্রোডাক্টটির ফিট ও কোয়ালিটি আরও উন্নত করতে সচেষ্ট। যেকোনো প্রয়োজনে আমাদের হেল্পলাইনে যোগাযোগ করতে পারেন।'
+      } else {
+        reply = 'আপনার অনাকাঙ্ক্ষিত অভিজ্ঞতার জন্য আমরা আন্তরিকভাবে দুঃখিত। বিষয়টি সমাধান করতে অনুগ্রহ করে আমাদের কাস্টমার কেয়ারে (01905010205) যোগাযোগ করুন।'
+      }
+
+      await this.prisma.review.update({
+        where: { id: r.id },
+        data: {
+          status: autoApprove ? 'APPROVED' : r.status,
+          adminReply: reply,
+          adminReplyAt: new Date(),
+        },
+      })
+
+      const custName = r.customer ? `${r.customer.firstName} ${r.customer.lastName}`.trim() : 'Customer'
+      processed.push({
+        reviewId: r.id,
+        product: r.product.name,
+        customer: custName,
+        rating: r.rating,
+        status: autoApprove ? 'APPROVED' : r.status,
+        reply,
+      })
+    }
+
+    return {
+      message: `Processed ${processed.length} reviews: updated status and posted brand replies.`,
+      processedCount: processed.length,
+      reviews: processed,
+    }
+  }
+
+  private async auditHighRiskOrders(storeId: string, args: Record<string, unknown>) {
+    const limit = Math.min(Math.max(1, Number(args.limit ?? 50)), 100)
+    const unfulfilled = await this.prisma.order.findMany({
+      where: {
+        storeId,
+        status: { in: [OrderStatus.PENDING, OrderStatus.CONFIRMED] },
+      },
+      include: {
+        customer: true,
+      },
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    })
+
+    if (unfulfilled.length === 0) {
+      return { message: 'No pending orders to audit.', totalAudited: 0, highRiskCount: 0, flags: [] }
+    }
+
+    const flags: Array<{
+      orderId: string
+      invoiceNumber: string
+      customerName: string
+      phone: string
+      total: number
+      riskLevel: 'HIGH' | 'MEDIUM' | 'LOW'
+      reasons: string[]
+      recommendedAction: string
+    }> = []
+
+    for (const o of unfulfilled) {
+      const reasons: string[] = []
+      const phone = o.shippingPhone || o.customer?.phone || ''
+      const total = Number(o.total)
+
+      const variants = bdPhoneLookupVariants(phone)
+      if (!variants || variants.length === 0 || phone.replace(/\D/g, '').length < 10) {
+        reasons.push('Invalid Bangladeshi phone number format')
+      }
+
+      if (variants && variants.length > 0) {
+        const cancelledCount = await this.prisma.order.count({
+          where: {
+            storeId,
+            shippingPhone: { in: variants },
+            status: { in: [OrderStatus.CANCELLED, OrderStatus.RETURNED] },
+          },
+        })
+        if (cancelledCount >= 2) {
+          reasons.push(`Customer has ${cancelledCount} past cancelled/returned orders`)
+        }
+      }
+
+      if (total >= 10000 && !o.paymentMethod?.toLowerCase().includes('bkash')) {
+        reasons.push(`High COD order value (৳${total.toLocaleString('en-US')})`)
+      }
+
+      const addressStr =
+        typeof o.shippingAddress === 'string'
+          ? o.shippingAddress
+          : (o.shippingAddress as Record<string, unknown> | null)?.['address1']
+            ? String((o.shippingAddress as Record<string, unknown>)['address1'])
+            : o.shippingDistrict || ''
+
+      if (addressStr.trim().length < 8) {
+        reasons.push('Incomplete or overly short shipping address')
+      }
+
+      let riskLevel: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW'
+      let recommendedAction = 'SAFE_TO_DISPATCH — proceed to packing'
+
+      if (reasons.length >= 2 || reasons.some((r) => r.includes('cancelled/returned') || r.includes('Invalid'))) {
+        riskLevel = 'HIGH'
+        recommendedAction = 'HOLD_SHIPMENT — call customer for phone confirmation before dispatch'
+      } else if (reasons.length === 1) {
+        riskLevel = 'MEDIUM'
+        recommendedAction = 'CALL_VERIFY — quick confirmation call recommended'
+      }
+
+      const custName = o.shippingName || (o.customer ? `${o.customer.firstName} ${o.customer.lastName}`.trim() : 'Customer')
+
+      flags.push({
+        orderId: o.id,
+        invoiceNumber: o.invoiceNumber,
+        customerName: custName,
+        phone,
+        total,
+        riskLevel,
+        reasons,
+        recommendedAction,
+      })
+    }
+
+    const highRisk = flags.filter((f) => f.riskLevel === 'HIGH')
+    const mediumRisk = flags.filter((f) => f.riskLevel === 'MEDIUM')
+
+    return {
+      message: `Audited ${unfulfilled.length} pending orders: ${highRisk.length} High Risk, ${mediumRisk.length} Medium Risk, ${unfulfilled.length - highRisk.length - mediumRisk.length} Safe.`,
+      totalAudited: unfulfilled.length,
+      highRiskCount: highRisk.length,
+      mediumRiskCount: mediumRisk.length,
+      orders: flags,
+    }
+  }
+
+  private async getProfitInsights(storeId: string, args: Record<string, unknown>) {
+    const period = String(args.period ?? 'month')
+    const now = new Date()
+    let startDate = new Date(0)
+
+    if (period === 'today') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    } else if (period === 'week') {
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    } else if (period === 'month') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+    }
+
+    const orders = await this.prisma.order.findMany({
+      where: {
+        storeId,
+        createdAt: { gte: startDate },
+        status: { notIn: [OrderStatus.CANCELLED, OrderStatus.RETURNED] },
+      },
+      include: {
+        items: {
+          include: {
+            product: { select: { name: true, costPrice: true, basePrice: true } },
+          },
+        },
+      },
+    })
+
+    let grossRevenue = 0
+    let estimatedCOGS = 0
+    let shippingFeesCollected = 0
+    const productSalesMap = new Map<string, { name: string; revenue: number; cogs: number; profit: number; units: number }>()
+
+    for (const o of orders) {
+      grossRevenue += Number(o.total)
+      shippingFeesCollected += Number(o.deliveryCharge ?? 0)
+
+      for (const item of o.items) {
+        const itemRev = Number(item.subtotal)
+        const unitCost = Number(item.product?.costPrice ?? Number(item.price) * 0.5)
+        const itemCogs = unitCost * item.quantity
+        const itemProfit = itemRev - itemCogs
+
+        estimatedCOGS += itemCogs
+
+        const existing = productSalesMap.get(item.productName) ?? {
+          name: item.productName,
+          revenue: 0,
+          cogs: 0,
+          profit: 0,
+          units: 0,
+        }
+        existing.revenue += itemRev
+        existing.cogs += itemCogs
+        existing.profit += itemProfit
+        existing.units += item.quantity
+        productSalesMap.set(item.productName, existing)
+      }
+    }
+
+    const grossProfit = grossRevenue - estimatedCOGS
+    const marginPct = grossRevenue > 0 ? ((grossProfit / grossRevenue) * 100).toFixed(1) : '0'
+
+    const topProfitableProducts = Array.from(productSalesMap.values())
+      .sort((a, b) => b.profit - a.profit)
+      .slice(0, 5)
+
+    return {
+      period,
+      totalOrders: orders.length,
+      grossRevenue,
+      estimatedCOGS,
+      grossProfit,
+      marginPercent: `${marginPct}%`,
+      shippingFeesCollected,
+      topProfitableProducts,
+    }
+  }
+
+  private async generateExecutiveDailyBrief(storeId: string, args: Record<string, unknown>) {
+    const startOfDay = new Date()
+    startOfDay.setHours(0, 0, 0, 0)
+    const yesterdayStart = new Date(startOfDay.getTime() - 24 * 60 * 60 * 1000)
+
+    const [
+      todayOrders,
+      todayRevenueAgg,
+      yesterdayRevenueAgg,
+      packingQueueCount,
+      lowStockVariants,
+      pendingReviewsCount,
+    ] = await Promise.all([
+      this.prisma.order.count({
+        where: { storeId, createdAt: { gte: startOfDay }, status: { not: OrderStatus.CANCELLED } },
+      }),
+      this.prisma.order.aggregate({
+        where: { storeId, createdAt: { gte: startOfDay }, status: { not: OrderStatus.CANCELLED } },
+        _sum: { total: true },
+      }),
+      this.prisma.order.aggregate({
+        where: { storeId, createdAt: { gte: yesterdayStart, lt: startOfDay }, status: { not: OrderStatus.CANCELLED } },
+        _sum: { total: true },
+      }),
+      this.prisma.order.count({
+        where: { storeId, status: { in: [OrderStatus.CONFIRMED, OrderStatus.PROCESSING] } },
+      }),
+      this.prisma.productVariant.findMany({
+        where: { product: { storeId }, stock: { lte: 5 } },
+        include: { product: { select: { name: true } } },
+        take: 5,
+      }),
+      this.prisma.review.count({
+        where: { product: { storeId }, status: 'PENDING' },
+      }),
+    ])
+
+    const todayRev = Number(todayRevenueAgg._sum.total ?? 0)
+    const yesterdayRev = Number(yesterdayRevenueAgg._sum.total ?? 0)
+
+    const briefText = [
+      `🌟 *SPLARO Command — Executive Daily Brief*`,
+      `📅 ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}`,
+      ``,
+      `💰 *Sales & Revenue:*`,
+      `• Today's Revenue: ৳${todayRev.toLocaleString('en-US')} (${todayOrders} orders)`,
+      `• Yesterday's Revenue: ৳${yesterdayRev.toLocaleString('en-US')}`,
+      ``,
+      `📦 *Operations & Courier:*`,
+      `• Packing & Dispatch Queue: ${packingQueueCount} orders ready to ship`,
+      ``,
+      `⚠️ *Inventory Alerts:*`,
+      `• Low Stock Variants (≤ 5 units): ${lowStockVariants.length} items`,
+      ...lowStockVariants.map((v) => `  - ${v.product.name} (${v.sku || 'SKU'}): ${v.stock} left`),
+      ``,
+      `⭐ *Customer Reviews:*`,
+      `• Pending Unapproved Reviews: ${pendingReviewsCount}`,
+      ``,
+      `_SPLARO Autonomous AI Store Manager_`,
+    ].join('\n')
+
+    if (args.sendToTelegram) {
+      try {
+        await this.sendTelegram(storeId, briefText)
+      } catch (err) {
+        this.logger.warn(`Telegram brief delivery failed: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    return {
+      todayRevenue: todayRev,
+      todayOrders,
+      yesterdayRevenue: yesterdayRev,
+      packingQueueCount,
+      lowStockVariantsCount: lowStockVariants.length,
+      pendingReviewsCount,
+      briefMarkdown: briefText,
+    }
+  }
 }
