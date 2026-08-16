@@ -88,6 +88,8 @@ export function isPublicApiPath(path: string, method = 'GET'): boolean {
   if (normalized === 'health') return true
 
   if (normalized === 'admin/auth/login' && verb === 'POST') return true
+  // Google sign-in happens before any session exists, same as the code login.
+  if (normalized === 'admin/auth/google' && verb === 'POST') return true
   if (normalized === 'admin/auth/request-login' && verb === 'POST') return true
   if (normalized === 'admin/auth/login-method' && verb === 'POST') return true
   if (normalized === 'admin/auth/forgot-password' && verb === 'POST') return true

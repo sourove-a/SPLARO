@@ -22,9 +22,11 @@ import {
   AdminLoginMethodDto,
   AdminRequestLoginDto,
   AdminResetPasswordDto,
+  AdminGoogleLoginDto,
 } from '../../common/dtos/admin-auth.dto'
 import { AuthService } from './auth.service'
 import { TelegramService } from '../telegram/telegram.service'
+import { GoogleIdTokenService } from '../storefront/google-id-token.service'
 
 @ApiTags('admin-auth')
 @Controller('admin/auth')
@@ -33,6 +35,7 @@ export class AuthController {
     private readonly auth: AuthService,
     @Inject(forwardRef(() => TelegramService))
     private readonly telegram: TelegramService,
+    private readonly googleIdToken: GoogleIdTokenService,
   ) {}
 
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
@@ -121,6 +124,38 @@ export class AuthController {
     }
 
     const user = await this.auth.loginWithPassword(email, password, body.storeId, meta)
+    return {
+      ok: true,
+      user: {
+        id: user.userId,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        storeId: user.storeId,
+        permissions: user.permissions,
+      },
+    }
+  }
+
+  /**
+   * Google sign-in for admins. Google proves identity; the admin table decides
+   * access, so this never widens who can get in.
+   */
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('google')
+  async googleLogin(@Body() body: AdminGoogleLoginDto, @Req() req: Request) {
+    if (!this.googleIdToken.isConfigured()) {
+      throw new ServiceUnavailableException(
+        'Google sign-in is not configured — set GOOGLE_OAUTH_CLIENT_ID.',
+      )
+    }
+
+    const profile = await this.googleIdToken.verify(body.credential)
+    const user = await this.auth.loginWithGoogle(profile, body.storeId, {
+      ipAddress: req.ip ?? req.socket?.remoteAddress ?? 'unknown',
+      userAgent: req.headers['user-agent'],
+    })
+
     return {
       ok: true,
       user: {

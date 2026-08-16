@@ -14,6 +14,7 @@ describe('isPublicApiPath', () => {
     ['/api/v1/webhooks/steadfast', 'POST'],
     ['/api/v1/mobile/auth/login', 'POST'],
     ['/api/v1/admin/auth/login', 'POST'],
+    ['/api/v1/admin/auth/google', 'POST'],
     ['/api/v1/search', 'GET'],
     ['/api/v1/realtime/orders/SPL-1001', 'GET'],
   ]
@@ -32,6 +33,7 @@ describe('isPublicApiPath', () => {
     ['/api/v1/realtime/admin/orders', 'GET'],
     ['/api/v1/telegram/confirm-order', 'POST'],
     ['/api/v1/admin/auth/login', 'GET'],
+    ['/api/v1/admin/auth/google', 'GET'],
     ['/api/v1/commerce-os/wms/movements', 'POST'],
     ['/api/v1/partners', 'GET'],
   ]

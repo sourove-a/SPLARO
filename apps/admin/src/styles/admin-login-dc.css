@@ -640,6 +640,41 @@ body.admin-auth-page:has(.admin-auth-shell--dc) {
   color: var(--admin-color-white);
 }
 
+/* Google sign-in — second door for admins who already have access. */
+.admin-auth-shell--dc .admin-auth-google {
+  margin-top: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.admin-auth-shell--dc .admin-auth-google__divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: color-mix(in srgb, var(--admin-color-white) 34%, transparent);
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.admin-auth-shell--dc .admin-auth-google__divider::before,
+.admin-auth-shell--dc .admin-auth-google__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: color-mix(in srgb, var(--admin-color-white) 12%, transparent);
+}
+
+.admin-auth-shell--dc .admin-auth-google__hint {
+  margin: 0;
+  text-align: center;
+  color: color-mix(in srgb, var(--admin-color-white) 38%, transparent);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
 .admin-auth-shell--dc .admin-auth-footer {
   margin-top: 1.3rem;
   color: color-mix(in srgb, var(--admin-color-white) 42%, transparent);

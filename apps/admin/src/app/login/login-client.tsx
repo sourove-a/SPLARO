@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { AdminLoginShell } from '@/components/login/AdminLoginShell'
 import { setAdminApiToken } from '@/lib/auth/api-token'
+import { GoogleAdminSignIn } from '@/components/auth/GoogleAdminSignIn'
 
 const motionEase = [0.16, 1, 0.3, 1] as const
 
@@ -622,6 +623,20 @@ export default function AdminLoginPage() {
       </div>
 
       {activeForm}
+
+      {step === 'email' ? (
+        <GoogleAdminSignIn
+          disabled={loading}
+          onError={setError}
+          onSignedIn={(apiToken) => {
+            if (apiToken) setAdminApiToken(apiToken)
+            setSignedIn(true)
+            // Hard navigate for the same reason the code flow does — a soft
+            // replace races the middleware live-session probe.
+            window.location.assign(next)
+          }}
+        />
+      ) : null}
 
       <div className="admin-auth-footer">
         <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />

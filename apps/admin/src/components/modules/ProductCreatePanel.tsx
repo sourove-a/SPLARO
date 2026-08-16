@@ -749,6 +749,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     form.basePrice,
     activeColors,
     sizeList.length,
+    sizeless,
     hasDescriptionCopy,
   ])
 

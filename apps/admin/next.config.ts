@@ -112,20 +112,22 @@ const config: NextConfig = {
         key: 'Content-Security-Policy',
         value: [
           "default-src 'self'",
-          "script-src 'self' 'unsafe-inline'",
-          "style-src 'self' 'unsafe-inline'",
+          // accounts.google.com: Google Identity Services for admin sign-in.
+          "script-src 'self' 'unsafe-inline' https://accounts.google.com",
+          "style-src 'self' 'unsafe-inline' https://accounts.google.com",
           "img-src 'self' data: blob: https:",
           "media-src 'self' blob: https:",
           "font-src 'self' data:",
-          `connect-src 'self' ${web} ${apiOrigin}`,
-          "frame-src 'none'",
+          `connect-src 'self' ${web} ${apiOrigin} https://accounts.google.com`,
+          // GIS renders its button and consent flow in an iframe.
+          "frame-src 'self' https://accounts.google.com",
           "object-src 'none'",
           // Stops an injected <base> tag from re-pointing every relative script URL.
           "base-uri 'self'",
           // Modern equivalent of the X-Frame-Options header above (clickjacking).
           "frame-ancestors 'none'",
           // Admin posts only to its own BFF routes.
-          "form-action 'self'",
+          "form-action 'self' https://accounts.google.com",
         ].join('; '),
       },
     ]

@@ -305,6 +305,106 @@ export class AuthService {
     return { ok: true, email: admin.email }
   }
 
+  /**
+   * Sign in an admin with a Google account.
+   *
+   * Google proves who the person is; the admin table decides whether they may
+   * enter. Only an active user that already holds a staff role can sign in, so
+   * adding Google never widens who has access — it only adds a second door for
+   * people who already had one.
+   */
+  async loginWithGoogle(
+    profile: { email: string; emailVerified: boolean; firstName: string; lastName: string },
+    storeIdRaw?: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ): Promise<{
+    userId: string
+    email: string
+    name: string
+    role: string
+    storeId: string
+    permissions: string[]
+  }> {
+    const normalized = profile.email.trim().toLowerCase()
+    const ipAddress = meta?.ipAddress ?? 'unknown'
+
+    await this.assertIpNotLockedOut(ipAddress)
+
+    // An unverified Google email can be attacker-chosen — never trust it.
+    if (!profile.emailVerified) {
+      await this.recordIpFailedAttempt(ipAddress)
+      throw new UnauthorizedException('This Google account has no verified email address')
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: { email: normalized, isActive: true },
+      select: { id: true, email: true, firstName: true, lastName: true, role: true },
+    })
+
+    const isStaff =
+      user?.role === 'SUPER_ADMIN' ||
+      user?.role === 'ADMIN' ||
+      user?.role === 'MANAGER' ||
+      user?.role === 'STAFF'
+
+    if (!user || !isStaff) {
+      await this.recordIpFailedAttempt(ipAddress)
+      // Same wording whichever half failed, so this cannot be used to discover
+      // which addresses are admins.
+      throw new UnauthorizedException('This Google account cannot access the admin panel')
+    }
+
+    await this.assertNotLockedOut(user.id)
+
+    const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    const staffRole = user.role
+
+    await this.prisma.staffRole.upsert({
+      where: { userId_storeId: { userId: user.id, storeId } },
+      create: {
+        userId: user.id,
+        storeId,
+        role: staffRole,
+        permissions: staffRole === 'SUPER_ADMIN' ? ['*'] : [],
+      },
+      update: {
+        role: staffRole,
+        ...(staffRole === 'SUPER_ADMIN' ? { permissions: ['*'] } : {}),
+      },
+    })
+
+    await Promise.all([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() },
+      }),
+      this.recordLoginAttempt({
+        userId: user.id,
+        ipAddress,
+        userAgent: meta?.userAgent,
+        success: true,
+      }),
+    ])
+
+    const permissions = await resolveStaffPermissionTokens(
+      this.prisma,
+      user.id,
+      storeId,
+      staffRole,
+    )
+
+    const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
+
+    return {
+      userId: user.id,
+      email: user.email!,
+      name: name || profile.firstName || user.email!,
+      role: staffRole,
+      storeId,
+      permissions,
+    }
+  }
+
   async loginWithToken(
     email: string,
     token: string,

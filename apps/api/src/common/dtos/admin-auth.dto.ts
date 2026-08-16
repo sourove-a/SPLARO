@@ -95,3 +95,16 @@ export class AdminChangePasswordDto {
   @MaxLength(128)
   newPassword!: string
 }
+
+export class AdminGoogleLoginDto {
+  /** Google Identity Services ID token (JWT) from the browser. */
+  @IsString()
+  @MinLength(20)
+  @MaxLength(4096)
+  credential!: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  storeId?: string
+}
