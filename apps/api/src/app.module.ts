@@ -7,6 +7,8 @@ import { ScheduleModule } from '@nestjs/schedule'
 import { ThrottlerModule } from '@nestjs/throttler'
 import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core'
 import { AppThrottlerGuard } from './common/app-throttler.guard'
+import { RedisThrottlerStorage } from './common/redis-throttler.storage'
+import { RedisModule } from './common/redis.module'
 import { AdminAuthGuard } from './common/auth/admin-auth.guard'
 import { FeatureFlagGuard } from './common/auth/feature-flag.guard'
 import { AdminSessionResolver } from './common/auth/admin-session.resolver'
@@ -15,7 +17,6 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor'
 import { validateEnv } from './common/config/env.validation'
 import { PrismaService } from './common/prisma.service'
 import { FinanceAuditService } from './common/finance-audit.service'
-import { RedisService } from './common/redis.service'
 import { bullmqConnectionOptions } from './common/bullmq-connection-options'
 import { PresenceService } from './common/presence.service'
 import { CacheService } from './common/cache.service'
@@ -236,12 +237,24 @@ const queueWorkerProviders = redisQueuesEnabled()
       ],
     }),
     ScheduleModule.forRoot(),
-    ThrottlerModule.forRoot([
-      {
-        ttl: Number(process.env['THROTTLE_TTL_MS'] ?? '60000'),
-        limit: Number(process.env['THROTTLE_LIMIT'] ?? (process.env.NODE_ENV === 'production' ? '200' : '1000')),
-      },
-    ]),
+    // Counters live in Redis so the declared limit is the real limit across all
+    // PM2 cluster workers, not per-worker (see RedisThrottlerStorage).
+    RedisModule,
+    ThrottlerModule.forRootAsync({
+      inject: [RedisThrottlerStorage],
+      useFactory: (storage: RedisThrottlerStorage) => ({
+        throttlers: [
+          {
+            ttl: Number(process.env['THROTTLE_TTL_MS'] ?? '60000'),
+            limit: Number(
+              process.env['THROTTLE_LIMIT'] ??
+                (process.env.NODE_ENV === 'production' ? '200' : '1000'),
+            ),
+          },
+        ],
+        storage,
+      }),
+    }),
     ...queueImports,
   ],
   controllers: [
@@ -316,7 +329,6 @@ const queueWorkerProviders = redisQueuesEnabled()
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
     PrismaService,
     FinanceAuditService,
-    RedisService,
     RealtimeBusService,
     RealtimePublisher,
     CacheService,

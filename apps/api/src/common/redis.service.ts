@@ -234,6 +234,36 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
+  /**
+   * Atomic rate-limit tick shared by every API worker.
+   *
+   * `INCR` + `PEXPIRE` in one Lua script so two PM2 cluster workers hitting the
+   * same key cannot both think they are the first request in the window.
+   * Returns null when Redis is unavailable so the caller can fall back.
+   */
+  async throttleHit(key: string, ttlMs: number): Promise<{ hits: number; expiresInMs: number } | null> {
+    if (!this.client) await this.ensureClient()
+    if (!this.client) return null
+    const script = `
+      local hits = redis.call("INCR", KEYS[1])
+      if hits == 1 then
+        redis.call("PEXPIRE", KEYS[1], ARGV[1])
+      end
+      local ttl = redis.call("PTTL", KEYS[1])
+      if ttl < 0 then
+        redis.call("PEXPIRE", KEYS[1], ARGV[1])
+        ttl = tonumber(ARGV[1])
+      end
+      return { hits, ttl }
+    `
+    try {
+      const result = (await this.client.eval(script, 1, key, String(ttlMs))) as [number, number]
+      return { hits: Number(result[0]), expiresInMs: Number(result[1]) }
+    } catch {
+      return null
+    }
+  }
+
   async onModuleDestroy() {
     await this.client?.quit().catch(() => undefined)
   }
