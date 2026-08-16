@@ -54,10 +54,15 @@ export function verifyAdminSessionToken(token: string): AdminSessionPayload | nu
   }
 }
 
-/** Route prefixes that stay public (storefront, payments, health). */
+/**
+ * Route prefixes that stay public (storefront, health, inbound webhooks).
+ *
+ * `payments` is deliberately NOT a blanket prefix: every customer-facing payment
+ * endpoint carries its own `@Public()`, while merchant-side actions on the same
+ * controller (e.g. `payments/bkash/refund`) must stay behind admin auth.
+ */
 export const PUBLIC_ROUTE_PREFIXES = [
   'storefront',
-  'payments',
   'telegram-webhook',
   'agent/telegram/webhook',
   'mobile/auth',

@@ -114,6 +114,12 @@ export function resolveRoutePermission(
     return { moduleSlug: 'orders', action: 'view' }
   }
 
+  // Merchant-side action on the otherwise customer-facing payments controller —
+  // moving money back out must be gated by the finance matrix, not just a session.
+  if (normalized === 'payments/bkash/refund') {
+    return { moduleSlug: 'finance', action: 'edit' }
+  }
+
   if (
     !normalized.startsWith('admin/') &&
     !normalized.startsWith('commerce-os/') &&

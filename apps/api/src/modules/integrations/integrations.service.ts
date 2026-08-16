@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { EncryptionService } from './encryption.service'
@@ -24,6 +24,8 @@ export type IntegrationProvider =
 
 @Injectable()
 export class IntegrationsService {
+  private readonly logger = new Logger(IntegrationsService.name)
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly crypto: EncryptionService,
@@ -117,8 +119,22 @@ export class IntegrationsService {
       where: { storeId_provider_key: { storeId, provider, key } },
     })
     if (!row) return null
-    if (row.encryptedValue) return this.crypto.decrypt(row.encryptedValue)
+    if (row.encryptedValue) return this.readSecret(row.encryptedValue, provider, key)
     return row.value
+  }
+
+  /**
+   * An undecryptable row means the key that wrote it is gone — report it as a
+   * missing credential (loudly logged) instead of throwing through every caller.
+   */
+  private readSecret(encryptedValue: string, provider: string, key: string): string | null {
+    const plain = this.crypto.tryDecrypt(encryptedValue)
+    if (plain === null) {
+      this.logger.error(
+        `Cannot decrypt ${provider}.${key} — re-save it in Admin → Settings → Integrations (ENCRYPTION_KEY changed?)`,
+      )
+    }
+    return plain
   }
 
   async hasSecret(storeId: string, provider: string, key: string): Promise<boolean> {
@@ -152,7 +168,7 @@ export class IntegrationsService {
     const out: Record<string, string | boolean | null> = {}
     for (const row of rows) {
       if (row.encryptedValue) {
-        out[row.key] = this.crypto.decrypt(row.encryptedValue)
+        out[row.key] = this.readSecret(row.encryptedValue, provider, row.key)
       } else if (row.value === 'true' || row.value === 'false') {
         out[row.key] = row.value === 'true'
       } else {

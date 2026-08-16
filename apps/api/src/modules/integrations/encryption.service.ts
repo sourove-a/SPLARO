@@ -55,6 +55,22 @@ export class EncryptionService implements OnModuleInit {
     }
   }
 
+  /**
+   * Read a stored secret that may predate the current ENCRYPTION_KEY.
+   *
+   * A credential we can no longer decrypt is functionally "not configured" —
+   * surfacing it as a thrown error turned every read of that row into a 500
+   * (e.g. GET /agent/status after a key rotation). Callers that must fail hard
+   * on a bad payload should keep using `decrypt`.
+   */
+  tryDecrypt(stored: string): string | null {
+    try {
+      return this.decrypt(stored)
+    } catch {
+      return null
+    }
+  }
+
   mask(secret: string | null | undefined): string | null {
     if (!secret) return null
     if (secret.length <= 8) return '••••••••'

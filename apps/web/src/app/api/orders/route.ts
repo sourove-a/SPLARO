@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { apiAuthMe, getSessionToken } from '@/lib/server/api-auth'
 import { validateCoupon } from '@/lib/server/coupons'
-import { createOrderViaApi, fetchCustomerOrdersViaApi } from '@/lib/server/api-orders'
+import {
+  createOrderViaApi,
+  fetchCustomerOrdersViaApi,
+  OrderApiValidationError,
+} from '@/lib/server/api-orders'
 import { cacheOrderInFile } from '@/lib/server/orders'
 import { getCheckoutShippingSettings } from '@/lib/storefront/settings'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
@@ -270,13 +274,22 @@ export async function POST(request: NextRequest) {
       message.includes('fetch failed') ||
       message.includes('ECONNREFUSED') ||
       message.includes('API order failed')
+    if (isApiDown) {
+      console.error('[orders] order service unavailable:', message)
+      return NextResponse.json(
+        { error: 'Orders are temporarily unavailable. Please try again in a moment.' },
+        { status: 503 },
+      )
+    }
+    // Only the API's own rejection text is meant for the shopper. Anything else
+    // is our bug or misconfiguration and would leak internals into the checkout.
+    if (error instanceof OrderApiValidationError) {
+      return NextResponse.json({ error: message }, { status: 400 })
+    }
+    console.error('[orders] order creation failed:', error)
     return NextResponse.json(
-      {
-        error: isApiDown
-          ? 'Orders are temporarily unavailable. Please try again in a moment.'
-          : message,
-      },
-      { status: isApiDown ? 503 : 400 },
+      { error: 'We could not complete your order. Please try again.' },
+      { status: 500 },
     )
   }
 }

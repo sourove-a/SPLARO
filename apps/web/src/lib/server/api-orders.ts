@@ -23,6 +23,36 @@ function checkoutIdempotencyKey(input: ApiCreateOrderInput): string {
   return createHash('sha256').update(fingerprint).digest('hex').slice(0, 32)
 }
 
+/**
+ * A rejection the API produced for this specific order (stale total, sold-out
+ * variant, wrong delivery charge…). Only these are safe to show the shopper —
+ * anything else is our own failure and must not be echoed back.
+ */
+export class OrderApiValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'OrderApiValidationError'
+  }
+}
+
+/**
+ * The order already exists in the API by the time we map it, so a missing
+ * INVOICE_ACCESS_SECRET must not throw here: that turned a placed order into a
+ * hard checkout error, leaving the customer to re-submit an order they had
+ * already made. Log loudly, drop the key, and let tracking fall back to phone.
+ */
+function safeInvoiceAccessToken(publicCode: string): string | undefined {
+  try {
+    return buildInvoiceAccessToken(publicCode)
+  } catch (error) {
+    console.error(
+      '[orders] invoice access key unavailable — set INVOICE_ACCESS_SECRET:',
+      error instanceof Error ? error.message : error,
+    )
+    return undefined
+  }
+}
+
 function internalApiHeaders(accept = 'application/json'): Record<string, string> {
   const headers: Record<string, string> = { Accept: accept }
   const secret = process.env.INTERNAL_HEALTH_SECRET
@@ -163,11 +193,12 @@ function mapApiOrderToStored(order: {
   const publicCode = order.orderCode ?? order.invoiceNumber
   const paymentMethod =
     order.customer?.payment?.trim() || order.paymentMethod || 'Cash on Delivery'
+  const invoiceAccessKey = order.invoiceAccessKey?.trim() || safeInvoiceAccessToken(publicCode)
 
   return {
     id: publicCode,
     invoiceNumber: publicCode,
-    invoiceAccessKey: order.invoiceAccessKey?.trim() || buildInvoiceAccessToken(publicCode),
+    ...(invoiceAccessKey ? { invoiceAccessKey } : {}),
     createdAt,
     updatedAt,
     status: normalizeApiOrderStatus(order.status),
@@ -262,7 +293,7 @@ export async function createOrderViaApi(input: ApiCreateOrderInput): Promise<Sto
     const message = Array.isArray(payload?.message)
       ? payload.message.join('; ')
       : payload?.message ?? `API order failed (${res.status})`
-    throw new Error(message)
+    throw new OrderApiValidationError(message)
   }
 
   const payload = (await res.json()) as { order: Parameters<typeof mapApiOrderToStored>[0] }

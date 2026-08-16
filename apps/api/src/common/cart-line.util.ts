@@ -170,10 +170,15 @@ export async function resolveCheckoutVariantsBatch(
     for (const [variantId, indexes] of byVariantId) {
       const variant = found.get(variantId)
       for (const index of indexes) {
-        const label = items[index]?.name?.trim() || 'Item'
-        results[index] = variant
-          ? { ok: true, variant }
-          : { ok: false, error: `${label}: selected variant is no longer available` }
+        const item = items[index]
+        const label = item?.name?.trim() || 'Item'
+        // The single-line resolver scopes by productId; the batch query looks up
+        // by variant id alone, so re-check the pairing here or a client could
+        // attach product A to a variant of product B.
+        results[index] =
+          variant && (!item?.productId || variant.productId === item.productId)
+            ? { ok: true, variant }
+            : { ok: false, error: `${label}: selected variant is no longer available` }
       }
     }
   }

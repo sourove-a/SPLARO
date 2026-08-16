@@ -19,6 +19,32 @@ function safeId() {
 }
 
 /**
+ * `File.type` is attacker-controlled on a public endpoint — trust the magic bytes
+ * instead, so a non-image payload can never be written under an image extension.
+ */
+function sniffImageMime(bytes: Buffer): 'image/jpeg' | 'image/png' | 'image/webp' | null {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return 'image/jpeg'
+  }
+  if (
+    bytes.length >= 8 &&
+    bytes
+      .subarray(0, 8)
+      .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
+    return 'image/png'
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    bytes.subarray(8, 12).toString('ascii') === 'WEBP'
+  ) {
+    return 'image/webp'
+  }
+  return null
+}
+
+/**
  * Public wholesale reference-photo upload.
  * Saves under /uploads/wholesale/*.webp — rate-limited, size-capped, no auth
  * (same trust model as the enquiry form itself).
@@ -62,8 +88,12 @@ export async function POST(request: Request) {
     }
 
     const bytes = Buffer.from(await file.arrayBuffer())
-    let out: Buffer = bytes
-    let ext = 'webp'
+    if (!sniffImageMime(bytes)) {
+      return NextResponse.json({ error: 'Use JPG, PNG, or WebP only.' }, { status: 400 })
+    }
+
+    let out: Buffer
+    const ext = 'webp'
     try {
       const sharp = (await import('sharp')).default
       out = Buffer.from(
@@ -74,7 +104,11 @@ export async function POST(request: Request) {
           .toBuffer(),
       )
     } catch {
-      ext = file.type === 'image/png' ? 'png' : 'jpg'
+      // Re-encode is the only thing that guarantees the stored bytes are an image.
+      return NextResponse.json(
+        { error: 'Could not process that image — try a different file.' },
+        { status: 400 },
+      )
     }
 
     const name = `${safeId()}.${ext}`

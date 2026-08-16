@@ -1,5 +1,35 @@
 import type { Prisma } from '@prisma/client'
 
+/**
+ * Keep seeded demo SKUs off the live storefront.
+ *
+ * `sku`, `description` and `shortDescription` are all nullable, and SQL's
+ * three-valued logic makes `NOT (a LIKE … OR b LIKE …)` evaluate to NULL — not
+ * TRUE — as soon as one side is NULL. Written as a single `NOT { OR: [...] }`
+ * this silently hid every real product that had no SKU or no short description.
+ * Each field therefore gets its own null-tolerant clause.
+ */
+function demoCatalogExclusions(): Prisma.ProductWhereInput[] {
+  return [
+    { OR: [{ sku: null }, { NOT: { sku: { startsWith: 'DEMO-', mode: 'insensitive' } } }] },
+    { OR: [{ sku: null }, { NOT: { sku: { contains: '-QA-', mode: 'insensitive' } } }] },
+    {
+      OR: [
+        { description: null },
+        { NOT: { description: { contains: 'seeded demo product', mode: 'insensitive' } } },
+      ],
+    },
+    {
+      OR: [
+        { shortDescription: null },
+        {
+          NOT: { shortDescription: { contains: 'demo catalog for', mode: 'insensitive' } },
+        },
+      ],
+    },
+  ]
+}
+
 /** Products that may appear on the public storefront at the current moment. */
 export function storefrontVisibleProductWhere(
   extra: Prisma.ProductWhereInput = {},
@@ -27,16 +57,7 @@ export function storefrontVisibleProductWhere(
     status: { not: 'ARCHIVED' },
     AND: [
       ...andClauses,
-      {
-        NOT: {
-          OR: [
-            { sku: { startsWith: 'DEMO-', mode: 'insensitive' } },
-            { sku: { contains: '-QA-', mode: 'insensitive' } },
-            { description: { contains: 'seeded demo product', mode: 'insensitive' } },
-            { shortDescription: { contains: 'demo catalog for', mode: 'insensitive' } },
-          ],
-        },
-      },
+      ...demoCatalogExclusions(),
     ],
   }
 }

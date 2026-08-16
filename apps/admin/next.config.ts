@@ -120,6 +120,12 @@ const config: NextConfig = {
           `connect-src 'self' ${web} ${apiOrigin}`,
           "frame-src 'none'",
           "object-src 'none'",
+          // Stops an injected <base> tag from re-pointing every relative script URL.
+          "base-uri 'self'",
+          // Modern equivalent of the X-Frame-Options header above (clickjacking).
+          "frame-ancestors 'none'",
+          // Admin posts only to its own BFF routes.
+          "form-action 'self'",
         ].join('; '),
       },
     ]

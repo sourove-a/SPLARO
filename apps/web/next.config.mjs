@@ -22,6 +22,9 @@ const connectSrc = [
   'https://www.googleapis.com',
   'https://www.facebook.com',
   'https://connect.facebook.net',
+  // Microsoft Clarity (AnalyticsScripts) beacons to c.clarity.ms / *.clarity.ms.
+  'https://*.clarity.ms',
+  'https://c.bing.com',
 ]
   .filter(Boolean)
   .join(' ')
@@ -124,7 +127,11 @@ const nextConfig = {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     formats: ['image/avif', 'image/webp'],
-    qualities: [75, 82, 88, 100],
+    // Next 15 rejects any `q` outside this list with a 400, so it must cover
+    // every value StorefrontImage can pass — i.e. all of IMAGE_QUALITY
+    // (src/lib/assets/image-optimize.ts) plus the literals used inline in JSX.
+    // image-quality-allowlist.test.ts fails if the two drift apart again.
+    qualities: [72, 75, 78, 80, 82, 86, 88, 90, 92, 100],
     deviceSizes: [375, 390, 640, 750, 828, 1080, 1200, 1440, 1920, 2048, 2560],
     imageSizes: [16, 32, 48, 64, 72, 96, 128, 256, 384, 512, 640],
     minimumCacheTTL: 60 * 60 * 24 * 30,
@@ -161,7 +168,10 @@ const nextConfig = {
               // production, so 'unsafe-eval' is dropped. 'unsafe-inline' stays — GTM/FB
               // pixel and Next.js hydration inline scripts need a nonce-based CSP to
               // remove safely, which needs its own dedicated rollout/testing pass.
-              "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://accounts.google.com https://apis.google.com https://connect.facebook.net",
+              // www.clarity.ms: Microsoft Clarity loader — the storefront ships the
+              // tag whenever a project id is configured, and CSP was silently
+              // blocking it, so session recording never actually ran.
+              "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://accounts.google.com https://apis.google.com https://connect.facebook.net https://www.clarity.ms https://*.clarity.ms",
               "style-src 'self' 'unsafe-inline' https://accounts.google.com",
               `img-src ${cspImgSrc}`,
               `media-src ${cspMediaSrc}`,
@@ -172,6 +182,14 @@ const nextConfig = {
               // blocked every reel video with no visible error, just a dead player.
               // accounts.google.com: Google Identity Services button iframe (login/signup).
               "frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://accounts.google.com",
+              // No <object>/<embed> anywhere in the app — closes a plugin-based XSS vector.
+              "object-src 'none'",
+              // Stops an injected <base> tag from re-pointing every relative script URL.
+              "base-uri 'self'",
+              // Modern equivalent of the X-Frame-Options header above (clickjacking).
+              "frame-ancestors 'none'",
+              // Only /search posts a form, and it posts to this origin.
+              "form-action 'self'",
               // Belt-and-suspenders: auto-upgrade accidental http:// subresources on HTTPS pages.
               'upgrade-insecure-requests',
             ].join('; '),
