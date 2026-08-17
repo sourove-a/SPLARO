@@ -842,6 +842,11 @@ model Product {
   description      String?
   shortDescription String?
   sku              String?
+  /// Permanent six-digit customer-facing reference ("Product Code: 284731").
+  /// Assigned once at creation, never rewritten by an update. Uniqueness is
+  /// held by this index plus the IssuedProductCode ledger, which also stops a
+  /// code from being handed to a second product after the first is deleted.
+  productCode      String?             @unique
   rmCode           String?             // RM code for internal tracking
   barcode          String?
   qrCode           String?
@@ -931,6 +936,10 @@ model ProductVariant {
   id             String         @id @default(cuid())
   productId      String
   sku            String?        @unique
+  /// Colour's serial within this product (Silver 1, Black 2…). Stored rather
+  /// than re-derived so renaming a colour, or reordering the matrix, can never
+  /// renumber a variant whose SKU is already printed on a label.
+  colorSerial    Int?
   barcode        String?        @unique
   qrCode         String?
   size           String?
@@ -978,6 +987,10 @@ model Category {
   parentId    String?
   name        String
   slug        String
+  /// Permanent numeric identity used as the first segment of every variant SKU
+  /// (410-0123-01-42). Allocated automatically, never derived from the name, and
+  /// never changed by a rename — SKUs already printed carry this number.
+  code        String?
   description String?
   image       String?
   metaTitle   String?
@@ -992,6 +1005,7 @@ model Category {
   updatedAt   DateTime   @updatedAt
 
   @@unique([storeId, slug])
+  @@unique([storeId, code])
   @@index([storeId, parentId])
 }
 
@@ -1166,6 +1180,11 @@ model OrderItem {
   productName String
   variantName String?
   sku         String?
+  /// Product Code as it stood when the order was placed. Snapshotted like the
+  /// name and price so an old invoice still reads correctly after the product
+  /// is edited, and so support can find the order from the code a customer
+  /// reads out.
+  productCode String?
   image       String?
   price       Decimal         @db.Decimal(10, 2)
   quantity    Int
@@ -1177,6 +1196,8 @@ model OrderItem {
   createdAt   DateTime        @default(now())
 
   @@index([orderId])
+  // Support looks an order up from the code on the customer's invoice.
+  @@index([productCode])
 }
 
 model OrderStatusHistory {
@@ -3435,6 +3456,41 @@ model GoogleAuditLog {
 // `UPDATE ... SET "nextValue" = "nextValue" + 1 ... RETURNING "nextValue"`
 // inside the same transaction as the insert, which takes a row lock and hands
 // every caller a distinct number.
+/// Every Product Code ever issued, kept forever.
+///
+/// Product rows can be hard-deleted (test uploads with no order history), and a
+/// deleted row must not release its number back into circulation — a customer
+/// or an old invoice can still be holding it. Issuing writes here first, so the
+/// primary key is the real uniqueness authority and a concurrent create loses
+/// the race instead of duplicating a code.
+model IssuedProductCode {
+  code      String   @id
+  storeId   String
+  /// Product the code was issued to; null once that product is hard-deleted.
+  productId String?
+  issuedAt  DateTime @default(now())
+
+  @@index([storeId])
+}
+
+/// Every category code ever issued, kept forever.
+///
+/// A deleted category must not release its number: variant SKUs issued under it
+/// still exist in orders, on labels and in the warehouse, and handing the same
+/// number to an unrelated category later would make those SKUs read as the
+/// wrong department.
+model IssuedCategoryCode {
+  code       String   @id
+  storeId    String
+  /// Category the code was issued to; null once that category is deleted.
+  categoryId String?
+  /// Category name at the time of issue — kept so an audit can tell what 410 was.
+  label      String?
+  issuedAt   DateTime @default(now())
+
+  @@index([storeId])
+}
+
 model CodeSequence {
   /// Scope key, e.g. "barcode" or "model:<storeId>:ABY".
   key       String   @id
