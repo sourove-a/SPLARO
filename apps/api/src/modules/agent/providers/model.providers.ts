@@ -297,6 +297,14 @@ async function listGeminiModels(apiKey: string): Promise<string> {
   }
 }
 
+export function normalizeGeminiModel(rawModel?: string): string {
+  const model = (rawModel ?? '').trim().replace(/^models\//, '')
+  if (!model) return 'gemini-2.5-flash'
+  if (model === 'gemini-1.5-pro' || model === 'gemini-pro') return 'gemini-2.5-pro'
+  if (model === 'gemini-1.5-flash' || model === 'gemini-flash') return 'gemini-2.5-flash'
+  return model
+}
+
 export class GeminiProvider implements ModelProvider {
   readonly id = 'gemini'
 
@@ -306,7 +314,7 @@ export class GeminiProvider implements ModelProvider {
     apiKey: string,
     options?: ModelProviderOptions,
   ): Promise<ModelChatResult> {
-    const model = options?.model ?? process.env['GEMINI_MODEL'] ?? 'gemini-2.5-pro'
+    const model = normalizeGeminiModel(options?.model ?? process.env['GEMINI_MODEL'])
     const system = messages.find((m) => m.role === 'system')?.content ?? ''
     const contents = messages
       .filter((m) => m.role !== 'system')
