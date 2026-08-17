@@ -299,9 +299,17 @@ async function listGeminiModels(apiKey: string): Promise<string> {
 
 export function normalizeGeminiModel(rawModel?: string): string {
   const model = (rawModel ?? '').trim().replace(/^models\//, '')
-  if (!model) return 'gemini-2.5-flash'
-  if (model === 'gemini-1.5-pro' || model === 'gemini-pro') return 'gemini-2.5-pro'
-  if (model === 'gemini-1.5-flash' || model === 'gemini-flash') return 'gemini-2.5-flash'
+  if (
+    !model ||
+    model === 'gemini-1.5-flash' ||
+    model === 'gemini-1.5-pro' ||
+    model === 'gemini-flash' ||
+    model === 'gemini-pro' ||
+    model === 'gemini-2.5-flash' ||
+    model === 'gemini-2.5-pro'
+  ) {
+    return 'gemini-3.6-flash'
+  }
   return model
 }
 
