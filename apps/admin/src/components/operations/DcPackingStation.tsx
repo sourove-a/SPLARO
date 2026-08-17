@@ -1334,6 +1334,7 @@ function ActiveOrderCard({
                   {item.quantity}× {item.name}
                 </span>
                 <span style={{ font: `500 11.5px/1.35 ${MONO}`, color: 'var(--ink-3)' }}>
+                  {item.productCode ? `Code: ${item.productCode} · ` : ''}
                   SKU: {item.sku}
                   {item.barcode ? ` · BC: ${item.barcode}` : ''}
                   {item.size !== '—' ? ` · ${item.size}` : ''}

@@ -6,6 +6,12 @@ export interface ApiProduct {
   name: string
   slug?: string
   sku?: string | null
+  /** Permanent six-digit customer-facing Product Code. */
+  productCode?: string | null
+  /** Category Code frozen into this product's variant SKUs. */
+  skuCategoryCode?: string | null
+  /** Style serial within that category. */
+  skuModelNumber?: number | null
   basePrice: number | string
   compareAtPrice?: number | string | null
   costPrice?: number | string | null

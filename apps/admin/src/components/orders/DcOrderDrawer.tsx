@@ -421,6 +421,18 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
                             {variant}
                           </span>
                         ) : null}
+                        {/* Snapshot first — support answers the customer with
+                            the code that was on their invoice, not the one the
+                            product carries after a later edit. */}
+                        {(it.productCode ?? it.product?.productCode) || it.sku ? (
+                          <span style={{ font: `500 10.5px/1.3 ${MONO}`, color: 'var(--ink-3)' }}>
+                            {(it.productCode ?? it.product?.productCode)
+                              ? `Code ${it.productCode ?? it.product?.productCode}`
+                              : ''}
+                            {(it.productCode ?? it.product?.productCode) && it.sku ? ' · ' : ''}
+                            {it.sku ? `SKU ${it.sku}` : ''}
+                          </span>
+                        ) : null}
                       </span>
                       <span
                         style={{

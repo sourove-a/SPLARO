@@ -80,6 +80,8 @@ interface LiveProduct {
   name: string
   slug: string
   sku?: string | null
+  /** Permanent six-digit customer-facing code. Null on products created before it existed. */
+  productCode?: string | null
   description?: string | null
   shortDescription?: string | null
   basePrice: number | string
@@ -345,7 +347,7 @@ export function mapLiveProduct(
     id: p.id,
     slug: p.slug,
     name: p.name,
-    code: sanitizeStorefrontProductCode(p.sku, p.slug) ?? '',
+    code: p.productCode?.trim() || sanitizeStorefrontProductCode(p.sku, p.slug) || '',
     category,
     ...(p.category?.slug ? { categorySlug: p.category.slug } : {}),
     ...(p.category?.name ? { categoryName: p.category.name } : {}),
@@ -431,7 +433,10 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
   const legacyCopy = splitLegacyBilingualDescription(p.description)
   const descriptionEn = schemaDescriptionBn ? (p.description?.trim() ?? '') : legacyCopy.en
   const descriptionBn = schemaDescriptionBn || legacyCopy.bn
-  const publicSku = sanitizeStorefrontProductCode(p.sku, p.slug)
+  // The six-digit Product Code is what a shopper reads out and what support
+  // types into admin search. Products created before it existed fall back to
+  // their old internal SKU until the backfill runs.
+  const publicSku = p.productCode?.trim() || sanitizeStorefrontProductCode(p.sku, p.slug)
   const specs = parseProductSpecs(schema)
   for (const detail of p.additionalDetails ?? []) {
     if (typeof detail.label !== 'string' || typeof detail.value !== 'string') continue

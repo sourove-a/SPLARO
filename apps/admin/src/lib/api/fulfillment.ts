@@ -6,6 +6,8 @@ export interface FulfillmentStationItem {
   id: string
   name: string
   sku: string
+  /** Parent Product Code — what the customer quotes on the phone. */
+  productCode: string | null
   barcode: string | null
   size: string
   color: string

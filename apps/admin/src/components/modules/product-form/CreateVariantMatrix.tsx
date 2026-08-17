@@ -32,7 +32,11 @@ export type CreateVariantLine = {
 
 type LockField = 'sku' | 'barcode' | 'price' | 'compareAt' | 'stock'
 type DraftRow = Partial<Record<LockField, string>> & { lock?: Partial<Record<LockField, true>> }
-type ResolvedRow = Record<LockField, string>
+/**
+ * `manualSku` marks a row whose code the operator typed. Auto rows carry a
+ * preview only — it must not be sent to the API as if it were a chosen SKU.
+ */
+type ResolvedRow = Record<LockField, string> & { manualSku: boolean }
 
 const th: CSSProperties = {
   textAlign: 'left',
@@ -121,14 +125,17 @@ function resolveRow(
   productBarcode: string,
   multiColour: boolean,
   skuIdentity: SkuIdentity | null | undefined,
+  colourSerial: number,
 ): ResolvedRow {
   const lock = draft?.lock ?? {}
-  // Once the category is known the canonical SPL-{CAT}-{MODEL}-{COLOR}-{SIZE}
-  // preview wins; the free-text base SKU stays as the manual escape hatch.
+  // Display only — the server rebuilds the SKU on save from the product's own
+  // identity, so a preview built against a stale model number cannot become the
+  // stored code. The free-text base SKU stays as the manual escape hatch.
   const autoSku = skuIdentity
-    ? previewVariantSku(skuIdentity, { color: color.name, size })
+    ? previewVariantSku(skuIdentity, { color: color.name, size, colourSerial })
     : generateSku(baseSku, color.name, size, multiColour)
   return {
+    manualSku: Boolean(lock.sku),
     sku: lock.sku ? (draft?.sku ?? '') : autoSku,
     barcode: lock.barcode
       ? (draft?.barcode ?? '')
@@ -201,7 +208,7 @@ export function CreateVariantMatrix({
 
   const resolved = useMemo(() => {
     const map: Record<string, ResolvedRow> = {}
-    for (const color of colourRows) {
+    for (const [colourIndex, color] of colourRows.entries()) {
       for (const size of sizeList) {
         const key = rowKey(color.id, size)
         map[key] = resolveRow(
@@ -215,6 +222,7 @@ export function CreateVariantMatrix({
           productBarcode,
           multiColour,
           skuIdentity,
+          colourIndex + 1,
         )
       }
     }
@@ -250,7 +258,12 @@ export function CreateVariantMatrix({
           colorName: namedColour(color) ?? 'Default',
           colorHex: hex,
           ...(color.imageUrl.trim() ? { image: color.imageUrl.trim() } : {}),
-          ...(row?.sku.trim() ? { sku: row.sku.trim() } : {}),
+          // Auto rows send no SKU at all. The preview is built from a peeked
+          // model number that another save can take first, and the API treats
+          // any SKU it receives as operator-chosen — that combination is what
+          // produced "SPL-SHO-001-SLV-44 is already used by another variant".
+          // Blank means "mint the canonical code", which is always collision-free.
+          ...(row?.manualSku && row.sku.trim() ? { sku: row.sku.trim() } : {}),
           ...(row?.barcode.trim() ? { barcode: row.barcode.trim() } : {}),
           price,
           compareAtPrice: compareAt && compareAt > 0 ? compareAt : null,
@@ -271,7 +284,7 @@ export function CreateVariantMatrix({
     if (skuIdentity) {
       return sizeList
         .slice(0, 5)
-        .map((size) => previewVariantSku(skuIdentity, { color: colour, size }))
+        .map((size) => previewVariantSku(skuIdentity, { color: colour, size, colourSerial: 1 }))
     }
     if (!baseSku.trim()) return []
     return sizeList.slice(0, 5).map((size) => generateSku(baseSku, colour, size, multiColour))

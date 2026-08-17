@@ -6,8 +6,12 @@ export interface ApiOrderItem {
   price?: number | string
   subtotal?: number | string
   productName?: string
+  /** Variant SKU snapshotted on the line. */
+  sku?: string | null
+  /** Parent Product Code snapshotted when the order was placed. */
+  productCode?: string | null
   image?: string | null
-  product?: { name: string; images?: { url: string }[] }
+  product?: { name: string; productCode?: string | null; images?: { url: string }[] }
   variant?: { size?: string; color?: string; image?: string | null }
 }
 

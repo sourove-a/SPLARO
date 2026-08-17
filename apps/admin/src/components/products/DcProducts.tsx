@@ -138,8 +138,13 @@ function DcProductsBody() {
     return all.filter((p) => {
       if (tab !== 'All' && tabOf(p) !== tab) return false
       if (!q) return true
+      // Product Code is what a customer reads out on the phone, so it has to
+      // match here too — digits only, since people say "2 8 4 7 3 1".
+      const digits = q.replace(/\D/g, '')
       return (
-        p.name.toLowerCase().includes(q) || (p.sku ?? '').toLowerCase().includes(q)
+        p.name.toLowerCase().includes(q) ||
+        (p.sku ?? '').toLowerCase().includes(q) ||
+        (digits.length >= 3 && (p.productCode ?? '').includes(digits))
       )
     })
   }, [all, tab, query])
@@ -434,7 +439,7 @@ function DcProductsBody() {
               <thead>
                 <tr>
                   <th style={th}>Product</th>
-                  <th style={th}>SKU</th>
+                  <th style={th}>Product Code</th>
                   <th style={th}>Variants</th>
                   <th style={th}>Stock</th>
                   <th style={{ ...th, textAlign: 'right' }}>Price</th>
@@ -500,7 +505,18 @@ function DcProductsBody() {
                         </div>
                       </td>
                       <td style={{ padding: '10px 14px', font: `500 12px/1 ${MONO}`, color: 'var(--ink-2)' }}>
-                        {p.sku ?? '—'}
+                        {p.productCode ? (
+                          <span style={{ display: 'grid', gap: 2 }}>
+                            <span style={{ color: 'var(--ink)' }}>{p.productCode}</span>
+                            {p.sku ? (
+                              <span style={{ font: `400 10.5px/1 ${MONO}`, color: 'var(--ink-3)' }}>
+                                {p.sku}
+                              </span>
+                            ) : null}
+                          </span>
+                        ) : (
+                          (p.sku ?? '—')
+                        )}
                       </td>
                       <td
                         style={{
@@ -756,7 +772,7 @@ function MobileProductsList({
                 <span className="dc-mobile-list-card__copy">
                   <span className="dc-mobile-list-card__title">{p.name}</span>
                   <span className="dc-mobile-list-card__sub">
-                    {status} · {p.sku ?? 'no SKU'} · {stock === 0 ? 'out' : `${stock} units`}
+                    {status} · {p.productCode ?? p.sku ?? 'no code'} · {stock === 0 ? 'out' : `${stock} units`}
                   </span>
                 </span>
                 <span className="dc-mobile-list-card__value">{formatTaka(Number(p.basePrice))}</span>

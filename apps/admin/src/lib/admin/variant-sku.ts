@@ -1,4 +1,9 @@
-import { buildVariantSku, categoryIsSizeless } from '@splaro/config'
+import {
+  buildVariantIdentitySku,
+  buildVariantSku,
+  categoryIsSizeless,
+  isValidCategoryCode,
+} from '@splaro/config'
 
 import { apiFetch } from '@/lib/api/client'
 
@@ -29,9 +34,20 @@ export function fetchSkuIdentity(params: { categoryId?: string; productId?: stri
  */
 export function previewVariantSku(
   identity: SkuIdentity | null | undefined,
-  variant: { color?: string | null; size?: string | null },
+  variant: { color?: string | null; size?: string | null; colourSerial?: number },
 ): string {
   if (!identity) return ''
+  // Numeric category code means the current scheme (410-0123-01-42). Products
+  // created before category codes existed still preview in the old format so
+  // the panel matches what the server will actually store for them.
+  if (isValidCategoryCode(identity.categoryCode)) {
+    return buildVariantIdentitySku({
+      categoryCode: identity.categoryCode,
+      styleSerial: identity.modelNumber,
+      colourSerial: variant.colourSerial ?? 1,
+      size: variant.size ?? null,
+    })
+  }
   return buildVariantSku({
     category: identity.categoryCode,
     model: identity.modelNumber,
