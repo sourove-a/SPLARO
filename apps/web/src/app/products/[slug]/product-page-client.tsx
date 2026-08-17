@@ -601,7 +601,7 @@ export default function ProductPageClient({
 
   // Mobile sticky purchase bar sits above the floating chat/back-to-top —
   // flag it so those widgets lift clear instead of covering Buy Now.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof document === 'undefined') return
     if (showFloatingCta) {
       document.body.setAttribute('data-pdp-sticky-cta', 'true')

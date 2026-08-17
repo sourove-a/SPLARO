@@ -17,6 +17,7 @@ import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
 import { useHeaderScroll, subscribeScroll } from '@/hooks/useScrollY'
+import { snapHeaderChromeLeavingHome } from '@/lib/navigation/snap-header-chrome'
 import { cn } from '@/lib/utils/cn'
 
 const MobileMenu = dynamic(() => import('./MobileMenu').then((m) => m.MobileMenu))
@@ -105,13 +106,7 @@ export function Header() {
 
     const clearHeroChrome = () => {
       pastHeroRef.current = false
-      root.removeAttribute('data-home-hero')
-      const header = document.querySelector<HTMLElement>('[data-header-chrome]')
-      header?.classList.remove('site-header-glass--topbar-collapsed')
-      // Drop IO-owned home chrome so non-home React classes take over cleanly.
-      header?.classList.remove('site-header-glass--over-hero')
-      header?.classList.remove('site-header-glass--hero-copy-under')
-      setTopbarVisible(false)
+      snapHeaderChromeLeavingHome()
     }
 
     if (!isHome || !isDesktop) {
@@ -305,6 +300,17 @@ export function Header() {
       }
     }
   }, [isHome, isDesktop])
+
+  // Route change: home → PDP must snap header to top:0 before paint (no topbar slide).
+  const prevPathnameRef = useRef(pathname)
+  useLayoutEffect(() => {
+    const prev = prevPathnameRef.current
+    prevPathnameRef.current = pathname
+    if (prev === '/' && pathname !== '/') {
+      pastHeroRef.current = false
+      snapHeaderChromeLeavingHome()
+    }
+  }, [pathname])
 
   // Route change must clear search overlay — otherwise mobile dock stays hidden.
   // Skip same-path remounts (e.g. native→Lenis upgrade) so open search isn't killed.

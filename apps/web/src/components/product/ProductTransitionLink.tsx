@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import type { ComponentProps, MouseEvent, ReactNode } from 'react'
 import { markClientNavigationReady } from '@/lib/motion/client-nav-ready'
+import { snapHeaderChromeLeavingHome } from '@/lib/navigation/snap-header-chrome'
 
 type ProductTransitionLinkProps = ComponentProps<typeof Link> & {
   children: ReactNode
@@ -29,6 +30,10 @@ export function ProductTransitionLink({
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
 
     markClientNavigationReady()
+
+    if (typeof window !== 'undefined' && window.location.pathname === '/') {
+      snapHeaderChromeLeavingHome()
+    }
 
     // Do not scroll the current grid before navigation; PDP mount owns top snap.
   }

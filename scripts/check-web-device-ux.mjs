@@ -27,7 +27,9 @@ function isIgnorableConsoleError(text) {
     /Meta pixel.*Bot traffic/i.test(text) ||
     /Failed to load resource: the server responded with a status of 503/i.test(text) ||
     /Failed to load resource.*404/.test(text) ||
-    /Failed to fetch RSC payload.*Falling back to browser navigation/i.test(text)
+    /Failed to fetch RSC payload.*Falling back to browser navigation/i.test(text) ||
+    /\[GSI_LOGGER\]/i.test(text) ||
+    /origin is not allowed for the given client ID/i.test(text)
   )
 }
 
@@ -131,6 +133,163 @@ async function auditRoute(page, path, viewport) {
   }
 }
 
+async function resolveProductPath(page) {
+  const findLink = () =>
+    page.evaluate(() => {
+      const link =
+        document.querySelector('a[href^="/products/"]') ??
+        document.querySelector('.splaro-card a[href^="/products/"]') ??
+        document.querySelector('.shop-product-card a[href^="/products/"]')
+      return link?.getAttribute('href') ?? null
+    })
+
+  for (const path of ['/', '/shop']) {
+    await page.goto(`${BASE}${path}`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
+    await sleep(POST_NAV_SLEEP_MS)
+    const href = await findLink()
+    if (href) return href
+  }
+  return null
+}
+
+async function auditHomeToProductHeader(page) {
+  const errors = []
+  const onConsole = (msg) => {
+    if (msg.type() !== 'error') return
+    const text = msg.text()
+    if (isIgnorableConsoleError(text)) return
+    errors.push(text)
+  }
+  page.on('console', onConsole)
+
+  const viewport = { width: 1366, height: 768 }
+  await page.setViewport(viewport)
+  await page.goto(`${BASE}/`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
+  await sleep(POST_NAV_SLEEP_MS)
+
+  const { before, productHref } = await page.evaluate(() => {
+    const header = document.querySelector('[data-header-chrome]')
+    const rect = header?.getBoundingClientRect()
+    const link =
+      document.querySelector('a[href^="/products/"]') ??
+      document.querySelector('.splaro-card a[href^="/products/"]') ??
+      document.querySelector('.shop-product-card a[href^="/products/"]')
+    return {
+      before: {
+        topbar: document.documentElement.getAttribute('data-topbar'),
+        headerTop: rect?.top ?? null,
+      },
+      productHref: link?.getAttribute('href') ?? null,
+    }
+  })
+
+  let href = productHref
+  if (!href) {
+    href = await resolveProductPath(page)
+  }
+
+  let leavePath = href
+  if (!leavePath) {
+    leavePath = '/shop'
+  }
+
+  if (!href) {
+    await page.setViewport(viewport)
+    await page.goto(`${BASE}/`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
+    await sleep(POST_NAV_SLEEP_MS)
+  }
+
+  if (!leavePath) {
+    page.off('console', onConsole)
+    return {
+      path: '/ → leave home',
+      viewport: `${viewport.width}x${viewport.height}`,
+      errors,
+      ok: false,
+      skip: 'no leave-home link',
+    }
+  }
+
+  await page.evaluate((targetHref) => {
+    document.querySelector(`a[href="${targetHref}"]`)?.click()
+  }, leavePath)
+  await page.waitForFunction(() => window.location.pathname !== '/', { timeout: NAV_TIMEOUT })
+  await sleep(400)
+
+  const after = await page.evaluate(() => {
+    const header = document.querySelector('[data-header-chrome]')
+    const rect = header?.getBoundingClientRect()
+    return {
+      topbar: document.documentElement.getAttribute('data-topbar'),
+      headerTop: rect?.top ?? null,
+    }
+  })
+
+  page.off('console', onConsole)
+
+  const headerSnapped = after.headerTop !== null && after.headerTop <= 2
+  const topbarHidden = after.topbar === 'hidden'
+
+  return {
+    path: '/ → leave home',
+    viewport: `${viewport.width}x${viewport.height}`,
+    errors,
+    before,
+    after,
+    leavePath,
+    productHref: href ?? (leavePath.startsWith('/products/') ? leavePath : null),
+    ok: errors.length === 0 && headerSnapped && topbarHidden,
+  }
+}
+
+async function auditPdpMobileFabClear(page, productHref) {
+  if (!productHref) {
+    productHref = await resolveProductPath(page)
+  }
+  if (!productHref) {
+    productHref = '/products/heritage-block-print-kurti'
+  }
+
+  const viewport = { width: 390, height: 844 }
+  await page.setViewport(viewport)
+  await page.goto(`${BASE}${productHref}`, {
+    waitUntil: NAV_WAIT,
+    timeout: NAV_TIMEOUT,
+  })
+  await sleep(POST_NAV_SLEEP_MS)
+
+  await page.evaluate(async () => {
+    const sleepLocal = (ms) => new Promise((r) => setTimeout(r, ms))
+    window.scrollTo(0, document.body.scrollHeight * 0.45)
+    await sleepLocal(500)
+  })
+
+  const state = await page.evaluate(() => {
+    const sticky = document.querySelector('.pp-mobile-sticky-bar:not(.pp-mobile-sticky-bar--hidden)')
+    const fab = document.querySelector('[data-floating-system]')
+    const fabStyle = fab ? getComputedStyle(fab) : null
+    return {
+      stickyVisible: Boolean(sticky),
+      fabPointerEvents: fabStyle?.pointerEvents ?? null,
+      fabOpacity: fabStyle?.opacity ?? null,
+      bodyFlag: document.body.getAttribute('data-pdp-sticky-cta'),
+    }
+  })
+
+  const fabClear =
+    !state.stickyVisible ||
+    state.bodyFlag === 'true' ||
+    state.fabPointerEvents === 'none' ||
+    Number(state.fabOpacity) < 0.05
+
+  return {
+    path: '/products/* mobile FAB',
+    viewport: `${viewport.width}x${viewport.height}`,
+    state,
+    ok: fabClear,
+  }
+}
+
 async function main() {
   const puppeteer = require('puppeteer')
   const browser = await puppeteer.launch(puppeteerLaunchOptions())
@@ -142,6 +301,10 @@ async function main() {
     for (const scenario of SCENARIOS) {
       results.push(await auditRoute(page, scenario.path, scenario.viewport))
     }
+
+    const headerResult = await auditHomeToProductHeader(page)
+    results.push(headerResult)
+    results.push(await auditPdpMobileFabClear(page, headerResult.productHref))
 
     const ok = results.every((r) => r.ok)
     console.log(JSON.stringify({ ok, base: BASE, scanned: results.length, results }, null, 2))

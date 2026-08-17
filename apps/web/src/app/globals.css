@@ -1123,6 +1123,11 @@ html[data-scroll-profile='mobile'].lenis [data-lenis-prevent] {
     border-color 250ms ease;
 }
 
+html[data-chrome-snap] .site-topbar,
+html[data-chrome-snap] .site-header-glass {
+  transition: none !important;
+}
+
 /* Home desktop: after hero leaves viewport — hide utility bar; header stays. */
 @media (min-width: 1024px) {
   .site-topbar.site-topbar--hidden,

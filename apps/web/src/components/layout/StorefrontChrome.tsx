@@ -7,6 +7,7 @@ import { SmoothScroll } from '@/components/layout/SmoothScroll'
 import { StorefrontPresence } from '@/components/layout/StorefrontPresence'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
+import { LeaveHomeChromeSnap } from '@/components/layout/LeaveHomeChromeSnap'
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav'
 import { hardNavigate } from '@/lib/navigation/safe-client-navigate'
 
@@ -173,6 +174,7 @@ function StorefrontChromeInner({ children }: { children: ReactNode }) {
 
   return (
     <SmoothScroll>
+      <LeaveHomeChromeSnap />
       <Header />
       {selfMain ? (
         <div id="main-content" className="main-with-mobile-nav" tabIndex={-1}>
