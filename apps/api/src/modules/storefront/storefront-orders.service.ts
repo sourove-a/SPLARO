@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common'
 import {
+  formatCleanAddress,
   formatSplOrderCode,
   parseSplOrderNumber,
 } from '@splaro/config'
@@ -443,7 +444,7 @@ export class StorefrontOrdersService {
               shippingName: input.customer.name,
               shippingPhone: normalizedPhone,
               shippingEmail,
-              shippingAddress: input.customer.address,
+              shippingAddress: formatCleanAddress(input.customer.address),
               shippingCity: input.customer.city,
               shippingDistrict: input.customer.district ?? input.customer.city,
               shippingDivision: input.customer.division ?? 'Dhaka',

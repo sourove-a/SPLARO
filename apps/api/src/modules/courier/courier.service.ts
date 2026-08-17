@@ -14,6 +14,7 @@ import { SaParibahonService } from './providers/sa-paribahan.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { TelegramService } from '../telegram/telegram.service'
 import { OrderStatusService } from '../orders/order-status.service'
+import { formatCleanAddress } from '@splaro/config'
 import type { CourierProvider, Order } from '@prisma/client'
 
 export interface BookCourierOptions {
@@ -295,7 +296,7 @@ export class CourierService {
       invoiceNumber: order.invoiceNumber,
       recipientName: order.shippingName,
       recipientPhone: order.shippingPhone,
-      recipientAddress: order.shippingAddress,
+      recipientAddress: formatCleanAddress(order.shippingAddress, order.shippingCity, order.shippingDistrict),
       recipientCity: order.shippingCity,
       recipientDistrict: order.shippingDistrict,
       codAmount: order.paymentMethod === 'CASH_ON_DELIVERY' ? Number(order.total) : 0,
@@ -466,4 +467,20 @@ export class CourierService {
         'Marked cancelled in SPLARO only. Steadfast has no cancel API — cancel the consignment in the Steadfast merchant panel if it was live-booked.',
     }
   }
+
+  /**
+   * Check customer delivery history / return rate across Steadfast network.
+   */
+  async checkCustomerFraud(
+    storeId: string,
+    phone: string,
+  ): Promise<{
+    totalParcels: number
+    delivered: number
+    cancelled: number
+    successRate: number
+  } | null> {
+    return this.steadfast.checkCustomerFraud(storeId, phone)
+  }
 }
+

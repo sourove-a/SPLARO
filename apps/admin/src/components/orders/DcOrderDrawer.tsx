@@ -10,6 +10,7 @@ import { FONT, MONO, formatTaka, statusToneStyle } from '@/components/dc/tokens'
 import { resolveMediaUrl } from '@/lib/media-url'
 import { downloadInvoice } from '@/lib/admin/admin-actions'
 import { formatBdPhone, operatorOf, telHref } from '@/lib/format/bd-phone'
+import { formatCleanAddress } from '@splaro/config'
 import { verifyDeleteSuccess } from '@/lib/admin/mutation-verify'
 import { useDeleteOrder, useOrder, usePermission, useUpdateOrderStatus } from '@/lib/api/hooks'
 import type { ApiOrder } from '@/lib/api/orders'
@@ -512,9 +513,7 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
                       textWrap: 'pretty',
                     }}
                   >
-                    {[d.shippingAddress, d.shippingCity, d.shippingDistrict]
-                      .filter(Boolean)
-                      .join(', ') || 'No address on the order'}
+                    {formatCleanAddress(d.shippingAddress, d.shippingCity, d.shippingDistrict) || 'No address on the order'}
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ flex: 1, font: `400 11px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>

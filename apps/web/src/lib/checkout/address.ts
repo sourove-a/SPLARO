@@ -81,25 +81,13 @@ export function parseAutofilledAddress(raw: string): {
   }
 }
 
+import { formatCleanAddress } from '@splaro/config'
+
 /**
- * Street + thana + district, skipping any locality the street already ends with.
+ * Street + thana + district, skipping any locality the street already ends with
+ * and deduplicating repeated tokens.
  */
 export function composeDeliveryAddress(address: string, thana: string, district: string): string {
   const street = stripLocalitySuffix(address, thana, district)
-
-  // Compare part-by-part, not street-as-one-string: an autofilled line like
-  // "Natornibash, Uttar RajaBari, Turag, Uttara" carries the thana in the
-  // MIDDLE, so a whole-string comparison never matched it and "Turag" was
-  // appended a second time.
-  const parts = [...splitAddressParts(street), thana.trim(), district.trim()].filter(Boolean)
-
-  const seen = new Set<string>()
-  return parts
-    .filter((part) => {
-      const key = normalize(part)
-      if (!key || seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-    .join(', ')
+  return formatCleanAddress(street, thana, district)
 }

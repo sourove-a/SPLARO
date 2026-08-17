@@ -1,5 +1,6 @@
 import { formatBDT } from '../../common/utils/currency'
 import { escapeTelegramHtml } from './telegram.util'
+import { formatCleanAddress } from '@splaro/config'
 
 export interface TelegramOrderItemLine {
   productName: string
@@ -31,6 +32,17 @@ export interface TelegramNewOrderPayload {
   isInsideDhaka: boolean
   isCodRisk: boolean
   fraudFlags?: string[]
+  customerHistory?: {
+    totalOrders: number
+    deliveredOrders: number
+    returnedOrCancelled: number
+  } | null
+  steadfastReport?: {
+    totalParcels: number
+    delivered: number
+    cancelled: number
+    successRate: number
+  } | null
   notes?: string | null
   couponCode?: string | null
   createdAt?: Date | string | null
@@ -102,14 +114,8 @@ function formatItemLine(item: TelegramOrderItemLine, index: number): string {
 export function formatNewOrderTelegramMessage(order: TelegramNewOrderPayload): string {
   const when = formatDhakaTime(order.createdAt)
   const zone = order.isInsideDhaka ? 'Dhaka' : 'Outside'
-  const addressParts = [order.shippingAddress, order.shippingCity, order.shippingDistrict]
-    .map((p) => (p ?? '').trim())
-    .filter((p): p is string => p.length > 0)
-  const street = (addressParts[0] ?? '').toLowerCase()
-  const uniqueAddress = addressParts.filter(
-    (part, index) => index === 0 || !street.includes(part.toLowerCase()),
-  )
-  const address = escapeTelegramHtml(uniqueAddress.join(', '))
+  const cleanAddr = formatCleanAddress(order.shippingAddress, order.shippingCity, order.shippingDistrict)
+  const address = escapeTelegramHtml(cleanAddr || 'No address provided')
 
   const itemLines = order.items.map((item, i) => formatItemLine(item, i))
   let itemsSection = itemLines.join('\n')
@@ -129,12 +135,37 @@ export function formatNewOrderTelegramMessage(order: TelegramNewOrderPayload): s
     order.fraudFlags && order.fraudFlags.length > 0
       ? `\n⚑ ${order.fraudFlags.map((f) => escapeTelegramHtml(f)).join(' · ')}`
       : ''
+
+  let steadfastBlock = ''
+  if (order.steadfastReport && order.steadfastReport.totalParcels > 0) {
+    const { totalParcels, delivered, cancelled, successRate } = order.steadfastReport
+    if (successRate < 60) {
+      steadfastBlock = `\n⚠️ <b>Steadfast Risk:</b> <b>${successRate}% success</b> (${delivered} del · ${cancelled} ret / ${totalParcels} total)`
+    } else {
+      steadfastBlock = `\n🚚 <b>Steadfast:</b> <b>${successRate}% success</b> (${delivered} del · ${cancelled} ret of ${totalParcels})`
+    }
+  }
+
   const notesBlock = order.notes?.trim()
     ? `\n📝 <i>${escapeTelegramHtml(order.notes.trim())}</i>`
     : ''
   const couponBit = order.couponCode?.trim()
     ? ` · <code>${escapeTelegramHtml(order.couponCode.trim())}</code>`
     : ''
+
+  let historyBadge = ''
+  if (order.customerHistory) {
+    const { totalOrders, deliveredOrders, returnedOrCancelled } = order.customerHistory
+    if (totalOrders <= 1) {
+      historyBadge = ' · <i>(1st order)</i>'
+    } else if (returnedOrCancelled > 0) {
+      historyBadge = ` · <i>(⚠️ ${returnedOrCancelled} returned/cancelled of ${totalOrders})</i>`
+    } else if (deliveredOrders > 0) {
+      historyBadge = ` · <i>(⭐ ${deliveredOrders} delivered)</i>`
+    } else {
+      historyBadge = ` · <i>(${totalOrders} orders)</i>`
+    }
+  }
 
   const payLine = [
     escapeTelegramHtml(prettyPayment(order.paymentMethod)),
@@ -152,7 +183,7 @@ export function formatNewOrderTelegramMessage(order: TelegramNewOrderPayload): s
   const msg = `
 🛍 <b>New order</b> · <code>${escapeTelegramHtml(order.invoiceNumber)}</code>${when ? `\n${escapeTelegramHtml(when)}` : ''}
 
-👤 ${escapeTelegramHtml(order.shippingName)} · <code>${escapeTelegramHtml(order.shippingPhone)}</code>
+👤 ${escapeTelegramHtml(order.shippingName)} · <code>${escapeTelegramHtml(order.shippingPhone)}</code>${historyBadge}
 📍 ${address}
 
 💳 ${payLine}
@@ -160,7 +191,7 @@ ${moneyBits.join(' · ')}${couponBit}
 <b>Total ${escapeTelegramHtml(formatBDT(order.total))}</b>
 
 📦 <b>${order.items.length}</b> item${order.items.length === 1 ? '' : 's'} · ${unitCount} unit${unitCount === 1 ? '' : 's'}
-${itemsSection}${riskBlock}${fraudBlock}${notesBlock}
+${itemsSection}${riskBlock}${fraudBlock}${steadfastBlock}${notesBlock}
 `.trim()
 
   if (msg.length <= TG_MSG_MAX) return msg

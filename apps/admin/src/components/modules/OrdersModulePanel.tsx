@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { formatCleanAddress } from '@splaro/config'
 import {
   toastFail,
   refreshWithToast,
@@ -471,7 +472,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
           <SideCard title="Shipping" icon={MapPin}>
             <p style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--violet)]" />
-              {[order.shippingAddress, order.shippingCity, order.shippingDistrict].filter(Boolean).join(', ')}
+              {formatCleanAddress(order.shippingAddress, order.shippingCity, order.shippingDistrict)}
             </p>
             <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-3)', margin: '8px 0 0' }}>
               <Truck style={{ width: 12, height: 12 }} />

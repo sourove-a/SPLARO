@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type { Order, OrderItem, ProductVariant, CourierShipment } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
 import { OrderStatusService } from '../orders/order-status.service'
+import { formatCleanAddress } from '@splaro/config'
 import {
   generateBulkShippingLabelsHtml,
   generateProductStickersHtml,
@@ -98,24 +99,20 @@ export class FulfillmentService {
     return { size: parts[0] || '—', color: parts[1] || '—' }
   }
 
-  private formatAddress(order: Order): string {
-    const parts: string[] = []
-    const seen = new Set<string>()
-    const push = (raw?: string | null) => {
-      if (!raw?.trim()) return
-      for (const bit of raw.split(/[,|]/).map((s) => s.trim()).filter(Boolean)) {
-        const key = bit.toLowerCase()
-        if (seen.has(key)) continue
-        seen.add(key)
-        parts.push(bit)
-      }
-    }
-    push(order.shippingAddress)
-    push(order.shippingCity)
-    push(order.shippingDistrict)
-    push(order.shippingDivision)
-    push(order.shippingPostal)
-    return parts.join(', ')
+  private formatAddress(order: {
+    shippingAddress?: string | null
+    shippingCity?: string | null
+    shippingDistrict?: string | null
+    shippingDivision?: string | null
+    shippingPostal?: string | null
+  }): string {
+    return formatCleanAddress(
+      order.shippingAddress,
+      order.shippingCity,
+      order.shippingDistrict,
+      order.shippingDivision,
+      order.shippingPostal,
+    )
   }
 
   private toLabelModel(order: LabelOrder, autoPrint: boolean): ShippingLabelModel {

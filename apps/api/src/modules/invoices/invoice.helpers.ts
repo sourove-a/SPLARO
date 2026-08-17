@@ -1,6 +1,7 @@
 import type { CourierShipment, Order, OrderItem, ProductVariant } from '@prisma/client'
 import {
   SPLARO_INVOICE_BRAND,
+  formatCleanAddress,
   resolveCustomerFacingAssetUrl,
   resolveCustomerFacingSiteUrl,
   resolveInvoiceLogoUrl,
@@ -123,30 +124,15 @@ function normalizeAddressToken(value: string): string {
   return value.toLowerCase().replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-/** Dedupe street / city / district crumbs so inbox addresses stay readable. */
+/** Dedupe street / city / district crumbs so invoice addresses stay readable. */
 function formatShippingAddress(order: InvoiceOrder): string {
-  const parts: string[] = []
-  const seen = new Set<string>()
-
-  const push = (raw?: string | null) => {
-    if (!raw?.trim()) return
-    for (const bit of raw.split(/[,|]/).map((s) => s.trim()).filter(Boolean)) {
-      const key = normalizeAddressToken(bit)
-      if (!key || seen.has(key)) continue
-      seen.add(key)
-      parts.push(bit)
-    }
-  }
-
-  push(order.shippingAddress)
-  push(order.shippingCity)
-  push(order.shippingDistrict)
-  const districtKey = normalizeAddressToken(order.shippingDistrict ?? '')
-  const division = order.shippingDivision?.trim() ?? ''
-  if (division && normalizeAddressToken(division) !== districtKey) push(division)
-  push(order.shippingPostal)
-
-  return parts.join(', ')
+  return formatCleanAddress(
+    order.shippingAddress,
+    order.shippingCity,
+    order.shippingDistrict,
+    order.shippingDivision,
+    order.shippingPostal,
+  )
 }
 
 function formatShippingCityArea(order: InvoiceOrder): string {
