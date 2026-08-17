@@ -3344,3 +3344,27 @@
   border-radius: 12px;
   aspect-ratio: 1 / 1.18;
 }
+
+/* Product-form jump rail: the tab list scrolls when it outgrows the width.
+   Without a fade the last tab is simply sliced mid-word and reads as broken
+   layout rather than "there is more"; the scrollbar itself is hidden because
+   macOS overlays it on top of the tab labels. */
+.dc-jump-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  mask-image: linear-gradient(to right, rgb(0 0 0) 0, rgb(0 0 0) calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, rgb(0 0 0) 0, rgb(0 0 0) calc(100% - 28px), transparent 100%);
+  scroll-padding-inline: 12px;
+}
+
+.dc-jump-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Nothing to fade once every tab fits. */
+@media (min-width: 1600px) {
+  .dc-jump-scroll {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+}

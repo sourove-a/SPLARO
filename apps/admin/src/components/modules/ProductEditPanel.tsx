@@ -51,6 +51,7 @@ import {
 import { generateAIProduct } from '@/lib/api/finance'
 import { fetchProductQR, fetchProductBarcode } from '@/lib/api/products'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
+import { BN_COPY, EN_COPY, scriptWarning } from '@/lib/admin/bilingual-copy'
 
 interface ProductEditPanelProps {
   productId: string
@@ -777,11 +778,23 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
                 gap: 12,
               }}
             >
-              <DcField label="Product name · English">
+              <DcField
+                label="Product name · English"
+                hint={scriptWarning(form.name, 'en') ?? undefined}
+                tone={scriptWarning(form.name, 'en') ? 'warn' : undefined}
+              >
                 <DcInput value={form.name} onChange={(e) => handleNameChange(e.target.value)} />
               </DcField>
-              <DcField label="Title · বাংলা">
-                <DcInput value={form.nameBn} onChange={(e) => set('nameBn', e.target.value)} />
+              <DcField
+                label={BN_COPY.titleLabel}
+                hint={scriptWarning(form.nameBn, 'bn') ?? BN_COPY.titleHint}
+                tone={scriptWarning(form.nameBn, 'bn') ? 'warn' : undefined}
+              >
+                <DcInput
+                  value={form.nameBn}
+                  placeholder={BN_COPY.titlePlaceholder}
+                  onChange={(e) => set('nameBn', e.target.value)}
+                />
               </DcField>
             </div>
             <DcField label="Handle" hint="Changing after publish breaks existing storefront links.">
@@ -815,20 +828,28 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
                 {!slugEdited ? <span style={{ paddingRight: 8 }}><DcPill>Auto</DcPill></span> : null}
               </div>
             </DcField>
-            <DcField label="Description · English">
+            <DcField
+              label={EN_COPY.descriptionLabel}
+              hint={scriptWarning(form.descriptionEn, 'en') ?? undefined}
+              tone={scriptWarning(form.descriptionEn, 'en') ? 'warn' : undefined}
+            >
               <DcTextarea
                 rows={4}
                 value={form.descriptionEn}
                 onChange={(e) => set('descriptionEn', e.target.value)}
-                placeholder="Premium English description…"
+                placeholder={EN_COPY.descriptionPlaceholder}
               />
             </DcField>
-            <DcField label="Description · বাংলা">
+            <DcField
+              label={BN_COPY.descriptionLabel}
+              hint={scriptWarning(form.descriptionBn, 'bn') ?? BN_COPY.descriptionHint}
+              tone={scriptWarning(form.descriptionBn, 'bn') ? 'warn' : undefined}
+            >
               <DcTextarea
                 rows={3}
                 value={form.descriptionBn}
                 onChange={(e) => set('descriptionBn', e.target.value)}
-                placeholder="বাংলায় সুন্দর বিবরণ…"
+                placeholder={BN_COPY.descriptionPlaceholder}
               />
               <button
                 type="button"
@@ -846,7 +867,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
                   marginTop: 4,
                 }}
               >
-                Polish Bangla
+                {BN_COPY.polishButton}
               </button>
             </DcField>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
@@ -861,7 +882,26 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
                   placeholder="—"
                 />
               </DcField>
-              <DcField label="Parent SKU">
+              {/* Issued by SPLARO, permanent — an edit here must never rewrite
+                  it, so it is displayed rather than edited. */}
+              <DcField label="Product Code" hint="Customer-facing · permanent">
+                <DcInput mono readOnly value={product?.productCode ?? '—'} />
+              </DcField>
+              <DcField label="Category Code" hint="Frozen into this product's SKUs">
+                <DcInput mono readOnly value={product?.skuCategoryCode ?? '—'} />
+              </DcField>
+              <DcField label="Style serial">
+                <DcInput
+                  mono
+                  readOnly
+                  value={
+                    product?.skuModelNumber
+                      ? String(product.skuModelNumber).padStart(4, '0')
+                      : '—'
+                  }
+                />
+              </DcField>
+              <DcField label="Parent SKU" hint="Legacy free-text field">
                 <DcInput mono value={form.sku} onChange={(e) => set('sku', e.target.value)} />
               </DcField>
               <DcField label="Barcode" hint="EAN / UPC — POS, Create Order, Packing scan this.">

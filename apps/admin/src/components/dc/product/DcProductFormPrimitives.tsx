@@ -114,22 +114,31 @@ export function DcSectionCard({
   )
 }
 
+const BENGALI_LABEL = /[ঀ-৿]/
+
 export function DcField({
   label,
   hint,
+  tone,
   children,
 }: {
   label: string
-  hint?: string
+  hint?: string | undefined
+  /** 'warn' tints the hint — used for advisory checks, never for hard errors. */
+  tone?: 'warn' | undefined
   children: ReactNode
 }) {
+  // Uppercasing and wide tracking are Latin typographic devices: Bengali has no
+  // case, and the extra letter-spacing pulls conjuncts apart. Bangla labels keep
+  // their natural form.
+  const bengali = BENGALI_LABEL.test(label)
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
       <span
         style={{
-          font: `600 10.5px/1 ${FONT}`,
-          letterSpacing: '.09em',
-          textTransform: 'uppercase',
+          font: `600 ${bengali ? '11.5px' : '10.5px'}/1.35 ${FONT}`,
+          letterSpacing: bengali ? 'normal' : '.09em',
+          textTransform: bengali ? 'none' : 'uppercase',
           color: 'var(--ink-3)',
         }}
       >
@@ -137,7 +146,14 @@ export function DcField({
       </span>
       {children}
       {hint ? (
-        <span style={{ font: `400 11px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>{hint}</span>
+        <span
+          style={{
+            font: `${tone === 'warn' ? 500 : 400} 11px/1.4 ${FONT}`,
+            color: tone === 'warn' ? 'var(--warn)' : 'var(--ink-3)',
+          }}
+        >
+          {hint}
+        </span>
       ) : null}
     </label>
   )
@@ -226,6 +242,7 @@ export function DcJumpRail({
       }}
     >
       <div
+        className="dc-jump-scroll"
         style={{
           flex: 1,
           minWidth: 0,
@@ -449,10 +466,11 @@ export function DcReadinessList({
   items,
   readyPct,
 }: {
-  items: Array<{ ok: boolean; label: string; sub: string }>
+  items: Array<{ ok: boolean; label: string; sub: string; jumpTo?: string }>
   readyPct: number
 }) {
   const fg = readyPct >= 100 ? 'var(--ok)' : 'var(--violet)'
+  const remaining = items.filter((r) => !r.ok).length
   return (
     <div style={card}>
       <div
@@ -464,23 +482,30 @@ export function DcReadinessList({
           gap: 9,
         }}
       >
-        <span style={{ flex: 1, font: `600 12.5px/1 ${FONT}`, color: 'var(--ink)' }}>Readiness</span>
+        <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ font: `600 12.5px/1 ${FONT}`, color: 'var(--ink)' }}>Readiness</span>
+          <span style={{ font: `400 10.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+            {remaining === 0
+              ? 'Everything needed to publish is in place'
+              : `${remaining} left — tap one to jump there`}
+          </span>
+        </span>
         <span style={{ font: `700 12px/1 ${MONO}`, color: fg }}>{Math.round(readyPct)}%</span>
       </div>
       <div style={{ height: 3, background: 'var(--surface-2)' }}>
-        <div style={{ height: '100%', width: `${readyPct}%`, background: fg }} />
+        <div
+          style={{
+            height: '100%',
+            width: `${readyPct}%`,
+            background: fg,
+            transition: 'width 320ms cubic-bezier(.16,1,.3,1)',
+          }}
+        />
       </div>
       {items.map((r) => (
-        <div
-          key={r.label}
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 9,
-            padding: '9px 14px',
-            borderBottom: '1px solid var(--line)',
-          }}
-        >
+        // An unfinished check is the fastest route to the field that is
+        // missing, so it acts as a link; a finished one is just a receipt.
+        <Row key={r.label} jumpTo={r.ok ? undefined : r.jumpTo}>
           <DcIcon
             name={r.ok ? 'icon-check' : 'icon-circle'}
             size={12}
@@ -498,9 +523,37 @@ export function DcReadinessList({
             </span>
             <span style={{ font: `400 10.5px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>{r.sub}</span>
           </span>
-        </div>
+          {!r.ok && r.jumpTo ? (
+            <DcIcon name="icon-chevron-right" size={12} color="var(--ink-3)" />
+          ) : null}
+        </Row>
       ))}
     </div>
+  )
+}
+
+/** Readiness row: a link when there is somewhere to go, otherwise a plain row. */
+function Row({
+  jumpTo,
+  children,
+}: {
+  jumpTo?: string | undefined
+  children: ReactNode
+}) {
+  const style: CSSProperties = {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 9,
+    padding: '9px 14px',
+    borderBottom: '1px solid var(--line)',
+    textDecoration: 'none',
+    color: 'inherit',
+  }
+  if (!jumpTo) return <div style={style}>{children}</div>
+  return (
+    <a href={`#${jumpTo}`} style={{ ...style, cursor: 'pointer' }} className="dc-hover-ink">
+      {children}
+    </a>
   )
 }
 

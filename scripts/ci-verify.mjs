@@ -136,6 +136,10 @@ run('pnpm', ['--filter', '@splaro/web', 'test:unit'], {
   label: 'Web unit tests',
   env: TEST_ENV,
 })
+run('pnpm', ['--filter', '@splaro/admin', 'test:unit'], {
+  label: 'Admin unit tests',
+  env: TEST_ENV,
+})
 
 run('node', ['scripts/ci-smoke-api.mjs'], { label: 'API smoke test' })
 

@@ -58,6 +58,7 @@ import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { generateAIProduct } from '@/lib/api/finance'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { fetchSkuIdentity, type SkuIdentity } from '@/lib/admin/variant-sku'
+import { BN_COPY, EN_COPY, scriptWarning } from '@/lib/admin/bilingual-copy'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 import {
   CreateVariantMatrix,
@@ -68,11 +69,6 @@ interface ProductCreatePanelProps {
   moduleHref: string
 }
 
-const DESCRIPTION_PLACEHOLDER_EN = 'Write your product story in English…'
-
-const DESCRIPTION_PLACEHOLDER_BN = 'বাংলায় বিবরণ লিখুন…'
-
-const DESCRIPTION_HINT_BN = 'কাপড়, ফিট, কখন পরবেন — সংক্ষেপে বাংলায় লিখুন।'
 
 /**
  * Size run for a category, or `''` for categories that genuinely have none
@@ -705,36 +701,43 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         ok: Boolean(departmentId && form.categoryId),
         label: 'Menu & category',
         sub: 'Storefront path must be set before publish',
+        jumpTo: 'np-menu',
       },
       {
         ok: Boolean(form.name.trim()),
         label: 'English title',
         sub: 'Drives the handle and SEO title',
+        jumpTo: 'np-basics',
       },
       {
         ok: form.imageUrls.length > 0,
         label: 'At least one photo',
         sub: 'First image becomes the card thumbnail',
+        jumpTo: 'np-media',
       },
       {
         ok: activeColors.some((c) => c.name.trim()),
         label: 'One colour named',
         sub: 'Colours carry hex + per-size stock',
+        jumpTo: 'np-colours',
       },
       {
         ok: sizeless || sizeList.length > 0,
         label: sizeless ? 'One size' : 'Size run',
         sub: sizeless ? 'This category has no size run' : 'Variants are colours × sizes',
+        jumpTo: 'np-matrix',
       },
       {
         ok: Number(form.basePrice) > 0,
         label: 'Selling price',
         sub: 'Regular price in BDT',
+        jumpTo: 'np-pricing',
       },
       {
         ok: hasDescriptionCopy,
         label: 'Description',
         sub: 'Or use AI / Draft copy',
+        jumpTo: 'np-basics',
       },
     ]
     const done = checks.filter((c) => c.ok).length
@@ -760,6 +763,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     { id: 'np-colours', label: 'Colours', done: activeColors.some((c) => c.name.trim()), active: activeJump === 'np-colours' },
     { id: 'np-matrix', label: 'Variants', done: variantCount > 0 && (sizeless || sizeList.length > 0), active: activeJump === 'np-matrix' },
     { id: 'np-pricing', label: 'Pricing', done: Number(form.basePrice) > 0, active: activeJump === 'np-pricing' },
+    { id: 'np-identifiers', label: 'Identifiers', done: Boolean(skuIdentity), active: activeJump === 'np-identifiers' },
     { id: 'np-inventory', label: 'Inventory', done: Boolean(form.sku.trim() || form.weight.trim()), active: activeJump === 'np-inventory' },
     { id: 'np-org', label: 'Organize', done: Boolean(form.collectionId || form.tags.trim()), active: activeJump === 'np-org' },
     { id: 'np-seo', label: 'SEO', done: Boolean(form.metaTitle.trim()), active: activeJump === 'np-seo' },
@@ -1013,19 +1017,32 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                 gap: 12,
               }}
             >
-              <DcField label="Title · English">
+              <DcField
+                label={EN_COPY.titleLabel}
+                hint={scriptWarning(form.name, 'en') ?? EN_COPY.titleHint}
+                tone={scriptWarning(form.name, 'en') ? 'warn' : undefined}
+              >
                 <DcInput
                   value={form.name}
+                  placeholder={EN_COPY.titlePlaceholder}
                   onChange={(e) => set('name', e.target.value)}
                   onBlur={() => {
-              if (!form.descriptionEn.trim() && !form.descriptionBn.trim() && form.name.trim()) {
-                applyDescriptionDraft(true)
-              }
-            }}
+                    if (!form.descriptionEn.trim() && !form.descriptionBn.trim() && form.name.trim()) {
+                      applyDescriptionDraft(true)
+                    }
+                  }}
                 />
               </DcField>
-              <DcField label="Title · বাংলা">
-                <DcInput value={form.nameBn} onChange={(e) => set('nameBn', e.target.value)} />
+              <DcField
+                label={BN_COPY.titleLabel}
+                hint={scriptWarning(form.nameBn, 'bn') ?? BN_COPY.titleHint}
+                tone={scriptWarning(form.nameBn, 'bn') ? 'warn' : undefined}
+              >
+                <DcInput
+                  value={form.nameBn}
+                  placeholder={BN_COPY.titlePlaceholder}
+                  onChange={(e) => set('nameBn', e.target.value)}
+                />
               </DcField>
             </div>
             <DcField
@@ -1062,22 +1079,30 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
           </div>
             </DcField>
             <DcField
-              label="Description · English"
-              hint={`${form.descriptionEn.length} characters · storefront truncates the card blurb at 140.`}
+              label={EN_COPY.descriptionLabel}
+              hint={
+                scriptWarning(form.descriptionEn, 'en') ??
+                `${form.descriptionEn.length} characters · storefront truncates the card blurb at 140.`
+              }
+              tone={scriptWarning(form.descriptionEn, 'en') ? 'warn' : undefined}
             >
               <DcTextarea
                 rows={5}
                 value={form.descriptionEn}
                 onChange={(e) => set('descriptionEn', e.target.value)}
-                placeholder={DESCRIPTION_PLACEHOLDER_EN}
+                placeholder={EN_COPY.descriptionPlaceholder}
               />
             </DcField>
-            <DcField label="Description · বাংলা" hint={DESCRIPTION_HINT_BN}>
+            <DcField
+              label={BN_COPY.descriptionLabel}
+              hint={scriptWarning(form.descriptionBn, 'bn') ?? BN_COPY.descriptionHint}
+              tone={scriptWarning(form.descriptionBn, 'bn') ? 'warn' : undefined}
+            >
               <DcTextarea
                 rows={4}
                 value={form.descriptionBn}
                 onChange={(e) => set('descriptionBn', e.target.value)}
-                placeholder={DESCRIPTION_PLACEHOLDER_BN}
+                placeholder={BN_COPY.descriptionPlaceholder}
               />
               <button
                 type="button"
@@ -1095,7 +1120,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                   marginTop: 4,
                 }}
               >
-                Polish Bangla
+                {BN_COPY.polishButton}
               </button>
             </DcField>
           </DcSectionCard>
@@ -1464,9 +1489,43 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             </div>
           </DcSectionCard>
 
+          {/* Read-only: SPLARO issues these, an operator never types them. Shown
+              so the codes on a label can be matched back to the product. */}
+          <DcSectionCard
+            id="np-identifiers"
+            num="06"
+            title="System identifiers"
+            hint="Generated automatically on save — Product Code is permanent."
+          >
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                gap: 12,
+              }}
+            >
+              <DcField label="Product Code" hint="Customer-facing · assigned on save">
+                <DcInput mono readOnly value="Assigned on save" />
+              </DcField>
+              <DcField label="Category Code" hint="Frozen into every variant SKU">
+                <DcInput mono readOnly value={skuIdentity?.categoryCode ?? '—'} />
+              </DcField>
+              <DcField
+                label="Style serial"
+                hint={skuIdentity && !skuIdentity.exact ? 'Confirmed on save' : 'This product'}
+              >
+                <DcInput
+                  mono
+                  readOnly
+                  value={skuIdentity ? String(skuIdentity.modelNumber).padStart(4, '0') : '—'}
+                />
+              </DcField>
+            </div>
+          </DcSectionCard>
+
           <DcSectionCard
             id="np-inventory"
-            num="06"
+            num="07"
             title="Inventory & shipping"
             hint="Weight drives courier rate — Steadfast bills per 500g slab."
           >
