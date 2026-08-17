@@ -16,6 +16,8 @@ export type InvoiceOrder = Order & {
 export interface InvoiceLineItem {
   productName: string
   sku: string
+  /** Parent Product Code, snapshotted on the order line. Blank on older orders. */
+  productCode: string
   size: string
   color: string
   quantity: number
@@ -176,6 +178,7 @@ export function buildInvoiceViewModel(input: {
     return {
       productName: item.productName,
       sku: item.sku?.trim() || '—',
+      productCode: item.productCode?.trim() || '',
       size,
       color,
       quantity,

@@ -18,7 +18,13 @@ import { Prisma } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
 import { CacheService } from '../../common/cache.service'
 import { ProductAdvancedService } from './product-advanced.service'
-import { VariantSkuService } from './variant-sku.service'
+import {
+  VariantSkuService,
+  buildIdentityCodes,
+  resolveColourSerials,
+  usesNumericIdentity,
+} from './variant-sku.service'
+import { issueProductCode, linkProductCode, ensureProductCode } from './product-code.service'
 import { BarcodeSequenceService } from './barcode-sequence.service'
 import { MediaService } from '../media/media.service'
 import { SearchService } from '../search/search.service'
@@ -32,7 +38,11 @@ import { revalidateStorefrontWeb } from '../../common/revalidate-web'
 import { mergeStorefrontConfig } from '../settings/storefront-config'
 import { CreateAdminProductDto, AdminProductPatchDto } from '../../common/dtos/admin-products.dto'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
-import { categoryCode, resolveCustomerFacingSiteUrl, toStoredMediaUrl } from '@splaro/config'
+import {
+  categoryCode,
+  resolveCustomerFacingSiteUrl,
+  toStoredMediaUrl,
+} from '@splaro/config'
 import {
   CATALOG_BULK_MAX_ROWS,
   loadCatalogExportRows,
@@ -165,11 +175,23 @@ export class ProductsController {
   /**
    * Give every variant its final SKU and internal barcode.
    *
-   * The admin panel sends a live SKU preview, but the stored value is always
-   * rebuilt here from the product's own identity — a stale or edited preview
-   * must never decide what lands in the database. A SKU typed by hand is kept
-   * (normalized + uniqueness-checked); a blank one is generated. Barcodes come
-   * from the atomic counter in one batch, so a 6-variant matrix takes one lock.
+   *   Category Code  410            frozen when the product was created
+   *   Style serial   0123           this product's serial inside that category
+   *   Colour serial  01             stored on the variant, never recomputed
+   *   Variant SKU    410-0123-01-42
+   *   Barcode        4100123010184  the same identity, in digits
+   *
+   * The Product Code is deliberately not part of this: it names the product a
+   * shopper sees, while this names the physical thing in a bin, on a packing
+   * slip and in a return.
+   *
+   * Nothing here is typed by an operator. The admin panel sends a preview for
+   * display only — it is built before the save and is stale by definition, so
+   * the stored value is always rebuilt from the product's own identity. A SKU
+   * the operator did deliberately type is kept, normalized and checked.
+   *
+   * Products created before this scheme keep their SPL-{CAT}-{MODEL} codes and
+   * counter-issued barcodes: those labels are already printed.
    */
   private async assignVariantCodes<
     T extends {
@@ -178,34 +200,79 @@ export class ProductsController {
       colorName?: string | null
       sku?: string | null
       barcode?: string | null
+      colorSerial?: number | null
     },
   >(
     tx: Prisma.TransactionClient,
     identity: { categoryCode: string; modelNumber: number },
     variants: T[],
+    codes?: { productId?: string | null },
   ): Promise<T[]> {
     if (!variants.length) return variants
 
+    const numericCategory = usesNumericIdentity(identity)
     const manualSkus = variants.map((variant) => this.variantSku.normalizeManual(variant.sku))
-    const needsBarcode = variants.filter((variant) => !variant.barcode?.trim()).length
-    const minted = await this.barcodes.nextBatch(tx, needsBarcode)
+    const serials = numericCategory
+      ? await resolveColourSerials(
+          tx,
+          codes?.productId ?? null,
+          variants.map((variant) => variant.colorName ?? variant.color ?? null),
+        )
+      : null
+
+    // Legacy products still draw from the standalone barcode counter; the new
+    // scheme derives the barcode, so nothing is consumed for them.
+    const needsCounterBarcode = numericCategory
+      ? 0
+      : variants.filter((variant) => !variant.barcode?.trim()).length
+    const minted = await this.barcodes.nextBatch(tx, needsCounterBarcode)
     let mintedIndex = 0
 
     const out: T[] = []
     for (const [index, variant] of variants.entries()) {
       const manual = manualSkus[index]
+      const colourKey = ((variant.colorName ?? variant.color) ?? '').trim().toLowerCase() || '\u2014'
+      const serial = serials?.get(colourKey) ?? 1
+      const generated = buildIdentityCodes(
+        identity,
+        { ...variant, colourSerial: serial },
+        numericCategory ? null : (minted[mintedIndex++] ?? null),
+      )
+
       let sku: string
       if (manual) {
         await this.variantSku.assertAvailable(tx, manual)
         sku = manual
       } else {
-        sku = await this.variantSku.uniqueGenerated(tx, this.variantSku.build(identity, variant))
+        sku = await this.variantSku.uniqueGenerated(tx, generated.sku)
       }
 
-      const barcode = variant.barcode?.trim() || minted[mintedIndex++]!
-      out.push({ ...variant, sku, barcode })
+      out.push({
+        ...variant,
+        sku,
+        barcode: variant.barcode?.trim() || generated.barcode,
+        ...(generated.colorSerial != null ? { colorSerial: generated.colorSerial } : {}),
+      })
     }
     return out
+  }
+
+  /** Match a product by name, Product Code, parent SKU, variant SKU or barcode. */
+  private buildProductSearchFilters(term: string): Prisma.ProductWhereInput[] {
+    const text = term.trim()
+    const digits = text.replace(/\D/g, '')
+    const filters: Prisma.ProductWhereInput[] = [
+      { name: { contains: text, mode: 'insensitive' } },
+      { sku: { contains: text, mode: 'insensitive' } },
+      { variants: { some: { sku: { contains: text, mode: 'insensitive' } } } },
+    ]
+    if (digits.length >= 3) {
+      filters.push(
+        { productCode: { contains: digits } },
+        { variants: { some: { barcode: { contains: digits } } } },
+      )
+    }
+    return filters
   }
 
   private async bustProductCache(storeId: string): Promise<void> {
@@ -238,7 +305,12 @@ export class ProductsController {
     const where = {
       storeId: sid,
       ...(status === 'published' ? { isPublished: true } : status === 'draft' ? { isPublished: false } : {}),
-      ...(search ? { name: { contains: search, mode: 'insensitive' as const } } : {}),
+      // Support types whatever is in front of them: the Product Code a customer
+      // read out, a variant SKU or a scanned barcode off a packing slip, or
+      // just the product name. The digit-only branches are added only when the
+      // query actually contains digits — Postgres rejects a NUL sentinel, and
+      // an empty `contains` would match every row.
+      ...(search ? { OR: this.buildProductSearchFilters(search) } : {}),
     }
 
     const [products, total] = await Promise.all([
@@ -502,11 +574,13 @@ export class ProductsController {
       }
     }
 
-    const categoryLabel = categoryId
-      ? await this.prisma.category
-          .findUnique({ where: { id: categoryId }, select: { name: true, slug: true } })
-          .then((row) => [row?.name, row?.slug].filter(Boolean).join(' '))
-      : ''
+    const categoryRow = categoryId
+      ? await this.prisma.category.findUnique({
+          where: { id: categoryId },
+          select: { name: true, slug: true, code: true },
+        })
+      : null
+    const categoryLabel = [categoryRow?.name, categoryRow?.slug].filter(Boolean).join(' ')
 
     const product = await this.prisma.$transaction(async (tx) => {
       // Allocate the product's SPL-{CAT}-{MODEL} identity first so every variant
@@ -514,14 +588,22 @@ export class ProductsController {
       const identity = await this.variantSku.allocateIdentity(tx, {
         storeId: sid,
         categoryLabel,
+        categoryCodeOverride: categoryRow?.code ?? null,
       })
-      const codedVariants = await this.assignVariantCodes(tx, identity, variants)
+      // The permanent customer-facing code. Issued through the ledger inside
+      // this transaction, so a concurrent create cannot land on the same number
+      // and a rollback here does not leave the product without one.
+      const productCode = await issueProductCode(tx, { storeId: sid })
+      const codedVariants = await this.assignVariantCodes(tx, identity, variants, {
+        productId: null,
+      })
 
       const created = await tx.product.create({
         data: {
         storeId: sid,
         name: body.name,
         slug,
+        productCode,
         skuCategoryCode: identity.categoryCode,
         skuModelNumber: identity.modelNumber,
         description: body.description,
@@ -584,6 +666,9 @@ export class ProductsController {
           data: { collectionId: body.collectionId, productId: created.id },
         })
       }
+      // Point the ledger row at the product it belongs to. The code was already
+      // reserved above; this only records the owner for later audits.
+      await linkProductCode(tx, productCode, created.id)
       return created
     })
 
@@ -620,7 +705,7 @@ export class ProductsController {
         select: {
           skuCategoryCode: true,
           skuModelNumber: true,
-          category: { select: { name: true, slug: true } },
+          category: { select: { name: true, slug: true, code: true } },
         },
       })
       if (product?.skuCategoryCode && product.skuModelNumber) {
@@ -631,9 +716,9 @@ export class ProductsController {
         }
       }
       if (product) {
-        const code = categoryCode(
-          [product.category?.name, product.category?.slug].filter(Boolean).join(' '),
-        )
+        const code =
+          product.category?.code ??
+          categoryCode([product.category?.name, product.category?.slug].filter(Boolean).join(' '))
         return { categoryCode: code, modelNumber: await this.peekModel(sid, code), exact: false }
       }
     }
@@ -641,10 +726,13 @@ export class ProductsController {
     const category = categoryId?.trim()
       ? await this.prisma.category.findFirst({
           where: { id: categoryId.trim(), storeId: sid },
-          select: { name: true, slug: true },
+          select: { name: true, slug: true, code: true },
         })
       : null
-    const code = categoryCode([category?.name, category?.slug].filter(Boolean).join(' '))
+    // The category's permanent numeric code drives the preview, exactly as it
+    // drives the SKU the server will mint on save.
+    const code =
+      category?.code ?? categoryCode([category?.name, category?.slug].filter(Boolean).join(' '))
     return { categoryCode: code, modelNumber: await this.peekModel(sid, code), exact: false }
   }
 
@@ -915,15 +1003,28 @@ export class ProductsController {
         productId,
         storeId: product.storeId,
       })
-      const [coded] = await this.assignVariantCodes(tx, identity, [
-        {
-          size,
-          color,
-          colorName,
-          sku: body.sku ?? null,
-          barcode: body.barcode ?? null,
-        },
-      ])
+      // A product created before Product Codes existed gets one here rather
+      // than a second colour in the old scheme — the codes it already printed
+      // keep working either way, because existing variant SKUs are untouched.
+      const { code: productCode } = await ensureProductCode(tx, {
+        productId,
+        storeId: product.storeId,
+      })
+      const [coded] = await this.assignVariantCodes(
+        tx,
+        identity,
+        [
+          {
+            size,
+            color,
+            colorName,
+            sku: body.sku ?? null,
+            barcode: body.barcode ?? null,
+            colorSerial: null as number | null,
+          },
+        ],
+        { productId },
+      )
 
       return tx.productVariant.create({
         data: {
@@ -935,6 +1036,7 @@ export class ProductsController {
           image: body.image?.trim() || null,
           sku: coded!.sku,
           barcode: coded!.barcode,
+          colorSerial: coded!.colorSerial ?? null,
           price: body.price,
           compareAtPrice: body.compareAtPrice ?? null,
           stock,
@@ -1166,6 +1268,11 @@ export class ProductsController {
       await tx.review.deleteMany({ where: { productId: id } })
       await tx.aIJob.deleteMany({ where: { productId: id } })
       await tx.product.delete({ where: { id } })
+      // The ledger row stays — that is what stops this Product Code from being
+      // handed to a different product later — but it no longer points anywhere.
+      await tx.$executeRaw`
+        UPDATE "IssuedProductCode" SET "productId" = NULL WHERE "productId" = ${id}
+      `
     })
 
     if (this.search) fireAndForget(this.search.deleteFromIndex(id), 'search.deleteFromIndex')

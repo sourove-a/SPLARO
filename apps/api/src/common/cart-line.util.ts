@@ -30,6 +30,8 @@ type CheckoutVariantRow = {
   product: {
     basePrice: { toString(): string }
     inventoryPolicy: 'DENY' | 'CONTINUE' | 'PREORDER'
+    /** Snapshotted onto the order line so an old invoice keeps reading right. */
+    productCode: string | null
   }
 }
 
@@ -48,7 +50,7 @@ export interface CheckoutLineInput {
 }
 
 const checkoutVariantInclude = {
-  product: { select: { basePrice: true, inventoryPolicy: true } },
+  product: { select: { basePrice: true, inventoryPolicy: true, productCode: true } },
 } as const
 
 function matchVariantBySizeColor(

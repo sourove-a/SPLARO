@@ -6,6 +6,7 @@ import { seedDefaultCategoryTree } from '../../common/category-seed.util'
 import { resolveStoreId, slugify } from '../../common/store.util'
 import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
 import { refreshCategoryCatalogAfterMutation } from '../products/product-catalog-refresh.util'
+import { issueCategoryCode } from '../products/category-code.service'
 
 @Controller('admin/categories')
 export class CategoriesController {
@@ -72,17 +73,38 @@ export class CategoriesController {
           _max: { sortOrder: true },
         })
 
-    const category = await this.prisma.category.create({
-      data: {
+    const parentLabels = body.parentId
+      ? await this.prisma.category
+          .findUnique({ where: { id: body.parentId }, select: { name: true, slug: true } })
+          .then((row) => [row?.name, row?.slug])
+      : []
+
+    // The operator names the category; SPLARO assigns its permanent number.
+    // Allocated in the same transaction as the row so a failure cannot leave a
+    // category without a code or burn a number on a category that never existed.
+    const category = await this.prisma.$transaction(async (tx) => {
+      const code = await issueCategoryCode(tx, {
         storeId: sid,
-        name: body.name,
-        slug,
-        description: body.description,
-        parentId: body.parentId,
-        image: body.image,
-        sortOrder: body.sortOrder ?? (maxSort._max.sortOrder ?? 0) + 1,
-      },
-      include: { _count: { select: { products: true } } },
+        labels: [body.name, slug],
+        department: parentLabels,
+      })
+      const created = await tx.category.create({
+        data: {
+          storeId: sid,
+          name: body.name,
+          slug,
+          code,
+          description: body.description,
+          parentId: body.parentId,
+          image: body.image,
+          sortOrder: body.sortOrder ?? (maxSort._max.sortOrder ?? 0) + 1,
+        },
+        include: { _count: { select: { products: true } } },
+      })
+      await tx.$executeRaw`
+        UPDATE "IssuedCategoryCode" SET "categoryId" = ${created.id} WHERE "code" = ${code}
+      `
+      return created
     })
     await refreshCategoryCatalogAfterMutation(this.cache, sid)
     return category
@@ -137,6 +159,11 @@ export class CategoriesController {
       throw new BadRequestException('Move or delete products in this category first.')
     }
     await this.prisma.category.delete({ where: { id } })
+    // The ledger row stays: SKUs issued under this code are still in orders and
+    // on labels, so the number must never be handed to another category.
+    await this.prisma.$executeRaw`
+      UPDATE "IssuedCategoryCode" SET "categoryId" = NULL WHERE "categoryId" = ${id}
+    `
     await refreshCategoryCatalogAfterMutation(this.cache, sid)
     return { success: true }
   }

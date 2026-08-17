@@ -136,10 +136,15 @@ export function InvoiceItemsTable({ model }: Pick<InvoiceDocumentProps, 'model'>
   const rows = model.items
     .map((item) => {
       const variant = itemVariant(item)
-      const sku =
-        item.sku && item.sku !== '—'
-          ? `<small class="invoice-item__sku">SKU ${escapeHtml(item.sku)}</small>`
-          : ''
+      // Product Code is what a customer quotes when they call; the variant SKU
+      // is what the warehouse pulls. Both belong on the line, code first.
+      const codeParts = [
+        item.productCode ? `Code ${escapeHtml(item.productCode)}` : '',
+        item.sku && item.sku !== '—' ? `SKU ${escapeHtml(item.sku)}` : '',
+      ].filter(Boolean)
+      const sku = codeParts.length
+        ? `<small class="invoice-item__sku">${codeParts.join(' · ')}</small>`
+        : ''
       return `
         <tr>
           <td class="invoice-item">

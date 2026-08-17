@@ -477,6 +477,7 @@ export class StorefrontOrdersService {
                       productName: item.name,
                       variantName: [item.size, item.color].filter(Boolean).join(' / ') || null,
                       sku: variant.sku ?? null,
+                      productCode: variant.product.productCode ?? null,
                       image: toStoredMediaUrl(variant.image) || toStoredMediaUrl(item.image) || null,
                       price: unitPrice,
                       quantity: item.quantity,

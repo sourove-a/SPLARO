@@ -27,7 +27,10 @@ function buildController(
   ) as Record<(typeof BLOCKING_TABLES)[number], { deleteMany: jest.Mock }>
 
   const productDelete = jest.fn().mockResolvedValue({ id: product?.id })
-  const tx = { ...deletes, product: { delete: productDelete } }
+  // The handler also releases the product's ledger row (keeping the code
+  // reserved, clearing the owner), which is a raw statement.
+  const executeRaw = jest.fn().mockResolvedValue(1)
+  const tx = { ...deletes, product: { delete: productDelete }, $executeRaw: executeRaw }
 
   const prisma = {
     product: { findUnique: jest.fn().mockResolvedValue(product) },

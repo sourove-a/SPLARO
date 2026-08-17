@@ -173,6 +173,7 @@ export class PosService {
       name: string
       variantLabel: string
       sku: string | null
+      productCode: string | null
       image: string | null
       price: number
       quantity: number
@@ -209,6 +210,7 @@ export class PosService {
         name: variant.product.name,
         variantLabel: [variant.colorName ?? variant.color, variant.size].filter(Boolean).join(' · '),
         sku: variant.sku,
+        productCode: variant.product.productCode,
         image: variant.image ?? variant.product.images[0]?.url ?? null,
         price,
         quantity: item.quantity,
@@ -287,6 +289,9 @@ export class PosService {
                   productName: item.name,
                   variantName: item.variantLabel || null,
                   sku: item.sku,
+                  // Same snapshot the storefront takes — a counter sale must be
+                  // as traceable as a web order.
+                  productCode: item.productCode,
                   image: item.image,
                   price: item.price,
                   quantity: item.quantity,

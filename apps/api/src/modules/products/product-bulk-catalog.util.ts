@@ -5,7 +5,11 @@ import { productHexOrDefault } from '../../common/color-hex.util'
 import type { PrismaService } from '../../common/prisma.service'
 import { slugify } from '../../common/store.util'
 import { reserveBarcodes } from './barcode-sequence.service'
+import { ensureProductCode, issueProductCode } from './product-code.service'
 import {
+  buildIdentityCodes,
+  resolveColourSerials,
+  usesNumericIdentity,
   allocateProductIdentity,
   buildSkuForVariant,
   ensureProductSkuIdentity,
@@ -624,14 +628,19 @@ export async function upsertCatalogRow(
           productId: product.id,
           storeId,
         })
-        const generatedSku = variantSku
-          ? await uniqueGeneratedSku(prisma, variantSku)
-          : await uniqueGeneratedSku(
-              prisma,
-              buildSkuForVariant(identity, { size, colorName }),
-            )
+        // A product imported before Product Codes existed gets one now, and the
+        // colour keeps whatever serial it already holds on this product.
+        await ensureProductCode(prisma, { productId: product.id, storeId })
+        const serials = await resolveColourSerials(prisma, product.id, [colorName])
+        const serial = serials.get((colorName ?? '').trim().toLowerCase() || '\u2014') ?? 1
+        const addedCodes = buildIdentityCodes(
+          identity,
+          { size, colorName, colourSerial: serial },
+          usesNumericIdentity(identity) ? null : ((await reserveBarcodes(prisma, 1))[0] ?? null),
+        )
+        const generatedSku = await uniqueGeneratedSku(prisma, variantSku || addedCodes.sku)
         const importedBarcode = row.barcode?.trim()
-        const [mintedBarcode] = importedBarcode ? [importedBarcode] : await reserveBarcodes(prisma, 1)
+        const mintedBarcode = importedBarcode || addedCodes.barcode
         const createdVariant = await prisma.productVariant.create({
           data: {
             productId: product.id,
@@ -641,6 +650,7 @@ export async function upsertCatalogRow(
             colorHex,
             sku: generatedSku,
             barcode: mintedBarcode ?? null,
+            colorSerial: addedCodes.colorSerial,
             price,
             compareAtPrice: row.compareAtPrice ?? null,
             stock: stock ?? 0,
@@ -680,20 +690,29 @@ export async function upsertCatalogRow(
 
     const wantPublish = row.published === true
     const canPublish = Boolean(categoryId) && basePrice > 0
-    // Allocate the SPL-{CAT}-{MODEL} identity before the insert so the first
-    // variant carries its final code, exactly as the admin create path does.
+    // Same canonical identity the admin panel allocates — the importer must not
+    // become a second code path. Category Code and style serial first, then the
+    // customer-facing Product Code, then the variant's own codes.
+    const importCategory = categoryId
+      ? await prisma.category.findUnique({
+          where: { id: categoryId },
+          select: { code: true, name: true, slug: true },
+        })
+      : null
     const identity = await allocateProductIdentity(prisma, {
       storeId,
       categoryLabel: row.category?.trim() ?? '',
+      categoryCodeOverride: importCategory?.code ?? null,
     })
-    const variantSkuFinal = await uniqueGeneratedSku(
-      prisma,
-      variantSku || buildSkuForVariant(identity, { size, colorName }),
+    const importedProductCode = await issueProductCode(prisma, { storeId })
+    const importedCodes = buildIdentityCodes(
+      identity,
+      { size, colorName, colourSerial: 1 },
+      usesNumericIdentity(identity) ? null : ((await reserveBarcodes(prisma, 1))[0] ?? null),
     )
+    const variantSkuFinal = await uniqueGeneratedSku(prisma, variantSku || importedCodes.sku)
     const importedBarcode = row.barcode?.trim()
-    const [newVariantBarcode] = importedBarcode
-      ? [importedBarcode]
-      : await reserveBarcodes(prisma, 1)
+    const newVariantBarcode = importedBarcode || importedCodes.barcode
     const schemaMarkup = mergeSchemaMarkup(null, {
       ...(row.nameBn !== undefined ? { nameBn: row.nameBn } : {}),
       ...(row.descriptionBn !== undefined ? { descriptionBn: row.descriptionBn } : {}),
@@ -712,6 +731,7 @@ export async function upsertCatalogRow(
           row.compareAtPrice != null && Number(row.compareAtPrice) > Number(basePrice),
         costPrice: row.costPrice,
         sku: productSku,
+        productCode: importedProductCode,
         skuCategoryCode: identity.categoryCode,
         skuModelNumber: identity.modelNumber,
         categoryId,
@@ -751,6 +771,7 @@ export async function upsertCatalogRow(
               colorHex,
               sku: variantSkuFinal,
               barcode: newVariantBarcode ?? null,
+              colorSerial: importedCodes.colorSerial,
               price: price ?? basePrice,
               compareAtPrice: row.compareAtPrice ?? null,
               stock: stock ?? 0,

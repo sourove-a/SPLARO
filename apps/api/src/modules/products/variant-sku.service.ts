@@ -1,8 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common'
 import type { Prisma } from '@prisma/client'
 import {
+  buildVariantIdentityBarcode,
+  buildVariantIdentitySku,
   buildVariantSku,
   categoryCode,
+  isValidCategoryCode,
   isValidSku,
   normalizeSku,
 } from '@splaro/config'
@@ -66,12 +69,20 @@ async function nextModelNumber(
   return Number(after - 1n)
 }
 
-/** Allocate a fresh SPL-{CAT}-{MODEL} identity for a product being created. */
+/**
+ * Allocate a fresh {categoryCode}-{styleSerial} identity for a new product.
+ *
+ * `categoryCodeOverride` is the category's permanent numeric code (410). It is
+ * frozen onto the product here: moving the product to another storefront
+ * category later must not rewrite SKUs that are already printed on labels and
+ * referenced by orders. Only products created before category codes existed
+ * fall back to the old three-letter code.
+ */
 export async function allocateProductIdentity(
   tx: Prisma.TransactionClient,
-  input: { storeId: string; categoryLabel?: string | null },
+  input: { storeId: string; categoryLabel?: string | null; categoryCodeOverride?: string | null },
 ): Promise<ProductSkuIdentity> {
-  const code = categoryCode(input.categoryLabel ?? '')
+  const code = input.categoryCodeOverride?.trim() || categoryCode(input.categoryLabel ?? '')
   return { categoryCode: code, modelNumber: await nextModelNumber(tx, input.storeId, code) }
 }
 
@@ -85,7 +96,7 @@ export async function ensureProductSkuIdentity(
     select: {
       skuCategoryCode: true,
       skuModelNumber: true,
-      category: { select: { name: true, slug: true } },
+      category: { select: { name: true, slug: true, code: true } },
     },
   })
   if (!product) throw new BadRequestException('Product not found')
@@ -101,6 +112,7 @@ export async function ensureProductSkuIdentity(
   const identity = await allocateProductIdentity(tx, {
     storeId: input.storeId,
     categoryLabel: label,
+    categoryCodeOverride: product.category?.code ?? null,
   })
 
   await tx.product.update({
@@ -112,6 +124,86 @@ export async function ensureProductSkuIdentity(
   })
 
   return identity
+}
+
+/**
+ * Colour serials already issued on a product, plus a number for each colour
+ * that does not have one yet.
+ *
+ * Serials are read from the stored `colorSerial` column, never re-derived from
+ * the SKU: a colour keeps its number for the product's life, so renaming
+ * "Silver" to "Metallic Silver" cannot renumber a variant whose SKU is printed
+ * on a label and sitting in an order.
+ *
+ * Shared by the admin panel and the CSV importer so there is exactly one rule.
+ */
+export async function resolveColourSerials(
+  tx: Prisma.TransactionClient,
+  productId: string | null,
+  colours: (string | null)[],
+): Promise<Map<string, number>> {
+  const key = (colour: string | null) => (colour ?? '').trim().toLowerCase() || '\u2014'
+  const serials = new Map<string, number>()
+  let highest = 0
+
+  if (productId) {
+    const existing = await tx.productVariant.findMany({
+      where: { productId },
+      select: { colorSerial: true, colorName: true, color: true },
+    })
+    for (const variant of existing) {
+      const serial = variant.colorSerial
+      if (!serial || serial <= 0) continue
+      serials.set(key(variant.colorName ?? variant.color), serial)
+      highest = Math.max(highest, serial)
+    }
+  }
+
+  for (const colour of colours) {
+    const k = key(colour)
+    if (serials.has(k)) continue
+    highest += 1
+    serials.set(k, highest)
+  }
+  return serials
+}
+
+/** True when this identity was issued under the numeric Category Code scheme. */
+export function usesNumericIdentity(identity: ProductSkuIdentity): boolean {
+  return isValidCategoryCode(identity.categoryCode)
+}
+
+/**
+ * The final codes for one variant: {category}-{style}-{colour}-{size} and the
+ * matching 13-digit internal barcode.
+ *
+ * Legacy products — created before category codes existed — keep the old
+ * SPL-{CAT}-{MODEL} SKU and a counter-issued barcode, because those labels are
+ * already printed. `legacyBarcode` supplies that counter value.
+ */
+export function buildIdentityCodes(
+  identity: ProductSkuIdentity,
+  input: { size?: string | null; colourSerial: number; colorName?: string | null; color?: string | null },
+  legacyBarcode?: string | null,
+): { sku: string; barcode: string | null; colorSerial: number | null } {
+  if (!usesNumericIdentity(identity)) {
+    return {
+      sku: buildSkuForVariant(identity, input),
+      barcode: legacyBarcode ?? null,
+      colorSerial: null,
+    }
+  }
+  const parts = {
+    categoryCode: identity.categoryCode,
+    styleSerial: identity.modelNumber,
+    colourSerial: input.colourSerial,
+    size: input.size ?? null,
+  }
+  return {
+    sku: buildVariantIdentitySku(parts),
+    barcode: buildVariantIdentityBarcode(parts),
+    colorSerial: input.colourSerial,
+  }
 }
 
 /** Canonical SKU for one variant of a product with this identity. */
@@ -169,7 +261,7 @@ export class VariantSkuService {
 
   async allocateIdentity(
     tx: Prisma.TransactionClient,
-    input: { storeId: string; categoryLabel?: string | null },
+    input: { storeId: string; categoryLabel?: string | null; categoryCodeOverride?: string | null },
   ): Promise<ProductSkuIdentity> {
     return allocateProductIdentity(tx, input)
   }

@@ -14,7 +14,13 @@ import {
 type LabelOrder = Order & {
   items: (OrderItem & {
     variant?: ProductVariant | null
-    product?: { name: string; sku?: string | null; barcode?: string | null; images?: { url: string }[] } | null
+    product?: {
+      name: string
+      sku?: string | null
+      productCode?: string | null
+      barcode?: string | null
+      images?: { url: string }[]
+    } | null
   })[]
   courier: CourierShipment | null
 }
@@ -22,6 +28,7 @@ type LabelOrder = Order & {
 const productStationSelect = {
   name: true,
   sku: true,
+  productCode: true,
   barcode: true,
   images: { where: { isDefault: true }, take: 1, select: { url: true } },
 } as const
@@ -30,6 +37,8 @@ export interface FulfillmentStationItem {
   id: string
   name: string
   sku: string
+  /** Parent Product Code — what a customer quotes when they call about an order. */
+  productCode: string | null
   barcode: string | null
   size: string
   color: string
@@ -278,6 +287,9 @@ export class FulfillmentService {
         id: item.id || `line-${items.length}`,
         name: item.productName || item.product?.name || 'Item',
         sku: item.sku?.trim() || item.variant?.sku?.trim() || item.product?.sku?.trim() || '—',
+        // Order snapshot first: a product edited after the sale must not change
+        // what the packer reads against the customer's invoice.
+        productCode: item.productCode?.trim() || item.product?.productCode?.trim() || null,
         barcode: item.variant?.barcode?.trim() || item.product?.barcode?.trim() || null,
         size,
         color,
