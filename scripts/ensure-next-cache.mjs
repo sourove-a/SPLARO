@@ -36,11 +36,30 @@ function refuseFreshPurgeWithLiveNextDev() {
 }
 
 function ensureNextTypesStub(appDir) {
-  const typesDir = resolve(ROOT, appDir, '.next/types')
+  const nextDir = resolve(ROOT, appDir, '.next')
+  const typesDir = resolve(nextDir, 'types')
   const validatorFile = resolve(typesDir, 'validator.ts')
-  if (!existsSync(validatorFile)) {
+  const routesManifestFile = resolve(nextDir, 'routes-manifest.json')
+  if (!existsSync(typesDir)) {
     mkdirSync(typesDir, { recursive: true })
+  }
+  if (!existsSync(validatorFile)) {
     writeFileSync(validatorFile, '// Next.js auto-generated type stub\nexport {}\n', 'utf8')
+  }
+  if (!existsSync(routesManifestFile)) {
+    const manifestStub = {
+      version: 3,
+      pages404: true,
+      caseSensitive: false,
+      basePath: '',
+      redirects: [],
+      headers: [],
+      dynamicRoutes: [],
+      staticRoutes: [],
+      dataRoutes: [],
+      rsc: { header: 'rsc', varyHeader: 'rsc, ?1' },
+    }
+    writeFileSync(routesManifestFile, JSON.stringify(manifestStub, null, 2), 'utf8')
   }
 }
 

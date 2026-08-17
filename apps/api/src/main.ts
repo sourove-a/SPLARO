@@ -11,7 +11,7 @@ async function listenWithRetry(
   app: Awaited<ReturnType<typeof NestFactory.create>>,
   port: number | string,
   logger: Logger,
-  attempts = 12,
+  attempts = 25,
 ) {
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
@@ -23,8 +23,8 @@ async function listenWithRetry(
           ? String((err as { code?: string }).code)
           : ''
       if (code !== 'EADDRINUSE' || attempt === attempts) throw err
-      logger.warn(`Port ${port} busy — retry ${attempt}/${attempts - 1}…`)
-      await new Promise((resolve) => setTimeout(resolve, 350))
+      logger.warn(`Port ${port} busy — waiting for previous instance to release socket (retry ${attempt}/${attempts - 1})…`)
+      await new Promise((resolve) => setTimeout(resolve, 500))
     }
   }
 }
