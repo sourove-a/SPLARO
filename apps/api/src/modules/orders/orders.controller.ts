@@ -16,6 +16,7 @@ import { AdminTelegramHubService } from '../notifications/admin-telegram-hub.ser
 import { FinanceAuditService } from '../../common/finance-audit.service'
 import { resolveStoreId } from '../../common/store.util'
 import { resolveAdminPagination } from '../../common/admin-pagination.util'
+import { orderSearchFilters } from '../../common/identifier-search.util'
 import {
   BookCourierDto,
   BulkBookCourierDto,
@@ -26,7 +27,7 @@ import {
   UpdateOrderPaymentDto,
   UpdateOrderStatusDto,
 } from '../../common/dtos/admin-orders.dto'
-import type { OrderStatus, Prisma } from '@prisma/client'
+import type { OrderStatus, PaymentMethod, Prisma } from '@prisma/client'
 import { resolvePublicSiteUrl } from '@splaro/config'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
@@ -59,6 +60,26 @@ function parseOrderStatusFilter(
   if (parts.length === 0) return undefined
   if (parts.length === 1) return parts[0]
   return { in: parts }
+}
+
+const VALID_PAYMENT_METHODS = new Set<string>([
+  'CASH_ON_DELIVERY',
+  'BKASH',
+  'NAGAD',
+  'SSLCOMMERZ',
+  'CARD',
+  'BANK_TRANSFER',
+])
+
+/**
+ * The value arrives from a URL the operator can edit, and `paymentMethod` is a
+ * Prisma enum — an unrecognised string has to be dropped rather than passed
+ * through, or the query throws instead of simply not filtering.
+ */
+function parsePaymentMethodFilter(method?: string): PaymentMethod | undefined {
+  const value = method?.trim().toUpperCase()
+  if (!value || !VALID_PAYMENT_METHODS.has(value)) return undefined
+  return value as PaymentMethod
 }
 
 @Controller('admin/orders')
@@ -94,6 +115,24 @@ export class OrdersController {
     return order.id
   }
 
+  /**
+   * Sort keys the list accepts. Anything else falls back to newest-first —
+   * the value arrives from a URL an operator can edit, so an unknown key must
+   * not reach Prisma as a column name.
+   */
+  private orderListSort(sort?: string): Prisma.OrderOrderByWithRelationInput {
+    switch (sort) {
+      case 'oldest':
+        return { createdAt: 'asc' }
+      case 'total-desc':
+        return { total: 'desc' }
+      case 'total-asc':
+        return { total: 'asc' }
+      default:
+        return { createdAt: 'desc' }
+    }
+  }
+
   @Get()
   async list(
     @Query('storeId') storeId: string,
@@ -101,6 +140,8 @@ export class OrdersController {
     @Query('page') page = 1,
     @Query('limit') limit = 20,
     @Query('search') search?: string,
+    @Query('paymentMethod') paymentMethod?: string,
+    @Query('sort') sort?: string,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
     const { page: pageNum, limit: take, skip } = resolveAdminPagination(page, limit)
@@ -108,13 +149,13 @@ export class OrdersController {
     const where: Prisma.OrderWhereInput = {
       storeId: sid,
       ...(statusFilter ? { status: statusFilter } : {}),
-      ...(search ? {
-        OR: [
-          { invoiceNumber: { contains: search, mode: 'insensitive' as const } },
-          { shippingPhone: { contains: search } },
-          { shippingName: { contains: search, mode: 'insensitive' as const } },
-        ],
-      } : {}),
+      // Filtering payment on the client only ever filtered the page in hand,
+      // which read as "COD orders vanished" the moment there were more than a
+      // hundred orders.
+      ...(parsePaymentMethodFilter(paymentMethod)
+        ? { paymentMethod: parsePaymentMethodFilter(paymentMethod) }
+        : {}),
+      ...(search ? { OR: orderSearchFilters(search) } : {}),
     }
 
     const [orders, total] = await Promise.all([
@@ -133,8 +174,19 @@ export class OrdersController {
             },
           },
           courier: true,
+          customer: {
+            select: {
+              id: true,
+              customerCode: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+              loyaltyTier: true,
+              codRiskScore: true,
+            },
+          },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: this.orderListSort(sort),
         skip,
         take,
       }),
@@ -142,6 +194,46 @@ export class OrdersController {
     ])
 
     return { orders, total, page: pageNum, totalPages: Math.ceil(total / take) }
+  }
+
+  /**
+   * Order counts per fulfilment stage, for the whole store.
+   *
+   * The admin's stage strip used to count the rows it happened to be holding,
+   * and a list response is capped at 100 — so past a hundred orders the strip
+   * quietly under-reported every stage while the page header, which reads the
+   * real total, disagreed with it. One `groupBy` is cheaper than the eight
+   * count queries the client would otherwise need.
+   *
+   * Declared above `@Get(':id')` — Nest matches in declaration order, and
+   * `stats` would otherwise be read as an order id.
+   */
+  @Get('stats')
+  async stats(@Query('storeId') storeId: string, @Query('search') search?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const where: Prisma.OrderWhereInput = {
+      storeId: sid,
+      // Counts have to answer for the list the operator is actually looking at,
+      // so an active search narrows them the same way it narrows the rows.
+      // Must stay identical to the list filter above, or the stage strip counts
+      // a different set of orders than the rows underneath it.
+      ...(search ? { OR: orderSearchFilters(search) } : {}),
+    }
+
+    const grouped = await this.prisma.order.groupBy({
+      by: ['status'],
+      where,
+      _count: { _all: true },
+    })
+
+    const byStatus: Record<string, number> = {}
+    let total = 0
+    for (const row of grouped) {
+      const count = row._count._all
+      byStatus[String(row.status)] = count
+      total += count
+    }
+    return { byStatus, total }
   }
 
   @Get(':id/invoice/pdf')
@@ -209,7 +301,17 @@ export class OrdersController {
         },
         courier: true,
         internalNotes: { orderBy: { createdAt: 'desc' } },
-        customer: { select: { firstName: true, lastName: true, phone: true, loyaltyTier: true, codRiskScore: true } },
+        customer: {
+          select: {
+            id: true,
+            customerCode: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            loyaltyTier: true,
+            codRiskScore: true,
+          },
+        },
       },
     })
     if (!order) throw new NotFoundException('Order not found')

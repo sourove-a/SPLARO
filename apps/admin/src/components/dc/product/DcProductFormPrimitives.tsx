@@ -4,14 +4,16 @@ import type { CSSProperties, InputHTMLAttributes, ReactNode, TextareaHTMLAttribu
 
 import { DcIcon } from '@/components/dc/DcIcon'
 import { FONT, MONO } from '@/components/dc/tokens'
+import '@/styles/dc-product-form.css'
 
-const card: CSSProperties = {
-  border: '1px solid var(--line)',
-  borderRadius: 14,
-  background: 'var(--surface)',
-  backgroundImage: 'var(--card-sheen)',
-  overflow: 'hidden',
-}
+/**
+ * Visual state — focus, hover, depth, motion — lives in `dc-product-form.css`.
+ * It cannot live here: inline styles have no pseudo-classes, which is why this
+ * form shipped with `outline: none` and nothing to replace it.
+ *
+ * Layout stays inline. Anything the stylesheet owns is removed from the inline
+ * object, because an inline value would beat the class and silently win.
+ */
 
 export function DcReadyRing({
   pct,
@@ -74,35 +76,15 @@ export function DcSectionCard({
   children: ReactNode
 }) {
   return (
-    <div id={id} style={card}>
-      <div
-        style={{
-          padding: '13px 16px',
-          borderBottom: '1px solid var(--line)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          flexWrap: 'wrap',
-        }}
-      >
-        <span
-          style={{
-            display: 'grid',
-            placeItems: 'center',
-            width: 22,
-            height: 22,
-            flex: 'none',
-            borderRadius: 7,
-            border: '1px solid var(--line-2)',
-            background: 'var(--surface-2)',
-            font: `700 11px/1 ${MONO}`,
-            color: 'var(--ink-3)',
-          }}
-        >
+    <div id={id} className="dc-pform-card">
+      <div className="dc-pform-card__head">
+        <span className="dc-pform-card__num" style={{ font: `700 11px/1 ${MONO}` }}>
           {num}
         </span>
         <span style={{ flex: 1, minWidth: 120, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)' }}>{title}</span>
+          <span style={{ font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)', letterSpacing: '-0.01em' }}>
+            {title}
+          </span>
           {hint ? (
             <span style={{ font: `400 11px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>{hint}</span>
           ) : null}
@@ -133,13 +115,16 @@ export function DcField({
   // their natural form.
   const bengali = BENGALI_LABEL.test(label)
   return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+    <label
+      className={`dc-pform-field${tone === 'warn' ? ' dc-pform-field--warn' : ''}`}
+      style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}
+    >
       <span
+        className="dc-pform-label"
         style={{
           font: `600 ${bengali ? '11.5px' : '10.5px'}/1.35 ${FONT}`,
           letterSpacing: bengali ? 'normal' : '.09em',
           textTransform: bengali ? 'none' : 'uppercase',
-          color: 'var(--ink-3)',
         }}
       >
         {label}
@@ -159,14 +144,11 @@ export function DcField({
   )
 }
 
+/** Layout only. Border, background and every state belong to `.dc-pform-input`. */
 const inputBase: CSSProperties = {
   height: 38,
   padding: '0 11px',
   borderRadius: 9,
-  border: '1px solid var(--line)',
-  background: 'var(--surface-2)',
-  color: 'var(--ink)',
-  outline: 'none',
   width: '100%',
   boxSizing: 'border-box',
 }
@@ -174,14 +156,18 @@ const inputBase: CSSProperties = {
 export function DcInput({
   mono,
   style,
+  className,
   ...rest
 }: InputHTMLAttributes<HTMLInputElement> & { mono?: boolean }) {
   return (
     <input
       {...rest}
+      className={`dc-pform-input${className ? ` ${className}` : ''}`}
       style={{
         ...inputBase,
         font: mono ? `600 12.5px/1 ${MONO}` : `500 13px/1 ${FONT}`,
+        // Digits in SKU / price / code fields stop reflowing as they are typed.
+        ...(mono ? { fontVariantNumeric: 'tabular-nums' } : {}),
         ...style,
       }}
     />
@@ -190,19 +176,17 @@ export function DcInput({
 
 export function DcTextarea({
   style,
+  className,
   ...rest
 }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...rest}
+      className={`dc-pform-textarea${className ? ` ${className}` : ''}`}
       style={{
         padding: '10px 12px',
         borderRadius: 10,
-        border: '1px solid var(--line)',
-        background: 'var(--surface-2)',
-        color: 'var(--ink)',
         font: `400 12.5px/1.55 ${FONT}`,
-        outline: 'none',
         resize: 'vertical',
         width: '100%',
         boxSizing: 'border-box',
@@ -472,7 +456,7 @@ export function DcReadinessList({
   const fg = readyPct >= 100 ? 'var(--ok)' : 'var(--violet)'
   const remaining = items.filter((r) => !r.ok).length
   return (
-    <div style={card}>
+    <div className="dc-pform-card">
       <div
         style={{
           padding: '11px 14px',
@@ -575,7 +559,7 @@ export function DcStorefrontPreview({
   meta?: string
 }) {
   return (
-    <div style={card}>
+    <div className="dc-pform-card">
       <div
         style={{
           padding: '11px 14px',
@@ -710,6 +694,8 @@ export function DcChip({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={on}
+      className="dc-pform-chip"
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -717,9 +703,6 @@ export function DcChip({
         height: 34,
         padding: '0 13px',
         borderRadius: 9,
-        border: `1px solid ${on ? 'var(--violet-bd)' : 'var(--line)'}`,
-        background: on ? 'var(--violet-soft)' : 'var(--surface)',
-        color: on ? 'var(--violet)' : 'var(--ink-2)',
         cursor: 'pointer',
         font: `600 12px/1 ${FONT}`,
       }}

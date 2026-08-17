@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Optional } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import { searchDigits } from '../../common/identifier-search.util'
 import { generateOrderCode } from '../../common/order-code.util'
 import { generatePaymentCode } from '../../common/payment-code.util'
 import { OrderEventsService } from '../orders/order-events.service'
@@ -54,7 +55,14 @@ export class PosService {
       },
     }
 
+    /*
+     * The Product Code is the number a customer reads out on the phone and the
+     * one printed largest on a label, but this lookup only ever matched SKU and
+     * barcode — so the identifier the store actually quotes was the one thing
+     * that found nothing here. It is digits only, so it is matched as digits.
+     */
     if (skuQ) {
+      const skuDigits = searchDigits(skuQ)
       const variant = await this.prisma.productVariant.findFirst({
         where: {
           OR: [
@@ -82,6 +90,7 @@ export class PosService {
           OR: [
             { sku: { equals: skuQ, mode: 'insensitive' } },
             { barcode: { equals: skuQ, mode: 'insensitive' } },
+            ...(skuDigits ? [{ productCode: skuDigits }] : []),
           ],
         },
         include: catalogInclude,
@@ -105,6 +114,9 @@ export class PosService {
               { barcode: { contains: q, mode: 'insensitive' } },
               { variants: { some: { sku: { contains: q, mode: 'insensitive' } } } },
               { variants: { some: { barcode: { contains: q, mode: 'insensitive' } } } },
+              // People say a Product Code in pieces — "2 8 4 7 3 1" — so the
+              // digits are pulled out of whatever was typed before matching.
+              ...(searchDigits(q) ? [{ productCode: { contains: searchDigits(q)! } }] : []),
             ],
           }
         : {}),

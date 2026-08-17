@@ -8,6 +8,8 @@ import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider, useDcScreen } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import { DcField, DcModal } from '@/components/dc/DcModal'
+import { DcCard } from '@/components/dc/primitives/DcCard'
+import { DcTable } from '@/components/dc/primitives/DcTable'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
@@ -30,19 +32,6 @@ const capsLabel = {
   textTransform: 'uppercase' as const,
   color: 'var(--ink-3)',
 }
-
-const th = {
-  textAlign: 'left' as const,
-  padding: '9px 15px',
-  font: `600 10.5px/1 ${FONT}`,
-  letterSpacing: '.09em',
-  textTransform: 'uppercase' as const,
-  color: 'var(--ink-3)',
-  borderBottom: '1px solid var(--line)',
-  whiteSpace: 'nowrap' as const,
-}
-
-const td = { padding: '10px 15px', font: `400 12.5px/1.4 ${FONT}`, color: 'var(--ink-2)' } as const
 
 const RMA_TONE: Record<ApiRmaRow['status'], DcTone> = {
   pending: 'warn',
@@ -542,18 +531,8 @@ function DcReturnsRmaBody() {
             </div>
           ) : null}
 
-          <div style={{ ...card, overflow: 'auto' }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 10,
-                flexWrap: 'wrap',
-                padding: '12px 15px',
-                borderBottom: '1px solid var(--line)',
-              }}
-            >
+          <DcCard clip>
+            <div className="dc-card__head" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 {['ALL', 'PENDING', 'APPROVED', 'RECEIVED', 'REFUNDED', 'REJECTED'].map((st) => {
                   const active = stageFilter === st
@@ -577,51 +556,41 @@ function DcReturnsRmaBody() {
                   )
                 })}
               </div>
-              <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+              <span className="dc-card__meta">
                 {filteredRows.length} record{filteredRows.length === 1 ? '' : 's'}
               </span>
             </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', minWidth: 980, borderCollapse: 'collapse' }}>
+            <DcTable minWidth={980} sticky>
               <thead>
                 <tr>
-                  <th style={th}>RMA</th>
-                  <th style={th}>Order</th>
-                  <th style={th}>Customer</th>
-                  <th style={th}>Reason</th>
-                  <th style={th}>Items</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Amount</th>
-                  <th style={th}>Method</th>
-                  <th style={th}>Status</th>
-                  <th style={th}>Updated</th>
+                  <th>RMA</th>
+                  <th>Order</th>
+                  <th>Customer</th>
+                  <th>Reason</th>
+                  <th>Items</th>
+                  <th className="is-num">Amount</th>
+                  <th>Method</th>
+                  <th>Status</th>
+                  <th>Updated</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.map((r) => {
                   const tone = toneStyle(RMA_TONE[r.status])
                   return (
-                    <tr key={r.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                      <td style={{ ...td, font: `600 12.5px/1 ${MONO}`, color: 'var(--ink)' }}>
+                    <tr key={r.id}>
+                      <td className="is-mono" style={{ fontWeight: 600 }}>
                         {r.rmaNumber}
                       </td>
-                      <td style={{ ...td, font: `500 12.5px/1 ${MONO}` }}>{r.orderNumber}</td>
-                      <td style={{ ...td, color: 'var(--ink)', font: `500 13px/1.3 ${FONT}` }}>
-                        {r.customer}
-                      </td>
-                      <td style={td}>{r.reason}</td>
-                      <td style={{ ...td, color: 'var(--ink-3)' }}>{r.items}</td>
-                      <td
-                        style={{
-                          ...td,
-                          textAlign: 'right',
-                          font: `600 13px/1 ${MONO}`,
-                          color: 'var(--ink)',
-                        }}
-                      >
+                      <td className="is-mono">{r.orderNumber}</td>
+                      <td>{r.customer}</td>
+                      <td>{r.reason}</td>
+                      <td style={{ color: 'var(--ink-3)' }}>{r.items}</td>
+                      <td className="is-num" style={{ fontWeight: 600 }}>
                         {formatTaka(Number(r.amount || 0))}
                       </td>
-                      <td style={td}>{r.method}</td>
-                      <td style={{ padding: '10px 15px' }}>
+                      <td>{r.method}</td>
+                      <td>
                         <span
                           style={{
                             display: 'inline-flex',
@@ -642,14 +611,13 @@ function DcReturnsRmaBody() {
                           {r.status}
                         </span>
                       </td>
-                      <td style={{ ...td, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{r.updated}</td>
+                      <td style={{ color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{r.updated}</td>
                     </tr>
                   )
                 })}
               </tbody>
-              </table>
-            </div>
-          </div>
+            </DcTable>
+          </DcCard>
         </>
       )}
 

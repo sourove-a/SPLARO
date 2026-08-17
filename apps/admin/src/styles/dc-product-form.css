@@ -1,0 +1,229 @@
+/*
+ * Product form — interaction and depth layer.
+ *
+ * The form was built entirely from inline styles, which cannot express a
+ * pseudo-class. So it had `outline: none` on every input with nothing put back,
+ * no hover state, and no transitions anywhere: a 2,000px page where nothing
+ * acknowledged the cursor or the keyboard. That inertness — not the colours —
+ * is what made it feel unfinished.
+ *
+ * Everything here is state and depth. No field, section or control is moved,
+ * renamed or removed; the markup keeps its layout styles inline and hands the
+ * visual states to these classes.
+ */
+
+.dc-pform {
+  /* Focus ring drawn as a spread shadow so it never shifts layout. */
+  --pf-ring: 0 0 0 3px color-mix(in srgb, var(--violet-solid) 22%, transparent);
+  --pf-ease: 140ms cubic-bezier(0.32, 0.72, 0.3, 1);
+}
+
+/* ------------------------------------------------------------- section --- */
+
+.dc-pform-card {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  background-image: var(--card-sheen);
+  overflow: hidden;
+  transition:
+    border-color var(--pf-ease),
+    box-shadow var(--pf-ease);
+}
+
+/*
+ * The signature: a section lights its spine while you are working inside it.
+ *
+ * Every section on this page is the same size, the same colour and the same
+ * shape, so on a long form there is no way to tell at a glance where you are.
+ * `:has()` lets the card answer that itself — no state plumbing, no JS.
+ */
+.dc-pform-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--violet-solid);
+  opacity: 0;
+  transition: opacity var(--pf-ease);
+}
+
+.dc-pform-card:has(:focus-visible) {
+  border-color: var(--violet-bd);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -12px color-mix(in srgb, var(--violet-solid) 30%, transparent);
+}
+
+.dc-pform-card:has(:focus-visible)::before {
+  opacity: 1;
+}
+
+.dc-pform-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line);
+  /* Seats the header against the body rather than floating a flat bar on it. */
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--surface-2) 55%, transparent), transparent);
+}
+
+/* The step number picks up the accent with its section. */
+.dc-pform-card__num {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 7px;
+  border: 1px solid var(--line-2);
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  transition:
+    color var(--pf-ease),
+    border-color var(--pf-ease),
+    background var(--pf-ease);
+}
+
+.dc-pform-card:has(:focus-visible) .dc-pform-card__num {
+  border-color: var(--violet-bd);
+  background: var(--violet-soft);
+  color: var(--violet);
+}
+
+/* -------------------------------------------------------------- fields --- */
+
+.dc-pform-label {
+  color: var(--ink-3);
+  transition: color var(--pf-ease);
+}
+
+/* Label follows its own control, so the active row reads as one unit. */
+.dc-pform-field:has(:focus-visible) .dc-pform-label {
+  color: var(--violet);
+}
+
+.dc-pform-input,
+.dc-pform-textarea {
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink);
+  outline: none;
+  transition:
+    border-color var(--pf-ease),
+    background var(--pf-ease),
+    box-shadow var(--pf-ease);
+}
+
+.dc-pform-input:hover:not(:disabled),
+.dc-pform-textarea:hover:not(:disabled) {
+  border-color: var(--line-2);
+}
+
+/*
+ * `:focus-visible` rather than `:focus` — a mouse click into a text field does
+ * not need a ring, but tabbing to it does. Text inputs still show it on click
+ * because the browser treats keyboard-editable fields as always focus-visible.
+ */
+.dc-pform-input:focus-visible,
+.dc-pform-textarea:focus-visible {
+  border-color: var(--violet-solid);
+  background: var(--surface);
+  box-shadow: var(--pf-ring);
+}
+
+.dc-pform-input::placeholder,
+.dc-pform-textarea::placeholder {
+  color: var(--ink-3);
+  opacity: 0.62;
+}
+
+.dc-pform-input:disabled,
+.dc-pform-textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* A field the form has flagged keeps its warning colour while focused. */
+.dc-pform-field--warn .dc-pform-input:focus-visible,
+.dc-pform-field--warn .dc-pform-textarea:focus-visible {
+  border-color: var(--warn);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 20%, transparent);
+}
+
+/* --------------------------------------------------------------- chips --- */
+
+/*
+ * On/off is expressed with `aria-pressed` rather than an inline style, so the
+ * state is announced to a screen reader and CSS can still own hover — an inline
+ * `background` would outrank any class and the chip would never react.
+ */
+.dc-pform-chip {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-2);
+  transition:
+    border-color var(--pf-ease),
+    background var(--pf-ease),
+    color var(--pf-ease),
+    transform var(--pf-ease);
+}
+
+.dc-pform-chip[aria-pressed='true'] {
+  border-color: var(--violet-bd);
+  background: var(--violet-soft);
+  color: var(--violet);
+}
+
+.dc-pform-chip:hover:not(:disabled) {
+  border-color: var(--violet-bd);
+  color: var(--violet);
+}
+
+.dc-pform-chip:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.dc-pform-chip:focus-visible {
+  outline: 2px solid var(--violet-solid);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------ quiet the noise --- */
+
+/*
+ * Six empty upload wells were the loudest thing on a page whose actual job is
+ * copy and price. Dashed borders read as "unfinished" at that size, so an empty
+ * slot recedes and only comes forward when pointed at.
+ */
+.dc-pform-slot {
+  transition:
+    border-color var(--pf-ease),
+    background var(--pf-ease);
+}
+
+.dc-pform-slot:hover {
+  border-color: var(--violet-bd);
+  background: color-mix(in srgb, var(--violet-solid) 4%, var(--surface-2));
+}
+
+.dc-pform-slot:focus-within {
+  border-color: var(--violet-solid);
+  box-shadow: var(--pf-ring);
+}
+
+/* ------------------------------------------------------------- motion --- */
+
+@media (prefers-reduced-motion: reduce) {
+  .dc-pform,
+  .dc-pform * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+
+  .dc-pform-chip:active:not(:disabled) {
+    transform: none;
+  }
+}

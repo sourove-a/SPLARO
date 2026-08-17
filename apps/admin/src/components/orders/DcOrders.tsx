@@ -9,15 +9,19 @@ import { dcPageStatus } from '@/components/dc/page-status'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcOrderDrawer } from '@/components/orders/DcOrderDrawer'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
+import { DcCard } from '@/components/dc/primitives/DcCard'
+import { DcPager } from '@/components/dc/primitives/DcPager'
+import { DcTable } from '@/components/dc/primitives/DcTable'
 import type { DcBlock } from '@/components/dc/blocks/types'
-import { FONT, MONO, formatTaka, statusToneStyle, toneStyle } from '@/components/dc/tokens'
+import { FONT, MONO, formatTaka, statusToneStyle } from '@/components/dc/tokens'
 import { downloadCsv } from '@/lib/admin/admin-actions'
 import { isDevCourierConsignment, isLiveCourierConsignment } from '@/lib/admin/courier-save'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
-import { useOrders } from '@/lib/api/hooks'
+import { useBulkUpdateOrderStatus, useOrders, useOrderStats } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
-import { formatBdPhone, phoneMatches } from '@/lib/format/bd-phone'
-import type { ApiOrder } from '@/lib/api/orders'
+import { useListQueryState } from '@/lib/hooks/use-list-query-state'
+import { formatBdPhone } from '@/lib/format/bd-phone'
+import { fetchOrders, type ApiOrder } from '@/lib/api/orders'
 
 /** Fulfilment stages, in the order the floor works them. */
 const STAGES = [
@@ -33,23 +37,21 @@ const STAGES = [
 ] as const
 type Stage = (typeof STAGES)[number]
 
-const card = {
-  border: '1px solid var(--line)',
-  borderRadius: 14,
-  background: 'var(--surface)',
-  backgroundImage: 'var(--card-sheen)',
-} as const
+/** Rows per request. The API refuses anything above 100. */
+const PAGE_SIZE = 25
+/** Export walks pages at the API's ceiling so a big export is few round trips. */
+const EXPORT_PAGE_SIZE = 100
 
-const th = {
-  textAlign: 'left' as const,
-  padding: '9px 14px',
-  font: `600 10.5px/1 ${FONT}`,
-  letterSpacing: '.09em',
-  textTransform: 'uppercase' as const,
-  color: 'var(--ink-3)',
-  borderBottom: '1px solid var(--line)',
-  whiteSpace: 'nowrap' as const,
-}
+const SORTS = [
+  ['newest', 'Newest first'],
+  ['oldest', 'Oldest first'],
+  ['total-desc', 'Highest value'],
+  ['total-asc', 'Lowest value'],
+] as const
+type SortKey = (typeof SORTS)[number][0]
+
+/** Stages an operator can move a selection to in one go. */
+const BULK_STAGES = ['Confirmed', 'Processing', 'Packed', 'Shipped', 'Delivered'] as const
 
 function stageFromUrl(raw: string | null): Stage | null {
   if (!raw) return null
@@ -90,50 +92,153 @@ export function DcOrders() {
 function DcOrdersBody() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [stage, setStage] = useState<Stage>('All')
-  const [pay, setPay] = useState('All')
-  const [query, setQuery] = useState('')
   const [openOrder, setOpenOrder] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [exporting, setExporting] = useState(false)
 
+  const list = useListQueryState({ status: 'All', payment: 'All', sort: 'newest' })
+  const stage = (stageFromUrl(list.filters.status) ?? 'All') as Stage
+  const pay = list.filters.payment
+  const sort = list.filters.sort as SortKey
+
+  // A link into this screen (from the dashboard, a Telegram alert) may still
+  // carry `?status=`; the hook seeds itself from the same params, so this only
+  // has to cover a param that changes while the screen is already mounted.
   useEffect(() => {
-    const nextStage = stageFromUrl(searchParams.get('status'))
-    if (nextStage) setStage(nextStage)
-    const search = searchParams.get('search')?.trim()
-    if (search) setQuery(search)
+    const linked = stageFromUrl(searchParams.get('status'))
+    if (linked && linked !== stage) list.setFilter('status', linked)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
-  const orders = useOrders({ limit: 100 })
+  /*
+   * Filtering, searching and paging all happen on the server now. They used to
+   * run over `orders.data.orders`, which the API caps at 100 rows — so every
+   * count on this screen described the first hundred orders while the header
+   * beside them reported the true total.
+   */
+  const orders = useOrders({
+    ...(stage !== 'All' ? { status: stage.toUpperCase() } : {}),
+    ...(list.debouncedSearch.trim() ? { search: list.debouncedSearch.trim() } : {}),
+    ...(pay !== 'All' ? { paymentMethod: pay } : {}),
+    sort,
+    page: list.page,
+    limit: PAGE_SIZE,
+  })
+  const stats = useOrderStats(
+    list.debouncedSearch.trim() ? { search: list.debouncedSearch.trim() } : {},
+  )
   const { api } = useAdminConnection(25_000)
   const pageStatus = dcPageStatus([orders], api.pulse)
-  const all = useMemo(() => orders.data?.orders ?? [], [orders.data])
+  const rows = useMemo(() => orders.data?.orders ?? [], [orders.data])
+  const total = orders.data?.total ?? 0
+  const bulkStatus = useBulkUpdateOrderStatus()
 
+  /** Store-wide tallies, keyed by the strip's own labels. */
   const stageCounts = useMemo(() => {
-    const counts: Record<string, number> = { All: all.length }
+    const byStatus = stats.data?.byStatus ?? {}
+    const counts: Record<string, number> = { All: stats.data?.total ?? 0 }
     for (const s of STAGES) {
       if (s === 'All') continue
-      counts[s] = all.filter((o) => o.status.toUpperCase() === s.toUpperCase()).length
+      counts[s] = byStatus[s.toUpperCase()] ?? 0
     }
     return counts
-  }, [all])
+  }, [stats.data])
 
-  // Payment chips are derived from what the store actually takes, not hardcoded.
+  // Payment chips come from what the store actually takes. Derived from the
+  // page in hand, so a method only used on older orders can be missing —
+  // acceptable for a shortcut, and the value survives in the URL either way.
   const payMethods = useMemo(
-    () => ['All', ...Array.from(new Set(all.map((o) => o.paymentMethod).filter(Boolean)))],
-    [all],
+    () => ['All', ...Array.from(new Set(rows.map((o) => o.paymentMethod).filter(Boolean)))],
+    [rows],
   )
 
-  const rows = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return all.filter((o) => {
-      if (stage !== 'All' && o.status.toUpperCase() !== stage.toUpperCase()) return false
-      if (pay !== 'All' && o.paymentMethod !== pay) return false
-      if (!q) return true
-      if (phoneMatches(o.shippingPhone, q)) return true
-      return (
-        o.invoiceNumber.toLowerCase().includes(q) || o.shippingName.toLowerCase().includes(q)
-      )
+  // A selection is only meaningful for rows still on screen.
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev
+      const visible = new Set(rows.map((o) => o.id))
+      const next = new Set([...prev].filter((id) => visible.has(id)))
+      return next.size === prev.size ? prev : next
     })
-  }, [all, stage, pay, query])
+  }, [rows])
+
+  const toggleRow = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const runBulkStage = (target: string) => {
+    const ids = [...selected]
+    if (ids.length === 0) return
+    bulkStatus.mutate(
+      { orderIds: ids, status: target.toUpperCase() },
+      {
+        onSuccess: (res) => {
+          setSelected(new Set())
+          if (res.failed > 0) {
+            toastFail(`${res.updated} moved to ${target}, ${res.failed} refused.`)
+            return
+          }
+          toastOk(`${res.updated} order${res.updated === 1 ? '' : 's'} moved to ${target}.`)
+        },
+        onError: (err) =>
+          toastFail(err instanceof Error ? err.message : 'Could not update those orders.'),
+      },
+    )
+  }
+
+  /**
+   * Export every order matching the current filters, not the page on screen.
+   *
+   * Now that the list is paginated, exporting `rows` would silently hand over
+   * 25 orders when the operator asked for the whole filtered set — so this
+   * walks the pages and stops at the total the API reports.
+   */
+  const runExport = async () => {
+    if (exporting) return
+    if (total === 0) {
+      toastFail('No orders match these filters.')
+      return
+    }
+    setExporting(true)
+    try {
+      const query = {
+        ...(stage !== 'All' ? { status: stage.toUpperCase() } : {}),
+        ...(list.debouncedSearch.trim() ? { search: list.debouncedSearch.trim() } : {}),
+        ...(pay !== 'All' ? { paymentMethod: pay } : {}),
+        sort,
+      }
+      const collected: ApiOrder[] = []
+      const lastPage = Math.ceil(total / EXPORT_PAGE_SIZE)
+      for (let page = 1; page <= lastPage; page += 1) {
+        const batch = await fetchOrders({ ...query, page, limit: EXPORT_PAGE_SIZE })
+        collected.push(...batch.orders)
+        if (batch.orders.length === 0) break
+      }
+      const date = new Date().toISOString().slice(0, 10)
+      downloadCsv(`splaro-orders-${date}.csv`, [
+        ['Order', 'Customer', 'Phone', 'Payment', 'Status', 'Total', 'Created'],
+        ...collected.map((o) => [
+          o.invoiceNumber,
+          o.shippingName,
+          o.shippingPhone,
+          o.paymentMethod,
+          o.status,
+          String(o.total),
+          o.createdAt,
+        ]),
+      ])
+      toastOk(`Exported ${collected.length} order${collected.length === 1 ? '' : 's'}.`)
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not export these orders.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const skeleton: DcBlock[] = [
     { t: 'seg', items: [] },
@@ -152,28 +257,9 @@ function DcOrdersBody() {
         onSync={() => void orders.refetch()}
         actions={[
           {
-            label: 'Export',
+            label: exporting ? 'Exporting…' : 'Export',
             icon: 'icon-download',
-            onClick: () => {
-              if (rows.length === 0) {
-                toastFail('No orders to export — load live data first.')
-                return
-              }
-              const date = new Date().toISOString().slice(0, 10)
-              downloadCsv(`splaro-orders-${date}.csv`, [
-                ['Order', 'Customer', 'Phone', 'Payment', 'Status', 'Total', 'Created'],
-                ...rows.map((o) => [
-                  o.invoiceNumber,
-                  o.shippingName,
-                  o.shippingPhone,
-                  o.paymentMethod,
-                  o.status,
-                  String(o.total),
-                  o.createdAt,
-                ]),
-              ])
-              toastOk(`Exported ${rows.length} order${rows.length === 1 ? '' : 's'}.`)
-            },
+            onClick: () => void runExport(),
           },
           {
             label: 'New order',
@@ -194,7 +280,9 @@ function DcOrdersBody() {
             void orders.refetch()
           }}
         />
-      ) : all.length === 0 ? (
+      ) : stats.data?.total === 0 && !list.isFiltered ? (
+        // The store genuinely has no orders — distinct from a filter matching
+        // none, which the table handles with a "clear filters" affordance.
         <DcEmptyState
           icon="icon-inbox"
           title="No orders yet"
@@ -208,87 +296,88 @@ function DcOrdersBody() {
             orders={rows}
             stage={stage}
             counts={stageCounts}
-            query={query}
-            onQuery={setQuery}
-            onStage={setStage}
+            query={list.search}
+            onQuery={list.setSearch}
+            onStage={(s) => list.setFilter('status', s)}
             onOpen={(id) => setOpenOrder(id)}
           />
 
           <div className="dc-desktop-route-panel">
-          <StageStrip stage={stage} counts={stageCounts} onSelect={setStage} />
+          <StageStrip
+            stage={stage}
+            counts={stageCounts}
+            loading={stats.isLoading}
+            onSelect={(s) => list.setFilter('status', s)}
+          />
 
-          <div style={{ ...card, overflow: 'auto' }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '11px 14px',
-                borderBottom: '1px solid var(--line)',
-                flexWrap: 'wrap',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  height: 34,
-                  padding: '0 11px',
-                  borderRadius: 9,
-                  border: '1px solid var(--line)',
-                  background: 'var(--surface-2)',
-                  minWidth: 230,
-                }}
-              >
-                <DcIcon name="icon-search" size={14} color="var(--ink-3)" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Order ID, phone, customer…"
-                  aria-label="Search orders"
-                  style={{
-                    flex: 1,
-                    border: 0,
-                    background: 'transparent',
-                    outline: 'none',
-                    color: 'var(--ink)',
-                    font: `400 13px/1 ${FONT}`,
-                  }}
-                />
+          <DcCard clip>
+            {selected.size > 0 ? (
+              <div className="dc-bulkbar">
+                <span className="dc-bulkbar__count">
+                  {selected.size} order{selected.size === 1 ? '' : 's'} selected
+                </span>
+                {BULK_STAGES.map((target) => (
+                  <button
+                    key={target}
+                    type="button"
+                    className="dc-toolbar__tool"
+                    disabled={bulkStatus.isPending}
+                    onClick={() => runBulkStage(target)}
+                  >
+                    Move to {target}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="dc-toolbar__tool"
+                  onClick={() => setSelected(new Set())}
+                >
+                  Clear
+                </button>
               </div>
+            ) : (
+              <div className="dc-card__head dc-toolbar">
+                <label className="dc-toolbar__search">
+                  <DcIcon name="icon-search" size={14} color="var(--ink-3)" />
+                  <input
+                    value={list.search}
+                    onChange={(e) => list.setSearch(e.target.value)}
+                    placeholder="Order ID, phone, name, or Product Code…"
+                    aria-label="Search orders"
+                  />
+                </label>
 
-              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                {payMethods.map((p) => {
-                  const on = p === pay
-                  const t = toneStyle('vio')
-                  return (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setPay(p)}
-                      style={{
-                        height: 30,
-                        padding: '0 11px',
-                        borderRadius: 8,
-                        cursor: 'pointer',
-                        font: `600 12px/1 ${FONT}`,
-                        border: `1px solid ${on ? t.bd : 'var(--line)'}`,
-                        background: on ? t.bg : 'var(--surface-2)',
-                        color: on ? t.fg : 'var(--ink-2)',
-                      }}
-                    >
-                      {p === 'All' ? 'All payments' : p}
-                    </button>
-                  )
-                })}
+                {payMethods.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    className={p === pay ? 'dc-toolbar__tool is-on' : 'dc-toolbar__tool'}
+                    onClick={() => list.setFilter('payment', p)}
+                  >
+                    {p === 'All' ? 'All payments' : p}
+                  </button>
+                ))}
+
+                <select
+                  className="dc-toolbar__select"
+                  aria-label="Sort orders"
+                  value={sort}
+                  onChange={(e) => list.setFilter('sort', e.target.value)}
+                >
+                  {SORTS.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+
+                {list.isFiltered ? (
+                  <button type="button" className="dc-toolbar__tool" onClick={list.clear}>
+                    Clear filters
+                  </button>
+                ) : null}
               </div>
-
-              <div style={{ flex: 1 }} />
-              <span style={{ font: `500 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>
-                {rows.length} of {all.length} orders
-              </span>
-            </div>
+            )}
 
             {rows.length === 0 ? (
               <div
@@ -329,11 +418,7 @@ function DcOrdersBody() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => {
-                    setPay('All')
-                    setStage('All')
-                    setQuery('')
-                  }}
+                  onClick={list.clear}
                   style={{
                     height: 32,
                     padding: '0 14px',
@@ -349,17 +434,43 @@ function DcOrdersBody() {
                 </button>
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
+              <DcTable minWidth={940} sticky>
                 <thead>
                   <tr>
-                    <th style={th}>Order</th>
-                    <th style={th}>Customer</th>
-                    <th style={th}>Payment</th>
-                    <th style={th}>Status</th>
-                    <th style={th}>Courier</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Total</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Placed</th>
+                    <th className="is-check">
+                      <input
+                        type="checkbox"
+                        className="dc-check"
+                        aria-label="Select every order on this page"
+                        checked={selected.size > 0 && selected.size === rows.length}
+                        ref={(el) => {
+                          // Partial selection reads as neither on nor off.
+                          if (el) el.indeterminate = selected.size > 0 && selected.size < rows.length
+                        }}
+                        onChange={(e) =>
+                          setSelected(e.target.checked ? new Set(rows.map((o) => o.id)) : new Set())
+                        }
+                      />
+                    </th>
+                    <th>Order</th>
+                    <th>Customer</th>
+                    <th>Payment</th>
+                    <th>Status</th>
+                    <th>Courier</th>
+                    <SortHeader
+                      label="Total"
+                      asc="total-asc"
+                      desc="total-desc"
+                      sort={sort}
+                      onSort={(next) => list.setFilter('sort', next)}
+                    />
+                    <SortHeader
+                      label="Placed"
+                      asc="oldest"
+                      desc="newest"
+                      sort={sort}
+                      onSort={(next) => list.setFilter('sort', next)}
+                    />
                   </tr>
                 </thead>
                 <tbody>
@@ -370,23 +481,36 @@ function DcOrdersBody() {
                       <tr
                         key={o.id}
                         onClick={() => setOpenOrder(o.id)}
-                        className="dc-hover-surface"
-                        style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer' }}
+                        className={selected.has(o.id) ? 'is-selected' : ''}
+                        style={{ cursor: 'pointer' }}
                       >
-                        <td style={{ padding: '11px 14px', font: `600 12.5px/1 ${MONO}`, color: 'var(--ink)' }}>
+                        <td
+                          className="is-check"
+                          onClick={(e) => {
+                            // The row opens the drawer; ticking must not.
+                            e.stopPropagation()
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            className="dc-check"
+                            aria-label={`Select order ${o.invoiceNumber}`}
+                            checked={selected.has(o.id)}
+                            onChange={() => toggleRow(o.id)}
+                          />
+                        </td>
+                        <td className="is-mono" style={{ fontWeight: 600 }}>
                           {o.invoiceNumber}
                         </td>
-                        <td style={{ padding: '11px 14px' }}>
+                        <td>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                            <span style={{ font: `500 13px/1 ${FONT}`, color: 'var(--ink)' }}>
-                              {o.shippingName}
-                            </span>
+                            <span>{o.shippingName}</span>
                             <span style={{ font: `400 11.5px/1 ${MONO}`, color: 'var(--ink-3)' }}>
                               {formatBdPhone(o.shippingPhone)}
                             </span>
                           </div>
                         </td>
-                        <td style={{ padding: '11px 14px' }}>
+                        <td>
                           <span
                             style={{
                               display: 'inline-flex',
@@ -402,7 +526,7 @@ function DcOrdersBody() {
                             {o.paymentMethod}
                           </span>
                         </td>
-                        <td style={{ padding: '11px 14px' }}>
+                        <td>
                           <span
                             style={{
                               display: 'inline-flex',
@@ -428,32 +552,14 @@ function DcOrdersBody() {
                             {titleCase(o.status)}
                           </span>
                         </td>
-                        <td
-                          style={{
-                            padding: '11px 14px',
-                            font: `500 12px/1 ${FONT}`,
-                            color: courier.color,
-                          }}
-                        >
-                          {courier.text}
-                        </td>
-                        <td
-                          style={{
-                            padding: '11px 14px',
-                            textAlign: 'right',
-                            font: `600 13px/1 ${MONO}`,
-                            color: 'var(--ink)',
-                          }}
-                        >
+                        <td style={{ color: courier.color }}>{courier.text}</td>
+                        <td className="is-num" style={{ fontWeight: 600 }}>
                           {formatTaka(Number(o.total))}
                         </td>
                         <td
-                          style={{
-                            padding: '11px 14px',
-                            textAlign: 'right',
-                            font: `400 12px/1 ${FONT}`,
-                            color: 'var(--ink-3)',
-                          }}
+                          className="is-num"
+                          style={{ fontWeight: 400, color: 'var(--ink-3)' }}
+                          title={new Date(o.createdAt).toLocaleString('en-GB')}
                         >
                           {new Date(o.createdAt).toLocaleDateString('en-GB', {
                             day: '2-digit',
@@ -464,10 +570,18 @@ function DcOrdersBody() {
                     )
                   })}
                 </tbody>
-                </table>
-              </div>
+              </DcTable>
             )}
-          </div>
+
+            <DcPager
+              page={list.page}
+              count={rows.length}
+              total={total}
+              limit={PAGE_SIZE}
+              busy={orders.isFetching}
+              onPage={list.setPage}
+            />
+          </DcCard>
           </div>
         </>
       )}
@@ -500,7 +614,7 @@ function MobileOrdersList({
         <input
           value={query}
           onChange={(e) => onQuery(e.target.value)}
-          placeholder="Order, phone, name…"
+          placeholder="Order, phone, name, Product Code…"
           aria-label="Search orders"
         />
       </label>
@@ -578,17 +692,60 @@ function MobileOrdersList({
   )
 }
 
+/**
+ * A sortable column header.
+ *
+ * Sorting runs on the server, so a click swaps the sort key rather than
+ * reordering the page in hand — otherwise "highest value" would only mean
+ * highest on this page.
+ */
+function SortHeader({
+  label,
+  asc,
+  desc,
+  sort,
+  onSort,
+}: {
+  label: string
+  asc: SortKey
+  desc: SortKey
+  sort: SortKey
+  onSort: (next: SortKey) => void
+}) {
+  const state = sort === asc ? 'ascending' : sort === desc ? 'descending' : 'none'
+  // `aria-sort` is a property of the column header, not of the control inside
+  // it, so the cell carries the state and the button only carries the action.
+  return (
+    <th className="is-num" aria-sort={state} data-sort={state}>
+      <button
+        type="button"
+        className="dc-sort"
+        onClick={() => onSort(state === 'descending' ? asc : desc)}
+      >
+        {label}
+        <DcIcon
+          name={state === 'ascending' ? 'icon-arrow-up' : 'icon-arrow-down'}
+          size={11}
+          className="dc-sort__caret"
+        />
+      </button>
+    </th>
+  )
+}
+
 function StageStrip({
   stage,
   counts,
+  loading,
   onSelect,
 }: {
   stage: Stage
   counts: Record<string, number>
+  loading?: boolean
   onSelect: (s: Stage) => void
 }) {
   return (
-    <div style={{ ...card, display: 'flex', gap: 8, padding: 4, overflowX: 'auto' }}>
+    <div className="dc-card" style={{ display: 'flex', gap: 8, padding: 4, overflowX: 'auto' }}>
       {STAGES.map((s) => {
         const on = s === stage
         return (
@@ -634,10 +791,11 @@ function StageStrip({
               style={{
                 font: `700 19px/1 ${FONT}`,
                 letterSpacing: '-.02em',
+                fontVariantNumeric: 'tabular-nums',
                 color: on ? 'var(--violet)' : 'var(--ink)',
               }}
             >
-              {counts[s] ?? 0}
+              {loading ? '·' : (counts[s] ?? 0).toLocaleString()}
             </span>
           </button>
         )

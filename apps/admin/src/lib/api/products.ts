@@ -77,19 +77,64 @@ export interface ProductsListResponse {
   totalPages: number
 }
 
+export type ProductListStatus = 'published' | 'draft' | 'out-of-stock'
+
 export function fetchProducts(params?: {
   page?: number
   limit?: number
   search?: string
-  status?: 'published' | 'draft'
+  status?: ProductListStatus
+  sort?: string
 }) {
   const qs = new URLSearchParams()
   if (params?.page) qs.set('page', String(params.page))
   if (params?.limit) qs.set('limit', String(params.limit))
   if (params?.search) qs.set('search', params.search)
   if (params?.status) qs.set('status', params.status)
+  if (params?.sort) qs.set('sort', params.sort)
   const query = qs.toString()
   return apiFetch<ProductsListResponse>(`/admin/products${query ? `?${query}` : ''}`)
+}
+
+export interface ProductTranslateResponse {
+  nameBn?: string
+  descriptionBn?: string
+  /** Provider that answered — surfaced so a key problem is diagnosable. */
+  model: string
+}
+
+/**
+ * English product copy → Bangla, via the store's configured AI provider.
+ *
+ * Replaces the old local template, which produced code-mixed "Banglish"
+ * (`refined Men's Shoes যেখানে premium tailoring meets everyday luxury।`)
+ * rather than anything a Bangla-speaking customer would read as Bangla.
+ */
+export function translateProductCopy(input: { name?: string; description?: string }) {
+  return apiFetch<ProductTranslateResponse>('/admin/products/translate', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export interface ProductStatsResponse {
+  total: number
+  published: number
+  draft: number
+  outOfStock: number
+  lowStock: number
+}
+
+/**
+ * Catalog-wide tallies. The KPI tiles used to count the rows on screen, which
+ * the API caps at 100 — so they stopped being true the moment the catalogue
+ * outgrew a single page.
+ */
+export function fetchProductStats(params?: { search?: string }) {
+  const qs = new URLSearchParams()
+  if (params?.search) qs.set('search', params.search)
+  const query = qs.toString()
+  return apiFetch<ProductStatsResponse>(`/admin/products/stats${query ? `?${query}` : ''}`)
 }
 
 export interface CreateProductInput {

@@ -485,10 +485,6 @@ export function AgentChatPanel({
 
   const handleModelSwitch = async (next: AgentModelId) => {
     setModelOpen(false)
-    if (!status?.models[next]?.configured) {
-      toastFail(`${MODEL_LABELS[next]} API key আগে save করুন`)
-      return
-    }
     try {
       await switchAgentModel(next)
       setModel(next)

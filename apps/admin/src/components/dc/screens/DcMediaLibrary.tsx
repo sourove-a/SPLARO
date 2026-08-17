@@ -58,10 +58,8 @@ import {
   ALLOWED_UPLOAD_TYPES,
   cleanupOrphanWithRetry,
   delay,
-  MAX_LIBRARY_BYTES,
-  MAX_PDF_BYTES,
-  MAX_PRODUCT_BYTES,
-  MAX_VIDEO_BYTES,
+  MAX_UPLOAD_BYTES,
+  MAX_UPLOAD_LABEL,
   RASTER_UPLOAD,
 } from '@/lib/media/upload-rules'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
@@ -491,18 +489,8 @@ function DcMediaLibraryBody() {
       return
     }
     const isRaster = RASTER_UPLOAD.has(file.type)
-    const isPdf = file.type === 'application/pdf'
-    const isVideo = file.type.startsWith('video/')
-    if (isVideo && file.size > MAX_VIDEO_BYTES) {
-      toast('bad', 'Video is too large', 'Maximum video size is 40MB.')
-      return
-    }
-    if (isPdf && file.size > MAX_PDF_BYTES) {
-      toast('bad', 'PDF is too large', 'Maximum PDF size is 20MB.')
-      return
-    }
-    if (isRaster && file.size > MAX_PRODUCT_BYTES) {
-      toast('bad', 'Image is too large', 'Maximum product image size is 12MB; library-only raster limit is 8MB.')
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast('bad', 'File is too large', `Maximum upload size is ${MAX_UPLOAD_LABEL}.`)
       return
     }
     try {
@@ -543,14 +531,8 @@ function DcMediaLibraryBody() {
       if (productId && !new Set(['image/jpeg', 'image/png', 'image/webp']).has(file.type)) {
         throw new Error('Product gallery only accepts JPG, PNG or WebP.')
       }
-      if (!productId && RASTER_UPLOAD.has(file.type) && file.size > MAX_LIBRARY_BYTES) {
-        throw new Error('Library raster uploads must be 8MB or smaller. Attach to a product or choose a smaller file.')
-      }
-      if (!productId && file.type === 'application/pdf' && file.size > MAX_PDF_BYTES) {
-        throw new Error('Library PDFs must be 20MB or smaller.')
-      }
-      if (!productId && file.type.startsWith('video/') && file.size > MAX_VIDEO_BYTES) {
-        throw new Error('Library videos must be 40MB or smaller.')
+      if (file.size > MAX_UPLOAD_BYTES) {
+        throw new Error(`Uploads must be ${MAX_UPLOAD_LABEL} or smaller.`)
       }
       setUploadPhase('uploading')
       setUploadProgress(0)
@@ -798,7 +780,9 @@ function DcMediaLibraryBody() {
     onError: (err) => toast('bad', 'Restore failed', err instanceof Error ? err.message : 'Could not restore'),
   })
 
-  const storage = useMediaStorage()
+  // Only the Trash pane reads these totals, and the endpoint walks the whole
+  // upload volume — the storage panel asks for it separately when it is open.
+  const storage = useMediaStorage(libraryPane === 'trash')
   const trashSummary = storage.data?.split
 
   /** Permanent delete for the rows the admin ticked in Trash. */

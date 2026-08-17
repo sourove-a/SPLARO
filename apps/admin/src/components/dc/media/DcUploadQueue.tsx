@@ -8,7 +8,7 @@ import { DcIcon } from '@/components/dc/DcIcon'
 import { formatBytes } from '@/components/dc/media/DcStoragePanel'
 import { createMediaAsset, fetchLibraryMedia, type MediaFolder } from '@/lib/api/media'
 import { uploadAdminImage } from '@/lib/api/upload'
-import { cleanupOrphanWithRetry, RASTER_UPLOAD, uploadRejection } from '@/lib/media/upload-rules'
+import { cleanupOrphanWithRetry, needsServerProcessing, RASTER_UPLOAD, uploadRejection } from '@/lib/media/upload-rules'
 import '@/styles/dc-media-upload.css'
 
 /**
@@ -19,12 +19,15 @@ import '@/styles/dc-media-upload.css'
  * lands, in the right folder, and wants to see which one failed. So this runs
  * the files itself, two at a time, and keeps each row's state visible.
  *
- * Two at a time is deliberate: the API host caps worker threads, and the upload
- * route runs a sharp pipeline per file. More parallelism there makes every file
- * slower, not the batch faster.
+ * Files run in two lanes. A raster the server re-encodes is CPU work on a host
+ * that caps worker threads, so only two of those move at once — more would make
+ * every one of them slower rather than the batch faster. A video, PDF or SVG is
+ * streamed straight to disk and costs nothing but bandwidth, so those get their
+ * own wider lane instead of queueing behind an image being resized.
  */
 
-const CONCURRENCY = 2
+const RASTER_CONCURRENCY = 2
+const PASSTHROUGH_CONCURRENCY = 4
 
 type ItemStatus = 'queued' | 'uploading' | 'optimizing' | 'indexing' | 'done' | 'error' | 'cancelled'
 
@@ -178,15 +181,22 @@ export function DcUploadQueue({ files, folder, watermark, onFinished, onProgress
     setRunning(true)
     onProgressChange?.(true)
     const pending = itemsRef.current.filter((item) => item.status === 'queued')
-    let cursor = 0
-    const workers = Array.from({ length: Math.min(CONCURRENCY, pending.length) }, async () => {
-      while (cursor < pending.length) {
-        const next = pending[cursor]
-        cursor += 1
-        if (next) await uploadOne(next)
-      }
-    })
-    await Promise.all(workers)
+    const lanes = [
+      { queue: pending.filter((item) => needsServerProcessing(item.file, true, watermark)), width: RASTER_CONCURRENCY },
+      { queue: pending.filter((item) => !needsServerProcessing(item.file, true, watermark)), width: PASSTHROUGH_CONCURRENCY },
+    ]
+    await Promise.all(
+      lanes.flatMap(({ queue, width }) => {
+        let cursor = 0
+        return Array.from({ length: Math.min(width, queue.length) }, async () => {
+          while (cursor < queue.length) {
+            const next = queue[cursor]
+            cursor += 1
+            if (next) await uploadOne(next)
+          }
+        })
+      }),
+    )
 
     // Hash-match the batch against the library so a re-uploaded file is called
     // out instead of quietly doubling the folder.
@@ -217,7 +227,7 @@ export function DcUploadQueue({ files, folder, watermark, onFinished, onProgress
       failed: settled.filter((item) => item.status === 'error').length,
       duplicates,
     })
-  }, [commit, onFinished, onProgressChange, uploadOne])
+  }, [commit, onFinished, onProgressChange, uploadOne, watermark])
 
   // Start as soon as the queue is seeded — the admin already chose these files.
   useEffect(() => {

@@ -1,3 +1,5 @@
+import { uploadTimeoutMs } from '@/lib/media/upload-rules'
+
 export type UploadAdminImageOptions = {
   /** Product pipeline ON/OFF. Only applied when folder is `products`. Default true. */
   pipeline?: boolean
@@ -89,41 +91,59 @@ export async function deleteProductPipelineUpload(url: string): Promise<void> {
   }
 }
 
+/**
+ * Upload one file to the admin upload route.
+ *
+ * The body is the raw file, not a multipart form. Multipart made the browser
+ * copy and base64-frame every byte before a single one went out, and made the
+ * server buffer the whole thing in memory before it could touch disk — on a
+ * 100MB video that is the difference between "slow" and "impossible". Sending
+ * the Blob straight through lets nginx and Node stream it to disk as it
+ * arrives, so the metadata rides in the query string instead.
+ */
 export async function uploadAdminImage(
   file: File,
   folder = 'products',
   options: UploadAdminImageOptions = {},
 ): Promise<UploadAdminImageResult> {
-  const form = new FormData()
-  form.append('file', file)
-  form.append('folder', folder)
-  form.append('optimize', options.optimize === false ? '0' : '1')
-  if (options.watermark) form.append('watermark', '1')
-  if (options.uploadId) form.append('uploadId', options.uploadId)
+  const params = new URLSearchParams({
+    raw: '1',
+    folder,
+    optimize: options.optimize === false ? '0' : '1',
+    filename: file.name,
+  })
+  if (options.watermark) params.set('watermark', '1')
+  if (options.uploadId) params.set('uploadId', options.uploadId)
   if (folder === 'products' || folder.startsWith('products-')) {
-    form.append('pipeline', options.pipeline === false ? '0' : '1')
-    if (options.upscalePreviewId) {
-      form.append('upscalePreviewId', options.upscalePreviewId)
-    }
+    params.set('pipeline', options.pipeline === false ? '0' : '1')
+    if (options.upscalePreviewId) params.set('upscalePreviewId', options.upscalePreviewId)
   }
+  const url = `/api/upload?${params.toString()}`
+  const contentType = file.type || 'application/octet-stream'
+  const timeoutMs = uploadTimeoutMs(file.size)
 
-  if (options.onProgress && typeof XMLHttpRequest !== 'undefined') {
-    return uploadWithProgress(form, options.onProgress, options.signal)
+  if (typeof XMLHttpRequest !== 'undefined') {
+    return uploadWithProgress(url, file, contentType, timeoutMs, options.onProgress, options.signal)
   }
 
   const controller = new AbortController()
   const abortFromCaller = () => controller.abort()
   options.signal?.addEventListener('abort', abortFromCaller, { once: true })
-  const timeout = setTimeout(() => controller.abort(), 90_000)
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const res = await fetch('/api/upload', { method: 'POST', body: form, signal: controller.signal })
+    const res = await fetch(url, {
+      method: 'POST',
+      body: file,
+      headers: { 'Content-Type': contentType },
+      signal: controller.signal,
+    })
     const data = (await res.json()) as UploadAdminImageResult & { error?: string }
     if (!res.ok) throw new Error(data.error ?? 'Upload failed')
     if (!data.url) throw new Error('Upload failed')
     return data
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('Upload timed out — try a smaller image or wait and retry.')
+      throw new Error('Upload timed out — check the connection and retry.')
     }
     throw err
   } finally {
@@ -133,8 +153,11 @@ export async function uploadAdminImage(
 }
 
 function uploadWithProgress(
-  form: FormData,
-  onProgress: (percent: number) => void,
+  url: string,
+  body: File,
+  contentType: string,
+  timeoutMs: number,
+  onProgress: ((percent: number) => void) | undefined,
   signal?: AbortSignal,
 ): Promise<UploadAdminImageResult> {
   return new Promise((resolve, reject) => {
@@ -146,11 +169,14 @@ function uploadWithProgress(
     }
     signal?.addEventListener('abort', abort, { once: true })
     const finish = () => signal?.removeEventListener('abort', abort)
-    xhr.open('POST', '/api/upload')
-    xhr.timeout = 90_000
-    xhr.upload.onprogress = (event) => {
-      if (!event.lengthComputable) return
-      onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)))
+    xhr.open('POST', url)
+    xhr.setRequestHeader('Content-Type', contentType)
+    xhr.timeout = timeoutMs
+    if (onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return
+        onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)))
+      }
     }
     xhr.onerror = () => {
       finish()
@@ -162,7 +188,7 @@ function uploadWithProgress(
     }
     xhr.ontimeout = () => {
       finish()
-      reject(new Error('Upload timed out — try a smaller image or wait and retry.'))
+      reject(new Error('Upload timed out — check the connection and retry.'))
     }
     xhr.onload = () => {
       let data: UploadAdminImageResult & { error?: string }
@@ -183,11 +209,11 @@ function uploadWithProgress(
         reject(new Error('Upload failed'))
         return
       }
-      onProgress(100)
+      onProgress?.(100)
       finish()
       resolve(data)
     }
-    xhr.send(form)
+    xhr.send(body)
   })
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 
 import { DcIcon } from '@/components/dc/DcIcon'
 import { useMediaStorage } from '@/lib/api/hooks'
@@ -16,7 +16,14 @@ import '@/styles/dc-media-storage.css'
  * Every number arrives measured from `/admin/media/storage`, which walks the
  * upload root — so the derivative ladder and unindexed files are visible here
  * rather than hidden behind the row totals in Postgres.
+ *
+ * That walk is why the whole thing collapses, and why it stays collapsed until
+ * asked for: four charts of disk accounting sat above the files an admin came
+ * to the page for, and the volume scan ran on every visit whether or not anyone
+ * read it. Closed, this costs one row and no request.
  */
+
+const OPEN_KEY = 'splaro.media.storage.open'
 
 const KIND_LABEL: Record<string, string> = {
   image: 'Images',
@@ -221,7 +228,18 @@ function BarList({ rows, empty }: { rows: Array<{ key: string; label: string; by
 }
 
 export function DcStoragePanel({ onOpenTrash }: { onOpenTrash?: (() => void) | undefined }) {
-  const storage = useMediaStorage()
+  const [open, setOpen] = useState(false)
+  // Read after mount, never during render: the server has no localStorage, and
+  // a first paint that disagrees with it is a hydration mismatch.
+  useEffect(() => {
+    try {
+      setOpen(window.localStorage.getItem(OPEN_KEY) === '1')
+    } catch {
+      // Private mode or a blocked store — closed is the safe default.
+    }
+  }, [])
+
+  const storage = useMediaStorage(open)
   const qc = useQueryClient()
   const gradientId = useId().replace(/:/g, '')
   const [tip, setTip] = useState<{ text: string; x: number; y: number } | null>(null)
@@ -274,13 +292,96 @@ export function DcStoragePanel({ onOpenTrash }: { onOpenTrash?: (() => void) | u
     [data?.byType],
   )
 
+  const toggle = () => {
+    setOpen((previous) => {
+      const next = !previous
+      try {
+        window.localStorage.setItem(OPEN_KEY, next ? '1' : '0')
+      } catch {
+        // The panel still opens; only the preference is lost.
+      }
+      return next
+    })
+  }
+
+  const summary = (meta: string, extra?: React.ReactNode) => (
+    <div className="dc-mstore__header">
+      <button
+        type="button"
+        className="dc-mstore__dropdown-trigger"
+        aria-expanded={open}
+        onClick={toggle}
+      >
+        <div className="dc-mstore__dropdown-left">
+          <span className="dc-mstore__icon-badge">
+            <DcIcon name="icon-hard-drive" size={14} />
+          </span>
+          <div className="dc-mstore__title-group">
+            <span className="dc-mstore__title">Storage & Disk Overview</span>
+            <span className="dc-mstore__meta">{meta}</span>
+          </div>
+        </div>
+
+        {data ? (
+          <div className="dc-mstore__badges">
+            <span className="dc-mstore__badge" title="Media on disk">
+              <span className="dc-mstore__badge-dot" style={{ background: 'var(--viz-indexed)' }} />
+              {formatBytes(data.libraryBytes)}
+            </span>
+            <span className="dc-mstore__badge" title="Indexed assets count">
+              {data.libraryAssets.toLocaleString()} assets
+            </span>
+            {(split?.orphanBytes ?? 0) > 0 ? (
+              <span className="dc-mstore__badge dc-mstore__badge--warn" title="Unindexed files on disk">
+                <span className="dc-mstore__badge-dot" style={{ background: 'var(--viz-orphan)' }} />
+                {formatBytes(split?.orphanBytes)} unindexed
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="dc-mstore__dropdown-right">
+          <span className="dc-mstore__dropdown-btn">
+            <span>{open ? 'Collapse' : 'Expand Breakdown'}</span>
+            <DcIcon
+              name="icon-chevron-down"
+              size={13}
+              className={`dc-mstore__chevron ${open ? 'is-open' : ''}`}
+            />
+          </span>
+        </div>
+      </button>
+      {extra}
+    </div>
+  )
+
+  if (!open) {
+    return (
+      <section className="dc-mstore is-closed">
+        {summary(
+          data
+            ? `${formatBytes(data.libraryBytes)} across ${data.libraryAssets.toLocaleString()} asset${data.libraryAssets === 1 ? '' : 's'}`
+            : 'Volume usage, folder and type breakdown, growth',
+          <button
+            type="button"
+            className="dc-mstore__tool"
+            disabled={rescan.isPending}
+            onClick={() => {
+              if (!open) toggle()
+              rescan.mutate()
+            }}
+          >
+            <DcIcon name="icon-refresh-cw" size={12} /> {rescan.isPending ? 'Rescanning…' : 'Rescan'}
+          </button>,
+        )}
+      </section>
+    )
+  }
+
   if (storage.isLoading) {
     return (
       <section className="dc-mstore" aria-busy="true">
-        <div className="dc-mstore__head">
-          <h2 className="dc-mstore__title">Storage</h2>
-          <span className="dc-mstore__meta">measuring the upload volume…</span>
-        </div>
+        {summary('Measuring the upload volume…')}
       </section>
     )
   }
@@ -288,15 +389,12 @@ export function DcStoragePanel({ onOpenTrash }: { onOpenTrash?: (() => void) | u
   if (storage.error || !data) {
     return (
       <section className="dc-mstore">
-        <div className="dc-mstore__head">
-          <h2 className="dc-mstore__title">Storage</h2>
-          <span className="dc-mstore__meta">
-            GET /admin/media/storage failed — {storage.error instanceof Error ? storage.error.message : 'unavailable'}
-          </span>
-          <button type="button" className="dc-mstore__tool" style={{ marginLeft: 'auto' }} onClick={() => void storage.refetch()}>
+        {summary(
+          `GET /admin/media/storage failed — ${storage.error instanceof Error ? storage.error.message : 'unavailable'}`,
+          <button type="button" className="dc-mstore__tool" onClick={() => void storage.refetch()}>
             Retry
-          </button>
-        </div>
+          </button>,
+        )}
       </section>
     )
   }
@@ -325,30 +423,27 @@ export function DcStoragePanel({ onOpenTrash }: { onOpenTrash?: (() => void) | u
   }
 
   return (
-    <section className="dc-mstore">
-      <div className="dc-mstore__head">
-        <h2 className="dc-mstore__title">Storage</h2>
-        <span className="dc-mstore__meta">
-          {data.disk?.available
-            ? `walked ${data.disk.files.toLocaleString()} files · ${new Date(data.disk.scannedAt).toLocaleTimeString()}`
-            : 'disk walk unavailable — showing indexed sizes only'}
-        </span>
+    <section className="dc-mstore is-open">
+      {summary(
+        data.disk?.available
+          ? `Walked ${data.disk.files.toLocaleString()} files · ${new Date(data.disk.scannedAt).toLocaleTimeString()}`
+          : 'Disk walk unavailable — showing indexed sizes only',
         <button
           type="button"
           className="dc-mstore__tool"
-          style={{ marginLeft: 'auto' }}
           disabled={rescan.isPending}
           onClick={() => rescan.mutate()}
         >
           <DcIcon name="icon-refresh-cw" size={12} /> {rescan.isPending ? 'Rescanning…' : 'Rescan'}
-        </button>
-      </div>
+        </button>,
+      )}
 
-      {data.disk?.truncated ? (
-        <p className="dc-mstore__note">
-          The upload folder holds more files than one scan reads — totals below are a floor, not the full picture.
-        </p>
-      ) : null}
+      <div className="dc-mstore__body">
+        {data.disk?.truncated ? (
+          <p className="dc-mstore__note">
+            The upload folder holds more files than one scan reads — totals below are a floor, not the full picture.
+          </p>
+        ) : null}
 
       <div className="dc-mstore__tiles">
         <div className="dc-mstore__tile">
@@ -547,6 +642,7 @@ export function DcStoragePanel({ onOpenTrash }: { onOpenTrash?: (() => void) | u
           </tbody>
         </table>
       </details>
+      </div>
 
       {tip ? (
         <div className="dc-mstore__tip" style={{ left: tip.x, top: tip.y }} role="status">

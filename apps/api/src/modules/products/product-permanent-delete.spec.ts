@@ -45,9 +45,10 @@ function buildController(
 
   const controller = new ProductsController(
     prisma,
-    {} as never,
-    {} as never,
-    {} as never,
+    {} as never, // productAdvanced
+    {} as never, // variantSku
+    {} as never, // barcodes
+    {} as never, // translator
     cache,
     search as never,
   )

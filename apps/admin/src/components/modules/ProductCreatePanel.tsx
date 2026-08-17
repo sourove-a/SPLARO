@@ -471,6 +471,11 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
       const job = (await generateAIProduct(
         {
           productName: form.name.trim() || 'SPLARO Luxury Product',
+          // Operator's own copy is the brief — everything else is derived from
+          // it rather than invented from the product name.
+          ...(form.descriptionEn.trim() ? { description: form.descriptionEn.trim() } : {}),
+          ...(form.descriptionBn.trim() ? { descriptionBn: form.descriptionBn.trim() } : {}),
+          ...(form.nameBn.trim() ? { nameBn: form.nameBn.trim() } : {}),
           fabric: form.fabricContent,
           color: activeColors[0]?.name || undefined,
           category: categoryName || undefined,
@@ -491,13 +496,19 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
       const title = out.title ?? out.seoTitle ?? form.name
       const cleanName = title.split(' — ')[0]?.split(' | ')[0] ?? title
       const en = out.description ?? out.longDescription
-      const bn = out.descriptionBn as string | undefined
+      const bn = out.descriptionBn
 
       setForm((prev) => ({
         ...prev,
-        name: cleanName || prev.name,
-        descriptionEn: (en as string) || prev.descriptionEn,
+        // A name the operator typed is theirs. Only fall back to the model's
+        // title when the field was left blank — renaming a product out from
+        // under someone is exactly the "AI changed my stuff" complaint.
+        name: prev.name.trim() || cleanName,
+        nameBn: prev.nameBn.trim() || out.nameBn || prev.nameBn,
+        descriptionEn: en || prev.descriptionEn,
         descriptionBn: bn || prev.descriptionBn,
+        tags: prev.tags.trim() || out.tags?.join(', ') || prev.tags,
+        careInstructions: prev.careInstructions.trim() || out.careInstructions || prev.careInstructions,
         metaTitle: (out.seoTitle ?? out.metaTitle ?? prev.metaTitle) as string,
         metaDescription: (out.seoMetaDescription ?? out.metaDescription ?? prev.metaDescription) as string,
       }))
@@ -1104,24 +1115,24 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                 onChange={(e) => set('descriptionBn', e.target.value)}
                 placeholder={BN_COPY.descriptionPlaceholder}
               />
-              <button
-                type="button"
-                onClick={applyBanglaPolish}
-                style={{
-                  alignSelf: 'flex-start',
-                  height: 28,
-                  padding: '0 10px',
-                  borderRadius: 8,
-                  border: '1px solid var(--line-2)',
-                  background: 'var(--surface)',
-                  color: 'var(--ink-2)',
-                  cursor: 'pointer',
-                  font: `600 11px/1 ${FONT}`,
-                  marginTop: 4,
-                }}
-              >
-                {BN_COPY.polishButton}
-              </button>
+              <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={applyBanglaPolish}
+                  style={{
+                    height: 28,
+                    padding: '0 10px',
+                    borderRadius: 8,
+                    border: '1px solid var(--line-2)',
+                    background: 'var(--surface)',
+                    color: 'var(--ink-2)',
+                    cursor: 'pointer',
+                    font: `600 11px/1 ${FONT}`,
+                  }}
+                >
+                  {BN_COPY.polishButton}
+                </button>
+              </div>
             </DcField>
           </DcSectionCard>
 

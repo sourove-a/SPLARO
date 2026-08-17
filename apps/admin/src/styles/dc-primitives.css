@@ -1,0 +1,406 @@
+/*
+ * DC primitives — the card, table and toolbar every screen was hand-rolling.
+ *
+ * Forty-two screens each declared their own `const card = {...}` and eleven
+ * declared their own `const th = {...}`. Byte-identical in most cases, which is
+ * the problem: nothing held them together, so the ones that drifted (a 9px 12px
+ * header here, a 10px 14px there) drifted silently and stayed drifted. The
+ * values below are those consts, promoted to one place.
+ *
+ * Everything is expressed against the existing token set in `admin-tokens.css`
+ * and `dc.css`, so light and dark keep working with no per-screen handling.
+ */
+
+.dc-root {
+  /*
+   * One padding scale for the whole panel. Screens previously reached for
+   * `10px 15px`, `12px 15px`, `12px 14px`, `9px 15px`, `13px 16px` and
+   * `14px 15px 13px` for what is visually the same box.
+   */
+  --dc-pad-x: 15px;
+  --dc-pad-y: 12px;
+  --dc-cell-y: 10px;
+  --dc-gap: 10px;
+  --dc-gap-lg: 16px;
+  --dc-radius: 14px;
+  --dc-radius-sm: 9px;
+}
+
+/* ---------------------------------------------------------------- card --- */
+
+.dc-card {
+  border: 1px solid var(--line);
+  border-radius: var(--dc-radius);
+  background: var(--surface);
+  background-image: var(--card-sheen);
+}
+
+/** Clips a table's corners to the card radius. */
+.dc-card--clip {
+  overflow: hidden;
+}
+
+.dc-card--pad {
+  padding: var(--dc-pad-y) var(--dc-pad-x);
+}
+
+.dc-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--dc-gap);
+  padding: var(--dc-pad-y) var(--dc-pad-x);
+  border-bottom: 1px solid var(--line);
+}
+
+/* A head with tools in it needs to wrap before it squashes the title. */
+@media (max-width: 640px) {
+  .dc-card__head {
+    flex-wrap: wrap;
+  }
+}
+
+.dc-card__title {
+  flex: 1;
+  min-width: 0;
+  font: 600 13.5px/1.2 var(--dc-font, inherit);
+  color: var(--ink);
+}
+
+.dc-card__meta {
+  font: 500 11.5px/1.3 var(--dc-font, inherit);
+  color: var(--ink-3);
+}
+
+.dc-card__body {
+  padding: var(--dc-pad-y) var(--dc-pad-x);
+}
+
+/* --------------------------------------------------------------- table --- */
+
+/*
+ * Wraps a table so a wide one scrolls inside its card instead of pushing the
+ * page sideways. Screens did this with an inline `overflowX: auto` about half
+ * the time, which is why some lists blew out the layout on a laptop.
+ */
+.dc-scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.dc-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.dc-table th {
+  text-align: left;
+  padding: 9px var(--dc-pad-x);
+  font: 600 10.5px/1 var(--dc-font, inherit);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+/*
+ * Long lists keep their header while the body scrolls. The card background has
+ * to be repainted here or rows show through the sticky row.
+ */
+.dc-table--sticky th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+
+.dc-table td {
+  padding: var(--dc-cell-y) var(--dc-pad-x);
+  font: 500 12.5px/1.35 var(--dc-font, inherit);
+  color: var(--ink);
+  vertical-align: middle;
+}
+
+.dc-table tbody tr {
+  border-bottom: 1px solid var(--line);
+}
+
+/*
+ * The card already draws a bottom border. Every screen was doubling it up on
+ * the last row and none of them noticed.
+ */
+.dc-table tbody tr:last-child {
+  border-bottom: 0;
+}
+
+.dc-table tbody tr:hover td {
+  background: var(--surface-2);
+}
+
+.dc-table tbody tr.is-selected td {
+  background: var(--violet-soft);
+}
+
+/*
+ * Money, counts and dates line up on the decimal instead of wobbling per row —
+ * proportional digits in a numeric column are the single most obvious "this is
+ * a prototype" tell in a table.
+ */
+.dc-table .is-num,
+.dc-table th.is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dc-table .is-mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/** Row actions stay out of the way until the row is pointed at. */
+.dc-table .dc-row-tools {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  opacity: 0.55;
+  transition: opacity 0.12s ease;
+}
+
+.dc-table tr:hover .dc-row-tools,
+.dc-table tr:focus-within .dc-row-tools {
+  opacity: 1;
+}
+
+/* ------------------------------------------------------------- toolbar --- */
+
+.dc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dc-toolbar__search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1 1 220px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--dc-radius-sm);
+  background: var(--surface-2);
+}
+
+.dc-toolbar__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  outline: none;
+  color: var(--ink);
+  font: 500 12.5px/1 var(--dc-font, inherit);
+}
+
+.dc-toolbar__search:focus-within {
+  border-color: var(--violet-bd);
+}
+
+.dc-toolbar__select,
+.dc-toolbar__tool {
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--dc-radius-sm);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: 600 12px/1 var(--dc-font, inherit);
+  cursor: pointer;
+}
+
+.dc-toolbar__tool:hover,
+.dc-toolbar__select:hover {
+  border-color: var(--violet-bd);
+  color: var(--violet);
+}
+
+.dc-toolbar__tool.is-on {
+  border-color: var(--violet-solid);
+  background: var(--violet-solid);
+  color: var(--on-violet);
+}
+
+.dc-toolbar__tool.is-danger:hover {
+  border-color: var(--bad-bd);
+  color: var(--bad);
+}
+
+.dc-toolbar__tool[disabled],
+.dc-toolbar__select[disabled] {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.dc-toolbar__tool:focus-visible,
+.dc-toolbar__select:focus-visible,
+.dc-toolbar__search:focus-within {
+  outline: 2px solid var(--violet-bd);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------- pager --- */
+
+.dc-pager {
+  display: flex;
+  align-items: center;
+  gap: var(--dc-gap);
+  flex-wrap: wrap;
+  padding: 10px var(--dc-pad-x);
+  border-top: 1px solid var(--line);
+}
+
+.dc-pager__range {
+  flex: 1;
+  min-width: 0;
+  font: 500 11.5px/1.3 var(--dc-font, inherit);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.dc-pager__range b {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.dc-pager__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dc-pager__page {
+  font: 600 11.5px/1 var(--dc-font, inherit);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------- bulk select --- */
+
+/*
+ * The strip that replaces the toolbar once rows are ticked. It states the count
+ * first so an operator can see what a destructive button is about to apply to.
+ */
+.dc-bulkbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px var(--dc-pad-x);
+  border-bottom: 1px solid var(--violet-bd);
+  background: var(--violet-soft);
+}
+
+.dc-bulkbar__count {
+  flex: 1;
+  min-width: 0;
+  font: 600 12px/1.3 var(--dc-font, inherit);
+  color: var(--violet);
+}
+
+.dc-check {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--violet-solid);
+  cursor: pointer;
+}
+
+/* Selection column stays tight so it never steals width from the data. */
+.dc-table th.is-check,
+.dc-table td.is-check {
+  width: 34px;
+  padding-right: 0;
+}
+
+/* -------------------------------------------------------------- sorting --- */
+
+.dc-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+}
+
+.dc-sort:hover {
+  color: var(--ink-2);
+}
+
+/* State lives on the `th` (that is where aria-sort belongs), so the active
+ * styling is selected from the cell rather than from the button. */
+th[data-sort='ascending'] .dc-sort,
+th[data-sort='descending'] .dc-sort {
+  color: var(--violet);
+}
+
+.dc-sort__caret {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.dc-sort:hover .dc-sort__caret,
+th[data-sort='ascending'] .dc-sort__caret,
+th[data-sort='descending'] .dc-sort__caret {
+  opacity: 1;
+}
+
+/* -------------------------------------------------------------- layout --- */
+
+/*
+ * The list-plus-rail split most screens build with `flex: 1 1 56%` and
+ * `flex: 1 1 28%`. Below the breakpoint the rail drops under the list rather
+ * than being squeezed into an unreadable column.
+ */
+.dc-split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dc-gap-lg);
+  align-items: flex-start;
+  width: 100%;
+}
+
+.dc-split__main {
+  flex: 1 1 56%;
+  min-width: 340px;
+  max-width: 100%;
+}
+
+.dc-split__rail {
+  flex: 1 1 28%;
+  min-width: 290px;
+  max-width: 100%;
+}
+
+@media (max-width: 720px) {
+  .dc-split__main,
+  .dc-split__rail {
+    min-width: 100%;
+  }
+}
+
+.dc-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dc-gap);
+}
+
+.dc-stack--lg {
+  gap: var(--dc-gap-lg);
+}

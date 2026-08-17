@@ -69,6 +69,7 @@ apps/web/public/uploads/
 
 # Local tool / MCP caches
 .playwright-mcp/
+.playwright-browsers/
 .tmp-pillow/
 
 # IDE

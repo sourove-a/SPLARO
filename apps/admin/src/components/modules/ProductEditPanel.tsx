@@ -446,6 +446,11 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
     try {
       const job = await generateAIProduct({
         productName: form.name,
+        // What the operator wrote is the brief. Without it the model had only a
+        // name to go on and filled the rest in with invented copy.
+        ...(form.descriptionEn.trim() ? { description: form.descriptionEn.trim() } : {}),
+        ...(form.descriptionBn.trim() ? { descriptionBn: form.descriptionBn.trim() } : {}),
+        ...(form.nameBn.trim() ? { nameBn: form.nameBn.trim() } : {}),
         fabric: form.fabricContent,
         category: categories.find((c) => c.id === form.categoryId)?.name ?? '',
         price: form.basePrice,
@@ -474,7 +479,20 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
     } finally {
       setAiLoading(false)
     }
-  }, [form.name, form.fabricContent, form.categoryId, form.basePrice, form.occasion, categories])
+    // The description fields are read inside, so they have to be dependencies —
+    // without them the callback keeps the copy from the render it was created
+    // in and sends whatever was typed a moment ago instead of what is on screen.
+  }, [
+    form.name,
+    form.nameBn,
+    form.descriptionEn,
+    form.descriptionBn,
+    form.fabricContent,
+    form.categoryId,
+    form.basePrice,
+    form.occasion,
+    categories,
+  ])
 
   const handleFillAllWithAI = useCallback(async () => {
     if (!form.name.trim()) { toastFail('Enter product name first.'); return }
@@ -482,6 +500,9 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
     try {
       const job = await generateAIProduct({
         productName: form.name,
+        ...(form.descriptionEn.trim() ? { description: form.descriptionEn.trim() } : {}),
+        ...(form.descriptionBn.trim() ? { descriptionBn: form.descriptionBn.trim() } : {}),
+        ...(form.nameBn.trim() ? { nameBn: form.nameBn.trim() } : {}),
         fabric: form.fabricContent,
         category: categories.find((c) => c.id === form.categoryId)?.name ?? '',
         price: form.basePrice,
@@ -495,16 +516,21 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
       const out = parseAiProductOutput(job.outputData ?? {})
       const en = out.description ?? out.longDescription
       const bn = out.descriptionBn as string | undefined
+      const nameBn = out.nameBn as string | undefined
+      const tags = Array.isArray(out.tags) ? (out.tags as string[]).join(', ') : undefined
       setForm((prev) => ({
         ...prev,
         descriptionEn: (en as string) || prev.descriptionEn,
         descriptionBn: bn || prev.descriptionBn,
+        nameBn: nameBn || prev.nameBn,
         metaTitle: out.metaTitle ?? (prev.metaTitle || `${prev.name} | SPLARO Bangladesh`).slice(0, 60),
         metaDescription: out.metaDescription ?? prev.metaDescription,
         slug: prev.slug || slugify(prev.name),
+        tags: prev.tags.trim() || tags || prev.tags,
         fabricContent: out.fabric ?? prev.fabricContent,
         season: out.season ?? prev.season,
         occasion: out.occasion ?? prev.occasion,
+        careInstructions: prev.careInstructions.trim() || (out.careInstructions as string) || prev.careInstructions,
       }))
       setDirty(true)
       toastOk('AI filled product fields', 'ai-fill-ok')
@@ -513,7 +539,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
     } finally {
       setFillAllLoading(false)
     }
-  }, [form.name, form.fabricContent, form.categoryId, form.basePrice, form.occasion, categories])
+  }, [form.name, form.nameBn, form.descriptionEn, form.descriptionBn, form.fabricContent, form.categoryId, form.basePrice, form.occasion, categories])
 
   const handleGenerateQr = useCallback(async () => {
     setQrGenerating(true)
@@ -851,24 +877,24 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
                 onChange={(e) => set('descriptionBn', e.target.value)}
                 placeholder={BN_COPY.descriptionPlaceholder}
               />
-              <button
-                type="button"
-                onClick={applyBanglaPolish}
-                style={{
-                  alignSelf: 'flex-start',
-                  height: 28,
-                  padding: '0 10px',
-                  borderRadius: 8,
-                  border: '1px solid var(--line-2)',
-                  background: 'var(--surface)',
-                  color: 'var(--ink-2)',
-                  cursor: 'pointer',
-                  font: `600 11px/1 ${FONT}`,
-                  marginTop: 4,
-                }}
-              >
-                {BN_COPY.polishButton}
-              </button>
+              <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={applyBanglaPolish}
+                  style={{
+                    height: 28,
+                    padding: '0 10px',
+                    borderRadius: 8,
+                    border: '1px solid var(--line-2)',
+                    background: 'var(--surface)',
+                    color: 'var(--ink-2)',
+                    cursor: 'pointer',
+                    font: `600 11px/1 ${FONT}`,
+                  }}
+                >
+                  {BN_COPY.polishButton}
+                </button>
+              </div>
             </DcField>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
               <DcField label="Base price">

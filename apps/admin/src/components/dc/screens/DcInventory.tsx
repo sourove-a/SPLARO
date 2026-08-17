@@ -12,10 +12,12 @@ import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { useInventoryAlerts, useProducts } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
 import { AdminButton } from '@/components/ui/AdminButton'
 import type { ApiProduct } from '@/lib/api/products'
 import { downloadCsv } from '@/lib/admin/admin-actions'
 import { toastOk, toastWarn } from '@/lib/admin/feedback'
+import { buildStickerRows, printVariantStickers } from '@/lib/admin/variant-stickers'
 
 const card = {
   border: '1px solid var(--line)',
@@ -77,7 +79,17 @@ function DcInventoryBody() {
     if (sku) setSkuFocus(sku)
   }, [searchParams])
 
-  const products = useProducts({ limit: 300 })
+  /*
+   * Search runs on the server so a Product Code, barcode or variant SKU finds
+   * its item anywhere in the catalogue. Filtering here only ever searched the
+   * page already loaded, and matched name/SKU/category — never the number
+   * printed on the item someone is holding.
+   */
+  const debouncedQuery = useDebouncedValue(query.trim(), 300)
+  const products = useProducts({
+    ...(debouncedQuery ? { search: debouncedQuery } : {}),
+    limit: 100,
+  })
   const alerts = useInventoryAlerts()
   const { api } = useAdminConnection(25_000)
 
@@ -119,12 +131,10 @@ function DcInventoryBody() {
   }
 
   const tableRows = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    let filtered = needle
-      ? all.filter((p) =>
-          `${p.name} ${p.sku ?? ''} ${p.category?.name ?? ''}`.toLowerCase().includes(needle),
-        )
-      : all
+    // The server has already applied the search; only the stock-status chips
+    // are resolved here, because "low" is per-product against its own reorder
+    // point and is not a filter the list endpoint offers.
+    let filtered = all
     if (statusFilter !== 'ALL') {
       filtered = filtered.filter((p) => {
         const s = stockStatus(p).label.toUpperCase()
@@ -132,7 +142,7 @@ function DcInventoryBody() {
       })
     }
     return [...filtered].sort((a, b) => stockOf(a) - stockOf(b) || a.name.localeCompare(b.name))
-  }, [all, query, statusFilter])
+  }, [all, statusFilter])
 
   const pageStatus = dcPageStatus([products, alerts], api.pulse)
 
@@ -211,6 +221,17 @@ function DcInventoryBody() {
             label: 'Restock PO',
             icon: 'icon-plus',
             onClick: () => router.push('/dashboard/procurement/purchase-orders'),
+          },
+          {
+            label: 'Print stickers',
+            icon: 'icon-printer',
+            onClick: () => {
+              if (tableRows.length === 0) {
+                toastWarn('Nothing to print — no SKUs match this view.')
+                return
+              }
+              printVariantStickers(buildStickerRows(tableRows))
+            },
           },
           {
             label: 'Export CSV',
@@ -556,7 +577,7 @@ function DcInventoryBody() {
                           </span>
                         </span>
                       </td>
-                      <td style={{ padding: '10px 15px' }}>
+                      <td>
                         <span
                           style={{
                             display: 'inline-flex',
@@ -586,7 +607,7 @@ function DcInventoryBody() {
                   )
                 })}
               </tbody>
-              </table>
+            </table>
             </div>
           </div>
           ) : null}
@@ -617,7 +638,7 @@ function DcInventoryBody() {
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search SKU or product…"
+                  placeholder="Product Code, SKU, barcode or name…"
                   className="dc-nav-filter"
                   style={{
                     width: '100%',
@@ -719,7 +740,7 @@ function DcInventoryBody() {
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search SKU or product…"
+                    placeholder="Product Code, SKU, barcode or name…"
                     className="dc-nav-filter"
                     style={{
                       width: '100%',

@@ -20,34 +20,55 @@ export const ALLOWED_UPLOAD_TYPES = new Set([
   'video/webm',
 ])
 
-export const MAX_LIBRARY_BYTES = 8 * 1024 * 1024
-export const MAX_PRODUCT_BYTES = 12 * 1024 * 1024
-export const MAX_PDF_BYTES = 20 * 1024 * 1024
-export const MAX_VIDEO_BYTES = 40 * 1024 * 1024
+/**
+ * One ceiling for every upload.
+ *
+ * Four different limits meant four different rejection messages for what an
+ * admin experiences as one action, and the low raster ceiling pushed people
+ * into shrinking photos by hand. The route streams the body to disk instead of
+ * buffering it, so a large file costs time on the wire rather than memory on
+ * the box — one number is both simpler and honest about the real constraint.
+ */
+export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024
+export const MAX_UPLOAD_LABEL = '100MB'
+
+export const MAX_LIBRARY_BYTES = MAX_UPLOAD_BYTES
+export const MAX_PRODUCT_BYTES = MAX_UPLOAD_BYTES
+export const MAX_PDF_BYTES = MAX_UPLOAD_BYTES
+export const MAX_VIDEO_BYTES = MAX_UPLOAD_BYTES
 
 export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
 
-/**
- * Reject a file before it costs an upload. `target` matters because the product
- * pipeline accepts a larger raster than the library does.
- */
-export function uploadRejection(file: File, target: 'library' | 'product' = 'library'): string | null {
+/** Reject a file before it costs an upload. */
+export function uploadRejection(file: File): string | null {
   if (!ALLOWED_UPLOAD_TYPES.has(file.type)) {
     return 'Unsupported type — JPG, PNG, WebP, GIF, AVIF, SVG, PDF, MP4 or WebM.'
   }
-  if (file.type.startsWith('video/') && file.size > MAX_VIDEO_BYTES) return 'Video over the 40MB limit.'
-  if (file.type === 'application/pdf' && file.size > MAX_PDF_BYTES) return 'PDF over the 20MB limit.'
-  if (RASTER_UPLOAD.has(file.type)) {
-    const ceiling = target === 'product' ? MAX_PRODUCT_BYTES : MAX_LIBRARY_BYTES
-    if (file.size > ceiling) {
-      return target === 'product'
-        ? 'Image over the 12MB product limit.'
-        : 'Image over the 8MB library limit — attach it to a product instead.'
-    }
-  }
+  if (file.size > MAX_UPLOAD_BYTES) return `Over the ${MAX_UPLOAD_LABEL} limit.`
   return null
+}
+
+/**
+ * A file the upload route re-encodes with sharp, rather than passing straight
+ * through to disk. Callers use it to keep the CPU-bound files off the wide lane
+ * of a batch — see `DcUploadQueue`.
+ */
+export function needsServerProcessing(file: File, optimize: boolean, watermark: boolean): boolean {
+  if (!RASTER_UPLOAD.has(file.type) || file.type === 'image/gif') return false
+  return optimize || watermark
+}
+
+/**
+ * How long an upload of this size is allowed to take.
+ *
+ * A fixed 90s ceiling failed every large file on a normal Bangladeshi uplink
+ * before the bytes had a chance to land. This budgets ~150 KB/s of wire time on
+ * top of a fixed processing allowance, and caps out at 20 minutes.
+ */
+export function uploadTimeoutMs(sizeBytes: number): number {
+  return Math.min(20 * 60_000, 90_000 + Math.round(sizeBytes / 150))
 }
 
 /**

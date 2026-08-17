@@ -82,6 +82,7 @@ import { VariantSkuService } from './modules/products/variant-sku.service'
 import { BarcodeSequenceService } from './modules/products/barcode-sequence.service'
 import { ProductPublishCron } from './modules/products/product-publish.cron'
 import { ProductsController } from './modules/products/products.controller'
+import { ProductTranslateService } from './modules/products/product-translate.service'
 import { CustomersController } from './modules/customers/customers.controller'
 import { CustomersService } from './modules/customers/customers.service'
 import { WholesaleController } from './modules/wholesale/wholesale.controller'
@@ -362,6 +363,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     ProductAdvancedService,
     VariantSkuService,
     BarcodeSequenceService,
+    ProductTranslateService,
     ProductPublishCron,
     NotificationsService,
     StockAlertsCron,

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Controller,
+  Logger,
   Get,
   Post,
   Patch,
@@ -26,6 +27,8 @@ import {
 } from './variant-sku.service'
 import { issueProductCode, linkProductCode, ensureProductCode } from './product-code.service'
 import { BarcodeSequenceService } from './barcode-sequence.service'
+import { ProductTranslateService } from './product-translate.service'
+import { productSearchFilters } from '../../common/identifier-search.util'
 import { MediaService } from '../media/media.service'
 import { SearchService } from '../search/search.service'
 import { assertStoreBrandId } from '../../common/assert-store-brand'
@@ -51,6 +54,18 @@ import {
 } from './product-bulk-catalog.util'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
+
+/**
+ * A product counts as out of stock when nothing it sells has any left — which
+ * for a product with no variants at all is vacuously true, matching the admin's
+ * own `stockOf() === 0` rule.
+ */
+const OUT_OF_STOCK_WHERE: Prisma.ProductWhereInput = {
+  variants: { every: { stock: { lte: 0 } } },
+}
+
+/** Default reorder point, mirroring `lowStockThreshold ?? 5` on the client. */
+const LOW_STOCK_FLOOR = 5
 
 const MAX_PRODUCT_IMAGES = 10
 const MEDIA_VIDEO_ALT = 'media:video'
@@ -162,11 +177,14 @@ function mergeSchemaMarkup(
 
 @Controller('admin/products')
 export class ProductsController {
+  private readonly logger = new Logger(ProductsController.name)
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly productAdvanced: ProductAdvancedService,
     private readonly variantSku: VariantSkuService,
     private readonly barcodes: BarcodeSequenceService,
+    private readonly translator: ProductTranslateService,
     @Inject(CacheService) private readonly cache: CacheService,
     @Optional() private readonly search?: SearchService,
     @Optional() private readonly media?: MediaService,
@@ -247,32 +265,37 @@ export class ProductsController {
         sku = await this.variantSku.uniqueGenerated(tx, generated.sku)
       }
 
+      /*
+       * A variant must never reach the database without a barcode: it cannot be
+       * scanned, it cannot be labelled, and nothing on the shop floor can find
+       * it. `buildIdentityCodes` returns null for the legacy scheme whenever the
+       * minted batch runs short, which is how existing rows ended up bare — so
+       * the last resort is one more draw from the counter rather than a null.
+       */
+      let barcode = variant.barcode?.trim() || generated.barcode
+      if (!barcode?.trim()) {
+        barcode = await this.barcodes.next(tx)
+        this.logger.warn(
+          `[identity] variant "${sku}" had no derived barcode — issued ${barcode} from the counter`,
+        )
+      }
+
       out.push({
         ...variant,
         sku,
-        barcode: variant.barcode?.trim() || generated.barcode,
+        barcode,
         ...(generated.colorSerial != null ? { colorSerial: generated.colorSerial } : {}),
       })
     }
     return out
   }
 
-  /** Match a product by name, Product Code, parent SKU, variant SKU or barcode. */
+  /**
+   * Delegates to the shared identifier rule so the catalogue, the POS and the
+   * orders screen all accept the same thing when an operator types a code.
+   */
   private buildProductSearchFilters(term: string): Prisma.ProductWhereInput[] {
-    const text = term.trim()
-    const digits = text.replace(/\D/g, '')
-    const filters: Prisma.ProductWhereInput[] = [
-      { name: { contains: text, mode: 'insensitive' } },
-      { sku: { contains: text, mode: 'insensitive' } },
-      { variants: { some: { sku: { contains: text, mode: 'insensitive' } } } },
-    ]
-    if (digits.length >= 3) {
-      filters.push(
-        { productCode: { contains: digits } },
-        { variants: { some: { barcode: { contains: digits } } } },
-      )
-    }
-    return filters
+    return productSearchFilters(term)
   }
 
   private async bustProductCache(storeId: string): Promise<void> {
@@ -292,6 +315,28 @@ export class ProductsController {
     }
   }
 
+  /**
+   * Sort keys the catalog list accepts. The value comes from a URL the operator
+   * can edit, so anything unrecognised falls back to newest-first rather than
+   * reaching Prisma as a column name.
+   */
+  private productListSort(sort?: string): Prisma.ProductOrderByWithRelationInput {
+    switch (sort) {
+      case 'oldest':
+        return { createdAt: 'asc' }
+      case 'name-asc':
+        return { name: 'asc' }
+      case 'name-desc':
+        return { name: 'desc' }
+      case 'price-desc':
+        return { basePrice: 'desc' }
+      case 'price-asc':
+        return { basePrice: 'asc' }
+      default:
+        return { createdAt: 'desc' }
+    }
+  }
+
   @Get()
   async list(
     @Query('storeId') storeId: string,
@@ -299,12 +344,21 @@ export class ProductsController {
     @Query('limit') limit = 20,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('sort') sort?: string,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
     const { page: pageNum, limit: take, skip } = resolveAdminPagination(page, limit)
     const where = {
       storeId: sid,
-      ...(status === 'published' ? { isPublished: true } : status === 'draft' ? { isPublished: false } : {}),
+      ...(status === 'published'
+        ? { isPublished: true }
+        : status === 'draft'
+          ? { isPublished: false }
+          : // "Out of stock" used to be worked out on the client from the rows it
+            // had, so the tab only ever searched the first page of the catalogue.
+            status === 'out-of-stock'
+            ? OUT_OF_STOCK_WHERE
+            : {}),
       // Support types whatever is in front of them: the Product Code a customer
       // read out, a variant SKU or a scanned barcode off a packing slip, or
       // just the product name. The digit-only branches are added only when the
@@ -326,7 +380,7 @@ export class ProductsController {
           variants: { select: { id: true, stock: true, reservedStock: true, sku: true, size: true, color: true, colorName: true, price: true } },
           _count: { select: { variants: true } },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: this.productListSort(sort),
         skip,
         take,
       }),
@@ -334,6 +388,65 @@ export class ProductsController {
     ])
 
     return { products, total, page: pageNum, totalPages: Math.ceil(total / take) }
+  }
+
+  /**
+   * Catalog tallies for the whole store.
+   *
+   * The admin counted the rows it was holding, and a list response is capped at
+   * 100 — so a shop with more than a hundred products saw "100 SKUs" forever,
+   * and every KPI beside it (drafts, low stock, out of stock) was a count of
+   * the first page rather than the catalogue.
+   *
+   * Registered before `:id` so it is not read as a product id.
+   */
+  /**
+   * Products with stock left but at or under their own reorder point.
+   *
+   * This has to match the rule the admin used to apply in JavaScript —
+   * `sum(variant stock) > 0 && <= (lowStockThreshold ?? 5)` — which compares a
+   * per-product aggregate against a per-product column. Prisma's count cannot
+   * compare two columns, and approximating it with a fixed floor would quietly
+   * report a different number than the screen did before, so the aggregate is
+   * expressed directly in SQL.
+   */
+  private async countLowStock(storeId: string): Promise<number> {
+    const rows = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS count FROM (
+        SELECT p.id
+        FROM "Product" p
+        JOIN "ProductVariant" v ON v."productId" = p.id
+        WHERE p."storeId" = ${storeId}
+        GROUP BY p.id, p."lowStockThreshold"
+        HAVING SUM(v.stock) > 0
+           AND SUM(v.stock) <= COALESCE(p."lowStockThreshold", ${LOW_STOCK_FLOOR})
+      ) low
+    `
+    return Number(rows[0]?.count ?? 0)
+  }
+
+  @Get('stats')
+  async stats(@Query('storeId') storeId: string, @Query('search') search?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const base: Prisma.ProductWhereInput = {
+      storeId: sid,
+      ...(search ? { OR: this.buildProductSearchFilters(search) } : {}),
+    }
+
+    const [total, published, outOfStock, lowStock] = await Promise.all([
+      this.prisma.product.count({ where: base }),
+      this.prisma.product.count({ where: { ...base, isPublished: true } }),
+      this.prisma.product.count({ where: { ...base, ...OUT_OF_STOCK_WHERE } }),
+      this.countLowStock(sid),
+    ])
+
+    return {
+      total,
+      published,
+      draft: total - published,
+      outOfStock,
+      lowStock,
+    }
   }
 
   // ── Reviews (admin) — must be registered before :id routes ──
@@ -432,6 +545,25 @@ export class ProductsController {
     })
     if (product) await this.bustProductCache(product.storeId)
     return { deleted: true }
+  }
+
+  /**
+   * English product copy → Bangla, for the bilingual fields on the product form.
+   *
+   * Declared above the `:id` POST routes so `translate` is not read as a
+   * product id.
+   */
+  @Post('translate')
+  async translate(
+    @Query('storeId') storeId: string,
+    @Body() body: { name?: string; description?: string },
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.translator.translate({
+      storeId: sid,
+      ...(body?.name ? { name: body.name } : {}),
+      ...(body?.description ? { description: body.description } : {}),
+    })
   }
 
   @Post()

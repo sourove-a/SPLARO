@@ -1,6 +1,9 @@
 import path from 'path'
 import { createHash } from 'crypto'
-import { mkdir, rename, stat, unlink, writeFile } from 'fs/promises'
+import { createWriteStream } from 'fs'
+import { copyFile, mkdir, readFile, rename, stat, unlink, writeFile } from 'fs/promises'
+import { Readable, Transform } from 'stream'
+import { pipeline as streamPipeline } from 'stream/promises'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { resolvePublicSiteUrl } from '@splaro/config'
@@ -14,13 +17,26 @@ import {
 import { withProductPipelineSlot } from '@/lib/upload/product-pipeline-queue'
 import { deleteProductPipelineFiles } from '@/lib/upload/product-pipeline-cleanup'
 
-/** Admin upload can wait for Sharp + queue; keep ≥60s. */
-export const maxDuration = 90
+/**
+ * A 100MB upload on a domestic uplink is minutes of wire time before sharp even
+ * starts, so the old 90s ceiling failed large files by design.
+ */
+export const maxDuration = 900
 
-const MAX_BYTES = 8 * 1024 * 1024
-const MAX_PRODUCT_PIPELINE_BYTES = 12 * 1024 * 1024
-const MAX_PDF_BYTES = 20 * 1024 * 1024
-const MAX_VIDEO_BYTES = 40 * 1024 * 1024
+/**
+ * One ceiling for everything — mirrors `MAX_UPLOAD_BYTES` in
+ * `apps/admin/src/lib/media/upload-rules.ts`, which rejects earlier so the
+ * bytes never leave the browser.
+ *
+ * nginx must agree: `client_max_body_size` on the admin `/api/upload` location
+ * has to sit above this or the request dies at the proxy with a 413.
+ */
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024
+const MAX_UPLOAD_LABEL = '100MB'
+/** Enough for every signature `sniffMime` looks at, including the SVG preamble. */
+const HEAD_BYTES = 512
+/** ISO base-media brands that mean "this is an MP4", not HEIF/AVIF/QuickTime. */
+const MP4_BRANDS = new Set(['isom', 'iso2', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42', 'avc1', 'dash', 'mmp4'])
 const RASTER = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'])
 const LIBRARY_ONLY = new Set(['image/svg+xml', 'application/pdf', 'video/mp4', 'video/webm'])
 const ALLOWED = new Set([...RASTER, ...LIBRARY_ONLY])
@@ -81,9 +97,11 @@ function sniffMime(bytes: Buffer): string | null {
   if (bytes.length >= 12 && bytes.subarray(4, 8).toString('ascii') === 'ftyp') {
     const brand = bytes.subarray(8, 12).toString('ascii')
     if (brand.startsWith('avif') || brand.startsWith('avis')) return 'image/avif'
-    if (brand.startsWith('isom') || brand.startsWith('mp41') || brand.startsWith('mp42') || brand.startsWith('M4V')) {
-      return 'video/mp4'
-    }
+    // Phone cameras and editors stamp a wider set of ISO-BMFF brands than the
+    // three this used to accept; a plain iPhone clip is `iso5`, and a browser
+    // recording is often `iso2`. Rejecting those read to the admin as "video
+    // uploads are broken".
+    if (MP4_BRANDS.has(brand.slice(0, 4)) || brand.startsWith('M4V')) return 'video/mp4'
   }
   if (bytes.length >= 4 && bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) {
     return 'video/webm'
@@ -102,27 +120,32 @@ function sanitizeSvg(bytes: Buffer): Buffer {
   return bytes
 }
 
-async function maybeWatermark(bytes: Buffer, ext: string): Promise<Buffer> {
-  if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext)) return bytes
-  try {
-    const { readFile } = await import('fs/promises')
-    const logo = path.resolve(process.cwd(), '..', 'web', 'public', 'images', 'logo', 'splaro-logo-dark.svg')
-    const mark = await readFile(logo)
-    const sharp = (await import('sharp')).default
-    const base = sharp(bytes).rotate()
-    const meta = await base.metadata()
-    const width = meta.width ?? 800
-    const overlay = await sharp(mark)
-      .resize(Math.max(48, Math.round(width * 0.18)), null, { fit: 'inside' })
-      .png()
-      .toBuffer()
-    return await base
-      .composite([{ input: overlay, gravity: 'southeast', blend: 'over' }])
-      .toFormat(ext === 'png' ? 'png' : 'webp')
-      .toBuffer()
-  } catch {
-    return bytes
-  }
+/**
+ * Sharp, configured for the host it actually runs on.
+ *
+ * libvips defaults its thread pool to the CPU count, which on the CloudLinux
+ * box is well past the process thread limit — the encode either thrashes or
+ * dies. One worker is both what the host allows and, in practice, faster.
+ */
+async function loadSharp() {
+  const sharp = (await import('sharp')).default
+  const requested = Number(process.env.SHARP_CONCURRENCY ?? '1')
+  sharp.concurrency(Number.isFinite(requested) && requested > 0 ? requested : 1)
+  sharp.cache(false)
+  return sharp
+}
+
+/** Guard against a decompression bomb: 100MB of JPEG can be a great many pixels. */
+const SHARP_READ = { sequentialRead: true, limitInputPixels: 120_000_000 } as const
+
+async function watermarkOverlay(width: number): Promise<Buffer> {
+  const logo = path.resolve(process.cwd(), '..', 'web', 'public', 'images', 'logo', 'splaro-logo-dark.svg')
+  const mark = await readFile(logo)
+  const sharp = await loadSharp()
+  return sharp(mark)
+    .resize(Math.max(48, Math.round(width * 0.18)), null, { fit: 'inside' })
+    .png()
+    .toBuffer()
 }
 
 /** Env master kill switch — default ON. */
@@ -131,22 +154,54 @@ function envPipelineEnabled(): boolean {
   return raw !== '0' && raw !== 'false' && raw !== 'off' && raw !== 'no'
 }
 
-async function optimizeImageLegacy(
-  bytes: Buffer,
+/**
+ * Resize and/or watermark a raster in a single sharp pass, straight from the
+ * staged file to its final name.
+ *
+ * These used to be two calls, each decoding and re-encoding the whole image and
+ * each holding its own copy in memory — a watermarked upload paid for two full
+ * round trips through libvips. One pipeline reads the file once and writes the
+ * result once.
+ *
+ * Returns null when sharp cannot handle the file, which is the caller's cue to
+ * publish the original untouched rather than fail the upload.
+ */
+async function writeProcessedRaster(
+  srcPath: string,
+  destDir: string,
+  id: string,
   ext: string,
-): Promise<{ buffer: Buffer; ext: string }> {
+  options: { optimize: boolean; watermark: boolean },
+): Promise<{ ext: string; file: string; watermarked: boolean } | null> {
+  const markable = ['jpg', 'jpeg', 'png', 'webp'].includes(ext)
+  const applyMark = options.watermark && markable
+  if (!options.optimize && !applyMark) return null
+
   try {
-    const sharp = (await import('sharp')).default
-    const pipeline = sharp(bytes).rotate().resize(1600, 1600, {
-      fit: 'inside',
-      withoutEnlargement: true,
-    })
-    if (ext === 'png') {
-      return { buffer: await pipeline.png({ compressionLevel: 8 }).toBuffer(), ext: 'png' }
+    const sharp = await loadSharp()
+    const outExt = ext === 'png' ? 'png' : 'webp'
+    const outFile = `${id}.${outExt}`
+    const outPath = path.join(destDir, outFile)
+
+    let pipe = sharp(srcPath, SHARP_READ).rotate()
+    if (options.optimize) {
+      pipe = pipe.resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
     }
-    return { buffer: await pipeline.webp({ quality: 82 }).toBuffer(), ext: 'webp' }
+    if (applyMark) {
+      // Width after the resize decides the mark size, so the overlay is the
+      // same fraction of the picture no matter how large the original was.
+      const meta = await sharp(srcPath, SHARP_READ).metadata()
+      const sourceWidth = meta.width ?? 800
+      const finalWidth = options.optimize ? Math.min(sourceWidth, 1600) : sourceWidth
+      pipe = pipe.composite([
+        { input: await watermarkOverlay(finalWidth), gravity: 'southeast', blend: 'over' },
+      ])
+    }
+    const encoded = outExt === 'png' ? pipe.png({ compressionLevel: 8 }) : pipe.webp({ quality: 82 })
+    await encoded.toFile(outPath)
+    return { ext: outExt, file: outFile, watermarked: applyMark }
   } catch {
-    return { buffer: bytes, ext }
+    return null
   }
 }
 
@@ -176,19 +231,19 @@ type PipelineResult = {
  * `{id}.original.*` is always the raw upload. Original never overwritten.
  */
 async function runProductPipeline(
-  bytes: Buffer,
+  srcPath: string,
   ext: string,
   dir: string,
   id: string,
   variantSource?: Buffer,
   urlFolder = 'products',
 ): Promise<PipelineResult> {
-  const sharp = (await import('sharp')).default
-  const meta = await sharp(bytes).metadata()
+  const sharp = await loadSharp()
+  const meta = await sharp(srcPath, SHARP_READ).metadata()
   const width = meta.width ?? 0
   const height = meta.height ?? 0
-  const sourceForVariants = variantSource ?? bytes
-  const variantMeta = await sharp(sourceForVariants).metadata()
+  const sourceForVariants: string | Buffer = variantSource ?? srcPath
+  const variantMeta = await sharp(sourceForVariants, SHARP_READ).metadata()
   const variantWidth = variantMeta.width ?? 0
   const urlBase = `/uploads/${urlFolder}`
 
@@ -205,7 +260,7 @@ async function runProductPipeline(
 
   const originalName = `${id}.original.${ext}`
   const originalPath = path.join(dir, originalName)
-  await writeFile(originalPath, bytes)
+  await copyFile(srcPath, originalPath)
   const originalUrl = `${urlBase}/${originalName}`
 
   const qualityNote =
@@ -227,7 +282,7 @@ async function runProductPipeline(
       pendingRenames.push({ tmp: upscaledTmp, final: upscaledFinal })
     }
 
-    const rotated = await sharp(sourceForVariants).rotate().toBuffer()
+    const rotated = await sharp(sourceForVariants, SHARP_READ).rotate().toBuffer()
     const variants: Record<string, string> = {}
     const avifVariants: Record<string, string> = {}
 
@@ -303,6 +358,107 @@ async function runProductPipeline(
   }
 }
 
+class UploadError extends Error {
+  constructor(
+    message: string,
+    readonly status = 400,
+  ) {
+    super(message)
+  }
+}
+
+type Staged = {
+  /** Where the untouched upload landed. Every later step reads from here. */
+  tmpPath: string
+  size: number
+  contentHash: string
+  /** First `HEAD_BYTES`, kept for the magic-number sniff. */
+  head: Buffer
+}
+
+/**
+ * Land the request body on disk without ever holding it whole in memory.
+ *
+ * The old route did `Buffer.from(await file.arrayBuffer())` on a body Next had
+ * already buffered to parse the multipart envelope — two full copies of the
+ * upload resident before the first byte reached disk, which is what made large
+ * files crawl and then die on a thread-limited box. Hashing and sniffing ride
+ * along in the same pass, so nothing has to be re-read afterwards.
+ */
+async function stageRawBody(body: ReadableStream<Uint8Array>, tmpPath: string): Promise<Staged> {
+  const hash = createHash('sha256')
+  const headChunks: Buffer[] = []
+  let headBytes = 0
+  let size = 0
+
+  const meter = new Transform({
+    transform(chunk, _encoding, done) {
+      const buf = chunk as Buffer
+      size += buf.length
+      if (size > MAX_UPLOAD_BYTES) {
+        done(new UploadError(`Max file size is ${MAX_UPLOAD_LABEL}`, 413))
+        return
+      }
+      hash.update(buf)
+      if (headBytes < HEAD_BYTES) {
+        const want = HEAD_BYTES - headBytes
+        headChunks.push(buf.subarray(0, want))
+        headBytes += Math.min(buf.length, want)
+      }
+      done(null, buf)
+    },
+  })
+
+  await streamPipeline(Readable.fromWeb(body as Parameters<typeof Readable.fromWeb>[0]), meter, createWriteStream(tmpPath))
+  if (size === 0) throw new UploadError('File is required')
+  return { tmpPath, size, contentHash: hash.digest('hex'), head: Buffer.concat(headChunks) }
+}
+
+/** Same landing, for the multipart callers that have not moved to a raw body. */
+async function stageFormFile(file: File, tmpPath: string): Promise<Staged> {
+  if (file.size > MAX_UPLOAD_BYTES) {
+    throw new UploadError(`Max file size is ${MAX_UPLOAD_LABEL}`, 413)
+  }
+  return stageRawBody(file.stream(), tmpPath)
+}
+
+type UploadParams = {
+  folder: string
+  optimize: boolean
+  watermark: boolean
+  pipelineRequested: boolean
+  upscalePreviewId: string
+  uploadId: string
+  /** What the client says this is; only ever used to contradict the sniff. */
+  declaredType: string
+}
+
+function readParams(source: URLSearchParams | FormData, declaredType: string): UploadParams {
+  const value = (key: string): string => {
+    const raw = source instanceof URLSearchParams ? source.get(key) : source.get(key)
+    return typeof raw === 'string' ? raw : ''
+  }
+  const rawFolder = (value('folder') || 'general').trim()
+  const folder = rawFolder.replace(/[^a-z0-9-_]/gi, '')
+  if (folder !== rawFolder || !ALLOWED_FOLDERS.has(folder)) {
+    throw new UploadError('Unsupported upload folder')
+  }
+  const uploadId = value('uploadId').trim().toLowerCase()
+  if (uploadId && !/^[0-9]{10,}-[a-z0-9]{8,32}$/.test(uploadId)) {
+    throw new UploadError('Invalid upload id')
+  }
+  const pipeline = value('pipeline')
+  return {
+    folder,
+    optimize: value('optimize') === '1',
+    watermark: value('watermark') === '1' || value('watermark') === 'true',
+    pipelineRequested: pipeline !== '0' && pipeline !== 'false',
+    upscalePreviewId: value('upscalePreviewId').trim(),
+    uploadId,
+    declaredType: declaredType.split(';')[0]?.trim().toLowerCase() ?? '',
+  }
+}
+
 export async function POST(request: Request) {
   const cookieStore = await cookies()
   const token = cookieStore.get(ADMIN_SESSION_COOKIE)?.value
@@ -311,173 +467,160 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Sign in to upload files' }, { status: 401 })
   }
 
-  let form: FormData
+  const requestUrl = new URL(request.url)
+  const contentType = request.headers.get('content-type') ?? ''
+  const rawUpload = requestUrl.searchParams.get('raw') === '1' && !contentType.startsWith('multipart/')
+
+  let params: UploadParams
+  let formFile: File | null = null
   try {
-    form = await request.formData()
-  } catch {
-    return NextResponse.json({ error: 'Invalid form data' }, { status: 400 })
-  }
-
-  const file = form.get('file')
-  const rawFolder = String(form.get('folder') ?? 'general').trim()
-  const requestedFolder = rawFolder.replace(/[^a-z0-9-_]/gi, '')
-  if (requestedFolder !== rawFolder || !ALLOWED_FOLDERS.has(requestedFolder)) {
-    return NextResponse.json({ error: 'Unsupported upload folder' }, { status: 400 })
-  }
-  const folder = requestedFolder
-  const optimize = form.get('optimize') === '1'
-  const pipelineRequested = form.get('pipeline') !== '0' && form.get('pipeline') !== 'false'
-  const upscalePreviewId = String(form.get('upscalePreviewId') ?? '').trim()
-  const requestedUploadId = String(form.get('uploadId') ?? '').trim().toLowerCase()
-  if (requestedUploadId && !/^[0-9]{10,}-[a-z0-9]{8,32}$/.test(requestedUploadId)) {
-    return NextResponse.json({ error: 'Invalid upload id' }, { status: 400 })
-  }
-  const watermark = form.get('watermark') === '1' || form.get('watermark') === 'true'
-  const useProductPipeline =
-    isProductFolder(folder) &&
-    envPipelineEnabled() &&
-    pipelineRequested &&
-    file instanceof File &&
-    (file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/webp')
-
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: 'File is required' }, { status: 400 })
-  }
-
-  let bytes = Buffer.from(await file.arrayBuffer()) as Buffer
-  const detectedMime = sniffMime(bytes)
-  if (!detectedMime || !ALLOWED.has(detectedMime)) {
-    return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 })
-  }
-  if (file.type && file.type !== detectedMime && !(file.type === 'image/svg+xml' && detectedMime === 'image/svg+xml')) {
-    if (file.type !== 'application/octet-stream' && file.type !== detectedMime) {
-      return NextResponse.json({ error: 'File content does not match its type' }, { status: 400 })
+    if (rawUpload) {
+      params = readParams(requestUrl.searchParams, contentType)
+    } else {
+      let form: FormData
+      try {
+        form = await request.formData()
+      } catch {
+        throw new UploadError('Invalid form data')
+      }
+      const candidate = form.get('file')
+      if (!(candidate instanceof File)) throw new UploadError('File is required')
+      formFile = candidate
+      params = readParams(form, candidate.type)
     }
-  }
-  if (isProductFolder(folder) && !RASTER.has(detectedMime)) {
-    return NextResponse.json({ error: 'Product photos must be JPG, PNG, WebP or GIF' }, { status: 400 })
-  }
-  if (detectedMime === 'image/svg+xml') {
-    try {
-      bytes = Buffer.from(sanitizeSvg(bytes))
-    } catch (err) {
-      return NextResponse.json({ error: err instanceof Error ? err.message : 'Invalid SVG' }, { status: 400 })
-    }
+  } catch (err) {
+    if (err instanceof UploadError) return NextResponse.json({ error: err.message }, { status: err.status })
+    throw err
   }
 
-  const maxBytes = useProductPipeline
-    ? MAX_PRODUCT_PIPELINE_BYTES
-    : detectedMime === 'application/pdf'
-      ? MAX_PDF_BYTES
-      : detectedMime.startsWith('video/')
-        ? MAX_VIDEO_BYTES
-        : MAX_BYTES
-  if (file.size > maxBytes) {
-    return NextResponse.json({ error: `Max file size is ${Math.round(maxBytes / (1024 * 1024))}MB` }, { status: 400 })
-  }
-
-  const contentHash = createHash('sha256').update(bytes).digest('hex')
-  let ext = MIME_EXT[detectedMime] ?? 'bin'
-  const raster = RASTER.has(detectedMime) && detectedMime !== 'image/gif' && detectedMime !== 'image/avif'
+  const { folder, optimize, watermark, pipelineRequested, upscalePreviewId, declaredType } = params
   const dir = path.join(uploadRoot(), folder)
   await mkdir(dir, { recursive: true })
-  const id = requestedUploadId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const id = params.uploadId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const pendingMarker = path.join(dir, `${id}.pending`)
   await writeFile(pendingMarker, '')
+  const tmpPath = path.join(dir, `${id}.upload.tmp`)
 
   try {
+    if (rawUpload && !request.body) throw new UploadError('File is required')
+    const staged = rawUpload
+      ? await stageRawBody(request.body as ReadableStream<Uint8Array>, tmpPath)
+      : await stageFormFile(formFile as File, tmpPath)
+
+    const detectedMime = sniffMime(staged.head)
+    if (!detectedMime || !ALLOWED.has(detectedMime)) {
+      throw new UploadError('Unsupported file type')
+    }
+    if (declaredType && declaredType !== detectedMime && declaredType !== 'application/octet-stream') {
+      throw new UploadError('File content does not match its type')
+    }
+    if (isProductFolder(folder) && !RASTER.has(detectedMime)) {
+      throw new UploadError('Product photos must be JPG, PNG, WebP or GIF')
+    }
+    if (detectedMime === 'image/svg+xml') {
+      // SVG is the one type whose whole body has to be inspected, and the one
+      // type small enough that reading it back costs nothing.
+      sanitizeSvg(await readFile(tmpPath))
+    }
+
+    const contentHash = staged.contentHash
+    let ext = MIME_EXT[detectedMime] ?? 'bin'
+    const raster = RASTER.has(detectedMime) && detectedMime !== 'image/gif' && detectedMime !== 'image/avif'
+    const useProductPipeline =
+      isProductFolder(folder) &&
+      envPipelineEnabled() &&
+      pipelineRequested &&
+      (detectedMime === 'image/jpeg' || detectedMime === 'image/png' || detectedMime === 'image/webp')
+
     if (useProductPipeline) {
       try {
-      const result = await withProductPipelineSlot(async () => {
-        let variantSource: Buffer | undefined
-        if (upscalePreviewId) {
-          const preview = await loadUpscalePreview(upscalePreviewId)
-          if (!preview) {
-            throw new Error('AI upscale preview expired or missing — generate preview again.')
+        const result = await withProductPipelineSlot(async () => {
+          let variantSource: Buffer | undefined
+          if (upscalePreviewId) {
+            const preview = await loadUpscalePreview(upscalePreviewId)
+            if (!preview) {
+              throw new Error('AI upscale preview expired or missing — generate preview again.')
+            }
+            variantSource = preview.buffer
           }
-          variantSource = preview.buffer
+          return runProductPipeline(tmpPath, ext, dir, id, variantSource, folder)
+        })
+        if (upscalePreviewId) await clearUpscalePreview(upscalePreviewId)
+        if (request.signal.aborted) {
+          await deleteProductPipelineFiles(result.url)
+          return NextResponse.json({ error: 'Upload cancelled' }, { status: 499 })
         }
-        return runProductPipeline(bytes, ext, dir, id, variantSource, folder)
-      })
-      if (upscalePreviewId) await clearUpscalePreview(upscalePreviewId)
-      if (request.signal.aborted) {
-        await deleteProductPipelineFiles(result.url)
-        return NextResponse.json({ error: 'Upload cancelled' }, { status: 499 })
-      }
-      const outputPath = path.join(dir, path.basename(result.url))
-      let outputSize = file.size
-      let outputWidth = result.sourceWidth
-      let outputHeight = result.sourceHeight
-      try {
-        const [outputStat, outputMeta] = await Promise.all([
-          stat(outputPath),
-          (async () => {
-            const sharp = (await import('sharp')).default
-            return sharp(outputPath).metadata()
-          })(),
-        ])
-        outputSize = outputStat.size
-        outputWidth = outputMeta.width ?? outputWidth
-        outputHeight = outputMeta.height ?? outputHeight
-      } catch {
-        // Output already exists; source metadata is safer than reporting upload failure and orphaning it.
-      }
-      return NextResponse.json({
-        ...result,
-        path: result.url,
-        publicUrl: `${resolvePublicSiteUrl()}${result.url}`,
-        width: outputWidth,
-        height: outputHeight,
-        sizeBytes: outputSize,
-        mimeType: result.url.endsWith('.webp') ? 'image/webp' : file.type,
-        contentHash,
-        kind: 'image',
-        watermarked: false,
-      })
+        const outputPath = path.join(dir, path.basename(result.url))
+        let outputSize = staged.size
+        let outputWidth = result.sourceWidth
+        let outputHeight = result.sourceHeight
+        try {
+          const sharp = await loadSharp()
+          const [outputStat, outputMeta] = await Promise.all([stat(outputPath), sharp(outputPath).metadata()])
+          outputSize = outputStat.size
+          outputWidth = outputMeta.width ?? outputWidth
+          outputHeight = outputMeta.height ?? outputHeight
+        } catch {
+          // Output already exists; source metadata is safer than reporting upload failure and orphaning it.
+        }
+        return NextResponse.json({
+          ...result,
+          path: result.url,
+          publicUrl: `${resolvePublicSiteUrl()}${result.url}`,
+          width: outputWidth,
+          height: outputHeight,
+          sizeBytes: outputSize,
+          mimeType: result.url.endsWith('.webp') ? 'image/webp' : detectedMime,
+          contentHash,
+          kind: 'image',
+          watermarked: false,
+        })
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Product image processing failed'
         return NextResponse.json({ error: message }, { status: 400 })
       }
     }
 
-    // Legacy path — banners / partners / media / pipeline OFF / gif / files
+    // Library path — banners / partners / media / pipeline OFF / gif / files.
+    // Anything sharp has no work to do on is published by renaming the staged
+    // file, so a 100MB video is written to disk exactly once.
+    const processed = raster ? await writeProcessedRaster(tmpPath, dir, id, ext, { optimize, watermark }) : null
+    let safeName: string
     let watermarked = false
-    if (optimize && raster) {
-      const result = await optimizeImageLegacy(bytes, ext)
-      bytes = Buffer.from(result.buffer)
-      ext = result.ext
-    }
-    if (watermark && raster) {
-      const marked = await maybeWatermark(bytes, ext === 'jpeg' ? 'jpg' : ext)
-      if (marked !== bytes && marked.length > 0) {
-        bytes = Buffer.from(marked)
-        watermarked = true
-        if (ext !== 'png') ext = 'webp'
-      }
+    if (processed) {
+      ext = processed.ext
+      safeName = processed.file
+      watermarked = processed.watermarked
+    } else {
+      safeName = `${id}.${ext}`
+      await rename(tmpPath, path.join(dir, safeName))
     }
 
-    const safeName = `${id}.${ext}`
     const outputFile = path.join(dir, safeName)
-    await writeFile(outputFile, bytes)
     if (request.signal.aborted) {
-      await unlink(outputFile).catch(() => undefined)
+      await removeQuiet(outputFile)
       return NextResponse.json({ error: 'Upload cancelled' }, { status: 499 })
     }
     const url = `/uploads/${folder}/${safeName}`
     let width: number | null = null
     let height: number | null = null
+    let outputSize = staged.size
+    try {
+      outputSize = (await stat(outputFile)).size
+    } catch {
+      // Size from the wire is close enough if the stat races a sweep.
+    }
     if (raster || detectedMime === 'image/gif' || detectedMime === 'image/avif') {
       try {
-        const sharp = (await import('sharp')).default
-        const metadata = await sharp(bytes).metadata()
+        const sharp = await loadSharp()
+        const metadata = await sharp(outputFile, SHARP_READ).metadata()
         width = metadata.width ?? null
         height = metadata.height ?? null
       } catch {
         // decoder metadata is optional
       }
     }
-    const mimeType =
-      ext === 'webp' ? 'image/webp' : ext === 'png' ? 'image/png' : detectedMime
+    const mimeType = ext === 'webp' ? 'image/webp' : ext === 'png' ? 'image/png' : detectedMime
     const kind =
       mimeType === 'image/gif'
         ? 'gif'
@@ -497,13 +640,22 @@ export async function POST(request: Request) {
       pipeline: false,
       width,
       height,
-      sizeBytes: bytes.length,
+      sizeBytes: outputSize,
       mimeType,
       contentHash,
       kind,
       watermarked,
     })
+  } catch (err) {
+    if (err instanceof UploadError) {
+      return NextResponse.json({ error: err.message }, { status: err.status })
+    }
+    const message = err instanceof Error ? err.message : 'Upload failed'
+    return NextResponse.json({ error: message }, { status: 400 })
   } finally {
+    // The staged copy is gone by rename on the happy path; this catches every
+    // other exit, including a body that blew the size cap mid-stream.
+    await removeQuiet(tmpPath)
     await unlink(pendingMarker).catch(() => undefined)
   }
 }

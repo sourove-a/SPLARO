@@ -8,6 +8,18 @@ import type { AIJobType } from '@prisma/client'
 
 export interface AIProductInput {
   productName: string
+  /**
+   * What the operator actually wrote about this product.
+   *
+   * Without it the model only ever saw a name and a few attributes, so it had
+   * nothing to work from and invented the rest — which is why the output read
+   * as generic filler no matter what had been typed into the form. When this is
+   * present it is the source of truth and everything else is derived from it.
+   */
+  description?: string
+  /** Existing Bangla copy, if the operator already wrote some. */
+  descriptionBn?: string
+  nameBn?: string
   fabric?: string
   color?: string
   category?: string
@@ -218,15 +230,40 @@ export class AIProductAgentService {
       shareLink: `${siteUrl}/products/${slug}`,
     }
 
+    const hasSourceCopy = Boolean(input.description?.trim())
+
+    /*
+     * Two different jobs share this call.
+     *
+     * With a description, the operator has already said what the product is and
+     * the model's job is to expand and translate that — not to have opinions
+     * about the product. Without one it has to write from the attributes, which
+     * is the old behaviour and the reason output felt invented.
+     */
+    const grounding = hasSourceCopy
+      ? [
+          'The operator has written the product description themselves. It is the source of truth.',
+          'Rewrite and polish it into `description`/`descriptionEn`, keeping every fact, material, measurement and claim it contains. Do not add features, fabrics, occasions, certifications or benefits it does not state.',
+          'Derive metaTitle, seoTitle, metaDescription, seoMetaDescription, tags and keywords from that same text, not from imagination.',
+          '`descriptionBn` must be a faithful Bangla translation of it — natural Bangla, not transliterated English and not code-mixed "Banglish". Keep the brand name SPLARO and product/model names (e.g. "Air Jordan 4 Retro") in Latin script. End sentences with the Bangla danda (।).',
+          'If a detail is genuinely unknown, leave that field out rather than guessing.',
+        ].join(' ')
+      : [
+          'No description was supplied, so write one from the given attributes only.',
+          'Do not invent materials, measurements or certifications that were not provided.',
+          '`descriptionBn` must be natural Bangla, not "Banglish", keeping SPLARO and model names in Latin script.',
+        ].join(' ')
+
     const messages = [
       {
         role: 'system' as const,
-        content:
-          'You are SPLARO luxury fashion copywriter. Return a single JSON object with product content fields including description, longDescription, metaTitle, seoTitle, metaDescription, seoMetaDescription, tags, keywords, descriptionBn, descriptionEn, careInstructions, sizeGuideSuggestion, instagramCaption, facebookCaption, whatsappMessage. Bangla and English descriptions required.',
+        content: `You are SPLARO's product copywriter for a Bangladeshi fashion store. ${grounding} Return a single JSON object — no prose, no code fences — with these keys where you have grounds for them: description, longDescription, metaTitle, seoTitle, metaDescription, seoMetaDescription, tags, keywords, descriptionBn, descriptionEn, nameBn, careInstructions, sizeGuideSuggestion, instagramCaption, facebookCaption, whatsappMessage. Both a Bangla and an English description are required. \`nameBn\` is the product title in Bangla, with the brand and model name left in Latin script. metaTitle must be at most 60 characters and metaDescription at most 155, since they render in Google results.`,
       },
       {
         role: 'user' as const,
-        content: `Generate product content for: ${JSON.stringify(input)}. Base template: ${JSON.stringify(base)}`,
+        content: hasSourceCopy
+          ? `Product: ${JSON.stringify({ ...input, description: undefined })}\n\nOperator's own description (source of truth):\n"""\n${input.description?.trim()}\n"""${input.descriptionBn?.trim() ? `\n\nExisting Bangla the operator wrote — match its wording and tone:\n"""\n${input.descriptionBn.trim()}\n"""` : ''}`
+          : `Generate product content for: ${JSON.stringify(input)}. Base template for tone and shape only: ${JSON.stringify(base)}`,
       },
     ]
 
@@ -243,7 +280,27 @@ export class AIProductAgentService {
 
     try {
       const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>
-      return this.normalizeOutput({ ...base, ...parsed })
+      /*
+       * `base` is two different things wearing one name: mechanical values
+       * derived from real data (SKU, barcode, share link) and placeholder prose
+       * invented from the product name. Merging all of it under the model's
+       * reply meant any field the model left out was backfilled with invented
+       * copy — which is what made the result look random even when the operator
+       * had written a perfectly good description.
+       *
+       * So the prose half is only used as a fallback when there was nothing to
+       * work from. When the operator wrote a description, an omitted field stays
+       * omitted rather than being filled with something they did not say.
+       */
+      const mechanical = {
+        skuSuggestion: base.skuSuggestion,
+        rmCodeSuggestion: base.rmCodeSuggestion,
+        qrCodeData: base.qrCodeData,
+        barcodeData: base.barcodeData,
+        shareLink: base.shareLink,
+      }
+      const fallback = hasSourceCopy ? mechanical : base
+      return this.normalizeOutput({ ...fallback, ...parsed })
     } catch {
       throw new BadRequestException(`AI model (${model}) returned invalid JSON`)
     }

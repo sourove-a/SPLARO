@@ -5,6 +5,9 @@ import { Providers } from '@/components/layout/Providers'
 import { DcThemeScript } from '@/components/dc/theme'
 import './globals.css'
 import '@/styles/dc.css'
+// Card / table / toolbar classes the screens share. After dc.css so a screen
+// can still override a primitive with its own page-scoped rule.
+import '@/styles/dc-primitives.css'
 // Loaded after globals so the DC login modifiers win over the legacy
 // `.admin-auth-shell` base rules (same specificity — source order decides).
 import '@/styles/admin-login-dc.css'

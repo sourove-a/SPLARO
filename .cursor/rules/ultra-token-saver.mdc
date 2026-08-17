@@ -1,0 +1,12 @@
+---
+description: Silent min-token execution on every task. Full text in .cursor/skills/ultra-token-saver/SKILL.md
+alwaysApply: true
+---
+
+Apply skill `ultra-token-saver` on every task.
+
+- Code/actions > explanations. Do not narrate. Do not repeat the request.
+- Search before opening large files. Smallest relevant range. Smallest correct change.
+- Silent during execution unless input, blocker, or dangerous decision.
+- Final reply ≤ 8 lines: Done / Changed / Validation / Issues.
+- Correctness > token saving.

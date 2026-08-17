@@ -532,32 +532,49 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
                       {d.customer?.loyaltyTier ? `${d.customer.loyaltyTier} tier` : 'Guest checkout'}
                       {d.isCodRisk ? ' · flagged COD risk' : ''}
                     </span>
-                    <button
-                      type="button"
-                      disabled={!d.customer}
-                      onClick={() => {
-                        onClose()
-                        router.push('/dashboard/customers')
-                      }}
-                      className="dc-hover-violet"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        height: 28,
-                        padding: '0 10px',
-                        borderRadius: 8,
-                        border: '1px solid var(--line)',
-                        background: 'var(--surface-2)',
-                        color: 'var(--ink-2)',
-                        cursor: d.customer ? 'pointer' : 'not-allowed',
-                        font: `600 11.5px/1 ${FONT}`,
-                        opacity: d.customer ? 1 : 0.55,
-                      }}
-                    >
-                      <DcIcon name="icon-user" size={12} />
-                      <span>360°</span>
-                    </button>
+                    {(() => {
+                      const customerRef =
+                        d.customer?.customerCode?.trim() ||
+                        d.customer?.id ||
+                        d.customerId ||
+                        null
+                      const canOpen = Boolean(customerRef || d.customer || d.shippingPhone)
+                      return (
+                        <button
+                          type="button"
+                          disabled={!canOpen}
+                          onClick={() => {
+                            onClose()
+                            if (customerRef) {
+                              router.push(`/dashboard/customers/${encodeURIComponent(customerRef)}`)
+                            } else if (d.shippingPhone) {
+                              router.push(`/dashboard/customers?search=${encodeURIComponent(d.shippingPhone)}`)
+                            } else {
+                              router.push('/dashboard/customers')
+                            }
+                          }}
+                          className="dc-hover-violet"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            height: 28,
+                            padding: '0 10px',
+                            borderRadius: 8,
+                            border: '1px solid var(--line)',
+                            background: 'var(--surface-2)',
+                            color: 'var(--ink-2)',
+                            cursor: canOpen ? 'pointer' : 'not-allowed',
+                            font: `600 11.5px/1 ${FONT}`,
+                            opacity: canOpen ? 1 : 0.55,
+                          }}
+                          title="Open Customer 360° profile"
+                        >
+                          <DcIcon name="icon-user" size={12} />
+                          <span>360°</span>
+                        </button>
+                      )
+                    })()}
                   </div>
                 </div>
 

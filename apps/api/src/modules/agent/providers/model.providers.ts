@@ -273,6 +273,30 @@ export class ClaudeProvider implements ModelProvider {
   }
 }
 
+/**
+ * Model names this key can call `generateContent` on.
+ *
+ * Best effort and only used to decorate a 404 — if the lookup itself fails the
+ * caller still gets the original error, which is the one that matters.
+ */
+async function listGeminiModels(apiKey: string): Promise<string> {
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`)
+    if (!res.ok) return ''
+    const data = (await res.json()) as {
+      models?: Array<{ name?: string; supportedGenerationMethods?: string[] }>
+    }
+    const usable = (data.models ?? [])
+      .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
+      .map((m) => (m.name ?? '').replace(/^models\//, ''))
+      .filter(Boolean)
+    if (usable.length === 0) return ''
+    return `. Set GEMINI_MODEL to one of: ${usable.slice(0, 8).join(', ')}`
+  } catch {
+    return ''
+  }
+}
+
 export class GeminiProvider implements ModelProvider {
   readonly id = 'gemini'
 
@@ -301,12 +325,40 @@ export class GeminiProvider implements ModelProvider {
           // Without this the agent loses its identity, platform knowledge and
           // honesty rules on Gemini — Gemini ignores `system`-role turns.
           ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-          tools: [{ functionDeclarations: tools.map((t) => ({ name: t.name, description: t.description, parameters: t.parameters })) }],
+          // Only send `tools` when there are some. A toolless call (translation,
+          // the product copy generator) would otherwise post
+          // `functionDeclarations: []`, which Gemini rejects as INVALID_ARGUMENT
+          // rather than treating as "no tools".
+          ...(tools.length > 0
+            ? {
+                tools: [
+                  {
+                    functionDeclarations: tools.map((t) => ({
+                      name: t.name,
+                      description: t.description,
+                      parameters: t.parameters,
+                    })),
+                  },
+                ],
+              }
+            : {}),
         }),
       },
     )
 
-    if (!res.ok) throw new Error(`Gemini error ${res.status}`)
+    if (!res.ok) {
+      // A bare status hid the two failures people actually hit — a retired model
+      // name and a key without the API enabled — behind an identical "400".
+      const detail = await res.text().catch(() => '')
+      const reason = detail.slice(0, 300).replace(/\s+/g, ' ').trim()
+      // Google retires model names on their own schedule, so a config that
+      // worked last quarter starts 404ing. Naming the models this key can
+      // actually call turns that into a one-line fix instead of a search.
+      const hint = res.status === 404 ? await listGeminiModels(apiKey) : ''
+      throw new Error(
+        `Gemini error ${res.status}${reason ? ` — ${reason}` : ''} (model: ${model})${hint}`,
+      )
+    }
     const data = (await res.json()) as {
       candidates?: Array<{ content?: { parts?: Array<{ text?: string; functionCall?: { name: string; args?: Record<string, unknown> } }> } }>
     }

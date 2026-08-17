@@ -107,7 +107,7 @@ async function stopNextDevBeforeBuild() {
 }
 await stopNextDevBeforeBuild()
 
-run('pnpm', ['build'])
+run('pnpm', ['build', '--concurrency=1'])
 
 assertFile(resolve(ROOT, 'packages/types/dist/index.js'), 'packages/types/dist')
 assertFile(resolve(ROOT, 'packages/config/dist/index.js'), 'packages/config/dist')

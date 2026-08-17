@@ -10,7 +10,6 @@ export const metadata = createRouteMetadata({
 })
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
-const FALLBACK_HERO = '/images/hero/women-collection-1600.webp'
 
 type StockImage = { id: string; url: string; title?: string | null }
 
@@ -31,17 +30,23 @@ async function loadWholesaleStock(): Promise<StockImage[]> {
 
 export default async function WholesalePage() {
   const stock = await loadWholesaleStock()
-  const hero = stock[0]?.url?.trim() || FALLBACK_HERO
-  const gallery = stock.length > 1 ? stock.slice(1) : stock
+  const heroImage = stock.length > 0 ? stock[0]?.url?.trim() : null
+  const gallery = stock.length > 1 ? stock.slice(1) : []
 
   return (
     <main className="wholesale-page">
       <section className="wholesale-hero" aria-label="Wholesale">
-        <div className="wholesale-hero__media" aria-hidden="true">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={hero} alt="" className="wholesale-hero__image wholesale-hero__image--static" />
-          <div className="wholesale-hero__veil" />
-        </div>
+        {heroImage ? (
+          <div className="wholesale-hero__media" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={heroImage}
+              alt=""
+              className="wholesale-hero__image wholesale-hero__image--static"
+            />
+            <div className="wholesale-hero__veil" />
+          </div>
+        ) : null}
         <div className="container-luxury wholesale-hero__copy">
           <p className="wholesale-hero__brand">SPLARO</p>
           <h1 className="wholesale-hero__title">Wholesale &amp; export</h1>
@@ -57,7 +62,11 @@ export default async function WholesalePage() {
             {gallery.map((item) => (
               <figure key={item.id} className="wholesale-stock__item">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={item.url} alt={item.title?.trim() || ''} className="wholesale-stock__img" />
+                <img
+                  src={item.url}
+                  alt={item.title?.trim() || ''}
+                  className="wholesale-stock__img"
+                />
               </figure>
             ))}
           </div>

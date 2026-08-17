@@ -10,6 +10,8 @@ import { dcPageStatus } from '@/components/dc/page-status'
 import { DcScreenProvider, useDcScreen } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import { DcField, DcModal } from '@/components/dc/DcModal'
+import { DcCard, DcCardHead } from '@/components/dc/primitives/DcCard'
+import { DcTable } from '@/components/dc/primitives/DcTable'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
 import {
@@ -29,24 +31,6 @@ import {
 } from '@/lib/api/categories'
 import { revalidateWebCache } from '@/lib/api/revalidate'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
-
-const card = {
-  border: '1px solid var(--line)',
-  borderRadius: 14,
-  background: 'var(--surface)',
-  backgroundImage: 'var(--card-sheen)',
-} as const
-
-const th = {
-  textAlign: 'left' as const,
-  padding: '9px 15px',
-  font: `600 10.5px/1 ${FONT}`,
-  letterSpacing: '.09em',
-  textTransform: 'uppercase' as const,
-  color: 'var(--ink-3)',
-  borderBottom: '1px solid var(--line)',
-  whiteSpace: 'nowrap' as const,
-}
 
 interface FlatNode {
   node: CategoryTreeNode
@@ -280,43 +264,22 @@ function DcCategoriesBody() {
           }}
         />
       ) : (
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 16,
-            alignItems: 'flex-start',
-            width: '100%',
-          }}
-        >
-          <div style={{ flex: '1 1 56%', minWidth: 340, maxWidth: '100%' }}>
-            <div style={{ ...card, overflow: 'auto' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '12px 15px',
-                  borderBottom: '1px solid var(--line)',
-                }}
-              >
-                <span style={{ flex: 1, font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)' }}>
-                  Category tree
-                </span>
-                <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
-                  {rows.length} categories · {maxDepth} level{maxDepth === 1 ? '' : 's'}
-                </span>
-              </div>
+        <div className="dc-split">
+          <div className="dc-split__main">
+            <DcCard clip>
+              <DcCardHead
+                title="Category tree"
+                meta={`${rows.length} categories · ${maxDepth} level${maxDepth === 1 ? '' : 's'}`}
+              />
 
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse' }}>
+              <DcTable sticky>
                 <thead>
                   <tr>
-                    <th style={th}>Category</th>
-                    <th style={th}>Path</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Products</th>
-                    <th style={th}>Storefront</th>
-                    <th style={{ ...th, textAlign: 'right' }}>&nbsp;</th>
+                    <th>Category</th>
+                    <th>Path</th>
+                    <th className="is-num">Products</th>
+                    <th>Storefront</th>
+                    <th className="is-num">&nbsp;</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -324,8 +287,8 @@ function DcCategoriesBody() {
                     const visible = node.isActive !== false
                     const tone = toneStyle(visible ? 'ok' : 'mute')
                     return (
-                      <tr key={node.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                        <td style={{ padding: '10px 15px' }}>
+                      <tr key={node.id}>
+                        <td>
                           <span
                             style={{
                               display: 'flex',
@@ -339,7 +302,6 @@ function DcCategoriesBody() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: 6,
-                                font: `500 13px/1.25 ${FONT}`,
                                 color: visible ? 'var(--ink)' : 'var(--ink-3)',
                               }}
                             >
@@ -357,27 +319,18 @@ function DcCategoriesBody() {
                             ) : null}
                           </span>
                         </td>
-                        <td
-                          style={{
-                            padding: '10px 15px',
-                            font: `500 12px/1 ${MONO}`,
-                            color: 'var(--ink-2)',
-                          }}
-                        >
+                        <td className="is-mono" style={{ color: 'var(--ink-2)' }}>
                           {path}
                         </td>
                         <td
+                          className="is-num"
                           style={{
-                            padding: '10px 15px',
-                            textAlign: 'right',
-                            font: `600 13px/1 ${MONO}`,
-                            color:
-                              (node._count?.products ?? 0) === 0 ? 'var(--ink-3)' : 'var(--ink)',
+                            color: (node._count?.products ?? 0) === 0 ? 'var(--ink-3)' : 'var(--ink)',
                           }}
                         >
                           {node._count?.products ?? 0}
                         </td>
-                        <td style={{ padding: '10px 15px' }}>
+                        <td>
                           <span
                             style={{
                               display: 'inline-flex',
@@ -403,15 +356,8 @@ function DcCategoriesBody() {
                             {visible ? 'Visible' : 'Hidden'}
                           </span>
                         </td>
-                        <td style={{ padding: '10px 15px' }}>
-                          <span
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 5,
-                              justifyContent: 'flex-end',
-                            }}
-                          >
+                        <td>
+                          <span className="dc-row-tools" style={{ alignItems: 'center' }}>
                             <IconBtn
                               icon="icon-chevron-up"
                               title="Move up"
@@ -460,13 +406,12 @@ function DcCategoriesBody() {
                     )
                   })}
                 </tbody>
-                </table>
-              </div>
-            </div>
+              </DcTable>
+            </DcCard>
           </div>
 
-          <div style={{ flex: '1 1 28%', minWidth: 290, maxWidth: '100%' }}>
-            <div style={{ ...card, padding: '6px 16px 12px' }}>
+          <div className="dc-split__rail">
+            <DcCard style={{ padding: '6px 16px 12px' }}>
               <div
                 style={{ padding: '12px 0 10px', font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)' }}
               >
@@ -500,7 +445,7 @@ function DcCategoriesBody() {
                 sub="render as a dead end on the storefront"
                 value={String(emptyCats)}
               />
-            </div>
+            </DcCard>
           </div>
         </div>
       )}

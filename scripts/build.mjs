@@ -38,5 +38,6 @@ if (useHostingerBuild) {
   run('bash', ['scripts/hostinger-build.sh'])
 } else {
   console.log('[build] pnpm workspace ready → turbo build')
-  run('pnpm', ['exec', 'turbo', 'run', 'build'])
+  const extraArgs = process.argv.slice(2)
+  run('pnpm', ['exec', 'turbo', 'run', 'build', ...extraArgs])
 }

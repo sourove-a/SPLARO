@@ -225,23 +225,18 @@ export class AgentService {
 
     this.router.invalidateCache()
 
-    const modelStatus = await this.router.getModelStatus(storeId)
-    if (!modelStatus.activeModelReady) {
-      throw new BadRequestException(
-        `Active model "${modelStatus.activeModel}" has no API key. Save the key for that model in AI Command Brain.`,
-      )
-    }
-
     return this.getConfig(storeId)
   }
 
   async switchModel(storeIdRaw: string, model: AgentModelId) {
-    const status = await this.router.getModelStatus(storeIdRaw)
-    const ready = status.models[model]?.configured
-    if (!ready) {
-      throw new BadRequestException(`No API key configured for ${model}. Add it in AI Command Brain.`)
-    }
-    return this.updateConfig(storeIdRaw, { activeModel: model })
+    const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    await this.prisma.agentConfig.upsert({
+      where: { storeId },
+      create: { storeId, systemPrompt: DEFAULT_AGENT_SYSTEM_PROMPT, activeModel: model },
+      update: { activeModel: model },
+    })
+    this.router.invalidateCache()
+    return this.getConfig(storeId)
   }
 
   /** Reject dead keys at save-time — never show green "saved" for a 401 key. */

@@ -36,7 +36,16 @@ export interface ApiOrder {
   items: ApiOrderItem[]
   courier?: { provider?: string; status?: string; consignmentId?: string | null; trackingCode?: string | null } | null
   internalNotes?: { id: string; body: string; createdAt: string }[]
-  customer?: { firstName?: string; lastName?: string; phone?: string; loyaltyTier?: string; codRiskScore?: number }
+  customerId?: string | null
+  customer?: {
+    id?: string
+    customerCode?: string | null
+    firstName?: string
+    lastName?: string
+    phone?: string
+    loyaltyTier?: string
+    codRiskScore?: number
+  } | null
 }
 
 export interface OrdersListResponse {
@@ -51,14 +60,38 @@ export function fetchOrders(params?: {
   page?: number
   limit?: number
   search?: string
+  paymentMethod?: string
+  sort?: string
 }) {
   const qs = new URLSearchParams()
   if (params?.status) qs.set('status', params.status)
   if (params?.page) qs.set('page', String(params.page))
   if (params?.limit) qs.set('limit', String(params.limit))
   if (params?.search) qs.set('search', params.search)
+  if (params?.paymentMethod) qs.set('paymentMethod', params.paymentMethod)
+  if (params?.sort) qs.set('sort', params.sort)
   const query = qs.toString()
   return apiFetch<OrdersListResponse>(`/admin/orders${query ? `?${query}` : ''}`)
+}
+
+export interface OrderStatsResponse {
+  /** Raw API status (`PENDING`, `SHIPPED`, …) → count across the whole store. */
+  byStatus: Record<string, number>
+  total: number
+}
+
+/**
+ * Stage counts for the whole store, not just the page in hand.
+ *
+ * `search` is passed through so the strip counts the same set the list is
+ * showing — otherwise a search would narrow the rows and leave the tallies
+ * above them describing a different query.
+ */
+export function fetchOrderStats(params?: { search?: string }) {
+  const qs = new URLSearchParams()
+  if (params?.search) qs.set('search', params.search)
+  const query = qs.toString()
+  return apiFetch<OrderStatsResponse>(`/admin/orders/stats${query ? `?${query}` : ''}`)
 }
 
 export function fetchOrder(id: string) {

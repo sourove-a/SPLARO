@@ -11,9 +11,9 @@ import {
   periodFromLabel,
   saveDailyGoal,
 } from './dashboard'
-import { fetchOrders, fetchOrder, updateOrderStatus, updateOrderPaymentStatus, deleteOrder, bookOrderCourier, bookOrdersCourierBulk, createOrder, bulkUpdateOrderStatus, setOrderCodRisk, addOrderNote, type OrderPaymentStatus } from './orders'
+import { fetchOrders, fetchOrder, fetchOrderStats, updateOrderStatus, updateOrderPaymentStatus, deleteOrder, bookOrderCourier, bookOrdersCourierBulk, createOrder, bulkUpdateOrderStatus, setOrderCodRisk, addOrderNote, type OrderPaymentStatus } from './orders'
 import { fetchFulfillmentTodayStats } from './fulfillment'
-import { fetchProducts, createProduct, updateProduct, deleteProduct, fetchProduct, updateProductVariant, fetchProductVersions, restoreProductVersion, createProductVariant, archiveProductVariant } from './products'
+import { fetchProducts, fetchProductStats, createProduct, updateProduct, deleteProduct, fetchProduct, updateProductVariant, fetchProductVersions, restoreProductVersion, createProductVariant, archiveProductVariant, type ProductListStatus } from './products'
 import {
   fetchCategories,
   fetchCategoryTree,
@@ -175,7 +175,14 @@ export function useFulfillmentTodayStats() {
   })
 }
 
-export function useOrders(params?: { status?: string; search?: string; limit?: number; page?: number }) {
+export function useOrders(params?: {
+  status?: string
+  search?: string
+  paymentMethod?: string
+  sort?: string
+  limit?: number
+  page?: number
+}) {
   return useQuery({
     queryKey: ['orders', params],
     queryFn: () =>
@@ -188,6 +195,21 @@ export function useOrders(params?: { status?: string; search?: string; limit?: n
     // A new storefront order must surface without the operator refreshing.
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
+  })
+}
+
+/**
+ * Stage tallies for the orders strip. Kept on the same 30s cadence as the list
+ * so the counts and the rows never drift apart on screen.
+ */
+export function useOrderStats(params?: { search?: string }) {
+  return useQuery({
+    queryKey: ['order-stats', params?.search ?? ''],
+    queryFn: () => fetchOrderStats(params),
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+    retry: 1,
   })
 }
 
@@ -335,6 +357,9 @@ export function useBulkUpdateOrderStatus() {
       bulkUpdateOrderStatus(orderIds, status, note),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['orders'] })
+      // The stage strip counts the same rows that just moved, so it has to be
+      // refetched with them or it keeps showing the old stage tallies.
+      void qc.invalidateQueries({ queryKey: ['order-stats'] })
       void qc.invalidateQueries({ queryKey: ['dashboard-stats'] })
     },
   })
@@ -1266,11 +1291,27 @@ export function useCreateReturn() {
   })
 }
 
-export function useProducts(params?: { search?: string; status?: 'published' | 'draft'; limit?: number; page?: number }) {
+export function useProducts(params?: {
+  search?: string
+  status?: ProductListStatus
+  sort?: string
+  limit?: number
+  page?: number
+}) {
   return useQuery({
     queryKey: ['products', params],
     queryFn: () => fetchProducts({ ...params, page: params?.page ?? 1, limit: params?.limit ?? 50 }),
     staleTime: 30_000,
+  })
+}
+
+/** Catalog tallies for the KPI tiles and tab counts, across every page. */
+export function useProductStats(params?: { search?: string }) {
+  return useQuery({
+    queryKey: ['product-stats', params?.search ?? ''],
+    queryFn: () => fetchProductStats(params),
+    staleTime: 30_000,
+    retry: 1,
   })
 }
 
@@ -1655,12 +1696,18 @@ export function useMediaFolders() {
   })
 }
 
-export function useMediaStorage() {
+/**
+ * `enabled` is not optional in spirit: the endpoint walks the whole upload
+ * volume, so asking for it on every media page load cost seconds nobody had
+ * requested. Callers turn it on when the numbers are actually on screen.
+ */
+export function useMediaStorage(enabled = true) {
   return useQuery({
     queryKey: ['media-storage'],
     queryFn: () => fetchMediaStorage(),
     staleTime: 30_000,
     retry: 1,
+    enabled,
   })
 }
 

@@ -1,6 +1,6 @@
 # SPLARO Agent Instructions
 
-Cursor agents: read this first, then apply skill `.cursor/skills/splaro-platform/SKILL.md` and `AI_GUIDE.md` for design/module depth.
+Cursor agents: read this first, then apply skills `.cursor/skills/ultra-token-saver/SKILL.md` and `.cursor/skills/splaro-platform/SKILL.md`, then `AI_GUIDE.md` for design/module depth.
 
 ---
 

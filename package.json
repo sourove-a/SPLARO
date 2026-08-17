@@ -43,6 +43,7 @@
     "db:report-variant-codes": "node scripts/api-ts-run.mjs scripts/report-variant-codes.ts",
     "db:backfill-product-codes": "node scripts/api-ts-run.mjs scripts/backfill-product-codes.ts",
     "db:backfill-category-codes": "node scripts/api-ts-run.mjs scripts/backfill-category-codes.ts",
+    "db:backfill-variant-barcodes": "node scripts/api-ts-run.mjs scripts/backfill-variant-barcodes.ts",
     "db:report-product-identity": "node scripts/api-ts-run.mjs scripts/report-product-identity.ts",
     "db:verify-identity-concurrency": "node scripts/api-ts-run.mjs scripts/verify-identity-concurrency.ts",
     "telegram:configure": "node scripts/tsx-run.mjs packages/database prisma/configure-telegram.ts",
@@ -74,6 +75,8 @@
     "clean": "node scripts/clean-all.mjs",
     "check": "corepack pnpm run check:web && corepack pnpm run check:admin && corepack pnpm run check:api",
     "check:web": "turbo run check --filter=@splaro/web",
+    "check:web:browsers": "node scripts/ensure-playwright-browsers.mjs && node scripts/check-web-browser-matrix.mjs",
+    "check:web:smoke": "node scripts/check-web-live.mjs && node scripts/check-web-device-ux.mjs && node scripts/check-web-interactions.mjs && node scripts/check-web-browser-matrix.mjs",
     "check:admin": "turbo run check --filter=@splaro/admin",
     "check:api": "turbo run check --filter=@splaro/api",
     "typecheck": "turbo run type-check",
@@ -104,6 +107,7 @@
   "devDependencies": {
     "@types/node": "^20.14.0",
     "eslint": "^8.57.0",
+    "playwright": "^1.51.0",
     "prettier": "^3.3.0",
     "turbo": "^2.0.0",
     "typescript": "^5.5.0"

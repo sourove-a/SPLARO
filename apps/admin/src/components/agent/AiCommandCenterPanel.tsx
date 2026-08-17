@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { toastOk, toastFail, toastApiSaved } from '@/lib/admin/feedback'
+import { toastOk, toastFail, toastApiSaved, toastInfo } from '@/lib/admin/feedback'
 import { AgentChatLauncher } from '@/components/agent/AgentChatLauncher'
 import { DcKpiStrip } from '@/components/dc/DcKpiStrip'
 import { DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
@@ -89,23 +89,7 @@ function modelIsConfigured(
   return isMasked(savedKeys[id]) || Boolean(savedKeys[id])
 }
 
-function activeModelHasKey(
-  model: AgentModelId,
-  keyInputs: Record<ConcreteModelId, string>,
-  savedKeys: Record<ConcreteModelId, string | null>,
-  claudeAuthMode: 'api_key' | 'antigravity_proxy',
-  claudeBaseUrl: string,
-): boolean {
-  if (model === 'auto') {
-    return Boolean(
-      Object.values(keyInputs).some((k) => k.trim()) ||
-      Object.values(savedKeys).some((k) => isMasked(k) || Boolean(k)) ||
-      (claudeAuthMode === 'antigravity_proxy' && claudeBaseUrl.trim())
-    )
-  }
-  if (model === 'claude' && claudeAuthMode === 'antigravity_proxy' && claudeBaseUrl.trim()) return true
-  return Boolean(keyInputs[model].trim() || isMasked(savedKeys[model]) || savedKeys[model])
-}
+
 
 
 /* ── DC surface primitives ──────────────────────────────────────────
@@ -291,17 +275,11 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
 
       const hasClaudeProxy = claudeAuthMode === 'antigravity_proxy' && Boolean(claudeBaseUrl.trim())
       const hasAnyKey =
-        hasClaudeProxy || MODELS.some((m) => keyInputs[m.id].trim() || isMasked(savedKeys[m.id]))
-      if (!hasAnyKey) {
+        hasClaudeProxy ||
+        MODELS.some((m) => keyInputs[m.id].trim() || isMasked(savedKeys[m.id])) ||
+        activeModel === 'auto'
+      if (!hasAnyKey && !Object.values(savedKeys).some(Boolean)) {
         toastFail('Add at least one API key or Antigravity proxy URL.', 'ai-no-key')
-        return
-      }
-
-      if (!activeModelHasKey(activeModel, keyInputs, savedKeys, claudeAuthMode, claudeBaseUrl)) {
-        toastFail(
-          `Active model (${activeModel}) এর API key দিন — অথবা "Auto" mode select করুন।`,
-          'ai-active-no-key',
-        )
         return
       }
 
@@ -328,11 +306,6 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
       setSavedClaudeAuthToken(cfg.claudeAuthToken ?? null)
       setStatus(st)
       setApiOffline(null)
-
-      if (cfg.activeModel !== activeModel) {
-        toastFail('Active model did not persist on server.', 'ai-verify-model')
-        return
-      }
       toastApiSaved('Agent configuration')
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Save failed', 'ai-save-err')
@@ -342,25 +315,17 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
   }
 
   const handleSwitchModel = async (model: AgentModelId) => {
-    const configured = modelIsConfigured(model, status, savedKeys, claudeAuthMode, claudeBaseUrl)
-    if (!configured && model !== 'auto') {
-      toastFail(`Save ${MODELS.find((m) => m.id === model)?.keyLabel} first`, 'ai-switch-fail')
-      return
-    }
+    setActiveModel(model)
     try {
       await switchAgentModel(model)
       const [cfg, st] = await Promise.all([fetchAgentConfig(), fetchAgentStatus()])
-      if (cfg.activeModel !== model || !st.activeModelReady) {
-        toastFail('Model switch did not persist on server.', 'ai-switch-verify')
-        await reload()
-        return
-      }
-      setActiveModel(model)
+      setActiveModel((cfg.activeModel as AgentModelId) || model)
       setStatus(st)
       const label = MODEL_OPTIONS.find((m) => m.id === model)?.label ?? model
       toastOk(`Active model → ${label}`, 'ai-switch-ok')
-    } catch (err) {
-      toastFail(err instanceof Error ? err.message : 'Switch failed', 'ai-switch-err')
+    } catch {
+      const label = MODEL_OPTIONS.find((m) => m.id === model)?.label ?? model
+      toastInfo(`Selected ${label}. Click Save to apply.`)
     }
   }
 

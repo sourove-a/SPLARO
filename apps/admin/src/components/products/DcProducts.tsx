@@ -9,42 +9,51 @@ import { DcPageHead } from '@/components/dc/DcPageHead'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
+import { DcCard } from '@/components/dc/primitives/DcCard'
+import { DcPager } from '@/components/dc/primitives/DcPager'
+import { DcTable } from '@/components/dc/primitives/DcTable'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { toastFail, toastOk } from '@/lib/admin/feedback'
 import { verifyProductArchived } from '@/lib/admin/catalog-mutation-verify'
 import { verifyDeleteSuccess, verifyPersisted } from '@/lib/admin/mutation-verify'
 import { ApiError } from '@/lib/api/client'
-import { useProducts } from '@/lib/api/hooks'
+import { useProducts, useProductStats } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { useListQueryState } from '@/lib/hooks/use-list-query-state'
 import {
   deleteProduct,
   fetchProduct,
   permanentlyDeleteProduct,
   type ApiProduct,
+  type ProductListStatus,
 } from '@/lib/api/products'
 import { resolveMediaUrl } from '@/lib/media-url'
+import { buildStickerRows, printVariantStickers } from '@/lib/admin/variant-stickers'
 
 const TABS = ['All', 'Active', 'Draft', 'Out of stock'] as const
 type Tab = (typeof TABS)[number]
 
-const card = {
-  border: '1px solid var(--line)',
-  borderRadius: 14,
-  background: 'var(--surface)',
-  backgroundImage: 'var(--card-sheen)',
-} as const
-
-const th = {
-  textAlign: 'left' as const,
-  padding: '9px 14px',
-  font: `600 10.5px/1 ${FONT}`,
-  letterSpacing: '.09em',
-  textTransform: 'uppercase' as const,
-  color: 'var(--ink-3)',
-  borderBottom: '1px solid var(--line)',
-  whiteSpace: 'nowrap' as const,
+/** Tab → the API's own status filter, so a tab narrows the whole catalogue. */
+const TAB_STATUS: Record<Tab, ProductListStatus | undefined> = {
+  All: undefined,
+  Active: 'published',
+  Draft: 'draft',
+  'Out of stock': 'out-of-stock',
 }
+
+/** Rows per request. The API refuses anything above 100. */
+const PAGE_SIZE = 25
+
+const SORTS = [
+  ['newest', 'Newest first'],
+  ['oldest', 'Oldest first'],
+  ['name-asc', 'Name A–Z'],
+  ['name-desc', 'Name Z–A'],
+  ['price-desc', 'Price high to low'],
+  ['price-asc', 'Price low to high'],
+] as const
+type SortKey = (typeof SORTS)[number][0]
 
 function stockOf(p: ApiProduct): number {
   if (!p.variants?.length) return 0
@@ -87,11 +96,15 @@ function isHomepageTilesLocation() {
 
 function DcProductsBody() {
   const router = useRouter()
-  const [tab, setTab] = useState<Tab>('All')
   const [view, setView] = useState<'list' | 'homepage'>('list')
-  const [query, setQuery] = useState('')
   const [removeTarget, setRemoveTarget] = useState<ApiProduct | null>(null)
   const [removing, setRemoving] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  const list = useListQueryState({ tab: 'All', sort: 'newest' })
+  const tab = (TABS.find((t) => t === list.filters.tab) ?? 'All') as Tab
+  const sort = list.filters.sort as SortKey
+  const setTab = (next: Tab) => list.setFilter('tab', next)
 
   useEffect(() => {
     const sync = () => setView(isHomepageTilesLocation() ? 'homepage' : 'list')
@@ -113,41 +126,55 @@ function DcProductsBody() {
     window.history.replaceState(null, '', '/dashboard/products?tab=homepage-tiles#homepage-tiles')
   }
 
-  const products = useProducts({ limit: 200 })
+  /*
+   * Server-driven. `limit: 200` used to be silently clamped to the API's ceiling
+   * of 100, and every tab count, KPI tile and search then described that first
+   * hundred rather than the catalogue. Search moves server-side too, which is a
+   * straight upgrade: the API already matches name, SKU, variant SKU, Product
+   * Code and barcode, where the client only had name, SKU and Product Code.
+   */
+  const status = TAB_STATUS[tab]
+  const products = useProducts({
+    ...(status ? { status } : {}),
+    ...(list.debouncedSearch.trim() ? { search: list.debouncedSearch.trim() } : {}),
+    sort,
+    page: list.page,
+    limit: PAGE_SIZE,
+  })
+  const stats = useProductStats(
+    list.debouncedSearch.trim() ? { search: list.debouncedSearch.trim() } : {},
+  )
   const { api } = useAdminConnection(25_000)
   const pageStatus = dcPageStatus([products], api.pulse)
-  const all = useMemo(() => products.data?.products ?? [], [products.data])
+  const rows = useMemo(() => products.data?.products ?? [], [products.data])
+  const total = products.data?.total ?? 0
 
-  const counts = useMemo(() => {
-    const c: Record<string, number> = { All: all.length, Active: 0, Draft: 0, 'Out of stock': 0 }
-    for (const p of all) c[tabOf(p)] = (c[tabOf(p)] ?? 0) + 1
-    return c
-  }, [all])
-
-  const lowStock = useMemo(
-    () => all.filter((p) => { const s = stockOf(p); return s > 0 && s <= (p.lowStockThreshold ?? 5) }).length,
-    [all],
+  const counts = useMemo<Record<string, number>>(
+    () => ({
+      All: stats.data?.total ?? 0,
+      Active: stats.data?.published ?? 0,
+      Draft: stats.data?.draft ?? 0,
+      'Out of stock': stats.data?.outOfStock ?? 0,
+    }),
+    [stats.data],
   )
-  const publishedOutOfStock = useMemo(
-    () => all.filter((p) => p.isPublished && stockOf(p) === 0).length,
-    [all],
-  )
+  const lowStock = stats.data?.lowStock ?? 0
 
-  const rows = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return all.filter((p) => {
-      if (tab !== 'All' && tabOf(p) !== tab) return false
-      if (!q) return true
-      // Product Code is what a customer reads out on the phone, so it has to
-      // match here too — digits only, since people say "2 8 4 7 3 1".
-      const digits = q.replace(/\D/g, '')
-      return (
-        p.name.toLowerCase().includes(q) ||
-        (p.sku ?? '').toLowerCase().includes(q) ||
-        (digits.length >= 3 && (p.productCode ?? '').includes(digits))
-      )
+  // A selection only means anything for rows still on screen.
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev
+      const visible = new Set(rows.map((p) => p.id))
+      const next = new Set([...prev].filter((id) => visible.has(id)))
+      return next.size === prev.size ? prev : next
     })
-  }, [all, tab, query])
+  }, [rows])
+
+  const printSelectedStickers = () => {
+    const chosen = rows.filter((p) => selected.has(p.id))
+    if (chosen.length === 0) return
+    if (printVariantStickers(buildStickerRows(chosen))) setSelected(new Set())
+  }
 
   const skeleton: DcBlock[] = [
     { t: 'kpis', items: [] },
@@ -195,7 +222,9 @@ function DcProductsBody() {
         title="Products"
         statusLabel={pageStatus.label}
         statusTone={pageStatus.tone}
-        syncLabel={products.isFetching ? 'syncing…' : `${all.length} SKUs`}
+        syncLabel={
+          products.isFetching ? 'syncing…' : `${(stats.data?.total ?? 0).toLocaleString()} SKUs`
+        }
         syncing={products.isFetching}
         onSync={() => void products.refetch()}
         actions={[
@@ -270,7 +299,9 @@ function DcProductsBody() {
 
           {view === 'homepage' ? <DcHomepageCatalogPanel /> : null}
 
-          {view === 'list' && all.length === 0 ? (
+          {/* An empty catalogue, as opposed to a filter matching nothing —
+              which the table below answers with a "clear filters" action. */}
+          {view === 'list' && stats.data?.total === 0 && !list.isFiltered ? (
             <DcEmptyState
               icon="icon-package"
               title="No products yet"
@@ -280,14 +311,14 @@ function DcProductsBody() {
             />
           ) : null}
 
-          {view === 'list' && all.length > 0 ? (
+          {view === 'list' && !(stats.data?.total === 0 && !list.isFiltered) ? (
           <>
           <MobileProductsList
             products={rows}
             tab={tab}
             counts={counts}
-            query={query}
-            onQuery={setQuery}
+            query={list.search}
+            onQuery={list.setSearch}
             onTab={setTab}
             onOpen={(id) => router.push(`/dashboard/products/${id}/edit`)}
           />
@@ -347,104 +378,111 @@ function DcProductsBody() {
               gap: 12,
             }}
           >
-            <Kpi label="Total SKUs" value={String(all.length)} sub={`${counts['Active'] ?? 0} live on store`} />
+            <Kpi
+              label="Total SKUs"
+              value={(stats.data?.total ?? 0).toLocaleString()}
+              sub={`${(counts['Active'] ?? 0).toLocaleString()} live on store`}
+            />
             <Kpi
               label="Drafts"
-              value={String(counts['Draft'] ?? 0)}
+              value={(counts['Draft'] ?? 0).toLocaleString()}
               sub="hidden from the storefront"
             />
             <Kpi
               label="Low stock"
-              value={String(lowStock)}
+              value={lowStock.toLocaleString()}
               sub="at or below reorder point"
               color={lowStock > 0 ? 'var(--warn)' : 'var(--ink)'}
             />
             <Kpi
               label="Out of stock"
-              value={String(counts['Out of stock'] ?? 0)}
-              sub={`${publishedOutOfStock} still published`}
-              color={publishedOutOfStock > 0 ? 'var(--bad)' : 'var(--ink)'}
+              value={(counts['Out of stock'] ?? 0).toLocaleString()}
+              sub="nothing left to sell"
+              color={(counts['Out of stock'] ?? 0) > 0 ? 'var(--bad)' : 'var(--ink)'}
             />
           </div>
 
-          <div style={{ ...card, overflow: 'auto' }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '11px 14px',
-                borderBottom: '1px solid var(--line)',
-                flexWrap: 'wrap',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  height: 34,
-                  padding: '0 11px',
-                  borderRadius: 9,
-                  border: '1px solid var(--line)',
-                  background: 'var(--surface-2)',
-                  minWidth: 240,
-                }}
-              >
+          <DcCard clip>
+            {selected.size > 0 ? (
+              <div className="dc-bulkbar">
+                <span className="dc-bulkbar__count">
+                  {selected.size} product{selected.size === 1 ? '' : 's'} selected
+                </span>
+                <button type="button" className="dc-toolbar__tool" onClick={printSelectedStickers}>
+                  <DcIcon name="icon-printer" size={13} /> Print stickers
+                </button>
+                <button
+                  type="button"
+                  className="dc-toolbar__tool"
+                  onClick={() => setSelected(new Set())}
+                >
+                  Clear
+                </button>
+              </div>
+            ) : null}
+            <div className="dc-card__head dc-toolbar">
+              <label className="dc-toolbar__search">
                 <DcIcon name="icon-search" size={14} color="var(--ink-3)" />
                 <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search product or SKU…"
+                  value={list.search}
+                  onChange={(e) => list.setSearch(e.target.value)}
+                  placeholder="Name, SKU, Product Code or barcode…"
                   aria-label="Search products"
-                  style={{
-                    flex: 1,
-                    border: 0,
-                    background: 'transparent',
-                    outline: 'none',
-                    color: 'var(--ink)',
-                    font: `400 13px/1 ${FONT}`,
-                  }}
                 />
-              </div>
-              <div style={{ flex: 1 }} />
-              <span style={{ font: `500 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>
-                {rows.length} of {all.length}
-              </span>
+              </label>
+
+              <select
+                className="dc-toolbar__select"
+                aria-label="Sort products"
+                value={sort}
+                onChange={(e) => list.setFilter('sort', e.target.value)}
+              >
+                {SORTS.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+
+              {list.isFiltered ? (
+                <button type="button" className="dc-toolbar__tool" onClick={list.clear}>
+                  Clear filters
+                </button>
+              ) : null}
+
               <button
                 type="button"
+                className="dc-toolbar__tool"
                 onClick={() => router.push('/dashboard/bulk')}
-                className="dc-hover-ink"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  height: 30,
-                  padding: '0 11px',
-                  borderRadius: 8,
-                  border: '1px solid var(--line)',
-                  background: 'var(--surface-2)',
-                  color: 'var(--ink-2)',
-                  cursor: 'pointer',
-                  font: `600 12px/1 ${FONT}`,
-                }}
               >
-                <DcIcon name="icon-list-checks" size={13} />
-                <span>Bulk edit</span>
+                <DcIcon name="icon-list-checks" size={13} /> Bulk edit
               </button>
             </div>
 
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
+            <DcTable minWidth={900} sticky>
               <thead>
                 <tr>
-                  <th style={th}>Product</th>
-                  <th style={th}>Product Code</th>
-                  <th style={th}>Variants</th>
-                  <th style={th}>Stock</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Price</th>
-                  <th style={th}>Status</th>
-                  <th style={{ ...th, textAlign: 'right' }}>
+                  <th className="is-check">
+                    <input
+                      type="checkbox"
+                      className="dc-check"
+                      aria-label="Select every product on this page"
+                      checked={selected.size > 0 && selected.size === rows.length}
+                      ref={(el) => {
+                        if (el) el.indeterminate = selected.size > 0 && selected.size < rows.length
+                      }}
+                      onChange={(e) =>
+                        setSelected(e.target.checked ? new Set(rows.map((p) => p.id)) : new Set())
+                      }
+                    />
+                  </th>
+                  <th>Product</th>
+                  <th>Product Code</th>
+                  <th className="is-num">Variants</th>
+                  <th className="is-num">Stock</th>
+                  <th className="is-num">Price</th>
+                  <th>Status</th>
+                  <th className="is-num">
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
@@ -460,9 +498,24 @@ function DcProductsBody() {
                     <tr
                       key={p.id}
                       onClick={() => router.push(`/dashboard/products/${p.id}/edit`)}
-                      className="dc-hover-surface"
-                      style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer' }}
+                      style={{ cursor: 'pointer' }}
                     >
+                      <td className="is-check" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="dc-check"
+                          aria-label={`Select ${p.name}`}
+                          checked={selected.has(p.id)}
+                          onChange={() =>
+                            setSelected((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(p.id)) next.delete(p.id)
+                              else next.add(p.id)
+                              return next
+                            })
+                          }
+                        />
+                      </td>
                       <td style={{ padding: '10px 14px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                           <span
@@ -607,9 +660,17 @@ function DcProductsBody() {
                   )
                 })}
               </tbody>
-              </table>
-            </div>
-          </div>
+            </DcTable>
+
+            <DcPager
+              page={list.page}
+              count={rows.length}
+              total={total}
+              limit={PAGE_SIZE}
+              busy={products.isFetching}
+              onPage={list.setPage}
+            />
+          </DcCard>
           </div>
           </>
           ) : null}
@@ -798,8 +859,8 @@ function Kpi({
 }) {
   return (
     <div
+      className="dc-card"
       style={{
-        ...card,
         padding: '13px 15px',
         display: 'flex',
         flexDirection: 'column',
