@@ -196,12 +196,14 @@ export function DcNotificationsPopover({
     <>
       <button
         type="button"
+        className="dc-popover-backdrop"
         aria-label="Close notifications"
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, zIndex: 95, border: 0, background: 'transparent', cursor: 'default' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 95, border: 0, cursor: 'default' }}
       />
       <div
         role="dialog"
+        className="dc-popover-card dc-popover-card--notifications"
         aria-label="Notifications"
         style={{
           position: 'fixed',
@@ -218,6 +220,7 @@ export function DcNotificationsPopover({
         }}
       >
         <div
+          className="dc-popover-card__header"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -267,6 +270,25 @@ export function DcNotificationsPopover({
               Mark all read
             </button>
           ) : null}
+          <button
+            type="button"
+            className="dc-popover-card__close-btn dc-hover-surface"
+            aria-label="Close notifications"
+            onClick={onClose}
+            style={{
+              display: 'none',
+              placeItems: 'center',
+              width: 28,
+              height: 28,
+              borderRadius: 7,
+              border: '1px solid var(--line)',
+              background: 'var(--surface-2)',
+              color: 'var(--ink-2)',
+              cursor: 'pointer',
+            }}
+          >
+            <DcIcon name="icon-x" size={14} />
+          </button>
         </div>
 
         <div style={{ maxHeight: 'min(60vh, 420px)', overflowY: 'auto' }}>

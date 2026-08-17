@@ -28,6 +28,7 @@ export function DcSaveBar({
 }: DcSaveBarProps) {
   return (
     <div
+      className="dc-save-bar"
       style={{
         display: 'flex',
         alignItems: 'center',

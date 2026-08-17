@@ -92,6 +92,7 @@ export function DcModal({
       aria-modal="true"
       aria-label={title}
       onClick={onClose}
+      className="dc-modal-overlay"
       style={{
         position: 'fixed',
         inset: 0,
@@ -107,6 +108,7 @@ export function DcModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="dc-modal-panel"
         style={{
           width,
           maxHeight: '85vh',

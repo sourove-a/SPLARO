@@ -138,6 +138,7 @@ export function DcAdminProfilePopover({
       />
       <div
         role="dialog"
+        className="dc-popover-card dc-popover-card--profile"
         aria-label="Admin profile"
         aria-modal="true"
         style={{
@@ -158,6 +159,7 @@ export function DcAdminProfilePopover({
         }}
       >
         <div
+          className="dc-popover-card__header"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -198,6 +200,25 @@ export function DcAdminProfilePopover({
               {email || '—'}
             </div>
           </div>
+          <button
+            type="button"
+            className="dc-popover-card__close-btn dc-hover-surface"
+            aria-label="Close profile"
+            onClick={onClose}
+            style={{
+              display: 'none',
+              placeItems: 'center',
+              width: 28,
+              height: 28,
+              borderRadius: 7,
+              border: '1px solid var(--line)',
+              background: 'var(--surface-2)',
+              color: 'var(--ink-2)',
+              cursor: 'pointer',
+            }}
+          >
+            <DcIcon name="icon-x" size={14} />
+          </button>
           <span
             style={{
               padding: '5px 9px',

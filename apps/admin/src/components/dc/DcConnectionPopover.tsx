@@ -100,12 +100,14 @@ export function DcConnectionPopover({
     <>
       <button
         type="button"
+        className="dc-popover-backdrop"
         aria-label="Close connection status"
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, zIndex: 95, border: 0, background: 'transparent', cursor: 'default' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 95, border: 0, cursor: 'default' }}
       />
       <div
         role="dialog"
+        className="dc-popover-card dc-popover-card--connection"
         aria-label="Connection status"
         style={{
           position: 'fixed',
@@ -122,9 +124,11 @@ export function DcConnectionPopover({
         }}
       >
         <div
+          className="dc-popover-card__header"
           style={{
             display: 'flex',
             alignItems: 'center',
+            gap: 8,
             padding: '12px 14px',
             borderBottom: '1px solid var(--line)',
           }}
@@ -138,22 +142,37 @@ export function DcConnectionPopover({
             disabled={retrying}
             className="dc-hover-ink"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
               height: 26,
               padding: '0 9px',
               borderRadius: 7,
               border: '1px solid var(--line)',
-              background: 'var(--surface-2)',
+              background: 'transparent',
               color: 'var(--ink-2)',
-              cursor: retrying ? 'default' : 'pointer',
+              cursor: retrying ? 'not-allowed' : 'pointer',
               font: `600 11px/1 ${FONT}`,
               opacity: retrying ? 0.6 : 1,
             }}
           >
-            <DcIcon name="icon-refresh-cw" size={12} />
-            {retrying ? 'Checking…' : 'Retry'}
+            {retrying ? 'Pinging…' : 'Retry all'}
+          </button>
+          <button
+            type="button"
+            className="dc-popover-card__close-btn dc-hover-surface"
+            aria-label="Close connection status"
+            onClick={onClose}
+            style={{
+              display: 'none',
+              placeItems: 'center',
+              width: 28,
+              height: 28,
+              borderRadius: 7,
+              border: '1px solid var(--line)',
+              background: 'var(--surface-2)',
+              color: 'var(--ink-2)',
+              cursor: 'pointer',
+            }}
+          >
+            <DcIcon name="icon-x" size={14} />
           </button>
         </div>
 

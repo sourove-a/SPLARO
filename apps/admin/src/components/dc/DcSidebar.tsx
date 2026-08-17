@@ -190,6 +190,7 @@ export function DcSidebar({
       }}
     >
       <div
+        className="dc-sidebar-header"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -206,12 +207,12 @@ export function DcSidebar({
           title={collapsed ? 'Expand menu' : 'Collapse menu'}
           aria-expanded={!collapsed}
           aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-          className="dc-hover-ink"
+          className="dc-sidebar-toggle-btn dc-hover-ink"
           style={{
             display: 'grid',
             placeItems: 'center',
-            width: 30,
-            height: 30,
+            width: 32,
+            height: 32,
             flex: 'none',
             borderRadius: 8,
             border: '1px solid var(--line)',
@@ -220,7 +221,12 @@ export function DcSidebar({
             cursor: 'pointer',
           }}
         >
-          <DcIcon name="icon-panel-left" size={15} />
+          <span className="dc-sidebar-icon--desktop">
+            <DcIcon name="icon-panel-left" size={15} />
+          </span>
+          <span className="dc-sidebar-icon--mobile">
+            <DcIcon name="icon-x" size={16} />
+          </span>
         </button>
         {!collapsed ? <DcWordmark /> : null}
       </div>
@@ -509,7 +515,14 @@ export function DcSidebar({
         </div>
       )}
 
-      <div style={{ flex: 'none', borderTop: '1px solid var(--line)', padding: '9px 10px' }}>
+      <div
+        className="dc-sidebar-footer"
+        style={{
+          flex: 'none',
+          borderTop: '1px solid var(--line)',
+          padding: '9px 10px max(9px, env(safe-area-inset-bottom))',
+        }}
+      >
         <button
           type="button"
           onClick={() => (onOpenProfile ? onOpenProfile() : onSignOut?.())}

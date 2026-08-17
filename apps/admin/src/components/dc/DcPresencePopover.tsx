@@ -1,5 +1,6 @@
 'use client'
 
+import { DcIcon } from '@/components/dc/DcIcon'
 import type { OnlineAdmin } from '@/lib/api/presence'
 import { formatAdminRoleLabel } from '@/lib/auth/role-label'
 import { FONT } from './tokens'
@@ -29,12 +30,14 @@ export function DcPresencePopover({ open, onClose, admins, storefrontCount, load
     <>
       <button
         type="button"
+        className="dc-popover-backdrop"
         aria-label="Close online staff"
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, zIndex: 95, border: 0, background: 'transparent', cursor: 'default' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 95, border: 0, cursor: 'default' }}
       />
       <div
         role="dialog"
+        className="dc-popover-card dc-popover-card--presence"
         aria-label="Online now"
         style={{
           position: 'fixed',
@@ -51,14 +54,35 @@ export function DcPresencePopover({ open, onClose, admins, storefrontCount, load
         }}
       >
         <div
+          className="dc-popover-card__header"
           style={{
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             padding: '12px 14px',
             borderBottom: '1px solid var(--line)',
           }}
         >
           <span style={{ font: `600 13px/1 ${FONT}`, color: 'var(--ink)' }}>Online now</span>
+          <button
+            type="button"
+            className="dc-popover-card__close-btn dc-hover-surface"
+            aria-label="Close"
+            onClick={onClose}
+            style={{
+              display: 'none',
+              placeItems: 'center',
+              width: 28,
+              height: 28,
+              borderRadius: 7,
+              border: '1px solid var(--line)',
+              background: 'var(--surface-2)',
+              color: 'var(--ink-2)',
+              cursor: 'pointer',
+            }}
+          >
+            <DcIcon name="icon-x" size={14} />
+          </button>
         </div>
 
         <div style={{ maxHeight: 320, overflowY: 'auto' }}>

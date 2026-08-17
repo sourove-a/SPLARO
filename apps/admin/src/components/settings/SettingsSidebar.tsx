@@ -119,100 +119,127 @@ const SET_GROUPS: Array<[string, SettingsSection[]]> = [
 
 export function SettingsSidebar({ active, onChange, settingsLoaded }: Props) {
   return (
-    <nav className="settings-sidebar-rail" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <ConnectionStatus settingsLoaded={settingsLoaded} />
-
-      {SET_GROUPS.map(([groupLabel, ids]) => (
-        <div key={groupLabel} className="settings-sidebar-rail__group" style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <div
-            className="settings-sidebar-rail__label"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '4px 8px 6px',
-              font: `700 10px/1 ${FONT}`,
-              letterSpacing: '.14em',
-              textTransform: 'uppercase',
-              color: 'var(--ink-3)',
-            }}
-          >
-            <span>{groupLabel}</span>
-            <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
-            <span style={{ font: `600 10px/1 ${MONO}`, opacity: 0.65 }}>{ids.length}</span>
-          </div>
-
-          {ids.map((id) => {
-            const s = SECTIONS.find((x) => x.id === id)
-            if (!s) return null
-            const isActive = active === id
+    <>
+      <div className="settings-mobile-nav">
+        <div className="settings-mobile-chips" role="tablist" aria-label="Settings sections">
+          {SECTIONS.map((s) => {
+            const isActive = active === s.id
+            const Icon = s.icon
             return (
               <button
-                key={id}
+                key={s.id}
                 type="button"
-                onClick={() => onChange(id)}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => onChange(s.id)}
                 className={cn(
-                  'settings-sidebar-rail__item',
-                  isActive ? 'settings-sidebar-rail__item--active' : 'dc-hover-surface',
+                  'settings-mobile-chip',
+                  isActive && 'settings-mobile-chip--active',
                 )}
-                aria-current={isActive ? 'page' : undefined}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  width: '100%',
-                  padding: '8px 9px',
-                  borderRadius: 9,
-                  border: `1px solid ${isActive ? 'var(--violet-bd)' : 'var(--line)'}`,
-                  background: isActive ? 'var(--violet-soft)' : 'var(--surface)',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                }}
               >
-                <span
-                  className="settings-sidebar-rail__icon"
-                  style={{
-                    display: 'grid',
-                    placeItems: 'center',
-                    width: 26,
-                    height: 26,
-                    flex: 'none',
-                    borderRadius: 7,
-                    border: '1px solid var(--line)',
-                    background: isActive ? 'var(--surface)' : 'var(--surface-2)',
-                    color: isActive ? 'var(--violet)' : 'var(--ink-3)',
-                  }}
-                >
-                  <s.icon style={{ height: 14, width: 14 }} strokeWidth={1.75} />
-                </span>
-                <span
-                  style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}
-                >
-                  <span
-                    style={{
-                      font: `600 12.5px/1.2 ${FONT}`,
-                      color: isActive ? 'var(--violet)' : 'var(--ink)',
-                    }}
-                  >
-                    {s.label}
-                  </span>
-                  <span
-                    style={{
-                      font: `400 11px/1.3 ${FONT}`,
-                      color: 'var(--ink-3)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {s.desc}
-                  </span>
-                </span>
+                <Icon style={{ height: 13, width: 13 }} strokeWidth={1.8} />
+                <span>{s.label}</span>
               </button>
             )
           })}
         </div>
-      ))}
-    </nav>
+      </div>
+
+      <nav className="settings-sidebar-rail" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <ConnectionStatus settingsLoaded={settingsLoaded} />
+
+        {SET_GROUPS.map(([groupLabel, ids]) => (
+          <div key={groupLabel} className="settings-sidebar-rail__group" style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div
+              className="settings-sidebar-rail__label"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '4px 8px 6px',
+                font: `700 10px/1 ${FONT}`,
+                letterSpacing: '.14em',
+                textTransform: 'uppercase',
+                color: 'var(--ink-3)',
+              }}
+            >
+              <span>{groupLabel}</span>
+              <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+              <span style={{ font: `600 10px/1 ${MONO}`, opacity: 0.65 }}>{ids.length}</span>
+            </div>
+
+            {ids.map((id) => {
+              const s = SECTIONS.find((x) => x.id === id)
+              if (!s) return null
+              const isActive = active === id
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => onChange(id)}
+                  className={cn(
+                    'settings-sidebar-rail__item',
+                    isActive ? 'settings-sidebar-rail__item--active' : 'dc-hover-surface',
+                  )}
+                  aria-current={isActive ? 'page' : undefined}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    width: '100%',
+                    padding: '8px 9px',
+                    borderRadius: 9,
+                    border: `1px solid ${isActive ? 'var(--violet-bd)' : 'var(--line)'}`,
+                    background: isActive ? 'var(--violet-soft)' : 'var(--surface)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span
+                    className="settings-sidebar-rail__icon"
+                    style={{
+                      display: 'grid',
+                      placeItems: 'center',
+                      width: 26,
+                      height: 26,
+                      flex: 'none',
+                      borderRadius: 7,
+                      border: '1px solid var(--line)',
+                      background: isActive ? 'var(--surface)' : 'var(--surface-2)',
+                      color: isActive ? 'var(--violet)' : 'var(--ink-3)',
+                    }}
+                  >
+                    <s.icon style={{ height: 14, width: 14 }} strokeWidth={1.75} />
+                  </span>
+                  <span
+                    style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}
+                  >
+                    <span
+                      style={{
+                        font: `600 12.5px/1.2 ${FONT}`,
+                        color: isActive ? 'var(--violet)' : 'var(--ink)',
+                      }}
+                    >
+                      {s.label}
+                    </span>
+                    <span
+                      style={{
+                        font: `400 11px/1.3 ${FONT}`,
+                        color: 'var(--ink-3)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {s.desc}
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        ))}
+      </nav>
+    </>
   )
 }

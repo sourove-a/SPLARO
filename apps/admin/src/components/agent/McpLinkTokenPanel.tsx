@@ -145,95 +145,125 @@ export function McpLinkTokenPanel() {
   }
 
   const card: CSSProperties = {
-    padding: 16,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 14,
     border: '1px solid var(--line-2)',
     background: 'var(--surface)',
     backgroundImage: 'var(--card-sheen)',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
   }
   const btn: CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    padding: '8px 12px',
-    borderRadius: 10,
+    height: 32,
+    padding: '0 12px',
+    borderRadius: 8,
     border: '1px solid var(--line-2)',
-    background: 'var(--surface-2, var(--surface))',
+    background: 'var(--surface-2)',
     color: 'var(--ink)',
     font: `600 12px/1 ${FONT}`,
     cursor: 'pointer',
+    transition: 'all 0.15s ease',
   }
   const primaryBtn: CSSProperties = {
-    ...btn,
-    border: '1px solid var(--vio-bd, var(--line-2))',
-    background: 'var(--vio)',
-    color: 'var(--on-vio, var(--surface))',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 36,
+    padding: '0 16px',
+    borderRadius: 9,
+    border: '1px solid var(--violet-solid)',
+    background: 'var(--violet-solid)',
+    color: 'var(--on-violet)',
+    font: `600 12.5px/1 ${FONT}`,
+    cursor: 'pointer',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+    transition: 'all 0.15s ease',
   }
 
-  const statusTone =
-    upstreamOk === true ? 'ok' : upstreamOk === false ? 'warn' : 'ink-3'
-  const statusLabel =
-    upstreamOk === true
-      ? 'MCP process online'
-      : upstreamOk === false
-        ? 'MCP process offline (start splaro-mcp on :4005)'
-        : 'Checking MCP process…'
+  const isOnline = upstreamOk === true
 
   return (
     <section id="mcp-link-token" style={card}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, marginBottom: 16 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <p style={{ margin: 0, font: `700 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>Private MCP link</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <p style={{ margin: 0, font: `700 14px/1.3 ${FONT}`, color: 'var(--ink)' }}>Private MCP link</p>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '3px 9px',
+                borderRadius: 99,
+                font: `600 11px/1.3 ${FONT}`,
+                background: isOnline ? 'var(--ok-soft)' : 'var(--warn-soft)',
+                border: `1px solid ${isOnline ? 'var(--ok-bd)' : 'var(--warn-bd)'}`,
+                color: isOnline ? 'var(--ok)' : 'var(--warn)',
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: isOnline ? 'var(--ok)' : 'var(--warn)' }} />
+              {isOnline ? 'MCP Online (:4005)' : 'MCP Offline (:4005)'}
+            </span>
+          </div>
           <p style={{ margin: '6px 0 0', font: `400 12.5px/1.55 ${FONT}`, color: 'var(--ink-2)' }}>
             Connect ChatGPT or Claude to live orders and products with a private Bearer token — no public open endpoint.
           </p>
-          <p style={{ margin: '8px 0 0', font: `600 11.5px/1.4 ${FONT}`, color: `var(--${statusTone})` }}>
-            {statusLabel}
-          </p>
         </div>
-        <button type="button" style={primaryBtn} disabled={busy} onClick={() => void onGenerate()}>
-          {busy ? 'Working…' : 'Generate link token'}
+        <button
+          type="button"
+          style={{
+            ...primaryBtn,
+            opacity: busy ? 0.7 : 1,
+            cursor: busy ? 'not-allowed' : 'pointer',
+          }}
+          disabled={busy}
+          onClick={() => void onGenerate()}
+        >
+          {busy ? 'Generating…' : 'Generate link token'}
         </button>
       </div>
 
       <ol
         style={{
-          margin: '0 0 14px',
-          padding: '10px 12px 10px 28px',
+          margin: '0 0 16px',
+          padding: '12px 16px 12px 32px',
           borderRadius: 10,
           border: '1px solid var(--line-2)',
-          background: 'var(--bg, transparent)',
-          font: `400 12px/1.55 ${FONT}`,
+          background: 'var(--surface-2, rgba(0,0,0,0.02))',
+          font: `400 12px/1.6 ${FONT}`,
           color: 'var(--ink-2)',
         }}
       >
         <li>Generate a link token (shown once).</li>
         <li>
           In the ChatGPT / Claude connector set Authentication to{' '}
-          <strong>access token / API key</strong> — not OAuth. This server is token-authenticated
-          and publishes no OAuth discovery document, so the OAuth option will always report that it
-          is unsupported.
+          <strong style={{ color: 'var(--ink)' }}>access token / API key</strong> — not OAuth. This server is token-authenticated
+          and publishes no OAuth discovery document.
         </li>
         <li>
           Set URL to the connect URL below and header{' '}
-          <code style={{ fontFamily: MONO }}>Authorization: Bearer …</code>
+          <code style={{ fontFamily: MONO, padding: '2px 5px', borderRadius: 4, background: 'var(--surface)', border: '1px solid var(--line-2)', color: 'var(--ink)' }}>Authorization: Bearer …</code>
         </li>
         <li>Ask for orders, products, COD risk — writes need explicit confirm.</li>
       </ol>
 
       <div
         style={{
-          padding: '10px 12px',
+          padding: '12px 14px',
           borderRadius: 10,
-          border: '1px dashed var(--line-2)',
-          background: 'var(--bg, transparent)',
-          marginBottom: 12,
+          border: '1px solid var(--line-2)',
+          background: 'var(--surface-2, rgba(0,0,0,0.02))',
+          marginBottom: 14,
         }}
       >
-        <p style={{ margin: 0, font: `600 10px/1 ${FONT}`, letterSpacing: '0.06em', color: 'var(--ink-3)' }}>
+        <p style={{ margin: 0, font: `700 10.5px/1 ${FONT}`, letterSpacing: '0.06em', color: 'var(--ink-3)', textTransform: 'uppercase' }}>
           CONNECT URL · STREAMABLE HTTP
         </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 6 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 8 }}>
           <code style={{ flex: 1, minWidth: 0, font: `500 12px/1.4 ${MONO}`, color: 'var(--ink)', wordBreak: 'break-all' }}>
             {connectUrl}
           </code>
@@ -243,7 +273,7 @@ export function McpLinkTokenPanel() {
         </div>
         <p
           style={{
-            margin: '10px 0 0',
+            margin: '8px 0 0',
             font: `400 11px/1.5 ${FONT}`,
             color: 'var(--ink-3)',
           }}

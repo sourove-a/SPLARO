@@ -127,10 +127,22 @@ export function DcShell({
   const mobileTitle = useMemo(() => {
     if (activeHref === '/dashboard') return 'Today'
     if (activeHref === '/dashboard/packing-station') return 'Pack'
-    return (
-      groups.flatMap((group) => group.items).find((item) => item.href === activeHref)?.label ??
-      'SPLARO'
-    )
+    if (activeHref.startsWith('/dashboard/orders/')) {
+      const seg = activeHref.replace('/dashboard/orders/', '').replace('/detail', '')
+      return seg && seg !== 'new' ? `Order #${seg}` : 'New order'
+    }
+    if (activeHref.startsWith('/dashboard/products/')) {
+      const seg = activeHref.replace('/dashboard/products/', '').replace('/edit', '')
+      return seg && seg !== 'new' ? 'Edit product' : 'New product'
+    }
+    if (activeHref.startsWith('/dashboard/customers/')) return 'Customer 360'
+    const exact = groups.flatMap((group) => group.items).find((item) => item.href === activeHref)
+    if (exact) return exact.label
+    const prefixMatch = groups
+      .flatMap((group) => group.items)
+      .find((item) => item.href !== '/dashboard' && activeHref.startsWith(item.href))
+    if (prefixMatch) return prefixMatch.label
+    return 'SPLARO'
   }, [activeHref, groups])
 
   return (
@@ -167,7 +179,12 @@ export function DcShell({
             apiTone={header.apiTone}
             navOpen={mobileNavOpen}
             onToggleNav={toggleCollapsed}
+            {...(header.onlineLabel ? { onlineLabel: header.onlineLabel } : {})}
+            {...(header.notifications !== undefined ? { notifications: header.notifications } : {})}
+            {...(header.notificationsUrgent !== undefined ? { notificationsUrgent: header.notificationsUrgent } : {})}
             {...(header.onOpenPalette ? { onOpenSearch: header.onOpenPalette } : {})}
+            {...(header.onOpenNotifications ? { onOpenNotifications: header.onOpenNotifications } : {})}
+            {...(header.onOpenConnection ? { onOpenConnection: header.onOpenConnection } : {})}
             {...(onAskSplaro ? { onAskSplaro } : {})}
           />
         ) : null}

@@ -26,18 +26,28 @@ export function DcMobileAppChrome({
   activeHref,
   apiLabel,
   apiTone,
+  onlineLabel,
+  notifications = 0,
+  notificationsUrgent = false,
   navOpen,
   onToggleNav,
   onOpenSearch,
+  onOpenNotifications,
+  onOpenConnection,
   onAskSplaro,
 }: {
   title: string
   activeHref: string
   apiLabel: string
   apiTone: DcTone
+  onlineLabel?: string
+  notifications?: number
+  notificationsUrgent?: boolean
   navOpen: boolean
   onToggleNav: () => void
   onOpenSearch?: () => void
+  onOpenNotifications?: () => void
+  onOpenConnection?: () => void
   onAskSplaro?: () => void
 }) {
   const api = toneStyle(apiTone)
@@ -56,34 +66,60 @@ export function DcMobileAppChrome({
           <DcIcon name={navOpen ? 'icon-x' : 'icon-menu'} size={17} />
         </button>
 
-        <span className="dc-mobile-app-header__title">
-          {title}
+        <button
+          type="button"
+          className="dc-mobile-app-header__title-btn"
+          onClick={onOpenConnection}
+          title={`${apiLabel}${onlineLabel ? ` · ${onlineLabel}` : ''}`}
+        >
+          <span className="dc-mobile-app-header__title-text">{title}</span>
           <span
             className="dc-mobile-app-header__pulse"
             title={apiLabel}
             style={{ color: api.fg, background: 'currentColor' }}
           />
-        </span>
+        </button>
 
-        {onAskSplaro ? (
+        <div className="dc-mobile-app-header__actions">
+          {onAskSplaro ? (
+            <button
+              type="button"
+              className="dc-mobile-app-header__button dc-mobile-app-header__button--ask"
+              aria-label="Ask SPLARO"
+              onClick={onAskSplaro}
+            >
+              <DcIcon name="icon-sparkles" size={16} />
+            </button>
+          ) : null}
+
+          {onOpenNotifications ? (
+            <button
+              type="button"
+              className="dc-mobile-app-header__button dc-mobile-app-header__button--notif"
+              aria-label="Notifications"
+              onClick={onOpenNotifications}
+            >
+              <DcIcon name="icon-bell" size={16} />
+              {notifications > 0 ? (
+                <span
+                  className="dc-mobile-app-header__badge"
+                  data-urgent={notificationsUrgent ? 'true' : 'false'}
+                >
+                  {notifications > 99 ? '99+' : notifications}
+                </span>
+              ) : null}
+            </button>
+          ) : null}
+
           <button
             type="button"
-            className="dc-mobile-app-header__button dc-mobile-app-header__button--ask"
-            aria-label="Ask SPLARO"
-            onClick={onAskSplaro}
+            className="dc-mobile-app-header__button"
+            aria-label="Search admin"
+            onClick={onOpenSearch}
           >
-            <DcIcon name="icon-sparkles" size={16} />
+            <DcIcon name="icon-search" size={17} />
           </button>
-        ) : null}
-
-        <button
-          type="button"
-          className="dc-mobile-app-header__button"
-          aria-label="Search admin"
-          onClick={onOpenSearch}
-        >
-          <DcIcon name="icon-search" size={17} />
-        </button>
+        </div>
       </header>
 
       <nav className="dc-mobile-bottom-nav" aria-label="Admin mobile navigation">
