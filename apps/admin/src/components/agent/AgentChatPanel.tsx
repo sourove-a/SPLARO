@@ -32,14 +32,20 @@ import {
 } from '@/lib/api/agent'
 import { cn } from '@/lib/utils/cn'
 
+/**
+ * Engine names for the picker. These describe which key the store has to
+ * supply, not who the assistant is — the assistant is SPLARO Command.
+ * Kept version-free on purpose: the label used to promise "Claude 3.5 Sonnet"
+ * while the API had already moved on, so the picker lied about what ran.
+ */
 const MODEL_LABELS: Record<AgentModelId, string> = {
-  auto: 'Auto (Smart Fallback)',
-  openrouter: 'OpenRouter Universal',
-  claude: 'Claude 3.5 Sonnet',
-  openai: 'OpenAI GPT-4o',
+  auto: 'Auto (smart fallback)',
+  openrouter: 'OpenRouter',
+  claude: 'Claude',
+  openai: 'OpenAI',
   gemini: 'Google Gemini',
   grok: 'xAI Grok',
-  manus: 'Manus AI',
+  manus: 'Manus',
 }
 
 interface ChatMessage {
@@ -635,9 +641,13 @@ export function AgentChatPanel({
         </div>
       ) : !ready ? (
         <div className="border-b border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-[12px] leading-relaxed text-[var(--ink-2)]">
-          <p className="font-bold text-[var(--ink)]">API key required to activate AI</p>
+          {/* SPLARO Command runs on a model provider the store chooses. Naming
+              vendors here made the panel read as though the assistant itself
+              were somebody else's product. */}
+          <p className="font-bold text-[var(--ink)]">SPLARO Command is not connected yet</p>
           <p className="mt-1">
-            Navigate to <strong>AI Command Brain</strong> and add your Anthropic, OpenAI, or Gemini key.
+            Add a model key in <strong>AI Command Brain</strong> to switch it on. The store picks the
+            provider — SPLARO Command is the same assistant either way.
           </p>
           <Link
             href="/dashboard/ai-agent"

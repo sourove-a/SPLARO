@@ -40,9 +40,18 @@ export class TelegramIntegrationService {
     const tokenSaved = await this.integrations.hasSecret(storeId, 'telegram', 'botToken')
     const meta = await this.integrations.getProviderMeta(storeId, 'telegram')
 
+    // Production runs on TELEGRAM_BOT_TOKEN from the environment, and the bot
+    // resolver already prefers the database and falls back to it. Reporting
+    // only the database made the panel say "not configured" while the bot was
+    // live, which is what sends someone hunting for a problem that isn't there.
+    const envToken = Boolean(process.env['TELEGRAM_BOT_TOKEN']?.trim())
+    const dbToken = tokenSaved || Boolean(tg?.botToken && tg.botToken !== 'pending')
+
     return {
       botToken: tokenSaved ? '••••••••' : null,
-      tokenConfigured: tokenSaved || Boolean(tg?.botToken && tg.botToken !== 'pending'),
+      tokenConfigured: dbToken || envToken,
+      /** Where the running bot actually gets its token. */
+      tokenSource: dbToken ? ('database' as const) : envToken ? ('environment' as const) : null,
       chatId: tg?.chatId ?? '',
       isEnabled: tg?.isActive ?? true,
       notifyOrders: tg?.notifyOrders ?? true,

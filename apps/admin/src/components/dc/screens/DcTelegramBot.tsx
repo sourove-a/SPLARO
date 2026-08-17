@@ -333,6 +333,18 @@ function DcTelegramBotBody() {
               sub={kpis.failed > 0 ? 'users who blocked the bot / API error' : 'none in last 24h'}
               color={kpis.failed > 0 ? 'var(--warn)' : 'var(--ink)'}
             />
+            {/* Which token the running bot actually uses. Without this the panel
+                looked unconfigured on production, where the token comes from the
+                server environment rather than from this screen. */}
+            <Kpi
+              label="Token source"
+              value={data.tokenSource === 'environment' ? 'Server env' : 'Admin panel'}
+              sub={
+                data.tokenSource === 'environment'
+                  ? 'set in server .env — paste here to manage it from admin'
+                  : 'saved from this screen'
+              }
+            />
           </div>
 
           {/* Alerts + Commands — design two-column */}

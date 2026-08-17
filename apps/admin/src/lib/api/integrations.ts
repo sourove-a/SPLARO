@@ -3,6 +3,8 @@ import { apiFetch } from '@/lib/api/client'
 export interface TelegramIntegration {
   botToken: string | null
   tokenConfigured: boolean
+  /** Where the running bot reads its token from — env-provided counts as configured. */
+  tokenSource?: 'database' | 'environment' | null
   chatId: string
   isEnabled: boolean
   notifyOrders: boolean
