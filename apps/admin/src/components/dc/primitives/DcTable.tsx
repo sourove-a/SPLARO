@@ -22,7 +22,7 @@ export interface DcTableProps {
 
 export function DcTable({ children, minWidth = 620, sticky }: DcTableProps) {
   return (
-    <div className="dc-scroll-x">
+    <div className="dc-scroll-x" style={{ overflowX: 'auto' }}>
       <table className={sticky ? 'dc-table dc-table--sticky' : 'dc-table'} style={{ minWidth }}>
         {children}
       </table>

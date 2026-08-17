@@ -609,7 +609,8 @@ export function DcStoragePanel({ onOpenTrash }: { onOpenTrash?: (() => void) | u
 
       <details className="dc-mstore__details">
         <summary>Show the numbers</summary>
-        <table className="dc-mstore__table">
+        <div style={{ overflowX: 'auto' }}>
+          <table className="dc-mstore__table" style={{ width: '100%', minWidth: 520 }}>
           <thead>
             <tr>
               <th scope="col">Bucket</th>
@@ -640,7 +641,8 @@ export function DcStoragePanel({ onOpenTrash }: { onOpenTrash?: (() => void) | u
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </details>
       </div>
 

@@ -1177,7 +1177,7 @@ function DcMediaLibraryBody() {
               {dropActive ? <div className="dc-mlib__dropveil">Drop to upload</div> : null}
               {viewMode === 'table' ? (
                 <div style={{ ...card, overflow: 'auto' }}>
-                  <table className="dc-mlib__table">
+                  <table className="dc-mlib__table" style={{ width: '100%', minWidth: 760 }}>
                     <thead>
                       <tr>
                         <th>File</th>

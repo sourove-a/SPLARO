@@ -795,7 +795,8 @@ function DcWebhooksBody() {
                 </div>
               ) : (
                 <div style={{ ...card, overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse', textAlign: 'left' }}>
                     <thead>
                       <tr
                         style={{
@@ -910,6 +911,7 @@ function DcWebhooksBody() {
                       })}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               )}
             </div>
