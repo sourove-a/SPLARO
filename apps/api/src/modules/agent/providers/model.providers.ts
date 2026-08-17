@@ -308,7 +308,7 @@ export function normalizeGeminiModel(rawModel?: string): string {
     model === 'gemini-2.5-flash' ||
     model === 'gemini-2.5-pro'
   ) {
-    return 'gemini-3.6-flash'
+    return 'gemini-3.7-flash'
   }
   return model
 }
@@ -322,7 +322,7 @@ export class GeminiProvider implements ModelProvider {
     apiKey: string,
     options?: ModelProviderOptions,
   ): Promise<ModelChatResult> {
-    const model = normalizeGeminiModel(options?.model ?? process.env['GEMINI_MODEL'])
+    const primaryModel = normalizeGeminiModel(options?.model ?? process.env['GEMINI_MODEL'])
     const system = messages.find((m) => m.role === 'system')?.content ?? ''
     const contents = messages
       .filter((m) => m.role !== 'system')
@@ -355,19 +355,13 @@ export class GeminiProvider implements ModelProvider {
         : {}),
     })
 
-    let activeModel = model
-    let res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: reqBody,
-      },
-    )
+    const candidates = [primaryModel, 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-flash-latest']
+    const uniqueCandidates = [...new Set(candidates)]
+    let res: Response | null = null
+    let activeModel = primaryModel
 
-    // If Google reports high demand (503) or retired model (404), seamlessly fallback to gemini-flash-latest
-    if (!res.ok && (res.status === 404 || res.status === 503) && activeModel !== 'gemini-flash-latest') {
-      activeModel = 'gemini-flash-latest'
+    for (const cand of uniqueCandidates) {
+      activeModel = cand
       res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`,
         {
@@ -376,19 +370,22 @@ export class GeminiProvider implements ModelProvider {
           body: reqBody,
         },
       )
+      if (res.ok) break
+      // If 503 (high demand) or 404 (not found), try next model in tier
+      if (res.status !== 503 && res.status !== 404) break
     }
 
-    if (!res.ok) {
+    if (!res || !res.ok) {
       // A bare status hid the two failures people actually hit — a retired model
       // name and a key without the API enabled — behind an identical "400".
-      const detail = await res.text().catch(() => '')
+      const detail = res ? await res.text().catch(() => '') : ''
       const reason = detail.slice(0, 300).replace(/\s+/g, ' ').trim()
       // Google retires model names on their own schedule, so a config that
       // worked last quarter starts 404ing. Naming the models this key can
       // actually call turns that into a one-line fix instead of a search.
-      const hint = res.status === 404 ? await listGeminiModels(apiKey) : ''
+      const hint = res?.status === 404 ? await listGeminiModels(apiKey) : ''
       throw new Error(
-        `Gemini error ${res.status}${reason ? ` — ${reason}` : ''} (model: ${activeModel})${hint}`,
+        `Gemini error ${res?.status ?? 500}${reason ? ` — ${reason}` : ''} (model: ${activeModel})${hint}`,
       )
     }
     const data = (await res.json()) as {

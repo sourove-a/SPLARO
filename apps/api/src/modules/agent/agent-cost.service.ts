@@ -12,6 +12,7 @@ const MODEL_RATES: Record<string, { in: number; out: number }> = {
   'gemini-2.5-flash': { in: 0.3, out: 2.5 },
   'gemini-2.5-pro': { in: 1.25, out: 10 },
   'gemini-3.6-flash': { in: 0.3, out: 2.5 },
+  'gemini-3.7-flash': { in: 0.3, out: 2.5 },
   'grok-4': { in: 3, out: 15 },
   'grok-4-fast': { in: 0.2, out: 0.5 },
   default: { in: 1, out: 3 },

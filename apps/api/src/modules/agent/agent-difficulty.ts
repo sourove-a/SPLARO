@@ -26,7 +26,7 @@ export function cheapModelForProvider(provider: string): string | undefined {
     case 'claude':
       return 'claude-haiku-4-5'
     case 'gemini':
-      return 'gemini-3.6-flash'
+      return 'gemini-3.7-flash'
     case 'grok':
       return 'grok-4-fast'
     case 'manus':
