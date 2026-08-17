@@ -1,5 +1,6 @@
 import {
   PAYMENT_AMOUNT_TOLERANCE,
+  capMerchandiseDiscount,
   isUnderpayment,
   paymentAmountMatches,
 } from './payment-amount.util'
@@ -46,5 +47,15 @@ describe('payment amount tolerance', () => {
     it('treats an unparseable amount as underpayment', () => {
       expect(isUnderpayment(Number.NaN, 1499)).toBe(true)
     })
+  })
+})
+
+describe('capMerchandiseDiscount', () => {
+  it('keeps delivery intact when coupon + digital exceed subtotal', () => {
+    expect(capMerchandiseDiscount(2000, 100, 2000)).toBe(2000)
+  })
+
+  it('sums discounts that fit under the subtotal', () => {
+    expect(capMerchandiseDiscount(2000, 100, 200)).toBe(300)
   })
 })

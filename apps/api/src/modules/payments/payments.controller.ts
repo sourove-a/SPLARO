@@ -54,6 +54,18 @@ function assertOrderPayable(order: PayableOrder, requestedAmount: number): void 
   }
 }
 
+/** Invoice HMAC only after a trusted gateway result — never on an unsigned fail body. */
+function paymentResultQuery(invoiceNumber: string | undefined, trusted: boolean): string {
+  if (!invoiceNumber?.trim()) return ''
+  const invoice = `invoice=${encodeURIComponent(invoiceNumber.trim())}`
+  if (!trusted) return invoice
+  try {
+    return `${invoice}&key=${encodeURIComponent(buildInvoiceAccessToken(invoiceNumber.trim()))}`
+  } catch {
+    return invoice
+  }
+}
+
 @Controller('payments')
 export class PaymentsController {
   private readonly logger = new Logger(PaymentsController.name)
@@ -199,13 +211,27 @@ export class PaymentsController {
       )
     }
 
-    return this.bkash.refund({
+    const result = await this.bkash.refund({
       paymentId: body.paymentId,
       trxId: body.trxId,
       amount: body.amount,
       reason: body.reason,
       sku: body.sku ?? 'SPLARO',
     })
+
+    const nextRefunded = alreadyRefunded + body.amount
+    await this.prisma.payment.update({
+      where: { transactionId: body.trxId },
+      data: {
+        refundAmount: nextRefunded,
+        refundedAt: new Date(),
+        status: paymentAmountMatches(nextRefunded, Number(payment.amount))
+          ? 'REFUNDED'
+          : 'PARTIALLY_REFUNDED',
+      },
+    })
+
+    return result
   }
 
   @Public()
@@ -230,9 +256,9 @@ export class PaymentsController {
             gatewayResponse: result as never,
           })
         }
-        const key = invoiceNumber ? buildInvoiceAccessToken(invoiceNumber) : ''
+        const key = paid && invoiceNumber ? buildInvoiceAccessToken(invoiceNumber) : ''
         return res.redirect(
-          `${siteUrl}/payment/${paid ? 'success' : 'failed'}?invoice=${encodeURIComponent(invoiceNumber ?? '')}&key=${encodeURIComponent(key)}`,
+          `${siteUrl}/payment/${paid ? 'success' : 'failed'}?invoice=${encodeURIComponent(invoiceNumber ?? '')}${key ? `&key=${encodeURIComponent(key)}` : ''}`,
         )
       }
       return res.redirect(
@@ -320,7 +346,7 @@ export class PaymentsController {
       }
 
       return res.redirect(
-        `${siteUrl}/payment/${confirmed ? 'success' : 'failed'}?invoice=${encodeURIComponent(order.invoiceNumber)}&key=${encodeURIComponent(buildInvoiceAccessToken(order.invoiceNumber))}`,
+        `${siteUrl}/payment/${confirmed ? 'success' : 'failed'}?${paymentResultQuery(order.invoiceNumber, confirmed)}`,
       )
     } catch (err) {
       this.logger.error(`Nagad callback error: ${err instanceof Error ? err.message : 'unknown'}`)
@@ -377,7 +403,7 @@ export class PaymentsController {
       )
     }
     return res.redirect(
-      `${siteUrl}/payment/${ok ? 'success' : 'failed'}?invoice=${encodeURIComponent(invoiceNumber)}&key=${encodeURIComponent(buildInvoiceAccessToken(invoiceNumber))}`,
+      `${siteUrl}/payment/${ok ? 'success' : 'failed'}?${paymentResultQuery(invoiceNumber, ok)}`,
     )
   }
 
@@ -388,13 +414,15 @@ export class PaymentsController {
     const siteUrl = resolveCustomerFacingSiteUrl()
     // Awaited, not `void` — an unhandled rejection here takes the process down.
     // The redirect must still happen even if the ledger write is rejected.
+    let trusted = false
     try {
-      await this.ssl.handleCallback(body, 'fail')
+      const result = await this.ssl.handleCallback(body, 'fail')
+      trusted = result.ok
     } catch (err) {
       this.logger.error(`SSL fail callback error: ${err instanceof Error ? err.message : 'unknown'}`)
     }
     return res.redirect(
-      `${siteUrl}/payment/failed?invoice=${encodeURIComponent(body.tran_id)}&key=${encodeURIComponent(buildInvoiceAccessToken(body.tran_id))}`,
+      `${siteUrl}/payment/failed?${paymentResultQuery(body.tran_id, trusted)}`,
     )
   }
 
@@ -403,15 +431,17 @@ export class PaymentsController {
   @Post('ssl/cancel')
   async sslCancel(@Body() body: SslCommerzIpnPayload, @Res() res: Response) {
     const siteUrl = resolveCustomerFacingSiteUrl()
+    let trusted = false
     try {
-      await this.ssl.handleCallback(body, 'cancel')
+      const result = await this.ssl.handleCallback(body, 'cancel')
+      trusted = result.ok
     } catch (err) {
       this.logger.error(
         `SSL cancel callback error: ${err instanceof Error ? err.message : 'unknown'}`,
       )
     }
     return res.redirect(
-      `${siteUrl}/payment/cancelled?invoice=${encodeURIComponent(body.tran_id)}&key=${encodeURIComponent(buildInvoiceAccessToken(body.tran_id))}`,
+      `${siteUrl}/payment/cancelled?${paymentResultQuery(body.tran_id, trusted)}`,
     )
   }
 

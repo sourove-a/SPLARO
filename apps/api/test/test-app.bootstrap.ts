@@ -110,6 +110,8 @@ export async function createE2eApp(): Promise<INestApplication> {
 
   const app = moduleRef.createNestApplication()
   app.setGlobalPrefix('api/v1')
+  const http = app.getHttpAdapter().getInstance() as { set?: (key: string, value: number) => void }
+  http.set?.('trust proxy', 1)
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

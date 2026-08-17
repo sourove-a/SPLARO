@@ -15,6 +15,7 @@ import { PrintService } from './print.service'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { displayOrderCode, isFeatureEnabled } from '@splaro/config'
+import { escapeHtml } from '../invoices/invoice.helpers'
 
 @Controller('admin/print')
 export class PrintController {
@@ -63,20 +64,20 @@ export class PrintController {
     const rows = order.items
       .map(
         (i) => `<tr>
-        <td>${i.productName}${i.variantName ? ` — ${i.variantName}` : ''}</td>
-        <td>${i.sku ?? ''}</td>
+        <td>${escapeHtml(i.productName)}${i.variantName ? ` — ${escapeHtml(i.variantName)}` : ''}</td>
+        <td>${escapeHtml(i.sku)}</td>
         <td>${i.quantity}</td>
       </tr>`,
       )
       .join('')
 
-    return `<!DOCTYPE html><html><head><title>Packing Slip ${code}</title>
+    return `<!DOCTYPE html><html><head><title>Packing Slip ${escapeHtml(code)}</title>
     <style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:8px}</style>
     ${autoPrint === '1' ? '<script>window.onload=()=>window.print()</script>' : ''}
     </head><body>
     <h2>Packing Slip</h2>
-    <p><strong>Order:</strong> ${code}</p>
-    <p><strong>Ship to:</strong> ${order.shippingName ?? ''}, ${order.shippingAddress ?? ''}, ${order.shippingDistrict ?? ''}</p>
+    <p><strong>Order:</strong> ${escapeHtml(code)}</p>
+    <p><strong>Ship to:</strong> ${escapeHtml(order.shippingName)}, ${escapeHtml(order.shippingAddress)}, ${escapeHtml(order.shippingDistrict)}</p>
     <table><thead><tr><th>Item</th><th>SKU</th><th>Qty</th></tr></thead><tbody>${rows}</tbody></table>
     </body></html>`
   }
@@ -102,7 +103,7 @@ export class PrintController {
       select: { trackingCode: true, trackingUrl: true, provider: true },
     })
 
-    return `<!DOCTYPE html><html><head><title>Label ${code}</title>
+    return `<!DOCTYPE html><html><head><title>Label ${escapeHtml(code)}</title>
     <style>
       body{font-family:Arial;margin:0;padding:20px}
       .label{border:2px solid #000;padding:16px;max-width:400px;page-break-inside:avoid}
@@ -114,13 +115,13 @@ export class PrintController {
     ${autoPrint === '1' ? '<script>window.onload=()=>window.print()</script>' : ''}
     </head><body>
     <div class="label">
-      <div class="from">FROM: ${order.store?.name ?? 'SPLARO'} | ${order.store?.address ?? ''} | ${order.store?.phone ?? ''}</div>
-      <div class="to">TO: ${order.shippingName ?? ''}</div>
-      <div>${order.shippingAddress ?? ''}</div>
-      <div>${order.shippingDistrict ?? ''}${order.shippingPostal ? ', ' + order.shippingPostal : ''}</div>
-      <div>Phone: ${order.shippingPhone ?? ''}</div>
-      ${courier ? `<div class="tracking">${courier.provider}: ${courier.trackingCode ?? ''}</div>` : ''}
-      <div class="invoice">#${code}</div>
+      <div class="from">FROM: ${escapeHtml(order.store?.name ?? 'SPLARO')} | ${escapeHtml(order.store?.address)} | ${escapeHtml(order.store?.phone)}</div>
+      <div class="to">TO: ${escapeHtml(order.shippingName)}</div>
+      <div>${escapeHtml(order.shippingAddress)}</div>
+      <div>${escapeHtml(order.shippingDistrict)}${order.shippingPostal ? `, ${escapeHtml(order.shippingPostal)}` : ''}</div>
+      <div>Phone: ${escapeHtml(order.shippingPhone)}</div>
+      ${courier ? `<div class="tracking">${escapeHtml(courier.provider)}: ${escapeHtml(courier.trackingCode)}</div>` : ''}
+      <div class="invoice">#${escapeHtml(code)}</div>
     </div>
     </body></html>`
   }

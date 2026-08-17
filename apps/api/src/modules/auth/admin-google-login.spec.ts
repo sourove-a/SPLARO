@@ -55,6 +55,7 @@ describe('AuthService.loginWithGoogle', () => {
       firstName: 'Shopper',
       lastName: '',
       role: 'CUSTOMER',
+      staffRoles: [],
     })
     await expect(
       service.loginWithGoogle({ ...profile, email: 'shopper@example.com' }),
@@ -71,6 +72,7 @@ describe('AuthService.loginWithGoogle', () => {
       firstName: 'X',
       lastName: '',
       role: 'CUSTOMER',
+      staffRoles: [],
     })
       .loginWithGoogle(profile)
       .catch((e: Error) => e.message)
@@ -85,6 +87,7 @@ describe('AuthService.loginWithGoogle', () => {
       firstName: 'Sourove',
       lastName: 'Ahammed',
       role: 'SUPER_ADMIN',
+      staffRoles: [{ role: 'SUPER_ADMIN', storeId: 'store-1' }],
     })
 
     const result = await service.loginWithGoogle(profile)
@@ -104,6 +107,7 @@ describe('AuthService.loginWithGoogle', () => {
       firstName: 'A',
       lastName: '',
       role: 'MANAGER',
+      staffRoles: [{ role: 'MANAGER', storeId: 'store-1' }],
     })
     await service.loginWithGoogle(profile)
 
@@ -112,5 +116,36 @@ describe('AuthService.loginWithGoogle', () => {
     expect(findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ isActive: true }) }),
     )
+  })
+
+  it('rejects a demoted admin whose StaffRole is gone even if User.role is still SUPER_ADMIN', async () => {
+    const service = buildService({
+      id: 'u6',
+      email: profile.email,
+      firstName: 'Was',
+      lastName: 'Admin',
+      role: 'SUPER_ADMIN',
+      staffRoles: [],
+    })
+    await expect(service.loginWithGoogle(profile)).rejects.toBeInstanceOf(UnauthorizedException)
+    const upsert = (service as unknown as { prisma: { staffRole: { upsert: jest.Mock } } }).prisma
+      .staffRole.upsert
+    expect(upsert).not.toHaveBeenCalled()
+  })
+
+  it('uses the live StaffRole, not User.role, so a demotion sticks', async () => {
+    const service = buildService({
+      id: 'u7',
+      email: profile.email,
+      firstName: 'Sourove',
+      lastName: 'Ahammed',
+      role: 'SUPER_ADMIN',
+      staffRoles: [{ role: 'STAFF', storeId: 'store-1' }],
+    })
+    const result = await service.loginWithGoogle(profile)
+    expect(result.role).toBe('STAFF')
+    const upsert = (service as unknown as { prisma: { staffRole: { upsert: jest.Mock } } }).prisma
+      .staffRole.upsert
+    expect(upsert).not.toHaveBeenCalled()
   })
 })

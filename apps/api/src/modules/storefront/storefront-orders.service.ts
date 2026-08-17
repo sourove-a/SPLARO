@@ -31,6 +31,7 @@ import { CommerceEventOutboxService } from '../orders/commerce-event-outbox.serv
 import { fireAndForget } from '../../common/fire-and-forget'
 import { PaymentIntegrationService } from '../integrations/payment-integration.service'
 import { StockReservationService } from '../payments/stock-reservation.service'
+import { capMerchandiseDiscount } from '../../common/payment-amount.util'
 import type { OrderStatus, PaymentMethod, PaymentStatus, Prisma } from '@prisma/client'
 
 export interface OrderAttributionInput {
@@ -293,7 +294,11 @@ export class StorefrontOrdersService {
       paymentMethod === 'CASH_ON_DELIVERY'
         ? 0
         : Math.round(serverSubtotal * DIGITAL_PAYMENT_DISCOUNT_RATE)
-    const serverDiscount = digitalDiscount + (coupon?.discount ?? 0)
+    const serverDiscount = capMerchandiseDiscount(
+      serverSubtotal,
+      digitalDiscount,
+      coupon?.discount ?? 0,
+    )
 
     const freeThreshold = Number(settings?.freeDeliveryThreshold ?? 0)
     const freeDelivery =

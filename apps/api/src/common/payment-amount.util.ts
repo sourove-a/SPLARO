@@ -20,3 +20,17 @@ export function isUnderpayment(paid: number, expected: number): boolean {
   if (!Number.isFinite(expected)) return false
   return expected - paid > PAYMENT_AMOUNT_TOLERANCE
 }
+
+/**
+ * Digital + coupon discounts apply to merchandise only — they must not eat the
+ * delivery charge (a 100% coupon + 5% prepaid discount used to zero shipping).
+ */
+export function capMerchandiseDiscount(
+  subtotal: number,
+  digitalDiscount: number,
+  couponDiscount: number,
+): number {
+  const goods = Math.max(0, Math.round(subtotal))
+  const discount = Math.max(0, Math.round(digitalDiscount)) + Math.max(0, Math.round(couponDiscount))
+  return Math.min(goods, discount)
+}

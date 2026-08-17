@@ -46,6 +46,17 @@ describe('SPLARO API (e2e)', () => {
     expect(Array.isArray(res.body.checks)).toBe(true)
   })
 
+  it('GET /api/v1/health/full — internal secret from a public IP is not Super Admin', async () => {
+    const secret = process.env.INTERNAL_HEALTH_SECRET
+    expect(secret).toBeTruthy()
+
+    await request(app.getHttpServer())
+      .get('/api/v1/health/full')
+      .set('x-splaro-internal', secret as string)
+      .set('x-forwarded-for', '203.0.113.10')
+      .expect(401)
+  })
+
   it('POST /api/v1/admin/auth/login-method — unknown email is generic telegram', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/v1/admin/auth/login-method')

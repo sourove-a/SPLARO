@@ -186,7 +186,13 @@ export class SslCommerzService {
       return true
     }
     const { creds } = await this.getCredentials(undefined, invoiceNumber ?? body.tran_id)
-    const keys = body.verify_key.split(',')
+    const keys = body.verify_key.split(',').map((key) => key.trim()).filter(Boolean)
+    // Without store_passwd the MD5 is fully attacker-computed — a self-signed
+    // body would pass. Live callbacks must bind the hash to the store password.
+    if (!creds.sandbox && !keys.includes('store_passwd')) {
+      this.logger.warn(`SSLCommerz verify_key omitted store_passwd for ${body.tran_id}`)
+      return false
+    }
     const parts: string[] = []
     for (const key of keys) {
       if (key === 'store_passwd') {

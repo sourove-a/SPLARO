@@ -1,4 +1,4 @@
-import { internalSecretMatches } from './internal-secret.util'
+import { internalSecretMatches, isLoopbackAddress, isLoopbackRequest } from './internal-secret.util'
 
 const SECRET = 'a'.repeat(48)
 
@@ -30,5 +30,35 @@ describe('internalSecretMatches', () => {
   it('handles a repeated header without throwing', () => {
     expect(internalSecretMatches([SECRET, 'other'], SECRET)).toBe(true)
     expect(internalSecretMatches(['wrong', SECRET], SECRET)).toBe(false)
+  })
+})
+
+describe('isLoopbackAddress', () => {
+  it('accepts IPv4, IPv6, and IPv6-mapped loopback', () => {
+    expect(isLoopbackAddress('127.0.0.1')).toBe(true)
+    expect(isLoopbackAddress('::1')).toBe(true)
+    expect(isLoopbackAddress('::ffff:127.0.0.1')).toBe(true)
+    expect(isLoopbackAddress('[::1]')).toBe(true)
+  })
+
+  it('rejects a public client address', () => {
+    expect(isLoopbackAddress('8.8.8.8')).toBe(false)
+    expect(isLoopbackAddress('10.0.0.4')).toBe(false)
+    expect(isLoopbackAddress(undefined)).toBe(false)
+    expect(isLoopbackAddress('')).toBe(false)
+  })
+})
+
+describe('isLoopbackRequest', () => {
+  it('accepts Express req.ip on loopback', () => {
+    expect(isLoopbackRequest({ ip: '127.0.0.1' })).toBe(true)
+    expect(isLoopbackRequest({ socket: { remoteAddress: '::1' } })).toBe(true)
+  })
+
+  it('rejects a forwarded public IP even when nginx is loopback', () => {
+    expect(
+      isLoopbackRequest({ ip: '203.0.113.10', socket: { remoteAddress: '127.0.0.1' } }),
+    ).toBe(false)
+    expect(isLoopbackRequest({ ip: '203.0.113.10' })).toBe(false)
   })
 })

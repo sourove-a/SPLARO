@@ -158,8 +158,14 @@ check('Route probe runner (concurrency guard)', () => {
 })
 check('Admin auth internal health GET bypass', () => {
   const guard = readFileSync(resolve(ROOT, 'apps/api/src/common/auth/admin-auth.guard.ts'), 'utf8')
-  if (!guard.includes('health_probe') || !guard.includes("method === 'GET'")) {
-    throw new Error('admin-auth.guard must allow GET + x-splaro-internal for health probes')
+  if (
+    !guard.includes('health_probe') ||
+    !guard.includes("method === 'GET'") ||
+    !guard.includes('isLoopbackRequest')
+  ) {
+    throw new Error(
+      'admin-auth.guard must allow GET + x-splaro-internal for loopback health probes only',
+    )
   }
 })
 check('Pre-push CI gate script', () => {

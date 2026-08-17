@@ -120,6 +120,22 @@ export function resolveRoutePermission(
     return { moduleSlug: 'finance', action: 'edit' }
   }
 
+  if (normalized.startsWith('agent/') || normalized === 'agent') {
+    return { moduleSlug: 'orders', action: methodToAction(method) }
+  }
+  if (normalized.startsWith('automation/') || normalized === 'automation') {
+    return { moduleSlug: 'orders', action: methodToAction(method) }
+  }
+  if (normalized === 'telegram/confirm-order' || normalized === 'telegram/test' || normalized.startsWith('telegram/')) {
+    return { moduleSlug: 'orders', action: methodToAction(method) }
+  }
+  if (normalized.startsWith('google-sheets/') || normalized === 'google-sheets') {
+    return { moduleSlug: 'settings', action: methodToAction(method) }
+  }
+  if (normalized.startsWith('ai-product-agent/') || normalized === 'ai-product-agent') {
+    return { moduleSlug: 'settings', action: methodToAction(method) }
+  }
+
   if (
     !normalized.startsWith('admin/') &&
     !normalized.startsWith('commerce-os/') &&

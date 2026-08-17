@@ -338,40 +338,38 @@ export class AuthService {
 
     const user = await this.prisma.user.findFirst({
       where: { email: normalized, isActive: true },
-      select: { id: true, email: true, firstName: true, lastName: true, role: true },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        staffRoles: { select: { role: true, storeId: true } },
+      },
     })
 
-    const isStaff =
-      user?.role === 'SUPER_ADMIN' ||
-      user?.role === 'ADMIN' ||
-      user?.role === 'MANAGER' ||
-      user?.role === 'STAFF'
-
-    if (!user || !isStaff) {
+    if (!user) {
       await this.recordIpFailedAttempt(ipAddress)
-      // Same wording whichever half failed, so this cannot be used to discover
-      // which addresses are admins.
       throw new UnauthorizedException('This Google account cannot access the admin panel')
     }
 
     await this.assertNotLockedOut(user.id)
 
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
-    const staffRole = user.role
+    const staff = user.staffRoles.find((row) => row.storeId === storeId) ?? user.staffRoles[0]
+    const staffRole = staff?.role
+    const isStaff =
+      staffRole === 'SUPER_ADMIN' ||
+      staffRole === 'ADMIN' ||
+      staffRole === 'MANAGER' ||
+      staffRole === 'STAFF'
 
-    await this.prisma.staffRole.upsert({
-      where: { userId_storeId: { userId: user.id, storeId } },
-      create: {
-        userId: user.id,
-        storeId,
-        role: staffRole,
-        permissions: staffRole === 'SUPER_ADMIN' ? ['*'] : [],
-      },
-      update: {
-        role: staffRole,
-        ...(staffRole === 'SUPER_ADMIN' ? { permissions: ['*'] } : {}),
-      },
-    })
+    if (!staff || !isStaff) {
+      await this.recordIpFailedAttempt(ipAddress)
+      // Same wording whichever half failed, so this cannot be used to discover
+      // which addresses are admins.
+      throw new UnauthorizedException('This Google account cannot access the admin panel')
+    }
 
     await Promise.all([
       this.prisma.user.update({
@@ -389,7 +387,7 @@ export class AuthService {
     const permissions = await resolveStaffPermissionTokens(
       this.prisma,
       user.id,
-      storeId,
+      staff.storeId,
       staffRole,
     )
 
@@ -400,7 +398,7 @@ export class AuthService {
       email: user.email!,
       name: name || profile.firstName || user.email!,
       role: staffRole,
-      storeId,
+      storeId: staff.storeId,
       permissions,
     }
   }

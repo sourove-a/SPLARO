@@ -113,7 +113,12 @@ describe('SslCommerzService.handleCallback', () => {
     const { service, paymentFindFirst } = buildService({ payment: null })
 
     await service.handleCallback(
-      sign({ tran_id: 'SPL-1001', amount: '1499', status: 'FAILED', verify_key: 'tran_id,amount' }),
+      sign({
+        tran_id: 'SPL-1001',
+        amount: '1499',
+        status: 'FAILED',
+        verify_key: 'tran_id,amount,store_passwd',
+      }),
       'fail',
     )
 
@@ -128,7 +133,12 @@ describe('SslCommerzService.handleCallback', () => {
     })
 
     await service.handleCallback(
-      sign({ tran_id: 'SPL-1001', amount: '1499', status: 'FAILED', verify_key: 'tran_id,amount' }),
+      sign({
+        tran_id: 'SPL-1001',
+        amount: '1499',
+        status: 'FAILED',
+        verify_key: 'tran_id,amount,store_passwd',
+      }),
       'fail',
     )
 
@@ -141,11 +151,33 @@ describe('SslCommerzService.handleCallback', () => {
     const { service, paymentCreate, transaction } = buildService({ payment: null })
 
     await service.handleCallback(
-      sign({ tran_id: 'SPL-1001', amount: '1499', status: 'FAILED', verify_key: 'tran_id,amount' }),
+      sign({
+        tran_id: 'SPL-1001',
+        amount: '1499',
+        status: 'FAILED',
+        verify_key: 'tran_id,amount,store_passwd',
+      }),
       'fail',
     )
 
     expect(paymentCreate).toHaveBeenCalled()
     expect(transaction).toHaveBeenCalled()
+  })
+
+  it('rejects a self-signed body that omits store_passwd', async () => {
+    const { service, paymentFindFirst } = buildService({ payment: null })
+
+    const result = await service.handleCallback(
+      sign({
+        tran_id: 'SPL-1001',
+        amount: '1499',
+        status: 'FAILED',
+        verify_key: 'tran_id,amount',
+      }),
+      'fail',
+    )
+
+    expect(result).toEqual({ ok: false, invoiceNumber: 'SPL-1001', status: 'INVALID' })
+    expect(paymentFindFirst).not.toHaveBeenCalled()
   })
 })

@@ -18,7 +18,7 @@ import { AdminSessionResolver } from './admin-session.resolver'
 import { staffHasPermission } from '../../modules/security/security-permissions.util'
 import { McpTokenService, MCP_WRITE_SCOPE } from '../../modules/mcp/mcp-token.service'
 import { isMcpAllowedApiPath } from '../../modules/mcp/mcp-allowed-paths'
-import { internalSecretMatches } from './internal-secret.util'
+import { internalSecretMatches, isLoopbackRequest } from './internal-secret.util'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
@@ -45,6 +45,7 @@ export class AdminAuthGuard implements CanActivate {
     const method = (request.method ?? 'GET').toUpperCase()
     if (
       method === 'GET' &&
+      isLoopbackRequest(request) &&
       internalSecretMatches(
         request.headers['x-splaro-internal'],
         process.env['INTERNAL_HEALTH_SECRET'],
