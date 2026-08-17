@@ -331,36 +331,52 @@ export class GeminiProvider implements ModelProvider {
         parts: [{ text: m.content }],
       }))
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    const reqBody = JSON.stringify({
+      contents,
+      // Without this the agent loses its identity, platform knowledge and
+      // honesty rules on Gemini — Gemini ignores `system`-role turns.
+      ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+      // Only send `tools` when there are some. A toolless call (translation,
+      // the product copy generator) would otherwise post
+      // `functionDeclarations: []`, which Gemini rejects as INVALID_ARGUMENT
+      // rather than treating as "no tools".
+      ...(tools.length > 0
+        ? {
+            tools: [
+              {
+                functionDeclarations: tools.map((t) => ({
+                  name: t.name,
+                  description: t.description,
+                  parameters: t.parameters,
+                })),
+              },
+            ],
+          }
+        : {}),
+    })
+
+    let activeModel = model
+    let res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents,
-          // Without this the agent loses its identity, platform knowledge and
-          // honesty rules on Gemini — Gemini ignores `system`-role turns.
-          ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-          // Only send `tools` when there are some. A toolless call (translation,
-          // the product copy generator) would otherwise post
-          // `functionDeclarations: []`, which Gemini rejects as INVALID_ARGUMENT
-          // rather than treating as "no tools".
-          ...(tools.length > 0
-            ? {
-                tools: [
-                  {
-                    functionDeclarations: tools.map((t) => ({
-                      name: t.name,
-                      description: t.description,
-                      parameters: t.parameters,
-                    })),
-                  },
-                ],
-              }
-            : {}),
-        }),
+        body: reqBody,
       },
     )
+
+    // If Google reports high demand (503) or retired model (404), seamlessly fallback to gemini-flash-latest
+    if (!res.ok && (res.status === 404 || res.status === 503) && activeModel !== 'gemini-flash-latest') {
+      activeModel = 'gemini-flash-latest'
+      res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: reqBody,
+        },
+      )
+    }
 
     if (!res.ok) {
       // A bare status hid the two failures people actually hit — a retired model
@@ -372,7 +388,7 @@ export class GeminiProvider implements ModelProvider {
       // actually call turns that into a one-line fix instead of a search.
       const hint = res.status === 404 ? await listGeminiModels(apiKey) : ''
       throw new Error(
-        `Gemini error ${res.status}${reason ? ` — ${reason}` : ''} (model: ${model})${hint}`,
+        `Gemini error ${res.status}${reason ? ` — ${reason}` : ''} (model: ${activeModel})${hint}`,
       )
     }
     const data = (await res.json()) as {
