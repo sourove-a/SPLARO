@@ -21,6 +21,7 @@ import {
 import { AdminLoginShell } from '@/components/login/AdminLoginShell'
 import { setAdminApiToken } from '@/lib/auth/api-token'
 import { GoogleAdminSignIn } from '@/components/auth/GoogleAdminSignIn'
+import { ADMIN_GOOGLE_SIGNIN_VISIBLE } from '@/lib/admin/google-signin-visibility'
 
 const motionEase = [0.16, 1, 0.3, 1] as const
 
@@ -624,7 +625,7 @@ export default function AdminLoginPage() {
 
       {activeForm}
 
-      {step === 'email' ? (
+      {ADMIN_GOOGLE_SIGNIN_VISIBLE && step === 'email' ? (
         <GoogleAdminSignIn
           disabled={loading}
           onError={setError}
