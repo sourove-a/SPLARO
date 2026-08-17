@@ -40,6 +40,7 @@ export interface ProductReview {
   rating: number
   text: string
   title?: string
+  images?: string[]
   verified?: boolean
   helpfulCount?: number
   adminReply?: string
@@ -65,6 +66,7 @@ interface LiveReview {
   rating: number
   title?: string | null
   body?: string | null
+  images?: string[] | null
   verifiedPurchase?: boolean
   helpfulCount?: number
   adminReply?: string | null
@@ -223,6 +225,15 @@ function mapReviews(reviews: LiveReview[] | undefined): ProductReview[] {
       rating: review.rating,
       text: review.body?.trim() || review.title?.trim() || '',
       ...(review.title?.trim() ? { title: review.title.trim() } : {}),
+      // Only our own upload paths render — a stored value from anywhere else is
+      // dropped rather than turned into an <img src> on the product page.
+      ...(review.images?.length
+        ? {
+            images: review.images
+              .filter((url) => typeof url === 'string' && url.startsWith('/uploads/reviews/'))
+              .slice(0, 4),
+          }
+        : {}),
       ...(review.verifiedPurchase ? { verified: true } : {}),
       ...(review.helpfulCount != null ? { helpfulCount: review.helpfulCount } : {}),
       ...(review.adminReply?.trim() ? { adminReply: review.adminReply.trim() } : {}),

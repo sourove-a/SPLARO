@@ -23,6 +23,8 @@ interface CreateReviewBody {
   rating?: number
   title?: string
   body?: string
+  /** Paths returned by POST /api/reviews/images — the API rejects anything else. */
+  images?: string[]
 }
 
 export async function GET(request: Request) {
@@ -74,6 +76,7 @@ export async function POST(request: Request) {
         rating: body.rating,
         title: body.title,
         body: body.body,
+        ...(body.images?.length ? { images: body.images.slice(0, 4) } : {}),
       }),
       cache: 'no-store',
     },

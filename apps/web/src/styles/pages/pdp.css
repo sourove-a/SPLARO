@@ -2797,11 +2797,11 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 
 /* 2026 Trust Strip */
 .pp-reviews__trust-strip {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
   align-items: center;
-  justify-content: center;
-  gap: 0.45rem 0.85rem;
+  justify-items: center;
+  gap: 0.55rem 0.85rem;
   margin-bottom: 1.1rem;
   padding: 0.65rem 0.85rem;
   border-radius: 12px;
@@ -2823,6 +2823,156 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   width: 0.88rem;
   height: 0.88rem;
   color: #9a7644;
+}
+
+/* Stat chips carry a Bangla headline with a quiet English gloss beneath, so the
+   panel reads in one language at a glance instead of doubling every label. */
+.pp-reviews__trust-chip span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  line-height: 1.25;
+}
+
+.pp-reviews__trust-chip small {
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(16, 17, 20, 0.4);
+}
+
+/* ── Review photos ─────────────────────────────────────────── */
+
+.pp-reviews__photos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pp-reviews__photos-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #101114;
+}
+
+.pp-reviews__photos-label small {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: rgba(16, 17, 20, 0.42);
+}
+
+.pp-reviews__photos-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pp-reviews__photo-thumb,
+.pp-reviews__photo-add {
+  position: relative;
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 12px;
+  overflow: hidden;
+  flex: none;
+}
+
+.pp-reviews__photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pp-reviews__photo-thumb button {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(16, 17, 20, 0.72);
+  color: #fff;
+  cursor: pointer;
+}
+
+.pp-reviews__photo-thumb button svg {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+.pp-reviews__photo-add {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  border: 1px dashed rgba(200, 169, 126, 0.55);
+  background: rgba(246, 240, 231, 0.6);
+  color: rgba(16, 17, 20, 0.6);
+  font-size: 0.6rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.pp-reviews__photo-add:hover {
+  border-color: rgba(200, 169, 126, 0.9);
+  background: rgba(246, 240, 231, 0.95);
+}
+
+.pp-reviews__photo-add input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pp-reviews__photo-add svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.pp-reviews__card-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+}
+
+.pp-reviews__card-photo {
+  width: 4.75rem;
+  height: 4.75rem;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(16, 17, 20, 0.08);
+  flex: none;
+  transition: transform 160ms ease;
+}
+
+.pp-reviews__card-photo:hover {
+  transform: scale(1.03);
+}
+
+.pp-reviews__card-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Empty state: one Bangla line, one English gloss — not three paragraphs. */
+.pp-reviews__empty-sub span {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.68rem;
+  color: rgba(16, 17, 20, 0.42);
 }
 
 /* 2026 Rating Breakdown Box */
@@ -3268,20 +3418,23 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.85rem 1.15rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  /* Ivory pedestal like the rest of the PDP — the black slab this replaces
+     was the only dark surface on the page and read as a different product. */
+  border: 1px solid rgba(200, 169, 126, 0.34);
   border-radius: 16px;
-  background: linear-gradient(135deg, #101114 0%, #222327 100%);
-  color: #ffffff;
+  background: linear-gradient(135deg, rgba(255, 253, 250, 0.98), rgba(246, 240, 231, 0.96));
+  color: #101114;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 12px 26px rgba(16, 17, 20, 0.16);
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 10px 24px rgba(16, 17, 20, 0.07);
   text-decoration: none;
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
 .pp-reviews__guest-invite:hover {
   transform: translateY(-2px);
-  box-shadow: 0 16px 32px rgba(16, 17, 20, 0.22);
+  border-color: rgba(200, 169, 126, 0.6);
+  box-shadow: 0 14px 30px rgba(16, 17, 20, 0.1);
 }
 
 .pp-reviews__guest-invite-copy {
@@ -3297,7 +3450,8 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 .pp-reviews__guest-invite-copy small {
   font-size: 0.68rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
+  /* Was white — left over from the dark slab, invisible on the ivory card. */
+  color: rgba(16, 17, 20, 0.5);
 }
 
 .pp-reviews__guest-invite-icon {
@@ -3307,10 +3461,10 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(200, 169, 126, 0.38);
+  border: 1px solid rgba(200, 169, 126, 0.45);
   border-radius: 999px;
-  background: rgba(200, 169, 126, 0.12);
-  color: #d8bc91;
+  background: rgba(200, 169, 126, 0.16);
+  color: #9a7644;
 }
 
 .pp-reviews__guest-invite-icon svg {
@@ -3408,6 +3562,11 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 .pp-reviews__form {
   display: grid;
   gap: 0.85rem;
+  /* Cap the writing column on wide screens — a 1000px-wide single-line title
+     field is hard to scan and reads like a search bar, not a review. */
+  width: 100%;
+  max-width: 46rem;
+  margin: 0 auto;
   padding: 1.1rem 1.15rem;
   border: 1px solid rgba(16, 17, 20, 0.07);
   border-radius: 16px;
@@ -3442,6 +3601,12 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 
 .pp-reviews__rating-btn {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 44px is the smallest comfortable touch target; the old 1.45rem star with
+     0.15rem padding was ~28px and easy to miss on a phone. */
+  min-width: 2.75rem;
+  min-height: 2.75rem;
   padding: 0.15rem;
   color: rgba(16, 17, 20, 0.18);
   background: transparent;
@@ -3451,8 +3616,8 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 }
 
 .pp-reviews__rating-btn svg {
-  width: 1.45rem;
-  height: 1.45rem;
+  width: 1.85rem;
+  height: 1.85rem;
 }
 
 .pp-reviews__rating-btn:hover,
@@ -3485,7 +3650,11 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 }
 
 .pp-reviews__tag-chip {
-  padding: 0.28rem 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.1rem;
+  padding: 0.28rem 0.75rem;
   border-radius: 999px;
   background: rgba(16, 17, 20, 0.04);
   border: 1px solid rgba(16, 17, 20, 0.08);
@@ -3499,6 +3668,12 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 .pp-reviews__tag-chip:hover {
   background: rgba(200, 169, 126, 0.15);
   border-color: rgba(200, 169, 126, 0.4);
+  color: #9a7644;
+}
+
+.pp-reviews__tag-chip svg {
+  width: 0.92rem;
+  height: 0.92rem;
   color: #9a7644;
 }
 

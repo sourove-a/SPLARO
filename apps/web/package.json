@@ -7,14 +7,14 @@
     "dev:fresh": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true}); require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\" && next dev --port 3000 --hostname 0.0.0.0",
     "predev": "node ../../scripts/ensure-next-cache.mjs apps/web && node ../../scripts/verify-css.mjs",
     "prebuild": "node ../../scripts/verify-css.mjs && node ../../scripts/stop-next-dev-for-build.mjs 3000",
-    "css:fix": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true}); require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\" && echo 'Web CSS cache cleared — run pnpm dev:web'",
+    "css:fix": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true}); require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\" && echo 'Web CSS cache cleared \u2014 run pnpm dev:web'",
     "build": "next build",
     "start": "next start --port 3000",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
     "check": "tsc --noEmit && next lint",
-    "test:unit": "npx tsx --test src/lib/navigation/navigation-recovery.test.ts src/lib/api/session.test.ts src/lib/checkout/customer-draft.test.ts src/lib/assets/image-quality-allowlist.test.ts"
+    "test:unit": "npx tsx --test src/lib/navigation/navigation-recovery.test.ts src/lib/api/session.test.ts src/lib/checkout/customer-draft.test.ts src/lib/assets/image-quality-allowlist.test.ts src/lib/api/review-auth-gate.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

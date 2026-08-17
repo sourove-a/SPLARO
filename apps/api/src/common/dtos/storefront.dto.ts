@@ -429,4 +429,19 @@ export class StorefrontSubmitReviewDto {
   @IsString()
   @MinLength(10)
   body!: string
+
+  /**
+   * Photo paths this store issued from POST /api/reviews/images.
+   * Only our own upload paths are accepted — an arbitrary URL here would let a
+   * reviewer embed remote content on the product page.
+   */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(4)
+  @IsString({ each: true })
+  @Matches(/^\/uploads\/reviews\/[A-Za-z0-9._-]+$/, {
+    each: true,
+    message: 'Review photos must be uploaded through SPLARO',
+  })
+  images?: string[]
 }

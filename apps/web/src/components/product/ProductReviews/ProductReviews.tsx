@@ -8,28 +8,39 @@ import {
   BadgeCheck,
   CheckCircle2,
   ChevronDown,
+  Gem,
   MessageSquareQuote,
-  ShieldCheck,
+  Camera,
+  Palette,
+  Ruler,
   Sparkles,
   Star,
   ThumbsUp,
   Truck,
+  X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils/cn'
 import type { ProductReview } from '@/lib/catalog/live'
 
 const INITIAL_VISIBLE = 4
+const MAX_REVIEW_PHOTOS = 4
 const HELPFUL_STORAGE_KEY = 'splaro-review-helpful'
 const PANEL_ID = 'product-reviews-panel'
 
+/**
+ * Tag chips are icon + Bangla label. The emoji they replace were the only emoji
+ * on the PDP and read as a different brand beside the champagne/ivory type.
+ * `value` is what lands in the review body, so the label can change without
+ * changing what shoppers actually write.
+ */
 const QUICK_REVIEW_TAGS = [
-  '✨ দারুণ কাপড় / Great Fabric',
-  '📐 পারফেক্ট সাইজ / Perfect Fit',
-  '🚚 দ্রুত ডেলিভারি / Fast Delivery',
-  '🎨 ছবির মতোই সুন্দর / Loved the Color',
-  '💎 প্রিমিয়াম ফিনিশিং / Premium Finish',
-]
+  { icon: Sparkles, label: 'দারুণ কাপড়', en: 'Great fabric' },
+  { icon: Ruler, label: 'পারফেক্ট সাইজ', en: 'Perfect fit' },
+  { icon: Truck, label: 'দ্রুত ডেলিভারি', en: 'Fast delivery' },
+  { icon: Palette, label: 'ছবির মতোই সুন্দর', en: 'Loved the colour' },
+  { icon: Gem, label: 'প্রিমিয়াম ফিনিশিং', en: 'Premium finish' },
+] as const
 
 interface ProductReviewsProps {
   productId: string
@@ -114,8 +125,19 @@ export function ProductReviews({
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [photos, setPhotos] = useState<string[]>([])
+  const [uploadingPhotos, setUploadingPhotos] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [sectionOpen, setSectionOpen] = useState(false)
+  /**
+   * `isLoggedIn` comes from the persisted auth store, which only becomes
+   * trustworthy after SessionHydrator finishes an idle-scheduled /api/auth/me.
+   * Until then a signed-in shopper was told to sign up for an account they
+   * already have. Ask the server directly when the panel opens and trust
+   * whichever source says yes.
+   */
+  const [serverSignedIn, setServerSignedIn] = useState<boolean | null>(null)
+  const canWriteReview = isLoggedIn || serverSignedIn === true
 
   const filteredReviews = useMemo(() => {
     if (!selectedStarFilter) return reviews
@@ -147,11 +169,39 @@ export function ProductReviews({
     }))
   }, [reviews])
 
+  const verifiedCount = useMemo(() => reviews.filter((r) => r.verified).length, [reviews])
+  const photoCount = useMemo(
+    () => reviews.reduce((sum, r) => sum + (r.images?.length ?? 0), 0),
+    [reviews],
+  )
+  const recommendPct = useMemo(() => {
+    if (!reviews.length) return 0
+    return Math.round((reviews.filter((r) => r.rating >= 4).length / reviews.length) * 100)
+  }, [reviews])
+
   const signupHref = `/signup?next=${encodeURIComponent(`/products/${productSlug}`)}`
 
   useEffect(() => {
     setHelpfulVotes(readHelpfulVotes())
   }, [])
+
+  useEffect(() => {
+    if (!sectionOpen || isLoggedIn || serverSignedIn !== null) return
+    let cancelled = false
+    void fetch('/api/auth/me', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { user?: { id?: string } | null } | null) => {
+        if (!cancelled) setServerSignedIn(Boolean(data?.user?.id))
+      })
+      .catch(() => {
+        // Offline or API blip — fall back to the guest invite rather than
+        // showing a form that cannot submit.
+        if (!cancelled) setServerSignedIn(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [sectionOpen, isLoggedIn, serverSignedIn])
 
   const markHelpful = async (reviewId: string) => {
     if (helpfulVotes.has(reviewId) || votingId) return
@@ -183,9 +233,8 @@ export function ProductReviews({
     }
   }
 
-  const handleAppendTag = (tagText: string) => {
-    const rawTag = tagText.replace(/^[^\w\u0980-\u09FF]+/, '').split('/')[0]
-    const cleanTag = (rawTag || '').trim()
+  const handleAppendTag = (tag: string) => {
+    const cleanTag = tag.trim()
     if (!cleanTag) return
     setBody((prev) => {
       const trimmed = prev.trim()
@@ -193,6 +242,34 @@ export function ProductReviews({
       if (trimmed.includes(cleanTag)) return prev
       return `${trimmed}, ${cleanTag}`
     })
+  }
+
+  const uploadPhotos = async (fileList: FileList | null) => {
+    const files = Array.from(fileList ?? [])
+    if (!files.length) return
+    const room = MAX_REVIEW_PHOTOS - photos.length
+    if (room <= 0) {
+      toast.error(`সর্বোচ্চ ${MAX_REVIEW_PHOTOS} টি ছবি / Max ${MAX_REVIEW_PHOTOS} photos`)
+      return
+    }
+
+    const form = new FormData()
+    for (const file of files.slice(0, room)) form.append('images', file)
+
+    setUploadingPhotos(true)
+    try {
+      const res = await fetch('/api/reviews/images', { method: 'POST', body: form })
+      const payload = (await res.json().catch(() => ({}))) as { urls?: string[]; error?: string }
+      if (!res.ok || !payload.urls?.length) {
+        toast.error(payload.error ?? 'ছবি আপলোড হয়নি / Could not upload photo')
+        return
+      }
+      setPhotos((prev) => [...prev, ...payload.urls!].slice(0, MAX_REVIEW_PHOTOS))
+    } catch {
+      toast.error('ছবি আপলোড হয়নি / Could not upload photo')
+    } finally {
+      setUploadingPhotos(false)
+    }
   }
 
   const submitReview = async (event: React.FormEvent) => {
@@ -217,6 +294,7 @@ export function ProductReviews({
           rating: formRating,
           title: title.trim() || undefined,
           body: body.trim(),
+          ...(photos.length ? { images: photos } : {}),
         }),
       })
       const payload = (await res.json().catch(() => ({}))) as {
@@ -234,6 +312,7 @@ export function ProductReviews({
       setFormRating(0)
       setTitle('')
       setBody('')
+      setPhotos([])
       setFormOpen(false)
     } catch {
       toast.error('রিভিউ জমা হয়নি / Could not submit review')
@@ -295,21 +374,35 @@ export function ProductReviews({
               transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
             >
               <div className="pp-reviews__panel-inner">
-                {/* 2026 Trust Pill Strip */}
-                <div className="pp-reviews__trust-strip">
-                  <div className="pp-reviews__trust-chip">
-                    <ShieldCheck className="pp-reviews__trust-icon" />
-                    <span>১০০% আসল প্রিমিয়াম ফেব্রিক</span>
+                {/* Read off the real reviews. The strip this replaces claimed a
+                    fixed "৯৬% সন্তুষ্ট" even on a product with no reviews at all. */}
+                {reviews.length > 0 ? (
+                  <div className="pp-reviews__trust-strip">
+                    <div className="pp-reviews__trust-chip">
+                      <BadgeCheck className="pp-reviews__trust-icon" />
+                      <span>
+                        {verifiedCount} জন ভেরিফাইড ক্রেতা
+                        <small>Verified purchase</small>
+                      </span>
+                    </div>
+                    <div className="pp-reviews__trust-chip">
+                      <Sparkles className="pp-reviews__trust-icon" />
+                      <span>
+                        {recommendPct}% সুপারিশ করেছেন
+                        <small>Rated 4★ and above</small>
+                      </span>
+                    </div>
+                    {photoCount > 0 ? (
+                      <div className="pp-reviews__trust-chip">
+                        <Camera className="pp-reviews__trust-icon" />
+                        <span>
+                          {photoCount} টি ক্রেতার ছবি
+                          <small>Customer photos</small>
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
-                  <div className="pp-reviews__trust-chip">
-                    <Sparkles className="pp-reviews__trust-icon" />
-                    <span>True to Size · ৯৬% সন্তুষ্ট</span>
-                  </div>
-                  <div className="pp-reviews__trust-chip">
-                    <Truck className="pp-reviews__trust-icon" />
-                    <span>ফাস্ট স্টেডফাস্ট ডেলিভারি</span>
-                  </div>
-                </div>
+                ) : null}
 
                 {/* 2026 Executive Rating Summary Breakdown */}
                 {displayCount > 0 ? (
@@ -401,6 +494,27 @@ export function ProductReviews({
                           {review.title && <p className="pp-reviews__card-title">{review.title}</p>}
                           <p className="pp-reviews__body">{review.text}</p>
 
+                          {review.images?.length ? (
+                            <div className="pp-reviews__card-photos">
+                              {review.images.map((url) => (
+                                <a
+                                  key={url}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="pp-reviews__card-photo"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={url}
+                                    alt={`Customer photo for ${productName}`}
+                                    loading="lazy"
+                                  />
+                                </a>
+                              ))}
+                            </div>
+                          ) : null}
+
                           {/* 2026 Luxury Brand Reply Card */}
                           {review.adminReply && (
                             <div className="pp-reviews__reply-lux">
@@ -457,12 +571,10 @@ export function ProductReviews({
                       <MessageSquareQuote strokeWidth={1.5} />
                     </span>
                     <div className="pp-reviews__empty-copy">
-                      <p>এখনও কোনো ক্রেতার রিভিউ নেই</p>
+                      <p>এখনও কোনো রিভিউ নেই</p>
                       <p className="pp-reviews__empty-sub">
-                        পরে থাকলে ফিট, কাপড় ও ফিনিশিং নিয়ে আপনার মূল্যবান অভিজ্ঞতা লিখুন।
-                      </p>
-                      <p className="pp-reviews__empty-sub pp-reviews__empty-sub--en">
-                        Your honest note helps the next shopper choose with confidence.
+                        ফিট আর কাপড় নিয়ে আপনার অভিজ্ঞতাই পরের ক্রেতাকে সাহায্য করবে।
+                        <span>Be the first to review this piece.</span>
                       </p>
                     </div>
                   </div>
@@ -470,7 +582,7 @@ export function ProductReviews({
 
                 {/* 2026 Write Review Interactive Section */}
                 <div className="pp-reviews__form-wrap">
-                  {isLoggedIn ? (
+                  {canWriteReview ? (
                     <>
                       <button
                         type="button"
@@ -527,16 +639,21 @@ export function ProductReviews({
                             <div className="pp-reviews__quick-tags">
                               <span className="pp-reviews__quick-tags-title">ক্লিক করে যোগ করুন:</span>
                               <div className="pp-reviews__quick-tags-list">
-                                {QUICK_REVIEW_TAGS.map((tag) => (
-                                  <button
-                                    key={tag}
-                                    type="button"
-                                    onClick={() => handleAppendTag(tag)}
-                                    className="pp-reviews__tag-chip"
-                                  >
-                                    {tag}
-                                  </button>
-                                ))}
+                                {QUICK_REVIEW_TAGS.map((tag) => {
+                                  const TagIcon = tag.icon
+                                  return (
+                                    <button
+                                      key={tag.label}
+                                      type="button"
+                                      onClick={() => handleAppendTag(tag.label)}
+                                      className="pp-reviews__tag-chip"
+                                      title={tag.en}
+                                    >
+                                      <TagIcon strokeWidth={1.7} aria-hidden />
+                                      {tag.label}
+                                    </button>
+                                  )
+                                })}
                               </div>
                             </div>
 
@@ -563,7 +680,44 @@ export function ProductReviews({
                               />
                             </label>
 
-                            <button type="submit" className="pp-reviews__submit" disabled={submitting}>
+                            <div className="pp-reviews__photos">
+                              <span className="pp-reviews__photos-label">
+                                ছবি যোগ করুন <small>Optional · up to {MAX_REVIEW_PHOTOS}</small>
+                              </span>
+                              <div className="pp-reviews__photos-row">
+                                {photos.map((url) => (
+                                  <span key={url} className="pp-reviews__photo-thumb">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={url} alt="" loading="lazy" />
+                                    <button
+                                      type="button"
+                                      onClick={() => setPhotos((prev) => prev.filter((p) => p !== url))}
+                                      aria-label="Remove photo"
+                                    >
+                                      <X strokeWidth={2.4} />
+                                    </button>
+                                  </span>
+                                ))}
+                                {photos.length < MAX_REVIEW_PHOTOS ? (
+                                  <label className="pp-reviews__photo-add">
+                                    <input
+                                      type="file"
+                                      accept="image/jpeg,image/png,image/webp"
+                                      multiple
+                                      disabled={uploadingPhotos}
+                                      onChange={(e) => {
+                                        void uploadPhotos(e.target.files)
+                                        e.target.value = ''
+                                      }}
+                                    />
+                                    <Camera strokeWidth={1.7} />
+                                    <span>{uploadingPhotos ? 'আপলোড…' : 'ছবি'}</span>
+                                  </label>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <button type="submit" className="pp-reviews__submit" disabled={submitting || uploadingPhotos}>
                               {submitting ? 'জমা হচ্ছে…' : 'রিভিউ জমা দিন · Submit Review'}
                             </button>
                           </form>
@@ -574,7 +728,7 @@ export function ProductReviews({
                     <Link href={signupHref} className="pp-reviews__guest-invite">
                       <span className="pp-reviews__guest-invite-copy">
                         <strong>আপনার অভিজ্ঞতা শেয়ার করুন</strong>
-                        <small>লগইন / সাইন আপ করে ভেরিফাইড রিভিউ জমা দিন</small>
+                        <small>Sign in to post a verified review</small>
                       </span>
                       <span className="pp-reviews__guest-invite-icon" aria-hidden>
                         <ArrowUpRight strokeWidth={1.8} />

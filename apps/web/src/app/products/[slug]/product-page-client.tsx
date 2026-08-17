@@ -63,6 +63,7 @@ import { resolveDetailsCategoryIcon } from '@/lib/catalog/details-category-icon'
 import { resolveSizeOptionUi } from '@/lib/catalog/size-option-ui'
 import { resolveStockStatus } from '@/lib/catalog/stock-status'
 import { ProductReviews } from '@/components/product/ProductReviews/ProductReviews'
+import { PDP_REVIEWS_VISIBLE } from '@/lib/catalog/pdp-reviews-visibility'
 import { ProductLightbox } from '@/components/product/ProductLightbox/ProductLightbox'
 import { ProductPurchaseExtras } from '@/components/product/ProductPurchaseExtras/ProductPurchaseExtras'
 import { ProductPurchaseSticky } from '@/components/product/ProductPurchaseSticky/ProductPurchaseSticky'
@@ -1259,6 +1260,9 @@ export default function ProductPageClient({
                 <p className="pp-info__code">Product Code: {displayProductCode}</p>
               ) : null}
               {(() => {
+                // This badge anchors to the review section, so it goes away with
+                // it — otherwise "6 reviews" links to nothing.
+                if (!PDP_REVIEWS_VISIBLE) return null
                 // Honest rating only: backend aggregate, else average of real
                 // approved reviews on this page — never an invented default.
                 const realRating =
@@ -1808,15 +1812,17 @@ export default function ProductPageClient({
           </aside>
         </div>
 
-        <ProductReviews
-          productId={product.id}
-          productSlug={product.slug}
-          productName={product.name}
-          rating={product.rating}
-          reviewCount={product.reviewCount}
-          reviews={reviews}
-          isLoggedIn={authHydrated && Boolean(user)}
-        />
+        {PDP_REVIEWS_VISIBLE ? (
+          <ProductReviews
+            productId={product.id}
+            productSlug={product.slug}
+            productName={product.name}
+            rating={product.rating}
+            reviewCount={product.reviewCount}
+            reviews={reviews}
+            isLoggedIn={authHydrated && Boolean(user)}
+          />
+        ) : null}
       </div>
 
       <ProductPurchaseSticky

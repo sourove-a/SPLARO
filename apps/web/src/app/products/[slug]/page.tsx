@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import { getProductDetailBySlug } from '@/lib/catalog/server'
+import { PDP_REVIEWS_VISIBLE } from '@/lib/catalog/pdp-reviews-visibility'
 import { pageTitleSegment } from '@/lib/seo/page-title'
 import { serializeJsonLd } from '@/lib/seo/json-ld'
 import ProductPageClient from './product-page-client'
@@ -257,13 +258,35 @@ export default async function ProductPage({ params }: ProductPageProps) {
               }
             : {}),
         },
-        ...(product.reviewCount > 0
+        // Both blocks stay gated on PDP_REVIEWS_VISIBLE — review markup for a
+        // section the shopper cannot see is a structured-data violation.
+        ...(PDP_REVIEWS_VISIBLE && product.reviewCount > 0
           ? {
               aggregateRating: {
                 '@type': 'AggregateRating',
                 ratingValue: product.rating.toFixed(1),
                 reviewCount: product.reviewCount,
               },
+            }
+          : {}),
+        // Individual reviews are what Google renders as star snippets in the
+        // SERP — aggregateRating alone rarely earns them. Only real, published
+        // reviews are emitted; an empty list stays absent rather than faked.
+        ...(PDP_REVIEWS_VISIBLE && reviews.length
+          ? {
+              review: reviews.slice(0, 12).map((review) => ({
+                '@type': 'Review',
+                reviewRating: {
+                  '@type': 'Rating',
+                  ratingValue: String(review.rating),
+                  bestRating: '5',
+                  worstRating: '1',
+                },
+                author: { '@type': 'Person', name: review.name || 'SPLARO customer' },
+                ...(review.title ? { name: review.title } : {}),
+                reviewBody: review.text,
+                ...(review.createdAt ? { datePublished: review.createdAt.slice(0, 10) } : {}),
+              })),
             }
           : {}),
       },
