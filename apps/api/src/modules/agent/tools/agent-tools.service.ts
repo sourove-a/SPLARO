@@ -91,6 +91,18 @@ export class AgentToolsService {
         return this.updateOrderStatus(storeId, args)
       case 'book_order_courier':
         return this.bookOrderCourier(storeId, args)
+      case 'book_all_pending_courier':
+        return this.bookAllPendingCourier(storeId, args)
+      case 'generate_reorder_purchase_order':
+        return this.generateReorderPurchaseOrder(storeId, args)
+      case 'moderate_and_reply_reviews':
+        return this.moderateAndReplyReviews(storeId, args)
+      case 'audit_high_risk_orders':
+        return this.auditHighRiskOrders(storeId, args)
+      case 'get_profit_insights':
+        return this.getProfitInsights(storeId, args)
+      case 'generate_executive_daily_brief':
+        return this.generateExecutiveDailyBrief(storeId, args)
       case 'fix_missing_seo_meta':
         return this.fixMissingSeoMeta(storeId, Number(args.limit ?? 25))
       case 'analyze_product_seo':
@@ -810,7 +822,7 @@ export class AgentToolsService {
 
     for (const order of pendingOrders) {
       try {
-        const bookRes = await this.courier.bookCourier(order.id, 'STEADFAST' as CourierProvider)
+        const bookRes = await this.courier.bookCourier(order.id, 'STEADFAST' as CourierProvider, { storeId })
         if (bookRes.success && bookRes.consignmentId) {
           await this.orderStatus.applyStatusChange(
             storeId,
@@ -1268,3 +1280,4 @@ export class AgentToolsService {
     }
   }
 }
+

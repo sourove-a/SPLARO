@@ -27,7 +27,7 @@ import type {
   Message,
   Update,
 } from 'node-telegram-bot-api'
-import { mapStaffRoleToTelegram, maskTelegramId, stripTelegramHtml } from './telegram.util'
+import { escapeTelegramHtml, mapStaffRoleToTelegram, maskTelegramId, stripTelegramHtml } from './telegram.util'
 import {
   formatNewOrderTelegramMessage,
   type TelegramNewOrderPayload,
@@ -35,6 +35,7 @@ import {
 import type { TelegramDeliveryDiagnostics, TelegramHealthSnapshot } from './telegram.types'
 import { formatBDT } from '../../common/utils/currency'
 import { resolveCustomerFacingAdminUrl, resolveCustomerFacingSiteUrl } from '@splaro/config'
+import { buildInvoiceAccessToken } from '@splaro/config/invoice-access'
 import type { TelegramRole } from '@prisma/client'
 import {
   BOT_COMMANDS,
@@ -42,6 +43,7 @@ import {
   TG_CALLBACK,
   formatLoginTokenDisplay,
   formatTelegramAiReply,
+  formatWhatsAppUrl,
   inlineFinanceMenu,
   inlineMainMenu,
   inlineOrdersMenu,
@@ -492,7 +494,46 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
     if (!config?.notifyOrders) return
 
-    const msg = formatNewOrderTelegramMessage(order)
+    let customerHistory: TelegramNewOrderPayload['customerHistory'] = null
+    let steadfastReport: TelegramNewOrderPayload['steadfastReport'] = null
+
+    try {
+      if (order.shippingPhone) {
+        const [pastOrdersRes, sfRes] = await Promise.allSettled([
+          this.prisma.order.findMany({
+            where: {
+              storeId,
+              shippingPhone: order.shippingPhone,
+            },
+            select: { status: true },
+          }),
+          this.courier?.checkCustomerFraud(storeId, order.shippingPhone),
+        ])
+
+        if (pastOrdersRes.status === 'fulfilled' && pastOrdersRes.value.length > 0) {
+          const pastOrders = pastOrdersRes.value
+          const totalOrders = pastOrders.length
+          const deliveredOrders = pastOrders.filter((o) => o.status === 'DELIVERED').length
+          const returnedOrCancelled = pastOrders.filter(
+            (o) => o.status === 'RETURNED' || o.status === 'CANCELLED',
+          ).length
+          customerHistory = { totalOrders, deliveredOrders, returnedOrCancelled }
+        }
+
+        if (sfRes.status === 'fulfilled' && sfRes.value) {
+          steadfastReport = sfRes.value
+        }
+      }
+    } catch {
+      // Non-blocking report lookup
+    }
+
+    const payloadWithReports = {
+      ...order,
+      ...(customerHistory ? { customerHistory } : {}),
+      ...(steadfastReport ? { steadfastReport } : {}),
+    }
+    const msg = formatNewOrderTelegramMessage(payloadWithReports)
     const adminBase = resolveCustomerFacingAdminUrl(
       this.config.get<string>('ADMIN_URL') ?? this.config.get<string>('NEXT_PUBLIC_ADMIN_URL'),
     )
@@ -502,7 +543,11 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     await this.sendToStore(
       storeId,
       msg,
-      orderActionKeyboard(order.invoiceNumber, { adminOrderUrl, storefrontUrl }),
+      orderActionKeyboard(order.invoiceNumber, {
+        adminOrderUrl,
+        storefrontUrl,
+        phone: order.shippingPhone,
+      }),
       { disableWebPagePreview: true },
     )
   }
@@ -632,7 +677,20 @@ ${order.courier?.trackingCode ? `Tracking: <code>${order.courier.trackingCode}</
 ${items}
 `.trim()
 
-    await this.bot?.sendMessage(chatId, msg, { parse_mode: 'HTML' })
+    const adminBase = resolveCustomerFacingAdminUrl(
+      this.config.get<string>('ADMIN_URL') ?? this.config.get<string>('NEXT_PUBLIC_ADMIN_URL'),
+    )
+    const adminOrderUrl = `${adminBase.replace(/\/+$/, '').replace(/\/login$/i, '')}/dashboard/orders/${encodeURIComponent(order.invoiceNumber)}`
+    const storefrontUrl = resolveCustomerFacingSiteUrl()
+
+    await this.bot?.sendMessage(chatId, msg, {
+      parse_mode: 'HTML',
+      reply_markup: orderActionKeyboard(order.invoiceNumber, {
+        adminOrderUrl,
+        storefrontUrl,
+        phone: order.shippingPhone,
+      }),
+    })
   }
 
   async notifyLowStock(storeId: string, items: { name: string; sku: string; stock: number }[]): Promise<void> {
@@ -769,6 +827,20 @@ ${items}
       if (!invoice) return
       await this.replyOrderTrack(ctx.chatId, invoice)
       await this.logCommand(ctx.chatId, `/order ${invoice}`, ctx.userId)
+    })
+
+    this.bot.onText(/\/invoice(?:@\w+)?(?:\s+(.+)|$)/i, async (msg, match) => {
+      const ctx = await this.resolveContext(msg)
+      if (!ctx) return
+      const invoice = match?.[1]?.trim()
+      await this.executeInvoice(ctx, invoice)
+    })
+
+    this.bot.onText(/\/check(?:@\w+)?(?:\s+(.+)|$)/i, async (msg, match) => {
+      const ctx = await this.resolveContext(msg)
+      if (!ctx) return
+      const phoneArg = match?.[1]?.trim()
+      await this.executePhoneCheck(ctx, phoneArg)
     })
 
     this.bot.onText(/\/confirm(?:@\w+)?(?:\s+(.+)|_order\s+(.+))/i, async (msg, match) => {
@@ -1629,6 +1701,145 @@ ${items}
       const errMsg = err instanceof Error ? err.message : 'Cancel failed'
       await this.bot?.sendMessage(ctx.chatId, `❌ ${errMsg}`)
     }
+  }
+
+  private async executeInvoice(ctx: TelegramCtx, invoiceNumberRaw?: string): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+
+    const invoiceNumber = invoiceNumberRaw?.trim().toUpperCase()
+    if (!invoiceNumber) {
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        'ℹ️ Please specify invoice number.\nExample: <code>/invoice SPL-1001</code>',
+        { parse_mode: 'HTML' },
+      )
+      return
+    }
+
+    const order = await this.prisma.order.findFirst({
+      where: { storeId: ctx.storeId, invoiceNumber },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        total: true,
+        status: true,
+        shippingName: true,
+        shippingPhone: true,
+        createdAt: true,
+      },
+    })
+
+    if (!order) {
+      await this.bot?.sendMessage(ctx.chatId, `❌ Order <code>${invoiceNumber}</code> not found.`, {
+        parse_mode: 'HTML',
+      })
+      return
+    }
+
+    const siteUrl = resolveCustomerFacingSiteUrl()
+    const token = buildInvoiceAccessToken(order.invoiceNumber)
+    const webInvoiceUrl = `${siteUrl.replace(/\/+$/, '')}/order-confirmation/${order.id}?token=${encodeURIComponent(token)}`
+
+    const adminBase = resolveCustomerFacingAdminUrl(
+      this.config.get<string>('ADMIN_URL') ?? this.config.get<string>('NEXT_PUBLIC_ADMIN_URL'),
+    )
+    const adminOrderUrl = `${adminBase.replace(/\/+$/, '').replace(/\/login$/i, '')}/dashboard/orders/${encodeURIComponent(order.invoiceNumber)}`
+
+    const msg = `
+📄 <b>Invoice · ${escapeTelegramHtml(order.invoiceNumber)}</b>
+
+Customer: ${escapeTelegramHtml(order.shippingName)} (<code>${escapeTelegramHtml(order.shippingPhone)}</code>)
+Total: <b>${escapeTelegramHtml(formatBDT(Number(order.total)))}</b>
+Status: <b>${escapeTelegramHtml(order.status.replace(/_/g, ' '))}</b>
+
+🔗 <a href="${webInvoiceUrl}">View / Print Customer Invoice</a>
+`.trim()
+
+    await this.bot?.sendMessage(ctx.chatId, msg, {
+      parse_mode: 'HTML',
+      reply_markup: orderActionKeyboard(order.invoiceNumber, {
+        adminOrderUrl,
+        storefrontUrl: webInvoiceUrl,
+        phone: order.shippingPhone,
+      }),
+    })
+    await this.logCommand(ctx.chatId, `/invoice ${invoiceNumber}`, ctx.userId)
+  }
+
+  private async executePhoneCheck(ctx: TelegramCtx, phoneRaw?: string): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+
+    const phone = phoneRaw?.replace(/\s+/g, '')
+    if (!phone || phone.length < 6) {
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        'ℹ️ Usage: <code>/check 01700000000</code>\nChecks customer past orders and Steadfast delivery rating.',
+        { parse_mode: 'HTML' },
+      )
+      return
+    }
+
+    const cleanPhone = phone.replace(/\D/g, '')
+    const digits10 = cleanPhone.slice(-10)
+
+    const [pastOrders, sfRes] = await Promise.all([
+      this.prisma.order.findMany({
+        where: {
+          storeId: ctx.storeId,
+          shippingPhone: { contains: digits10 },
+        },
+        select: {
+          invoiceNumber: true,
+          status: true,
+          total: true,
+          shippingName: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
+      this.courier?.checkCustomerFraud(ctx.storeId, phone).catch(() => null),
+    ])
+
+    const totalOrders = pastOrders.length
+    const delivered = pastOrders.filter((o) => o.status === 'DELIVERED').length
+    const returnedOrCancelled = pastOrders.filter(
+      (o) => o.status === 'RETURNED' || o.status === 'CANCELLED',
+    ).length
+
+    let sfText = '⚠️ Steadfast API not connected or no data'
+    if (sfRes && sfRes.totalParcels > 0) {
+      const icon = sfRes.successRate >= 70 ? '🟢' : sfRes.successRate >= 50 ? '🟡' : '🔴'
+      sfText = `${icon} <b>${sfRes.successRate}% Success Rate</b>\n• Total parcels: ${sfRes.totalParcels}\n• Delivered: ${sfRes.delivered}\n• Cancelled/Returned: ${sfRes.cancelled}`
+    }
+
+    const orderLines = pastOrders.length
+      ? pastOrders.map((o) => `• <code>${o.invoiceNumber}</code> · ${o.status} · ${formatBDT(Number(o.total))}`).join('\n')
+      : '• No past orders in this store'
+
+    const wa = formatWhatsAppUrl(phone)
+    const replyMarkup = wa
+      ? {
+          inline_keyboard: [[{ text: '💬 WhatsApp Customer', url: wa }]],
+        }
+      : undefined
+
+    const msg = `
+🔍 <b>Customer Report:</b> <code>${escapeTelegramHtml(phone)}</code>
+
+🚚 <b>Steadfast Network Rating:</b>
+${sfText}
+
+📦 <b>Store History (${totalOrders} orders):</b>
+• Delivered: <b>${delivered}</b> · Cancelled/Returned: <b>${returnedOrCancelled}</b>
+${orderLines}
+`.trim()
+
+    await this.bot?.sendMessage(ctx.chatId, msg, {
+      parse_mode: 'HTML',
+      reply_markup: replyMarkup,
+    })
+    await this.logCommand(ctx.chatId, `/check ${phone}`, ctx.userId)
   }
 
   private adminLoginUrl(): string {

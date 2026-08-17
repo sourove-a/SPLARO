@@ -158,4 +158,55 @@ export class SteadfastService {
       return 'Unknown'
     }
   }
+
+  /**
+   * Check customer delivery history / fraud rating across Steadfast network.
+   * Returns total parcels, delivered count, return count, and success rate percentage.
+   */
+  async checkCustomerFraud(
+    storeId: string,
+    phone: string,
+  ): Promise<{
+    totalParcels: number
+    delivered: number
+    cancelled: number
+    successRate: number
+  } | null> {
+    const creds = await this.getCredentials(storeId)
+    if (this.shouldUseDevStub(creds)) return null
+
+    const cleanPhone = phone.replace(/\D/g, '')
+    if (!cleanPhone) return null
+    const phoneParam = cleanPhone.startsWith('880') ? cleanPhone.slice(2) : cleanPhone
+
+    try {
+      const response = await axios.get(`${creds.baseUrl}/fraud_check/${encodeURIComponent(phoneParam)}`, {
+        headers: {
+          'Api-Key': creds.apiKey,
+          'Secret-Key': creds.secretKey,
+          'Content-Type': 'application/json',
+        },
+        timeout: 4000,
+      })
+
+      const data = (response.data ?? {}) as Record<string, unknown>
+      const total = Number(data.total_parcels ?? data.total_parcel ?? data.total ?? 0)
+      const delivered = Number(data.total_delivered ?? data.delivered ?? 0)
+      const cancelled = Number(data.total_cancelled ?? data.cancelled ?? data.total_return ?? 0)
+
+      if (total > 0) {
+        const rate = Math.round((delivered / total) * 100)
+        return {
+          totalParcels: total,
+          delivered,
+          cancelled,
+          successRate: rate,
+        }
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
 }
+

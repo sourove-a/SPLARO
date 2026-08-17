@@ -58,4 +58,96 @@ describe('Telegram HTML safety', () => {
       expect(stripTelegramHtml('one<br/>two')).toBe('one\ntwo')
     })
   })
+
+  describe('formatWhatsAppUrl', () => {
+    it('normalizes local BD 11-digit numbers to wa.me with 880 prefix', () => {
+      const { formatWhatsAppUrl } = require('./telegram-ui')
+      expect(formatWhatsAppUrl('01712345678')).toBe('https://wa.me/8801712345678')
+      expect(formatWhatsAppUrl('+8801712345678')).toBe('https://wa.me/8801712345678')
+      expect(formatWhatsAppUrl('8801712345678')).toBe('https://wa.me/8801712345678')
+    })
+
+    it('returns null for empty phone number', () => {
+      const { formatWhatsAppUrl } = require('./telegram-ui')
+      expect(formatWhatsAppUrl('')).toBeNull()
+      expect(formatWhatsAppUrl(null)).toBeNull()
+    })
+  })
+
+  describe('formatNewOrderTelegramMessage history badge', () => {
+    it('renders 1st order badge for new customers', () => {
+      const { formatNewOrderTelegramMessage } = require('./telegram-order-message')
+      const msg = formatNewOrderTelegramMessage({
+        invoiceNumber: 'SPL-1001',
+        total: 1500,
+        subtotal: 1400,
+        deliveryCharge: 100,
+        discount: 0,
+        paymentMethod: 'COD',
+        paymentStatus: 'PENDING',
+        orderStatus: 'PENDING',
+        shippingName: 'Rahim',
+        shippingPhone: '01700000000',
+        shippingAddress: 'Dhanmondi',
+        shippingCity: 'Dhaka',
+        isInsideDhaka: true,
+        isCodRisk: false,
+        siteUrl: 'https://splaro.co',
+        items: [{ productName: 'Shirt', quantity: 1, price: 1400, subtotal: 1400 }],
+        customerHistory: { totalOrders: 1, deliveredOrders: 0, returnedOrCancelled: 0 },
+      })
+      expect(msg).toContain('(1st order)')
+    })
+
+    it('renders return risk warning badge when customer has returned orders', () => {
+      const { formatNewOrderTelegramMessage } = require('./telegram-order-message')
+      const msg = formatNewOrderTelegramMessage({
+        invoiceNumber: 'SPL-1002',
+        total: 1500,
+        subtotal: 1400,
+        deliveryCharge: 100,
+        discount: 0,
+        paymentMethod: 'COD',
+        paymentStatus: 'PENDING',
+        orderStatus: 'PENDING',
+        shippingName: 'Karim',
+        shippingPhone: '01800000000',
+        shippingAddress: 'Chittagong',
+        shippingCity: 'Chittagong',
+        isInsideDhaka: false,
+        isCodRisk: false,
+        siteUrl: 'https://splaro.co',
+        items: [{ productName: 'Shirt', quantity: 1, price: 1400, subtotal: 1400 }],
+        customerHistory: { totalOrders: 3, deliveredOrders: 1, returnedOrCancelled: 2 },
+      })
+      expect(msg).toContain('2 returned/cancelled of 3')
+    })
+
+    it('renders Steadfast courier success score and parcel counts', () => {
+      const { formatNewOrderTelegramMessage } = require('./telegram-order-message')
+      const msg = formatNewOrderTelegramMessage({
+        invoiceNumber: 'SPL-1003',
+        total: 1500,
+        subtotal: 1400,
+        deliveryCharge: 100,
+        discount: 0,
+        paymentMethod: 'COD',
+        paymentStatus: 'PENDING',
+        orderStatus: 'PENDING',
+        shippingName: 'Sakib',
+        shippingPhone: '01900000000',
+        shippingAddress: 'Mirpur',
+        shippingCity: 'Dhaka',
+        isInsideDhaka: true,
+        isCodRisk: false,
+        siteUrl: 'https://splaro.co',
+        items: [{ productName: 'Shirt', quantity: 1, price: 1400, subtotal: 1400 }],
+        steadfastReport: { totalParcels: 10, delivered: 9, cancelled: 1, successRate: 90 },
+      })
+      expect(msg).toContain('Steadfast:')
+      expect(msg).toContain('90% success')
+      expect(msg).toContain('9 del')
+    })
+  })
 })
+

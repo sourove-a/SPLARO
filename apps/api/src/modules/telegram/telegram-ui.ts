@@ -126,9 +126,22 @@ export function inlineFinanceMenu(): InlineKeyboardMarkup {
   }
 }
 
+export function formatWhatsAppUrl(phone?: string | null): string | null {
+  if (!phone) return null
+  const digits = phone.replace(/\D/g, '')
+  if (!digits) return null
+  let normalized = digits
+  if (normalized.startsWith('01') && normalized.length === 11) {
+    normalized = `88${normalized}`
+  } else if (normalized.startsWith('8801') && normalized.length === 13) {
+    // already 8801...
+  }
+  return `https://wa.me/${normalized}`
+}
+
 export function orderActionKeyboard(
   invoiceNumber: string,
-  links?: { adminOrderUrl?: string; storefrontUrl?: string },
+  links?: { adminOrderUrl?: string; storefrontUrl?: string; phone?: string | null },
 ): InlineKeyboardMarkup {
   const rows: InlineKeyboardButton[][] = [
     [
@@ -139,12 +152,24 @@ export function orderActionKeyboard(
   const second: InlineKeyboardButton[] = [
     { text: '📦 Track', callback_data: orderCallback('track', invoiceNumber) },
   ]
-  if (links?.adminOrderUrl) {
-    second.push({ text: '🖥 Admin', url: links.adminOrderUrl })
-  } else if (links?.storefrontUrl) {
-    second.push({ text: '🌐 Store', url: links.storefrontUrl })
+  if (links?.phone) {
+    const wa = formatWhatsAppUrl(links.phone)
+    if (wa) {
+      second.push({ text: '💬 WhatsApp', url: wa })
+    }
   }
   rows.push(second)
+
+  const third: InlineKeyboardButton[] = []
+  if (links?.adminOrderUrl) {
+    third.push({ text: '🖥 Admin', url: links.adminOrderUrl })
+  } else if (links?.storefrontUrl) {
+    third.push({ text: '🌐 Store', url: links.storefrontUrl })
+  }
+  if (third.length > 0) {
+    rows.push(third)
+  }
+
   return { inline_keyboard: rows }
 }
 
@@ -208,7 +233,7 @@ Use the buttons below or the keyboard at the bottom.
 <b>Orders</b> — today, pending, courier, tracking
 <b>Finance</b> — profit, expenses, sheets
 <b>Admin</b> — secure login token for panel
-<b>Commands</b> — /status · /orders · /order SPL-1001 · /confirm · /cancel · /courier
+<b>Commands</b> — /status · /orders · /order SPL-1001 · /invoice SPL-1001 · /confirm · /cancel · /courier
 <b>AI</b> — type any message (authorized users)
 `.trim()
 }
@@ -220,6 +245,8 @@ export const BOT_COMMANDS: BotCommand[] = [
   { command: 'status', description: 'API & order summary' },
   { command: 'orders', description: 'Latest orders' },
   { command: 'order', description: 'Order details by invoice' },
+  { command: 'check', description: 'Check customer number & fraud score' },
+  { command: 'invoice', description: 'View & share invoice' },
   { command: 'confirm', description: 'Confirm order' },
   { command: 'cancel', description: 'Cancel order' },
   { command: 'courier', description: 'Book courier' },
