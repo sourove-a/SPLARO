@@ -130,6 +130,12 @@ run('pnpm', ['--filter', '@splaro/api', 'test:e2e'], {
   label: 'API e2e tests',
   env: TEST_ENV,
 })
+// The storefront has its own node:test suite (auth gate, checkout draft, image
+// quality allowlist). It was never part of this gate, so a break there shipped.
+run('pnpm', ['--filter', '@splaro/web', 'test:unit'], {
+  label: 'Web unit tests',
+  env: TEST_ENV,
+})
 
 run('node', ['scripts/ci-smoke-api.mjs'], { label: 'API smoke test' })
 

@@ -20,6 +20,9 @@ infrastructure/hostinger/hpanel-env.paste.txt
 .next/
 out/
 dist/
+# Scratch dirs used by scripts/build-package.mjs while it swaps a new dist in
+.dist-build/
+.dist-previous/
 
 # NestJS build
 apps/api/dist/
