@@ -211,14 +211,19 @@ function YouTubeAmbientEmbed({
       }
       if (!payload) return
       if (payload.event === 'onReady' || payload.event === 'initialDelivery') {
-        onReady()
         keepPlaying()
         return
       }
       const state =
         typeof payload.info === 'number' ? payload.info : payload.info?.playerState
-      // 0 ended · 2 paused — both surface YouTube's pause/prev overlay.
-      if (state === 0 || state === 2) keepPlaying()
+      // 1 playing — reveal the video now that frames are actively painting
+      if (state === 1) {
+        onReady()
+      }
+      // 0 ended · 2 paused · -1 unstarted — force playback so controls never pop up
+      if (state === 0 || state === 2 || state === -1) {
+        keepPlaying()
+      }
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
@@ -227,11 +232,13 @@ function YouTubeAmbientEmbed({
   useEffect(() => {
     if (!active) return
     keepPlaying()
+    const timer = setInterval(keepPlaying, 3000)
     const onVisible = () => {
       if (document.visibilityState === 'visible') keepPlaying()
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => {
+      clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisible)
     }
   }, [active, keepPlaying, src])
@@ -245,17 +252,20 @@ function YouTubeAmbientEmbed({
         ref={frameRef}
         src={src}
         title=""
-        allow="autoplay; encrypted-media"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         loading="eager"
         referrerPolicy="strict-origin-when-cross-origin"
         tabIndex={-1}
         onLoad={() => {
-          onReady()
           keepPlaying()
           frameRef.current?.contentWindow?.postMessage(
             JSON.stringify({ event: 'listening', id: videoId }),
             '*',
           )
+          setTimeout(() => {
+            onReady()
+            keepPlaying()
+          }, 1500)
         }}
       />
     </div>

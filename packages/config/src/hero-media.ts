@@ -96,7 +96,21 @@ export function youtubePosterUrl(id: string): string {
   return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
 }
 
+/**
+ * Hero embeds use the privacy-preserving host: youtube-nocookie.com does not
+ * write YouTube's tracking cookies until the visitor actually plays something,
+ * and autoplay behaves identically there — `mute=1` is what satisfies the
+ * browser autoplay gate, not the domain. Both hosts are allowed in the CSP
+ * frame-src, so switching is a one-word change if it is ever needed.
+ *
+ * `origin`/`widget_referrer` are only sent when the caller supplies one.
+ * YouTube rejects the JS API handshake when `origin` does not match the page
+ * actually embedding the iframe, and a config-derived value (NEXT_PUBLIC_SITE_URL)
+ * can easily differ from it — apex vs www, a preview host, an admin preview on
+ * :3001. HeroSlider passes window.location.origin, which is always correct.
+ */
 export function youtubeEmbedUrl(id: string, origin?: string): string {
+  const resolvedOrigin = origin?.trim()
   const q = new URLSearchParams({
     autoplay: '1',
     mute: '1',
@@ -114,7 +128,10 @@ export function youtubeEmbedUrl(id: string, origin?: string): string {
     showinfo: '0',
     enablejsapi: '1',
   })
-  if (origin) q.set('origin', origin)
+  if (resolvedOrigin) {
+    q.set('origin', resolvedOrigin)
+    q.set('widget_referrer', resolvedOrigin)
+  }
   return `https://www.youtube-nocookie.com/embed/${id}?${q.toString()}`
 }
 

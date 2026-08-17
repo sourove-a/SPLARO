@@ -184,7 +184,7 @@ const nextConfig = {
               // www.facebook.com: the Meta Pixel falls back to an iframe + form POST
               // to /tr/ when the image beacon is unavailable — without it, pixel
               // events are silently dropped.
-              "frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://accounts.google.com https://www.facebook.com",
+              "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://accounts.google.com https://www.facebook.com",
               // No <object>/<embed> anywhere in the app — closes a plugin-based XSS vector.
               "object-src 'none'",
               // Stops an injected <base> tag from re-pointing every relative script URL.

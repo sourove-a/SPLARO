@@ -43,7 +43,19 @@ describe('hero-media', () => {
     const embed = youtubeEmbedUrl('dQw4w9WgXcQ', 'https://splaro.co')
     expect(embed).toContain('controls=0')
     expect(embed).toContain('enablejsapi=1')
+    // Privacy host, and the caller's origin is what gets sent.
     expect(embed).toContain('youtube-nocookie.com/embed/dQw4w9WgXcQ')
+    expect(embed).toContain('origin=https%3A%2F%2Fsplaro.co')
+  })
+
+  it('omits origin when the caller has none', () => {
+    // A config-derived origin can differ from the page hosting the iframe
+    // (apex vs www, admin preview on :3001) and YouTube then rejects the JS API
+    // handshake — better to send nothing than to send the wrong origin.
+    const embed = youtubeEmbedUrl('dQw4w9WgXcQ')
+    expect(embed).not.toContain('origin=')
+    expect(embed).not.toContain('widget_referrer=')
+    expect(embed).toContain('mute=1')
   })
 
   it('adds https to scheme-less known hosts', () => {
