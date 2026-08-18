@@ -205,6 +205,7 @@ export class InfrastructureIntegrationService {
       ...(provider === 'steadfast'
         ? {
             callbackUrl: this.buildSteadfastCallbackUrl(),
+            callbackUrlLegacy: this.buildSteadfastCallbackLegacyUrl(),
             webhookConfigured,
           }
         : {}),
@@ -221,14 +222,25 @@ export class InfrastructureIntegrationService {
     return `${base}/webhooks/steadfast`
   }
 
+  /** Same handler as {@link buildSteadfastCallbackUrl} — for older portal configs. */
+  buildSteadfastCallbackLegacyUrl(): string {
+    const base = resolveCustomerFacingApiBase().replace(/\/+$/, '')
+    return `${base}/courier/steadfast-webhook`
+  }
+
   async resolveWebhookBearerToken(storeIdRaw?: string): Promise<string | null> {
-    const storeId = await this.integrations.resolveStore(storeIdRaw ?? '')
-    const runtime = (await this.resolveRuntimeCredentials(storeId, 'steadfast')) as {
-      webhookBearerToken?: string
+    try {
+      const storeId = await this.integrations.resolveStore(storeIdRaw ?? '')
+      const runtime = (await this.resolveRuntimeCredentials(storeId, 'steadfast')) as {
+        webhookBearerToken?: string
+      }
+      const token = (runtime.webhookBearerToken ?? '').trim()
+      if (!token || this.isPlaceholder(token)) return null
+      return token
+    } catch {
+      // Isolated e2e DB / partial Prisma mocks — treat as unconfigured, not 500.
+      return null
     }
-    const token = (runtime.webhookBearerToken ?? '').trim()
-    if (!token || this.isPlaceholder(token)) return null
-    return token
   }
 
   /**

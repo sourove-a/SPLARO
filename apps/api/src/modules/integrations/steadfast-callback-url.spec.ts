@@ -35,4 +35,12 @@ describe('Steadfast webhook Callback Url', () => {
       'https://splaro.co/api/v1/webhooks/steadfast',
     )
   })
+
+  it('builds legacy courier alias on the same public base', () => {
+    process.env.NEXT_PUBLIC_API_URL = 'https://splaro.co/api/v1'
+    const base = resolveCustomerFacingApiBase().replace(/\/+$/, '')
+    expect(`${base}/courier/steadfast-webhook`).toBe(
+      'https://splaro.co/api/v1/courier/steadfast-webhook',
+    )
+  })
 })

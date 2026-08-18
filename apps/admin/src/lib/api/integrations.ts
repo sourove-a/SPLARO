@@ -203,6 +203,8 @@ export interface InfrastructureConfig {
   lastTestStatus?: string | null
   /** Steadfast only — paste into portal Callback Url */
   callbackUrl?: string
+  /** Steadfast only — legacy alias (/courier/steadfast-webhook) */
+  callbackUrlLegacy?: string
   /** Steadfast only — true when Bearer token is saved */
   webhookConfigured?: boolean
 }

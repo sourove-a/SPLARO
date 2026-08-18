@@ -67,6 +67,7 @@ export const PUBLIC_ROUTE_PREFIXES = [
   'agent/telegram/webhook',
   'mobile/auth',
   'webhooks/steadfast',
+  'courier/steadfast-webhook',
 ] as const
 
 /** Storefront search/SEO paths that may be called without admin auth. */

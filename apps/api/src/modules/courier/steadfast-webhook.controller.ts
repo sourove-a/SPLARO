@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Headers,
   HttpCode,
   Post,
@@ -18,14 +19,34 @@ import {
  * Inbound Steadfast Webhook Integration.
  * Paste Callback Url + Auth Token (Bearer) from Admin → Settings → Infrastructure
  * into the Steadfast merchant portal Webhook Integration panel.
+ *
+ * Canonical: POST /api/v1/webhooks/steadfast
+ * Legacy alias (same handler): POST /api/v1/courier/steadfast-webhook
  */
 @Public()
-@Controller('webhooks/steadfast')
+@Controller(['webhooks/steadfast', 'courier/steadfast-webhook'])
 export class SteadfastWebhookController {
   constructor(
     private readonly infra: InfrastructureIntegrationService,
     private readonly webhooks: SteadfastWebhookService,
   ) {}
+
+  /** Browser / portal URL checks — delivery notifications use POST with Bearer auth. */
+  @Get()
+  @HttpCode(200)
+  async probe() {
+    const bearerConfigured = Boolean(await this.infra.resolveWebhookBearerToken())
+    return {
+      ok: true,
+      service: 'steadfast-webhook',
+      accept: 'POST',
+      contentType: 'application/json',
+      auth: 'Authorization: Bearer <token from Admin → Infrastructure>',
+      canonicalUrl: this.infra.buildSteadfastCallbackUrl(),
+      legacyAliasUrl: this.infra.buildSteadfastCallbackLegacyUrl(),
+      bearerConfigured,
+    }
+  }
 
   @Post()
   @HttpCode(200)

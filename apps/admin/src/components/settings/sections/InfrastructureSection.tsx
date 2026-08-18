@@ -332,8 +332,9 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
         >
           <p className="text-[13px] font-bold text-[var(--ink)]">Webhook Integration</p>
           <p className="mt-1 text-[12px] font-medium leading-relaxed text-[var(--admin-text-muted)]">
-            Paste these into Steadfast portal → Webhook Integration. Callback Url is always your
-            live domain (<code className="rounded bg-black/5 px-1 py-0.5 text-[11px]">https://splaro.co/api/v1/…</code>
+            Paste these into Steadfast portal → Webhook Integration. Use either callback URL below
+            (both work). Callback is always your live domain (<code className="rounded bg-black/5 px-1 py-0.5 text-[11px]">https://api.splaro.co/api/v1/…</code>
+            or <code className="rounded bg-black/5 px-1 py-0.5 text-[11px]">https://splaro.co/api/v1/…</code>
             ) — never localhost. Steadfast will{' '}
             <code className="rounded bg-black/5 px-1 py-0.5 text-[11px]">POST</code> delivery
             status updates here with <code className="rounded bg-black/5 px-1 py-0.5 text-[11px]">Authorization: Bearer …</code>.
@@ -368,6 +369,39 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
               </AdminButton>
             </div>
           </label>
+          {steadfast.data?.callbackUrlLegacy ? (
+            <label className="mt-3 block">
+              <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-[var(--admin-text-muted)]">
+                Callback Url (Steadfast portal alias)
+              </span>
+              <div className="flex flex-wrap gap-2">
+                <input
+                  className="settings-input min-w-0 flex-1 font-mono text-[12px]"
+                  readOnly
+                  value={steadfast.data.callbackUrlLegacy}
+                />
+                <AdminButton
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    const url = steadfast.data?.callbackUrlLegacy
+                    if (!url) return
+                    void navigator.clipboard.writeText(url).then(
+                      () => toastInfo('Legacy callback URL copied — paste into Steadfast portal'),
+                      () => toastFail('Copy failed'),
+                    )
+                  }}
+                >
+                  Copy
+                </AdminButton>
+              </div>
+              <p className="mt-1 text-[11px] font-medium text-[var(--admin-text-muted)]">
+                Same handler as the URL above — use{' '}
+                <code className="rounded bg-black/5 px-1">/courier/steadfast-webhook</code> if your
+                portal already has it (e.g. api.splaro.co).
+              </p>
+            </label>
+          ) : null}
 
           <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
             <Field

@@ -179,4 +179,26 @@ describe('SPLARO API (e2e)', () => {
 
     expect(res.body.message).toMatch(/bangladeshi mobile/i)
   })
+
+  it('GET /api/v1/webhooks/steadfast — readiness probe (no auth)', async () => {
+    const res = await request(app.getHttpServer()).get('/api/v1/webhooks/steadfast').expect(200)
+
+    expect(res.body.ok).toBe(true)
+    expect(res.body.service).toBe('steadfast-webhook')
+    expect(res.body.accept).toBe('POST')
+  })
+
+  it('GET /api/v1/courier/steadfast-webhook — legacy alias probe', async () => {
+    const res = await request(app.getHttpServer()).get('/api/v1/courier/steadfast-webhook').expect(200)
+
+    expect(res.body.ok).toBe(true)
+    expect(res.body.legacyAliasUrl).toContain('/courier/steadfast-webhook')
+  })
+
+  it('POST /api/v1/courier/steadfast-webhook — rejects missing Bearer', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/courier/steadfast-webhook')
+      .send({ notification_type: 'delivery_status', delivery_status: 'delivered' })
+      .expect(401)
+  })
 })

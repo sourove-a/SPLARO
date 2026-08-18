@@ -366,6 +366,8 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     p('storefront-track-order', 'Order Tracking', 'Storefront', q('/storefront/orders/track') + '&phone=01700000000', {
       allowUnauthorized: true,
     }),
+    p('steadfast-webhook', 'Steadfast Webhook', 'Courier', '/webhooks/steadfast'),
+    p('steadfast-webhook-legacy', 'Steadfast Webhook (legacy path)', 'Courier', '/courier/steadfast-webhook'),
     // Write probes must NOT mutate live data or fire Telegram/email.
     // Intentionally invalid bodies → 400 (route registered) without side effects.
     pw('storefront-newsletter-post', 'Newsletter Subscribe (POST)', 'Storefront', q('/storefront/newsletter/subscribe'), '{"email":"not-an-email"}'),

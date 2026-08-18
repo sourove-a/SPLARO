@@ -114,10 +114,32 @@ function checkDevStubs() {
   console.log('✅ no dev stub flags in production env')
 }
 
+async function checkSteadfastWebhookProbe() {
+  for (const path of ['/webhooks/steadfast', '/courier/steadfast-webhook']) {
+    const res = await fetch(`${base}${path}`, {
+      signal: AbortSignal.timeout(12_000),
+    }).catch(() => null)
+    if (!res?.ok) {
+      fail(`Steadfast webhook GET ${path} expected 200, got HTTP ${res?.status ?? 'timeout'}`)
+    }
+    let data
+    try {
+      data = await res.json()
+    } catch {
+      fail(`Steadfast webhook GET ${path} returned non-JSON`)
+    }
+    if (data?.ok !== true || data?.service !== 'steadfast-webhook') {
+      fail(`Steadfast webhook GET ${path} unexpected body: ${JSON.stringify(data).slice(0, 200)}`)
+    }
+    console.log(`✅ Steadfast webhook GET ${path}${data.bearerConfigured ? ' (bearer configured)' : ' (bearer not set — configure in Admin → Infrastructure)'}`)
+  }
+}
+
 console.log('═══ Deploy health verify ═══')
 checkDevStubs()
 await checkWeb()
 await checkApiRootRedirect()
+await checkSteadfastWebhookProbe()
 await checkRouteProbes()
 await checkAdminPing()
 console.log('═══ Deploy health OK ═══\n')
