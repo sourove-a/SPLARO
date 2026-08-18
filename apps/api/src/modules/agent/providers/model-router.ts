@@ -212,7 +212,8 @@ export class ModelRouter {
   private async resolveClaudeKey(storeId: string, rowKey: string | null): Promise<string | null> {
     const opts = await this.resolveClaudeOptions(storeId)
     if (opts.authMode === 'antigravity_proxy' && opts.baseUrl) {
-      return opts.authToken?.trim() || 'test'
+      const token = opts.authToken?.trim()
+      return token || null
     }
     const fromIntegration = await this.integrations.getPlain(storeId, 'claude', 'apiKey')
     if (fromIntegration) return fromIntegration

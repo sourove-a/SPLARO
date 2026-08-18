@@ -1,16 +1,19 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowLeft, ArrowRight, ArrowUpRight } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { mergeCatalogChannels } from '@splaro/types'
 import { getVisibleCollectionCards } from '@/lib/catalog/collection-cards'
 import { getStorefrontCatalog } from '@/lib/catalog/server'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
 import { collectionHref } from '@/lib/storefront/collection-paths'
 import { createRouteMetadata } from '@/lib/seo/route-metadata'
+import { buildItemListJsonLd } from '@/lib/seo/geo-json-ld'
+
+export const dynamic = 'force-dynamic'
 
 export const metadata = createRouteMetadata({
   title: 'Collections',
-  description: 'Explore SPLARO collections curated by category, season, and style.',
+  description: 'Curated SPLARO collections — rooms in the wardrobe, not departments.',
   path: '/collections',
 })
 
@@ -20,78 +23,66 @@ export default async function CollectionsPage() {
     getStorefrontCatalog(),
   ])
   const channels = mergeCatalogChannels(settings.config.catalogChannels ?? [])
-  const visibleCards = await getVisibleCollectionCards(channels, catalog)
+  const collectionCards = await getVisibleCollectionCards(channels, catalog)
+  const listLd = buildItemListJsonLd({
+    name: 'SPLARO collections',
+    path: '/collections',
+    items: collectionCards.map((card) => ({
+      name: card.label,
+      path: collectionHref(card.slug),
+    })),
+  })
 
   return (
     <main className="shop-page-shell collections-page px-3 sm:px-5 lg:px-8">
-      <section className="collections-page__section mx-auto max-w-[1720px]">
-        <div className="collections-page__hero shop-hero__glass">
-          <div className="collections-page__hero-copy">
-            <p className="shop-hero__eyebrow label-luxury">SPLARO Collections</p>
-            <h1 className="collections-page__title">Designed for every part of your wardrobe.</h1>
-            <p className="shop-hero__subtitle">
-              {visibleCards.length > 0
-                ? 'Each collection opens a filtered shop with size, colour, and price filters.'
-                : 'Browse the full catalog while collections are being refreshed.'}
-            </p>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: listLd }} />
+      <section className="collections-page__section mx-auto max-w-[1120px]">
+        <header className="collections-page__mast">
+          <p className="collections-page__eyebrow">Collections</p>
+          <h1 className="collections-page__title">Lines with a point of view.</h1>
+          <p className="collections-page__lede">
+            Curated rooms in the wardrobe — not departments. Order stays on SPLARO.
+          </p>
+          <div className="collections-page__actions">
+            <Link href="/shop" className="collections-page__text-link">
+              Shop all products
+            </Link>
+            <Link href="/" className="collections-page__text-link collections-page__text-link--quiet">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Home
+            </Link>
           </div>
-          <Link href="/shop" className="shop-hero__promo glass">
-            <p className="shop-hero__promo-label label-luxury">Full catalog</p>
-            <p className="shop-hero__promo-text">Shop all products</p>
-            <span className="shop-hero__promo-link">
-              Browse now
-              <ArrowRight className="h-4 w-4" />
-            </span>
-          </Link>
-        </div>
+        </header>
 
-        {visibleCards.length > 0 ? (
+        {collectionCards.length > 0 ? (
           <div className="collections-page__grid">
-            {visibleCards.map((card) => (
+            {collectionCards.map((card) => (
               <Link
                 key={card.slug}
                 href={collectionHref(card.slug)}
-                className="shop-collection-card group"
+                className="collections-page__tile group"
               >
-                <div className="shop-collection-card__media shop-collection-card__media--wide">
+                <div className="collections-page__tile-media">
                   <Image
                     src={card.image}
                     alt={card.label}
                     fill
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                    className="shop-collection-card__img object-cover"
+                    sizes="(max-width: 640px) 46vw, 240px"
+                    className="collections-page__tile-img object-cover"
                   />
-                  <div className="shop-collection-card__shine" aria-hidden />
-                  <div className="shop-collection-card__overlay" aria-hidden />
-                  <div className="shop-collection-card__footer">
-                    <div className="shop-collection-card__text">
-                      <p className="shop-collection-card__label">{card.label}</p>
-                      <p className="shop-collection-card__count">
-                        {card.count} {card.count === 1 ? 'piece' : 'pieces'}
-                      </p>
-                    </div>
-                    <span className="shop-collection-card__arrow" aria-hidden>
-                      <ArrowUpRight strokeWidth={1.5} />
-                    </span>
-                  </div>
+                </div>
+                <div className="collections-page__tile-meta">
+                  <p className="collections-page__tile-label">{card.label}</p>
+                  <p className="collections-page__tile-count">
+                    {card.count} {card.count === 1 ? 'piece' : 'pieces'}
+                  </p>
                 </div>
               </Link>
             ))}
           </div>
         ) : (
-          <div className="glass mt-6 rounded-[1.4rem] px-6 py-10 text-center">
-            <p className="text-sm font-bold text-luxury-gray">No collections are published right now.</p>
-            <Link href="/shop" className="btn-luxury-outline mt-5 inline-flex items-center gap-2">
-              Shop all products
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
+          <p className="collections-page__empty">Collections will appear here as they are published.</p>
         )}
-
-        <Link href="/" className="collections-page__back btn-luxury-outline mt-8 inline-flex items-center gap-2">
-          <ArrowLeft className="h-4 w-4" />
-          Back to home
-        </Link>
       </section>
     </main>
   )

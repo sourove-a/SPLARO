@@ -28,9 +28,7 @@ import {
   type PermissionRow,
 } from './security-permissions.util'
 
-const CEO_EMAIL = (process.env['ADMIN_EMAIL'] ?? process.env['CEO_EMAIL'] ?? 'splaro.bd@gmail.com')
-  .trim()
-  .toLowerCase()
+import { isPrimaryOwnerEmail } from '../../common/primary-owner.util'
 
 /** Email activation path. ADMIN links Telegram during its trusted first session. */
 const INVITABLE_ROLES = new Set<UserRole>(['ADMIN', 'MANAGER', 'STAFF'])
@@ -129,7 +127,7 @@ export class SecurityService {
   }
 
   private async assertTargetEditable(storeId: string, userId: string, email?: string | null) {
-    if (email?.trim().toLowerCase() === CEO_EMAIL) {
+    if (isPrimaryOwnerEmail(email)) {
       throw new ForbiddenException('CEO account cannot be modified')
     }
     const staff = await this.prisma.staffRole.findUnique({
@@ -174,7 +172,7 @@ export class SecurityService {
 
     if (!email || !email.includes('@')) throw new BadRequestException('Valid email is required')
     if (!firstName) throw new BadRequestException('First name is required')
-    if (email === CEO_EMAIL) throw new ForbiddenException('CEO email is reserved')
+    if (isPrimaryOwnerEmail(email)) throw new ForbiddenException('CEO email is reserved')
 
     const role = body.role?.toUpperCase() as UserRole
     this.assertRoleAssignment(actor, role)

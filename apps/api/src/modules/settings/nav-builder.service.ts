@@ -102,9 +102,9 @@ function isBlankHeroImage(url: string | undefined): boolean {
   return /placeholder-product|placehold\.co/i.test(value)
 }
 
-/** Shared homepage heroes — OK as last resort, never preferred over dept product shots. */
+/** Shared homepage heroes — never use as a mega-menu card the owner did not upload. */
 function isSharedHomepageHero(url: string | undefined): boolean {
-  return /\/images\/hero\/(new-season|summer)(-|_)?/i.test(url?.trim() ?? '')
+  return /\/images\/hero\/(new-season|summer|women-collection)(-|_|\.)?/i.test(url?.trim() ?? '')
 }
 
 /** Normalize mislabeled mega-menu hero links (seed defaults pointed at department roots). */
@@ -269,24 +269,27 @@ export class NavBuilderService {
       Math.max(baseHeroes.length, 3),
     )
 
-    const heroes: MegaMenuHero[] = baseHeroes.map((hero, index) => {
+    const usedImages = new Set<string>()
+    const heroes: MegaMenuHero[] = []
+    for (const [index, hero] of baseHeroes.entries()) {
       const configured =
         hero.image && !isBlankHeroImage(hero.image) && !isSharedHomepageHero(hero.image)
           ? hero.image
           : undefined
-      return {
+      const image = [liveImages[index], configured].find((url): url is string => {
+        if (!url) return false
+        if (usedImages.has(url)) return false
+        if (isBlankHeroImage(url) || isSharedHomepageHero(url)) return false
+        return true
+      })
+      if (!image) continue
+      usedImages.add(image)
+      heroes.push({
         ...hero,
         href: normalizeHeroHref(hero.label, hero.href, dept.slug),
-        // Dept product photos first — stops Men mega showing Women homepage heroes
-        image:
-          liveImages[index] ||
-          configured ||
-          liveImages[0] ||
-          (!isBlankHeroImage(hero.image) ? hero.image : undefined) ||
-          EDITORIAL_HEROES[dept.slug]?.[index]?.image ||
-          '',
-      }
-    }).filter((hero) => Boolean(hero.image))
+        image,
+      })
+    }
 
     return { categories, heroes }
   }

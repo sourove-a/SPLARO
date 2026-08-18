@@ -59,8 +59,6 @@ export const HANDOFF_SIDEBAR_GROUPS: ReadonlyArray<{ group: string; hrefs: reado
       '/dashboard/courier-hub',
       '/dashboard/wms/overview',
       '/dashboard/procurement/purchase-orders',
-      '/dashboard/procurement/suppliers',
-      '/dashboard/procurement/goods-received',
     ],
   },
   {
@@ -128,7 +126,7 @@ export const HANDOFF_SIDEBAR_GROUPS: ReadonlyArray<{ group: string; hrefs: reado
 const LABEL_OVERRIDES: Record<string, string> = {
   '/dashboard/returns-rma': 'Returns / RMA',
   '/dashboard/wms/overview': 'Warehouse & Stock',
-  '/dashboard/procurement/purchase-orders': 'Purchase Orders',
+  '/dashboard/procurement/purchase-orders': 'Procurement',
   '/dashboard/finance/finance-reports': 'Profit & Cash Flow',
   '/dashboard/automation/google-sheets-sync': 'Google Sheets',
   '/dashboard/ai-agent': 'AI Command Brain',

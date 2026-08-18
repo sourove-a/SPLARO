@@ -31,7 +31,50 @@ const PURGED_TABLES = [
   'referral',
 ] as const
 
-function buildController(customers: SeedCustomer[], opts: { vendorUser?: boolean } = {}) {
+function loginRow(
+  userId: string,
+  kind: 'shopper' | 'vendor' | 'staff' | 'owner',
+) {
+  if (kind === 'owner') {
+    return {
+      id: userId,
+      email: 'splaro.bd@gmail.com',
+      staffRoles: [{ id: 'sr-owner' }],
+      ownedStores: [{ id: 'store-1' }],
+      vendor: null,
+    }
+  }
+  if (kind === 'staff') {
+    return {
+      id: userId,
+      email: 'manager@example.com',
+      staffRoles: [{ id: 'sr-1' }],
+      ownedStores: [],
+      vendor: null,
+    }
+  }
+  if (kind === 'vendor') {
+    return {
+      id: userId,
+      email: 'vendor@example.com',
+      staffRoles: [],
+      ownedStores: [],
+      vendor: { id: 'v1' },
+    }
+  }
+  return {
+    id: userId,
+    email: 'shopper@example.com',
+    staffRoles: [],
+    ownedStores: [],
+    vendor: null,
+  }
+}
+
+function buildController(
+  customers: SeedCustomer[],
+  opts: { vendorUser?: boolean; staffUser?: boolean; ownerUser?: boolean } = {},
+) {
   const deleteMany = jest.fn().mockResolvedValue({ count: 0 })
   const tables = Object.fromEntries(PURGED_TABLES.map((t) => [t, { deleteMany }])) as Record<
     string,
@@ -41,6 +84,7 @@ function buildController(customers: SeedCustomer[], opts: { vendorUser?: boolean
   const customerDelete = jest.fn().mockResolvedValue({})
   const userDelete = jest.fn().mockResolvedValue({})
   const userUpdate = jest.fn().mockResolvedValue({})
+  const loginKind = opts.ownerUser ? 'owner' : opts.staffUser ? 'staff' : opts.vendorUser ? 'vendor' : 'shopper'
 
   const tx = {
     ...tables,
@@ -54,7 +98,9 @@ function buildController(customers: SeedCustomer[], opts: { vendorUser?: boolean
     auditLog: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     customer: { delete: customerDelete },
     user: {
-      findFirst: jest.fn().mockResolvedValue(opts.vendorUser ? { id: 'u1' } : null),
+      findFirst: jest.fn().mockImplementation(async ({ where }: { where: { id: string } }) =>
+        loginRow(where.id, loginKind),
+      ),
       delete: userDelete,
       update: userUpdate,
     },
@@ -160,7 +206,7 @@ describe('CustomersController bulk delete', () => {
     })
   })
 
-  it('deactivates rather than deletes a login that is also a vendor or store owner', async () => {
+  it('deactivates rather than deletes a vendor-only login', async () => {
     const { controller, userDelete, userUpdate } = buildController([fake('a')], {
       vendorUser: true,
     })
@@ -168,6 +214,28 @@ describe('CustomersController bulk delete', () => {
 
     expect(userDelete).not.toHaveBeenCalled()
     expect(userUpdate).toHaveBeenCalledWith({ where: { id: 'u-a' }, data: { isActive: false } })
+  })
+
+  it('deletes the shopper row but never touches the primary owner User', async () => {
+    const { controller, customerDelete, userDelete, userUpdate } = buildController([fake('a')], {
+      ownerUser: true,
+    })
+    await controller.bulkRemove({ ids: ['a'] })
+
+    expect(customerDelete).toHaveBeenCalled()
+    expect(userDelete).not.toHaveBeenCalled()
+    expect(userUpdate).not.toHaveBeenCalled()
+  })
+
+  it('deletes the shopper row but never deactivates invited staff', async () => {
+    const { controller, customerDelete, userDelete, userUpdate } = buildController([fake('a')], {
+      staffUser: true,
+    })
+    await controller.bulkRemove({ ids: ['a'] })
+
+    expect(customerDelete).toHaveBeenCalled()
+    expect(userDelete).not.toHaveBeenCalled()
+    expect(userUpdate).not.toHaveBeenCalled()
   })
 
   it('reports an id that is not in this store rather than silently ignoring it', async () => {

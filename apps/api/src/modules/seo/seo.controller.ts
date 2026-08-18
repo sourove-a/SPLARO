@@ -80,21 +80,24 @@ export class SeoController {
   ) {
     const product = await this.prisma.product.findUnique({
       where: { id: productId },
-      include: { variants: { take: 1 }, images: { take: 1 } },
+      include: { variants: { take: 1, where: { isActive: true } }, images: { take: 1 } },
     })
     if (!product) return { error: 'Product not found' }
 
     const site = resolvePublicSiteUrl(siteUrl)
     const variant = product.variants[0]
+    const sku = product.productCode?.trim() || variant?.sku || product.sku || undefined
 
     return this.seoService.generateProductSchema({
       name: product.name,
       description: product.description ?? '',
       url: `${site}/products/${product.slug ?? product.id}`,
       images: product.images.map((img) => (img as { url?: string }).url ?? '').filter(Boolean),
-      price: Number(variant?.price ?? 0),
+      price: Number(variant?.price ?? product.basePrice ?? 0),
       currency: 'BDT',
-      sku: variant?.sku ?? product.id,
+      sku,
+      ...(sku ? { mpn: sku } : {}),
+      ...(variant?.barcode?.trim() ? { gtin: variant.barcode.trim() } : {}),
       brand: 'SPLARO',
       inStock: (variant?.stock ?? 0) > 0,
     })

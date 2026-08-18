@@ -591,7 +591,6 @@
   gap: 0.25rem;
 }
 
-.pp-info__brand,
 .pdp-eyebrow {
   font-size: 0.625rem;
   font-weight: 800;
@@ -601,7 +600,7 @@
 }
 
 .pp-info__code {
-  margin-top: 0.35rem;
+  margin-top: 0.12rem;
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -635,12 +634,41 @@
 }
 
 .pp-info__name-bn {
-  margin: 0.35rem 0 0;
+  margin: 0.12rem 0 0;
   font-family: var(--font-noto-bengali, 'Noto Sans Bengali', system-ui), sans-serif;
   font-size: clamp(1rem, 1.8vw, 1.2rem);
   font-weight: 600;
   line-height: 1.35;
   color: rgba(16, 17, 20, 0.72);
+}
+
+/* Optional — Brand: then the mark. No chip, no extra box. */
+.pp-info__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0.22rem 0 0;
+}
+.pp-info__brand-label {
+  flex: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: rgba(16, 17, 20, 0.5);
+}
+.pp-info__brand-img {
+  display: block;
+  height: 1.7rem;
+  width: auto;
+  max-width: 9.75rem;
+  object-fit: contain;
+  object-position: left center;
+}
+.pp-info__brand-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #101114;
 }
 
 .pp-info__weave {
@@ -4378,7 +4406,7 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 }
 
 .pp-view .pp-info__code {
-  margin-top: 0.45rem;
+  margin-top: 0.15rem;
   color: rgba(17, 17, 17, 0.38);
   font-size: 0.72rem;
   font-weight: 500;
@@ -4386,7 +4414,7 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 }
 
 .pp-view .pp-info__lead {
-  margin-top: 1.05rem;
+  margin-top: 0.7rem;
 }
 
 .pp-view .pp-info__price {
@@ -4890,7 +4918,7 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   }
 
   .pp-view .pp-info__lead {
-    margin-top: 0.85rem;
+    margin-top: 0.7rem;
   }
 
   .pp-view .pp-info__options {
@@ -6542,7 +6570,7 @@ html[data-perf='lite'] .sg-modal__backdrop {
      into this one — spacing between the serif title and the price has to be
      set here or it silently does nothing. */
   .pp-view .pp-info__lead {
-    margin-top: 1.5rem;
+    margin-top: 0.7rem;
     padding-bottom: 0.2rem;
   }
 

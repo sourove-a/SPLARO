@@ -193,10 +193,10 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     group: 'Procurement',
     items: [
-      item('Procurement Hub', 'procurement/overview', 'LayoutGrid', 'Suppliers, POs & GRNs — live overview'),
-      item('Suppliers', 'procurement/suppliers', 'Building2', 'Supplier profiles & ledger'),
-      item('Purchase Orders', 'procurement/purchase-orders', 'FileText', 'PO workflow & approvals'),
-      item('Goods Received', 'procurement/goods-received', 'PackageCheck', 'GRN & receiving'),
+      item('Procurement Hub', 'procurement/overview', 'LayoutGrid', 'Suppliers, POs and GRNs — one shared hub'),
+      item('Suppliers', 'procurement/suppliers', 'Building2', 'Same procurement hub as Purchase Orders and GRN'),
+      item('Purchase Orders', 'procurement/purchase-orders', 'FileText', 'Same procurement hub as Suppliers and GRN'),
+      item('Goods Received', 'procurement/goods-received', 'PackageCheck', 'Same procurement hub as POs and Suppliers'),
     ],
   },
   {

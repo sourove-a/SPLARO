@@ -34,6 +34,7 @@ import { SearchService } from '../search/search.service'
 import { assertStoreBrandId } from '../../common/assert-store-brand'
 import { assertStoreCategoryId } from '../../common/assert-store-category'
 import { resolveStoreId, slugify } from '../../common/store.util'
+import { assertJhingephoolSareeOnly } from '../collections/jhingephool.util'
 import { resolveAdminPagination } from '../../common/admin-pagination.util'
 import { fireAndForget } from '../../common/fire-and-forget'
 import { normalizeProductHex, productHexOrDefault } from '../../common/color-hex.util'
@@ -377,7 +378,7 @@ export class ProductsController {
             take: 1,
           },
           category: { select: { id: true, name: true, slug: true } },
-          variants: { select: { id: true, stock: true, reservedStock: true, sku: true, size: true, color: true, colorName: true, price: true } },
+          variants: { select: { id: true, stock: true, reservedStock: true, sku: true, size: true, color: true, colorName: true, price: true, isActive: true } },
           _count: { select: { variants: true } },
         },
         orderBy: this.productListSort(sort),
@@ -794,6 +795,7 @@ export class ProductsController {
           select: { id: true },
         })
         if (!collection) throw new BadRequestException('Collection does not belong to this store')
+        await assertJhingephoolSareeOnly(this.prisma, body.collectionId, categoryId)
         await tx.collectionProduct.create({
           data: { collectionId: body.collectionId, productId: created.id },
         })
@@ -925,6 +927,7 @@ export class ProductsController {
         schemaMarkup: true,
         basePrice: true,
         compareAtPrice: true,
+        categoryId: true,
       },
     })
     if (!existing) throw new NotFoundException('Product not found')
@@ -1039,6 +1042,11 @@ export class ProductsController {
     if (body.collectionId !== undefined) {
       await this.prisma.collectionProduct.deleteMany({ where: { productId: id } })
       if (body.collectionId) {
+        await assertJhingephoolSareeOnly(
+          this.prisma,
+          body.collectionId,
+          nextCategoryId ?? existing.categoryId,
+        )
         await this.prisma.collectionProduct.create({
           data: { collectionId: body.collectionId, productId: id },
         })

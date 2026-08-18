@@ -23,7 +23,10 @@ import {
   splitBilingualDescription,
 } from '@/lib/admin/product-description-draft'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
-import { toastOk, toastFail } from '@/lib/admin/feedback'
+import { toastOk, toastFail, toastWarn } from '@/lib/admin/feedback'
+import { BrandSelectChips } from '@/components/modules/product-form/BrandSelectChips'
+import { CollectionSelectChips } from '@/components/modules/product-form/CollectionSelectChips'
+import { isJhingephoolCollectionSlug, isSareeCategorySlug } from '@splaro/types'
 import {
   confirmCategoryHomepageImage,
   confirmProductArchived,
@@ -35,7 +38,7 @@ import { revalidateWebCache } from '@/lib/api/revalidate'
 import { buildCloneProductPayload } from '@/lib/admin/product-clone'
 import { copyProductStorefrontUrl, productStorefrontUrl } from '@/lib/admin/product-storefront-url'
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
-import { useCategoryTree, useCollections, useProduct, useUpdateProduct, useDeleteProduct, useCreateProduct, useProductVersions, useRestoreProductVersion, useAdminSession, usePermission } from '@/lib/api/hooks'
+import { useBrands, useCategoryTree, useCollections, useProduct, useUpdateProduct, useDeleteProduct, useCreateProduct, useProductVersions, useRestoreProductVersion, useAdminSession, usePermission } from '@/lib/api/hooks'
 import { ProductVariantManager } from '@/components/modules/product-form/ProductVariantManager'
 import { parseProductMedia } from '@/lib/admin/product-media-utils'
 import { AdminSwitchRow } from '@/components/ui/AdminSwitch'
@@ -50,7 +53,7 @@ import {
 } from '@/lib/admin/product-form-utils'
 import { ProductPriceFields } from '@/components/modules/product-form/ProductPriceFields'
 import { generateAIProduct } from '@/lib/api/finance'
-import { fetchProductQR, fetchProductBarcode } from '@/lib/api/products'
+import { fetchProductQR, fetchProductBarcode, productStock } from '@/lib/api/products'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 import { BN_COPY, EN_COPY, filterToScript, gateScript, scriptWarning } from '@/lib/admin/bilingual-copy'
 
@@ -88,6 +91,8 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
   )
   const { data: collectionsData } = useCollections()
   const collections = collectionsData?.collections ?? []
+  const { data: brandsData } = useBrands()
+  const brands = brandsData?.brands ?? []
   const updateProduct = useUpdateProduct()
   const createProduct = useCreateProduct()
   const deleteProduct = useDeleteProduct()
@@ -130,6 +135,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
     tags: '',
     weavingType: '',
     collectionId: '',
+    brandId: '',
     productType: '',
     categoryId: '',
     sizes: '',
@@ -246,6 +252,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
       tags: formatTagsInput(extra.tags),
       weavingType: schema.weavingType,
       collectionId: extra.collections?.[0]?.collectionId ?? '',
+      brandId: typeof extra.brandId === 'string' ? extra.brandId : '',
       productType: fitSplit.productType,
       categoryId,
       sizes: '',
@@ -373,6 +380,17 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
     set('slug', slugify(slug))
   }
 
+  const selectCategory = (categoryId: string) => {
+    set('categoryId', categoryId)
+    const cat = categories.find((row) => row.id === categoryId)
+    const jhinge = collections.find((row) => isJhingephoolCollectionSlug(row.slug))
+    const saree = cat && (isSareeCategorySlug(cat.slug) || isSareeCategorySlug(cat.name))
+    if (jhinge && form.collectionId === jhinge.id && !saree) {
+      set('collectionId', '')
+      toastWarn('ঝিঙেফুল is saree-only — collection cleared.')
+    }
+  }
+
   const handleDepartmentChange = (deptId: string) => {
     setDepartmentId(deptId)
     setSubDepartmentId('')
@@ -392,7 +410,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
       return
     }
     setSubDepartmentId('')
-    set('categoryId', categoryId)
+    selectCategory(categoryId)
   }
 
   const handleSubTypeChange = (categoryId: string) => {
@@ -400,7 +418,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
       set('categoryId', '')
       return
     }
-    set('categoryId', categoryId)
+    selectCategory(categoryId)
   }
 
   const appendBanglaPhrase = (phrase: string) => {
@@ -604,6 +622,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
         tags,
         weavingType: form.weavingType,
         collectionId: form.collectionId || '',
+        brandId: form.brandId || null,
         categoryId: form.categoryId,
         fabricContent: form.fabricContent,
         fitType: mergeFitAndProductType(form.productType, form.fitType),
@@ -702,7 +721,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
     )
   }
 
-  const totalStock = product.variants?.reduce((s, v) => s + (v.stock ?? v.stockQuantity ?? 0), 0) ?? 0
+  const totalStock = productStock(product)
   const lowStock = totalStock > 0 && totalStock < 10
   const storefrontUrl = form.slug.trim() ? productStorefrontUrl(form.slug) : ''
   const pathLabel =
@@ -723,7 +742,6 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
   void barcodePreviewUrl
   void qrGenerating
   void barcodeGenerating
-  void collections
 
   const handleCopyStorefrontUrl = async () => {
     if (!form.slug.trim()) {
@@ -908,8 +926,22 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
               {/* Issued by SPLARO, permanent — an edit here must never rewrite
                   it, so it is displayed rather than edited. */}
-              <DcField label="Product Code" hint="Customer-facing · permanent">
-                <DcInput mono readOnly value={product?.productCode ?? '—'} />
+              <DcField label="Product Code" hint="Customer-facing · permanent · click to copy">
+                <DcInput
+                  mono
+                  readOnly
+                  value={product?.productCode ?? '—'}
+                  title={product?.productCode ? 'Click to copy Product Code' : undefined}
+                  onClick={() => {
+                    const code = product?.productCode?.trim()
+                    if (!code) return
+                    void navigator.clipboard.writeText(code).then(
+                      () => toastOk('Product Code copied'),
+                      () => toastFail('Could not copy Product Code.'),
+                    )
+                  }}
+                  style={{ cursor: product?.productCode ? 'pointer' : 'default' }}
+                />
               </DcField>
               <DcField label="Category Code" hint="Frozen into this product's SKUs">
                 <DcInput mono readOnly value={product?.skuCategoryCode ?? '—'} />
@@ -1106,6 +1138,23 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
           </DcSectionCard>
 
           <DcSectionCard id="pe-seo" num="04" title="SEO & details" hint="Meta, tags and fabric notes.">
+            <CollectionSelectChips
+              collections={collections}
+              categories={categories}
+              collectionId={form.collectionId}
+              categoryId={form.categoryId}
+              onCollectionId={(id) => set('collectionId', id)}
+              onNeedSareeCategory={(id) => {
+                const dept = categoryPicker.departmentForCategory(id)
+                if (dept) setDepartmentId(dept)
+                selectCategory(id)
+              }}
+            />
+            <BrandSelectChips
+              brands={brands}
+              brandId={form.brandId}
+              onBrandId={(id) => set('brandId', id)}
+            />
             <DcField label="Meta title">
               <DcInput value={form.metaTitle} onChange={(e) => set('metaTitle', e.target.value)} />
             </DcField>

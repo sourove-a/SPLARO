@@ -50,6 +50,8 @@ export interface ProductReview {
 
 interface LiveVariant {
   id?: string
+  sku?: string | null
+  barcode?: string | null
   size?: string | null
   color?: string | null
   colorHex?: string | null
@@ -280,6 +282,8 @@ function buildVariants(p: LiveProduct, basePrice: number, fallbackImg: string): 
         row.color = colorName
         row.colorName = colorName
       }
+      if (variant.sku?.trim()) row.sku = variant.sku.trim()
+      if (variant.barcode?.trim()) row.barcode = variant.barcode.trim()
       if (variant.image ?? fallbackImg) row.image = variant.image ?? fallbackImg
       if (variant.compareAtPrice != null) row.compareAtPrice = Number(variant.compareAtPrice)
       return row

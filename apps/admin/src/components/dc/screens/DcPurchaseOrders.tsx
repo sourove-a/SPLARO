@@ -73,7 +73,7 @@ const EMPTY_LINE: PoLine = { productName: '', sku: '', quantity: '', unitCost: '
  * `/commerce-os/procurement/overview` payload, so they share this screen and
  * differ only in the title.
  */
-export function DcPurchaseOrders({ title = 'Purchase Orders' }: { title?: string }) {
+export function DcPurchaseOrders({ title = 'Procurement' }: { title?: string }) {
   const router = useRouter()
   return (
     <DcScreenProvider screen="procurement" onNavigate={(next) => router.push(`/dashboard/${next}`)}>
@@ -136,11 +136,7 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
     return map
   }, [open])
 
-  const connectionStatus = dcPageStatus([proc], api.pulse)
-  const pageStatus =
-    connectionStatus.label === 'LIVE'
-      ? { label: 'BETA' as const, tone: 'warn' as const }
-      : connectionStatus
+  const pageStatus = dcPageStatus([proc], api.pulse, { label: 'BETA', tone: 'warn' })
   const poTotal = poForm.lines.reduce(
     (s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitCost) || 0),
     0,
@@ -299,6 +295,16 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
           },
         ]}
       />
+
+      <p
+        style={{
+          margin: '0 0 12px',
+          font: `400 12.5px/1.45 ${FONT}`,
+          color: 'var(--ink-3)',
+        }}
+      >
+        One procurement hub — purchase orders, suppliers, and goods received share this screen.
+      </p>
 
       {proc.isLoading ? (
         <DcLoadingState blocks={skeleton} />

@@ -55,6 +55,8 @@ export interface ProductVariantData {
   color?: string
   colorHex?: string
   colorName?: string
+  sku?: string
+  barcode?: string
   price: number
   compareAtPrice?: number
   stock: number

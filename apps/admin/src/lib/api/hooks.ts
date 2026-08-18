@@ -1822,8 +1822,16 @@ export function useCreateBrand() {
 export function useUpdateBrand() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name?: string; vendorLabel?: string; isActive?: boolean }) =>
-      updateBrand(id, data),
+    mutationFn: ({
+      id,
+      ...data
+    }: {
+      id: string
+      name?: string
+      vendorLabel?: string
+      isActive?: boolean
+      logo?: string
+    }) => updateBrand(id, data),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['brands'] })
       void revalidateWebCache(['storefront-products'])

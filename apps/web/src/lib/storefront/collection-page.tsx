@@ -4,6 +4,8 @@ import { CollectionShopClient } from '@/app/collections/[slug]/collection-shop-c
 import { getStorefrontCatalogForCollection } from '@/lib/catalog/server'
 import { resolveCollectionContext } from '@/lib/storefront/collection-context'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
+import { collectionHref } from '@/lib/storefront/collection-paths'
+import { buildCollectionPageJsonLd } from '@/lib/seo/geo-json-ld'
 
 export { titleFromCollectionSlug } from '@/lib/storefront/collection-context'
 
@@ -26,12 +28,26 @@ export async function CollectionPageContent({ slug }: { slug: string }) {
 
   const context = resolveCollectionContext(slug, channels)
   const catalog = await getStorefrontCatalogForCollection(context)
+  const pageLd = buildCollectionPageJsonLd({
+    name: context.title,
+    path: collectionHref(slug),
+    items: catalog.products
+      .filter((product) => Boolean(product.slug))
+      .slice(0, 24)
+      .map((product) => ({
+        name: product.name,
+        path: `/products/${product.slug}`,
+      })),
+  })
 
   return (
-    <CollectionShopClient
-      slug={slug}
-      context={context}
-      initialCatalog={catalog}
-    />
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: pageLd }} />
+      <CollectionShopClient
+        slug={slug}
+        context={context}
+        initialCatalog={catalog}
+      />
+    </>
   )
 }

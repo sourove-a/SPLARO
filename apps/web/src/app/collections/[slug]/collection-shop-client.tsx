@@ -22,7 +22,7 @@ export function CollectionShopClient({
       showCollections={false}
       pageTitle={context.title}
       collectionSlug={slug}
-      parentCategorySlug={context.parentCategorySlug}
+      {...(context.parentCategorySlug ? { parentCategorySlug: context.parentCategorySlug } : {})}
       {...(context.categorySlug ? { categorySlug: context.categorySlug } : {})}
       listingMode="scoped"
       {...(initialCatalog ? { initialCatalog } : {})}

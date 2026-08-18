@@ -26,6 +26,7 @@ export interface ApiProduct {
   categoryId?: string | null
   category?: { id: string; name: string; slug?: string } | null
   collections?: { collectionId: string; collection?: { id: string; name: string } }[]
+  brandId?: string | null
   _count?: { variants: number }
   variants?: {
     id?: string
@@ -153,6 +154,7 @@ export interface CreateProductInput {
   tags?: string[]
   weavingType?: string
   collectionId?: string
+  brandId?: string | null
   categoryId?: string
   isPublished?: boolean
   isHidden?: boolean
@@ -313,11 +315,28 @@ export function productStatus(product: ApiProduct): 'active' | 'draft' | 'archiv
   return 'active'
 }
 
+export function variantAvailableStock(v: {
+  stock?: number
+  stockQuantity?: number
+  reservedStock?: number
+  isActive?: boolean
+}): number {
+  if (v.isActive === false) return 0
+  const onHand = Number(v.stockQuantity ?? v.stock ?? 0)
+  const reserved = Number(v.reservedStock ?? 0)
+  if (!Number.isFinite(onHand)) return 0
+  return Math.max(0, onHand - (Number.isFinite(reserved) ? reserved : 0))
+}
+
 export function productStock(product: ApiProduct): number {
-  if (product.variants?.length) {
-    return product.variants.reduce((sum, v) => sum + (Number((v as { stock?: number }).stock) || 0), 0)
-  }
-  return 0
+  if (!product.variants?.length) return 0
+  return product.variants.reduce((sum, v) => sum + variantAvailableStock(v), 0)
+}
+
+export function productActiveVariantCount(product: ApiProduct): number {
+  const rows = product.variants ?? []
+  if (!rows.length) return product._count?.variants ?? 0
+  return rows.filter((v) => v.isActive !== false).length
 }
 
 export function generateProductSkus(id: string) {

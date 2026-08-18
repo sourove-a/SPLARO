@@ -27,6 +27,8 @@ interface ProductSchemaData {
   currency: string
   images: string[]
   sku?: string
+  mpn?: string
+  gtin?: string
   rating?: number
   reviewCount?: number
   inStock: boolean
@@ -50,6 +52,8 @@ export class SeoService {
       description: data.description,
       image: data.images,
       sku: data.sku,
+      ...(data.mpn ? { mpn: data.mpn } : {}),
+      ...(data.gtin ? { gtin: data.gtin } : {}),
       brand: { '@type': 'Brand', name: data.brand },
       offers: {
         '@type': 'Offer',

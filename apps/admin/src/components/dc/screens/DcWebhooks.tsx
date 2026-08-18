@@ -129,7 +129,10 @@ function DcWebhooksBody() {
   const endpoints = useMemo(() => webhooksQuery.data ?? [], [webhooksQuery.data])
   const activeCount = useMemo(() => endpoints.filter((e) => e.isActive).length, [endpoints])
   const syncing = webhooksQuery.isFetching || statsQuery.isFetching || logsQuery.isFetching
-  const pageStatus = dcPageStatus([webhooksQuery, statsQuery, logsQuery], api.pulse)
+  const pageStatus = dcPageStatus([webhooksQuery, statsQuery, logsQuery], api.pulse, {
+    label: 'BETA',
+    tone: 'warn',
+  })
 
   const refresh = () => {
     void webhooksQuery.refetch()

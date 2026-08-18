@@ -363,30 +363,27 @@
   max-width: 36rem;
 }
 
-/* Brand badge — rendered only when the product carries an active brand. */
+/* Brand: then the mark. No chip. */
 .pdp-brand {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.6rem;
-  margin-top: 0.9rem;
-  padding: 0.5rem 0.85rem;
-  border: 1px solid rgba(16, 17, 20, 0.1);
-  border-radius: 0.625rem;
-  background: rgba(255, 255, 255, 0.6);
+  gap: 0.55rem;
+  margin-top: 0.22rem;
 }
 .pdp-brand__label {
-  font-size: 0.75rem;
+  flex: none;
+  font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: rgba(16, 17, 20, 0.52);
+  color: rgba(16, 17, 20, 0.5);
 }
-/* Fixed box so a tall or wide logo cannot push the row around. */
-.pdp-brand__mark {
-  position: relative;
+.pdp-brand__img {
   display: block;
-  width: 5.5rem;
-  height: 1.5rem;
-  flex: none;
+  height: 1.7rem;
+  width: auto;
+  max-width: 9.75rem;
+  object-fit: contain;
+  object-position: left center;
 }
 .pdp-brand__name {
   font-size: 0.8125rem;
@@ -1600,154 +1597,217 @@
 .collections-page {
   position: relative;
   isolation: isolate;
-  /* Keep shop-page-shell top pad — do not crush title under fixed header */
-  padding-bottom: 2.5rem;
-}
-
-.collections-page::before {
-  content: '';
-  pointer-events: none;
-  position: absolute;
-  inset: -4rem 0 auto 0;
-  z-index: -1;
-  height: 22rem;
-  background:
-    radial-gradient(70% 80% at 12% 0%, rgba(255, 255, 255, 0.92), transparent 68%),
-    radial-gradient(55% 65% at 88% 8%, rgba(240, 242, 246, 0.75), transparent 72%);
+  padding-bottom: 4.5rem;
 }
 
 .collections-page__section {
   padding-bottom: 1rem;
 }
 
-.collections-page__hero {
-  position: relative;
-  margin-top: 0.25rem;
-  overflow: hidden;
+.collections-page__mast {
+  padding: 0.25rem 0 1.75rem;
+  border-bottom: 1px solid rgba(16, 17, 20, 0.08);
 }
 
-.collections-page__hero::after {
-  content: '';
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  background:
-    radial-gradient(90% 55% at 50% -20%, rgba(255, 255, 255, 0.55), transparent 62%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, transparent 42%);
-  transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.collections-page__hero:hover::after {
-  opacity: 1;
-}
-
-.collections-page__hero-copy {
-  position: relative;
-  z-index: 1;
-  max-width: 36rem;
+.collections-page__eyebrow {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(16, 17, 20, 0.42);
 }
 
 .collections-page__title {
-  margin-top: 0.65rem;
+  margin-top: 0.7rem;
+  max-width: 18ch;
   font-family: var(--font-cormorant), Georgia, serif;
-  font-size: clamp(2.25rem, 5vw, 3.35rem);
+  font-size: clamp(2rem, 4.2vw, 3rem);
   font-weight: 500;
   line-height: 0.98;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
   color: #101114;
 }
 
-.collections-page .shop-hero__subtitle {
+.collections-page__lede {
   margin-top: 0.85rem;
-  max-width: 28rem;
+  max-width: 34rem;
   font-size: 0.9375rem;
   line-height: 1.65;
-  color: rgba(16, 17, 20, 0.58);
+  color: rgba(16, 17, 20, 0.56);
 }
 
-.collections-page .shop-hero__glass {
-  border: 1px solid rgba(255, 255, 255, 0.96);
-  border-radius: 30px;
-  background:
-    linear-gradient(168deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.84) 100%);
-  box-shadow:
-    0 28px 72px rgba(16, 17, 20, 0.08),
-    inset 0 1.5px 0 rgba(255, 255, 255, 1);
-  backdrop-filter: blur(36px) saturate(1.5);
-  -webkit-backdrop-filter: blur(36px) saturate(1.5);
+.collections-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.15rem;
+  margin-top: 1.15rem;
 }
 
-.collections-page .shop-hero__eyebrow {
-  color: rgba(16, 17, 20, 0.46);
+.collections-page__text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #101114;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(16, 17, 20, 0.28);
+  padding-bottom: 0.12rem;
 }
 
-.collections-page .shop-hero__promo {
+.collections-page__text-link--quiet {
+  color: rgba(16, 17, 20, 0.48);
+  border-bottom-color: transparent;
+}
+
+.collections-page__text-link:hover {
+  border-bottom-color: #101114;
+  color: #101114;
+}
+
+.collections-page__feature {
+  display: grid;
+  margin-top: 1.75rem;
+  overflow: hidden;
+  border-radius: 22px;
+  background: #3a0612;
+  text-decoration: none;
+  color: #f3e6d4;
+}
+
+@media (min-width: 768px) {
+  .collections-page__feature {
+    grid-template-columns: 1.35fr 0.9fr;
+    min-height: 22rem;
+  }
+}
+
+.collections-page__feature-media {
   position: relative;
-  z-index: 1;
-  align-self: stretch;
-  min-height: 100%;
-  border-radius: 20px;
-  border: 1px solid rgba(16, 17, 20, 0.88);
-  background:
-    linear-gradient(165deg, rgba(16, 17, 20, 0.98) 0%, rgba(16, 17, 20, 0.92) 100%);
-  box-shadow:
-    0 20px 48px rgba(16, 17, 20, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  transition:
-    transform 0.42s cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 16rem;
 }
 
-.collections-page .shop-hero__promo:hover {
-  box-shadow:
-    0 26px 56px rgba(16, 17, 20, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+.collections-page__feature--wordmark .collections-page__feature-media {
+  background: #f3e6d4;
+}
+
+.collections-page__feature--wordmark .collections-page__feature-img {
+  object-fit: contain;
+  object-position: center;
+  padding: 12% 14%;
+}
+
+.collections-page__feature-img {
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.group:hover .collections-page__feature-img {
+  transform: scale(1.03);
+}
+
+.collections-page__feature-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  padding: 1.5rem 1.4rem 1.6rem;
+}
+
+.collections-page__feature-kicker {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(243, 230, 212, 0.62);
+}
+
+.collections-page__feature-title {
+  font-family: var(--font-cormorant), Georgia, serif;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.collections-page__feature-meta {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(243, 230, 212, 0.7);
 }
 
 .collections-page__grid {
   display: grid;
-  gap: 1rem;
-  margin-top: 1.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 0.85rem;
+  margin-top: 1.75rem;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 768px) {
   .collections-page__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.15rem;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.25rem 1rem;
   }
 }
 
-@media (min-width: 1024px) {
-  .collections-page__grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.35rem;
-    margin-top: 1.85rem;
-  }
-
-  .collections-page__grid .shop-collection-card:nth-child(3n + 2) {
-    transform: translateY(0.35rem);
-  }
-
-  .collections-page__grid .shop-collection-card:nth-child(3n + 2):hover {
-    transform: translateY(calc(0.35rem - 6px));
-  }
+.collections-page__tile {
+  display: block;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
 }
 
-.collections-page__grid .shop-collection-card {
-  border-radius: 24px;
+.collections-page__tile-media {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #ece8e2;
 }
 
-.collections-page__grid .shop-collection-card__media--wide {
-  aspect-ratio: 5 / 3.2;
+.collections-page__tile-img {
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.collections-page__back {
+.group:hover .collections-page__tile-img {
+  transform: scale(1.04);
+}
+
+.collections-page__tile-meta {
+  padding: 0.7rem 0.1rem 0;
+}
+
+.collections-page__tile-label {
+  font-family: var(--font-cormorant), Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #101114;
+}
+
+.collections-page__tile-count {
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(16, 17, 20, 0.45);
+}
+
+.collections-page__empty {
   margin-top: 2rem;
+  font-size: 0.9rem;
+  color: rgba(16, 17, 20, 0.5);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .group:hover .shop-collection-card__img {
+  .group:hover .shop-collection-card__img,
+  .group:hover .collections-page__feature-img,
+  .group:hover .collections-page__tile-img {
     transform: none;
   }
 }

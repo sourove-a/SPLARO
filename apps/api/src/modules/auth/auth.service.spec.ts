@@ -280,4 +280,51 @@ describe('AuthService resolveAdminStaff missing', () => {
       exists: false,
     })
   })
+
+  it('creates a missing primary owner so admin login is never blocked', async () => {
+    const owner = {
+      id: 'u-owner',
+      email: 'splaro.bd@gmail.com',
+      firstName: 'SPLARO',
+      lastName: 'CEO',
+      role: 'SUPER_ADMIN',
+      isActive: true,
+      staffRoles: [{ role: 'SUPER_ADMIN', storeId: 'store-1' }],
+      ownedStores: [{ id: 'store-1' }],
+      telegramId: null,
+      telegramUsername: null,
+      passwordHash: null,
+    }
+    const prisma = {
+      user: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(owner),
+        create: jest.fn().mockResolvedValue(owner),
+        update: jest.fn().mockResolvedValue(owner),
+      },
+      staffRole: { upsert: jest.fn().mockResolvedValue({}), findFirst: jest.fn() },
+      store: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'store-1', slug: 'splaro', ownerId: 'old' }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      telegramUser: { findFirst: jest.fn().mockResolvedValue(null) },
+      telegramConfig: { findFirst: jest.fn().mockResolvedValue(null) },
+    }
+    const service = new AuthService(
+      prisma as never,
+      { get: jest.fn() } as never,
+      {} as never,
+      { getCounter: jest.fn().mockResolvedValue(0) } as never,
+      {} as never,
+      { sendForStore: jest.fn() } as never,
+    )
+    await expect(service.resolveLoginMethod('splaro.bd@gmail.com')).resolves.toEqual({
+      method: 'telegram',
+      email: 'splaro.bd@gmail.com',
+      exists: true,
+    })
+    expect(prisma.user.create).toHaveBeenCalled()
+  })
 })

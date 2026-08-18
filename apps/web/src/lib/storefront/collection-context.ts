@@ -1,7 +1,8 @@
-import { type CatalogChannel } from '@splaro/types'
+import { type CatalogChannel, JHINGEPHOOL_COLLECTION_NAME, isJhingephoolCollectionSlug } from '@splaro/types'
 import { categoryFromSlug, slugFromCategory, type Category } from '@/data/storefront'
 
 export function titleFromCollectionSlug(slug: string) {
+  if (isJhingephoolCollectionSlug(slug)) return JHINGEPHOOL_COLLECTION_NAME
   return slug
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -13,8 +14,9 @@ export interface CollectionShopContext {
   title: string
   initialCategory: Category
   collectionSlug: string
-  /** Always the route slug — API walks the category tree under this node. */
+  /** Empty for curated collections so PLP does not tree-filter as a department. */
   parentCategorySlug: string
+  curated: boolean
   categorySlug?: string
 }
 
@@ -27,13 +29,15 @@ export function resolveCollectionContext(
   const fromSlug = categoryFromSlug(slug)
   const shopCategory = (channel?.shopCategory ?? fromSlug ?? null) as Category | null
   const initialCategory: Category = shopCategory && shopCategory !== 'All' ? shopCategory : 'All'
+  const isDepartment = Boolean(channel || fromSlug)
 
   return {
     slug,
     title: channel?.label ?? (fromSlug ?? titleFromCollectionSlug(slug)),
     initialCategory,
     collectionSlug: slug,
-    parentCategorySlug: slug,
+    parentCategorySlug: isDepartment ? slug : '',
+    curated: !isDepartment,
     ...(fromSlug ? { categorySlug: slugFromCategory(fromSlug) } : {}),
   }
 }

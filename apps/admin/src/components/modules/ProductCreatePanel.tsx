@@ -46,6 +46,9 @@ import {
   resolveSellingPrices,
 } from '@/lib/admin/product-form-utils'
 import { ProductPriceFields } from '@/components/modules/product-form/ProductPriceFields'
+import { BrandSelectChips } from '@/components/modules/product-form/BrandSelectChips'
+import { CollectionSelectChips } from '@/components/modules/product-form/CollectionSelectChips'
+import { isJhingephoolCollectionSlug, isSareeCategorySlug } from '@splaro/types'
 import {
   buildDescriptionDraft,
   buildSeoDraft,
@@ -53,7 +56,7 @@ import {
   splitBilingualDescription,
 } from '@/lib/admin/product-description-draft'
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
-import { useCategoryTree, useCollections, useCreateProduct, usePermission } from '@/lib/api/hooks'
+import { useBrands, useCategoryTree, useCollections, useCreateProduct, usePermission } from '@/lib/api/hooks'
 import { PERMISSION_DENIED_TITLE } from '@/lib/auth/permissions'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { generateAIProduct } from '@/lib/api/finance'
@@ -101,6 +104,8 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   )
   const { data: collectionsData } = useCollections()
   const collections = collectionsData?.collections ?? []
+  const { data: brandsData } = useBrands()
+  const brands = brandsData?.brands ?? []
   const [aiLoading, setAiLoading] = useState(false)
   const [railOpen, setRailOpen] = useState(false)
   const [activeJump, setActiveJump] = useState('np-menu')
@@ -142,6 +147,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     tags: '',
     weavingType: '',
     collectionId: '',
+    brandId: '',
     productType: '',
     categoryId: '',
     imageUrls: [] as string[],
@@ -411,6 +417,14 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const selectCategory = (categoryId: string) => {
     set('categoryId', categoryId)
     applyCategorySizes(categoryId)
+    const cat = categories.find((row) => row.id === categoryId)
+    const jhinge = collections.find((row) => isJhingephoolCollectionSlug(row.slug))
+    const saree =
+      cat && (isSareeCategorySlug(cat.slug) || isSareeCategorySlug(cat.name))
+    if (jhinge && form.collectionId === jhinge.id && !saree) {
+      set('collectionId', '')
+      toastWarn('ঝিঙেফুল is saree-only — collection cleared.')
+    }
   }
 
   const handleDepartmentChange = (deptId: string) => {
@@ -621,6 +635,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         ...(tags.length ? { tags } : {}),
         ...(form.weavingType ? { weavingType: form.weavingType } : {}),
         ...(form.collectionId ? { collectionId: form.collectionId } : {}),
+        ...(form.brandId ? { brandId: form.brandId } : {}),
         ...(form.lowStockThreshold ? { lowStockThreshold: Number(form.lowStockThreshold) || 5 } : {}),
         isPublished: form.isPublished,
         isHidden: form.isHidden,
@@ -1609,32 +1624,23 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                 Change
               </a>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span
-                style={{
-                  font: `600 10.5px/1 ${FONT}`,
-                  letterSpacing: '.09em',
-                  textTransform: 'uppercase',
-                  color: 'var(--ink-3)',
-                }}
-              >
-                Collections
-              </span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                {collections.map((cl) => {
-                  const on = form.collectionId === cl.id
-                  return (
-                    <DcChip
-                      key={cl.id}
-                      on={on}
-                      onClick={() => set('collectionId', on ? '' : cl.id)}
-                    >
-                      {cl.name}
-                    </DcChip>
-                  )
-                })}
-              </div>
-            </div>
+            <CollectionSelectChips
+              collections={collections}
+              categories={categories}
+              collectionId={form.collectionId}
+              categoryId={form.categoryId}
+              onCollectionId={(id) => set('collectionId', id)}
+              onNeedSareeCategory={(id) => {
+                const dept = categoryPicker.departmentForCategory(id)
+                if (dept) setDepartmentId(dept)
+                selectCategory(id)
+              }}
+            />
+            <BrandSelectChips
+              brands={brands}
+              brandId={form.brandId}
+              onBrandId={(id) => set('brandId', id)}
+            />
             <div
               style={{
                 display: 'grid',

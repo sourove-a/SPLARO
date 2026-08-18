@@ -38,9 +38,13 @@ import type { TelegramRole } from '@prisma/client'
 import {
   BOT_COMMANDS,
   BUTTON_ROUTES,
+  TELEGRAM_AI_UNAVAILABLE,
+  TELEGRAM_OPS_HINT,
   TG_CALLBACK,
   aiPromptForAction,
   aiPromptLabel,
+  collectNewOrderChatIds,
+  telegramConfirmInvoiceAction,
   deliveryDiagnosticsKeyboard,
   formatLoginTokenDisplay,
   formatTelegramAiReply,
@@ -52,14 +56,18 @@ import {
   inlineInventoryMenu,
   inlineMainMenu,
   inlineOrdersMenu,
+  isTelegramAiAction,
   linkedAdminsKeyboard,
   loginCopyKeyboard,
+  mainReplyKeyboard,
   menuMessage,
   orderListKeyboard,
   orderActionKeyboard,
   parseListCallback,
   parseOrderCallback,
   premiumHeader,
+  sanitizeTelegramAiError,
+  shouldRouteUnmatchedTextToAi,
   welcomeMessage,
 } from './telegram-ui'
 
@@ -80,6 +88,7 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
   private lastDeliveryError: string | null = null
   private lastDeliveryAt: Date | null = null
   private readonly notificationDedupe = new Map<string, number>()
+  private readonly aiModeChats = new Set<string>()
 
   constructor(
     @Inject(ConfigService) private readonly config: ConfigService,
@@ -423,6 +432,16 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
       return { confirmed: false, invoiceSent: false }
     }
 
+    const confirmAction = telegramConfirmInvoiceAction(order.status)
+    if (confirmAction === 'already') {
+      await this.bot?.sendMessage(
+        targetChat,
+        `✅ Order <b>${invoiceNumber}</b> already confirmed`,
+        { parse_mode: 'HTML' },
+      )
+      return { confirmed: true, invoiceSent: false }
+    }
+
     try {
       await this.orderStatus.applyStatusChange(
         order.id,
@@ -520,17 +539,44 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     )
     const adminOrderUrl = `${adminBase.replace(/\/+$/, '').replace(/\/login$/i, '')}/dashboard/orders/${encodeURIComponent(order.invoiceNumber)}`
     const storefrontUrl = resolveCustomerFacingSiteUrl(order.siteUrl)
+    const keyboard = orderActionKeyboard(order.invoiceNumber, {
+      adminOrderUrl,
+      storefrontUrl,
+      phone: order.shippingPhone,
+    })
 
-    await this.sendToStore(
-      storeId,
-      msg,
-      orderActionKeyboard(order.invoiceNumber, {
-        adminOrderUrl,
-        storefrontUrl,
-        phone: order.shippingPhone,
-      }),
-      { disableWebPagePreview: true },
-    )
+    const linkedAdmins = await this.prisma.telegramUser.findMany({
+      where: {
+        isActive: true,
+        role: { in: ['SUPER_ADMIN', 'MANAGER'] },
+        config: { storeId, isActive: true },
+      },
+      select: { telegramId: true },
+    })
+    const destinations = collectNewOrderChatIds({
+      configChatId: config.chatId,
+      linkedTelegramIds: linkedAdmins.map((u) => u.telegramId),
+      envAdminUserId: this.config.get<string>('TELEGRAM_ADMIN_USER_ID'),
+    })
+    if (destinations.length === 0) return
+
+    const extras = {
+      link_preview_options: { is_disabled: true },
+      reply_markup: keyboard,
+    }
+    let delivered = false
+    for (const chatId of destinations) {
+      const ok = await this.sendHtmlWithPlainFallback(chatId, msg, extras)
+      if (ok) delivered = true
+    }
+    await this.prisma.telegramLog.create({
+      data: {
+        configId: config.id,
+        type: delivered ? 'NOTIFICATION' : 'ERROR',
+        message: delivered ? msg : 'New order fan-out failed for all destinations',
+        success: delivered,
+      },
+    })
   }
 
   async notifySmtpConfigured(
@@ -1018,20 +1064,42 @@ ${items}
         return
       }
 
+      if (
+        !shouldRouteUnmatchedTextToAi({
+          aiMode: this.aiModeChats.has(ctx.chatId),
+          isGroup: ctx.isGroup,
+        })
+      ) {
+        if (!ctx.isGroup) {
+          await this.bot?.sendMessage(ctx.chatId, TELEGRAM_OPS_HINT)
+        }
+        return
+      }
+
       await this.replyAgentChat(ctx.chatId, text, ctx.userId)
     })
 
     this.logger.log('Telegram commands registered')
   }
 
+  private setAiMode(chatId: string, on: boolean): void {
+    if (on) this.aiModeChats.add(chatId)
+    else this.aiModeChats.delete(chatId)
+  }
+
   private async sendWelcome(ctx: TelegramCtx, firstName?: string): Promise<void> {
+    this.setAiMode(ctx.chatId, false)
     const config = await this.prisma.telegramConfig.findUnique({ where: { id: ctx.configId } })
     const linked = config?.chatId === ctx.chatId
     await this.sendHtmlWithPlainFallback(
       ctx.chatId,
       welcomeMessage({ name: firstName, isGroup: ctx.isGroup, storeLinked: linked }),
-      { reply_markup: inlineMainMenu() },
+      { reply_markup: mainReplyKeyboard() },
     )
+    await this.bot?.sendMessage(ctx.chatId, menuMessage(), {
+      parse_mode: 'HTML',
+      reply_markup: inlineMainMenu(),
+    })
   }
 
   private async executeAction(
@@ -1040,6 +1108,7 @@ ${items}
     msg: Message,
     firstName?: string,
   ): Promise<void> {
+    this.setAiMode(ctx.chatId, isTelegramAiAction(action))
     switch (action) {
       case TG_CALLBACK.MENU_MAIN:
         await this.sendWelcome(ctx, firstName ?? msg.from?.first_name)
@@ -2051,7 +2120,10 @@ ${orderLines}
       const result = await this.courier.bookCourier(order.id)
       if (result.success) {
         const tracking = result.trackingCode ? `\n📦 Tracking: <code>${result.trackingCode}</code>` : ''
-        await this.bot?.sendMessage(ctx.chatId, `✅ Courier booked for <b>${invoiceNumber}</b>${tracking}`, { parse_mode: 'HTML' })
+        const booked = result.alreadyBooked
+          ? `ℹ️ Courier already booked for <b>${invoiceNumber}</b>${tracking}`
+          : `✅ Courier booked for <b>${invoiceNumber}</b>${tracking}`
+        await this.bot?.sendMessage(ctx.chatId, booked, { parse_mode: 'HTML' })
       } else {
         await this.bot?.sendMessage(ctx.chatId, `❌ Courier failed: ${result.error ?? 'Unknown error'}`, { parse_mode: 'HTML' })
       }
@@ -2127,7 +2199,8 @@ ${orderLines}
         text,
         telegramUserId,
       )
-      const formatted = formatTelegramAiReply(reply).slice(0, 3900)
+      const safeReply = sanitizeTelegramAiError(reply)
+      const formatted = formatTelegramAiReply(safeReply).slice(0, 3900)
       if (confirmRequired) {
         await this.bot?.sendMessage(chatId, formatted, {
           parse_mode: 'HTML',
@@ -2141,7 +2214,7 @@ ${orderLines}
           },
         }).catch(async () => {
           // Fallback to plain text if HTML tags fail to parse
-          await this.bot?.sendMessage(chatId, reply.slice(0, 3900), {
+          await this.bot?.sendMessage(chatId, safeReply.slice(0, 3900), {
             reply_markup: {
               inline_keyboard: [
                 [
@@ -2154,14 +2227,14 @@ ${orderLines}
         })
       } else {
         await this.bot?.sendMessage(chatId, formatted, { parse_mode: 'HTML' }).catch(async () => {
-          await this.bot?.sendMessage(chatId, reply.slice(0, 3900))
+          await this.bot?.sendMessage(chatId, safeReply.slice(0, 3900))
         })
       }
       await this.logCommand(chatId, `AI: ${text.slice(0, 180)}`, telegramUserId)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'AI agent failed'
       this.logger.error(`Telegram AI reply failed: ${msg}`)
-      await this.bot?.sendMessage(chatId, `AI error: ${msg}`)
+      await this.bot?.sendMessage(chatId, sanitizeTelegramAiError(msg) || TELEGRAM_AI_UNAVAILABLE)
     }
   }
 

@@ -290,13 +290,15 @@ export async function getStorefrontCatalogForCollection(
     collectionSlug?: string
     categorySlug?: string
     parentCategorySlug?: string
-  }> = [
-    { parentCategorySlug: context.parentCategorySlug || context.slug },
-    ...(context.categorySlug && context.categorySlug !== context.slug
-      ? [{ categorySlug: context.categorySlug }]
-      : []),
-    { collectionSlug: context.collectionSlug },
-  ]
+  }> = context.curated
+    ? [{ collectionSlug: context.collectionSlug }]
+    : [
+        { parentCategorySlug: context.parentCategorySlug || context.slug },
+        ...(context.categorySlug && context.categorySlug !== context.slug
+          ? [{ categorySlug: context.categorySlug }]
+          : []),
+        { collectionSlug: context.collectionSlug },
+      ]
 
   for (const query of attempts) {
     try {

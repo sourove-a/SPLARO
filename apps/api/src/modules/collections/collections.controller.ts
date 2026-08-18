@@ -3,6 +3,7 @@ import { PrismaService } from '../../common/prisma.service'
 import { CacheService } from '../../common/cache.service'
 import { resolveStoreId, slugify } from '../../common/store.util'
 import { refreshCollectionCatalogAfterMutation } from '../products/product-catalog-refresh.util'
+import { ensureJhingephoolCollection } from './jhingephool.util'
 
 @Controller('admin/collections')
 export class CollectionsController {
@@ -14,6 +15,7 @@ export class CollectionsController {
   @Get()
   async list(@Query('storeId') storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
+    await ensureJhingephoolCollection(this.prisma, sid)
     const collections = await this.prisma.collection.findMany({
       where: { storeId: sid },
       include: { _count: { select: { products: true } } },

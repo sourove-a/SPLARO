@@ -1253,6 +1253,25 @@ export default function ProductPageClient({
               {product.nameBn ? (
                 <p className="pp-info__name-bn" lang="bn">{product.nameBn}</p>
               ) : null}
+              {product.brand ? (
+                <div className="pp-info__brand">
+                  <span className="pp-info__brand-label">Brand:</span>
+                  {product.brand.logo ? (
+                    <StorefrontImage
+                      src={product.brand.logo}
+                      alt={product.brand.name}
+                      width={829}
+                      height={241}
+                      unoptimized
+                      withBlur={false}
+                      fit="contain"
+                      className="pp-info__brand-img"
+                    />
+                  ) : (
+                    <span className="pp-info__brand-name">{product.brand.name}</span>
+                  )}
+                </div>
+              ) : null}
               {product.weavingType ? (
                 <p className="pp-info__weave">{product.weavingType}</p>
               ) : null}
@@ -1308,7 +1327,6 @@ export default function ProductPageClient({
                 showBadge
                 badgeLabelStyle="off"
               />
-              <ProductPurchaseExtras product={product} price={unitPrice} variant="highlights" />
             </ProductReveal>
 
             <AnimatePresence mode="wait">

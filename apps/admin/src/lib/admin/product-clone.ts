@@ -95,6 +95,7 @@ export function buildCloneProductPayload(
   if (categoryId) payload.categoryId = categoryId
   const collectionId = product.collections?.[0]?.collectionId
   if (collectionId) payload.collectionId = collectionId
+  if (product.brandId) payload.brandId = product.brandId
   if (imageUrls[0]) payload.imageUrl = imageUrls[0]
   if (imageUrls.length) payload.imageUrls = imageUrls
   if (product.fabricContent) payload.fabricContent = product.fabricContent

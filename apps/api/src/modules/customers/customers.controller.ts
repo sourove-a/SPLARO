@@ -4,6 +4,7 @@ import { deleteOrderWithRelations } from '../../common/order-cleanup'
 import { buildCustomerLookupWhere } from '../../common/customer-code.util'
 import { resolveStoreId } from '../../common/store.util'
 import { resolveAdminPagination } from '../../common/admin-pagination.util'
+import { isStaffProtectedUser } from '../../common/primary-owner.util'
 import { LoyaltyService } from '../loyalty/loyalty.service'
 import { CustomersService } from './customers.service'
 import type { LoyaltyTier, Prisma } from '@prisma/client'
@@ -88,7 +89,7 @@ export class CustomersController {
             },
           },
         },
-        orderBy: { totalSpent: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
         take,
       }),
@@ -593,15 +594,23 @@ export class CustomersController {
     // Audit trail outlives the account it describes — detach, never delete.
     await tx.auditLog.updateMany({ where: { userId }, data: { userId: null } })
 
-    // The same login can also be a vendor or own a store, and both hold the
-    // User by a restricting FK. Deactivate rather than delete in that case:
-    // the shopper record is gone either way, and the alternative is a raw
-    // foreign-key error that reads like a bug.
-    const stillReferenced = await tx.user.findFirst({
-      where: { id: userId, OR: [{ vendor: { isNot: null } }, { ownedStores: { some: {} } }] },
-      select: { id: true },
+    const login = await tx.user.findFirst({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        staffRoles: { select: { id: true }, take: 1 },
+        ownedStores: { select: { id: true }, take: 1 },
+        vendor: { select: { id: true } },
+      },
     })
-    if (stillReferenced) {
+    if (!login) return ordersDeleted
+
+    // Owner / invited staff / store-owner: shopper row is gone; admin login stays.
+    if (isStaffProtectedUser(login)) return ordersDeleted
+
+    // Vendor-only logins hold User by a restricting FK — deactivate, don't delete.
+    if (login.vendor) {
       await tx.user.update({ where: { id: userId }, data: { isActive: false } })
     } else {
       await tx.user.delete({ where: { id: userId } })

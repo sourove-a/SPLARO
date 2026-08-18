@@ -118,10 +118,10 @@ export function ShopCatalog({
   const priorityCount = mounted && isMobile ? 2 : 4
   const addItem = useCartStore((state) => state.addItem)
   const setCartOpen = useUiStore((state) => state.setCartOpen)
-  const scopedParentSlug = parentCategorySlug || collectionSlug
+  const scopedParentSlug = parentCategorySlug
   const useApiListing =
     listingMode === 'paged' ||
-    (listingMode === 'scoped' && Boolean(scopedParentSlug || categorySlug))
+    (listingMode === 'scoped' && Boolean(scopedParentSlug || categorySlug || collectionSlug))
   const { config } = useStorefrontSettings()
   const shopFilters = config.shopFilters!
   const defaultSortLabel = getDefaultSortLabel(shopFilters)
@@ -194,6 +194,7 @@ export function ShopCatalog({
           ? buildListingSearchParams({
               page: 1,
               limit: PAGE_SIZE,
+              ...(collectionSlug && !scopedParentSlug ? { collectionSlug } : {}),
               ...(scopedParentSlug ? { parentCategorySlug: scopedParentSlug } : {}),
               ...(categorySlug && categorySlug !== scopedParentSlug
                 ? { categorySlug }
@@ -279,6 +280,7 @@ export function ShopCatalog({
     isHomepage,
     useApiListing,
     scopedParentSlug,
+    collectionSlug,
     categorySlug,
   ])
 
@@ -528,6 +530,7 @@ export function ShopCatalog({
       const params = buildListingSearchParams({
         page: nextPage,
         limit: PAGE_SIZE,
+        ...(collectionSlug && !scopedParentSlug ? { collectionSlug } : {}),
         ...(scopedParentSlug ? { parentCategorySlug: scopedParentSlug } : {}),
         ...(categorySlug && categorySlug !== scopedParentSlug ? { categorySlug } : {}),
       })
@@ -570,6 +573,7 @@ export function ShopCatalog({
     apiTotalPages,
     categorySlug,
     scopedParentSlug,
+    collectionSlug,
     loadingMore,
     useApiListing,
   ])

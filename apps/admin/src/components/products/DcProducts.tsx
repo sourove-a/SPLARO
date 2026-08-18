@@ -31,6 +31,8 @@ import {
   deleteProduct,
   fetchProduct,
   permanentlyDeleteProduct,
+  productActiveVariantCount,
+  productStock,
   type ApiProduct,
   type ProductListStatus,
 } from '@/lib/api/products'
@@ -62,8 +64,59 @@ const SORTS = [
 type SortKey = (typeof SORTS)[number][0]
 
 function stockOf(p: ApiProduct): number {
-  if (!p.variants?.length) return 0
-  return p.variants.reduce((sum, v) => sum + (v.stockQuantity ?? v.stock ?? 0), 0)
+  return productStock(p)
+}
+
+function variantSizeHint(p: ApiProduct): string | null {
+  const sizes = [
+    ...new Set(
+      (p.variants ?? [])
+        .filter((v) => v.isActive !== false)
+        .map((v) => v.size)
+        .filter(Boolean),
+    ),
+  ]
+  return sizes.length ? sizes.join(' · ') : null
+}
+
+async function copyCode(label: string, value: string) {
+  const text = value.trim()
+  if (!text) {
+    toastFail(`No ${label.toLowerCase()} to copy.`)
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(text)
+    toastOk(`${label} copied`)
+  } catch {
+    toastFail(`Could not copy ${label.toLowerCase()}.`)
+  }
+}
+
+function CopyableCode({ label, value }: { label: string; value: string }) {
+  return (
+    <button
+      type="button"
+      title={`Copy ${label}`}
+      onClick={(e) => {
+        e.stopPropagation()
+        void copyCode(label, value)
+      }}
+      style={{
+        display: 'block',
+        width: '100%',
+        padding: 0,
+        border: 0,
+        background: 'none',
+        color: 'inherit',
+        font: 'inherit',
+        textAlign: 'left',
+        cursor: 'pointer',
+      }}
+    >
+      {value}
+    </button>
+  )
 }
 
 function productThumbUrl(p: ApiProduct): string | null {
@@ -498,7 +551,8 @@ function DcProductsBody() {
                   const stock = stockOf(p)
                   const status = tabOf(p)
                   const tone = toneStyle(TAB_TONE[status])
-                  const variants = p._count?.variants ?? p.variants?.length ?? 0
+                  const variants = productActiveVariantCount(p)
+                  const sizeHint = variantSizeHint(p)
                   const thumb = productThumbUrl(p)
                   return (
                     <tr
@@ -563,18 +617,25 @@ function DcProductsBody() {
                           </span>
                         </div>
                       </td>
-                      <td style={{ padding: '10px 14px', font: `500 12px/1 ${MONO}`, color: 'var(--ink-2)' }}>
+                      <td
+                        style={{ padding: '10px 14px', font: `500 12px/1 ${MONO}`, color: 'var(--ink-2)' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {p.productCode ? (
                           <span style={{ display: 'grid', gap: 2 }}>
-                            <span style={{ color: 'var(--ink)' }}>{p.productCode}</span>
+                            <span style={{ color: 'var(--ink)' }}>
+                              <CopyableCode label="Product Code" value={p.productCode} />
+                            </span>
                             {p.sku ? (
                               <span style={{ font: `400 10.5px/1 ${MONO}`, color: 'var(--ink-3)' }}>
-                                {p.sku}
+                                <CopyableCode label="SKU" value={p.sku} />
                               </span>
                             ) : null}
                           </span>
+                        ) : p.sku ? (
+                          <CopyableCode label="SKU" value={p.sku} />
                         ) : (
-                          (p.sku ?? '—')
+                          '—'
                         )}
                       </td>
                       <td
@@ -584,7 +645,14 @@ function DcProductsBody() {
                           color: 'var(--ink-2)',
                         }}
                       >
-                        {variants}
+                        <span style={{ display: 'grid', gap: 2 }}>
+                          <span>{variants}</span>
+                          {sizeHint ? (
+                            <span style={{ font: `400 10.5px/1 ${MONO}`, color: 'var(--ink-3)' }}>
+                              {sizeHint}
+                            </span>
+                          ) : null}
+                        </span>
                       </td>
                       <td style={{ padding: '10px 14px' }}>
                         <span

@@ -15,6 +15,8 @@ import {
   generateAdminPasswordResetEmailText,
 } from '../email/admin-password-reset-email.template'
 import { AdminLoginTokenService } from './admin-login-token.service'
+import { ensurePrimaryOwnerAdmin } from './ensure-primary-admin'
+import { isPrimaryOwnerEmail as emailIsPrimaryOwner, PRIMARY_OWNER_EMAIL } from '../../common/primary-owner.util'
 
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000
 const LOCKOUT_TTL_SEC = Math.ceil(LOCKOUT_WINDOW_MS / 1000)
@@ -23,9 +25,7 @@ const IP_FAIL_KEY_PREFIX = 'splaro:admin:login:fail:ip:'
 const RESET_TTL_MS = 60 * 60 * 1000
 const INVITE_TTL_MS = 48 * 60 * 60 * 1000
 
-const CEO_EMAIL = (process.env['ADMIN_EMAIL'] ?? process.env['CEO_EMAIL'] ?? 'splaro.bd@gmail.com')
-  .trim()
-  .toLowerCase()
+const CEO_EMAIL = PRIMARY_OWNER_EMAIL
 
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex')
@@ -53,7 +53,7 @@ export class AuthService {
 
   /** The permanent primary owner address (ADMIN_EMAIL) — always Telegram OTP, never demotable. */
   isPrimaryOwnerEmail(email: string): boolean {
-    return email.trim().toLowerCase() === CEO_EMAIL
+    return emailIsPrimaryOwner(email)
   }
 
   /** Only the permanent owner email uses Telegram login tokens. */
@@ -710,6 +710,13 @@ export class AuthService {
 
   private async resolveAdminStaff(email: string, storeIdRaw?: string) {
     const normalized = email.trim().toLowerCase()
+    if (emailIsPrimaryOwner(normalized)) {
+      try {
+        await ensurePrimaryOwnerAdmin(this.prisma)
+      } catch {
+        // Store not seeded — login still reports missing rather than 500.
+      }
+    }
     const user = await this.prisma.user.findFirst({
       where: { email: normalized, isActive: true },
       select: {

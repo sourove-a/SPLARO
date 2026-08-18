@@ -51,6 +51,7 @@ import {
   resolveCartVariant,
 } from '../../common/cart-line.util'
 import { resolveStoreId } from '../../common/store.util'
+import { ensureJhingephoolCollection } from '../collections/jhingephool.util'
 import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
 import { serializePublicOrder } from '../../common/public-order.util'
 import { toPublicStorefrontOrders } from '../../common/storefront-order-view.util'
@@ -1200,6 +1201,7 @@ export class StorefrontController {
   @Get('collections')
   async listCollections(@Query('storeId') storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
+    await ensureJhingephoolCollection(this.prisma, sid)
     return this.cache.getOrSet(this.cache.storeKey(sid, 'collections'), CATALOG_CACHE_TTL.collections, async () => {
       const collections = await this.prisma.collection.findMany({
         where: { storeId: sid, isActive: true },

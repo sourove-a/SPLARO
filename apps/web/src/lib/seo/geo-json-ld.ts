@@ -125,4 +125,48 @@ export function buildArticleJsonLd(input: {
   })
 }
 
+export function buildItemListJsonLd(input: {
+  name: string
+  path: string
+  items: Array<{ name: string; path: string }>
+}): string {
+  return serializeJsonLd({
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: input.name,
+    url: `${SITE_URL}${input.path}`,
+    numberOfItems: input.items.length,
+    itemListElement: input.items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      url: item.path.startsWith('http') ? item.path : `${SITE_URL}${item.path}`,
+    })),
+  })
+}
+
+export function buildCollectionPageJsonLd(input: {
+  name: string
+  path: string
+  items: Array<{ name: string; path: string }>
+}): string {
+  const url = `${SITE_URL}${input.path}`
+  return serializeJsonLd({
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: input.name,
+    url,
+    mainEntity: {
+      '@type': 'ItemList',
+      numberOfItems: input.items.length,
+      itemListElement: input.items.map((item, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: item.name,
+        url: item.path.startsWith('http') ? item.path : `${SITE_URL}${item.path}`,
+      })),
+    },
+  })
+}
+
 export { SITE_URL as GEO_SITE_URL }

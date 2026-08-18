@@ -104,7 +104,7 @@ const DC_BESPOKE: Record<string, () => React.ReactElement> = {
   '/dashboard/api-health': () => <DcApiHealth />,
   '/dashboard/wms/overview': () => <DcWarehouseStock />,
   '/dashboard/procurement/overview': () => <DcPurchaseOrders title="Procurement Hub" />,
-  '/dashboard/procurement/purchase-orders': () => <DcPurchaseOrders />,
+  '/dashboard/procurement/purchase-orders': () => <DcPurchaseOrders title="Procurement" />,
   '/dashboard/procurement/suppliers': () => <DcPurchaseOrders title="Suppliers" />,
   '/dashboard/procurement/goods-received': () => <DcPurchaseOrders title="Goods Received" />,
   '/dashboard/returns-rma': () => <DcReturnsRma />,

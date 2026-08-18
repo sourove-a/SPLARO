@@ -390,7 +390,7 @@ ${linkHint}
 ${controlCenterSections()}
 
 Type <code>SPL-1001</code> to track an order
-Type anything for SPLARO AI
+Tap <b>AI Chat</b> to ask SPLARO AI
 
 ━━━━━━━━━━━━━━━━━━━━
 <i>Ops-first control center for daily actions</i>
@@ -431,17 +431,74 @@ export const BOT_COMMANDS: BotCommand[] = [
 
 export const BUTTON_ROUTES: Record<string, string> = {
   [TG_BTN.MENU]: TG_CALLBACK.MENU_MAIN,
+  Menu: TG_CALLBACK.MENU_MAIN,
+  [TG_BTN.BACK]: TG_CALLBACK.MENU_MAIN,
   [TG_BTN.DASHBOARD]: TG_CALLBACK.STATUS_SUMMARY,
+  Dashboard: TG_CALLBACK.STATUS_SUMMARY,
   [TG_BTN.ORDERS_TODAY]: TG_CALLBACK.ORDERS_TODAY,
   [TG_BTN.SALES_TODAY]: TG_CALLBACK.SALES_TODAY,
   [TG_BTN.PENDING]: TG_CALLBACK.PENDING,
+  Pending: TG_CALLBACK.PENDING,
   [TG_BTN.LOW_STOCK]: TG_CALLBACK.LOW_STOCK,
   [TG_BTN.FINANCE]: TG_CALLBACK.MENU_FINANCE,
+  Finance: TG_CALLBACK.MENU_FINANCE,
   [TG_BTN.AI_CHAT]: TG_CALLBACK.MENU_AI,
   [TG_BTN.ADMIN_LOGIN]: TG_CALLBACK.ADMIN_LOGIN,
   [TG_BTN.API_HEALTH]: TG_CALLBACK.API_HEALTH,
   [TG_BTN.GROUP_LINK]: TG_CALLBACK.LINK_GROUP,
   [TG_BTN.GROUP_INFO]: TG_CALLBACK.GROUP_INFO,
+}
+
+export const TELEGRAM_OPS_HINT =
+  'SPL-1881 লিখো, অথবা Control Center চাপো। AI চাইলে AI Chat।'
+
+export const TELEGRAM_AI_UNAVAILABLE =
+  'AI is not configured. Use Control Center for orders, or tap AI Chat after keys are set.'
+
+export function isTelegramAiAction(action: string): boolean {
+  return action === TG_CALLBACK.MENU_AI || action.startsWith('act:ai_prompt')
+}
+
+export function shouldRouteUnmatchedTextToAi(opts: { aiMode: boolean; isGroup: boolean }): boolean {
+  return opts.aiMode && !opts.isGroup
+}
+
+export function sanitizeTelegramAiError(raw: string): string {
+  const t = (raw ?? '').trim()
+  if (!t) return TELEGRAM_AI_UNAVAILABLE
+  if (
+    /invalid bearer token|authentication_error|your request was blocked/i.test(t) ||
+    /^\s*[{[]/.test(t) ||
+    /"type"\s*:\s*"error"/i.test(t)
+  ) {
+    return TELEGRAM_AI_UNAVAILABLE
+  }
+  return t
+}
+
+export function collectNewOrderChatIds(input: {
+  configChatId?: string | null
+  linkedTelegramIds?: Array<string | null | undefined>
+  envAdminUserId?: string | null
+}): string[] {
+  const ids = new Set<string>()
+  const add = (v?: string | null) => {
+    const t = v?.trim()
+    if (t) ids.add(t)
+  }
+  add(input.configChatId)
+  for (const id of input.linkedTelegramIds ?? []) add(id)
+  add(input.envAdminUserId)
+  return [...ids]
+}
+
+/** Dual Confirm buttons (channel + DM) must not re-send invoice after the first tap. */
+export function telegramConfirmInvoiceAction(
+  status: string,
+): 'confirm' | 'already' | 'blocked' {
+  if (status === 'CANCELLED' || status === 'REFUNDED') return 'blocked'
+  if (status !== 'PENDING') return 'already'
+  return 'confirm'
 }
 
 export function formatTelegramAiReply(raw: string): string {

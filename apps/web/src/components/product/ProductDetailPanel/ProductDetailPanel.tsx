@@ -417,6 +417,23 @@ export function ProductDetailPanel({
                   {product.code ? (
                     <p className="pdp-code">Product Code · {product.code}</p>
                   ) : null}
+                  {product.brand ? (
+                    <div className="pdp-brand">
+                      <span className="pdp-brand__label">Brand:</span>
+                      {product.brand.logo ? (
+                        <Image
+                          src={product.brand.logo}
+                          alt={product.brand.name}
+                          width={829}
+                          height={241}
+                          unoptimized
+                          className="pdp-brand__img"
+                        />
+                      ) : (
+                        <span className="pdp-brand__name">{product.brand.name}</span>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
                 <MotionPressable className="pdp-close-info" onClick={onClose} aria-label="Close" variant="icon">
                   <X className="h-[0.9rem] w-[0.9rem]" strokeWidth={2.2} />
@@ -436,29 +453,6 @@ export function ProductDetailPanel({
                 badgeLabelStyle="off"
               />
               </ProductReveal>
-
-              {/* Only for products the admin filed under a brand — own-label
-                  goods render nothing here rather than an empty box. */}
-              {product.brand ? (
-                <ProductReveal>
-                <div className="pdp-brand">
-                  <span className="pdp-brand__label">Brand:</span>
-                  {product.brand.logo ? (
-                    <span className="pdp-brand__mark">
-                      <Image
-                        src={product.brand.logo}
-                        alt={product.brand.name}
-                        fill
-                        sizes="120px"
-                        className="object-contain object-left"
-                      />
-                    </span>
-                  ) : (
-                    <span className="pdp-brand__name">{product.brand.name}</span>
-                  )}
-                </div>
-                </ProductReveal>
-              ) : null}
 
               <ProductReveal>
               <p className="pdp-desc">{productDescription}</p>

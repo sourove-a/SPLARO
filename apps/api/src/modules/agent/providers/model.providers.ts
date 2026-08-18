@@ -145,7 +145,10 @@ export class ClaudeProvider implements ModelProvider {
         options?.claude?.authToken?.trim() ||
         apiKey?.trim() ||
         process.env['ANTHROPIC_AUTH_TOKEN']?.trim() ||
-        'test'
+        ''
+      if (!authToken) {
+        throw new Error('AI is not configured')
+      }
       return new Anthropic({ authToken, ...(baseURL ? { baseURL } : {}) })
     }
 

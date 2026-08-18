@@ -13,12 +13,14 @@ export function dcConnectionChip(pulse: ConnectionPulseLike): { label: string; t
 }
 
 /**
- * Page chip — connection first, then query errors, then loading, else LIVE.
+ * Page chip — connection first, then query errors, then loading, else LIVE
+ * (or `okChip` when the module is beta / not a verified daily workflow).
  * Pass `connectionPulse` from `useAdminConnection().api.pulse` when available.
  */
 export function dcPageStatus(
   sources: QueryLike[],
   connectionPulse?: ConnectionPulseLike,
+  okChip?: { label: string; tone: DcTone },
 ): { label: string; tone: DcTone } {
   if (connectionPulse) {
     const conn = dcConnectionChip(connectionPulse)
@@ -30,5 +32,5 @@ export function dcPageStatus(
   if (sources.some((s) => s.isLoading)) {
     return { label: 'SYNCING', tone: 'mute' }
   }
-  return { label: 'LIVE', tone: 'ok' }
+  return okChip ?? { label: 'LIVE', tone: 'ok' }
 }
