@@ -119,6 +119,52 @@ export class ModelRouter {
     return { provider: this.providers[selectedModel], apiKey, model: selectedModel, providerOptions }
   }
 
+  /**
+   * Active model first, then every other provider that has a key.
+   * ChatGPT / Gemini / Claude can all answer if any one of them is configured.
+   */
+  async getFailoverChain(
+    storeIdRaw: string,
+    difficulty: import('../agent-difficulty').AgentDifficulty,
+  ): Promise<
+    Array<{
+      provider: ModelProvider
+      apiKey: string
+      model: AgentModelId
+      providerOptions?: ModelProviderOptions
+    }>
+  > {
+    const primary = await this.getProviderForDifficulty(storeIdRaw, difficulty)
+    const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    const cfg = await this.loadConfig(storeId)
+    const chain = [primary]
+    for (const id of PROVIDER_PRIORITY) {
+      if (id === primary.model) continue
+      const apiKey = cfg.keys[id]
+      if (!apiKey) continue
+      chain.push({
+        provider: this.providers[id],
+        apiKey,
+        model: id,
+        providerOptions: await this.withDifficultyOptions(storeId, id, difficulty),
+      })
+    }
+    return chain
+  }
+
+  private async withDifficultyOptions(
+    storeId: string,
+    model: ConcreteModelId,
+    difficulty: import('../agent-difficulty').AgentDifficulty,
+  ): Promise<ModelProviderOptions | undefined> {
+    const base = await this.resolveProviderOptions(storeId, model)
+    if (difficulty === 'complex') return base
+    const cheap = cheapModelForProvider(model)
+    if (!cheap) return base
+    if (await this.resolveExplicitModel(storeId, model)) return base
+    return { ...(base ?? {}), model: cheap }
+  }
+
   private async resolveProviderOptions(
     storeId: string,
     model: ConcreteModelId,
@@ -133,7 +179,12 @@ export class ModelRouter {
       const explicit = await this.resolveExplicitModel(storeId, 'manus')
       return { model: explicit ?? process.env['MANUS_AGENT_PROFILE'] ?? 'manus-1.6-lite' }
     }
-    if (model === 'gemini' || model === 'grok') {
+    if (model === 'gemini') {
+      const explicit = await this.resolveExplicitModel(storeId, model)
+      const fallback = process.env['GEMINI_MODEL']?.trim() || 'gemini-2.0-flash'
+      return { model: explicit ?? fallback }
+    }
+    if (model === 'grok') {
       const explicit = await this.resolveExplicitModel(storeId, model)
       if (explicit) return { model: explicit }
     }

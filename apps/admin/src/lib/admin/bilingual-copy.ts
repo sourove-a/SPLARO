@@ -1,17 +1,13 @@
 /**
  * Bilingual field copy and script checks for the product form.
  *
- * SPLARO stores English and Bangla separately (English in `description`, Bangla
- * in `schemaMarkup.descriptionBn`), and the storefront language switch shows one
- * or the other. So a Bangla field holding English text is not a style problem —
- * it means Bangla shoppers read English, or read nothing at all.
- *
- * The check below is advisory, never blocking: brand names, sizes, "COD" and
- * measurements legitimately stay Latin inside a Bangla sentence, so the warning
- * only fires when a field is *mostly* the wrong script.
+ * English boxes drop Bengali letters as they are typed. Bangla boxes stay
+ * editable (Avro types Latin until it converts; drafts mix a few Latin tokens)
+ * and only warn when the text is mostly the wrong language. Save is never
+ * blocked by script — a stuck product form is worse than a warning.
  */
 
-const BENGALI_RANGE = /[ঀ-৿]/g
+const BENGALI_RE = /[\u0980-\u09FF]/g
 const LATIN_LETTERS = /[A-Za-z]/g
 
 export type FieldScript = 'bn' | 'en'
@@ -34,6 +30,7 @@ export const EN_COPY = {
   titlePlaceholder: 'e.g. Jamdani Heritage Saree',
   descriptionLabel: 'Description · English',
   descriptionPlaceholder: 'Write your product story in English…',
+  descriptionHint: 'Bangla letters are removed here as you type.',
   wrongScript: 'This field is for English — it currently reads mostly Bangla.',
 } as const
 
@@ -43,7 +40,7 @@ export const EN_COPY = {
  * language), so a half-typed field never nags.
  */
 export function dominantScript(value: string): FieldScript | null {
-  const bengali = (value.match(BENGALI_RANGE) ?? []).length
+  const bengali = (value.match(BENGALI_RE) ?? []).length
   const latin = (value.match(LATIN_LETTERS) ?? []).length
   if (bengali + latin < 6) return null
   if (bengali === latin) return null
@@ -60,4 +57,15 @@ export function scriptWarning(value: string, expected: FieldScript): string | nu
   const script = dominantScript(value)
   if (!script || script === expected) return null
   return expected === 'bn' ? BN_COPY.wrongScript : EN_COPY.wrongScript
+}
+
+/** English field: drop Bengali. Bangla field: never freeze typing. */
+export function gateScript(_prev: string, next: string, expected: FieldScript): string {
+  if (expected === 'en') return next.replace(/[\u0980-\u09FF]/g, '')
+  return next
+}
+
+export function filterToScript(value: string, expected: FieldScript): string {
+  if (expected === 'en') return value.replace(/[\u0980-\u09FF]/g, '')
+  return value
 }

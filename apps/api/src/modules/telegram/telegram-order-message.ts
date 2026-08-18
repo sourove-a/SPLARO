@@ -181,17 +181,20 @@ export function formatNewOrderTelegramMessage(order: TelegramNewOrderPayload): s
   }
 
   const msg = `
-🛍 <b>New order</b> · <code>${escapeTelegramHtml(order.invoiceNumber)}</code>${when ? `\n${escapeTelegramHtml(when)}` : ''}
+🛒 <b>New Order</b> · <code>${escapeTelegramHtml(order.invoiceNumber)}</code>${when ? ` · ${escapeTelegramHtml(when)}` : ''}
 
-👤 ${escapeTelegramHtml(order.shippingName)} · <code>${escapeTelegramHtml(order.shippingPhone)}</code>${historyBadge}
-📍 ${address}
+┌─────────────────────
+│ 👤 ${escapeTelegramHtml(order.shippingName)}${historyBadge}
+│ 📞 <code>${escapeTelegramHtml(order.shippingPhone)}</code>
+│ 📍 ${address}
+└─────────────────────
 
-💳 ${payLine}
-${moneyBits.join(' · ')}${couponBit}
-<b>Total ${escapeTelegramHtml(formatBDT(order.total))}</b>
+${itemsSection}
 
-📦 <b>${order.items.length}</b> item${order.items.length === 1 ? '' : 's'} · ${unitCount} unit${unitCount === 1 ? '' : 's'}
-${itemsSection}${riskBlock}${fraudBlock}${steadfastBlock}${notesBlock}
+┌ 💰 <b>Summary</b>
+│ ${moneyBits.join('\n│ ')}${couponBit}
+│ 💵 <b>Total: ${escapeTelegramHtml(formatBDT(order.total))}</b>
+└ 💳 ${payLine}${riskBlock}${fraudBlock}${steadfastBlock}${notesBlock}
 `.trim()
 
   if (msg.length <= TG_MSG_MAX) return msg

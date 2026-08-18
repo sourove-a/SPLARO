@@ -19,6 +19,27 @@ import type { AgentMessage, AgentStreamEvent } from './agent.types'
 
 const RETRY_DELAYS_MS = [500, 1500]
 
+const PROVIDER_LABEL: Record<string, string> = {
+  openai: 'ChatGPT',
+  gemini: 'Gemini',
+  claude: 'Claude',
+  openrouter: 'OpenRouter',
+  grok: 'Grok',
+  manus: 'Manus',
+}
+
+function providerLabel(id: string): string {
+  return PROVIDER_LABEL[id] ?? id
+}
+
+function isProviderFailoverError(err: Error): boolean {
+  const msg = err.message
+  if (/declined this request|budget|over daily/i.test(msg)) return false
+  return /error (401|403|404|429|500|503)|Gemini error|OpenAI|Anthropic|Claude|fetch failed|ECONNREFUSED|ETIMEDOUT|model_not_found|invalid_api_key|API key/i.test(
+    msg,
+  )
+}
+
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms))
 }
@@ -158,24 +179,22 @@ export class AgentLoopService {
     const mandatoryTool = mandatoryReadToolForMessage(trimmed)
     const toolDefs = filterToolsToDefinitions(trimmed).filter((tool) => tool.name !== mandatoryTool)
 
-    let provider: Awaited<ReturnType<ModelRouter['getProviderForDifficulty']>>['provider']
+    let provider: Awaited<ReturnType<ModelRouter['getFailoverChain']>>[number]['provider']
     let apiKey: string
     let model: AgentModelId
-    let providerOptions: Awaited<ReturnType<ModelRouter['getProviderForDifficulty']>>['providerOptions']
+    let providerOptions: Awaited<ReturnType<ModelRouter['getFailoverChain']>>[number]['providerOptions']
+    let chain: Awaited<ReturnType<ModelRouter['getFailoverChain']>>
 
     try {
-      // Admin chat + Telegram both follow AI Command Brain activeModel — no separate path.
-      ;({ provider, apiKey, model, providerOptions } = await this.router.getProviderForDifficulty(
-        storeId,
-        difficulty,
-      ))
+      chain = await this.router.getFailoverChain(storeId, difficulty)
+      ;({ provider, apiKey, model, providerOptions } = chain[0]!)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Model not configured'
       yield { type: 'error', content: msg }
       return { finalText: '', tokenInEst: 0, tokenOutEst: 0, costEstUsd: 0 }
     }
 
-    const modelId = providerOptions?.model ?? model
+    let modelId = providerOptions?.model ?? model
 
     if (model === 'manus') {
       yield {
@@ -234,15 +253,38 @@ export class AgentLoopService {
 
         let result
         let lastErr: Error | null = null
-        for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
-          try {
-            result = await provider.chat(messages, toolDefs, apiKey, providerOptions)
-            lastErr = null
-            break
-          } catch (err) {
-            lastErr = err instanceof Error ? err : new Error('Model request failed')
-            if (attempt < RETRY_DELAYS_MS.length) await sleep(RETRY_DELAYS_MS[attempt] ?? 500)
+        let chainIndex = 0
+        providerLoop: while (chainIndex < chain.length) {
+          const slot = chain[chainIndex]!
+          provider = slot.provider
+          apiKey = slot.apiKey
+          model = slot.model
+          providerOptions = slot.providerOptions
+          lastErr = null
+          for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+            try {
+              result = await provider.chat(messages, toolDefs, apiKey, providerOptions)
+              lastErr = null
+              modelId = providerOptions?.model ?? model
+              break providerLoop
+            } catch (err) {
+              lastErr = err instanceof Error ? err : new Error('Model request failed')
+              if (attempt < RETRY_DELAYS_MS.length) await sleep(RETRY_DELAYS_MS[attempt] ?? 500)
+            }
           }
+          const next = chain[chainIndex + 1]
+          if (lastErr && next && isProviderFailoverError(lastErr)) {
+            this.logger.warn(
+              `${providerLabel(String(model))} failed (${lastErr.message.slice(0, 120)}) — trying ${providerLabel(String(next.model))}`,
+            )
+            yield {
+              type: 'token',
+              content: `${providerLabel(String(model))} fail — ${providerLabel(String(next.model))} e switch...\n\n`,
+            }
+            chainIndex += 1
+            continue
+          }
+          break
         }
 
         if (lastErr || !result) {

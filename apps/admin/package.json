@@ -7,15 +7,16 @@
     "prebuild": "node ../../scripts/verify-css.mjs && node ../../scripts/stop-next-dev-for-build.mjs 3001",
     "dev": "next dev --turbo --port 3001",
     "dev:fresh": "node ../../scripts/ensure-next-cache.mjs --fresh apps/admin && next dev --turbo --port 3001",
-    "css:fix": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true}); require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\" && echo 'Admin CSS cache cleared \u2014 run pnpm dev:admin'",
+    "css:fix": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true}); require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\" && echo 'Admin CSS cache cleared — run pnpm dev:admin'",
     "build": "next build",
     "start": "next start --port 3001",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "check": "node ../../scripts/check-admin-css-retired.mjs && node ../../scripts/check-admin-auth-contrast.mjs && node ../../scripts/admin-hex-to-tokens.mjs --check && tsc --noEmit && next lint",
-    "test:unit": "npx tsx --test src/lib/admin/bilingual-copy.test.ts"
+    "test:unit": "npx tsx --test src/lib/admin/bilingual-copy.test.ts src/lib/admin/product-form-utils.test.ts src/lib/admin/catalog-import-export-meta.test.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1112.0",
     "@hookform/resolvers": "^3.9.0",
     "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-checkbox": "^1.1.1",

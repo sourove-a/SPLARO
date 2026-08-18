@@ -299,18 +299,69 @@ async function listGeminiModels(apiKey: string): Promise<string> {
 
 export function normalizeGeminiModel(rawModel?: string): string {
   const model = (rawModel ?? '').trim().replace(/^models\//, '')
-  if (
-    !model ||
-    model === 'gemini-1.5-flash' ||
-    model === 'gemini-1.5-pro' ||
-    model === 'gemini-flash' ||
-    model === 'gemini-pro' ||
-    model === 'gemini-2.5-flash' ||
-    model === 'gemini-2.5-pro'
-  ) {
-    return 'gemini-3.7-flash'
+  if (!model || model === 'gemini-flash' || model === 'gemini-pro') {
+    return 'gemini-2.0-flash'
   }
   return model
+}
+
+/** Gemini needs functionCall / functionResponse parts — plain text drops the tool loop. */
+export function formatGeminiContents(messages: AgentMessage[]): Array<{
+  role: 'user' | 'model'
+  parts: Array<
+    | { text: string }
+    | { functionCall: { name: string; args: Record<string, unknown> } }
+    | { functionResponse: { name: string; response: { result: string } } }
+  >
+}> {
+  const contents: Array<{
+    role: 'user' | 'model'
+    parts: Array<
+      | { text: string }
+      | { functionCall: { name: string; args: Record<string, unknown> } }
+      | { functionResponse: { name: string; response: { result: string } } }
+    >
+  }> = []
+
+  for (const message of messages) {
+    if (message.role === 'system') continue
+
+    if (message.role === 'tool') {
+      contents.push({
+        role: 'user',
+        parts: [
+          {
+            functionResponse: {
+              name: message.name ?? 'tool',
+              response: { result: message.content || '(no output)' },
+            },
+          },
+        ],
+      })
+      continue
+    }
+
+    if (message.role === 'assistant' && message.toolCalls?.length) {
+      const parts: Array<
+        | { text: string }
+        | { functionCall: { name: string; args: Record<string, unknown> } }
+      > = []
+      if (message.content.trim()) parts.push({ text: message.content })
+      for (const call of message.toolCalls) {
+        parts.push({ functionCall: { name: call.name, args: call.arguments } })
+      }
+      contents.push({ role: 'model', parts })
+      continue
+    }
+
+    if (!message.content.trim()) continue
+    contents.push({
+      role: message.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: message.content }],
+    })
+  }
+
+  return contents
 }
 
 export class GeminiProvider implements ModelProvider {
@@ -324,12 +375,7 @@ export class GeminiProvider implements ModelProvider {
   ): Promise<ModelChatResult> {
     const primaryModel = normalizeGeminiModel(options?.model ?? process.env['GEMINI_MODEL'])
     const system = messages.find((m) => m.role === 'system')?.content ?? ''
-    const contents = messages
-      .filter((m) => m.role !== 'system')
-      .map((m) => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }],
-      }))
+    const contents = formatGeminiContents(messages)
 
     const reqBody = JSON.stringify({
       contents,
@@ -355,7 +401,7 @@ export class GeminiProvider implements ModelProvider {
         : {}),
     })
 
-    const candidates = [primaryModel, 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-flash-latest']
+    const candidates = [primaryModel, 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-flash-latest']
     const uniqueCandidates = [...new Set(candidates)]
     let res: Response | null = null
     let activeModel = primaryModel
@@ -422,7 +468,7 @@ export class GrokProvider implements ModelProvider {
     apiKey: string,
     options?: ModelProviderOptions,
   ): Promise<ModelChatResult> {
-    const model = options?.model ?? process.env['GROK_MODEL'] ?? 'grok-4'
+    const model = options?.model ?? process.env['GROK_MODEL'] ?? 'grok-2-latest'
     const res = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: {

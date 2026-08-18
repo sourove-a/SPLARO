@@ -10,6 +10,11 @@ import { DcScreenProvider, useDcScreen } from '@/components/dc/DcScreenContext'
 import { DcModal } from '@/components/dc/DcModal'
 import { FONT, MONO, toneStyle } from '@/components/dc/tokens'
 import {
+  BULK_CSV_WORKSPACE_LABEL,
+  formatCatalogBulkIntro,
+  formatCatalogBulkTemplateSubtitle,
+} from '@/lib/admin/catalog-import-export-meta'
+import {
   dryRunBulkFromObjects,
   templateFor,
   templateName,
@@ -456,7 +461,7 @@ function DcBulkCsvBody() {
     <>
       <DcPageHead
         crumbGroup="Catalog"
-        title="Bulk & CSV"
+        title={BULK_CSV_WORKSPACE_LABEL}
         statusLabel={hasRun ? (rejects.length > 0 ? 'needs attention' : 'ready to apply') : 'idle'}
         statusTone={hasRun ? (rejects.length > 0 ? 'warn' : 'ok') : 'mute'}
         syncLabel={
@@ -481,17 +486,17 @@ function DcBulkCsvBody() {
             onClick: () => downloadTemplate('xlsx'),
           },
           {
-            label: 'Export CSV',
+            label: 'Export all CSV',
             icon: 'icon-download',
             onClick: () => void exportCatalog('csv'),
           },
           {
-            label: 'Export Excel',
+            label: 'Export all Excel',
             icon: 'icon-download',
             onClick: () => void exportCatalog('xlsx'),
           },
           {
-            label: 'Choose file',
+            label: 'Choose import file',
             icon: 'icon-upload',
             variant: 'primary',
             onClick: () => fileInput.current?.click(),
@@ -843,17 +848,7 @@ function DcBulkCsvBody() {
               textWrap: 'pretty',
             }}
           >
-            {mode === 'catalog' ? (
-              <>
-                1. Download template · 2. One row per size/colour · 3. Dry-run preview · 4. Apply.
-                Same file shape as Export.
-              </>
-            ) : (
-              <>
-                Upload a {active.label.toLowerCase()} file — dry-run shows rejects before anything
-                is written.
-              </>
-            )}
+            {formatCatalogBulkIntro(active.label, mode === 'catalog')}
           </span>
           <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
             <button
@@ -871,7 +866,7 @@ function DcBulkCsvBody() {
                 font: `600 12px/1 ${FONT}`,
               }}
             >
-              Template CSV
+              Download template
             </button>
             <button
               type="button"
@@ -888,7 +883,7 @@ function DcBulkCsvBody() {
                 font: `600 12.5px/1 ${FONT}`,
               }}
             >
-              {parsing ? 'Reading…' : 'Choose file'}
+              {parsing ? 'Reading…' : 'Choose import file'}
             </button>
           </span>
         </div>
@@ -1235,7 +1230,7 @@ function DcBulkCsvBody() {
           <div style={{ ...card, padding: '6px 16px 10px' }}>
             <div style={{ padding: '12px 0 9px' }}>
               <span style={{ font: `600 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
-                Export & templates
+                Export all & templates
               </span>
             </div>
             {[
@@ -1266,7 +1261,7 @@ function DcBulkCsvBody() {
               {
                 icon: 'icon-download',
                 title: `${active.label} template`,
-                sub: `${active.columns.slice(0, 72)}${active.columns.length > 72 ? '…' : ''}`,
+                sub: formatCatalogBulkTemplateSubtitle(active.columns),
                 state: 'READY' as const,
                 run: () => downloadTemplate('csv'),
               },

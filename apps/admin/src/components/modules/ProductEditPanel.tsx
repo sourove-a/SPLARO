@@ -48,10 +48,11 @@ import {
   resolveSellingPrices,
   splitFitAndProductType,
 } from '@/lib/admin/product-form-utils'
+import { ProductPriceFields } from '@/components/modules/product-form/ProductPriceFields'
 import { generateAIProduct } from '@/lib/api/finance'
 import { fetchProductQR, fetchProductBarcode } from '@/lib/api/products'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
-import { BN_COPY, EN_COPY, scriptWarning } from '@/lib/admin/bilingual-copy'
+import { BN_COPY, EN_COPY, filterToScript, gateScript, scriptWarning } from '@/lib/admin/bilingual-copy'
 
 interface ProductEditPanelProps {
   productId: string
@@ -356,11 +357,14 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
   )
 
   const handleNameChange = (name: string) => {
-    setForm((prev) => ({
-      ...prev,
-      name,
-      slug: slugEdited ? prev.slug : slugify(name),
-    }))
+    setForm((prev) => {
+      const next = gateScript(prev.name, name, 'en')
+      return {
+        ...prev,
+        name: next,
+        slug: slugEdited ? prev.slug : slugify(next),
+      }
+    })
     setDirty(true)
   }
 
@@ -589,7 +593,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
         slug: form.slug,
         ...(form.nameBn.trim() ? { nameBn: form.nameBn.trim() } : {}),
         shortDescription: form.shortDescription.trim(),
-        description: descriptionEn,
+        description: filterToScript(descriptionEn, 'en'),
         // Sent even when empty so clearing the box actually clears it.
         descriptionBn,
         basePrice: sellingPrice,
@@ -617,8 +621,6 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
         weight: form.weight.trim() ? Number(form.weight) : null,
         badge: form.badge.trim() || null,
         rmCode: form.rmCode.trim() || null,
-        barcode: form.barcode.trim() || null,
-        qrCode: form.qrCode.trim() || null,
         publishAt: form.publishAt ? new Date(form.publishAt).toISOString() : null,
         imageUrls: form.imageUrls,
         videoUrl: form.videoUrl.trim(),
@@ -710,8 +712,9 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
     ]
       .filter(Boolean)
       .join(' · ') || 'Pick a category'
-  const priceNum = Number(form.basePrice) || 0
-  const compareNum = Number(form.compareAtPrice) || 0
+  const pricedPreview = resolveSellingPrices(form.basePrice, form.compareAtPrice)
+  const priceNum = pricedPreview.sellingPrice
+  const compareNum = pricedPreview.compareAt ?? 0
   void embedded
   void appendBanglaPhrase
   void handleGenerateQr
@@ -819,7 +822,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
                 <DcInput
                   value={form.nameBn}
                   placeholder={BN_COPY.titlePlaceholder}
-                  onChange={(e) => set('nameBn', e.target.value)}
+                  onChange={(e) => set('nameBn', gateScript(form.nameBn, e.target.value, 'bn'))}
                 />
               </DcField>
             </div>
@@ -856,13 +859,13 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
             </DcField>
             <DcField
               label={EN_COPY.descriptionLabel}
-              hint={scriptWarning(form.descriptionEn, 'en') ?? undefined}
+              hint={scriptWarning(form.descriptionEn, 'en') ?? EN_COPY.descriptionHint}
               tone={scriptWarning(form.descriptionEn, 'en') ? 'warn' : undefined}
             >
               <DcTextarea
                 rows={4}
                 value={form.descriptionEn}
-                onChange={(e) => set('descriptionEn', e.target.value)}
+                onChange={(e) => set('descriptionEn', gateScript(form.descriptionEn, e.target.value, 'en'))}
                 placeholder={EN_COPY.descriptionPlaceholder}
               />
             </DcField>
@@ -874,7 +877,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
               <DcTextarea
                 rows={3}
                 value={form.descriptionBn}
-                onChange={(e) => set('descriptionBn', e.target.value)}
+                onChange={(e) => set('descriptionBn', gateScript(form.descriptionBn, e.target.value, 'bn'))}
                 placeholder={BN_COPY.descriptionPlaceholder}
               />
               <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
@@ -896,18 +899,13 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
                 </button>
               </div>
             </DcField>
+            <ProductPriceFields
+              mainPrice={form.basePrice}
+              salePrice={form.compareAtPrice}
+              onMainChange={(next) => set('basePrice', next)}
+              onSaleChange={(next) => set('compareAtPrice', next)}
+            />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
-              <DcField label="Base price">
-                <DcInput mono value={form.basePrice} onChange={(e) => set('basePrice', e.target.value)} placeholder="0" />
-              </DcField>
-              <DcField label="Compare at">
-                <DcInput
-                  mono
-                  value={form.compareAtPrice}
-                  onChange={(e) => set('compareAtPrice', e.target.value)}
-                  placeholder="—"
-                />
-              </DcField>
               {/* Issued by SPLARO, permanent — an edit here must never rewrite
                   it, so it is displayed rather than edited. */}
               <DcField label="Product Code" hint="Customer-facing · permanent">
@@ -929,14 +927,6 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
               </DcField>
               <DcField label="Parent SKU" hint="Legacy free-text field">
                 <DcInput mono value={form.sku} onChange={(e) => set('sku', e.target.value)} />
-              </DcField>
-              <DcField label="Barcode" hint="EAN / UPC — POS, Create Order, Packing scan this.">
-                <DcInput
-                  mono
-                  value={form.barcode}
-                  onChange={(e) => set('barcode', e.target.value)}
-                  placeholder="EAN / UPC"
-                />
               </DcField>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -1109,6 +1099,8 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
               variants={product.variants ?? []}
               productImages={form.imageUrls}
               productName={form.name || product.name}
+              productMainPrice={form.basePrice}
+              productSalePrice={form.compareAtPrice}
               {...(departmentHint ? { departmentHint } : {})}
             />
           </DcSectionCard>

@@ -25,16 +25,20 @@ export function formatTagsInput(tags?: string[] | null): string {
   return tags?.join(', ') ?? ''
 }
 
+function parsePositiveMoney(raw: string): number {
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
 /** UI: regular + optional sale → API basePrice + compareAtPrice */
 export function resolveSellingPrices(regularRaw: string, saleRaw: string): {
   sellingPrice: number
   compareAt?: number
 } {
-  const regular = Number(regularRaw)
-  const sale = saleRaw.trim() ? Number(saleRaw) : null
-  const sellingPrice = sale && sale > 0 ? sale : regular
-  const compareAt =
-    sale && sale > 0 && regular > sale ? regular : undefined
+  const regular = parsePositiveMoney(regularRaw)
+  const sale = parsePositiveMoney(saleRaw)
+  const sellingPrice = sale || regular
+  const compareAt = sale && regular > sale ? regular : undefined
   return { sellingPrice, ...(compareAt !== undefined ? { compareAt } : {}) }
 }
 
@@ -49,6 +53,24 @@ export function displayPriceFields(basePrice: number | string, compareAtPrice?: 
     return { regular: String(compare), sale: String(base) }
   }
   return { regular: String(base), sale: '' }
+}
+
+/** Percent off main → sale. Null when there is no real markdown. */
+export function discountPercentFromPrices(mainRaw: string, saleRaw: string): number | null {
+  const main = parsePositiveMoney(mainRaw)
+  const sale = parsePositiveMoney(saleRaw)
+  if (!main || !sale || sale >= main) return null
+  return Math.round(((main - sale) / main) * 100)
+}
+
+/** Sale price from main and a percent (1–99). Empty when the inputs cannot markdown. */
+export function salePriceFromDiscountPercent(mainRaw: string, percentRaw: string): string {
+  const main = parsePositiveMoney(mainRaw)
+  const pct = Number(percentRaw)
+  if (!main || !Number.isFinite(pct) || pct <= 0) return ''
+  const clamped = Math.min(99, pct)
+  const sale = Math.round(main * (1 - clamped / 100))
+  return sale > 0 && sale < main ? String(sale) : ''
 }
 
 export function splitFitAndProductType(fitType?: string | null): { productType: string; fitType: string } {

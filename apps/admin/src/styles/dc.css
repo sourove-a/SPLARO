@@ -1689,7 +1689,30 @@
   border: 1px solid var(--line);
   border-radius: 11px;
   overflow: auto;
-  max-height: 280px;
+  max-height: 640px;
+}
+
+.dc-variant-matrix td.dc-variant-money {
+  width: 124px;
+  min-width: 124px;
+  padding: 8px;
+}
+
+.dc-variant-matrix td.dc-variant-money .dc-pform-input {
+  min-width: 108px;
+  padding-left: 10px;
+  padding-right: 10px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dc-variant-matrix td.dc-variant-stock .dc-pform-input {
+  width: 84px;
+  min-width: 84px;
+  padding-left: 8px;
+  padding-right: 8px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .dc-variant-summary {

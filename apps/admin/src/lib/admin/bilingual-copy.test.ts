@@ -1,12 +1,10 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { dominantScript, scriptWarning } from './bilingual-copy'
+import { dominantScript, gateScript, scriptWarning } from './bilingual-copy'
 
 /**
- * SPLARO stores English and Bangla separately and the storefront shows one or
- * the other, so English sitting in the Bangla field means Bangla shoppers read
- * nothing. The check warns, never blocks — a Bangla sentence is allowed to
- * carry a brand name, a size or "COD" in Latin letters.
+ * English and Bangla are stored apart. The English box strips Bengali live.
+ * The Bangla box stays editable and only warns when it is mostly English.
  */
 describe('script detection', () => {
   it('reads a Bangla sentence as Bangla', () => {
@@ -18,7 +16,6 @@ describe('script detection', () => {
   })
 
   it('stays quiet until there is enough to judge', () => {
-    // Half-typed fields must not nag on the second keystroke.
     assert.equal(dominantScript('Ja'), null)
     assert.equal(dominantScript('জাম'), null)
     assert.equal(dominantScript(''), null)
@@ -27,6 +24,24 @@ describe('script detection', () => {
   it('keeps a Bangla sentence Bangla when it carries Latin terms', () => {
     assert.equal(dominantScript('ঈদের জন্য প্রিমিয়াম পাঞ্জাবি, COD সুবিধা আছে'), 'bn')
     assert.equal(dominantScript('সাইজ XL, ফ্রি ডেলিভারি ঢাকায়'), 'bn')
+  })
+})
+
+describe('script gate', () => {
+  it('strips Bengali out of an English field as it is typed', () => {
+    assert.equal(gateScript('Soft cotton', 'Soft cotton জামদানি', 'en'), 'Soft cotton ')
+  })
+
+  it('does not freeze a Bangla field while typing or pasting', () => {
+    assert.equal(gateScript('', 'Premium cotton', 'bn'), 'Premium cotton')
+    assert.equal(gateScript('', 's', 'bn'), 's')
+  })
+
+  it('keeps a Bangla sentence that already has Bengali letters', () => {
+    assert.equal(
+      gateScript('ঈদের জন্য ', 'ঈদের জন্য প্রিমিয়াম', 'bn'),
+      'ঈদের জন্য প্রিমিয়াম',
+    )
   })
 })
 

@@ -395,15 +395,17 @@ export function DcStickyPublishBar({
           cursor: saveDisabled || saving ? 'not-allowed' : 'pointer',
           opacity: saving ? 0.7 : 1,
           font: `600 12.5px/1 ${FONT}`,
+          boxShadow: ready && !saving ? '0 2px 8px -2px rgba(124, 58, 237, 0.4)' : 'none',
+          transition: 'all 0.15s ease',
         }}
       >
         <DcIcon name={saveDisabled && !saving ? 'icon-lock' : 'icon-check'} size={14} />
         <span>
           {saving
-            ? 'Saving…'
+            ? 'Publishing…'
             : ready
-              ? saveLabel
-              : `Save · ${blockers} blocker${blockers === 1 ? '' : 's'}`}
+              ? saveLabel || 'Publish Product'
+              : `Publish Product · ${blockers} missing`}
         </span>
       </button>
       <button
@@ -412,17 +414,23 @@ export function DcStickyPublishBar({
         disabled={saving}
         className="dc-hover-line"
         style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7,
           height: 38,
-          padding: '0 14px',
+          padding: '0 16px',
           borderRadius: 10,
           border: '1px solid var(--line-2)',
           background: 'var(--surface)',
           color: 'var(--ink)',
           cursor: 'pointer',
           font: `600 12.5px/1 ${FONT}`,
+          boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+          transition: 'all 0.15s ease',
         }}
       >
-        Save as draft
+        <DcIcon name="icon-file-pen" size={13} />
+        <span>Save as Draft</span>
       </button>
       <button
         type="button"

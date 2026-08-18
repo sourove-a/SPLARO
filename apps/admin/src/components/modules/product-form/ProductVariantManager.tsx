@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'reac
 import Image from 'next/image'
 import { DcIcon } from '@/components/dc/DcIcon'
 import { DcField, DcInput } from '@/components/dc/product/DcProductFormPrimitives'
-import { FONT } from '@/components/dc/tokens'
+import { FONT, MONO } from '@/components/dc/tokens'
 import { useCreateProductVariant, useUpdateProductVariant, useArchiveProductVariant } from '@/lib/api/hooks'
 import { toastFail, toastApiSaved, toastOk, toastWarn } from '@/lib/admin/feedback'
 import { printVariantStickers } from '@/lib/admin/variant-stickers'
@@ -18,7 +18,8 @@ import {
   verifyVariantPersisted,
   verifyVariantResponse,
 } from '@/lib/admin/catalog-mutation-verify'
-import type { ApiProduct } from '@/lib/api/products'
+import { fetchProductInventory, type ApiProduct, type ProductInventoryEntry } from '@/lib/api/products'
+import { discountPercentFromPrices, resolveSellingPrices } from '@/lib/admin/product-form-utils'
 import { resolveMediaUrl } from '@/lib/media-url'
 import {
   colourInputValue,
@@ -175,6 +176,9 @@ interface ProductVariantManagerProps {
   productName?: string
   /** Menu slug/name so size chips switch (footwear ≠ M/L/XL). */
   departmentHint?: string
+  /** Product-level main (MRP) and sale — empty row prices inherit these. */
+  productMainPrice?: string
+  productSalePrice?: string
 }
 
 interface RowDraft {
@@ -327,12 +331,69 @@ async function copyText(label: string, value: string) {
   }
 }
 
+function formatLedgerWhen(iso: string) {
+  return new Date(iso).toLocaleString('en-GB', {
+    timeZone: 'Asia/Dhaka',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function CodeChip({ label, value }: { label: string; value: string }) {
+  const text = value.trim()
+  return (
+    <button
+      type="button"
+      title={text ? `Copy ${label}` : `No ${label}`}
+      onClick={() => void copyText(label, text)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        maxWidth: 180,
+        padding: '4px 8px',
+        borderRadius: 7,
+        border: '1px solid var(--line)',
+        background: 'var(--surface-2)',
+        color: text ? 'var(--ink)' : 'var(--ink-3)',
+        cursor: text ? 'pointer' : 'default',
+        font: `500 11px/1.2 ${MONO}`,
+        textAlign: 'left',
+      }}
+    >
+      <span style={{ font: `600 8.5px/1 ${FONT}`, letterSpacing: '.08em', color: 'var(--ink-3)' }}>
+        {label}
+      </span>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+        {text || '—'}
+      </span>
+    </button>
+  )
+}
+
+function rowPrices(
+  d: RowDraft,
+  productMainPrice: string,
+  productSalePrice: string,
+): { sale: string; main: string; pct: number | null } {
+  const inherited = resolveSellingPrices(productMainPrice, productSalePrice)
+  const sale = d.price.trim() || (inherited.sellingPrice ? String(inherited.sellingPrice) : '')
+  const main =
+    d.compareAtPrice.trim() ||
+    (inherited.compareAt ? String(inherited.compareAt) : productMainPrice.trim())
+  return { sale, main, pct: discountPercentFromPrices(main, sale) }
+}
+
 export function ProductVariantManager({
   productId,
   variants,
   productImages,
   productName,
   departmentHint,
+  productMainPrice = '',
+  productSalePrice = '',
 }: ProductVariantManagerProps) {
   const updateVariant = useUpdateProductVariant()
   const createVariant = useCreateProductVariant()
@@ -352,17 +413,19 @@ export function ProductVariantManager({
   const [selectedSizes, setSelectedSizes] = useState<string[]>([])
   const [customSize, setCustomSize] = useState('')
   const [colorRows, setColorRows] = useState<ColourDraft[]>(() => colourRowsFromVariants(variants))
-  const [bulk, setBulk] = useState({ price: '', stock: '10', compareAt: '' })
+  const [bulk, setBulk] = useState({ stock: '10' })
   const [bulkBusy, setBulkBusy] = useState(false)
-  const [bulkAllPrice, setBulkAllPrice] = useState('')
   const [skuPrefix, setSkuPrefix] = useState('')
-  const [bulkAllBusy, setBulkAllBusy] = useState<'price' | 'sku' | 'save' | null>(null)
+  const [bulkAllBusy, setBulkAllBusy] = useState<'sku' | 'save' | null>(null)
   const [showManual, setShowManual] = useState(false)
   const [addDraft, setAddDraft] = useState<RowDraft>(EMPTY_DRAFT)
   const [query, setQuery] = useState('')
   const [stockFilter, setStockFilter] = useState<'all' | 'in' | 'low' | 'out'>('all')
   const [colourFilter, setColourFilter] = useState('all')
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [historyFor, setHistoryFor] = useState<string | null>(null)
+  const [historyRows, setHistoryRows] = useState<ProductInventoryEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   const busyId = pendingVariantId(
     updateVariant.isPending,
@@ -388,6 +451,24 @@ export function ProductVariantManager({
     })
   }, [variants, busyId])
 
+  const openHistory = async (variantId: string) => {
+    if (historyFor === variantId) {
+      setHistoryFor(null)
+      return
+    }
+    setHistoryFor(variantId)
+    setHistoryLoading(true)
+    try {
+      const res = await fetchProductInventory(productId, { variantId, limit: 20 })
+      setHistoryRows(res.items ?? [])
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not load stock history.')
+      setHistoryRows([])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
   const existingKeys = useMemo(() => {
     const keys = new Set<string>()
     variants.forEach((v) => {
@@ -402,6 +483,7 @@ export function ProductVariantManager({
     () => variants.reduce((sum, v) => sum + (v.id ? Number(drafts[v.id]?.stock ?? serverStock(v)) : serverStock(v)), 0),
     [variants, drafts],
   )
+  const productSelling = resolveSellingPrices(productMainPrice, productSalePrice).sellingPrice
 
   const draftFor = (v: Variant): RowDraft => (v.id && drafts[v.id]) || draftFromVariant(v)
   const setField = (id: string, key: keyof RowDraft, value: string) =>
@@ -544,11 +626,12 @@ export function ProductVariantManager({
       toastFail('Add at least one named colour.')
       return
     }
-    const price = Number(bulk.price)
+    const inherited = resolveSellingPrices(productMainPrice, productSalePrice)
+    const price = inherited.sellingPrice
     const stock = Number(bulk.stock || '0')
-    const compareAt = bulk.compareAt.trim() ? Number(bulk.compareAt) : null
-    if (!bulk.price.trim() || Number.isNaN(price) || price < 0) {
-      toastFail('Enter a price for the new variants.')
+    const compareAt = inherited.compareAt ?? null
+    if (!price) {
+      toastFail('Set Main / Sale on the product first.')
       return
     }
     if (Number.isNaN(stock) || stock < 0) {
@@ -611,13 +694,15 @@ export function ProductVariantManager({
       for (const v of targets) {
         if (!v.id) continue
         const d = draftFor(v)
-        const price = Number(d.price)
+        const priced = rowPrices(d, productMainPrice, productSalePrice)
+        const price = Number(priced.sale)
         const stock = Number(d.stock)
         if (Number.isNaN(price) || price < 0 || Number.isNaN(stock) || stock < 0) {
           failed += 1
           continue
         }
         const stockChanged = stock !== serverStock(v)
+        const compareAt = priced.main.trim() && Number(priced.main) > price ? Number(priced.main) : null
         try {
           const result = await updateVariant.mutateAsync({
             productId,
@@ -630,7 +715,7 @@ export function ProductVariantManager({
             sku: d.sku.trim(),
             barcode: d.barcode.trim(),
             price,
-            compareAtPrice: d.compareAtPrice.trim() ? Number(d.compareAtPrice) : null,
+            compareAtPrice: compareAt,
             stock,
             ...(stockChanged
               ? {
@@ -719,13 +804,15 @@ export function ProductVariantManager({
   }
 
   const applyPriceToAll = async () => {
-    const price = Number(bulk.price)
-    if (!bulk.price.trim() || Number.isNaN(price) || price < 0) {
-      toastFail('Enter a valid price.')
+    const inherited = resolveSellingPrices(productMainPrice, productSalePrice)
+    const price = inherited.sellingPrice
+    const compareAt = inherited.compareAt ?? null
+    if (!price) {
+      toastFail('Set Main / Sale on the product first.')
       return
     }
     if (!variants.length) return
-    if (!window.confirm(`Set price to ৳${price} for all variants?`)) return
+    if (!window.confirm(`Set every variant to the product price (৳${price})?`)) return
 
     setBulkBusy(true)
     let saved = 0
@@ -735,11 +822,13 @@ export function ProductVariantManager({
         const d = draftFor(v)
         const stock = Number(d.stock || serverStock(v))
         setField(v.id, 'price', String(price))
+        if (compareAt) setField(v.id, 'compareAtPrice', String(compareAt))
         try {
           const result = await updateVariant.mutateAsync({
             productId,
             variantId: v.id,
             price,
+            compareAtPrice: compareAt,
             stock,
             size: d.size.trim(),
             color: d.color.trim(),
@@ -751,7 +840,7 @@ export function ProductVariantManager({
           if (!verifyVariantResponse(result, { price, stock, size: d.size.trim() })) continue
           if (!(await verifyVariantPersisted(productId, v.id, { price, stock, size: d.size.trim() }))) continue
           saved += 1
-          syncDraftFromServer(v.id, { ...v, price })
+          syncDraftFromServer(v.id, { ...v, price, compareAtPrice: compareAt })
         } catch (err) {
           toastFail(err instanceof Error ? err.message : 'Price update failed.')
         }
@@ -765,11 +854,13 @@ export function ProductVariantManager({
   const saveRow = async (v: Variant) => {
     if (!v.id) return
     const d = draftFor(v)
-    const price = Number(d.price)
+    const priced = rowPrices(d, productMainPrice, productSalePrice)
+    const price = Number(priced.sale)
     const stock = Number(d.stock)
     if (Number.isNaN(price) || price < 0) { toastFail('Enter a valid price.'); return }
     if (Number.isNaN(stock) || stock < 0) { toastFail('Enter a valid quantity.'); return }
     const stockChanged = stock !== serverStock(v)
+    const compareAt = priced.main.trim() && Number(priced.main) > price ? Number(priced.main) : null
     const payload = {
       productId,
       variantId: v.id,
@@ -781,7 +872,7 @@ export function ProductVariantManager({
       sku: d.sku.trim(),
       barcode: d.barcode.trim(),
       price,
-      compareAtPrice: d.compareAtPrice.trim() ? Number(d.compareAtPrice) : null,
+      compareAtPrice: compareAt,
       stock,
       ...(stockChanged
         ? {
@@ -799,6 +890,7 @@ export function ProductVariantManager({
     if (ok) {
       const fresh = variants.find((row) => row.id === v.id) ?? v
       syncDraftFromServer(v.id, fresh)
+      if (historyFor === v.id) void openHistory(v.id)
     }
   }
 
@@ -912,25 +1004,6 @@ export function ProductVariantManager({
     else if (saved) toastOk(`${label} — ${saved} variant${saved === 1 ? '' : 's'} updated`)
   }
 
-  const handleSetAllPrice = async () => {
-    const raw = bulkAllPrice.trim()
-    const price = Number(raw)
-    if (!raw || Number.isNaN(price) || price < 0) {
-      toastFail('Enter a price to apply to every variant.')
-      return
-    }
-    setBulkAllBusy('price')
-    try {
-      await applyToAllVariants('Price set on all', () => ({ price }))
-    } finally {
-      setBulkAllBusy(null)
-    }
-  }
-
-  /**
-   * PREFIX-SIZE-COLOUR, uppercased, non-alphanumerics collapsed. Falls back to the
-   * row index when a variant has neither size nor colour, so SKUs stay unique.
-   */
   const handleAutoSku = async () => {
     const prefix = (skuPrefix.trim() || 'SKU').toUpperCase().replace(/[^A-Z0-9]+/g, '')
     if (!prefix) {
@@ -1192,37 +1265,16 @@ export function ProductVariantManager({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gridTemplateColumns: 'minmax(140px, 200px)',
             gap: 10,
           }}
         >
-          <DcField label="Price">
+          <DcField label="Stock each" hint="Price uses Main / Sale on this product">
             <DcInput
               mono
-              type="number"
-              min={0}
-              value={bulk.price}
-              placeholder="0"
-              onChange={(e) => setBulk((p) => ({ ...p, price: e.target.value }))}
-            />
-          </DcField>
-          <DcField label="Compare-at">
-            <DcInput
-              mono
-              type="number"
-              min={0}
-              value={bulk.compareAt}
-              placeholder="optional"
-              onChange={(e) => setBulk((p) => ({ ...p, compareAt: e.target.value }))}
-            />
-          </DcField>
-          <DcField label="Quantity">
-            <DcInput
-              mono
-              type="number"
-              min={0}
+              inputMode="numeric"
               value={bulk.stock}
-              onChange={(e) => setBulk((p) => ({ ...p, stock: e.target.value }))}
+              onChange={(e) => setBulk((p) => ({ ...p, stock: e.target.value.replace(/[^\d]/g, '') }))}
             />
           </DcField>
         </div>
@@ -1258,11 +1310,11 @@ export function ProductVariantManager({
           </button>
           <button
             type="button"
-            style={{ ...btnLink, opacity: bulkBusy || !variants.length || !bulk.price.trim() ? 0.4 : 1 }}
-            disabled={bulkBusy || !variants.length || !bulk.price.trim()}
+            style={{ ...btnLink, opacity: bulkBusy || !variants.length || !productSelling ? 0.4 : 1 }}
+            disabled={bulkBusy || !variants.length || !productSelling}
             onClick={() => void applyPriceToAll()}
           >
-            Apply price to all
+            Apply product price to all
           </button>
           <button
             type="button"
@@ -1423,29 +1475,6 @@ export function ProductVariantManager({
               background: 'var(--surface)',
             }}
           >
-            <DcField label="Set all price">
-              <div style={{ display: 'flex', gap: 8, minWidth: 220 }}>
-                <DcInput
-                  mono
-                  value={bulkAllPrice}
-                  onChange={(e) => setBulkAllPrice(e.target.value.replace(/[^0-9.]/g, ''))}
-                  placeholder="4500"
-                  inputMode="decimal"
-                />
-                <button
-                  type="button"
-                  style={{
-                    ...btnGhost,
-                    flex: 'none',
-                    opacity: bulkAllBusy !== null || !bulkAllPrice.trim() ? 0.5 : 1,
-                  }}
-                  disabled={bulkAllBusy !== null || !bulkAllPrice.trim()}
-                  onClick={() => void handleSetAllPrice()}
-                >
-                  {bulkAllBusy === 'price' ? 'Applying…' : `Apply to ${variants.length}`}
-                </button>
-              </div>
-            </DcField>
             <DcField label="SKU prefix">
               <div style={{ display: 'flex', gap: 8, minWidth: 240 }}>
                 <DcInput
@@ -1471,16 +1500,16 @@ export function ProductVariantManager({
             </DcField>
           </div>
 
-          <div className="dc-variant-matrix" style={{ maxHeight: 520 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 860 }}>
+          <div className="dc-variant-matrix">
+            <table style={{ width: '100%', minWidth: 1100, borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   <th style={thStyle}>Variant</th>
-                  <th style={thStyle}>Price</th>
-                  <th style={thStyle}>Compare</th>
-                  <th style={thStyle}>Available</th>
-                  <th style={thStyle}>SKU</th>
-                  <th style={thStyle}>Barcode</th>
+                  <th style={thStyle}>Sale</th>
+                  <th style={thStyle}>Main</th>
+                  <th style={thStyle}>Off</th>
+                  <th style={thStyle}>Stock</th>
+                  <th style={thStyle}>Codes</th>
                   <th style={thStyle}>Image</th>
                   <th style={thStyle} />
                 </tr>
@@ -1542,12 +1571,16 @@ export function ProductVariantManager({
                       {open
                         ? group.rows.map((v, i) => {
                   const d = draftFor(v)
+                  const priced = rowPrices(d, productMainPrice, productSalePrice)
                   const active = v.isActive ?? true
                   const busy = rowBusy(v.id)
-                  const stockChanged = Number(d.stock) !== serverStock(v)
-                  const low = Number(d.stock) < 5
+                  const wasStock = serverStock(v)
+                  const nowStock = Number(d.stock)
+                  const stockChanged = nowStock !== wasStock
+                  const stockDelta = nowStock - wasStock
+                  const low = nowStock < 5
                   const dirty = Boolean(v.id && dirtyIds.has(v.id))
-                  const status = stockStatus(Number(d.stock))
+                  const status = stockStatus(nowStock)
                   const onEnter = (e: { key: string; preventDefault: () => void }) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
@@ -1555,16 +1588,16 @@ export function ProductVariantManager({
                     }
                   }
                   return (
+                    <Fragment key={v.id ?? `${group.key}-${i}`}>
                     <tr
-                      key={v.id ?? `${group.key}-${i}`}
                       style={{
-                        borderBottom: '1px solid var(--line)',
+                        borderBottom: stockChanged || historyFor === v.id ? 0 : '1px solid var(--line)',
                         opacity: active ? 1 : 0.55,
                         background: dirty ? 'var(--violet-soft)' : active ? undefined : 'var(--surface-2)',
                         boxShadow: dirty ? 'inset 3px 0 0 var(--violet)' : undefined,
                       }}
                     >
-                      <td style={{ padding: '10px 12px', minWidth: 140 }}>
+                      <td style={{ padding: '10px 12px', minWidth: 128 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <button
                             type="button"
@@ -1602,122 +1635,127 @@ export function ProductVariantManager({
                           </span>
                         </div>
                       </td>
-                      <td style={{ padding: '8px 12px', width: 100 }}>
+                      <td className="dc-variant-money">
                         <DcInput
                           mono
-                          type="number"
-                          min={0}
+                          inputMode="decimal"
                           value={d.price}
-                          onChange={(e) => v.id && setField(v.id, 'price', e.target.value)}
+                          placeholder={priced.sale || '0'}
+                          onChange={(e) =>
+                            v.id && setField(v.id, 'price', e.target.value.replace(/[^\d.]/g, ''))
+                          }
                           onKeyDown={onEnter}
                           style={{ height: 34 }}
                         />
                       </td>
-                      <td style={{ padding: '8px 12px', width: 90 }}>
+                      <td className="dc-variant-money">
                         <DcInput
                           mono
-                          type="number"
-                          min={0}
-                          placeholder="—"
+                          inputMode="decimal"
+                          placeholder={priced.main || '—'}
                           value={d.compareAtPrice}
-                          onChange={(e) => v.id && setField(v.id, 'compareAtPrice', e.target.value)}
+                          onChange={(e) =>
+                            v.id &&
+                            setField(v.id, 'compareAtPrice', e.target.value.replace(/[^\d.]/g, ''))
+                          }
                           onKeyDown={onEnter}
                           style={{ height: 34 }}
                         />
                       </td>
-                      <td style={{ padding: '8px 12px', width: 148 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() =>
-                              v.id && setField(v.id, 'stock', String(Math.max(0, Number(d.stock || 0) - 1)))
-                            }
-                            style={{ ...btnGhost, width: 28, height: 28, padding: 0, flex: 'none' }}
-                          >
-                            −
-                          </button>
-                          <DcInput
-                            mono
-                            type="number"
-                            min={0}
-                            value={d.stock}
-                            onChange={(e) => v.id && setField(v.id, 'stock', e.target.value)}
-                            onKeyDown={onEnter}
-                            style={{
-                              height: 34,
-                              borderColor: low ? 'var(--warn)' : undefined,
-                              color: low ? 'var(--warn)' : undefined,
-                            }}
-                          />
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => v.id && setField(v.id, 'stock', String(Number(d.stock || 0) + 1))}
-                            style={{ ...btnGhost, width: 28, height: 28, padding: 0, flex: 'none' }}
-                          >
-                            +
-                          </button>
-                          <span
-                            style={{
-                              flex: 'none',
-                              padding: '3px 7px',
-                              borderRadius: 6,
-                              border: `1px solid ${status.bd}`,
-                              background: status.bg,
-                              color: status.fg,
-                              font: `600 10px/1 ${FONT}`,
-                            }}
-                          >
-                            {status.label}
-                          </span>
+                      <td style={{ padding: '8px 10px', width: 56 }}>
+                        <span style={{ font: `700 13px/1 ${MONO}`, color: priced.pct ? 'var(--bad)' : 'var(--ink-3)' }}>
+                          {priced.pct != null ? `${priced.pct}%` : '—'}
+                        </span>
+                      </td>
+                      <td className="dc-variant-stock" style={{ padding: '8px 10px', minWidth: 210 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() =>
+                                v.id && setField(v.id, 'stock', String(Math.max(0, Number(d.stock || 0) - 1)))
+                              }
+                              style={{ ...btnGhost, width: 28, height: 28, padding: 0, flex: 'none' }}
+                            >
+                              −
+                            </button>
+                            <DcInput
+                              mono
+                              inputMode="numeric"
+                              value={d.stock}
+                              onChange={(e) =>
+                                v.id && setField(v.id, 'stock', e.target.value.replace(/[^\d]/g, ''))
+                              }
+                              onKeyDown={onEnter}
+                              style={{
+                                height: 34,
+                                borderColor: low ? 'var(--warn)' : undefined,
+                                color: low ? 'var(--warn)' : undefined,
+                              }}
+                            />
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => v.id && setField(v.id, 'stock', String(Number(d.stock || 0) + 1))}
+                              style={{ ...btnGhost, width: 28, height: 28, padding: 0, flex: 'none' }}
+                            >
+                              +
+                            </button>
+                            <span
+                              style={{
+                                flex: 'none',
+                                padding: '3px 7px',
+                                borderRadius: 6,
+                                border: `1px solid ${status.bd}`,
+                                background: status.bg,
+                                color: status.fg,
+                                font: `600 10px/1 ${FONT}`,
+                              }}
+                            >
+                              {status.label}
+                            </span>
+                          </div>
+                          {stockChanged ? (
+                            <span style={{ font: `500 11px/1.3 ${MONO}`, color: 'var(--ink-2)' }}>
+                              was {wasStock} → {nowStock} ({stockDelta > 0 ? '+' : ''}
+                              {stockDelta})
+                            </span>
+                          ) : null}
+                          {stockChanged ? (
+                            <div style={{ display: 'grid', gap: 6 }}>
+                              <select
+                                style={{ ...selectStyle, height: 34 }}
+                                value={d.stockReason}
+                                onChange={(e) => v.id && setField(v.id, 'stockReason', e.target.value)}
+                              >
+                                {STOCK_REASONS.map((r) => (
+                                  <option key={r} value={r}>
+                                    {r}
+                                  </option>
+                                ))}
+                              </select>
+                              <DcInput
+                                placeholder="Note (optional)"
+                                value={d.stockNote}
+                                onChange={(e) => v.id && setField(v.id, 'stockNote', e.target.value)}
+                                style={{ height: 34 }}
+                              />
+                            </div>
+                          ) : null}
                         </div>
                       </td>
-                      <td style={{ padding: '8px 12px', minWidth: 120 }}>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <DcInput
-                            mono
-                            placeholder="SKU"
-                            value={d.sku}
-                            onChange={(e) => v.id && setField(v.id, 'sku', e.target.value)}
-                            onKeyDown={onEnter}
-                            style={{ height: 34 }}
-                          />
-                          <button
-                            type="button"
-                            title="Copy SKU"
-                            onClick={() => void copyText('SKU', d.sku)}
-                            style={{ ...btnGhost, width: 28, height: 34, padding: 0, flex: 'none' }}
-                          >
-                            <DcIcon name="icon-copy" size={12} />
-                          </button>
+                      <td style={{ padding: '8px 10px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <CodeChip label="SKU" value={d.sku} />
+                          <CodeChip label="BC" value={d.barcode} />
                         </div>
                       </td>
-                      <td style={{ padding: '8px 12px', minWidth: 120 }}>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <DcInput
-                            mono
-                            placeholder="EAN / UPC"
-                            value={d.barcode}
-                            onChange={(e) => v.id && setField(v.id, 'barcode', e.target.value)}
-                            onKeyDown={onEnter}
-                            style={{ height: 34 }}
-                          />
-                          <button
-                            type="button"
-                            title="Copy barcode"
-                            onClick={() => void copyText('Barcode', d.barcode)}
-                            style={{ ...btnGhost, width: 28, height: 34, padding: 0, flex: 'none' }}
-                          >
-                            <DcIcon name="icon-copy" size={12} />
-                          </button>
-                        </div>
-                      </td>
-                      <td style={{ padding: '8px 12px', minWidth: 140 }}>
+                      <td style={{ padding: '8px 10px', minWidth: 132 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <ImageThumb url={d.image} />
                           <select
-                            style={{ ...selectStyle, height: 34 }}
+                            style={{ ...selectStyle, height: 34, minWidth: 88 }}
                             value={d.image}
                             onChange={(e) => v.id && setField(v.id, 'image', e.target.value)}
                           >
@@ -1730,7 +1768,7 @@ export function ProductVariantManager({
                           </select>
                         </div>
                       </td>
-                      <td style={{ padding: '8px 12px' }}>
+                      <td style={{ padding: '8px 10px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <button
                             type="button"
@@ -1746,6 +1784,16 @@ export function ProductVariantManager({
                           >
                             {busy ? 'Saving…' : dirty ? 'Save*' : 'Save'}
                           </button>
+                          {v.id ? (
+                            <button
+                              type="button"
+                              style={{ ...btnLink, opacity: busy ? 0.4 : 1 }}
+                              disabled={busy}
+                              onClick={() => void openHistory(v.id!)}
+                            >
+                              {historyFor === v.id ? 'Hide' : 'History'}
+                            </button>
+                          ) : null}
                           {d.image ? (
                             <button
                               type="button"
@@ -1772,29 +1820,57 @@ export function ProductVariantManager({
                             <DcIcon name="icon-archive" size={14} />
                           </button>
                         </div>
-                        {stockChanged ? (
-                          <div style={{ display: 'grid', gap: 6, marginTop: 8, minWidth: 180 }}>
-                            <select
-                              style={{ ...selectStyle, height: 34 }}
-                              value={d.stockReason}
-                              onChange={(e) => v.id && setField(v.id, 'stockReason', e.target.value)}
-                            >
-                              {STOCK_REASONS.map((r) => (
-                                <option key={r} value={r}>
-                                  {r}
-                                </option>
-                              ))}
-                            </select>
-                            <DcInput
-                              placeholder="Note (optional)"
-                              value={d.stockNote}
-                              onChange={(e) => v.id && setField(v.id, 'stockNote', e.target.value)}
-                              style={{ height: 34 }}
-                            />
-                          </div>
-                        ) : null}
                       </td>
                     </tr>
+                    {historyFor === v.id ? (
+                      <tr>
+                        <td
+                          colSpan={8}
+                          style={{
+                            padding: '10px 14px 14px',
+                            borderBottom: '1px solid var(--line)',
+                            background: 'var(--surface-2)',
+                          }}
+                        >
+                          {historyLoading ? (
+                            <span style={{ font: `500 12px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
+                              Loading ledger…
+                            </span>
+                          ) : historyRows.length === 0 ? (
+                            <span style={{ font: `500 12px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
+                              No movements yet — first save creates the ledger.
+                            </span>
+                          ) : (
+                            <div style={{ display: 'grid', gap: 6 }}>
+                              {historyRows.map((row) => (
+                                <div
+                                  key={row.id}
+                                  style={{
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    gap: 10,
+                                    alignItems: 'baseline',
+                                    font: `500 12px/1.35 ${FONT}`,
+                                    color: 'var(--ink-2)',
+                                  }}
+                                >
+                                  <span style={{ font: `500 11px/1 ${MONO}`, color: 'var(--ink-3)' }}>
+                                    {formatLedgerWhen(row.createdAt)}
+                                  </span>
+                                  <span>{row.action}</span>
+                                  <span style={{ font: `600 12px/1 ${MONO}`, color: 'var(--ink)' }}>
+                                    {row.stockBefore} → {row.stockAfter} ({row.quantity > 0 ? '+' : ''}
+                                    {row.quantity})
+                                  </span>
+                                  {row.note ? <span style={{ color: 'var(--ink-3)' }}>{row.note}</span> : null}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ) : null}
+                    </Fragment>
                   )
                         })
                         : null}
@@ -1841,31 +1917,34 @@ export function ProductVariantManager({
                 }
               />
             </DcField>
-            <DcField label="Price">
+            <DcField label="Sale">
               <DcInput
                 mono
-                type="number"
-                min={0}
+                inputMode="decimal"
                 value={addDraft.price}
-                onChange={(e) => setAddDraft((p) => ({ ...p, price: e.target.value }))}
+                onChange={(e) =>
+                  setAddDraft((p) => ({ ...p, price: e.target.value.replace(/[^\d.]/g, '') }))
+                }
               />
             </DcField>
-            <DcField label="Compare-at">
+            <DcField label="Main">
               <DcInput
                 mono
-                type="number"
-                min={0}
+                inputMode="decimal"
                 value={addDraft.compareAtPrice}
-                onChange={(e) => setAddDraft((p) => ({ ...p, compareAtPrice: e.target.value }))}
+                onChange={(e) =>
+                  setAddDraft((p) => ({ ...p, compareAtPrice: e.target.value.replace(/[^\d.]/g, '') }))
+                }
               />
             </DcField>
-            <DcField label="Qty">
+            <DcField label="Stock">
               <DcInput
                 mono
-                type="number"
-                min={0}
+                inputMode="numeric"
                 value={addDraft.stock}
-                onChange={(e) => setAddDraft((p) => ({ ...p, stock: e.target.value }))}
+                onChange={(e) =>
+                  setAddDraft((p) => ({ ...p, stock: e.target.value.replace(/[^\d]/g, '') }))
+                }
               />
             </DcField>
             <DcField label="SKU">

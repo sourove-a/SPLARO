@@ -151,6 +151,24 @@ export function DcProductMediaSlots({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {filled === 0 ? (
+        <div
+          style={{
+            border: '1px solid var(--line)',
+            borderRadius: 12,
+            background: 'var(--surface-2)',
+            padding: '12px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 5,
+          }}
+        >
+          <span style={{ font: `600 12.5px/1 ${FONT}`, color: 'var(--ink)' }}>Start with the main card photo</span>
+          <span style={{ font: `400 11.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
+            Fill the first slot first. The storefront card, product page lead image, and most shares all start from that photo.
+          </span>
+        </div>
+      ) : null}
       <div className="dc-media-grid">
         {SLOT_META.map((slot, index) => {
           const url = slots[index]
@@ -341,8 +359,13 @@ export function DcProductMediaSlots({
                       )}
                     </span>
                     <span style={{ font: `500 11px/1.35 ${FONT}`, color: 'var(--ink-3)', maxWidth: 120 }}>
-                      {busy ? 'Uploading…' : slot.hint}
+                      {busy ? 'Uploading…' : index === 0 ? 'Start here' : slot.hint}
                     </span>
+                    {!busy ? (
+                      <span style={{ font: `400 10px/1.35 ${FONT}`, color: 'var(--ink-3)', maxWidth: 140, opacity: 0.78 }}>
+                        {index === 0 ? 'Main storefront thumbnail' : 'Optional detail angle'}
+                      </span>
+                    ) : null}
                   </span>
                 )}
               </button>
@@ -485,8 +508,8 @@ export function DcProductMediaSlots({
       </div>
 
       <span style={{ font: `400 11px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
-        {filled} of 6 filled · drag a photo onto another slot (or use Move to) to swap Main / Front /
-        Back · first image is the shop card
+        {filled} of 6 filled · first image is the shop card · drag a photo onto another slot (or use Move to) to swap Main / Front /
+        Back
         {categoryName ? ` · Set homepage saves the tile for ${categoryName}` : ''} · uploads go to{' '}
         <code style={{ fontFamily: MONO }}>{uploadFolder}</code>
       </span>

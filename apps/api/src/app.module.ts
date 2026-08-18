@@ -21,6 +21,7 @@ import { bullmqConnectionOptions } from './common/bullmq-connection-options'
 import { PresenceService } from './common/presence.service'
 import { CacheService } from './common/cache.service'
 import { RequestIdMiddleware } from './common/request-id.middleware'
+import { R2StorageService } from './common/r2-storage.service'
 
 // Feature modules
 import { TelegramService } from './modules/telegram/telegram.service'
@@ -28,6 +29,7 @@ import { AutomationService } from './modules/automation/automation.service'
 import { AutomationCron } from './modules/automation/automation.cron'
 import { CourierService } from './modules/courier/courier.service'
 import { CourierProcessor } from './modules/courier/courier.processor'
+import { MarketingProcessor } from './modules/marketing/marketing.processor'
 import { OrderSideEffectsProcessor } from './modules/orders/order-side-effects.processor'
 import { SteadfastService } from './modules/courier/providers/steadfast.service'
 import { RedxService } from './modules/courier/providers/redx.service'
@@ -222,7 +224,7 @@ const queueImports = redisQueuesEnabled()
   : []
 
 const queueWorkerProviders = redisQueuesEnabled()
-  ? [CourierProcessor, GoogleSyncProcessor, OrderSideEffectsProcessor]
+  ? [CourierProcessor, GoogleSyncProcessor, OrderSideEffectsProcessor, MarketingProcessor]
   : noopQueueProviders()
 
 @Module({
@@ -329,6 +331,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
     PrismaService,
+    R2StorageService,
     FinanceAuditService,
     RealtimeBusService,
     RealtimePublisher,

@@ -15,6 +15,12 @@ import { DcTable } from '@/components/dc/primitives/DcTable'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { toastFail, toastOk } from '@/lib/admin/feedback'
+import {
+  BULK_CSV_OPEN_LABEL,
+  BULK_CSV_WORKSPACE_LABEL,
+  formatCatalogProductsSyncLabel,
+  formatCatalogPublishedSub,
+} from '@/lib/admin/catalog-import-export-meta'
 import { verifyProductArchived } from '@/lib/admin/catalog-mutation-verify'
 import { verifyDeleteSuccess, verifyPersisted } from '@/lib/admin/mutation-verify'
 import { ApiError } from '@/lib/api/client'
@@ -223,13 +229,13 @@ function DcProductsBody() {
         statusLabel={pageStatus.label}
         statusTone={pageStatus.tone}
         syncLabel={
-          products.isFetching ? 'syncing…' : `${(stats.data?.total ?? 0).toLocaleString()} SKUs`
+          products.isFetching ? 'syncing…' : formatCatalogProductsSyncLabel(stats.data?.total ?? 0)
         }
         syncing={products.isFetching}
         onSync={() => void products.refetch()}
         actions={[
           {
-            label: 'Import / Export',
+            label: BULK_CSV_WORKSPACE_LABEL,
             icon: 'icon-upload',
             onClick: () => router.push('/dashboard/bulk'),
           },
@@ -305,9 +311,9 @@ function DcProductsBody() {
             <DcEmptyState
               icon="icon-package"
               title="No products yet"
-              body="The storefront has nothing to sell until the first product is published. Add one product with a photo, price and stock to open the shop."
-              cta="Add product"
-              onCta={() => router.push('/dashboard/products/new')}
+              body="The storefront has nothing to sell until the first product is published. Use Bulk & CSV to import a sheet, or add one product manually with a photo, price and stock."
+              cta={BULK_CSV_OPEN_LABEL}
+              onCta={() => router.push('/dashboard/bulk')}
             />
           ) : null}
 
@@ -379,9 +385,9 @@ function DcProductsBody() {
             }}
           >
             <Kpi
-              label="Total SKUs"
+              label="Total products"
               value={(stats.data?.total ?? 0).toLocaleString()}
-              sub={`${(counts['Active'] ?? 0).toLocaleString()} live on store`}
+              sub={formatCatalogPublishedSub(counts['Active'] ?? 0)}
             />
             <Kpi
               label="Drafts"

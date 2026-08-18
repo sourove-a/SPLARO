@@ -10,8 +10,10 @@ export class PosController {
     @Query('storeId') storeId: string,
     @Query('q') q?: string,
     @Query('sku') sku?: string,
+    @Query('all') all?: string,
   ) {
-    return this.pos.searchCatalog(storeId, q, sku)
+    const includeUnpublished = all === '1' || all === 'true'
+    return this.pos.searchCatalog(storeId, q, sku, includeUnpublished)
   }
 
   @Get('today')

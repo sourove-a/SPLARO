@@ -73,7 +73,10 @@ export async function ensureProductCode(
     storeId: product.storeId,
     productId: input.productId,
   })
-  await tx.product.update({ where: { id: input.productId }, data: { productCode: code } })
+  await tx.product.update({
+    where: { id: input.productId },
+    data: { productCode: code },
+  })
   return { code, issued: true }
 }
 

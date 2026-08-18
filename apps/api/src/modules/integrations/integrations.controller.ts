@@ -13,6 +13,7 @@ import { IntegrationsService } from './integrations.service'
 import { PaymentIntegrationService, type PaymentProvider } from './payment-integration.service'
 import { TelegramIntegrationService, type TelegramIntegrationDto } from './telegram-integration.service'
 import { MetaCapiService } from '../marketing/meta-capi.service'
+import { R2StorageService } from '../../common/r2-storage.service'
 import { resolveMetaAccessToken, resolveMetaPixelId } from '../marketing/meta-marketing.util'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
@@ -55,6 +56,7 @@ export class IntegrationsController {
     private readonly infra: InfrastructureIntegrationService,
     private readonly sms: SmsIntegrationService,
     private readonly metaCapi: MetaCapiService,
+    private readonly r2: R2StorageService,
   ) {}
 
   private assertWrite(req: AdminRequest) {
@@ -603,6 +605,14 @@ export class IntegrationsController {
         sslcommerz: store?.settings?.sslcommerzEnabled ?? false,
       },
     }
+  }
+
+  /* ─── R2 Storage ─────────────────────────────────────────── */
+
+  @Post('r2/test')
+  async testR2(@Req() req: AdminRequest) {
+    this.assertWrite(req)
+    return this.r2.testConnection()
   }
 
   /* ─── Catalog ─────────────────────────────────────────────── */

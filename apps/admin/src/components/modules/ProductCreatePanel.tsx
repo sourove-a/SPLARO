@@ -45,6 +45,7 @@ import {
   parseTagsInput,
   resolveSellingPrices,
 } from '@/lib/admin/product-form-utils'
+import { ProductPriceFields } from '@/components/modules/product-form/ProductPriceFields'
 import {
   buildDescriptionDraft,
   buildSeoDraft,
@@ -58,7 +59,7 @@ import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { generateAIProduct } from '@/lib/api/finance'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { fetchSkuIdentity, type SkuIdentity } from '@/lib/admin/variant-sku'
-import { BN_COPY, EN_COPY, scriptWarning } from '@/lib/admin/bilingual-copy'
+import { BN_COPY, EN_COPY, filterToScript, gateScript, scriptWarning } from '@/lib/admin/bilingual-copy'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 import {
   CreateVariantMatrix,
@@ -572,7 +573,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
 
     // English and Bangla are stored apart so the storefront can show one
     // language at a time — never both stacked in the same block.
-    let description = form.descriptionEn.trim()
+    let description = filterToScript(form.descriptionEn.trim(), 'en')
     const descriptionBn = form.descriptionBn.trim()
     let metaTitle = form.metaTitle.trim()
     let metaDescription = form.metaDescription.trim()
@@ -641,8 +642,6 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         ...(form.weight.trim() ? { weight: Number(form.weight) } : {}),
         ...(form.badge.trim() ? { badge: form.badge.trim() } : {}),
         ...(form.rmCode.trim() ? { rmCode: form.rmCode.trim() } : {}),
-        ...(form.barcode.trim() ? { barcode: form.barcode.trim() } : {}),
-        ...(form.qrCode.trim() ? { qrCode: form.qrCode.trim() } : {}),
         ...(form.publishAt ? { publishAt: new Date(form.publishAt).toISOString() } : {}),
         ...(form.imageUrls[0] ? { imageUrl: form.imageUrls[0] } : {}),
         ...(form.imageUrls.length ? { imageUrls: form.imageUrls } : {}),
@@ -772,8 +771,8 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     { id: 'np-basics', label: 'Basics', done: Boolean(form.name.trim()), active: activeJump === 'np-basics' },
     { id: 'np-media', label: 'Media', done: form.imageUrls.length > 0, active: activeJump === 'np-media' },
     { id: 'np-colours', label: 'Colours', done: activeColors.some((c) => c.name.trim()), active: activeJump === 'np-colours' },
-    { id: 'np-matrix', label: 'Variants', done: variantCount > 0 && (sizeless || sizeList.length > 0), active: activeJump === 'np-matrix' },
     { id: 'np-pricing', label: 'Pricing', done: Number(form.basePrice) > 0, active: activeJump === 'np-pricing' },
+    { id: 'np-matrix', label: 'Variants', done: variantCount > 0 && (sizeless || sizeList.length > 0), active: activeJump === 'np-matrix' },
     { id: 'np-identifiers', label: 'Identifiers', done: Boolean(skuIdentity), active: activeJump === 'np-identifiers' },
     { id: 'np-inventory', label: 'Inventory', done: Boolean(form.sku.trim() || form.weight.trim()), active: activeJump === 'np-inventory' },
     { id: 'np-org', label: 'Organize', done: Boolean(form.collectionId || form.tags.trim()), active: activeJump === 'np-org' },
@@ -801,11 +800,21 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- jump ids are stable labels
   }, [form.name, form.imageUrls.length, form.categoryId, departmentId])
 
-  const priceNum = Number(form.basePrice) || 0
-  const compareNum = Number(form.compareAtPrice) || 0
+  const priced = resolveSellingPrices(form.basePrice, form.compareAtPrice)
+  const priceNum = priced.sellingPrice || 0
+  const compareNum = priced.compareAt || 0
   const costNum = Number(form.costPrice) || 0
   const margin = priceNum > 0 && costNum > 0 ? priceNum - costNum : 0
   const marginPct = priceNum > 0 && costNum > 0 ? Math.round((margin / priceNum) * 100) : 0
+  const filledMediaCount = form.imageUrls.filter(Boolean).length
+  const hasMainPhoto = Boolean(form.imageUrls[0])
+  const publishModeLabel = form.isPublished ? 'Publish now' : form.publishAt ? 'Scheduled draft' : 'Draft only'
+  const publishModeHint = form.isPublished
+    ? 'Primary create button will publish immediately after verified create.'
+    : form.publishAt
+      ? 'Creates hidden first and passes publishAt to the API.'
+      : 'Stays admin-only until you publish later.'
+  const nextBlocker = readyChecks.blockers[0]?.label ?? null
 
   const publishLive = () => {
     set('isPublished', true)
@@ -1019,7 +1028,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             id="np-basics"
             num="01"
             title="Basics"
-            hint="Title drives the handle. Bangla title shows on the storefront language switch."
+            hint="Start with the title customers read first. The English title drives the handle; Bangla title shows on language switch."
           >
             <div
               style={{
@@ -1036,7 +1045,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                 <DcInput
                   value={form.name}
                   placeholder={EN_COPY.titlePlaceholder}
-                  onChange={(e) => set('name', e.target.value)}
+                  onChange={(e) => set('name', gateScript(form.name, e.target.value, 'en'))}
                   onBlur={() => {
                     if (!form.descriptionEn.trim() && !form.descriptionBn.trim() && form.name.trim()) {
                       applyDescriptionDraft(true)
@@ -1052,7 +1061,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                 <DcInput
                   value={form.nameBn}
                   placeholder={BN_COPY.titlePlaceholder}
-                  onChange={(e) => set('nameBn', e.target.value)}
+                  onChange={(e) => set('nameBn', gateScript(form.nameBn, e.target.value, 'bn'))}
                 />
               </DcField>
             </div>
@@ -1091,16 +1100,13 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             </DcField>
             <DcField
               label={EN_COPY.descriptionLabel}
-              hint={
-                scriptWarning(form.descriptionEn, 'en') ??
-                `${form.descriptionEn.length} characters · storefront truncates the card blurb at 140.`
-              }
+              hint={scriptWarning(form.descriptionEn, 'en') ?? EN_COPY.descriptionHint}
               tone={scriptWarning(form.descriptionEn, 'en') ? 'warn' : undefined}
             >
               <DcTextarea
                 rows={5}
                 value={form.descriptionEn}
-                onChange={(e) => set('descriptionEn', e.target.value)}
+                onChange={(e) => set('descriptionEn', gateScript(form.descriptionEn, e.target.value, 'en'))}
                 placeholder={EN_COPY.descriptionPlaceholder}
               />
             </DcField>
@@ -1112,7 +1118,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
               <DcTextarea
                 rows={4}
                 value={form.descriptionBn}
-                onChange={(e) => set('descriptionBn', e.target.value)}
+                onChange={(e) => set('descriptionBn', gateScript(form.descriptionBn, e.target.value, 'bn'))}
                 placeholder={BN_COPY.descriptionPlaceholder}
               />
               <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
@@ -1140,8 +1146,8 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             id="np-media"
             num="02"
             title="Media"
-            hint="Upload, paste a link, or pick from the media library. Photos save under the selected menu folder (Men/Women/Kids/…)."
-            badge={<DcPill>{`${form.imageUrls.filter(Boolean).length} of 6 filled`}</DcPill>}
+            hint="Add the main card photo first, then fill Front / Back / Detail slots. Uploads stay under the selected menu folder."
+            badge={<DcPill>{`${filledMediaCount} of 6 filled`}</DcPill>}
           >
             <DcProductMediaSlots
               imageUrls={form.imageUrls}
@@ -1348,64 +1354,20 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
           </DcSectionCard>
 
           <DcSectionCard
-            id="np-matrix"
-            num="04"
-            title="Variants"
-            hint={
-              sizeless
-                ? '1) name your colours  2) type price and stock  3) check the table. SKU and barcode are generated on save.'
-                : '1) tap sizes  2) type price and stock  3) check the table. Kids / Footwear menu switches the size chips.'
-            }
-            badge={<DcPill>{variantLines.length || variantCount} variants</DcPill>}
-          >
-            <CreateVariantMatrix
-              productName={form.name}
-              sizeChips={sizeChips}
-              sizeDeptKey={sizeDeptKey}
-              colors={colorRows}
-              sizes={form.sizes}
-              onSizesChange={(next) => set('sizes', next)}
-              baseSku={form.sku}
-              onBaseSkuChange={(next) => set('sku', next)}
-              defaultStock={form.defaultStock}
-              onDefaultStockChange={(next) => set('defaultStock', next)}
-              basePrice={form.basePrice}
-              onBasePriceChange={(next) => set('basePrice', next)}
-              compareAtPrice={form.compareAtPrice}
-              productBarcode={form.barcode}
-              onProductBarcodeChange={(next) => set('barcode', next)}
-              onVariantsChange={setVariantLines}
-              skuIdentity={skuIdentity}
-            />
-          </DcSectionCard>
-
-          <DcSectionCard
             id="np-pricing"
-            num="05"
+            num="04"
             title="Pricing"
-            hint="Margin recalculates as you type. Compare-at only shows if higher than price."
+            hint="Main + sale auto-fills %. Type % to set sale. Customer pays the sale price."
           >
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                gap: 12,
-              }}
-            >
-              <DcField label="Price · ৳">
-                <DcInput mono value={form.basePrice} onChange={(e) => set('basePrice', e.target.value)} />
-              </DcField>
-              <DcField label="Compare at · ৳">
-                <DcInput
-                  mono
-                  value={form.compareAtPrice}
-                  onChange={(e) => set('compareAtPrice', e.target.value)}
-                />
-              </DcField>
-              <DcField label="Cost per item · ৳" hint="Never shown to customers.">
-                <DcInput mono value={form.costPrice} onChange={(e) => set('costPrice', e.target.value)} />
-              </DcField>
-            </div>
+            <ProductPriceFields
+              mainPrice={form.basePrice}
+              salePrice={form.compareAtPrice}
+              onMainChange={(next) => set('basePrice', next)}
+              onSaleChange={(next) => set('compareAtPrice', next)}
+            />
+            <DcField label="Cost per item · ৳" hint="Never shown to customers.">
+              <DcInput mono value={form.costPrice} onChange={(e) => set('costPrice', e.target.value)} />
+            </DcField>
             <div
               style={{
                 display: 'flex',
@@ -1500,6 +1462,37 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             </div>
           </DcSectionCard>
 
+          <DcSectionCard
+            id="np-matrix"
+            num="05"
+            title="Variants"
+            hint={
+              sizeless
+                ? 'Price is Main / Sale above. Name colours, set stock each, then check the preview. SKU and barcode generate on save.'
+                : 'Price is Main / Sale above. Pick sizes, set stock each, then review the table. Menu switches the size chips.'
+            }
+            badge={<DcPill>{variantLines.length || variantCount} variants</DcPill>}
+          >
+            <CreateVariantMatrix
+              productName={form.name}
+              sizeChips={sizeChips}
+              sizeDeptKey={sizeDeptKey}
+              colors={colorRows}
+              sizes={form.sizes}
+              onSizesChange={(next) => set('sizes', next)}
+              baseSku={form.sku}
+              onBaseSkuChange={(next) => set('sku', next)}
+              defaultStock={form.defaultStock}
+              onDefaultStockChange={(next) => set('defaultStock', next)}
+              basePrice={priced.sellingPrice ? String(priced.sellingPrice) : form.basePrice}
+              compareAtPrice={priced.compareAt ? String(priced.compareAt) : ''}
+              productBarcode={form.barcode}
+              onProductBarcodeChange={(next) => set('barcode', next)}
+              onVariantsChange={setVariantLines}
+              skuIdentity={skuIdentity}
+            />
+          </DcSectionCard>
+
           {/* Read-only: SPLARO issues these, an operator never types them. Shown
               so the codes on a label can be matched back to the product. */}
           <DcSectionCard
@@ -1549,12 +1542,6 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             >
               <DcField label="Base SKU">
                 <DcInput mono value={form.sku} onChange={(e) => set('sku', e.target.value)} style={{ textTransform: 'uppercase' }} />
-              </DcField>
-              <DcField label="Barcode">
-                <DcInput mono value={form.barcode} onChange={(e) => set('barcode', e.target.value)} placeholder="EAN / UPC" />
-              </DcField>
-              <DcField label="QR code">
-                <DcInput mono value={form.qrCode} onChange={(e) => set('qrCode', e.target.value)} placeholder="QR / URL" />
               </DcField>
               <DcField label="RM code">
                 <DcInput mono value={form.rmCode} onChange={(e) => set('rmCode', e.target.value)} />
@@ -1737,7 +1724,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             id="np-publish"
             num="09"
             title="Publishing"
-            hint="Nothing goes live until every blocker in the readiness list clears."
+            hint="Nothing goes live until the readiness blockers clear and verified create succeeds."
           >
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
               {(
@@ -1858,7 +1845,9 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                 <span style={{ font: `400 11px/1.35 ${FONT}`, color: 'var(--ink-3)' }}>
                   {form.isPublished
                     ? 'Will appear on the storefront after verified create.'
-                    : 'Draft stays admin-only until you choose Active and create succeeds.'}
+                    : form.publishAt
+                      ? 'Creates hidden first, then the API receives the scheduled publish time.'
+                      : 'Draft stays admin-only until you publish later.'}
                 </span>
               </span>
               <span
@@ -1872,7 +1861,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                   font: `600 11px/28px ${FONT}`,
                 }}
               >
-                {form.isPublished ? 'Publish on create' : 'Hidden'}
+                {publishModeLabel}
               </span>
             </div>
           </DcSectionCard>
@@ -1881,8 +1870,8 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             readyPct={readyChecks.pct}
             readyDone={readyChecks.checks.filter((c) => c.ok).length}
             readyTotal={readyChecks.checks.length}
-            saveNote="Verified POST /admin/products only — no fake save"
-            saveLabel="Save & publish"
+            saveNote="Primary button publishes now. Draft button keeps it hidden or scheduled — verified POST only."
+            saveLabel="Publish Product"
             onSave={publishLive}
             onDraft={publishDraft}
             onDiscard={() => navigate(moduleHref)}
@@ -1912,8 +1901,52 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                 name: c.name,
                 on: (activeColorRow?.id ?? colorRows[0]?.id) === c.id || i === 0,
               }))}
-              meta={`${sizeList.length || 0} sizes · ${activeColors.length || 0} colours`}
+              meta={`${variantCount} variants · ${filledMediaCount} media · ${publishModeLabel}`}
             />
+            <div className="dc-pform-card">
+              <div
+                style={{
+                  padding: '11px 14px',
+                  borderBottom: '1px solid var(--line)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <span style={{ flex: 1, font: `600 12.5px/1 ${FONT}`, color: 'var(--ink)' }}>Create summary</span>
+                <span style={{ font: `600 10.5px/1 ${MONO}`, color: nextBlocker ? 'var(--warn)' : 'var(--ok)' }}>
+                  {nextBlocker ? 'Needs attention' : 'Ready'}
+                </span>
+              </div>
+              <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {[
+                  { label: 'Mode', value: publishModeLabel, sub: publishModeHint },
+                  {
+                    label: 'Main photo',
+                    value: hasMainPhoto ? 'Ready' : 'Missing',
+                    sub: hasMainPhoto ? `${filledMediaCount} media slot${filledMediaCount === 1 ? '' : 's'} filled` : 'Fill the first media slot for the card thumbnail',
+                  },
+                  {
+                    label: 'Variants',
+                    value: `${variantCount}`,
+                    sub: sizeless ? 'One size per colour' : `${sizeList.length || 0} sizes × ${activeColors.length || 0} colours`,
+                  },
+                  {
+                    label: 'Next blocker',
+                    value: nextBlocker ?? 'None',
+                    sub: nextBlocker ? 'Clear the next readiness item before creating live' : 'Everything needed to publish is in place',
+                  },
+                ].map((row) => (
+                  <div key={row.label} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <span style={{ font: `600 10.5px/1 ${FONT}`, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                      {row.label}
+                    </span>
+                    <span style={{ font: `600 12.5px/1.25 ${FONT}`, color: 'var(--ink)' }}>{row.value}</span>
+                    <span style={{ font: `400 10.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>{row.sub}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
             <DcReadinessList items={readyChecks.checks} readyPct={readyChecks.pct} />
           </div>
         ) : null}

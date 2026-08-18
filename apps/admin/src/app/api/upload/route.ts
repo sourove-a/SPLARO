@@ -7,6 +7,7 @@ import { pipeline as streamPipeline } from 'stream/promises'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { resolvePublicSiteUrl } from '@splaro/config'
+import { syncToR2, syncManyToR2 } from '@/lib/upload/r2-sync'
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from '@/lib/auth/session'
 import {
   MIN_PRODUCT_WIDTH,
@@ -563,10 +564,31 @@ export async function POST(request: Request) {
         } catch {
           // Output already exists; source metadata is safer than reporting upload failure and orphaning it.
         }
+        // R2 sync — background, best-effort
+        const r2Files = [
+          { localPath: outputPath, storedUrl: result.url, contentType: result.url.endsWith('.webp') ? 'image/webp' : detectedMime },
+          ...Object.values(result.variants).map((varUrl) => ({
+            localPath: path.join(dir, path.basename(varUrl)),
+            storedUrl: varUrl,
+            contentType: 'image/webp',
+          })),
+          ...Object.values(result.avifVariants).map((varUrl) => ({
+            localPath: path.join(dir, path.basename(varUrl)),
+            storedUrl: varUrl,
+            contentType: 'image/avif',
+          })),
+        ]
+        syncManyToR2(r2Files).catch(() => {})
+
+        const r2Url = process.env.CLOUDFLARE_R2_PUBLIC_URL
+          ? `${process.env.CLOUDFLARE_R2_PUBLIC_URL.replace(/\/+$/, '')}/${result.url.replace(/^\//, '')}`
+          : null
+
         return NextResponse.json({
           ...result,
           path: result.url,
-          publicUrl: `${resolvePublicSiteUrl()}${result.url}`,
+          publicUrl: r2Url || `${resolvePublicSiteUrl()}${result.url}`,
+          r2Url,
           width: outputWidth,
           height: outputHeight,
           sizeBytes: outputSize,
@@ -633,10 +655,18 @@ export async function POST(request: Request) {
               : mimeType.startsWith('image/')
                 ? 'image'
                 : 'other'
+    // R2 sync — background, best-effort
+    syncToR2(outputFile, url, mimeType).catch(() => {})
+
+    const r2Url = process.env.CLOUDFLARE_R2_PUBLIC_URL
+      ? `${process.env.CLOUDFLARE_R2_PUBLIC_URL.replace(/\/+$/, '')}/${url.replace(/^\//, '')}`
+      : null
+
     return NextResponse.json({
       url,
       path: url,
-      publicUrl: `${resolvePublicSiteUrl()}${url}`,
+      publicUrl: r2Url || `${resolvePublicSiteUrl()}${url}`,
+      r2Url,
       pipeline: false,
       width,
       height,

@@ -26,12 +26,22 @@ interface LineItem {
   variantId: string
   name: string
   sku?: string
+  productCode?: string
   image?: string
   price: number
   quantity: number
   size?: string
   color?: string
   stock?: number
+}
+
+function catalogCodeLine(p: PosProduct, variant?: PosVariant | null) {
+  const code = p.productCode?.trim()
+  const sku = variant?.sku ?? p.sku ?? p.variants[0]?.sku
+  const barcode = variant?.barcode ?? p.barcode ?? p.variants[0]?.barcode
+  return [code ? `Code ${code}` : null, sku ? `SKU ${sku}` : null, barcode ? `BC ${barcode}` : null]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 interface OrderCreatePanelProps {
@@ -127,11 +137,11 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
     try {
       const looksLikeSku = /^[A-Za-z0-9][A-Za-z0-9._-]{2,}$/.test(q) && !q.includes(' ')
       const res = looksLikeSku
-        ? await searchPosCatalog({ sku: q })
-        : await searchPosCatalog({ q })
+        ? await searchPosCatalog({ sku: q, includeUnpublished: true })
+        : await searchPosCatalog({ q, includeUnpublished: true })
       const products = res.products ?? []
       if (looksLikeSku && products.length === 0) {
-        const fallback = await searchPosCatalog({ q })
+        const fallback = await searchPosCatalog({ q, includeUnpublished: true })
         setLookupHits(fallback.products ?? [])
         setMatchedVariantId(fallback.matchedVariantId)
         return
@@ -171,7 +181,7 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
 
   const addLine = () => {
     if (!pickedProduct) {
-      toastFail('Find a product by SKU or name first.')
+      toastFail('Find a product by Product Code or name first.')
       return
     }
     const variant = pickedVariant
@@ -200,6 +210,7 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
         return prev.map((l, i) => (i === existing ? { ...l, quantity: nextQty } : l))
       }
       const sku = variant.sku ?? pickedProduct.sku
+      const productCode = pickedProduct.productCode?.trim()
       const image = variant.image ?? pickedProduct.image
       return [
         ...prev,
@@ -211,6 +222,7 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
           quantity: qty,
           stock,
           ...(sku ? { sku } : {}),
+          ...(productCode ? { productCode } : {}),
           ...(image ? { image } : {}),
           ...(variant.size ? { size: variant.size } : {}),
           ...(variant.color ? { color: variant.color } : {}),
@@ -354,9 +366,9 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
       <DcSectionCard
         num="02"
         title="Order lines"
-        hint="Type SKU / barcode / name — product details appear, then add. Nothing saves until verified create."
+        hint="Type Product Code, SKU, barcode, or name — details appear, then add. Nothing saves until verified create."
       >
-        <DcField label="SKU, barcode, or product name">
+        <DcField label="Product code, SKU, barcode, or name">
           <DcInput
             mono
             value={skuQuery}
@@ -367,7 +379,7 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
                 void runLookup(skuQuery)
               }
             }}
-            placeholder="SPL-… or scan barcode"
+            placeholder="284731, SKU, or scan"
           />
         </DcField>
 
@@ -400,12 +412,8 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
                     {p.name}
                   </span>
                   <span style={{ font: `500 11.5px/1.4 ${MONO}`, color: 'var(--ink-3)' }}>
-                    {p.sku || p.variants[0]?.sku || 'No SKU'}
-                    {p.barcode || p.variants[0]?.barcode
-                      ? ` · BC ${p.barcode || p.variants[0]?.barcode}`
-                      : ''}{' '}
-                    · {p.variants.length} variant{p.variants.length === 1 ? '' : 's'} ·{' '}
-                    {formatTaka(Number(p.basePrice))}
+                    {catalogCodeLine(p) || 'No code'} · {p.variants.length} variant
+                    {p.variants.length === 1 ? '' : 's'} · {formatTaka(Number(p.basePrice))}
                   </span>
                 </span>
               </button>
@@ -415,7 +423,7 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
 
         {skuQuery.trim() && !lookupLoading && !pickedProduct && lookupHits.length === 0 ? (
           <p style={{ margin: 0, font: `500 13px/1.4 ${FONT}`, color: 'var(--bad)' }}>
-            No product matched that SKU, barcode, or name.
+            No product matched that Product Code, SKU, barcode, or name.
           </p>
         ) : null}
 
@@ -438,10 +446,7 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
                   {pickedProduct.name}
                 </p>
                 <p style={{ margin: '4px 0 0', font: `500 12px/1.4 ${MONO}`, color: 'var(--ink-2)' }}>
-                  SKU {pickedVariant?.sku ?? pickedProduct.sku ?? '—'}
-                  {pickedVariant?.barcode || pickedProduct.barcode
-                    ? ` · BC ${pickedVariant?.barcode || pickedProduct.barcode}`
-                    : ''}
+                  {catalogCodeLine(pickedProduct, pickedVariant) || 'No code'}
                   {matchedVariantId && pickedVariant?.id === matchedVariantId ? ' · exact match' : ''}
                 </p>
               </div>
@@ -547,8 +552,12 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
                             {line.name}
                             {line.size || line.color ? ` · ${[line.size, line.color].filter(Boolean).join(' / ')}` : ''}
                           </div>
-                          {line.sku ? (
-                            <div style={{ font: `500 11px/1.3 ${MONO}`, color: 'var(--ink-3)' }}>{line.sku}</div>
+                          {(line.productCode || line.sku) ? (
+                            <div style={{ font: `500 11px/1.3 ${MONO}`, color: 'var(--ink-3)' }}>
+                              {line.productCode ? `Code ${line.productCode}` : ''}
+                              {line.productCode && line.sku ? ' · ' : ''}
+                              {line.sku ?? ''}
+                            </div>
                           ) : null}
                         </div>
                       </div>
@@ -585,7 +594,7 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
           </div>
         ) : (
           <p style={{ margin: 0, font: `500 13px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
-            No items yet — search SKU above and add.
+            No items yet — search Product Code above and add.
           </p>
         )}
 

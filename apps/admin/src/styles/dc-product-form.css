@@ -146,6 +146,19 @@
   cursor: not-allowed;
 }
 
+/* Native number spinners steal the last digits in tight table cells. */
+.dc-pform-input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.dc-pform-input[type='number']::-webkit-outer-spin-button,
+.dc-pform-input[type='number']::-webkit-inner-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* A field the form has flagged keeps its warning colour while focused. */
 .dc-pform-field--warn .dc-pform-input:focus-visible,
 .dc-pform-field--warn .dc-pform-textarea:focus-visible {

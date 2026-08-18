@@ -18,6 +18,7 @@ export interface PosProduct {
   id: string
   name: string
   sku: string | null
+  productCode?: string | null
   barcode: string | null
   image: string | null
   basePrice: number
@@ -46,10 +47,11 @@ export interface PosSaleResponse {
   }
 }
 
-export function searchPosCatalog(params: { q?: string; sku?: string }) {
+export function searchPosCatalog(params: { q?: string; sku?: string; includeUnpublished?: boolean }) {
   const qs = new URLSearchParams()
   if (params.q?.trim()) qs.set('q', params.q.trim())
   if (params.sku?.trim()) qs.set('sku', params.sku.trim())
+  if (params.includeUnpublished) qs.set('all', '1')
   const suffix = qs.toString()
   return apiFetch<PosCatalogResponse>(`/admin/pos/catalog${suffix ? `?${suffix}` : ''}`)
 }

@@ -920,7 +920,12 @@ export class ProductsController {
   async update(@Param('id') id: string, @Body() body: AdminProductPatchDto, @Req() req: AdminRequest) {
     const existing = await this.prisma.product.findUnique({
       where: { id },
-      select: { storeId: true, schemaMarkup: true, basePrice: true, compareAtPrice: true },
+      select: {
+        storeId: true,
+        schemaMarkup: true,
+        basePrice: true,
+        compareAtPrice: true,
+      },
     })
     if (!existing) throw new NotFoundException('Product not found')
     if (req.adminUser?.storeId && existing.storeId !== req.adminUser.storeId) {
@@ -1299,7 +1304,7 @@ export class ProductsController {
       })
     })
 
-    if (body.stock !== undefined) {
+    if (body.stock !== undefined && body.stock !== variant.stock) {
       const reason = body.stockReason?.trim() || 'Admin manual update'
       const detail = body.stockNote?.trim()
       const note = detail ? `${reason}: ${detail}` : reason
@@ -1450,17 +1455,17 @@ export class ProductsController {
   ) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      select: { sku: true, storeId: true },
+      select: { sku: true, barcode: true, storeId: true },
     })
     if (!product) throw new NotFoundException('Product not found')
     if (req.adminUser?.storeId && product.storeId !== req.adminUser.storeId) {
       throw new NotFoundException('Product not found')
     }
 
-    const sku = product.sku?.trim()
-    if (!sku) {
+    const code = product.barcode?.trim() ?? product.sku?.trim()
+    if (!code) {
       throw new BadRequestException(
-        'Product has no SKU yet — set a SKU before generating a barcode',
+        'Product has no barcode or SKU to encode — add a variant first, then print stickers',
       )
     }
 
@@ -1470,10 +1475,46 @@ export class ProductsController {
     }
 
     const barcode = await this.productAdvanced.generateBarcode(
-      sku,
+      code,
       fmt as 'CODE128' | 'EAN13' | 'EAN8',
     )
     return { barcode }
+  }
+
+  @Get(':id/inventory')
+  async inventoryLog(
+    @Param('id') id: string,
+    @Query('variantId') variantId: string | undefined,
+    @Query('limit') limit: string | undefined,
+    @Req() req: AdminRequest,
+  ) {
+    await this.assertOwnedProduct(id, req)
+    const take = Math.min(Math.max(Number(limit) || 20, 1), 100)
+    const items = await this.prisma.inventoryLog.findMany({
+      where: {
+        productId: id,
+        ...(variantId?.trim() ? { variantId: variantId.trim() } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+      include: {
+        variant: { select: { id: true, size: true, color: true, colorName: true } },
+      },
+    })
+    return {
+      items: items.map((row) => ({
+        id: row.id,
+        createdAt: row.createdAt,
+        action: row.action,
+        quantity: row.quantity,
+        stockBefore: row.stockBefore,
+        stockAfter: row.stockAfter,
+        note: row.note,
+        variantId: row.variantId,
+        size: row.variant?.size ?? null,
+        color: row.variant?.colorName ?? row.variant?.color ?? null,
+      })),
+    }
   }
 
   @Get(':id/versions')

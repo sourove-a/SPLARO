@@ -334,6 +334,29 @@ export function fetchProductBarcode(id: string, format = 'CODE128') {
   )
 }
 
+export interface ProductInventoryEntry {
+  id: string
+  createdAt: string
+  action: string
+  quantity: number
+  stockBefore: number
+  stockAfter: number
+  note: string | null
+  variantId: string | null
+  size: string | null
+  color: string | null
+}
+
+export function fetchProductInventory(id: string, params?: { variantId?: string; limit?: number }) {
+  const qs = new URLSearchParams()
+  if (params?.variantId?.trim()) qs.set('variantId', params.variantId.trim())
+  if (params?.limit) qs.set('limit', String(params.limit))
+  const suffix = qs.toString()
+  return apiFetch<{ items: ProductInventoryEntry[] }>(
+    `/admin/products/${id}/inventory${suffix ? `?${suffix}` : ''}`,
+  )
+}
+
 export interface ProductVersionEntry {
   id: string
   version: number

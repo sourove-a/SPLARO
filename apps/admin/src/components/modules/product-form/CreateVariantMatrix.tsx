@@ -158,7 +158,6 @@ export function CreateVariantMatrix({
   defaultStock,
   onDefaultStockChange,
   basePrice,
-  onBasePriceChange,
   compareAtPrice,
   productBarcode,
   onProductBarcodeChange,
@@ -176,7 +175,6 @@ export function CreateVariantMatrix({
   defaultStock: string
   onDefaultStockChange: (next: string) => void
   basePrice: string
-  onBasePriceChange: (next: string) => void
   compareAtPrice: string
   productBarcode: string
   onProductBarcodeChange: (next: string) => void
@@ -329,13 +327,13 @@ export function CreateVariantMatrix({
     patch(key, 'stock', String(Math.max(0, current + delta)))
   }
 
-  const applyFieldToColour = (colorId: string, field: 'price' | 'stock') => {
+  const applyFieldToColour = (colorId: string, field: 'stock') => {
     const firstSize = sizeList[0]
     if (!firstSize) return
-    const fallback = field === 'stock' ? defaultStock || '10' : basePrice
+    const fallback = defaultStock || '10'
     const value = resolved[rowKey(colorId, firstSize)]?.[field] || fallback
     if (!String(value).trim()) {
-      toastFail(field === 'price' ? 'Set a price in step 2 first.' : 'Set stock in step 2 first.')
+      toastFail('Set stock in step 2 first.')
       return
     }
     setDrafts((prev) => {
@@ -351,11 +349,10 @@ export function CreateVariantMatrix({
       }
       return next
     })
-    toastOk(field === 'price' ? 'Same price on this colour' : 'Same stock on this colour')
+    toastOk('Same stock on this colour')
   }
 
   const applyStockToColour = (colorId: string) => applyFieldToColour(colorId, 'stock')
-  const applyPriceToColour = (colorId: string) => applyFieldToColour(colorId, 'price')
 
   const printStickers = () => {
     printVariantStickers(
@@ -398,7 +395,7 @@ export function CreateVariantMatrix({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <span style={stepLabel}>1 · Sizes{sizeDeptKey !== 'default' ? ` · ${deptHint}` : ''}</span>
         <p style={{ margin: 0, font: `400 12.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
-          Tap the sizes this product actually has. Menu (Men / Kids / Footwear) changes the chips.
+          Tap the sizes this product actually has. Start with the core size run; you can add extra sizes below if this item needs them.
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {sizeChips.map((sz) => (
@@ -444,7 +441,7 @@ export function CreateVariantMatrix({
         </div>
         {sizeList.length === 0 ? (
           <span style={{ font: `500 12.5px/1.4 ${FONT}`, color: 'var(--warn)' }}>
-            Select at least one size.
+            Select at least one size to unlock the variant preview table.
           </span>
         ) : (
           <span style={{ font: `500 12px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
@@ -455,11 +452,11 @@ export function CreateVariantMatrix({
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <span style={stepLabel}>2 · Same for every {sizeless ? 'colour' : 'size'}</span>
+        <span style={stepLabel}>2 · Same stock every {sizeless ? 'colour' : 'size'}</span>
         <p style={{ margin: 0, font: `400 12.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
           {skuIdentity
-            ? 'Fill price and stock. SKU is built from category, model, colour and size; barcodes are issued on save.'
-            : 'Fill these four. Table below copies them — SKU/barcode get -S -M -L on the end.'}
+            ? 'Price comes from Main / Sale above. Set stock here. SKU and barcode are issued on save.'
+            : 'Price comes from Main / Sale above. Stock (and SKU/barcode if you type them) copy into every row.'}
         </p>
         <div
           style={{
@@ -468,14 +465,6 @@ export function CreateVariantMatrix({
             gap: 10,
           }}
         >
-          <DcField label="Price · ৳">
-            <DcInput
-              mono
-              value={basePrice}
-              onChange={(e) => onBasePriceChange(e.target.value)}
-              placeholder="3390"
-            />
-          </DcField>
           <DcField label="Stock each size">
             <DcInput
               mono
@@ -495,14 +484,16 @@ export function CreateVariantMatrix({
               />
             </DcField>
           )}
-          <DcField label="Barcode · optional">
-            <DcInput
-              mono
-              value={productBarcode}
-              onChange={(e) => onProductBarcodeChange(e.target.value)}
-              placeholder="Optional"
-            />
-          </DcField>
+          {skuIdentity ? null : (
+            <DcField label="Barcode · optional">
+              <DcInput
+                mono
+                value={productBarcode}
+                onChange={(e) => onProductBarcodeChange(e.target.value)}
+                placeholder="Optional"
+              />
+            </DcField>
+          )}
         </div>
         {exampleSkus.length > 0 ? (
           <span style={{ font: `500 12px/1.45 ${MONO}`, color: 'var(--violet)' }}>
@@ -562,26 +553,10 @@ export function CreateVariantMatrix({
           ) : null}
         </span>
         <p style={{ margin: 0, font: `400 12.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
-          Stock +/− here if one size is different. SKU/price follow step 2 unless you type in a row.
+          Stock +/− here if one size is different. Price follows Main / Sale above.
         </p>
         {!multiColour && sizeList.length > 0 ? (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => applyPriceToColour(colourRows[0]!.id)}
-              style={{
-                height: 28,
-                padding: '0 10px',
-                borderRadius: 7,
-                border: '1px solid var(--line)',
-                background: 'var(--surface)',
-                color: 'var(--ink-2)',
-                cursor: 'pointer',
-                font: `600 11.5px/1 ${FONT}`,
-              }}
-            >
-              Same price all sizes
-            </button>
             <button
               type="button"
               onClick={() => applyStockToColour(colourRows[0]!.id)}
@@ -603,7 +578,7 @@ export function CreateVariantMatrix({
 
         {sizeList.length === 0 ? (
           <span style={{ font: `400 12.5px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
-            Select sizes in step 1 to see rows.
+            Name at least one colour above, then select sizes in step 1 to see rows here.
           </span>
         ) : (
           <div style={{ overflow: 'auto', maxHeight: 420, border: '1px solid var(--line)', borderRadius: 12 }}>
@@ -631,7 +606,6 @@ export function CreateVariantMatrix({
                       showBarcode={showBarcode}
                       onBump={bumpStock}
                       onApplyStock={applyStockToColour}
-                      onApplyPrice={applyPriceToColour}
                       onPatch={patch}
                     />
                   )
@@ -654,7 +628,6 @@ function ColourBlock({
   showBarcode,
   onBump,
   onApplyStock,
-  onApplyPrice,
   onPatch,
 }: {
   color: CreateColourRow
@@ -665,7 +638,6 @@ function ColourBlock({
   showBarcode: boolean
   onBump: (key: string, delta: number) => void
   onApplyStock: (colorId: string) => void
-  onApplyPrice: (colorId: string) => void
   onPatch: (key: string, field: LockField, value: string) => void
 }) {
   const cols = showBarcode ? 5 : 4
@@ -695,9 +667,6 @@ function ColourBlock({
                 }}
               />
               <span style={{ font: `600 12.5px/1 ${FONT}`, color: 'var(--ink)' }}>{label}</span>
-              <button type="button" onClick={() => onApplyPrice(color.id)} style={chipBtn}>
-                Same price all sizes
-              </button>
               <button type="button" onClick={() => onApplyStock(color.id)} style={chipBtn}>
                 Same stock all sizes
               </button>
@@ -800,9 +769,10 @@ function ColourBlock({
                 </button>
                 <DcInput
                   mono
+                  inputMode="numeric"
                   value={row?.stock ?? '0'}
-                  onChange={(e) => onPatch(key, 'stock', e.target.value)}
-                  style={{ height: 32, width: 56, textAlign: 'right' }}
+                  onChange={(e) => onPatch(key, 'stock', e.target.value.replace(/[^\d]/g, ''))}
+                  style={{ height: 32, width: 72, minWidth: 72, padding: '0 8px', textAlign: 'right' }}
                 />
                 <button
                   type="button"

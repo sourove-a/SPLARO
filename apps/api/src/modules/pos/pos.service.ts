@@ -42,10 +42,16 @@ export class PosService {
     @Optional() private readonly profitLoss: ProfitLossService,
   ) {}
 
-  async searchCatalog(storeId: string | undefined, query?: string, sku?: string) {
+  async searchCatalog(
+    storeId: string | undefined,
+    query?: string,
+    sku?: string,
+    includeUnpublished = false,
+  ) {
     const sid = await resolveStoreId(this.prisma, storeId)
     const q = query?.trim()
     const skuQ = sku?.trim()
+    const live = includeUnpublished ? {} : { isPublished: true }
 
     const catalogInclude = {
       images: { orderBy: { position: 'asc' as const }, take: 1 },
@@ -69,7 +75,7 @@ export class PosService {
             { sku: { equals: skuQ, mode: 'insensitive' } },
             { barcode: { equals: skuQ, mode: 'insensitive' } },
           ],
-          product: { storeId: sid, isPublished: true },
+          product: { storeId: sid, ...live },
           isActive: true,
         },
         include: {
@@ -86,7 +92,7 @@ export class PosService {
       const product = await this.prisma.product.findFirst({
         where: {
           storeId: sid,
-          isPublished: true,
+          ...live,
           OR: [
             { sku: { equals: skuQ, mode: 'insensitive' } },
             { barcode: { equals: skuQ, mode: 'insensitive' } },
@@ -105,7 +111,7 @@ export class PosService {
 
     const where: Prisma.ProductWhereInput = {
       storeId: sid,
-      isPublished: true,
+      ...live,
       ...(q
         ? {
             OR: [
@@ -378,6 +384,7 @@ export class PosService {
       name: string
       basePrice: Prisma.Decimal
       sku: string | null
+      productCode: string | null
       barcode: string | null
       images: { url: string }[]
       variants: {
@@ -398,6 +405,7 @@ export class PosService {
       id: product.id,
       name: product.name,
       sku: product.sku,
+      productCode: product.productCode,
       barcode: product.barcode,
       image: product.images[0]?.url ?? null,
       basePrice: Number(product.basePrice),
