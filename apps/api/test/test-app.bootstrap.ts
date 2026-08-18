@@ -45,11 +45,11 @@ export function createMockPrisma() {
       findFirst: jest.fn().mockImplementation(
         async (args?: { where?: { email?: string; isActive?: boolean; id?: string } }) => {
           const email = args?.where?.email?.toLowerCase()
-          if (email && email !== 'admin@splaro.co') return null
+          if (email && email !== 'splaro.bd@gmail.com') return null
           if (args?.where?.id && args.where.id !== 'admin-1') return null
           return {
             id: 'admin-1',
-            email: 'admin@splaro.co',
+            email: 'splaro.bd@gmail.com',
             firstName: 'Admin',
             lastName: 'User',
             passwordHash: null,

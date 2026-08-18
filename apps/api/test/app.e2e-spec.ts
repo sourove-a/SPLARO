@@ -91,7 +91,7 @@ describe('SPLARO API (e2e)', () => {
   it('POST /api/v1/admin/auth/login — requires Telegram token', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/v1/admin/auth/login')
-      .send({ email: 'admin@splaro.co' })
+      .send({ email: 'splaro.bd@gmail.com' })
       .expect(401)
 
     expect(res.body.statusCode).toBe(401)
