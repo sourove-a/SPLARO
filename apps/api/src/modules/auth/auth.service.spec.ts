@@ -103,7 +103,7 @@ describe('AuthService role-split login', () => {
     return { service, prisma, email, loginTokens }
   }
 
-  it('resolves telegram method for SUPER_ADMIN', async () => {
+  it('resolves password method for invited SUPER_ADMIN when email is not the owner', async () => {
     const { service } = buildService({
       staff: {
         userId: 'u1',
@@ -113,7 +113,7 @@ describe('AuthService role-split login', () => {
       },
     })
     await expect(service.resolveLoginMethod('ceo@example.com')).resolves.toEqual({
-      method: 'telegram',
+      method: 'password',
       email: 'ceo@example.com',
       exists: true,
     })
@@ -137,7 +137,7 @@ describe('AuthService role-split login', () => {
     })
   })
 
-  it('resolves telegram method for ADMIN', async () => {
+  it('resolves password method for ADMIN', async () => {
     const { service } = buildService({
       staff: {
         userId: 'u-admin',
@@ -147,13 +147,13 @@ describe('AuthService role-split login', () => {
       },
     })
     await expect(service.resolveLoginMethod('admin@example.com')).resolves.toEqual({
-      method: 'telegram',
+      method: 'password',
       email: 'admin@example.com',
       exists: true,
     })
   })
 
-  it('rejects Super Admin password login', async () => {
+  it('allows invited Super Admin password login when not the owner email', async () => {
     const { service } = buildService({
       staff: {
         userId: 'u1',
@@ -166,7 +166,10 @@ describe('AuthService role-split login', () => {
     })
     await expect(
       service.loginWithPassword('ceo@example.com', 'password12', 'splaro', { ipAddress: '127.0.0.1' }),
-    ).rejects.toBeInstanceOf(ForbiddenException)
+    ).resolves.toMatchObject({
+      email: 'ceo@example.com',
+      role: 'SUPER_ADMIN',
+    })
   })
 
   it('rejects staff token login', async () => {
@@ -272,7 +275,7 @@ describe('AuthService resolveAdminStaff missing', () => {
       { sendForStore: jest.fn() } as never,
     )
     await expect(service.resolveLoginMethod('nobody@example.com')).resolves.toEqual({
-      method: 'telegram',
+      method: 'password',
       email: 'nobody@example.com',
       exists: false,
     })

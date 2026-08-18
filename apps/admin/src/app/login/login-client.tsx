@@ -337,11 +337,11 @@ export default function AdminLoginPage() {
       : step === 'token'
         ? {
             title: 'Check Telegram',
-            subtitle: 'Enter the 8-character code sent to your linked personal chat.',
+            subtitle: 'Owner sign-in uses the 8-character Telegram code sent to the linked personal chat.',
           }
         : {
             title: 'Enter your password',
-            subtitle: 'Manager and Editor accounts continue with their account password.',
+            subtitle: 'Invited Admin, Manager, and Editor accounts continue with their account password.',
           }
 
   const emailFields = (
@@ -367,7 +367,7 @@ export default function AdminLoginPage() {
       </label>
 
       <p className="admin-auth-hint">
-        No method choice needed. Account policy selects Telegram code or password after email check.
+        Owner email uses Telegram. Invited Admin, Manager, and Editor accounts use password.
       </p>
 
       {error ? (
@@ -396,7 +396,7 @@ export default function AdminLoginPage() {
         </span>
         <span>
           <strong>Telegram verification</strong>
-          <small>Owner and Admin access</small>
+          <small>Owner access only</small>
         </span>
       </div>
 
@@ -490,7 +490,7 @@ export default function AdminLoginPage() {
         </span>
         <span>
           <strong>Password verification</strong>
-          <small>Manager and Editor access</small>
+          <small>Invited Admin, Manager, and Editor</small>
         </span>
       </div>
 

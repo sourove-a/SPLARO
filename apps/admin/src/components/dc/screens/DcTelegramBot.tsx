@@ -41,7 +41,9 @@ const ALERT_TOGGLES: Array<{
     | 'notifyCourier'
     | 'notifyPayments'
     | 'notifyStock'
+    | 'notifyRMA'
     | 'reportDaily'
+    | 'reportWeekly'
     | 'notifyCustomers'
   >
   label: string
@@ -68,9 +70,19 @@ const ALERT_TOGGLES: Array<{
     sub: 'once a day, batched digest',
   },
   {
+    key: 'notifyRMA',
+    label: 'RMA / returns',
+    sub: 'returns and exchange alerts to ops',
+  },
+  {
     key: 'reportDaily',
     label: 'Daily closing summary',
     sub: 'after the closing is locked',
+  },
+  {
+    key: 'reportWeekly',
+    label: 'Weekly summary',
+    sub: 'batched weekly ops summary',
   },
   {
     key: 'notifyCustomers',
@@ -202,7 +214,9 @@ function DcTelegramBotBody() {
       notifyCourier: data.notifyCourier,
       notifyStock: data.notifyStock,
       notifyReviews: data.notifyReviews,
+      notifyRMA: data.notifyRMA,
       reportDaily: data.reportDaily,
+      reportWeekly: data.reportWeekly,
       reportTime: data.reportTime || '09:00',
       [key]: next,
       requireTokenConfigured: true as const,
@@ -218,7 +232,9 @@ function DcTelegramBotBody() {
           notifyCourier: payload.notifyCourier,
           notifyStock: payload.notifyStock,
           notifyReviews: payload.notifyReviews,
+          notifyRMA: payload.notifyRMA,
           reportDaily: payload.reportDaily,
+          reportWeekly: payload.reportWeekly,
           reportTime: payload.reportTime,
           [key]: next,
         } as never),
@@ -344,6 +360,23 @@ function DcTelegramBotBody() {
                   ? 'set in server .env — paste here to manage it from admin'
                   : 'saved from this screen'
               }
+            />
+            <Kpi
+              label="Transport"
+              value={health.data?.transportMode ?? 'disabled'}
+              sub={
+                health.data?.webhookRegistered
+                  ? 'webhook registered'
+                  : health.data?.transportMode === 'polling'
+                    ? 'polling active'
+                    : 'needs verification'
+              }
+            />
+            <Kpi
+              label="Last delivery"
+              value={health.data?.lastDeliveryStatus ?? 'none'}
+              sub={health.data?.lastDeliveryError ?? health.data?.lastTestMessage ?? 'no recent error'}
+              color={health.data?.lastDeliveryStatus === 'failed' ? 'var(--warn)' : 'var(--ink)'}
             />
           </div>
 

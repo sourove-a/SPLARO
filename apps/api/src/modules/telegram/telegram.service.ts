@@ -13,13 +13,11 @@ import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { InvoiceService } from '../invoices/invoice.service'
 import { CourierService } from '../courier/courier.service'
+import { OrderStatusService } from '../orders/order-status.service'
 import { AgentService } from '../agent'
 import { AuthService } from '../auth/auth.service'
 import { AdminLoginTokenService } from '../auth/admin-login-token.service'
 import { TelegramIntegrationService } from '../integrations/telegram-integration.service'
-import { OrderEventsService } from '../orders/order-events.service'
-import { assertOrderStatusTransition, STOCK_RESTORING_STATUSES } from '../../common/order-status.util'
-import { restoreOrderStock } from '../../common/order-stock.util'
 import TelegramBot from 'node-telegram-bot-api'
 import type {
   Chat,
@@ -41,17 +39,27 @@ import {
   BOT_COMMANDS,
   BUTTON_ROUTES,
   TG_CALLBACK,
+  aiPromptForAction,
+  aiPromptLabel,
+  deliveryDiagnosticsKeyboard,
   formatLoginTokenDisplay,
   formatTelegramAiReply,
   formatWhatsAppUrl,
+  inlineAdminMenu,
+  inlineAiMenu,
+  inlineCourierMenu,
   inlineFinanceMenu,
+  inlineInventoryMenu,
   inlineMainMenu,
   inlineOrdersMenu,
+  linkedAdminsKeyboard,
   loginCopyKeyboard,
-  mainReplyKeyboard,
   menuMessage,
+  orderListKeyboard,
   orderActionKeyboard,
+  parseListCallback,
   parseOrderCallback,
+  premiumHeader,
   welcomeMessage,
 } from './telegram-ui'
 
@@ -79,6 +87,7 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     @Inject(InvoiceService) private readonly invoices: InvoiceService,
     @Inject(forwardRef(() => CourierService))
     private readonly courier: CourierService,
+    private readonly orderStatus: OrderStatusService,
     @Inject(forwardRef(() => TelegramIntegrationService))
     private readonly telegramIntegration: TelegramIntegrationService,
     private readonly moduleRef: ModuleRef,
@@ -414,9 +423,19 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
       return { confirmed: false, invoiceSent: false }
     }
 
-    let nextStatus: typeof order.status
     try {
-      nextStatus = assertOrderStatusTransition(order.status, 'CONFIRMED')
+      await this.orderStatus.applyStatusChange(
+        order.id,
+        'CONFIRMED',
+        telegramUserId ? 'Confirmed via Telegram bot' : 'Confirmed via Telegram',
+        storeId,
+      )
+      await this.bot?.sendMessage(targetChat, `✅ Order <b>${invoiceNumber}</b> confirmed`, {
+        parse_mode: 'HTML',
+      })
+      if (telegramUserId) {
+        await this.logCommand(targetChat, `/confirm_order ${invoiceNumber}`, telegramUserId)
+      }
     } catch (err) {
       const detail =
         err instanceof BadRequestException
@@ -434,44 +453,6 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
       return { confirmed: false, invoiceSent: false }
     }
 
-    const statusChanged = order.status !== nextStatus
-    if (statusChanged) {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.order.update({
-          where: { id: order.id },
-          data: { status: nextStatus, confirmedAt: new Date() },
-        })
-        await tx.orderStatusHistory.create({
-          data: {
-            orderId: order.id,
-            status: nextStatus,
-            note: telegramUserId ? 'Confirmed via Telegram bot' : 'Confirmed via Telegram',
-          },
-        })
-      })
-
-      const orderEvents = this.moduleRef.get(OrderEventsService, { strict: false })
-      void orderEvents?.onStatusChanged(
-        storeId,
-        order.id,
-        nextStatus,
-        'Confirmed via Telegram',
-      )
-
-      await this.bot?.sendMessage(targetChat, `✅ Order <b>${invoiceNumber}</b> confirmed`, {
-        parse_mode: 'HTML',
-      })
-      if (telegramUserId) {
-        await this.logCommand(targetChat, `/confirm_order ${invoiceNumber}`, telegramUserId)
-      }
-    } else {
-      await this.bot?.sendMessage(
-        targetChat,
-        `ℹ️ Order <b>${invoiceNumber}</b> is already confirmed — resending invoice`,
-        { parse_mode: 'HTML' },
-      )
-    }
-
     const invoice = await this.sendInvoiceToChat(storeId, targetChat, invoiceNumber)
     if (!invoice.sent) {
       await this.bot?.sendMessage(
@@ -481,7 +462,7 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     }
 
     return {
-      confirmed: statusChanged || order.status === 'CONFIRMED',
+      confirmed: true,
       invoiceSent: invoice.sent,
       ...(invoice.format ? { format: invoice.format } : {}),
     }
@@ -589,11 +570,11 @@ Status: Ready to send invoices
 
     const msg = `
 ${icon} <b>${label}</b>
-
-Order: <code>${input.invoiceNumber}</code>
-Gateway: ${input.gateway ?? 'Online payment'}
-
-<i>Track: send only <code>${input.invoiceNumber}</code> to this bot.</i>
+━━━━━━━━━━━━━━━━━━━━
+📋 Order: <code>${input.invoiceNumber}</code>
+💳 Gateway: ${input.gateway ?? 'Online payment'}
+━━━━━━━━━━━━━━━━━━━━
+<i>Send <code>${input.invoiceNumber}</code> to track</i>
 `.trim()
 
     await this.sendToStore(storeId, msg)
@@ -697,8 +678,8 @@ ${items}
     const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
     if (!config?.notifyStock) return
 
-    const list = items.map((i) => `• ${i.name} (${i.sku}): <b>${i.stock} left</b>`).join('\n')
-    const msg = `⚠️ <b>LOW STOCK ALERT</b>\n\n${list}`
+    const list = items.map((i) => `  🔸 ${i.name} (<code>${i.sku}</code>): <b>${i.stock} left</b>`).join('\n')
+    const msg = `🚨 <b>Low Stock Alert</b>\n━━━━━━━━━━━━━━━━━━━━\n${list}\n━━━━━━━━━━━━━━━━━━━━\n<i>Restock soon to avoid stockouts</i>`
     await this.sendToStore(storeId, msg)
   }
 
@@ -711,13 +692,13 @@ ${items}
     if (!config?.notifyCourier) return
 
     const msg = `
-🚚 <b>COURIER BOOKING FAILED</b>
-
+❌ <b>Courier Booking Failed</b>
+━━━━━━━━━━━━━━━━━━━━
 📋 Invoice: <code>${order.invoiceNumber}</code>
 🏢 Provider: ${order.provider}
-❌ Error: ${order.error}
-
-<i>Order added to retry queue. Check admin for manual retry.</i>
+⚠️ Error: ${order.error}
+━━━━━━━━━━━━━━━━━━━━
+<i>Added to retry queue · Check admin panel</i>
 `.trim()
 
     await this.sendToStore(storeId, msg)
@@ -740,10 +721,12 @@ ${items}
         : ''
 
     const msg = `
-🚚 <b>Courier Booked</b>
-
+✅ <b>Courier Booked</b>
+━━━━━━━━━━━━━━━━━━━━
 📋 Invoice: <code>${order.invoiceNumber}</code>
 🏢 Provider: ${order.provider}${tracking}
+━━━━━━━━━━━━━━━━━━━━
+<i>Parcel ready for pickup</i>
 `.trim()
 
     await this.sendToStore(storeId, msg)
@@ -765,12 +748,16 @@ ${items}
     ])
 
     const msg = `
-📊 <b>DAILY REPORT — ${today.toLocaleDateString('en-BD')}</b>
+┌──────────────────────────┐
+│  📊 <b>Daily Report</b>              │
+│  ${today.toLocaleDateString('en-BD')}           │
+└──────────────────────────┘
 
-📦 Orders: <b>${orders}</b>
+📦 Orders today: <b>${orders}</b>
 💰 Revenue: <b>${formatBDT(Number(revenue._sum.total ?? 0))}</b>
 
-<i>Check admin panel for full analytics.</i>
+━━━━━━━━━━━━━━━━━━━━
+<i>Full analytics on admin panel</i>
 `.trim()
 
     await this.sendToStore(storeId, msg)
@@ -971,6 +958,15 @@ ${items}
         return
       }
 
+      const listAction = parseListCallback(data)
+      if (listAction) {
+        await this.bot?.answerCallbackQuery(query.id)
+        if (listAction.kind === 'orders') {
+          await this.executeOrdersList(ctx, listAction.page)
+        }
+        return
+      }
+
       if (data === 'agent:confirm' || data === 'agent:cancel') {
         await this.bot?.answerCallbackQuery(query.id, {
           text: data === 'agent:confirm' ? 'Confirming…' : 'Cancelled',
@@ -1036,10 +1032,6 @@ ${items}
       welcomeMessage({ name: firstName, isGroup: ctx.isGroup, storeLinked: linked }),
       { reply_markup: inlineMainMenu() },
     )
-    await this.bot?.sendMessage(ctx.chatId, '⌨️ <b>Keyboard shortcuts</b> — use buttons below anytime.', {
-      parse_mode: 'HTML',
-      reply_markup: mainReplyKeyboard(),
-    })
   }
 
   private async executeAction(
@@ -1053,17 +1045,89 @@ ${items}
         await this.sendWelcome(ctx, firstName ?? msg.from?.first_name)
         break
       case TG_CALLBACK.MENU_ORDERS:
-        await this.bot?.sendMessage(ctx.chatId, '📦 <b>Orders Hub</b>\nChoose an action:', {
-          parse_mode: 'HTML',
-          reply_markup: inlineOrdersMenu(),
-        })
+        await this.bot?.sendMessage(
+          ctx.chatId,
+          `${premiumHeader('Orders Hub', 'Daily order flow, queues, sales, and drill-down lists.')}`,
+          {
+            parse_mode: 'HTML',
+            reply_markup: inlineOrdersMenu(),
+          },
+        )
+        break
+      case TG_CALLBACK.MENU_COURIER:
+        await this.bot?.sendMessage(
+          ctx.chatId,
+          `${premiumHeader('Courier Hub', 'Booking status, pending queue, delivery logs, and quick actions.')}`,
+          {
+            parse_mode: 'HTML',
+            reply_markup: inlineCourierMenu(),
+          },
+        )
         break
       case TG_CALLBACK.MENU_FINANCE:
         if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'FINANCE_STAFF', 'PARTNER']))) return
-        await this.bot?.sendMessage(ctx.chatId, '💹 <b>Finance Hub</b>\nChoose an action:', {
-          parse_mode: 'HTML',
-          reply_markup: inlineFinanceMenu(),
-        })
+        await this.bot?.sendMessage(
+          ctx.chatId,
+          `${premiumHeader('Finance Hub', 'Revenue, profit, expenses, and reporting shortcuts.')}`,
+          {
+            parse_mode: 'HTML',
+            reply_markup: inlineFinanceMenu(),
+          },
+        )
+        break
+      case TG_CALLBACK.MENU_INVENTORY:
+        if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+        await this.bot?.sendMessage(
+          ctx.chatId,
+          `${premiumHeader('Inventory Desk', 'Low stock watch, SKU lookup, and stock health snapshots.')}`,
+          {
+            parse_mode: 'HTML',
+            reply_markup: inlineInventoryMenu(),
+          },
+        )
+        break
+      case TG_CALLBACK.MENU_ADMIN:
+        await this.bot?.sendMessage(
+          ctx.chatId,
+          `${premiumHeader('Admin Desk', 'Login delivery, linked admins, chat diagnostics, and bot health.')}`,
+          {
+            parse_mode: 'HTML',
+            reply_markup: inlineAdminMenu(),
+          },
+        )
+        break
+      case TG_CALLBACK.MENU_AI:
+        if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+        await this.bot?.sendMessage(
+          ctx.chatId,
+          `${premiumHeader('AI Assistant', 'Run prepared ops prompts or type your own question below.')}`,
+          {
+            parse_mode: 'HTML',
+            reply_markup: inlineAiMenu(),
+          },
+        )
+        break
+      case TG_CALLBACK.STATUS_SUMMARY:
+        await this.executeStatus(ctx)
+        break
+      case TG_CALLBACK.COURIER_SNAPSHOT:
+        await this.executeCourierSnapshot(ctx)
+        break
+      case TG_CALLBACK.INVENTORY_SNAPSHOT:
+        await this.executeInventorySnapshot(ctx)
+        break
+      case TG_CALLBACK.INVENTORY_LOOKUP_HELP:
+        await this.executeInventoryLookupHelp(ctx)
+        break
+      case TG_CALLBACK.DELIVERY_DIAGNOSTICS:
+        await this.executeDeliveryDiagnostics(ctx)
+        break
+      case TG_CALLBACK.LINKED_ADMINS:
+        await this.executeLinkedAdmins(ctx)
+        break
+      case TG_CALLBACK.ORDERS_LIST:
+        if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+        await this.executeOrdersList(ctx, 0)
         break
       case TG_CALLBACK.ORDERS_TODAY:
         if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
@@ -1101,6 +1165,13 @@ ${items}
         if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'FINANCE_STAFF']))) return
         await this.bot?.sendMessage(ctx.chatId, '📊 Google Sheets sync queued. Check admin Sync Logs.')
         await this.logCommand(ctx.chatId, '/sync_sheets', ctx.userId)
+        break
+      case TG_CALLBACK.AI_PROMPT_SALES:
+      case TG_CALLBACK.AI_PROMPT_RISK:
+      case TG_CALLBACK.AI_PROMPT_STOCK:
+        if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+        await this.bot?.sendMessage(ctx.chatId, `Running ${aiPromptLabel(action)}…`)
+        await this.replyAgentChat(ctx.chatId, aiPromptForAction(action) ?? '', ctx.userId)
         break
       case TG_CALLBACK.API_HEALTH:
         await this.executeApiHealth(ctx)
@@ -1140,7 +1211,11 @@ ${items}
   private async executeTodayOrders(ctx: TelegramCtx): Promise<void> {
     const today = new Date(); today.setHours(0, 0, 0, 0)
     const count = await this.prisma.order.count({ where: { storeId: ctx.storeId, createdAt: { gte: today } } })
-    await this.bot?.sendMessage(ctx.chatId, `📦 <b>Today's Orders</b>\n\nCount: <b>${count}</b>`, { parse_mode: 'HTML' })
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `📦 <b>Today's Orders</b>\n━━━━━━━━━━━━━━━━━━━━\nCount: <b>${count}</b>\nStatus: ${count > 0 ? 'Live order flow detected' : 'No new orders yet'}`,
+      { parse_mode: 'HTML', reply_markup: inlineOrdersMenu() },
+    )
     await this.logCommand(ctx.chatId, '/today_orders', ctx.userId)
   }
 
@@ -1153,15 +1228,19 @@ ${items}
     })
     await this.bot?.sendMessage(
       ctx.chatId,
-      `💰 <b>Today's Sales</b>\n\nOrders: <b>${agg._count}</b>\nRevenue: <b>${formatBDT(Number(agg._sum.total ?? 0))}</b>`,
-      { parse_mode: 'HTML' },
+      `💰 <b>Today's Sales</b>\n━━━━━━━━━━━━━━━━━━━━\nOrders: <b>${agg._count}</b>\nRevenue: <b>${formatBDT(Number(agg._sum.total ?? 0))}</b>`,
+      { parse_mode: 'HTML', reply_markup: inlineOrdersMenu() },
     )
     await this.logCommand(ctx.chatId, '/today_sales', ctx.userId)
   }
 
   private async executePendingOrders(ctx: TelegramCtx): Promise<void> {
     const count = await this.prisma.order.count({ where: { storeId: ctx.storeId, status: 'PENDING' } })
-    await this.bot?.sendMessage(ctx.chatId, `⏳ <b>Pending Orders</b>\n\nCount: <b>${count}</b>`, { parse_mode: 'HTML' })
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `⏳ <b>Pending Orders</b>\n━━━━━━━━━━━━━━━━━━━━\nCount: <b>${count}</b>\nAction: ${count > 0 ? 'Review confirmations / courier' : 'Queue is clear'}`,
+      { parse_mode: 'HTML', reply_markup: inlineOrdersMenu() },
+    )
   }
 
   private async executeLowStock(ctx: TelegramCtx): Promise<void> {
@@ -1172,13 +1251,17 @@ ${items}
       orderBy: { stock: 'asc' },
     })
     if (variants.length === 0) {
-      await this.bot?.sendMessage(ctx.chatId, '✅ No low stock items found')
+      await this.bot?.sendMessage(ctx.chatId, '✅ No low stock items found', { reply_markup: inlineOrdersMenu() })
       return
     }
     const list = variants
       .map((v) => `• ${v.product.name} (${[v.size, v.color].filter(Boolean).join(' ').trim()}): <b>${v.stock}</b>`)
       .join('\n')
-    await this.bot?.sendMessage(ctx.chatId, `⚠️ <b>Low Stock (${variants.length})</b>\n\n${list}`, { parse_mode: 'HTML' })
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `⚠️ <b>Low Stock (${variants.length})</b>\n━━━━━━━━━━━━━━━━━━━━\n${list}`,
+      { parse_mode: 'HTML', reply_markup: inlineOrdersMenu() },
+    )
   }
 
   private async executeDeliveredToday(ctx: TelegramCtx): Promise<void> {
@@ -1186,7 +1269,11 @@ ${items}
     const count = await this.prisma.order.count({
       where: { storeId: ctx.storeId, status: 'DELIVERED', deliveredAt: { gte: today } },
     })
-    await this.bot?.sendMessage(ctx.chatId, `✅ <b>Delivered Today</b>\n\nCount: <b>${count}</b>`, { parse_mode: 'HTML' })
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `✅ <b>Delivered Today</b>\n━━━━━━━━━━━━━━━━━━━━\nCount: <b>${count}</b>`,
+      { parse_mode: 'HTML', reply_markup: inlineOrdersMenu() },
+    )
   }
 
   private async executeExpensesToday(ctx: TelegramCtx): Promise<void> {
@@ -1198,8 +1285,8 @@ ${items}
     })
     await this.bot?.sendMessage(
       ctx.chatId,
-      `💸 <b>Expenses Today</b>\n\nTotal: <b>${formatBDT(Number(agg._sum.amount ?? 0))}</b>\nEntries: ${agg._count}`,
-      { parse_mode: 'HTML' },
+      `💸 <b>Expenses Today</b>\n━━━━━━━━━━━━━━━━━━━━\nTotal: <b>${formatBDT(Number(agg._sum.amount ?? 0))}</b>\nEntries: ${agg._count}`,
+      { parse_mode: 'HTML', reply_markup: inlineFinanceMenu() },
     )
   }
 
@@ -1213,7 +1300,7 @@ ${items}
     await this.bot?.sendMessage(
       ctx.chatId,
       `${emoji} <b>API Health: ${status}</b>${latest?.responseMs ? `\nResponse: ${latest.responseMs}ms` : ''}\n\n<i>SPLARO API connected</i>`,
-      { parse_mode: 'HTML', reply_markup: inlineMainMenu() },
+      { parse_mode: 'HTML', reply_markup: inlineAdminMenu() },
     )
   }
 
@@ -1405,11 +1492,14 @@ ${items}
       const adminUrl = this.adminLoginUrl()
       const displayCode = formatLoginTokenDisplay(code)
       const htmlMessage =
-        `🔐 <b>SPLARO Admin Login</b>\n\n` +
-        `Email: <code>${email}</code>\n` +
-        `Token: <code>${displayCode}</code>\n\n` +
-        `⏱ Valid <b>10 min</b> · one-time use\n` +
-        `📋 Tap <b>Copy Token</b> → paste as <code>XXXX-XXXX</code> → Verify\n\n` +
+        `┌──────────────────────────┐\n` +
+        `│  🔐 <b>SPLARO Admin Login</b>     │\n` +
+        `└──────────────────────────┘\n\n` +
+        `👤 Email: <code>${email}</code>\n` +
+        `🎟 Token: <code>${displayCode}</code>\n\n` +
+        `⏱ Valid for <b>10 minutes</b> · one-time use\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `📋 Tap <b>Copy Login Token</b> → paste → Verify\n` +
         `<i>${adminUrl}</i>`
       const plainMessage =
         `SPLARO Admin Login\n\n` +
@@ -1615,19 +1705,20 @@ ${items}
 
     await this.bot?.sendMessage(
       ctx.chatId,
-      `${apiEmoji} <b>SPLARO Status</b>\n\nAPI: <b>${apiStatus}</b>${latestHealth?.responseMs ? ` (${latestHealth.responseMs}ms)` : ''}\nBot: ${botOk ? '🟢 Running' : '🔴 Disabled'}\n\n📦 Today: <b>${todayOrders}</b> orders · ${formatBDT(Number(todayRevenue._sum.total ?? 0))}\n⏳ Pending: <b>${pending}</b>`,
+      `${premiumHeader('SPLARO Live Status')}\n${apiEmoji} API: <b>${apiStatus}</b>${latestHealth?.responseMs ? ` (${latestHealth.responseMs}ms)` : ''}\nBot: ${botOk ? 'Running' : 'Disabled'}\n\nOrders today: <b>${todayOrders}</b>\nRevenue: <b>${formatBDT(Number(todayRevenue._sum.total ?? 0))}</b>\nPending: <b>${pending}</b>`,
       { parse_mode: 'HTML', reply_markup: inlineMainMenu() },
     )
     await this.logCommand(ctx.chatId, '/status', ctx.userId)
   }
 
-  private async executeOrdersList(ctx: TelegramCtx): Promise<void> {
+  private async executeOrdersList(ctx: TelegramCtx, page = 0): Promise<void> {
     if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
 
     const orders = await this.prisma.order.findMany({
       where: { storeId: ctx.storeId },
       orderBy: { createdAt: 'desc' },
-      take: 10,
+      skip: Math.max(0, page) * 5,
+      take: 6,
       select: {
         invoiceNumber: true,
         status: true,
@@ -1642,7 +1733,9 @@ ${items}
       return
     }
 
+    const hasMore = orders.length > 5
     const lines = orders
+      .slice(0, 5)
       .map(
         (o) =>
           `• <code>${o.invoiceNumber}</code> · ${o.status.replace(/_/g, ' ')} · ${formatBDT(Number(o.total))}\n  ${o.shippingName}`,
@@ -1651,10 +1744,82 @@ ${items}
 
     await this.bot?.sendMessage(
       ctx.chatId,
-      `📦 <b>Latest orders</b>\n\n${lines}\n\n<i>/order SPL-1001 for details</i>`,
-      { parse_mode: 'HTML' },
+      `${premiumHeader(`Latest Orders · Page ${page + 1}`)}\n${lines}\n\n<i>/order SPL-1001 for details</i>`,
+      { parse_mode: 'HTML', reply_markup: orderListKeyboard(page, hasMore) },
     )
     await this.logCommand(ctx.chatId, '/orders', ctx.userId)
+  }
+
+  private async executeCourierSnapshot(ctx: TelegramCtx): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const [awaitingBooking, liveBooked, deliveredToday] = await Promise.all([
+      this.prisma.order.count({
+        where: { storeId: ctx.storeId, status: { in: ['CONFIRMED', 'PROCESSING'] }, courier: { is: null } },
+      }),
+      this.prisma.order.count({
+        where: { storeId: ctx.storeId, courier: { is: { status: { in: ['BOOKED', 'IN_TRANSIT'] } } } },
+      }),
+      this.prisma.order.count({
+        where: { storeId: ctx.storeId, status: 'DELIVERED', deliveredAt: { gte: today } },
+      }),
+    ])
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `${premiumHeader('Courier Snapshot')}\nAwaiting booking: <b>${awaitingBooking}</b>\nLive booked/in transit: <b>${liveBooked}</b>\nDelivered today: <b>${deliveredToday}</b>\n\n<i>Use /courier SPL-1001 to book by invoice.</i>`,
+      { parse_mode: 'HTML', reply_markup: inlineCourierMenu() },
+    )
+  }
+
+  private async executeInventorySnapshot(ctx: TelegramCtx): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+    const [totalActive, outOfStock, lowStock] = await Promise.all([
+      this.prisma.productVariant.count({
+        where: { product: { storeId: ctx.storeId, isPublished: true }, isActive: true },
+      }),
+      this.prisma.productVariant.count({
+        where: { product: { storeId: ctx.storeId, isPublished: true }, isActive: true, stock: { lte: 0 } },
+      }),
+      this.prisma.productVariant.count({
+        where: { product: { storeId: ctx.storeId, isPublished: true }, isActive: true, stock: { lte: 5 } },
+      }),
+    ])
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `${premiumHeader('Inventory Snapshot')}\nActive variants: <b>${totalActive}</b>\nLow stock (<=5): <b>${lowStock}</b>\nOut of stock: <b>${outOfStock}</b>\n\n<i>Use /stock SKU123 for exact variant lookup.</i>`,
+      { parse_mode: 'HTML', reply_markup: inlineInventoryMenu() },
+    )
+  }
+
+  private async executeInventoryLookupHelp(ctx: TelegramCtx): Promise<void> {
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `${premiumHeader('SKU Lookup Help')}\nUse <code>/stock SKU123</code> to check one variant.\nUse <code>/check 01700000000</code> for buyer risk.\nUse <code>/order SPL-1001</code> for order drill-down.`,
+      { parse_mode: 'HTML', reply_markup: inlineInventoryMenu() },
+    )
+  }
+
+  private async executeDeliveryDiagnostics(ctx: TelegramCtx): Promise<void> {
+    const health = await this.getHealth(ctx.storeId)
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `${premiumHeader('Delivery Diagnostics')}\nTransport: <b>${health.transportMode}</b>\nWebhook: <b>${health.webhookRegistered ? 'registered' : 'not registered'}</b>\nLast delivery: <b>${health.lastDeliveryStatus}</b>${health.lastDeliveryAt ? `\nAt: ${escapeTelegramHtml(health.lastDeliveryAt)}` : ''}${health.lastDeliveryError ? `\nError: ${escapeTelegramHtml(health.lastDeliveryError)}` : ''}`,
+      { parse_mode: 'HTML', reply_markup: deliveryDiagnosticsKeyboard() },
+    )
+  }
+
+  private async executeLinkedAdmins(ctx: TelegramCtx): Promise<void> {
+    const health = await this.getHealth(ctx.storeId)
+    const linked = health.linkedAdmins.length
+      ? health.linkedAdmins
+          .map((admin) => `• ${admin.username ? `@${escapeTelegramHtml(admin.username)}` : admin.telegramIdMasked} · ${escapeTelegramHtml(admin.role)}`)
+          .join('\n')
+      : '• No linked admins yet'
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `${premiumHeader('Linked Admins')}\n${linked}\n\nOps chat linked: <b>${health.hasLinkedAdminChat ? 'yes' : 'no'}</b>`,
+      { parse_mode: 'HTML', reply_markup: linkedAdminsKeyboard() },
+    )
   }
 
   private async executeCancelOrder(ctx: TelegramCtx, invoiceNumber: string): Promise<void> {
@@ -1670,31 +1835,12 @@ ${items}
     }
 
     try {
-      const status = assertOrderStatusTransition(order.status, 'CANCELLED')
-      const shouldRestoreStock =
-        STOCK_RESTORING_STATUSES.includes(status) &&
-        !STOCK_RESTORING_STATUSES.includes(order.status)
-
-      await this.prisma.$transaction(async (tx) => {
-        await tx.order.update({
-          where: { id: order.id },
-          data: { status, cancelledAt: new Date() },
-        })
-        if (shouldRestoreStock) {
-          await restoreOrderStock(tx, order.id, `Stock restored — order cancelled via Telegram`)
-        }
-        await tx.orderStatusHistory.create({
-          data: {
-            orderId: order.id,
-            status,
-            note: 'Cancelled via Telegram bot',
-          },
-        })
-      })
-
-      const orderEvents = this.moduleRef.get(OrderEventsService, { strict: false })
-      void orderEvents.onStatusChanged(ctx.storeId, order.id, 'CANCELLED', 'Cancelled via Telegram bot')
-
+      await this.orderStatus.applyStatusChange(
+        order.id,
+        'CANCELLED',
+        'Cancelled via Telegram bot',
+        ctx.storeId,
+      )
       await this.bot?.sendMessage(ctx.chatId, `❌ Order <b>${invoiceNumber}</b> cancelled`, { parse_mode: 'HTML' })
       await this.logCommand(ctx.chatId, `/cancel ${invoiceNumber}`, ctx.userId)
     } catch (err) {
@@ -1870,7 +2016,7 @@ ${orderLines}
     await this.bot?.sendMessage(
       ctx.chatId,
       `✅ <b>Group Linked!</b>\n\nChat ID: <code>${ctx.chatId}</code>\n\nAll order alerts, courier updates & commands now work in this group.`,
-      { parse_mode: 'HTML', reply_markup: inlineMainMenu() },
+      { parse_mode: 'HTML', reply_markup: inlineAdminMenu() },
     )
     await this.logCommand(ctx.chatId, '/link_group', ctx.userId)
   }
@@ -1881,7 +2027,7 @@ ${orderLines}
     await this.bot?.sendMessage(
       ctx.chatId,
       `ℹ️ <b>Chat Info</b>\n\nThis chat: <code>${ctx.chatId}</code>\nLinked store chat: <code>${config?.chatId ?? '—'}</code>\nStatus: ${linked ? '✅ Linked' : '⚠️ Not linked'}\n\n${ctx.isGroup ? 'Super admin: send /link_group here to connect.' : 'For groups: add bot → /link_group'}`,
-      { parse_mode: 'HTML', reply_markup: inlineMainMenu() },
+      { parse_mode: 'HTML', reply_markup: inlineAdminMenu() },
     )
   }
 

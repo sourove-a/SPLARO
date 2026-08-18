@@ -57,13 +57,13 @@ describe('SPLARO API (e2e)', () => {
       .expect(401)
   })
 
-  it('POST /api/v1/admin/auth/login-method — unknown email is generic telegram', async () => {
+  it('POST /api/v1/admin/auth/login-method — unknown email stays password path client-side', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/v1/admin/auth/login-method')
       .send({ email: 'nobody@example.com' })
       .expect(201)
 
-    expect(res.body.method).toBe('telegram')
+    expect(res.body.method).toBe('password')
     expect(res.body.exists).toBeUndefined()
   })
 
@@ -98,13 +98,13 @@ describe('SPLARO API (e2e)', () => {
     expect(res.body.message).toMatch(/Telegram login token required/i)
   })
 
-  it('POST /api/v1/admin/auth/login — unknown email uses the same telegram gate', async () => {
+  it('POST /api/v1/admin/auth/login — unknown email is rejected', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/v1/admin/auth/login')
       .send({ email: 'nobody@example.com' })
       .expect(401)
 
-    expect(res.body.message).toMatch(/Telegram login token required/i)
+    expect(res.body.message).toMatch(/Only invited admin emails can sign in/i)
   })
 
   it('POST /api/v1/telegram-webhook — rejects missing secret', async () => {

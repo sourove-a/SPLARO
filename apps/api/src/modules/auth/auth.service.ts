@@ -56,15 +56,10 @@ export class AuthService {
     return email.trim().toLowerCase() === CEO_EMAIL
   }
 
-  /** Owner / Super Admin / Admin: Telegram OTP. Manager / Staff: password. */
+  /** Only the permanent owner email uses Telegram login tokens. */
   isTelegramOnlyAdmin(role: string, email: string): boolean {
-    const normalizedRole = role.toUpperCase()
-    const normalizedEmail = email.trim().toLowerCase()
-    return (
-      normalizedRole === 'SUPER_ADMIN' ||
-      normalizedRole === 'ADMIN' ||
-      normalizedEmail === CEO_EMAIL
-    )
+    void role
+    return this.isPrimaryOwnerEmail(email)
   }
 
   verifyToken(token: string): AdminSessionPayload | null {
@@ -158,8 +153,7 @@ export class AuthService {
     const normalized = email.trim().toLowerCase()
     const admin = await this.resolveAdminStaff(email, storeIdRaw)
     if (!admin) {
-      // Unknown emails look like Telegram-only admins so existence is not leaked.
-      return { method: 'telegram', email: normalized, exists: false }
+      return { method: 'password', email: normalized, exists: false }
     }
     return {
       method: this.isTelegramOnlyAdmin(admin.role, admin.email) ? 'telegram' : 'password',
@@ -305,14 +299,7 @@ export class AuthService {
     return { ok: true, email: admin.email }
   }
 
-  /**
-   * Sign in an admin with a Google account.
-   *
-   * Google proves who the person is; the admin table decides whether they may
-   * enter. Only an active user that already holds a staff role can sign in, so
-   * adding Google never widens who has access — it only adds a second door for
-   * people who already had one.
-   */
+  /** Admin Google sign-in is disabled — owner uses Telegram, invited staff use password. */
   async loginWithGoogle(
     profile: { email: string; emailVerified: boolean; firstName: string; lastName: string },
     storeIdRaw?: string,
@@ -325,82 +312,10 @@ export class AuthService {
     storeId: string
     permissions: string[]
   }> {
-    const normalized = profile.email.trim().toLowerCase()
-    const ipAddress = meta?.ipAddress ?? 'unknown'
-
-    await this.assertIpNotLockedOut(ipAddress)
-
-    // An unverified Google email can be attacker-chosen — never trust it.
-    if (!profile.emailVerified) {
-      await this.recordIpFailedAttempt(ipAddress)
-      throw new UnauthorizedException('This Google account has no verified email address')
-    }
-
-    const user = await this.prisma.user.findFirst({
-      where: { email: normalized, isActive: true },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        staffRoles: { select: { role: true, storeId: true } },
-      },
-    })
-
-    if (!user) {
-      await this.recordIpFailedAttempt(ipAddress)
-      throw new UnauthorizedException('This Google account cannot access the admin panel')
-    }
-
-    await this.assertNotLockedOut(user.id)
-
-    const storeId = await resolveStoreId(this.prisma, storeIdRaw)
-    const staff = user.staffRoles.find((row) => row.storeId === storeId) ?? user.staffRoles[0]
-    const staffRole = staff?.role
-    const isStaff =
-      staffRole === 'SUPER_ADMIN' ||
-      staffRole === 'ADMIN' ||
-      staffRole === 'MANAGER' ||
-      staffRole === 'STAFF'
-
-    if (!staff || !isStaff) {
-      await this.recordIpFailedAttempt(ipAddress)
-      // Same wording whichever half failed, so this cannot be used to discover
-      // which addresses are admins.
-      throw new UnauthorizedException('This Google account cannot access the admin panel')
-    }
-
-    await Promise.all([
-      this.prisma.user.update({
-        where: { id: user.id },
-        data: { lastLoginAt: new Date() },
-      }),
-      this.recordLoginAttempt({
-        userId: user.id,
-        ipAddress,
-        userAgent: meta?.userAgent,
-        success: true,
-      }),
-    ])
-
-    const permissions = await resolveStaffPermissionTokens(
-      this.prisma,
-      user.id,
-      staff.storeId,
-      staffRole,
-    )
-
-    const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
-
-    return {
-      userId: user.id,
-      email: user.email!,
-      name: name || profile.firstName || user.email!,
-      role: staffRole,
-      storeId: staff.storeId,
-      permissions,
-    }
+    void profile
+    void storeIdRaw
+    void meta
+    throw new ForbiddenException('Admin Google sign-in is disabled. Use your assigned sign-in method.')
   }
 
   async loginWithToken(
@@ -735,37 +650,7 @@ export class AuthService {
       })
     })
 
-    if (!this.isTelegramOnlyAdmin(invite.role, invite.email)) {
-      return this.loginWithPassword(invite.email, password.trim(), invite.storeId, meta)
-    }
-
-    // ADMIN invite acceptance is a trusted, one-time first session. It lets the
-    // new admin enter Security and link personal Telegram before future logins.
-    const admin = await this.resolveAdminStaff(invite.email, invite.storeId)
-    if (!admin) {
-      throw new UnauthorizedException('Admin access could not be resolved after invite acceptance')
-    }
-    const ipAddress = meta?.ipAddress ?? 'unknown'
-    const userAgent = meta?.userAgent
-    await Promise.all([
-      this.prisma.user.update({
-        where: { id: admin.userId },
-        data: { lastLoginAt: new Date() },
-      }),
-      this.recordLoginAttempt({
-        userId: admin.userId,
-        ipAddress,
-        userAgent,
-        success: true,
-      }),
-    ])
-    const permissions = await resolveStaffPermissionTokens(
-      this.prisma,
-      admin.userId,
-      admin.storeId,
-      admin.role,
-    )
-    return { ...admin, permissions }
+    return this.loginWithPassword(invite.email, password.trim(), invite.storeId, meta)
   }
 
   private async findValidInvite(token: string) {

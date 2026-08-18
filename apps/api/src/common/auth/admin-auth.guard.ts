@@ -8,7 +8,7 @@ import {
 import { Reflector } from '@nestjs/core'
 import type { Request } from 'express'
 import { IS_PUBLIC_KEY } from './public.decorator'
-import { resolveRoutePermission } from './admin-route-permissions.util'
+import { canRoleAccessAdminPath, resolveRoutePermission } from './admin-route-permissions.util'
 import {
   isPublicApiPath,
   verifyAdminSessionToken,
@@ -94,6 +94,9 @@ export class AdminAuthGuard implements CanActivate {
       const liveSession = await this.sessionResolver.resolveLiveSession(session)
       if (!liveSession) {
         throw new UnauthorizedException('Admin account inactive or access revoked')
+      }
+      if (!canRoleAccessAdminPath(liveSession.role, rawPath)) {
+        throw new ForbiddenException('Insufficient permissions for this section')
       }
 
       const routePermission = resolveRoutePermission(rawPath, method)

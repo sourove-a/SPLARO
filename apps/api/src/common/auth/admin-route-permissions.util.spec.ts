@@ -1,4 +1,4 @@
-import { resolveRoutePermission } from './admin-route-permissions.util'
+import { canRoleAccessAdminPath, resolveRoutePermission } from './admin-route-permissions.util'
 import { staffHasPermission } from '../../modules/security/security-permissions.util'
 
 describe('resolveRoutePermission unmapped writes', () => {
@@ -38,5 +38,11 @@ describe('resolveRoutePermission unmapped writes', () => {
     expect(
       staffHasPermission('STAFF', undefined, route!.moduleSlug, route!.action),
     ).toBe(false)
+  })
+
+  it('blocks STAFF and MANAGER from role-hidden admin sections', () => {
+    expect(canRoleAccessAdminPath('STAFF', '/api/v1/admin/settings')).toBe(false)
+    expect(canRoleAccessAdminPath('MANAGER', '/api/v1/admin/security/staff')).toBe(false)
+    expect(canRoleAccessAdminPath('ADMIN', '/api/v1/admin/settings')).toBe(true)
   })
 })

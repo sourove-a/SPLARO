@@ -1,4 +1,5 @@
 import type { PermissionAction } from '../../modules/security/security-permissions.util'
+type AdminRoleKey = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'STAFF'
 
 function normalizePath(path: string): string {
   return path.replace(/^\/api\/v1\//, '').replace(/^\//, '').split('?')[0] ?? ''
@@ -44,6 +45,77 @@ function isFinanceLedgerPath(path: string): boolean {
     path.startsWith('daily-closing/') ||
     path === 'finance-reports' ||
     path.startsWith('finance-reports/')
+  )
+}
+
+const ROLE_DENIED_API_PREFIXES: Record<Exclude<AdminRoleKey, 'SUPER_ADMIN'>, string[]> = {
+  ADMIN: [
+    'admin/company/',
+    'admin/developer/',
+    'admin/observability/',
+    'google-workspace/oauth-settings',
+  ],
+  MANAGER: [
+    'admin/security',
+    'admin/users',
+    'admin/settings',
+    'admin/platform',
+    'admin/mcp',
+    'google-workspace/',
+    'admin/company/',
+    'admin/developer/',
+    'admin/observability/',
+  ],
+  STAFF: [
+    'admin/analytics',
+    'admin/executive/',
+    'admin/campaigns',
+    'admin/coupons',
+    'admin/integrations',
+    'admin/telegram',
+    'admin/api-health',
+    'admin/webhooks',
+    'admin/finance',
+    'partners',
+    'partner-transactions',
+    'expenses',
+    'profit-loss',
+    'daily-closing',
+    'finance-reports',
+    'google-sheets',
+    'telegram/',
+    'agent/',
+    'automation/',
+    'seo/audit',
+    'admin/operations',
+    'commerce-os/',
+    'google-workspace/',
+    'admin/security',
+    'admin/users',
+    'admin/settings',
+    'admin/platform',
+    'admin/saas',
+    'admin/mcp',
+    'admin/company/',
+    'admin/developer/',
+    'admin/observability/',
+  ],
+}
+
+function normalizeRole(role: string | undefined): AdminRoleKey {
+  const key = (role ?? 'STAFF').toUpperCase().replace(/ /g, '_')
+  if (key === 'SUPER_ADMIN' || key === 'ADMIN' || key === 'MANAGER') return key
+  return 'STAFF'
+}
+
+export function canRoleAccessAdminPath(role: string | undefined, path: string): boolean {
+  const roleKey = normalizeRole(role)
+  if (roleKey === 'SUPER_ADMIN') return true
+  const normalized = normalizePath(path)
+  if (normalized.startsWith('admin/auth')) return true
+  if (isStaffSelfTelegramPath(normalized)) return true
+  return !ROLE_DENIED_API_PREFIXES[roleKey].some(
+    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`) || normalized.startsWith(prefix),
   )
 }
 

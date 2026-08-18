@@ -52,15 +52,16 @@ export class AuthController {
     const storeId = body.storeId ?? 'splaro'
 
     const resolved = await this.auth.resolveLoginMethod(email, body.storeId)
-    if (!resolved.exists || resolved.method !== 'telegram') {
-      // Unknown/password accounts get a silent OK so admin emails cannot be enumerated.
-      // The primary owner must never be silenced — a real failure there locks the panel.
+    if (!resolved.exists) {
       if (this.auth.isPrimaryOwnerEmail(email)) {
         throw new ServiceUnavailableException(
           'Primary owner admin record is missing for this store. Run scripts/restore-primary-admin.ts (or pnpm db:seed) on this database.',
         )
       }
-      return { ok: true, email: resolved.email, method: resolved.method, tokenSent: true }
+      throw new UnauthorizedException('Only invited admin emails can sign in')
+    }
+    if (resolved.method !== 'telegram') {
+      return { ok: true, email: resolved.email, method: resolved.method, tokenSent: false }
     }
 
     const delivery = await this.telegram.resolveAdminLoginDelivery(storeId, email)
@@ -92,6 +93,9 @@ export class AuthController {
     }
 
     const method = await this.auth.resolveLoginMethod(email, body.storeId)
+    if (!method.exists) {
+      throw new UnauthorizedException('Only invited admin emails can sign in')
+    }
 
     if (method.method === 'telegram') {
       const token = body.token?.trim()

@@ -18,7 +18,9 @@ export interface TelegramIntegrationDto {
   notifyCourier: boolean
   notifyStock: boolean
   notifyReviews: boolean
+  notifyRMA: boolean
   reportDaily: boolean
+  reportWeekly: boolean
   reportTime: string
 }
 
@@ -60,7 +62,9 @@ export class TelegramIntegrationService {
       notifyCourier: tg?.notifyCourier ?? true,
       notifyStock: tg?.notifyStock ?? true,
       notifyReviews: tg?.notifyReviews ?? true,
+      notifyRMA: tg?.notifyRMA ?? true,
       reportDaily: tg?.reportDaily ?? true,
+      reportWeekly: tg?.reportWeekly ?? true,
       reportTime: tg?.reportTime ?? '09:00',
       lastTestedAt: meta.lastTestedAt,
       lastTestStatus: meta.lastTestStatus,
@@ -127,7 +131,9 @@ export class TelegramIntegrationService {
         notifyCourier: body.notifyCourier,
         notifyStock: body.notifyStock,
         notifyReviews: body.notifyReviews,
+        notifyRMA: body.notifyRMA,
         reportDaily: body.reportDaily,
+        reportWeekly: body.reportWeekly,
         reportTime: body.reportTime || '09:00',
       },
       update: {
@@ -140,7 +146,9 @@ export class TelegramIntegrationService {
         notifyCourier: body.notifyCourier,
         notifyStock: body.notifyStock,
         notifyReviews: body.notifyReviews,
+        notifyRMA: body.notifyRMA,
         reportDaily: body.reportDaily,
+        reportWeekly: body.reportWeekly,
         reportTime: body.reportTime || '09:00',
       },
     })
@@ -160,7 +168,9 @@ export class TelegramIntegrationService {
       notifyCourier: body.notifyCourier,
       notifyStock: body.notifyStock,
       notifyReviews: body.notifyReviews,
+      notifyRMA: body.notifyRMA,
       reportDaily: body.reportDaily,
+      reportWeekly: body.reportWeekly,
       reportTime: body.reportTime || '09:00',
     })) {
       await this.integrations.upsertPlain({ storeId, provider: 'telegram', key, value: val, userId })

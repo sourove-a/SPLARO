@@ -77,7 +77,9 @@ export function DcTelegramSetupForm() {
       notifyCourier: data?.notifyCourier ?? true,
       notifyStock: data?.notifyStock ?? true,
       notifyReviews: data?.notifyReviews ?? true,
+      notifyRMA: data?.notifyRMA ?? true,
       reportDaily: data?.reportDaily ?? true,
+      reportWeekly: data?.reportWeekly ?? true,
       reportTime: data?.reportTime ?? '09:00',
       requireTokenConfigured: true as const,
     }
@@ -91,7 +93,9 @@ export function DcTelegramSetupForm() {
         notifyCourier: expected.notifyCourier,
         notifyStock: expected.notifyStock,
         notifyReviews: expected.notifyReviews,
+        notifyRMA: expected.notifyRMA,
         reportDaily: expected.reportDaily,
+        reportWeekly: expected.reportWeekly,
         reportTime: expected.reportTime,
       }
       if (botTokenInput.trim()) payload.botToken = botTokenInput.trim()

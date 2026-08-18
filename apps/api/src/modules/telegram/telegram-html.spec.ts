@@ -1,4 +1,4 @@
-import { welcomeMessage } from './telegram-ui'
+import { aiPromptForAction, TG_CALLBACK, parseListCallback, premiumHeader, welcomeMessage } from './telegram-ui'
 import { escapeTelegramHtml, stripTelegramHtml } from './telegram.util'
 
 /**
@@ -23,7 +23,7 @@ describe('Telegram HTML safety', () => {
 
   it('leaves the template markup intact', () => {
     const html = welcomeMessage({ name: 'Sourove', isGroup: false, storeLinked: true })
-    expect(html).toContain('<b>SPLARO Commerce OS</b>')
+    expect(html).toContain('SPLARO Commerce OS')
     expect(html).toContain('Hi <b>Sourove</b>')
   })
 
@@ -31,6 +31,13 @@ describe('Telegram HTML safety', () => {
     const html = welcomeMessage({ isGroup: true, storeLinked: false })
     expect(html).toContain('Welcome')
     expect(html).not.toContain('undefined')
+  })
+
+  it('shows the new control-center sections in the welcome copy', () => {
+    const html = welcomeMessage({ name: 'Sourove', isGroup: false, storeLinked: true })
+    expect(html).toContain('Orders Desk')
+    expect(html).toContain('Courier Hub')
+    expect(html).toContain('Inventory Desk')
   })
 
   describe('escapeTelegramHtml', () => {
@@ -71,6 +78,25 @@ describe('Telegram HTML safety', () => {
       const { formatWhatsAppUrl } = require('./telegram-ui')
       expect(formatWhatsAppUrl('')).toBeNull()
       expect(formatWhatsAppUrl(null)).toBeNull()
+    })
+  })
+
+  describe('control-center helpers', () => {
+    it('parses order list pagination callbacks', () => {
+      expect(parseListCallback('list:orders:2')).toEqual({ kind: 'orders', page: 2 })
+      expect(parseListCallback('list:orders:x')).toBeNull()
+    })
+
+    it('maps AI actions to canned ops prompts', () => {
+      expect(aiPromptForAction(TG_CALLBACK.AI_PROMPT_SALES)).toMatch(/today sales/i)
+      expect(aiPromptForAction(TG_CALLBACK.AI_PROMPT_RISK)).toMatch(/cod risk/i)
+      expect(aiPromptForAction('unknown')).toBeNull()
+    })
+
+    it('renders a premium boxed heading safely', () => {
+      const html = premiumHeader('Orders Hub', 'Daily order flow')
+      expect(html).toContain('<b>Orders Hub</b>')
+      expect(html).toContain('Daily order flow')
     })
   })
 

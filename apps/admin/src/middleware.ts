@@ -12,6 +12,7 @@ import { probeLiveAdminSession } from '@/lib/auth/live-session'
 import { getAdminRequestOrigin } from '@/lib/auth/request-origin'
 import {
   canAccessNavRoute,
+  canRoleAccessAdminHref,
   resolveNavPermissionModule,
 } from '@/lib/navigation/admin-nav-permissions'
 import { hasPermission, type PermissionAction } from '@/lib/auth/permissions'
@@ -86,7 +87,8 @@ export async function middleware(request: NextRequest) {
     const allowed =
       pathname === '/dashboard'
         ? canAccessNavRoute('/dashboard', session, 'view')
-        : hasPermission(session.role, session.permissions, permModule, action)
+        : canRoleAccessAdminHref(moduleHref, session.role) &&
+          hasPermission(session.role, session.permissions, permModule, action)
 
     if (!allowed) {
       return attachSlidingRefresh(
