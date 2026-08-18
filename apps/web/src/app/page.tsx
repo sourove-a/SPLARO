@@ -95,7 +95,14 @@ export default async function HomePage() {
           />
         </>
       ) : null}
-      {heroBanners.length ? <HeroSlider initialBanners={heroBanners} /> : null}
+      {heroBanners.length ? (
+        <HeroSlider
+          key={heroBanners
+            .map((banner) => `${banner.id}:${banner.image}:${banner.title ?? ''}:${banner.subtitle ?? ''}`)
+            .join('|')}
+          initialBanners={heroBanners}
+        />
+      ) : null}
       <Suspense fallback={null}>
         <HomeCatalog />
       </Suspense>

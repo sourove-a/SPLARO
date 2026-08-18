@@ -130,6 +130,7 @@ const OPERATIONS: Array<{
     rows: [
       ['Endpoint', 'POST /admin/products/bulk/catalog'],
       ['Match', 'variant_sku, or product_sku + size + color'],
+      ['Category', 'category_slug from the admin tree (bags, sarees, shalwar-kameez)'],
       ['Formats', 'CSV and Excel (.xlsx)'],
     ],
   },
@@ -1210,7 +1211,7 @@ function DcBulkCsvBody() {
         title={`Write ${okRows.length} row${okRows.length === 1 ? '' : 's'} now?`}
         subtitle={
           mode === 'catalog'
-            ? 'Creates missing products and updates matched SKUs. Publish only sticks when category and price are valid — otherwise draft. There is no undo.'
+            ? 'Creates missing products and updates matched SKUs. Publish only sticks when category_slug and price are valid — otherwise draft. There is no undo.'
             : mode === 'publish'
               ? 'This changes what customers can see and buy on the storefront immediately. There is no undo.'
               : mode === 'price'

@@ -37,9 +37,7 @@ import { buildInvoiceAccessToken } from '@splaro/config/invoice-access'
 import type { TelegramRole } from '@prisma/client'
 import {
   BOT_COMMANDS,
-  BUTTON_ROUTES,
   TELEGRAM_AI_UNAVAILABLE,
-  TELEGRAM_OPS_HINT,
   TG_CALLBACK,
   aiPromptForAction,
   aiPromptLabel,
@@ -56,6 +54,7 @@ import {
   inlineInventoryMenu,
   inlineMainMenu,
   inlineOrdersMenu,
+  isStaleTelegramKeyboardLabel,
   isTelegramAiAction,
   linkedAdminsKeyboard,
   loginCopyKeyboard,
@@ -66,8 +65,10 @@ import {
   parseListCallback,
   parseOrderCallback,
   premiumHeader,
+  resolveTelegramButtonRoute,
   sanitizeTelegramAiError,
   shouldRouteUnmatchedTextToAi,
+  telegramOpsHint,
   welcomeMessage,
 } from './telegram-ui'
 
@@ -661,16 +662,22 @@ Customer was charged AFTER this order was ${input.orderStatus}.
     await this.sendToStore(storeId, msg)
   }
 
-  async replyOrderTrack(chatId: string, invoiceNumber: string): Promise<void> {
+  async replyOrderTrack(chatId: string, invoiceNumber: string, storeId?: string): Promise<void> {
     const order = await this.prisma.order.findFirst({
       where: { invoiceNumber },
       include: { items: { take: 4 }, courier: true },
     })
 
     if (!order) {
-      await this.bot?.sendMessage(chatId, `❌ Order <code>${invoiceNumber}</code> not found.`, {
-        parse_mode: 'HTML',
-      })
+      const latest = storeId ? await this.latestInvoiceNumber(storeId) : null
+      const hint = latest
+        ? `\nLatest live invoice: <code>${latest}</code>`
+        : '\nType a live invoice (SPL-####), or tap Control Center.'
+      await this.bot?.sendMessage(
+        chatId,
+        `❌ Order <code>${invoiceNumber}</code> not found.${hint}`,
+        { parse_mode: 'HTML', reply_markup: mainReplyKeyboard() },
+      )
       return
     }
 
@@ -718,6 +725,15 @@ ${items}
         phone: order.shippingPhone,
       }),
     })
+  }
+
+  private async latestInvoiceNumber(storeId: string): Promise<string | null> {
+    const row = await this.prisma.order.findFirst({
+      where: { storeId, status: { not: 'CANCELLED' } },
+      orderBy: { createdAt: 'desc' },
+      select: { invoiceNumber: true },
+    })
+    return row?.invoiceNumber ?? null
   }
 
   async notifyLowStock(storeId: string, items: { name: string; sku: string; stock: number }[]): Promise<void> {
@@ -858,7 +874,7 @@ ${items}
       if (!ctx) return
       const invoice = match?.[1]?.trim()
       if (!invoice) return
-      await this.replyOrderTrack(ctx.chatId, invoice)
+      await this.replyOrderTrack(ctx.chatId, invoice, ctx.storeId)
       await this.logCommand(ctx.chatId, `/order ${invoice}`, ctx.userId)
     })
 
@@ -995,7 +1011,7 @@ ${items}
       if (orderAction) {
         await this.bot?.answerCallbackQuery(query.id)
         if (orderAction.action === 'track') {
-          await this.replyOrderTrack(ctx.chatId, orderAction.invoice)
+          await this.replyOrderTrack(ctx.chatId, orderAction.invoice, ctx.storeId)
         } else if (orderAction.action === 'confirm') {
           await this.executeConfirmOrder(ctx, orderAction.invoice)
         } else {
@@ -1048,8 +1064,13 @@ ${items}
       const ctx = await this.resolveContext(msg)
       if (!ctx) return
 
-      const routeKey = BUTTON_ROUTES[text]
+      const routeKey = resolveTelegramButtonRoute(text)
       if (routeKey) {
+        if (isStaleTelegramKeyboardLabel(text)) {
+          await this.bot?.sendMessage(ctx.chatId, '✅ Menu refreshed — use the buttons below.', {
+            reply_markup: mainReplyKeyboard(),
+          })
+        }
         if (routeKey === TG_CALLBACK.MENU_MAIN) {
           await this.sendWelcome(ctx, msg.from?.first_name)
         } else {
@@ -1060,7 +1081,7 @@ ${items}
 
       const invoiceNumber = text.toUpperCase()
       if (/^SPL-\d+/.test(invoiceNumber)) {
-        await this.replyOrderTrack(ctx.chatId, invoiceNumber)
+        await this.replyOrderTrack(ctx.chatId, invoiceNumber, ctx.storeId)
         return
       }
 
@@ -1071,7 +1092,10 @@ ${items}
         })
       ) {
         if (!ctx.isGroup) {
-          await this.bot?.sendMessage(ctx.chatId, TELEGRAM_OPS_HINT)
+          const latest = await this.latestInvoiceNumber(ctx.storeId)
+          await this.bot?.sendMessage(ctx.chatId, telegramOpsHint(latest), {
+            reply_markup: mainReplyKeyboard(),
+          })
         }
         return
       }

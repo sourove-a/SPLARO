@@ -18,6 +18,7 @@ import { resolveStoreId } from '../../common/store.util'
 import { PrismaService } from '../../common/prisma.service'
 import { RealtimeBusService } from '../../common/realtime/realtime-bus.service'
 import {
+  adminNotificationsRealtimeChannel,
   adminOrdersRealtimeChannel,
   isSafeRealtimeId,
   orderRealtimeChannel,
@@ -25,6 +26,7 @@ import {
 import {
   formatSseComment,
   formatSseData,
+  sanitizeRealtimeNotificationEvent,
   sanitizeRealtimeOrderEvent,
 } from '../../common/realtime/realtime-event.util'
 import { StorefrontAuthService } from '../storefront/storefront-auth.service'
@@ -179,11 +181,19 @@ export class RealtimeController {
 
     const write = openSse(res)
     write(formatSseComment(`connected ${Date.now()}`))
-    const unsubscribe = this.bus.subscribe(adminOrdersRealtimeChannel(sid), (message) => {
+    const unsubscribeOrders = this.bus.subscribe(adminOrdersRealtimeChannel(sid), (message) => {
       const event = sanitizeRealtimeOrderEvent(safeParse(message))
       if (!event) return
       write(formatSseData(event))
     })
+    const unsubscribeNotifs = this.bus.subscribe(
+      adminNotificationsRealtimeChannel(sid),
+      (message) => {
+        const event = sanitizeRealtimeNotificationEvent(safeParse(message))
+        if (!event) return
+        write(formatSseData(event))
+      },
+    )
 
     const heartbeat = setInterval(() => {
       try {
@@ -198,7 +208,8 @@ export class RealtimeController {
       if (cleaned) return
       cleaned = true
       clearInterval(heartbeat)
-      unsubscribe()
+      unsubscribeOrders()
+      unsubscribeNotifs()
       this.bus.releaseAdminSlot(adminUser.userId)
     }
     req.on('close', cleanup)

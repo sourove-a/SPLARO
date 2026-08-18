@@ -106,14 +106,20 @@ export function HomeDepartmentRow({ row, priorityFirst = false }: HomeDepartment
     if (!el) return
 
     let startX = 0
+    let pointerDown = false
     let dragged = false
 
     const onPointerDown = (event: PointerEvent) => {
       startX = event.clientX
+      pointerDown = true
       dragged = false
     }
     const onPointerMove = (event: PointerEvent) => {
-      if (Math.abs(event.clientX - startX) > 10) dragged = true
+      if (!pointerDown) return
+      if (Math.abs(event.clientX - startX) > 16) dragged = true
+    }
+    const onPointerUp = () => {
+      pointerDown = false
     }
     const onClickCapture = (event: MouseEvent) => {
       if (!dragged) return
@@ -124,10 +130,14 @@ export function HomeDepartmentRow({ row, priorityFirst = false }: HomeDepartment
 
     el.addEventListener('pointerdown', onPointerDown, { passive: true })
     el.addEventListener('pointermove', onPointerMove, { passive: true })
+    el.addEventListener('pointerup', onPointerUp, { passive: true })
+    el.addEventListener('pointercancel', onPointerUp, { passive: true })
     el.addEventListener('click', onClickCapture, true)
     return () => {
       el.removeEventListener('pointerdown', onPointerDown)
       el.removeEventListener('pointermove', onPointerMove)
+      el.removeEventListener('pointerup', onPointerUp)
+      el.removeEventListener('pointercancel', onPointerUp)
       el.removeEventListener('click', onClickCapture, true)
     }
   }, [row.tiles])

@@ -12,7 +12,9 @@ import { buildQuickViewProduct } from '@/lib/catalog/quick-view-product'
 import { storefrontToCardData } from '@/lib/catalog/product-card-map'
 import {
   buildListingSearchParams,
+  buildScopedListingAttempts,
   LISTING_PAGE_SIZE,
+  type ScopedListingScope,
 } from '@/lib/catalog/listing'
 import {
   isMobilePriceRangeActive,
@@ -122,6 +124,16 @@ export function ShopCatalog({
   const useApiListing =
     listingMode === 'paged' ||
     (listingMode === 'scoped' && Boolean(scopedParentSlug || categorySlug || collectionSlug))
+  const listingAttempts = useMemo(
+    () =>
+      buildScopedListingAttempts({
+        ...(scopedParentSlug ? { parentCategorySlug: scopedParentSlug } : {}),
+        ...(categorySlug ? { categorySlug } : {}),
+        ...(collectionSlug ? { collectionSlug } : {}),
+      }),
+    [scopedParentSlug, categorySlug, collectionSlug],
+  )
+  const listingQueryRef = useRef<ScopedListingScope | null>(listingAttempts[0] ?? null)
   const { config } = useStorefrontSettings()
   const shopFilters = config.shopFilters!
   const defaultSortLabel = getDefaultSortLabel(shopFilters)
@@ -190,49 +202,54 @@ export function ShopCatalog({
     const load = async (attempt = 0) => {
       try {
         // Paged / scoped PLP must never hit unscoped /api/products (full catalog dump).
-        const listingParams = useApiListing
-          ? buildListingSearchParams({
-              page: 1,
-              limit: PAGE_SIZE,
-              ...(collectionSlug && !scopedParentSlug ? { collectionSlug } : {}),
-              ...(scopedParentSlug ? { parentCategorySlug: scopedParentSlug } : {}),
-              ...(categorySlug && categorySlug !== scopedParentSlug
-                ? { categorySlug }
-                : {}),
-            })
-          : null
-        const res = await fetch(
-          listingParams ? `/api/products?${listingParams.toString()}` : '/api/products',
-          { cache: 'no-store' },
-        )
-        const data = (await res.json()) as {
-          products?: StorefrontProduct[]
-          source?: CatalogSource
-          totalPages?: number
-          page?: number
-        }
-        if (cancelled) return
-        if (applyCatalog(data)) {
-          if (useApiListing) {
-            setApiPage(data.page ?? 1)
-            setApiTotalPages(data.totalPages ?? 1)
-            if (typeof (data as { total?: number }).total === 'number') {
-              setApiTotal((data as { total: number }).total)
-            } else if (data.products?.length) {
-              setApiTotal(data.products.length)
-            }
-          }
+        const scopes = useApiListing ? listingAttempts : []
+        if (useApiListing && !scopes.length) {
+          setIsCatalogLoading(false)
           return
         }
-        if ((data.source === 'api-unavailable' || !res.ok) && attempt < MAX_ATTEMPTS - 1) {
+
+        let networkFail = false
+        for (const scope of scopes.length ? scopes : [null]) {
+          const listingParams = scope
+            ? buildListingSearchParams({ page: 1, limit: PAGE_SIZE, ...scope })
+            : null
+          const res = await fetch(
+            listingParams ? `/api/products?${listingParams.toString()}` : '/api/products',
+            { cache: 'no-store' },
+          )
+          const data = (await res.json()) as {
+            products?: StorefrontProduct[]
+            source?: CatalogSource
+            totalPages?: number
+            page?: number
+          }
+          if (cancelled) return
+          if (!res.ok) {
+            networkFail = true
+            continue
+          }
+          if (applyCatalog(data)) {
+            if (scope) listingQueryRef.current = scope
+            if (useApiListing) {
+              setApiPage(data.page ?? 1)
+              setApiTotalPages(data.totalPages ?? 1)
+              if (typeof (data as { total?: number }).total === 'number') {
+                setApiTotal((data as { total: number }).total)
+              } else if (data.products?.length) {
+                setApiTotal(data.products.length)
+              }
+            }
+            return
+          }
+        }
+
+        if (networkFail && attempt < MAX_ATTEMPTS - 1) {
           await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)))
           return load(attempt + 1)
         }
         // Honest empty vs offline — never label a successful empty catalog as API down.
         if (!catalogProductsRef.current.length) {
-          setCatalogSource(
-            !res.ok || data.source === 'api-unavailable' ? 'api-unavailable' : data.source ?? 'empty',
-          )
+          setCatalogSource(networkFail ? 'api-unavailable' : 'empty')
         }
         setIsCatalogLoading(false)
       } catch {
@@ -280,6 +297,7 @@ export function ShopCatalog({
     isHomepage,
     useApiListing,
     scopedParentSlug,
+    listingAttempts,
     collectionSlug,
     categorySlug,
   ])
@@ -527,12 +545,15 @@ export function ShopCatalog({
     setLoadingMore(true)
     try {
       const nextPage = apiPage + 1
+      const scope = listingQueryRef.current ?? listingAttempts[0]
       const params = buildListingSearchParams({
         page: nextPage,
         limit: PAGE_SIZE,
-        ...(collectionSlug && !scopedParentSlug ? { collectionSlug } : {}),
-        ...(scopedParentSlug ? { parentCategorySlug: scopedParentSlug } : {}),
-        ...(categorySlug && categorySlug !== scopedParentSlug ? { categorySlug } : {}),
+        ...(scope ?? {
+          ...(collectionSlug && !scopedParentSlug ? { collectionSlug } : {}),
+          ...(scopedParentSlug ? { parentCategorySlug: scopedParentSlug } : {}),
+          ...(categorySlug && categorySlug !== scopedParentSlug ? { categorySlug } : {}),
+        }),
       })
       const res = await fetch(`/api/products?${params.toString()}`, { cache: 'no-store' })
       if (!res.ok) return false
@@ -571,6 +592,7 @@ export function ShopCatalog({
   }, [
     apiPage,
     apiTotalPages,
+    listingAttempts,
     categorySlug,
     scopedParentSlug,
     collectionSlug,

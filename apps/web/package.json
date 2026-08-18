@@ -14,7 +14,7 @@
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
     "check": "tsc --noEmit && next lint",
-    "test:unit": "npx tsx --test src/lib/navigation/navigation-recovery.test.ts src/lib/api/session.test.ts src/lib/checkout/customer-draft.test.ts src/lib/assets/image-quality-allowlist.test.ts src/lib/api/review-auth-gate.test.ts"
+    "test:unit": "npx tsx --test src/lib/navigation/navigation-recovery.test.ts src/lib/api/session.test.ts src/lib/checkout/customer-draft.test.ts src/lib/assets/image-quality-allowlist.test.ts src/lib/api/review-auth-gate.test.ts src/lib/catalog/listing.test.ts src/lib/api/hero-banners.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

@@ -90,7 +90,7 @@ export function mainReplyKeyboard(): ReplyKeyboardMarkup {
     ],
     resize_keyboard: true,
     is_persistent: true,
-    input_field_placeholder: 'SPL-1001 · or ask SPLARO AI…',
+    input_field_placeholder: 'SPL-#### · or Control Center',
   }
 }
 
@@ -389,7 +389,7 @@ ${linkHint}
 <b>Control sections</b>
 ${controlCenterSections()}
 
-Type <code>SPL-1001</code> to track an order
+Type an invoice like <code>SPL-####</code> to track an order
 Tap <b>AI Chat</b> to ask SPLARO AI
 
 ━━━━━━━━━━━━━━━━━━━━
@@ -407,8 +407,8 @@ ${controlCenterSections()}
 
 ━━━━━━━━━━━━━━━━━━━━
 <b>Commands</b>
-<code>/status</code> · <code>/orders</code> · <code>/order SPL-1001</code>
-<code>/invoice SPL-1001</code> · <code>/confirm</code> · <code>/courier</code> · <code>/stock SKU123</code>
+<code>/status</code> · <code>/orders</code> · <code>/order SPL-####</code>
+<code>/invoice SPL-####</code> · <code>/confirm</code> · <code>/courier</code> · <code>/stock SKU123</code>
 `.trim()
 }
 
@@ -449,8 +449,45 @@ export const BUTTON_ROUTES: Record<string, string> = {
   [TG_BTN.GROUP_INFO]: TG_CALLBACK.GROUP_INFO,
 }
 
+const CURRENT_KEYBOARD_LABELS = new Set<string>(Object.values(TG_BTN))
+
+/** Strip emoji / VS16 so a stale persistent keyboard still routes. */
+export function normalizeTelegramButtonLabel(text: string): string {
+  return text
+    .normalize('NFKC')
+    .replace(/\p{Extended_Pictographic}/gu, '')
+    .replace(/[\uFE0F\u200D]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export function resolveTelegramButtonRoute(text: string): string | undefined {
+  const exact = BUTTON_ROUTES[text]
+  if (exact) return exact
+  const normalized = normalizeTelegramButtonLabel(text)
+  if (!normalized) return undefined
+  if (BUTTON_ROUTES[normalized]) return BUTTON_ROUTES[normalized]
+  const lower = normalized.toLowerCase()
+  for (const [label, route] of Object.entries(BUTTON_ROUTES)) {
+    if (label.toLowerCase() === lower) return route
+  }
+  return undefined
+}
+
+export function isStaleTelegramKeyboardLabel(text: string): boolean {
+  return !CURRENT_KEYBOARD_LABELS.has(text)
+}
+
 export const TELEGRAM_OPS_HINT =
-  'SPL-1881 লিখো, অথবা Control Center চাপো। AI চাইলে AI Chat।'
+  'Invoice (SPL-####) লিখো, অথবা Control Center চাপো। AI চাইলে AI Chat।'
+
+export function telegramOpsHint(latestInvoice?: string | null): string {
+  const inv = latestInvoice?.trim()
+  if (inv && /^SPL-\d+/i.test(inv)) {
+    return `${inv} লিখো, অথবা Control Center চাপো। AI চাইলে AI Chat।`
+  }
+  return TELEGRAM_OPS_HINT
+}
 
 export const TELEGRAM_AI_UNAVAILABLE =
   'AI is not configured. Use Control Center for orders, or tap AI Chat after keys are set.'

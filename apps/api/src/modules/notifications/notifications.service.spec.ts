@@ -5,13 +5,16 @@ describe('NotificationsService in-app alerts', () => {
   function buildService(existing: { id: string } | null = null) {
     const findFirst = jest.fn().mockResolvedValue(existing)
     const create = jest.fn().mockResolvedValue({ id: 'notice-1' })
+    const publish = jest.fn().mockResolvedValue(undefined)
     const prisma = {
       notificationDeliveryLog: { findFirst, create },
     } as unknown as PrismaService
+    const realtime = { publishNotificationCreated: publish } as never
     return {
-      service: new NotificationsService(prisma, undefined as never),
+      service: new NotificationsService(prisma, undefined as never, realtime),
       findFirst,
       create,
+      publish,
     }
   }
 
@@ -34,6 +37,18 @@ describe('NotificationsService in-app alerts', () => {
         status: 'DELIVERED',
       }),
     })
+  })
+
+  it('pings admin realtime after a new IN_APP row', async () => {
+    const { service, publish } = buildService()
+    await service.notifyInApp(input)
+    expect(publish).toHaveBeenCalledWith('store-1')
+  })
+
+  it('does not ping realtime for a duplicate', async () => {
+    const { service, publish } = buildService({ id: 'existing-1' })
+    await service.notifyInApp(input)
+    expect(publish).not.toHaveBeenCalled()
   })
 
   it('does not duplicate the same event', async () => {

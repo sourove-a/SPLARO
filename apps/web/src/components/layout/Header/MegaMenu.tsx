@@ -82,6 +82,41 @@ function MegaMenuHeroCard({
   )
 }
 
+function isPlaceholderMegaImage(url: string | undefined): boolean {
+  const value = url?.trim() ?? ''
+  return !value || /placeholder-product|placehold\.co/i.test(value)
+}
+
+function listingSlugFromHref(href: string): string | null {
+  try {
+    const url = new URL(href, 'https://splaro.local')
+    const cat = url.searchParams.get('cat')?.trim()
+    if (cat && cat !== 'all') return cat
+    const parts = url.pathname.split('/').filter(Boolean)
+    if (parts[0] === 'c' && parts[1]) return parts[1]
+    if (parts[0] === 'accessories') return 'accessories'
+    return null
+  } catch {
+    return null
+  }
+}
+
+function heroesFromListing(products: unknown): MegaMenuHero[] {
+  if (!Array.isArray(products)) return []
+  const heroes: MegaMenuHero[] = []
+  for (const row of products) {
+    if (!row || typeof row !== 'object') continue
+    const product = row as { name?: string; slug?: string; image?: string }
+    const name = product.name?.trim()
+    const slug = product.slug?.trim()
+    const image = product.image?.trim()
+    if (!name || !slug || !image || isPlaceholderMegaImage(image)) continue
+    heroes.push({ label: name, href: `/products/${slug}`, image })
+    if (heroes.length >= 6) break
+  }
+  return heroes
+}
+
 function MegaMenuHeroSlider({
   heroes,
   onClose,
@@ -181,13 +216,41 @@ function MegaMenuHeroSlider({
 export function MegaMenu({ config, isOpen, menuKey, onClose }: MegaMenuProps) {
   const reducedMotion = useReducedMotion()
   const [hovered, setHovered] = useState<string | null>(config.categories[0]?.href ?? null)
+  const [liveHeroes, setLiveHeroes] = useState<MegaMenuHero[]>([])
 
   const active = config.categories.find((c) => c.href === hovered) ?? config.categories[0]
-  const hasHeroes = config.heroes.length > 0
+  const staticHeroes = config.heroes.filter((hero) => !isPlaceholderMegaImage(hero.image))
+  const heroes = liveHeroes.length ? liveHeroes : staticHeroes
+  const hasHeroes = heroes.length > 0
 
   useEffect(() => {
     setHovered(config.categories[0]?.href ?? null)
   }, [menuKey, config])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const slug = listingSlugFromHref(hovered ?? active?.href ?? '')
+    if (!slug) {
+      setLiveHeroes([])
+      return
+    }
+
+    const controller = new AbortController()
+    setLiveHeroes([])
+    fetch(`/api/products?parentCategorySlug=${encodeURIComponent(slug)}&limit=6`, {
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.json() : { products: [] }))
+      .then((data: { products?: unknown }) => {
+        setLiveHeroes(heroesFromListing(data.products))
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return
+        setLiveHeroes([])
+      })
+
+    return () => controller.abort()
+  }, [isOpen, hovered, active?.href, menuKey])
 
   return (
     <>
@@ -307,7 +370,7 @@ export function MegaMenu({ config, isOpen, menuKey, onClose }: MegaMenuProps) {
               {hasHeroes ? (
                 <div className="mega-menu-col mega-menu-col--heroes">
                   <MegaMenuHeroSlider
-                    heroes={config.heroes}
+                    heroes={heroes}
                     reducedMotion={Boolean(reducedMotion)}
                     {...(onClose ? { onClose } : {})}
                   />

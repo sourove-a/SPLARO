@@ -23,6 +23,14 @@ export function adminOrdersRealtimeChannel(storeId: string): string {
   return `${ADMIN_PREFIX}${id}:orders`
 }
 
+export function adminNotificationsRealtimeChannel(storeId: string): string {
+  const id = storeId.trim()
+  if (!isSafeRealtimeId(id)) {
+    throw new Error('Invalid realtime store id')
+  }
+  return `${ADMIN_PREFIX}${id}:notifications`
+}
+
 export function orderRealtimeSeqKey(orderId: string): string {
   const id = orderId.trim()
   if (!isSafeRealtimeId(id)) {

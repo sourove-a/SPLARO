@@ -7,9 +7,11 @@ export async function POST(request: Request) {
   const webUrl = (
     process.env.WEB_URL?.trim() ||
     process.env.INTERNAL_WEB_URL?.trim() ||
-    (process.env.SPLARO_VPS === '1' || process.env.SPLARO_HOSTINGER === '1'
+    (process.env.NODE_ENV === 'development'
       ? 'http://127.0.0.1:3000'
-      : resolvePublicSiteUrl())
+      : process.env.SPLARO_VPS === '1' || process.env.SPLARO_HOSTINGER === '1'
+        ? 'http://127.0.0.1:3000'
+        : resolvePublicSiteUrl())
   ).replace(/\/$/, '')
 
   if (!secret) {

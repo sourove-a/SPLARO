@@ -81,6 +81,8 @@ const ACCESSORY_KEYWORDS = [
   'belt',
   'clutch',
   'cap',
+  'hat',
+  'cardholder',
   'decor',
 ]
 

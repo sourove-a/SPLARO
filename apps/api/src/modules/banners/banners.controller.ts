@@ -158,6 +158,9 @@ export class BannersController {
       where: { id },
       data: {
         ...body,
+        ...(body.title !== undefined ? { title: body.title.trim() || null } : {}),
+        ...(body.subtitle !== undefined ? { subtitle: body.subtitle.trim() || null } : {}),
+        ...(body.linkUrl !== undefined ? { linkUrl: body.linkUrl.trim() || null } : {}),
         startsAt: body.startsAt ? new Date(body.startsAt) : undefined,
         expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
       },

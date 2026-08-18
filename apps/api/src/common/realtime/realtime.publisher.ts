@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { RealtimeBusService } from './realtime-bus.service'
 import {
+  adminNotificationsRealtimeChannel,
   adminOrdersRealtimeChannel,
   isSafeRealtimeId,
   orderRealtimeChannel,
@@ -49,6 +50,22 @@ export class RealtimePublisher {
     } catch (err) {
       this.logger.warn(
         `Realtime order publish skipped: ${err instanceof Error ? err.message : 'error'}`,
+      )
+    }
+  }
+
+  /** Ping the admin bell after an IN_APP row is committed. Never throw. */
+  async publishNotificationCreated(storeId: string): Promise<void> {
+    const id = storeId?.trim()
+    if (!id || !isSafeRealtimeId(id)) return
+    try {
+      await this.bus.publish(
+        adminNotificationsRealtimeChannel(id),
+        JSON.stringify({ type: 'notification.created', updatedAt: new Date().toISOString() }),
+      )
+    } catch (err) {
+      this.logger.warn(
+        `Realtime notification publish skipped: ${err instanceof Error ? err.message : 'error'}`,
       )
     }
   }

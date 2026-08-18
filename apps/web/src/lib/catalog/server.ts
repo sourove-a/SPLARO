@@ -11,7 +11,7 @@ import {
   fetchStorefrontProductListing,
   type ProductReview,
 } from './live'
-import { LISTING_PAGE_SIZE } from '@/lib/catalog/listing'
+import { LISTING_PAGE_SIZE, buildScopedListingAttempts } from '@/lib/catalog/listing'
 import type { CollectionShopContext } from '@/lib/storefront/collection-context'
 import { rememberGoodCatalog, resolveCatalogFailure, getStaleCatalog } from '@/lib/catalog/catalog-stale'
 import { catalogFetchAttempts } from '@/lib/server/fetch-timeouts'
@@ -284,21 +284,14 @@ export async function getStorefrontCatalogForCollection(
     return { products: [], source: 'empty', total: 0, totalPages: 0, page: 1 }
   }
 
-  // Parent-tree first (matches homepage dept rails). Never prefer slug-prefix
-  // categorySlug — that historically pulled men-footwear into /c/men.
-  const attempts: Array<{
-    collectionSlug?: string
-    categorySlug?: string
-    parentCategorySlug?: string
-  }> = context.curated
-    ? [{ collectionSlug: context.collectionSlug }]
-    : [
-        { parentCategorySlug: context.parentCategorySlug || context.slug },
-        ...(context.categorySlug && context.categorySlug !== context.slug
-          ? [{ categorySlug: context.categorySlug }]
-          : []),
-        { collectionSlug: context.collectionSlug },
-      ]
+  const attempts = buildScopedListingAttempts(
+    context.curated
+      ? { collectionSlug: context.collectionSlug }
+      : {
+          parentCategorySlug: context.parentCategorySlug || context.slug,
+          ...(context.categorySlug ? { categorySlug: context.categorySlug } : {}),
+        },
+  )
 
   for (const query of attempts) {
     try {
@@ -320,46 +313,6 @@ export async function getStorefrontCatalogForCollection(
       }
     } catch {
       /* try next query */
-    }
-  }
-
-  // Scoped PLP only — never dump the full shop catalog into /c/:slug
-  // (unknown/stale mega links used to fall through to All = Men+Women mix).
-  if (context.initialCategory !== 'All') {
-    try {
-      const full = await getStorefrontCatalog()
-      if (full.source === 'api' && full.products.length) {
-        const filtered = full.products.filter(
-          (product) => product.category === context.initialCategory,
-        )
-        if (filtered.length) {
-          return {
-            products: filtered,
-            source: 'api',
-            total: filtered.length,
-            totalPages: 1,
-            page: 1,
-          }
-        }
-      }
-    } catch {
-      /* unavailable */
-    }
-
-    const stale = getStaleCatalog()
-    if (stale?.products.length) {
-      const filtered = stale.products.filter(
-        (product) => product.category === context.initialCategory,
-      )
-      if (filtered.length) {
-        return {
-          products: filtered,
-          source: 'api',
-          total: filtered.length,
-          totalPages: 1,
-          page: 1,
-        }
-      }
     }
   }
 

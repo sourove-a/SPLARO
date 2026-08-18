@@ -2018,6 +2018,10 @@ html[data-os='windows'] .home-hero-slider .hero-bg-embed iframe {
     linear-gradient(180deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0.52));
 }
 
+.home-hero-slider .hero-slide[data-hero-copy='none'] .hero-overlay {
+  background: transparent;
+}
+
 .home-hero-slider .hero-content {
   position: relative;
   z-index: 2;

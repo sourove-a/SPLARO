@@ -67,6 +67,17 @@ export function shouldApplyRealtimeEvent(
   return true
 }
 
+export function sanitizeRealtimeNotificationEvent(
+  raw: unknown,
+): { type: 'notification.created'; updatedAt: string } | null {
+  if (!raw || typeof raw !== 'object') return null
+  const rec = raw as Record<string, unknown>
+  if (rec.type !== 'notification.created') return null
+  const updatedAt = asIso(rec.updatedAt)
+  if (!updatedAt) return null
+  return { type: 'notification.created', updatedAt }
+}
+
 export function formatSseData(data: unknown): string {
   return `data: ${JSON.stringify(data)}\n\n`
 }

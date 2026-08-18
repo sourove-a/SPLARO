@@ -13,7 +13,7 @@ export function formatCatalogPublishedSub(published: number): string {
 
 export function formatCatalogBulkIntro(modeLabel: string, isCatalog: boolean): string {
   if (isCatalog) {
-    return `1. Download template · 2. One row per variant · 3. Dry-run preview · 4. Apply in ${CATALOG_IMPORT_CHUNK_SIZE}-row API batches. Same file shape as Export all products.`
+    return `1. Download template · 2. One row per variant · 3. Set category_slug to the admin tree slug · 4. Dry-run preview · 5. Apply in ${CATALOG_IMPORT_CHUNK_SIZE}-row API batches. Same file shape as Export all products.`
   }
   return `Upload a ${modeLabel.toLowerCase()} file — dry-run shows rejects before anything is written.`
 }

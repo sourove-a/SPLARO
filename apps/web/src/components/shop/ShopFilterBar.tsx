@@ -269,9 +269,6 @@ export function ShopFilterBar({
           </div>
 
           <div className="shop-filter-bar__controls">
-            <span className="shop-filter-bar__result-count" aria-live="polite">
-              <strong>{resultCount}</strong> {resultCount === 1 ? 'piece' : 'pieces'}
-            </span>
             {shopFilters.showColorFilter ? (
               <ShopFilterDropdown
                 label={shopFilters.labels.color}

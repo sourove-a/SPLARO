@@ -105,6 +105,8 @@ const nextConfig = {
       { protocol: 'https', hostname: 'placehold.co' },
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'images.pexels.com' },
+      { protocol: 'https', hostname: 'i.pinimg.com' },
+      { protocol: 'https', hostname: '**.pinimg.com' },
       { protocol: 'https', hostname: '**.googleusercontent.com' },
       {
         protocol: 'https',

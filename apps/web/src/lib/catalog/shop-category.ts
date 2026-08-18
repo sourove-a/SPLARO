@@ -1,3 +1,4 @@
+import { CATEGORY_SUBCATEGORIES } from '@splaro/config'
 import type { Category } from '@/data/storefront'
 
 export type ShopCategory = Exclude<Category, 'All'>
@@ -80,6 +81,21 @@ const SLUG_TO_SHOP: Record<string, ShopCategory> = {
   'scarves-mufflers': 'Men',
 }
 
+const DEPT_TO_SHOP: Record<string, ShopCategory> = {
+  women: 'Women',
+  men: 'Men',
+  kids: 'Kids',
+  footwear: 'Footwear',
+  accessories: 'Accessories',
+}
+
+for (const [dept, leaves] of Object.entries(CATEGORY_SUBCATEGORIES)) {
+  const shop = DEPT_TO_SHOP[dept] ?? SLUG_TO_SHOP[dept]
+  if (!shop) continue
+  SLUG_TO_SHOP[dept] = shop
+  for (const leaf of leaves) SLUG_TO_SHOP[leaf.slug] = shop
+}
+
 const NAME_TO_SHOP: Record<string, ShopCategory> = {
   Women: 'Women',
   Kids: 'Kids',
@@ -109,7 +125,9 @@ function inferShopCategoryFromSlug(slug: string): ShopCategory | null {
     slug.includes('glass') ||
     slug.includes('jewel') ||
     slug.includes('accessor') ||
-    slug.includes('prayer')
+    slug.includes('prayer') ||
+    slug.includes('clutch') ||
+    slug.includes('cardholder')
   ) {
     return 'Accessories'
   }
@@ -130,6 +148,13 @@ function inferShopCategoryFromSlug(slug: string): ShopCategory | null {
   }
 
   return null
+}
+
+/** Null when the slug is not a known department or leaf (e.g. curated collection). */
+export function shopCategoryFromSlug(slug: string): ShopCategory | null {
+  const normalized = slug.trim().toLowerCase()
+  if (!normalized) return null
+  return inferShopCategoryFromSlug(normalized)
 }
 
 /** Map API category name/slug (+ optional parent) to shop filter category. */

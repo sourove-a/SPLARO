@@ -1,5 +1,6 @@
 import { type CatalogChannel, JHINGEPHOOL_COLLECTION_NAME, isJhingephoolCollectionSlug } from '@splaro/types'
 import { categoryFromSlug, slugFromCategory, type Category } from '@/data/storefront'
+import { shopCategoryFromSlug } from '@/lib/catalog/shop-category'
 
 export function titleFromCollectionSlug(slug: string) {
   if (isJhingephoolCollectionSlug(slug)) return JHINGEPHOOL_COLLECTION_NAME
@@ -27,17 +28,26 @@ export function resolveCollectionContext(
 ): CollectionShopContext {
   const channel = channels.find((entry) => entry.slug === slug)
   const fromSlug = categoryFromSlug(slug)
-  const shopCategory = (channel?.shopCategory ?? fromSlug ?? null) as Category | null
-  const initialCategory: Category = shopCategory && shopCategory !== 'All' ? shopCategory : 'All'
+  const leafShop = shopCategoryFromSlug(slug)
   const isDepartment = Boolean(channel || fromSlug)
+  // ঝিঙেফুল is a brand collection, not a category. Every other /c/:slug is
+  // a category tree (e.g. /c/sarees = all sarees).
+  const isCurated = isJhingephoolCollectionSlug(slug)
+  const shopCategory = (
+    channel?.shopCategory ??
+    fromSlug ??
+    (isCurated ? null : leafShop) ??
+    null
+  ) as Category | null
+  const initialCategory: Category = shopCategory && shopCategory !== 'All' ? shopCategory : 'All'
 
   return {
     slug,
     title: channel?.label ?? (fromSlug ?? titleFromCollectionSlug(slug)),
     initialCategory,
     collectionSlug: slug,
-    parentCategorySlug: isDepartment ? slug : '',
-    curated: !isDepartment,
-    ...(fromSlug ? { categorySlug: slugFromCategory(fromSlug) } : {}),
+    parentCategorySlug: isCurated ? '' : slug,
+    curated: isCurated,
+    ...(isDepartment && fromSlug ? { categorySlug: slugFromCategory(fromSlug) } : {}),
   }
 }

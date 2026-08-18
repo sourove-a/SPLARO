@@ -89,8 +89,28 @@ export const CATEGORY_SUBCATEGORIES: Record<string, { name: string; slug: string
     { name: 'Jewelry', slug: 'jewelry' },
     { name: 'Glasses', slug: 'glasses' },
     { name: 'Watches', slug: 'watches' },
+    { name: 'Hats', slug: 'hats' },
+    { name: 'Cardholder', slug: 'cardholder' },
     { name: 'Prayer Caps', slug: 'prayer-caps' },
+    { name: 'Prayer Mats', slug: 'prayer-mats' },
     { name: 'Home Decor', slug: 'home-decor' },
+  ],
+  /** Nested under accessories leaves — must follow `accessories` so seed can resolve parent ids. */
+  glasses: [
+    { name: 'Sunglasses', slug: 'glasses-sunglasses' },
+    { name: 'Optical', slug: 'glasses-optical' },
+    { name: 'Aviator', slug: 'glasses-aviator' },
+    { name: 'Cat-Eye', slug: 'glasses-cat-eye' },
+  ],
+  bags: [
+    { name: 'Premium', slug: 'bags-premium' },
+    { name: 'Luxury', slug: 'bags-luxury' },
+    { name: 'W&S', slug: 'bags-ws' },
+  ],
+  handbags: [
+    { name: 'Tote', slug: 'handbags-tote' },
+    { name: 'Shoulder', slug: 'handbags-shoulder' },
+    { name: 'Clutch', slug: 'clutch' },
   ],
 }
 

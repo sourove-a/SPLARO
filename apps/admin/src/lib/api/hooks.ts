@@ -1012,10 +1012,11 @@ export function useNotificationsOverview() {
   return useQuery({
     queryKey: ['notifications-overview'],
     queryFn: fetchNotificationsOverview,
-    staleTime: 10_000,
-    refetchInterval: 15_000,
+    staleTime: 2_000,
+    refetchInterval: 4_000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
     retry: 1,
   })
 }

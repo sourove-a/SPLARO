@@ -100,6 +100,11 @@ export function DcNotificationsPopover({
     setReadIds(loadReadIds())
   }, [])
 
+  useEffect(() => {
+    if (!open) return
+    void refetch()
+  }, [open, refetch])
+
   const items = useMemo(
     () =>
       (data?.logs ?? []).slice(0, 20).map((log) => ({

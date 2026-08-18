@@ -20,10 +20,7 @@ import {
   DEFAULT_SUPPORT_PHONE_E164,
   beautifyStoreAddress,
 } from '@/lib/storefront/defaults'
-import {
-  ACCESSORIES_MEGA_CATEGORIES,
-  ACCESSORIES_MEGA_HEROES,
-} from '@/lib/storefront/accessories-nav'
+import { ACCESSORIES_MEGA_CATEGORIES } from '@/lib/storefront/accessories-nav'
 import { EDITORIAL } from '@/lib/assets/editorial-images'
 import {
   DEFAULT_HOMEPAGE_CATALOG,
@@ -297,7 +294,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
         href: '/accessories',
         megaMenu: {
           categories: [...ACCESSORIES_MEGA_CATEGORIES],
-          heroes: [...ACCESSORIES_MEGA_HEROES],
+          heroes: [],
         },
       },
     ],
@@ -584,7 +581,7 @@ function ensureAccessoriesHeaderLink(nav: NavLink[]): NavLink[] {
         ? item.megaMenu
         : {
             categories: [...ACCESSORIES_MEGA_CATEGORIES],
-            heroes: [...ACCESSORIES_MEGA_HEROES],
+            heroes: [],
           },
     }
     return next
@@ -603,7 +600,7 @@ function ensureAccessoriesHeaderLink(nav: NavLink[]): NavLink[] {
     href: '/accessories',
     megaMenu: {
       categories: [...ACCESSORIES_MEGA_CATEGORIES],
-      heroes: [...ACCESSORIES_MEGA_HEROES],
+      heroes: [],
     },
   }
   if (footwearIdx >= 0) {
@@ -614,12 +611,30 @@ function ensureAccessoriesHeaderLink(nav: NavLink[]): NavLink[] {
   return [...nav, link]
 }
 
+function isPlaceholderMegaImage(url: string | undefined): boolean {
+  const value = url?.trim() ?? ''
+  return !value || /placeholder-product|placehold\.co/i.test(value)
+}
+
+/** Fake bag/placeholder tiles are not catalog products. */
+function stripPlaceholderMegaHeroes(nav: NavLink[]): NavLink[] {
+  return nav.map((item) => {
+    const mega = item.megaMenu
+    if (!mega?.heroes?.length) return item
+    const next = mega.heroes.filter((hero) => !isPlaceholderMegaImage(hero.image))
+    if (next.length === mega.heroes.length) return item
+    return { ...item, megaMenu: { ...mega, heroes: next } }
+  })
+}
+
 function applyStoreDefaults(settings: StorefrontSettings): StorefrontSettings {
   const fallbackGroups = FALLBACK_SETTINGS.config.footerGroups ?? []
   const headerNav = settings.config.headerNav?.length
     ? settings.config.headerNav
     : FALLBACK_SETTINGS.config.headerNav
-  const normalizedHeaderNav = ensureAccessoriesHeaderLink(ensureHomeNavLink(headerNav ?? []))
+  const normalizedHeaderNav = stripPlaceholderMegaHeroes(
+    ensureAccessoriesHeaderLink(ensureHomeNavLink(headerNav ?? [])),
+  )
 
   const catalogChannels = mergeCatalogChannels(
     settings.config.catalogChannels ?? FALLBACK_SETTINGS.config.catalogChannels,

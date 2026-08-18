@@ -433,6 +433,7 @@ export interface CatalogExportRow {
   product_sku: string
   slug: string
   category: string
+  category_slug: string
   collection: string
   description: string
   description_bn: string

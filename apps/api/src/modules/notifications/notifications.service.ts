@@ -1,5 +1,6 @@
 import { Injectable, Logger, Optional } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
+import { RealtimePublisher } from '../../common/realtime/realtime.publisher'
 import { TelegramService } from '../telegram/telegram.service'
 
 export interface AdminNotification {
@@ -53,6 +54,7 @@ export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly telegram: TelegramService,
+    @Optional() private readonly realtime?: RealtimePublisher,
   ) {}
 
   /** Persist a dashboard notification even when Telegram/email is disabled. */
@@ -93,6 +95,7 @@ export class NotificationsService {
           level: input.level ?? 'info',
         },
       })
+      void this.realtime?.publishNotificationCreated(input.storeId)
       return 'created'
     } catch (error) {
       this.logger.error(

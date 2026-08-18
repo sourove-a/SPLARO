@@ -1,6 +1,7 @@
 import { isSafeRealtimeId, orderRealtimeChannel } from './realtime-channels'
 import {
   phonesMatchLast10,
+  sanitizeRealtimeNotificationEvent,
   sanitizeRealtimeOrderEvent,
   shouldApplyRealtimeEvent,
 } from './realtime-event.util'
@@ -62,6 +63,19 @@ describe('realtime event sanitizer', () => {
         seq: 1,
       }),
     ).toBeNull()
+  })
+})
+
+describe('sanitizeRealtimeNotificationEvent', () => {
+  it('accepts a notification ping and drops extra fields', () => {
+    expect(
+      sanitizeRealtimeNotificationEvent({
+        type: 'notification.created',
+        updatedAt: '2026-08-18T18:00:00.000Z',
+        subject: 'secret',
+      }),
+    ).toEqual({ type: 'notification.created', updatedAt: '2026-08-18T18:00:00.000Z' })
+    expect(sanitizeRealtimeNotificationEvent({ type: 'order.created' })).toBeNull()
   })
 })
 

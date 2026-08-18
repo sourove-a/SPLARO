@@ -24,6 +24,7 @@ describe('catalog import/export copy', () => {
 
   it('explains catalog dry-run and API batching honestly', () => {
     assert.match(formatCatalogBulkIntro('Catalog', true), /One row per variant/i)
+    assert.match(formatCatalogBulkIntro('Catalog', true), /category_slug/i)
     assert.match(formatCatalogBulkIntro('Catalog', true), /200-row API batches/i)
     assert.match(formatCatalogBulkTemplateSubtitle('sku · stock'), /200 rows/i)
   })

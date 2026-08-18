@@ -14,7 +14,6 @@ const REPARENT: Record<string, string> = {
   glasses: 'accessories',
   jewellery: 'accessories',
   jewelry: 'accessories',
-  clutches: 'accessories',
   bags: 'accessories',
   handbags: 'accessories',
   'girls-wear': 'kids',
@@ -34,6 +33,20 @@ const REPARENT: Record<string, string> = {
   loafers: 'footwear',
   'women-footwear': 'footwear',
   'men-footwear': 'footwear',
+  hats: 'accessories',
+  clutch: 'handbags',
+  clutches: 'handbags',
+  cardholder: 'accessories',
+  'prayer-mats': 'accessories',
+  'glasses-sunglasses': 'glasses',
+  'glasses-optical': 'glasses',
+  'glasses-aviator': 'glasses',
+  'glasses-cat-eye': 'glasses',
+  'bags-premium': 'bags',
+  'bags-luxury': 'bags',
+  'bags-ws': 'bags',
+  'handbags-tote': 'handbags',
+  'handbags-shoulder': 'handbags',
 }
 
 export async function seedDefaultCategoryTree(
@@ -58,11 +71,12 @@ export async function seedDefaultCategoryTree(
   }
 
   let subs = 0
+  const parentIdBySlug: Record<string, string> = { ...deptIds }
   for (const [parentSlug, items] of Object.entries(CATEGORY_SUBCATEGORIES)) {
-    const parentId = deptIds[parentSlug]
+    const parentId = parentIdBySlug[parentSlug]
     if (!parentId) continue
     for (const [index, item] of items.entries()) {
-      await prisma.category.upsert({
+      const row = await prisma.category.upsert({
         where: { storeId_slug: { storeId, slug: item.slug } },
         create: {
           storeId,
@@ -73,13 +87,14 @@ export async function seedDefaultCategoryTree(
         },
         update: { parentId, name: item.name, isActive: true, sortOrder: index + 1 },
       })
+      parentIdBySlug[item.slug] = row.id
       subs++
     }
   }
 
   let reparented = 0
   for (const [slug, parentSlug] of Object.entries(REPARENT)) {
-    const parentId = deptIds[parentSlug]
+    const parentId = parentIdBySlug[parentSlug]
     if (!parentId) continue
     const updated = await prisma.category.updateMany({
       where: { storeId, slug, parentId: null },

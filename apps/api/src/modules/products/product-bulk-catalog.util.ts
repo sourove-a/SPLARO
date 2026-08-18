@@ -15,11 +15,11 @@ import {
   ensureProductSkuIdentity,
   uniqueGeneratedSku,
 } from './variant-sku.service'
+import { pickCategoryMatch, type CategoryLite } from './product-bulk-category.util'
 
 export const CATALOG_BULK_MAX_ROWS = 200
 const MAX_IMAGES = 10
 
-export type CategoryNameCache = Map<string, string | null>
 export type CollectionNameCache = Map<string, string | null>
 
 export interface CatalogBulkRowInput {
@@ -28,6 +28,7 @@ export interface CatalogBulkRowInput {
   productSku: string
   slug?: string
   category?: string
+  categorySlug?: string
   collection?: string
   description?: string
   descriptionBn?: string
@@ -66,6 +67,7 @@ export interface CatalogExportRow {
   product_sku: string
   slug: string
   category: string
+  category_slug: string
   collection: string
   description: string
   description_bn: string
@@ -137,31 +139,19 @@ function normalizeImageList(row: CatalogBulkRowInput): string[] {
   return urls.slice(0, MAX_IMAGES)
 }
 
-async function resolveCategoryIdByName(
-  prisma: PrismaService,
-  storeId: string,
-  categoryName: string | undefined,
-  cache?: CategoryNameCache,
-): Promise<string | null> {
-  const name = categoryName?.trim()
-  if (!name) return null
-  const cacheKey = name.toLowerCase()
-  if (cache?.has(cacheKey)) return cache.get(cacheKey) ?? null
-
-  const found = await prisma.category.findFirst({
-    where: {
-      storeId,
-      isActive: true,
-      OR: [
-        { name: { equals: name, mode: 'insensitive' } },
-        { slug: { equals: name.toLowerCase().replace(/\s+/g, '-'), mode: 'insensitive' } },
-      ],
-    },
-    select: { id: true },
+function resolveCategoryId(
+  categories: CategoryLite[],
+  row: Pick<CatalogBulkRowInput, 'category' | 'categorySlug'>,
+): string | null {
+  const picked = pickCategoryMatch(categories, {
+    ...(row.categorySlug?.trim() ? { slug: row.categorySlug } : {}),
+    ...(row.category?.trim() ? { label: row.category } : {}),
   })
-  const id = found?.id ?? null
-  cache?.set(cacheKey, id)
-  return id
+  if (!picked) return null
+  if ('error' in picked) {
+    throw new BadRequestException(picked.error)
+  }
+  return picked.id
 }
 
 async function resolveCollectionIdByName(
@@ -238,7 +228,7 @@ export async function loadCatalogExportRows(
     const products = await prisma.product.findMany({
       where,
       include: {
-        category: { select: { name: true } },
+        category: { select: { name: true, slug: true } },
         collections: {
           take: 1,
           include: { collection: { select: { name: true } } },
@@ -293,6 +283,7 @@ export async function loadCatalogExportRows(
           product_sku: cell(p.sku),
           slug: cell(p.slug),
           category: cell(p.category?.name),
+          category_slug: cell(p.category?.slug),
           collection: cell(p.collections[0]?.collection?.name),
           description: cell(p.description),
           description_bn: readSchemaString(p.schemaMarkup, 'descriptionBn'),
@@ -349,7 +340,10 @@ export async function upsertCatalogRowsBatch(
   storeId: string,
   rows: CatalogBulkRowInput[],
 ): Promise<CatalogBulkResult[]> {
-  const categoryCache: CategoryNameCache = new Map()
+  const categories = await prisma.category.findMany({
+    where: { storeId, isActive: true },
+    select: { id: true, name: true, slug: true },
+  })
   const collectionCache: CollectionNameCache = new Map()
   const results: CatalogBulkResult[] = new Array(rows.length)
 
@@ -370,7 +364,7 @@ export async function upsertCatalogRowsBatch(
             tx as unknown as PrismaService,
             storeId,
             row,
-            categoryCache,
+            categories,
             collectionCache,
           )
           results[index] = result
@@ -448,7 +442,7 @@ export async function upsertCatalogRow(
   prisma: PrismaService,
   storeId: string,
   row: CatalogBulkRowInput,
-  categoryCache?: CategoryNameCache,
+  categories: CategoryLite[] = [],
   collectionCache?: CollectionNameCache,
 ): Promise<CatalogBulkResult> {
   const key = row.variantSku?.trim() || row.productSku?.trim() || row.name || 'unknown'
@@ -491,9 +485,11 @@ export async function upsertCatalogRow(
       if (existingVariant) product = existingVariant.product
     }
 
-    const categoryId = await resolveCategoryIdByName(prisma, storeId, row.category, categoryCache)
-    if (row.category?.trim() && !categoryId) {
-      throw new BadRequestException(`Category not found: ${row.category.trim()}`)
+    const categoryId = resolveCategoryId(categories, row)
+    if ((row.category?.trim() || row.categorySlug?.trim()) && !categoryId) {
+      throw new BadRequestException(
+        `Category not found: ${(row.categorySlug || row.category || '').trim()}`,
+      )
     }
 
     const collectionId = await resolveCollectionIdByName(

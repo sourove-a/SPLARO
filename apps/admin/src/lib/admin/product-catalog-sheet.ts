@@ -8,6 +8,7 @@ export const CATALOG_HEADERS = [
   'product_sku',
   'slug',
   'category',
+  'category_slug',
   'collection',
   'description',
   'description_bn',
@@ -45,7 +46,8 @@ export const CATALOG_SAMPLE_ROW: string[] = [
   'স্যাম্পল টি',
   'SPL-SAMPLE',
   'sample-tee',
-  'Men',
+  'T-Shirt',
+  't-shirts',
   'Essentials',
   'Soft cotton tee',
   'নরম কটন টি',
@@ -148,6 +150,7 @@ export function productsToSheetRows(products: ApiProduct[]): string[][] {
         cell(p.sku),
         cell(p.slug),
         cell(p.category?.name),
+        cell(p.category?.slug),
         cell(collection),
         cell(p.description),
         cell(schemaString(p.schemaMarkup, 'descriptionBn')),
@@ -188,6 +191,7 @@ export interface CatalogUpsertRow {
   productSku: string
   slug?: string
   category?: string
+  categorySlug?: string
   collection?: string
   description?: string
   descriptionBn?: string
@@ -446,8 +450,9 @@ export function dryRunCatalogRows(
     const draftNote =
       published === true &&
       !row.category?.trim() &&
+      !row.category_slug?.trim() &&
       !(existingByProduct ?? existingByVariant?.product)?.categoryId
-        ? 'published=true but no category — will save as draft'
+        ? 'published=true but no category_slug — will save as draft'
         : undefined
 
     const payload: CatalogUpsertRow = {
@@ -456,6 +461,7 @@ export function dryRunCatalogRows(
       ...(row.name_bn?.trim() ? { nameBn: row.name_bn.trim() } : {}),
       ...(row.slug?.trim() ? { slug: row.slug.trim() } : {}),
       ...(row.category?.trim() ? { category: row.category.trim() } : {}),
+      ...(row.category_slug?.trim() ? { categorySlug: row.category_slug.trim() } : {}),
       ...(row.collection?.trim() ? { collection: row.collection.trim() } : {}),
       ...(row.description?.trim() ? { description: row.description.trim() } : {}),
       ...(row.description_bn?.trim() ? { descriptionBn: row.description_bn.trim() } : {}),

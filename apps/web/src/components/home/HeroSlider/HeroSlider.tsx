@@ -5,6 +5,7 @@ import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import { useReducedMotion } from '@/lib/motion/react'
 import Link from 'next/link'
 import type { HeroBanner } from '@/lib/api/banners'
+import { heroSlideCopy } from '@/lib/api/hero-banners'
 import { LiquidGlassNavButton } from '@/components/ui/LiquidGlass/LiquidGlassNavButton'
 import { cn } from '@/lib/utils/cn'
 import {
@@ -130,16 +131,10 @@ function resolveSlidePoster(media: string, index: number, banner: HeroBanner) {
   return ''
 }
 
-function resolveSlideEyebrow(_banner: HeroBanner, _index: number, _subtitle: string): string {
-  return 'SPLARO'
-}
-
 function mapBannerToSlide(banner: HeroBanner, index: number): HeroSlide {
   const media = banner.image?.trim() || ''
   const mobileMedia = banner.mobileImage?.trim() || ''
-  const title = banner.title?.trim() || 'SPLARO'
-  const subtitle = banner.subtitle?.trim() || 'Premium fashion crafted for timeless everyday luxury.'
-  const href = banner.linkUrl?.trim() || '/shop'
+  const copy = heroSlideCopy(banner)
   const poster = resolveSlidePoster(media, index, banner)
   const videoConfig = resolveSlideVideo(media, index)
 
@@ -150,12 +145,12 @@ function mapBannerToSlide(banner: HeroBanner, index: number): HeroSlide {
       ? { mobileImage: heroImageSrc(mobileMedia) }
       : {}),
     ...videoConfig,
-    eyebrow: resolveSlideEyebrow(banner, index, subtitle),
-    title,
-    subtitle,
-    primaryHref: href,
+    eyebrow: '',
+    title: copy.title,
+    subtitle: copy.subtitle,
+    primaryHref: copy.href,
     primaryLabel: '',
-    secondaryHref: href,
+    secondaryHref: copy.href,
     secondaryLabel: '',
   }
 }
@@ -694,7 +689,10 @@ function HeroBackground({
 export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   const reducedMotion = useReducedMotion() === true
   const slides = useMemo(() => initialBanners.map(mapBannerToSlide), [initialBanners])
-  const slidesSignature = useMemo(() => slides.map((s) => s.id).join('|'), [slides])
+  const slidesSignature = useMemo(
+    () => slides.map((s) => `${s.id}:${s.image}:${s.title}:${s.subtitle}`).join('|'),
+    [slides],
+  )
 
   const [index, setIndex] = useState(0)
   const [exitIndex, setExitIndex] = useState<number | null>(null)
@@ -939,54 +937,64 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
         {slides.map((item, slideIndex) => {
           const isActive = slideIndex === index
           const isExiting = slideIndex === exitIndex
+          const hasCopy = Boolean(item.title || item.subtitle)
+          const media = (
+            <>
+              <div className="hero-slide__media">
+                <div className="hero-slide__media-shell">
+                  <HeroBackground
+                    slide={item}
+                    isActive={isActive}
+                    playbackActive={isActive && sliderActive}
+                    priority={slideIndex === 0}
+                    allowVideo={allowVideo && !reducedMotion}
+                  />
+                </div>
+              </div>
+              <div className="hero-overlay" aria-hidden />
+              {hasCopy ? (
+                <div className="hero-content">
+                  {item.title ? (
+                    isActive ? (
+                      <h1>{item.title}</h1>
+                    ) : (
+                      <p className="hero-title" aria-hidden="true">
+                        {item.title}
+                      </p>
+                    )
+                  ) : null}
+                  {item.subtitle ? <p className="hero-subtitle">{item.subtitle}</p> : null}
+                </div>
+              ) : null}
+            </>
+          )
 
           return (
             <article
               key={item.id}
               className="hero-slide"
               data-active={isActive ? 'true' : 'false'}
+              data-hero-copy={hasCopy ? 'on' : 'none'}
               {...(isExiting ? { 'data-exiting': 'true' } : {})}
               aria-hidden={!isActive}
               style={{ pointerEvents: isActive && !isTransitioning ? 'auto' : 'none' }}
             >
-              <Link
-                href={item.primaryHref}
-                className="hero-slide__link"
-                aria-label={`${item.title} — explore collection`}
-                tabIndex={isActive ? 0 : -1}
-                onClick={(event) => {
-                  if (!suppressSlideClickRef.current) return
-                  event.preventDefault()
-                }}
-              >
-                <div className="hero-slide__media">
-                  <div className="hero-slide__media-shell">
-                    <HeroBackground
-                      slide={item}
-                      isActive={isActive}
-                      playbackActive={isActive && sliderActive}
-                      priority={slideIndex === 0}
-                      allowVideo={allowVideo && !reducedMotion}
-                    />
-                  </div>
-                </div>
-                <div className="hero-overlay" aria-hidden />
-
-                <div className="hero-content">
-                  <p className="hero-eyebrow">{item.eyebrow}</p>
-                  {isActive ? (
-                    <h1>{item.title}</h1>
-                  ) : (
-                    <p className="hero-title" aria-hidden="true">
-                      {item.title}
-                    </p>
-                  )}
-                  <p className="hero-subtitle">{item.subtitle}</p>
-                  {/* No separate Shop CTA — the whole image/video is the hit target
-                      (outer <Link>). Visible button competed with the hero and
-                      looked like a second control. */}
-                </div>
-              </Link>
+              {item.primaryHref ? (
+                <Link
+                  href={item.primaryHref}
+                  className="hero-slide__link"
+                  aria-label={item.title ? `${item.title} — explore collection` : 'Hero slide'}
+                  tabIndex={isActive ? 0 : -1}
+                  onClick={(event) => {
+                    if (!suppressSlideClickRef.current) return
+                    event.preventDefault()
+                  }}
+                >
+                  {media}
+                </Link>
+              ) : (
+                <div className="hero-slide__link">{media}</div>
+              )}
             </article>
           )
         })}

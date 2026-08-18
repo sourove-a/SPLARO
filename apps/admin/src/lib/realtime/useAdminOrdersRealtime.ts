@@ -28,10 +28,19 @@ export function useAdminOrdersRealtime(enabled = true): void {
       void qc.invalidateQueries({ queryKey: ['orders'] })
       void qc.invalidateQueries({ queryKey: ['dashboard-stats'] })
       void qc.invalidateQueries({ queryKey: ['fulfillment-today-stats'] })
+      void qc.invalidateQueries({ queryKey: ['notifications-overview'] })
       if (orderId) void qc.invalidateQueries({ queryKey: ['order', orderId] })
     }
 
     const apply = (raw: unknown) => {
+      if (
+        raw &&
+        typeof raw === 'object' &&
+        (raw as { type?: string }).type === 'notification.created'
+      ) {
+        void qc.invalidateQueries({ queryKey: ['notifications-overview'] })
+        return
+      }
       const event = parseAdminRealtimeOrderEvent(raw)
       if (!event) return
       const prev = lastByOrder.current.get(event.orderId) ?? { seq: 0 }
@@ -60,6 +69,7 @@ export function useAdminOrdersRealtime(enabled = true): void {
         void qc.invalidateQueries({ queryKey: ['orders'] })
         void qc.invalidateQueries({ queryKey: ['dashboard-stats'] })
         void qc.invalidateQueries({ queryKey: ['fulfillment-today-stats'] })
+        void qc.invalidateQueries({ queryKey: ['notifications-overview'] })
 
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
