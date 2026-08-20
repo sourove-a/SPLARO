@@ -1526,7 +1526,8 @@
   min-width: 280px;
   max-width: 340px;
   position: sticky;
-  top: 72px;
+  /* Same measured chrome the section rail uses — see dc-product-form.css. */
+  top: calc(var(--dc-chrome-h, 134px) + 8px);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1645,16 +1646,83 @@
 }
 
 /* Media slots — one uniform track so tile bottoms line up across rows. */
+/*
+ * Media slots.
+ *
+ * Six equal 4/5 tiles at a third of the width each, every one carrying four
+ * permanent control rows, made this single section taller than the rest of the
+ * form combined. The main photo now leads as a hero tile, the five supporting
+ * angles size down to what a thumbnail actually needs, and their controls open
+ * per slot (see `.dc-media-slot__tools`).
+ */
 .dc-media-grid {
   display: grid;
+  /* Fixed track counts, not auto-fill: the hero spans two rows, so an
+     auto-fitted column count left the last detail tile alone on a row with
+     three empty cells beside it. Five columns leaves exactly one gap. */
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
+  align-items: start;
 }
 
-@media (max-width: 719px) {
+@media (min-width: 1080px) {
+  .dc-media-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 559px) {
   .dc-media-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+.dc-media-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/*
+ * The hero only exists in the five-column layout, where 2×2 leaves a single
+ * empty cell. In the three- and two-column layouts a spanning main tile turns
+ * into a wall of photo and strands the last detail tile, so every slot stays
+ * the same size there and the six tiles fill whole rows.
+ */
+@media (min-width: 1080px) {
+  .dc-media-slot--main {
+    grid-column: span 2;
+    grid-row: span 2;
+  }
+}
+
+.dc-media-slot__tools-toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.dc-media-slot__tools-toggle:hover {
+  color: var(--ink);
+  border-color: var(--line-2);
+}
+
+.dc-media-slot__tools[data-open='true'] {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
 }
 
 /* Home Page / Our Story — DC handoff density inside live module host */
@@ -3389,5 +3457,202 @@
   .dc-jump-scroll {
     mask-image: none;
     -webkit-mask-image: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Motion layer
+   ═══════════════════════════════════════════════════════════════
+   The panel had the vocabulary but never used it: dc-fadein,
+   dc-slidein, dc-toastin and dc-rise were all defined above and
+   referenced nowhere, and `transition` appeared seven times in the
+   whole sheet. So hover, selection and page changes all snapped.
+
+   Everything here animates transform / opacity / colour only —
+   nothing that triggers layout — and every rule is scoped under
+   .dc-root so the storefront is untouched. One reduced-motion
+   block at the end turns the whole layer off.
+   ═══════════════════════════════════════════════════════════════ */
+
+.dc-root {
+  --dc-motion-fast: 150ms cubic-bezier(0.32, 0.72, 0.3, 1);
+  --dc-motion: 200ms cubic-bezier(0.32, 0.72, 0.3, 1);
+  --dc-motion-slow: 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Existing hover helpers: they changed instantly before ───── */
+.dc-hover-surface,
+.dc-hover-ink,
+.dc-hover-line,
+.dc-hover-violet {
+  transition:
+    background-color var(--dc-motion),
+    border-color var(--dc-motion),
+    color var(--dc-motion);
+}
+
+/* ── Buttons ──────────────────────────────────────────────────
+   translateY rather than scale: admin buttons carry small text,
+   and scaling re-rasterises it a fraction blurry mid-transition. */
+.dc-root button,
+.dc-root a[role='button'],
+.dc-root [role='switch'] {
+  transition:
+    transform var(--dc-motion-fast),
+    box-shadow var(--dc-motion),
+    background-color var(--dc-motion),
+    border-color var(--dc-motion),
+    color var(--dc-motion);
+}
+
+.dc-root button:not(:disabled):not([aria-disabled='true']):hover {
+  transform: translateY(-1px);
+}
+
+.dc-root button:not(:disabled):not([aria-disabled='true']):active {
+  transform: translateY(0) scale(0.985);
+}
+
+/* A control pinned inside a field (the show/hide key eye, clear
+   buttons) must not drift away from the input it belongs to. */
+.dc-root .dc-pform-input ~ button,
+.dc-root [style*='position: absolute'] > button,
+.dc-root button[style*='position: absolute'] {
+  transform: none !important;
+}
+
+/* ── Cards ────────────────────────────────────────────────────
+   `.dc-lift` is opt-in so a card that is a click target lifts and
+   a static panel does not pretend to be one. */
+.dc-pform-card,
+.admin-module-card,
+.dc-lift {
+  transition:
+    transform var(--dc-motion),
+    box-shadow var(--dc-motion),
+    border-color var(--dc-motion);
+}
+
+.dc-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgb(16 17 20 / 0.08);
+  border-color: var(--line-2);
+}
+
+.dc-kpi-strip > * {
+  transition:
+    transform var(--dc-motion),
+    box-shadow var(--dc-motion);
+}
+
+.dc-kpi-strip > *:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgb(16 17 20 / 0.07);
+}
+
+/* ── Tables ───────────────────────────────────────────────────
+   Row hover was already a colour swap in some screens and absent
+   in others; this makes it uniform and gives it a ramp. */
+.dc-root tbody tr {
+  transition: background-color var(--dc-motion-fast);
+}
+
+.dc-root tbody tr:hover {
+  background-color: var(--surface-2);
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────
+   The active row swapped background with no ramp, which read as a
+   flicker when moving down a long menu. */
+.dc-sidebar a,
+.dc-sidebar button {
+  transition:
+    background-color var(--dc-motion),
+    color var(--dc-motion),
+    border-color var(--dc-motion);
+}
+
+/* ── Page transition ──────────────────────────────────────────
+   The app-router remounts this subtree per navigation, so a mount
+   animation is the page transition. Opacity only — a translate
+   here fights the sticky header during the first paint. */
+.dc-page-body {
+  animation: dc-fadein var(--dc-motion-slow) both;
+}
+
+/* ── Modal ────────────────────────────────────────────────────
+   Entrance only. A CSS exit needs the node to stay mounted, which
+   is component state, so DcModal keeps its instant close for now
+   rather than shipping a half-animation. */
+.dc-modal-overlay {
+  animation: dc-fadein var(--dc-motion) both;
+}
+
+.dc-modal-panel {
+  animation: dc-modal-in var(--dc-motion-slow) both;
+}
+
+@keyframes dc-modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── Toggle switches ──────────────────────────────────────────
+   The knob is an inline-styled child, so the transition is put on
+   the child rather than on a class the markup does not have. */
+.dc-root [role='switch'] > * {
+  transition:
+    transform var(--dc-motion),
+    background-color var(--dc-motion),
+    left var(--dc-motion),
+    right var(--dc-motion);
+}
+
+/* ── Toasts ───────────────────────────────────────────────────
+   react-hot-toast keeps its own enter/exit; this only smooths the
+   surface change so a re-used toast does not jump. */
+.admin-toast {
+  transition:
+    background-color var(--dc-motion),
+    border-color var(--dc-motion);
+}
+
+/* ── Success flash ────────────────────────────────────────────
+   Add `dc-flash-ok` to a row or card after a confirmed write. */
+.dc-flash-ok {
+  animation: dc-flash-ok 900ms ease-out;
+}
+
+@keyframes dc-flash-ok {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 45%, transparent);
+  }
+  60% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 22%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dc-root *,
+  .dc-root *::before,
+  .dc-root *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .dc-root button:hover,
+  .dc-lift:hover,
+  .dc-kpi-strip > *:hover {
+    transform: none !important;
   }
 }
