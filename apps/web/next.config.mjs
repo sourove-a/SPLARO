@@ -1,14 +1,48 @@
 /** @type {import('next').NextConfig} */
-const apiOrigin = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1\/?$/, '') ?? 'http://localhost:4000'
+const apiOrigin =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1\/?$/, '') ?? 'http://localhost:4000'
 const isProd = process.env.NODE_ENV === 'production'
-const googlePopupCoopHeader = {
-  key: 'Cross-Origin-Opener-Policy',
-  value: 'same-origin-allow-popups',
-}
 const cdnOrigin = process.env.NEXT_PUBLIC_CDN_URL?.replace(/\/$/, '')
 /** Contabo VPS (same-box web+api). SPLARO_HOSTINGER=1 is a legacy alias only. */
 const onSameBoxVps =
   process.env.SPLARO_VPS === '1' || process.env.SPLARO_HOSTINGER === '1'
+
+/**
+ * GIS popup (FedCM off) needs opener access so credentials return to login/signup.
+ * Without this, mobile/desktop often shows a blank accounts.google.com window.
+ * @see https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid#cross_origin_opener_policy
+ */
+const googlePopupCoopHeader = {
+  key: 'Cross-Origin-Opener-Policy',
+  value: 'same-origin-allow-popups',
+}
+
+/**
+ * Google Identity Services allowlist (Sign In With Google + One Tap).
+ * Prefer the /gsi/ parent URL (Google guidance) so endpoint renames do not break CSP.
+ * Origin-level accounts.google.com is also kept for legacy GIS script hosts.
+ * @see https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid#content_security_policy
+ */
+const GIS = {
+  script: [
+    'https://accounts.google.com',
+    'https://accounts.google.com/gsi/client',
+    'https://www.gstatic.com',
+    'https://apis.google.com',
+  ],
+  style: ['https://accounts.google.com', 'https://accounts.google.com/gsi/style'],
+  frame: ['https://accounts.google.com', 'https://accounts.google.com/gsi/'],
+  connect: [
+    'https://accounts.google.com',
+    'https://accounts.google.com/gsi/',
+    'https://oauth2.googleapis.com',
+    'https://www.googleapis.com',
+    'https://www.gstatic.com',
+  ],
+  // Mobile redirect UX posts the credential back to /api/auth/google/callback,
+  // and GIS may navigate/post toward accounts.google.com during the flow.
+  formAction: ['https://accounts.google.com'],
+}
 
 const connectSrc = [
   "'self'",
@@ -17,9 +51,7 @@ const connectSrc = [
   'https://splaro.co',
   'https://api.splaro.co',
   'https://www.google-analytics.com',
-  'https://accounts.google.com',
-  'https://oauth2.googleapis.com',
-  'https://www.googleapis.com',
+  ...GIS.connect,
   'https://www.facebook.com',
   'https://connect.facebook.net',
   // Microsoft Clarity (AnalyticsScripts) beacons to c.clarity.ms / *.clarity.ms.
@@ -61,6 +93,52 @@ const cspMediaSrc = [
   'https://*.r2.cloudflarestorage.com',
   'https:',
 ].join(' ')
+
+function buildContentSecurityPolicy() {
+  return [
+    "default-src 'self'",
+    // No app code or dependency (incl. three.js) calls eval()/new Function() in
+    // production, so 'unsafe-eval' is dropped. 'unsafe-inline' stays — GTM/FB
+    // pixel and Next.js hydration inline scripts need a nonce-based CSP to
+    // remove safely, which needs its own dedicated rollout/testing pass.
+    // www.clarity.ms: Microsoft Clarity loader — the storefront ships the
+    // tag whenever a project id is configured, and CSP was silently
+    // blocking it, so session recording never actually ran.
+    [
+      "script-src 'self' 'unsafe-inline'",
+      'https://www.googletagmanager.com',
+      ...GIS.script,
+      'https://connect.facebook.net',
+      'https://www.clarity.ms',
+      'https://*.clarity.ms',
+    ].join(' '),
+    ["style-src 'self' 'unsafe-inline'", ...GIS.style].join(' '),
+    `img-src ${cspImgSrc}`,
+    `media-src ${cspMediaSrc}`,
+    "font-src 'self' data: https://fonts.gstatic.com https://cdn.fontshare.com",
+    `connect-src ${connectSrc}`,
+    // youtube-nocookie: Instagram/social reels embed on the homepage story
+    // section (SocialReelsDropdown → ReelCard iframe).
+    // accounts.google.com /gsi/: Sign In With Google button iframe.
+    // www.facebook.com: Meta Pixel iframe + /tr/ form fallback.
+    [
+      "frame-src 'self'",
+      'https://www.youtube.com',
+      'https://www.youtube-nocookie.com',
+      'https://player.vimeo.com',
+      ...GIS.frame,
+      'https://www.facebook.com',
+    ].join(' '),
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    // 'self': storefront forms + GIS redirect POST back to /api/auth/google/callback.
+    // accounts.google.com: GIS mobile redirect / consent navigation.
+    // www.facebook.com: Meta Pixel /tr/ form fallback.
+    ["form-action 'self'", ...GIS.formAction, 'https://www.facebook.com'].join(' '),
+    'upgrade-insecure-requests',
+  ].join('; ')
+}
 
 const nextConfig = {
   poweredByHeader: false,
@@ -140,8 +218,7 @@ const nextConfig = {
   },
 
   async headers() {
-    // GIS popup mode needs opener access to return credentials to login/signup.
-    // Keep this in dev too so registered loopback origins match production behavior.
+    // Keep COOP in dev too so registered loopback origins match production GIS behavior.
     if (!isProd) {
       return [{ source: '/(.*)', headers: [googlePopupCoopHeader] }]
     }
@@ -164,41 +241,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              // No app code or dependency (incl. three.js) calls eval()/new Function() in
-              // production, so 'unsafe-eval' is dropped. 'unsafe-inline' stays — GTM/FB
-              // pixel and Next.js hydration inline scripts need a nonce-based CSP to
-              // remove safely, which needs its own dedicated rollout/testing pass.
-              // www.clarity.ms: Microsoft Clarity loader — the storefront ships the
-              // tag whenever a project id is configured, and CSP was silently
-              // blocking it, so session recording never actually ran.
-              "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://accounts.google.com https://apis.google.com https://connect.facebook.net https://www.clarity.ms https://*.clarity.ms",
-              "style-src 'self' 'unsafe-inline' https://accounts.google.com",
-              `img-src ${cspImgSrc}`,
-              `media-src ${cspMediaSrc}`,
-              "font-src 'self' data: https://fonts.gstatic.com https://cdn.fontshare.com",
-              `connect-src ${connectSrc}`,
-              // youtube-nocookie: Instagram/social reels embed on the homepage story
-              // section (SocialReelsDropdown → ReelCard iframe) — 'none' silently
-              // blocked every reel video with no visible error, just a dead player.
-              // accounts.google.com: Google Identity Services button iframe (login/signup).
-              // www.facebook.com: the Meta Pixel falls back to an iframe + form POST
-              // to /tr/ when the image beacon is unavailable — without it, pixel
-              // events are silently dropped.
-              "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://accounts.google.com https://www.facebook.com",
-              // No <object>/<embed> anywhere in the app — closes a plugin-based XSS vector.
-              "object-src 'none'",
-              // Stops an injected <base> tag from re-pointing every relative script URL.
-              "base-uri 'self'",
-              // Modern equivalent of the X-Frame-Options header above (clickjacking).
-              "frame-ancestors 'none'",
-              // Only /search posts a form of ours, and it posts to this origin;
-              // www.facebook.com is the Meta Pixel's /tr/ form fallback.
-              "form-action 'self' https://www.facebook.com",
-              // Belt-and-suspenders: auto-upgrade accidental http:// subresources on HTTPS pages.
-              'upgrade-insecure-requests',
-            ].join('; '),
+            value: buildContentSecurityPolicy(),
           },
         ],
       },

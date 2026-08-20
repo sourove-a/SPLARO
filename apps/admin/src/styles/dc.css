@@ -16,6 +16,34 @@
   padding: 20px 24px 60px;
 }
 
+/* Round icon FAB — hide while order drawer open so Confirm stays clickable. */
+.dc-ask-splaro {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--violet-bd);
+  background: var(--violet-solid);
+  color: var(--on-violet);
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(113, 46, 255, 0.28);
+}
+
+.dc-ask-splaro:hover {
+  filter: brightness(1.06);
+}
+
+body[data-dc-drawer] .dc-ask-splaro {
+  display: none !important;
+}
+
 :root {
   --bg: rgb(250, 248, 244);
   --surface: rgb(255, 255, 255);

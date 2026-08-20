@@ -54,6 +54,7 @@ export function AuthExperience() {
   const searchParams = useSearchParams()
   const nextPath = searchParams.get('next') ?? '/account'
   const phoneQuery = isSignupPhoneQuery(searchParams.get('phone'))
+  const googleErrorQuery = searchParams.get('google_error')
   const copy = useAuthCopy(mode)
   const showMotion = useAuthShowMotion()
   const fadeSlide = authFadeSlide(!showMotion)
@@ -105,6 +106,19 @@ export function AuthExperience() {
     setOtpDevHint('')
     setGoogleError('')
   }, [mode, setGoogleStep, setGoogleError])
+
+  // GIS redirect callback returns here with ?google_error=… when token exchange fails.
+  useEffect(() => {
+    if (!googleErrorQuery) return
+    const message =
+      googleErrorQuery === 'rate'
+        ? 'Too many Google sign-in attempts. Wait a minute and try again.'
+        : googleErrorQuery === 'csrf'
+          ? 'Google sign-in expired. Tap Continue with Google again.'
+          : 'Google sign-in did not complete. Please try again.'
+    setError(message)
+    setGoogleError(message)
+  }, [googleErrorQuery, setGoogleError])
 
   // Already signed in — skip login/signup UI (except incomplete Google phone step).
   useEffect(() => {

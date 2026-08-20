@@ -220,7 +220,7 @@ try {
     console.log('  ✅ Local Google OAuth flag on — origins must still be in Google Cloud')
   } else {
     console.log(
-      '  ⚠️  Local Google sign-in off. Register http://localhost:3000 + http://127.0.0.1:3000 in Google Cloud, then set NEXT_PUBLIC_GOOGLE_OAUTH_LOCAL_ENABLED=true in apps/web/.env.local',
+      '  ⚠️  Local Google sign-in off. Register http://127.0.0.1:3000 (+ /api/auth/google/callback) in Google Cloud, then set NEXT_PUBLIC_GOOGLE_OAUTH_LOCAL_ENABLED=true in apps/web/.env.local',
     )
   }
 } catch (e) {

@@ -1,7 +1,7 @@
 /**
  * Pure origin gate for storefront Google Identity Services.
  * Loopback stays off unless NEXT_PUBLIC_GOOGLE_OAUTH_LOCAL_ENABLED=true
- * (and both localhost + 127.0.0.1 are registered in Google Cloud).
+ * (register http://127.0.0.1:3000 — web middleware redirects localhost → 127.0.0.1 in dev).
  */
 export function isGoogleOAuthOriginEligible(hostname: string): boolean {
   const localEnabled = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_LOCAL_ENABLED === 'true'

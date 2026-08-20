@@ -9,7 +9,6 @@ import { DcIcon } from './DcIcon'
 import { DcMobileAppChrome } from './DcMobileAppChrome'
 import { DcRail, type DcRailProps } from './DcRail'
 import { DcSidebar, type DcSidebarUser } from './DcSidebar'
-import { FONT } from './tokens'
 
 const SIDEBAR_KEY = 'splaro-admin-sidebar-collapsed'
 const RAIL_KEY = 'splaro-admin-rail-open'
@@ -212,26 +211,10 @@ export function DcShell({
           type="button"
           className="dc-ask-splaro"
           onClick={onAskSplaro}
-          style={{
-            position: 'fixed',
-            right: 22,
-            bottom: 22,
-            zIndex: 50,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 9,
-            height: 44,
-            padding: '0 16px',
-            borderRadius: 99,
-            border: '1px solid var(--violet-bd)',
-            background: 'var(--violet-solid)',
-            color: 'var(--on-violet)',
-            cursor: 'pointer',
-            font: `600 13px/1 ${FONT}`,
-          }}
+          aria-label="Ask SPLARO"
+          title="Ask SPLARO"
         >
-          <DcIcon name="icon-sparkles" size={16} />
-          <span>Ask SPLARO</span>
+          <DcIcon name="icon-sparkles" size={18} />
         </button>
       ) : null}
     </div>

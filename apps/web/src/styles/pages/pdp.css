@@ -899,20 +899,41 @@
   color: rgba(16, 17, 20, 0.58);
 }
 
-/* Visual clamp only — full description remains in the DOM for crawlers / SEO. */
+/*
+ * Visual clamp only — full description stays in the DOM for crawlers / SEO.
+ * Nested bullet lists break -webkit-line-clamp, so use max-height overflow instead.
+ */
 .pp-info__desc--clamped {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  line-clamp: 4;
+  position: relative;
+  display: block;
+  max-height: 7.2rem; /* ~4 lines at 1rem / 1.72 */
   overflow: hidden;
 }
 
+.pp-info__desc--clamped::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2.4rem;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(252, 251, 249, 0),
+    rgba(252, 251, 249, 0.96) 72%
+  );
+}
+
 .pp-info__desc--expanded {
+  position: static;
   display: block;
-  -webkit-line-clamp: unset;
-  line-clamp: unset;
+  max-height: none;
   overflow: visible;
+}
+
+.pp-info__desc--expanded::after {
+  content: none;
 }
 
 .pp-desc-bullets {

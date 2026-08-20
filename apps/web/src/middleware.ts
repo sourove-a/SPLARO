@@ -72,6 +72,26 @@ function redirectToTarget(request: NextRequest, target: string, status = 307) {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  // Dev only: canonicalize localhost → 127.0.0.1 so Google GIS needs one origin
+  // (http://127.0.0.1:3000). Production hosts are never touched.
+  if (process.env.NODE_ENV === 'development') {
+    const hostname = request.nextUrl.hostname.toLowerCase()
+    if (hostname === 'localhost') {
+      const port = request.nextUrl.port || '3000'
+      const target = new URL(
+        `${pathname}${request.nextUrl.search}`,
+        `http://127.0.0.1:${port}/`,
+      )
+      return NextResponse.redirect(target, 307)
+    }
+  }
+
+  // Host canonicalize above also covers /api (GIS redirect callback). Skip the rest.
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.next()
+  }
+
   const gscHtml = pathname.match(/^\/google([A-Za-z0-9_-]+)\.html$/)
   if (gscHtml?.[1]) {
     const token = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim()
@@ -177,5 +197,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/).*)'],
+  // Include /api so localhost → 127.0.0.1 also covers GIS redirect callback POSTs.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }

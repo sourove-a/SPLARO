@@ -13,6 +13,7 @@ export type InAppBrowserKind =
   | 'tiktok'
   | 'twitter'
   | 'linkedin'
+  | 'gsa'
   | 'webview'
   | null
 
@@ -21,6 +22,15 @@ export interface InAppBrowserInfo {
   kind: InAppBrowserKind
   /** Human label for UI copy, e.g. "WhatsApp". */
   label: string | null
+}
+
+/** iOS WebViews often omit Safari / use WKWebView tokens. */
+function isIosEmbeddedWebView(ua: string): boolean {
+  if (!/iPhone|iPad|iPod/i.test(ua)) return false
+  if (/(WebView|WKWebView)/i.test(ua)) return true
+  // Real Safari / Chrome-iOS / Firefox-iOS include recognizable tokens.
+  if (/CriOS|FxiOS|EdgiOS|OPiOS|Safari/i.test(ua)) return false
+  return /AppleWebKit/i.test(ua)
 }
 
 export function detectInAppBrowser(
@@ -52,12 +62,34 @@ export function detectInAppBrowser(
   if (/LinkedInApp/i.test(u)) {
     return { inApp: true, kind: 'linkedin', label: 'LinkedIn' }
   }
+  if (/\bGSA\//i.test(u)) {
+    return { inApp: true, kind: 'gsa', label: 'Google App' }
+  }
   // Generic Android WebView — often still blocks Google OAuth.
   if (/; wv\)/i.test(u) || /\bVersion\/[\d.]+ Chrome\/[\d.]+ Mobile.*wv/i.test(u)) {
     return { inApp: true, kind: 'webview', label: 'this in-app browser' }
   }
+  if (isIosEmbeddedWebView(u)) {
+    return { inApp: true, kind: 'webview', label: 'this in-app browser' }
+  }
 
   return { inApp: false, kind: null, label: null }
+}
+
+/**
+ * GIS `ux_mode=popup` frequently leaves a blank accounts.google.com page on
+ * mobile Safari/Chrome after account pick. Redirect mode returns the ID token
+ * via POST to our login_uri instead.
+ */
+export function preferGoogleRedirectUx(
+  ua = typeof navigator !== 'undefined' ? navigator.userAgent : '',
+  maxTouchPoints = typeof navigator !== 'undefined' ? navigator.maxTouchPoints : 0,
+): boolean {
+  if (detectInAppBrowser(ua).inApp) return false
+  if (/iPhone|iPad|iPod|Android/i.test(ua)) return true
+  // iPadOS 13+ can report as Macintosh while remaining touch-first.
+  if (maxTouchPoints > 1 && /Macintosh/i.test(ua)) return true
+  return false
 }
 
 /** Prefer Safari / Chrome over the host app WebView. */

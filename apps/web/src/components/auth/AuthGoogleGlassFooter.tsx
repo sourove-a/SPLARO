@@ -11,8 +11,11 @@ import {
   copyTextToClipboard,
   detectInAppBrowser,
   openInExternalBrowser,
+  preferGoogleRedirectUx,
   type InAppBrowserInfo,
 } from '@/lib/auth/in-app-browser'
+import { writeGoogleReturnCookie } from '@/lib/auth/google-oauth-return'
+import { usePathname, useSearchParams } from 'next/navigation'
 
 const BAKED_GOOGLE =
   process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID?.trim() ||
@@ -24,7 +27,11 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
   /** 0 until measured — avoids mounting GIS at a stale width (right-side gap in the pill). */
   const [googleButtonWidth, setGoogleButtonWidth] = useState(0)
   const [inApp, setInApp] = useState<InAppBrowserInfo | null>(null)
+  const [useRedirectUx, setUseRedirectUx] = useState(false)
+  const [loginUri, setLoginUri] = useState('')
   const [copied, setCopied] = useState(false)
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const {
     googleSignInEnabled,
     googleClientId: runtimeGoogleClientId,
@@ -38,7 +45,19 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
 
   useEffect(() => {
     setInApp(detectInAppBrowser())
+    const redirect = preferGoogleRedirectUx()
+    setUseRedirectUx(redirect)
+    if (typeof window !== 'undefined') {
+      setLoginUri(`${window.location.origin}/api/auth/google/callback`)
+    }
   }, [])
+
+  // Mobile redirect POST needs a safe return path (popup path uses client handler instead).
+  useEffect(() => {
+    if (!useRedirectUx) return
+    const next = searchParams.get('next') || (pathname.startsWith('/signup') ? '/account' : '/account')
+    writeGoogleReturnCookie(next)
+  }, [useRedirectUx, searchParams, pathname])
 
   useLayoutEffect(() => {
     const host = googleHostRef.current
@@ -141,7 +160,11 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
           <a href="https://splaro.co/login" className="auth-google-glass__hint-link">
             splaro.co
           </a>
-          . For local GIS, register localhost + 127.0.0.1 origins, then set{' '}
+          . For local GIS, open{' '}
+          <a href="http://127.0.0.1:3000/login" className="auth-google-glass__hint-link">
+            http://127.0.0.1:3000
+          </a>
+          , register that origin + callback in Google Cloud, then set{' '}
           <code className="auth-google-glass__hint-code">NEXT_PUBLIC_GOOGLE_OAUTH_LOCAL_ENABLED=true</code>.
         </p>
       ) : null}
@@ -180,24 +203,41 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
             googleButtonWidth <= 0 && 'auth-google-glass__native--measuring',
           )}
         >
-          {googleButtonWidth > 0 ? (
-            <GoogleLogin
-              // Remount when width changes — GIS ignores prop updates and leaves a right gap.
-              key={googleButtonWidth}
-              onSuccess={handleCredential}
-              onError={() => setGoogleError('Google sign-in was cancelled or failed.')}
-              type="standard"
-              theme="outline"
-              size="large"
-              text="continue_with"
-              shape="pill"
-              logo_alignment="center"
-              width={googleButtonWidth}
-              locale="en"
-              ux_mode="popup"
-              // FedCM path blanks / fails on several mobile browsers — classic button is reliable.
-              use_fedcm_for_button={false}
-            />
+          {googleButtonWidth > 0 && (!useRedirectUx || loginUri) ? (
+            useRedirectUx ? (
+              <GoogleLogin
+                key={`${googleButtonWidth}-redirect`}
+                onSuccess={handleCredential}
+                onError={() => setGoogleError('Google sign-in was cancelled or failed.')}
+                type="standard"
+                theme="outline"
+                size="large"
+                text="continue_with"
+                shape="pill"
+                logo_alignment="center"
+                width={googleButtonWidth}
+                locale="en"
+                ux_mode="redirect"
+                login_uri={loginUri}
+                use_fedcm_for_button={false}
+              />
+            ) : (
+              <GoogleLogin
+                key={`${googleButtonWidth}-popup`}
+                onSuccess={handleCredential}
+                onError={() => setGoogleError('Google sign-in was cancelled or failed.')}
+                type="standard"
+                theme="outline"
+                size="large"
+                text="continue_with"
+                shape="pill"
+                logo_alignment="center"
+                width={googleButtonWidth}
+                locale="en"
+                ux_mode="popup"
+                use_fedcm_for_button={false}
+              />
+            )
           ) : null}
           {googleLoading ? (
             <span className="auth-google-glass__loading-cover" aria-live="polite">

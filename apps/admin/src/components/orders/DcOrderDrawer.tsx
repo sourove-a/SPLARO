@@ -79,11 +79,15 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
 
   useEffect(() => {
     if (!orderId) return
+    document.body.setAttribute('data-dc-drawer', 'order')
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      document.body.removeAttribute('data-dc-drawer')
+      window.removeEventListener('keydown', onKey)
+    }
   }, [orderId, onClose])
 
   const d = order.data as ApiOrder | undefined
