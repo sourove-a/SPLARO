@@ -4,7 +4,10 @@ import {
   detectInAppBrowser,
   preferGoogleRedirectUx,
 } from './in-app-browser'
-import { sanitizeGoogleReturnPath } from './google-oauth-return'
+import {
+  googleReturnCookieSameSite,
+  sanitizeGoogleReturnPath,
+} from './google-oauth-return'
 import {
   GOOGLE_CLOUD_JS_ORIGINS,
   GOOGLE_CLOUD_REDIRECT_URIS,
@@ -55,6 +58,22 @@ describe('sanitizeGoogleReturnPath', () => {
     assert.equal(sanitizeGoogleReturnPath('https://evil.test'), '/account')
     assert.equal(sanitizeGoogleReturnPath('//evil.test'), '/account')
     assert.equal(sanitizeGoogleReturnPath('/checkout'), '/checkout')
+  })
+})
+
+describe('googleReturnCookieSameSite', () => {
+  it('uses None+Secure so the cross-site GIS POST still carries the cookie', () => {
+    assert.equal(googleReturnCookieSameSite('https:', 'splaro.co'), 'SameSite=None; Secure')
+    assert.equal(googleReturnCookieSameSite('https:', 'www.splaro.co'), 'SameSite=None; Secure')
+  })
+
+  it('keeps None+Secure on http loopback (Chrome allows Secure there)', () => {
+    assert.equal(googleReturnCookieSameSite('http:', '127.0.0.1'), 'SameSite=None; Secure')
+    assert.equal(googleReturnCookieSameSite('http:', 'localhost'), 'SameSite=None; Secure')
+  })
+
+  it('falls back to Lax where Secure would be rejected outright', () => {
+    assert.equal(googleReturnCookieSameSite('http:', 'staging.splaro.test'), 'SameSite=Lax')
   })
 })
 
