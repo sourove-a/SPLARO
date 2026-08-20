@@ -1,6 +1,14 @@
 import { formatBDT } from '../../common/utils/currency'
 import { escapeTelegramHtml } from './telegram.util'
-import { formatCleanAddress } from '@splaro/config'
+import { formatCleanAddress, displaySizeLabel } from '@splaro/config'
+import {
+  tgCard,
+  tgDhakaTime,
+  tgExpandableCard,
+  tgJoin,
+  tgPrettyPayment,
+  tgPrettyStatus,
+} from './telegram-format'
 
 export interface TelegramOrderItemLine {
   productName: string
@@ -51,47 +59,18 @@ export interface TelegramNewOrderPayload {
 }
 
 const TG_MSG_MAX = 3900
-
-function prettyPayment(method: string): string {
-  const key = method.trim().toUpperCase()
-  if (key === 'COD' || key === 'CASH_ON_DELIVERY') return 'COD'
-  if (key === 'BKASH') return 'bKash'
-  if (key === 'NAGAD') return 'Nagad'
-  if (key === 'SSLCOMMERZ' || key === 'CARD') return 'Card'
-  return method.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-function prettyStatus(status: string): string {
-  return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-function formatDhakaTime(value?: Date | string | null): string {
-  if (!value) return ''
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  try {
-    return new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Asia/Dhaka',
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    }).format(date)
-  } catch {
-    return date.toISOString()
-  }
-}
+/** Item list past this many lines is collapsed behind Telegram's "show more". */
+const ITEMS_EXPANDABLE_AFTER = 4
 
 function resolveSizeColor(item: TelegramOrderItemLine): { size?: string; color?: string } {
-  let size = item.size?.trim() || undefined
+  let size = displaySizeLabel(item.size) || undefined
   let color = item.color?.trim() || undefined
   if ((!size || !color) && item.variantName?.trim()) {
     const parts = item.variantName
       .split(/[·|/×x,-]+/)
       .map((p) => p.trim())
       .filter(Boolean)
-    if (!size && parts[0]) size = parts[0]
+    if (!size && parts[0]) size = displaySizeLabel(parts[0]) || parts[0]
     if (!color && parts[1]) color = parts[1]
   }
   return { ...(size ? { size } : {}), ...(color ? { color } : {}) }
@@ -101,101 +80,94 @@ function resolveSizeColor(item: TelegramOrderItemLine): { size?: string; color?:
 function formatItemLine(item: TelegramOrderItemLine, index: number): string {
   const name = escapeTelegramHtml(item.productName.trim() || 'Product')
   const { size, color } = resolveSizeColor(item)
-  const bits: string[] = [`<b>${index + 1}.</b> ${name}`]
-  if (size) bits.push(escapeTelegramHtml(size))
-  if (color) bits.push(escapeTelegramHtml(color))
+  const bits: string[] = [`${index + 1}. <b>${name}</b>`]
+  const variant = [size, color].filter(Boolean).join(' · ')
+  if (variant) bits.push(escapeTelegramHtml(variant))
   bits.push(`×${item.quantity}`)
   const amount = item.quantity > 1 ? item.subtotal : item.price
   bits.push(`<b>${escapeTelegramHtml(formatBDT(amount))}</b>`)
   return bits.join(' · ')
 }
 
-/** Premium compact HTML body for Telegram new-order alerts (parse_mode HTML). */
+function customerBadge(history: TelegramNewOrderPayload['customerHistory']): string {
+  if (!history) return ''
+  const { totalOrders, deliveredOrders, returnedOrCancelled } = history
+  if (totalOrders <= 1) return ' · <i>(1st order)</i>'
+  if (returnedOrCancelled > 0) {
+    return ` · <i>(⚠️ ${returnedOrCancelled} returned/cancelled of ${totalOrders})</i>`
+  }
+  if (deliveredOrders > 0) return ` · <i>(⭐ ${deliveredOrders} delivered)</i>`
+  return ` · <i>(${totalOrders} orders)</i>`
+}
+
+function riskBlock(order: TelegramNewOrderPayload): string {
+  const rows: string[] = []
+  if (order.isCodRisk) rows.push('⚠️ <b>COD risk</b> — verify by call before courier')
+  if (order.fraudFlags?.length) {
+    rows.push(`⚑ ${order.fraudFlags.map((f) => escapeTelegramHtml(f)).join(' · ')}`)
+  }
+  if (order.steadfastReport && order.steadfastReport.totalParcels > 0) {
+    const { totalParcels, delivered, cancelled, successRate } = order.steadfastReport
+    const icon = successRate < 60 ? '⚠️' : '🚚'
+    rows.push(
+      `${icon} Steadfast <b>${successRate}%</b> success · ${delivered} delivered · ${cancelled} returned of ${totalParcels}`,
+    )
+  }
+  if (order.notes?.trim()) rows.push(`📝 <i>${escapeTelegramHtml(order.notes.trim())}</i>`)
+  return rows.join('\n')
+}
+
+/**
+ * New-order alert body (parse_mode HTML).
+ *
+ * Phone, address and invoice are <code> spans so the operator can copy each one
+ * with a single tap; the keyboard adds explicit copy buttons on top of that.
+ */
 export function formatNewOrderTelegramMessage(order: TelegramNewOrderPayload): string {
-  const when = formatDhakaTime(order.createdAt)
-  const zone = order.isInsideDhaka ? 'Dhaka' : 'Outside'
+  const when = tgDhakaTime(order.createdAt)
+  const zone = order.isInsideDhaka ? 'Inside Dhaka' : 'Outside Dhaka'
   const cleanAddr = formatCleanAddress(order.shippingAddress, order.shippingCity, order.shippingDistrict)
   const address = escapeTelegramHtml(cleanAddr || 'No address provided')
 
-  const itemLines = order.items.map((item, i) => formatItemLine(item, i))
-  let itemsSection = itemLines.join('\n')
-  let hidden = 0
-  while (itemsSection.length > 1800 && itemLines.length - hidden > 1) {
-    hidden += 1
-    itemsSection =
-      itemLines.slice(0, itemLines.length - hidden).join('\n') +
-      `\n… +${hidden} more`
-  }
+  const metaBits = [
+    when,
+    `${tgPrettyPayment(order.paymentMethod)} · ${tgPrettyStatus(order.paymentStatus)}`,
+    zone,
+  ].filter(Boolean)
+
+  const title =
+    `🛒 <b>New Order</b> · <code>${escapeTelegramHtml(order.invoiceNumber)}</code>\n` +
+    `<i>${escapeTelegramHtml(metaBits.join(' · '))}</i>`
+
+  const customerCard = tgCard([
+    `👤 <b>${escapeTelegramHtml(order.shippingName)}</b>${customerBadge(order.customerHistory)}`,
+    `📞 <code>${escapeTelegramHtml(order.shippingPhone)}</code>`,
+    `📍 <code>${address}</code>`,
+    ...(order.shippingEmail?.trim()
+      ? [`✉️ <code>${escapeTelegramHtml(order.shippingEmail.trim())}</code>`]
+      : []),
+  ])
 
   const unitCount = order.items.reduce((sum, item) => sum + Math.max(0, item.quantity), 0)
-  const riskBlock = order.isCodRisk
-    ? '\n⚠️ <b>COD risk</b> — verify before courier'
-    : ''
-  const fraudBlock =
-    order.fraudFlags && order.fraudFlags.length > 0
-      ? `\n⚑ ${order.fraudFlags.map((f) => escapeTelegramHtml(f)).join(' · ')}`
-      : ''
+  const itemLines = order.items.map((item, i) => formatItemLine(item, i))
+  const itemsCard =
+    itemLines.length > ITEMS_EXPANDABLE_AFTER ? tgExpandableCard(itemLines) : tgCard(itemLines)
+  const itemsBlock = `🧾 <b>Items</b> · ${order.items.length} line${order.items.length === 1 ? '' : 's'} · ${unitCount} pc\n${itemsCard}`
 
-  let steadfastBlock = ''
-  if (order.steadfastReport && order.steadfastReport.totalParcels > 0) {
-    const { totalParcels, delivered, cancelled, successRate } = order.steadfastReport
-    if (successRate < 60) {
-      steadfastBlock = `\n⚠️ <b>Steadfast Risk:</b> <b>${successRate}% success</b> (${delivered} del · ${cancelled} ret / ${totalParcels} total)`
-    } else {
-      steadfastBlock = `\n🚚 <b>Steadfast:</b> <b>${successRate}% success</b> (${delivered} del · ${cancelled} ret of ${totalParcels})`
-    }
-  }
-
-  const notesBlock = order.notes?.trim()
-    ? `\n📝 <i>${escapeTelegramHtml(order.notes.trim())}</i>`
-    : ''
-  const couponBit = order.couponCode?.trim()
-    ? ` · <code>${escapeTelegramHtml(order.couponCode.trim())}</code>`
-    : ''
-
-  let historyBadge = ''
-  if (order.customerHistory) {
-    const { totalOrders, deliveredOrders, returnedOrCancelled } = order.customerHistory
-    if (totalOrders <= 1) {
-      historyBadge = ' · <i>(1st order)</i>'
-    } else if (returnedOrCancelled > 0) {
-      historyBadge = ` · <i>(⚠️ ${returnedOrCancelled} returned/cancelled of ${totalOrders})</i>`
-    } else if (deliveredOrders > 0) {
-      historyBadge = ` · <i>(⭐ ${deliveredOrders} delivered)</i>`
-    } else {
-      historyBadge = ` · <i>(${totalOrders} orders)</i>`
-    }
-  }
-
-  const payLine = [
-    escapeTelegramHtml(prettyPayment(order.paymentMethod)),
-    escapeTelegramHtml(prettyStatus(order.paymentStatus)),
-  ].join(' · ')
-
-  const moneyBits = [
-    `Sub ${escapeTelegramHtml(formatBDT(order.subtotal))}`,
-    `Ship ${escapeTelegramHtml(formatBDT(order.deliveryCharge))} (${zone})`,
+  const moneyRows = [
+    `Subtotal — ${escapeTelegramHtml(formatBDT(order.subtotal))}`,
+    `Delivery — ${escapeTelegramHtml(formatBDT(order.deliveryCharge))}`,
   ]
   if (order.discount > 0) {
-    moneyBits.push(`−${escapeTelegramHtml(formatBDT(order.discount))}`)
+    const coupon = order.couponCode?.trim()
+      ? ` (<code>${escapeTelegramHtml(order.couponCode.trim())}</code>)`
+      : ''
+    moneyRows.push(`Discount — −${escapeTelegramHtml(formatBDT(order.discount))}${coupon}`)
   }
+  moneyRows.push(`<b>Total — ${escapeTelegramHtml(formatBDT(order.total))}</b>`)
+  const moneyBlock = `💰 <b>Payment</b>\n${tgCard(moneyRows)}`
 
-  const msg = `
-🛒 <b>New Order</b> · <code>${escapeTelegramHtml(order.invoiceNumber)}</code>${when ? ` · ${escapeTelegramHtml(when)}` : ''}
-
-┌─────────────────────
-│ 👤 ${escapeTelegramHtml(order.shippingName)}${historyBadge}
-│ 📞 <code>${escapeTelegramHtml(order.shippingPhone)}</code>
-│ 📍 ${address}
-└─────────────────────
-
-${itemsSection}
-
-┌ 💰 <b>Summary</b>
-│ ${moneyBits.join('\n│ ')}${couponBit}
-│ 💵 <b>Total: ${escapeTelegramHtml(formatBDT(order.total))}</b>
-└ 💳 ${payLine}${riskBlock}${fraudBlock}${steadfastBlock}${notesBlock}
-`.trim()
+  const msg = tgJoin(title, customerCard, itemsBlock, moneyBlock, riskBlock(order))
 
   if (msg.length <= TG_MSG_MAX) return msg
   return `${msg.slice(0, TG_MSG_MAX - 20)}\n… <i>truncated</i>`

@@ -170,9 +170,9 @@ describe('Telegram HTML safety', () => {
         items: [{ productName: 'Shirt', quantity: 1, price: 1400, subtotal: 1400 }],
         steadfastReport: { totalParcels: 10, delivered: 9, cancelled: 1, successRate: 90 },
       })
-      expect(msg).toContain('Steadfast:')
-      expect(msg).toContain('90% success')
-      expect(msg).toContain('9 del')
+      expect(msg).toContain('Steadfast')
+      expect(msg).toContain('90%')
+      expect(msg).toContain('9 delivered')
     })
   })
 })
