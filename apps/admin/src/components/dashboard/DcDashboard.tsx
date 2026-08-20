@@ -3,8 +3,15 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 
+import { DcCountUp } from '@/components/dc/DcCountUp'
+import {
+  ConversionFunnelChart,
+  OrdersBarChart,
+  PeakHoursChart,
+  TrafficSourceChart,
+} from '@/components/dashboard/DcDashboardCharts'
 import { DcIcon } from '@/components/dc/DcIcon'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { dcPageStatus } from '@/components/dc/page-status'
@@ -21,6 +28,7 @@ import {
   useDashboardStats,
   useInventoryAlerts,
   useOrders,
+  useTrafficSources,
   useProducts,
   useRevenueSeries,
   useSaveDailyGoal,
@@ -153,6 +161,22 @@ function DcDashboardBody() {
     [revenue.data],
   )
 
+  // The revenue series already carries a per-day order count, so the orders
+  // chart costs no extra request.
+  const orderTimeline = useMemo(
+    () =>
+      (revenue.data?.data ?? []).map((row) => ({
+        label: new Date(`${row.date}T00:00:00`).toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'short',
+        }),
+        orders: Math.round(row.orders ?? 0),
+      })),
+    [revenue.data],
+  )
+
+  const traffic = useTrafficSources(range === '7D' ? '7d' : '30d')
+
   const rangeDays = RANGES.find((r) => r.id === range)?.days ?? 14
   const chartPoints = useMemo(() => timeline.slice(-rangeDays), [timeline, rangeDays])
   const chartTotal = useMemo(
@@ -161,6 +185,8 @@ function DcDashboardBody() {
   )
 
   const allOrders = useMemo(() => orders.data?.orders ?? [], [orders.data])
+  const orderCreatedAt = useMemo(() => allOrders.map((o) => o.createdAt), [allOrders])
+  const orderBars = useMemo(() => orderTimeline.slice(-rangeDays), [orderTimeline, rangeDays])
 
   const stageCounts = useMemo(() => {
     const c: Record<string, number> = {}
@@ -355,7 +381,7 @@ function DcDashboardBody() {
             <KpiCard
               label="Revenue today"
               icon="icon-banknote"
-              value={formatTaka(s?.revenue.value ?? 0)}
+              value={<DcCountUp value={s?.revenue.value ?? 0} format={formatTaka} />}
               deltaText={delta(s?.revenue.change ?? 0)}
               deltaTone={deltaTone(s?.revenue.change ?? 0)}
               sub="vs yesterday"
@@ -369,7 +395,7 @@ function DcDashboardBody() {
             <KpiCard
               label="Orders today"
               icon="icon-shopping-bag"
-              value={String(s?.orders.value ?? 0)}
+              value={<DcCountUp value={s?.orders.value ?? 0} />}
               deltaText={delta(s?.orders.change ?? 0)}
               deltaTone={deltaTone(s?.orders.change ?? 0)}
               sub={`${awaitingAction} awaiting action`}
@@ -378,7 +404,7 @@ function DcDashboardBody() {
             <KpiCard
               label="Avg order value"
               icon="icon-receipt"
-              value={formatTaka(s?.avgOrderValue.value ?? 0)}
+              value={<DcCountUp value={s?.avgOrderValue.value ?? 0} format={formatTaka} />}
               deltaText={delta(s?.avgOrderValue.change ?? 0)}
               deltaTone={deltaTone(s?.avgOrderValue.change ?? 0)}
               sub="per checkout"
@@ -387,7 +413,7 @@ function DcDashboardBody() {
             <KpiCard
               label="COD exposure"
               icon="icon-truck"
-              value={formatTaka(codExposure)}
+              value={<DcCountUp value={codExposure} format={formatTaka} />}
               deltaText={`${codParcels} parcels`}
               deltaTone={codParcels > 0 ? 'warn' : 'mute'}
               sub="in transit"
@@ -478,6 +504,37 @@ function DcDashboardBody() {
               onOpen={() => router.push('/dashboard/orders')}
               onStage={(id) => router.push(`/dashboard/orders?status=${id}`)}
             />
+          </div>
+
+          {/* ── row 3b: charts ─────────────────────────────────────
+              Added below the existing rows rather than replacing any of
+              them — the stat cards stay exactly where they were. */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))',
+              gap: 16,
+              alignItems: 'start',
+            }}
+          >
+            <OrdersBarChart points={orderBars} loading={revenue.isLoading} />
+            <ConversionFunnelChart steps={funnel.data?.steps ?? []} loading={funnel.isLoading} />
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))',
+              gap: 16,
+              alignItems: 'start',
+            }}
+          >
+            <PeakHoursChart
+              createdAtList={orderCreatedAt}
+              loading={orders.isLoading}
+              sampleNote={`Dhaka time · last ${allOrders.length} orders`}
+            />
+            <TrafficSourceChart rows={traffic.data ?? []} loading={traffic.isLoading} />
           </div>
 
           {/* ── row 4: latest orders + alerts ──────────────────────── */}
@@ -1520,7 +1577,8 @@ function KpiCard({
 }: {
   label: string
   icon: string
-  value: string
+  /** String, or a <DcCountUp> when the figure should animate in. */
+  value: ReactNode
   deltaText: string
   deltaTone: DcTone
   sub: string
@@ -1532,6 +1590,8 @@ function KpiCard({
 
   return (
     <div
+      /* Opts this tile into the shared hover lift in dc.css. */
+      className="dc-lift"
       style={{
         ...card,
         padding: '14px 15px 13px',
