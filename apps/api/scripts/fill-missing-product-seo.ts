@@ -3,11 +3,38 @@
  * Run: pnpm --filter @splaro/api exec tsx scripts/fill-missing-product-seo.ts
  */
 import { PrismaClient } from '@prisma/client'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   buildProductMetaDescription,
   buildProductMetaTitle,
   hasMetaValue,
+  isStaleProductMeta,
 } from '../src/common/seo-meta.util'
+
+function loadRootEnv() {
+  const envPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../.env')
+  if (!existsSync(envPath)) return
+  for (const raw of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line || line.startsWith('#')) continue
+    const eq = line.indexOf('=')
+    if (eq <= 0) continue
+    const key = line.slice(0, eq).trim()
+    if (!key || process.env[key] !== undefined) continue
+    let value = line.slice(eq + 1).trim()
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1)
+    }
+    process.env[key] = value
+  }
+}
+
+loadRootEnv()
 
 const prisma = new PrismaClient()
 
@@ -27,6 +54,10 @@ async function main() {
         { metaTitle: '' },
         { metaDescription: null },
         { metaDescription: '' },
+        { metaDescription: { contains: 'Premium premium', mode: 'insensitive' } },
+        { metaDescription: { contains: "luxury women's fashion", mode: 'insensitive' } },
+        { metaDescription: { contains: "premium women's fashion", mode: 'insensitive' } },
+        { metaDescription: { contains: 'premium piece from SPLARO', mode: 'insensitive' } },
       ],
     },
     select: {
@@ -46,8 +77,9 @@ async function main() {
 
   let updated = 0
   for (const product of products) {
-    const needsTitle = !hasMetaValue(product.metaTitle)
-    const needsDescription = !hasMetaValue(product.metaDescription)
+    const needsTitle = !hasMetaValue(product.metaTitle) || isStaleProductMeta(product.metaTitle)
+    const needsDescription =
+      !hasMetaValue(product.metaDescription) || isStaleProductMeta(product.metaDescription)
     if (!needsTitle && !needsDescription) continue
 
     await prisma.product.update({

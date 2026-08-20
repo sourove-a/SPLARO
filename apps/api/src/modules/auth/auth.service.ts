@@ -18,6 +18,13 @@ import { AdminLoginTokenService } from './admin-login-token.service'
 import { ensurePrimaryOwnerAdmin } from './ensure-primary-admin'
 import { isPrimaryOwnerEmail as emailIsPrimaryOwner, PRIMARY_OWNER_EMAIL } from '../../common/primary-owner.util'
 
+export function splitAdminDisplayName(name: string): { firstName: string; lastName: string } {
+  const trimmed = name.trim().replace(/\s+/g, ' ')
+  const space = trimmed.indexOf(' ')
+  if (space <= 0) return { firstName: trimmed, lastName: '' }
+  return { firstName: trimmed.slice(0, space), lastName: trimmed.slice(space + 1) }
+}
+
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000
 const LOCKOUT_TTL_SEC = Math.ceil(LOCKOUT_WINDOW_MS / 1000)
 const MAX_FAILED_ATTEMPTS = 5
@@ -840,6 +847,28 @@ export class AuthService {
     })
 
     return { ok: true }
+  }
+
+  async updateOwnProfile(userId: string, name: string): Promise<{
+    id: string
+    email: string
+    name: string
+  }> {
+    const { firstName, lastName } = splitAdminDisplayName(name)
+    if (!firstName) throw new BadRequestException('Name is required')
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { firstName, lastName },
+      select: { id: true, email: true, firstName: true, lastName: true },
+    })
+    if (!user.email) throw new UnauthorizedException('Account not found')
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: `${user.firstName} ${user.lastName}`.trim() || user.email,
+    }
   }
 
   async getProfileExtras(userId: string): Promise<{

@@ -62,6 +62,8 @@ export function fetchOrders(params?: {
   search?: string
   paymentMethod?: string
   sort?: string
+  from?: string
+  to?: string
 }) {
   const qs = new URLSearchParams()
   if (params?.status) qs.set('status', params.status)
@@ -70,6 +72,8 @@ export function fetchOrders(params?: {
   if (params?.search) qs.set('search', params.search)
   if (params?.paymentMethod) qs.set('paymentMethod', params.paymentMethod)
   if (params?.sort) qs.set('sort', params.sort)
+  if (params?.from) qs.set('from', params.from)
+  if (params?.to) qs.set('to', params.to)
   const query = qs.toString()
   return apiFetch<OrdersListResponse>(`/admin/orders${query ? `?${query}` : ''}`)
 }

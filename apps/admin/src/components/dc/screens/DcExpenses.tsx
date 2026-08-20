@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { useRef, useState, type CSSProperties, type ReactNode } from 'react'
 
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcIcon } from '@/components/dc/DcIcon'
@@ -21,6 +21,7 @@ import {
   updateExpense,
   type ExpenseRow,
 } from '@/lib/api/finance'
+import { uploadAdminImage } from '@/lib/api/upload'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import {
   financeGhostBtn,
@@ -70,6 +71,15 @@ const STATUS_TONE: Record<string, DcTone> = {
   REJECTED: 'bad',
 }
 
+const RECEIPT_ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,application/pdf'
+const RECEIPT_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'application/pdf',
+])
+
 const DEFAULT_CATEGORIES = Object.keys(CATEGORY_LABELS)
 const DEFAULT_METHODS = Object.keys(PAYMENT_LABELS)
 
@@ -112,6 +122,8 @@ function DcExpensesBody() {
   const [status, setStatus] = useState('')
   const [draft, setDraft] = useState<Draft>(emptyDraft)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [uploadingReceipt, setUploadingReceipt] = useState(false)
+  const receiptInputRef = useRef<HTMLInputElement>(null)
 
   const list = useQuery({
     queryKey: ['finance-expenses', page, status],
@@ -226,6 +238,26 @@ function DcExpensesBody() {
     }
     if (editingId) updateMut.mutate()
     else createMut.mutate()
+  }
+
+  const uploadReceipt = async (file: File) => {
+    if (file.type && !RECEIPT_TYPES.has(file.type)) {
+      toastFail('Receipts must be JPG, PNG, WebP, GIF or PDF.')
+      return
+    }
+    setUploadingReceipt(true)
+    try {
+      const uploaded = await uploadAdminImage(file, 'expenses', { pipeline: false, optimize: true })
+      const stored = uploaded.r2Url || uploaded.publicUrl || uploaded.url
+      if (!stored) throw new Error('Upload failed')
+      setDraft((d) => ({ ...d, attachmentUrl: stored }))
+      if (uploaded.r2Url) toastOk('Receipt uploaded to R2.')
+      else toastWarn('Receipt stored on this server — R2 sync unavailable.')
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Receipt upload failed.')
+    } finally {
+      setUploadingReceipt(false)
+    }
   }
 
   const busy = createMut.isPending || updateMut.isPending
@@ -394,13 +426,55 @@ function DcExpensesBody() {
               ))}
             </select>
           </Field>
-          <Field label="Receipt URL">
+          <div style={{ display: 'grid', gap: 6, gridColumn: '1 / -1' }}>
+            <span style={{ font: `600 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>Receipt</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+              <button
+                type="button"
+                disabled={uploadingReceipt || busy}
+                onClick={() => receiptInputRef.current?.click()}
+                style={financeGhostBtn}
+              >
+                {uploadingReceipt ? 'Uploading…' : 'Upload image / PDF'}
+              </button>
+              <input
+                ref={receiptInputRef}
+                type="file"
+                accept={RECEIPT_ACCEPT}
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  e.target.value = ''
+                  if (file) void uploadReceipt(file)
+                }}
+              />
+              {draft.attachmentUrl ? (
+                <>
+                  <a
+                    href={draft.attachmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ font: `600 12.5px/1 ${FONT}`, color: 'var(--violet)' }}
+                  >
+                    View receipt
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setDraft((d) => ({ ...d, attachmentUrl: '' }))}
+                    style={financeGhostBtn}
+                  >
+                    Clear
+                  </button>
+                </>
+              ) : null}
+            </div>
             <input
               className="admin-input"
+              placeholder="Or paste a URL"
               value={draft.attachmentUrl}
               onChange={(e) => setDraft((d) => ({ ...d, attachmentUrl: e.target.value }))}
             />
-          </Field>
+          </div>
         </div>
         <Field label="Note" style={{ marginTop: 10 }}>
           <input

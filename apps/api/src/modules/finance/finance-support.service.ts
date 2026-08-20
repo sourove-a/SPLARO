@@ -5,6 +5,10 @@ import { FinanceAuditService } from '../../common/finance-audit.service'
 import { ProfitLossService } from './profit-loss.service'
 import { PartnersService } from './partners.service'
 import { resolveStoreId } from '../../common/store.util'
+import {
+  resolveSheetsDisplayHealth,
+  SHEETS_HEALTH_WINDOW_MS,
+} from '../google-workspace/google-sheets-auth.util'
 import type { GoogleSheetType, SyncStatus } from '@prisma/client'
 
 @Injectable()
@@ -205,13 +209,22 @@ export class GoogleSheetsFinanceService {
 
   async getDashboard(storeIdOrSlug: string) {
     const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
-    const [logs, workspace] = await Promise.all([
+    const [logs, workspace, recentJobs] = await Promise.all([
       this.prisma.googleSheetSyncLog.findMany({
         where: { storeId },
         orderBy: { createdAt: 'desc' },
         take: 50,
       }),
       this.getWorkspaceContext(storeId),
+      // Health is a "right now" question, so the query is bounded by the same
+      // window the resolver uses instead of reaching back to whatever the last
+      // thirty rows happen to be.
+      this.prisma.googleSyncLog.findMany({
+        where: { storeId, createdAt: { gte: new Date(Date.now() - SHEETS_HEALTH_WINDOW_MS) } },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+        select: { status: true, errorMsg: true, createdAt: true },
+      }),
     ])
 
     const { spreadsheetId, configByTab, workspaceConn } = workspace
@@ -282,13 +295,37 @@ export class GoogleSheetsFinanceService {
       ).length,
     }
 
+    // Successes live in the per-tab log and on the connection row; job rows only
+    // capture some paths. Feed the newest of those in so a fixed store stops
+    // being reported as failing.
+    const lastTabSuccess = logs.find((row) => String(row.status).toUpperCase() === 'COMPLETED')
+    const lastSuccessAt =
+      [workspaceConn?.lastSyncAt ?? null, lastTabSuccess?.syncedAt ?? lastTabSuccess?.createdAt ?? null]
+        .filter((value): value is Date => value instanceof Date)
+        .sort((a, b) => b.getTime() - a.getTime())[0] ?? null
+
+    const displayHealth = resolveSheetsDisplayHealth({
+      storedHealth: workspaceConn?.tokenHealth,
+      oauthDecryptable: null,
+      saMode: false,
+      recentJobs,
+      lastSuccessAt,
+    })
+
     const connection = {
       workspaceConnected: workspace.workspaceConnected,
       spreadsheetLinked: Boolean(spreadsheetId),
       spreadsheetUrl: workspace.spreadsheetUrl,
       googleEmail: workspaceConn?.googleEmail ?? null,
       autoSyncEnabled: workspace.autoSyncEnabled,
-      tokenHealth: workspaceConn?.tokenHealth ?? null,
+      tokenHealth: displayHealth.health,
+      lastError: displayHealth.lastJobError ?? workspaceConn?.lastError ?? null,
+      recentJobsFailed: displayHealth.recentFailed,
+      recentJobsSucceeded: displayHealth.recentSucceeded,
+      recentJobsTotal: displayHealth.recentTotal,
+      /** True when every recent failure predates the last success. */
+      recentFailureIsStale: displayHealth.staleFailure,
+      lastSyncAt: lastSuccessAt ? lastSuccessAt.toISOString() : null,
       setupHref: '/dashboard/google-workspace/connect',
     }
 

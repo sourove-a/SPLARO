@@ -1,9 +1,5 @@
 import { Inject, Injectable, Logger, Optional, forwardRef } from '@nestjs/common'
-import { InjectQueue } from '@nestjs/bullmq'
-import type { Queue } from 'bullmq'
-import { redisQueuesEnabled } from '../../common/noop-queue.providers'
 import { MetaCapiService } from '../marketing/meta-capi.service'
-import { OrderNotificationsService } from '../notifications/order-notifications.service'
 import { OrderEventsService } from './order-events.service'
 
 export interface OrderPlacedSideEffectPayload {
@@ -28,26 +24,16 @@ export class OrderSideEffectsQueueService {
   private readonly logger = new Logger(OrderSideEffectsQueueService.name)
 
   constructor(
-    @InjectQueue('order-side-effects') private readonly queue: Queue,
     private readonly metaCapi: MetaCapiService,
-    private readonly orderNotifications: OrderNotificationsService,
     @Optional()
     @Inject(forwardRef(() => OrderEventsService))
     private readonly orderEvents: OrderEventsService | null,
   ) {}
 
   async enqueueOrderPlaced(payload: OrderPlacedSideEffectPayload): Promise<void> {
-    if (!redisQueuesEnabled()) {
-      await this.processOrderPlaced(payload)
-      return
-    }
-
-    await this.queue.add('order-placed', payload, {
-      attempts: 5,
-      backoff: { type: 'exponential', delay: 5000 },
-      removeOnComplete: 100,
-      removeOnFail: 200,
-    })
+    // Run in-process. Marking the outbox SENT after `queue.add` lost new-order
+    // Telegram + Notification Center rows whenever the Redis worker lagged.
+    await this.processOrderPlaced(payload)
   }
 
   async processOrderPlaced(payload: OrderPlacedSideEffectPayload): Promise<void> {
@@ -74,15 +60,8 @@ export class OrderSideEffectsQueueService {
             `trackPurchase failed for order ${orderId}: ${err instanceof Error ? err.message : err}`,
           ),
         ),
-      this.orderNotifications
-        .onOrderPlaced(storeId, orderId, customerEmail)
-        .catch((err: unknown) =>
-          this.logger.error(
-            `Order confirmation notification failed for order ${orderId}: ${err instanceof Error ? err.message : err}`,
-          ),
-        ),
       this.orderEvents
-        ?.onOrderPlaced(storeId, orderId)
+        ?.onOrderPlaced(storeId, orderId, customerEmail)
         .catch((err: unknown) =>
           this.logger.error(
             `onOrderPlaced automation hook failed for order ${orderId}: ${err instanceof Error ? err.message : err}`,

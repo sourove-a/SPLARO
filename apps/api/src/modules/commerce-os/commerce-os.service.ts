@@ -9,6 +9,7 @@ import type {
 } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import { openingStockLedgerRows, resolveWmsStockSummary } from './wms-stock-summary'
 
 @Injectable()
 export class CommerceOsService {
@@ -142,10 +143,11 @@ export class CommerceOsService {
     }
 
     let productStock: { units: number; skus: number } | undefined
+    let variants: Array<{ stock: number; reservedStock: number }> = []
     if (available === 0 && reserved === 0) {
-      const variants = await this.prisma.productVariant.findMany({
-        where: { product: { storeId, isPublished: true }, isActive: true },
-        select: { stock: true },
+      variants = await this.prisma.productVariant.findMany({
+        where: { product: { storeId }, isActive: true },
+        select: { stock: true, reservedStock: true },
       })
       productStock = {
         units: variants.reduce((sum, v) => sum + v.stock, 0),
@@ -153,7 +155,8 @@ export class CommerceOsService {
       }
     }
 
-    return { warehouses, movements, transfers, stockSummary: { available, reserved, damaged }, productStock }
+    const stockSummary = resolveWmsStockSummary({ available, reserved, damaged }, variants)
+    return { warehouses, movements, transfers, stockSummary, productStock }
   }
 
   async procurementOverview(storeIdOrSlug: string) {
@@ -438,6 +441,42 @@ export class CommerceOsService {
     ])
 
     return { movement, variant: updatedVariant }
+  }
+
+  /**
+   * Write ADJUSTMENT ledger rows for current product qty. Does not change
+   * ProductVariant.stock — the number on the product is already the truth.
+   */
+  async recordOpeningStock(storeIdOrSlug: string, body: { confirm?: boolean }) {
+    if (body.confirm !== true) {
+      throw new BadRequestException(
+        'confirm:true is required — this writes ledger rows for current product stock',
+      )
+    }
+
+    const storeId = await this.sid(storeIdOrSlug)
+    const variants = await this.prisma.productVariant.findMany({
+      where: { product: { storeId }, isActive: true, stock: { gt: 0 } },
+      select: { id: true, sku: true, stock: true },
+    })
+    if (variants.length === 0) {
+      return { seeded: 0, skipped: 0 }
+    }
+
+    const logged = await this.prisma.stockMovementLog.findMany({
+      where: { storeId, variantId: { in: variants.map((v) => v.id) } },
+      select: { variantId: true },
+    })
+    const alreadyLogged = new Set(
+      logged.map((row) => row.variantId).filter((id): id is string => Boolean(id)),
+    )
+    const rows = openingStockLedgerRows(storeId, variants, alreadyLogged)
+    if (rows.length === 0) {
+      return { seeded: 0, skipped: variants.length }
+    }
+
+    await this.prisma.stockMovementLog.createMany({ data: rows })
+    return { seeded: rows.length, skipped: variants.length - rows.length }
   }
 
   async createStockTransfer(

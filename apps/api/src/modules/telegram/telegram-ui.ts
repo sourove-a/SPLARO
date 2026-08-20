@@ -7,6 +7,7 @@ import type {
 } from 'node-telegram-bot-api'
 import { escapeTelegramHtml } from './telegram.util'
 import { TG_UI, tgEmoji, tgSectionTitle } from './telegram-ui-config'
+import { tgCard, tgCopyButton, tgCopyValue, tgHeader, tgJoin } from './telegram-format'
 
 /** Reply keyboard button labels — also used as route keys */
 export const TG_BTN = {
@@ -17,6 +18,7 @@ export const TG_BTN = {
   PENDING: 'Pending Orders',
   LOW_STOCK: 'Low Stock',
   FINANCE: 'Finance Hub',
+  CUSTOMERS: 'Customers',
   ADMIN_LOGIN: 'Admin Login',
   API_HEALTH: 'API Health',
   AI_CHAT: 'AI Chat',
@@ -32,12 +34,16 @@ export const TG_CALLBACK = {
   MENU_FINANCE: 'menu:finance',
   MENU_INVENTORY: 'menu:inventory',
   MENU_ADMIN: 'menu:admin',
+  MENU_CUSTOMERS: 'menu:customers',
   MENU_AI: 'menu:ai',
   STATUS_SUMMARY: 'act:status_summary',
   ORDERS_LIST: 'act:orders_list',
   COURIER_SNAPSHOT: 'act:courier_snapshot',
   INVENTORY_SNAPSHOT: 'act:inventory_snapshot',
   INVENTORY_LOOKUP_HELP: 'act:inventory_lookup_help',
+  CUSTOMER_LOOKUP_HELP: 'act:customer_lookup_help',
+  TOP_CUSTOMERS: 'act:top_customers',
+  ORDER_SEARCH_HELP: 'act:order_search_help',
   DELIVERY_DIAGNOSTICS: 'act:delivery_diagnostics',
   LINKED_ADMINS: 'act:linked_admins',
   AI_PROMPT_SALES: 'act:ai_prompt_sales',
@@ -53,30 +59,57 @@ export const TG_CALLBACK = {
   PROFIT_MONTH: 'act:profit_month',
   EXPENSES_TODAY: 'act:expenses_today',
   API_HEALTH: 'act:api_health',
+  /** Legacy — reachable only from a stale pinned keyboard, no longer shown in any menu. */
   ADMIN_LOGIN: 'act:admin_login',
   SYNC_SHEETS: 'act:sync_sheets',
   LINK_GROUP: 'act:link_group',
   GROUP_INFO: 'act:group_info',
 } as const
 
-export function listCallback(kind: 'orders', page: number): string {
+export type TelegramListKind = 'orders' | 'pending'
+
+export function listCallback(kind: TelegramListKind, page: number): string {
   return `list:${kind}:${page}`
 }
 
-export function parseListCallback(data: string): { kind: 'orders'; page: number } | null {
-  const m = /^list:(orders):(\d+)$/.exec(data)
+export function parseListCallback(data: string): { kind: TelegramListKind; page: number } | null {
+  const m = /^list:(orders|pending):(\d+)$/.exec(data)
   if (!m) return null
-  return { kind: 'orders', page: Number(m[2] ?? '0') || 0 }
+  return { kind: m[1] as TelegramListKind, page: Number(m[2] ?? '0') || 0 }
 }
 
-export function orderCallback(action: 'confirm' | 'courier' | 'track', invoice: string): string {
+export const ORDER_ACTIONS = [
+  'confirm',
+  'courier',
+  'track',
+  'cancel',
+  'invoice',
+  'processing',
+  'delivered',
+  'returned',
+  'open',
+] as const
+
+export type TelegramOrderAction = (typeof ORDER_ACTIONS)[number]
+
+export function orderCallback(action: TelegramOrderAction, invoice: string): string {
   return `order:${action}:${invoice}`
 }
 
-export function parseOrderCallback(data: string): { action: 'confirm' | 'courier' | 'track'; invoice: string } | null {
-  const m = /^order:(confirm|courier|track):(.+)$/.exec(data)
+export function parseOrderCallback(
+  data: string,
+): { action: TelegramOrderAction; invoice: string } | null {
+  const m = new RegExp(`^order:(${ORDER_ACTIONS.join('|')}):(.+)$`).exec(data)
   if (!m) return null
-  return { action: m[1] as 'confirm' | 'courier' | 'track', invoice: m[2]! }
+  return { action: m[1] as TelegramOrderAction, invoice: m[2]! }
+}
+
+/** Status transition each inline action asks OrderStatusService for. */
+export const ORDER_ACTION_STATUS: Partial<Record<TelegramOrderAction, string>> = {
+  processing: 'PROCESSING',
+  delivered: 'DELIVERED',
+  returned: 'RETURNED',
+  cancel: 'CANCELLED',
 }
 
 export function mainReplyKeyboard(): ReplyKeyboardMarkup {
@@ -86,11 +119,11 @@ export function mainReplyKeyboard(): ReplyKeyboardMarkup {
       row([TG_BTN.MENU, TG_BTN.DASHBOARD]),
       row([TG_BTN.ORDERS_TODAY, TG_BTN.PENDING]),
       row([TG_BTN.FINANCE, TG_BTN.LOW_STOCK]),
-      row([TG_BTN.ADMIN_LOGIN, TG_BTN.AI_CHAT]),
+      row([TG_BTN.CUSTOMERS, TG_BTN.AI_CHAT]),
     ],
     resize_keyboard: true,
     is_persistent: true,
-    input_field_placeholder: 'SPL-#### · or Control Center',
+    input_field_placeholder: 'SPL-#### · 01XXXXXXXXX · or Control Center',
   }
 }
 
@@ -106,12 +139,12 @@ export function inlineMainMenu(): InlineKeyboardMarkup {
         { text: `${TG_UI.sections.inventory.icon} ${TG_UI.sections.inventory.label}`, callback_data: TG_CALLBACK.MENU_INVENTORY },
       ],
       [
-        { text: `${TG_UI.sections.admin.icon} ${TG_UI.sections.admin.label}`, callback_data: TG_CALLBACK.MENU_ADMIN },
+        { text: '◐ Customer Desk', callback_data: TG_CALLBACK.MENU_CUSTOMERS },
         { text: `${TG_UI.sections.ai.icon} ${TG_UI.sections.ai.label}`, callback_data: TG_CALLBACK.MENU_AI },
       ],
       [
-        { text: 'Status Snapshot', callback_data: TG_CALLBACK.STATUS_SUMMARY },
-        { text: 'Delivery Logs', callback_data: TG_CALLBACK.DELIVERY_DIAGNOSTICS },
+        { text: 'Live Status', callback_data: TG_CALLBACK.STATUS_SUMMARY },
+        { text: `${TG_UI.sections.admin.icon} ${TG_UI.sections.admin.label}`, callback_data: TG_CALLBACK.MENU_ADMIN },
       ],
     ],
   }
@@ -122,18 +155,21 @@ export function inlineOrdersMenu(): InlineKeyboardMarkup {
     inline_keyboard: [
       [
         { text: 'Today', callback_data: TG_CALLBACK.ORDERS_TODAY },
-        { text: 'Pending', callback_data: TG_CALLBACK.PENDING },
+        { text: 'Pending Queue', callback_data: TG_CALLBACK.PENDING },
       ],
       [
         { text: 'Sales', callback_data: TG_CALLBACK.SALES_TODAY },
-        { text: 'Latest', callback_data: TG_CALLBACK.ORDERS_LIST },
+        { text: 'Latest Orders', callback_data: TG_CALLBACK.ORDERS_LIST },
       ],
       [
         { text: 'Delivered', callback_data: TG_CALLBACK.DELIVERED_TODAY },
         { text: 'Daily Report', callback_data: TG_CALLBACK.REPORT_TODAY },
       ],
-      [{ text: 'Open Courier Hub', callback_data: TG_CALLBACK.MENU_COURIER }],
-      [{ text: 'Back to Main', callback_data: TG_CALLBACK.MENU_MAIN }],
+      [
+        { text: 'Find Order', callback_data: TG_CALLBACK.ORDER_SEARCH_HELP },
+        { text: 'Courier Hub', callback_data: TG_CALLBACK.MENU_COURIER },
+      ],
+      [{ text: '← Main', callback_data: TG_CALLBACK.MENU_MAIN }],
     ],
   }
 }
@@ -147,9 +183,9 @@ export function inlineCourierMenu(): InlineKeyboardMarkup {
       ],
       [
         { text: 'Delivery Logs', callback_data: TG_CALLBACK.DELIVERY_DIAGNOSTICS },
-        { text: 'Book by Invoice', callback_data: TG_CALLBACK.MENU_ORDERS },
+        { text: 'Find Order', callback_data: TG_CALLBACK.ORDER_SEARCH_HELP },
       ],
-      [{ text: 'Back to Main', callback_data: TG_CALLBACK.MENU_MAIN }],
+      [{ text: '← Main', callback_data: TG_CALLBACK.MENU_MAIN }],
     ],
   }
 }
@@ -165,8 +201,11 @@ export function inlineFinanceMenu(): InlineKeyboardMarkup {
         { text: 'Expenses', callback_data: TG_CALLBACK.EXPENSES_TODAY },
         { text: 'Sync Sheets', callback_data: TG_CALLBACK.SYNC_SHEETS },
       ],
-      [{ text: 'AI Sales Brief', callback_data: TG_CALLBACK.AI_PROMPT_SALES }],
-      [{ text: 'Back to Main', callback_data: TG_CALLBACK.MENU_MAIN }],
+      [
+        { text: 'Sales Today', callback_data: TG_CALLBACK.SALES_TODAY },
+        { text: 'Daily Report', callback_data: TG_CALLBACK.REPORT_TODAY },
+      ],
+      [{ text: '← Main', callback_data: TG_CALLBACK.MENU_MAIN }],
     ],
   }
 }
@@ -179,30 +218,47 @@ export function inlineInventoryMenu(): InlineKeyboardMarkup {
         { text: 'Stock Snapshot', callback_data: TG_CALLBACK.INVENTORY_SNAPSHOT },
       ],
       [
-        { text: 'SKU Lookup Help', callback_data: TG_CALLBACK.INVENTORY_LOOKUP_HELP },
+        { text: 'SKU Lookup', callback_data: TG_CALLBACK.INVENTORY_LOOKUP_HELP },
         { text: 'AI Stock Brief', callback_data: TG_CALLBACK.AI_PROMPT_STOCK },
       ],
-      [{ text: 'Back to Main', callback_data: TG_CALLBACK.MENU_MAIN }],
+      [{ text: '← Main', callback_data: TG_CALLBACK.MENU_MAIN }],
     ],
   }
 }
 
+export function inlineCustomersMenu(): InlineKeyboardMarkup {
+  return {
+    inline_keyboard: [
+      [
+        { text: 'Top Customers', callback_data: TG_CALLBACK.TOP_CUSTOMERS },
+        { text: 'Phone Lookup', callback_data: TG_CALLBACK.CUSTOMER_LOOKUP_HELP },
+      ],
+      [
+        { text: 'COD Risk Brief', callback_data: TG_CALLBACK.AI_PROMPT_RISK },
+        { text: 'Find Order', callback_data: TG_CALLBACK.ORDER_SEARCH_HELP },
+      ],
+      [{ text: '← Main', callback_data: TG_CALLBACK.MENU_MAIN }],
+    ],
+  }
+}
+
+/** No login button here — login tokens arrive automatically from the admin panel. */
 export function inlineAdminMenu(): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
       [
-        { text: 'Admin Login', callback_data: TG_CALLBACK.ADMIN_LOGIN },
         { text: 'API Health', callback_data: TG_CALLBACK.API_HEALTH },
+        { text: 'Login Delivery', callback_data: TG_CALLBACK.DELIVERY_DIAGNOSTICS },
       ],
       [
         { text: 'Linked Admins', callback_data: TG_CALLBACK.LINKED_ADMINS },
         { text: 'Chat Info', callback_data: TG_CALLBACK.GROUP_INFO },
       ],
       [
-        { text: 'Link Chat', callback_data: TG_CALLBACK.LINK_GROUP },
-        { text: 'Delivery Logs', callback_data: TG_CALLBACK.DELIVERY_DIAGNOSTICS },
+        { text: 'Link This Chat', callback_data: TG_CALLBACK.LINK_GROUP },
+        { text: 'Live Status', callback_data: TG_CALLBACK.STATUS_SUMMARY },
       ],
-      [{ text: 'Back to Main', callback_data: TG_CALLBACK.MENU_MAIN }],
+      [{ text: '← Main', callback_data: TG_CALLBACK.MENU_MAIN }],
     ],
   }
 }
@@ -218,29 +274,33 @@ export function inlineAiMenu(): InlineKeyboardMarkup {
         { text: 'Stock Risk', callback_data: TG_CALLBACK.AI_PROMPT_STOCK },
         { text: 'Live Status', callback_data: TG_CALLBACK.STATUS_SUMMARY },
       ],
-      [{ text: 'Back to Main', callback_data: TG_CALLBACK.MENU_MAIN }],
+      [{ text: '← Main', callback_data: TG_CALLBACK.MENU_MAIN }],
     ],
   }
 }
 
-export function orderListKeyboard(page: number, hasMore: boolean): InlineKeyboardMarkup {
+export function orderListKeyboard(
+  page: number,
+  hasMore: boolean,
+  kind: TelegramListKind = 'orders',
+): InlineKeyboardMarkup {
   const nav: InlineKeyboardButton[] = []
-  if (page > 0) nav.push({ text: 'Previous', callback_data: listCallback('orders', page - 1) })
-  if (hasMore) nav.push({ text: 'Next', callback_data: listCallback('orders', page + 1) })
+  if (page > 0) nav.push({ text: '‹ Prev', callback_data: listCallback(kind, page - 1) })
+  if (hasMore) nav.push({ text: 'Next ›', callback_data: listCallback(kind, page + 1) })
   return {
     inline_keyboard: [
       ...(nav.length > 0 ? [nav] : []),
-      [{ text: 'Orders Hub', callback_data: TG_CALLBACK.MENU_ORDERS }],
+      [
+        { text: 'Refresh', callback_data: listCallback(kind, page) },
+        { text: 'Orders Hub', callback_data: TG_CALLBACK.MENU_ORDERS },
+      ],
     ],
   }
 }
 
+/** Screen title. Kept as premiumHeader for callers; no ASCII box any more. */
 export function premiumHeader(title: string, subtitle?: string): string {
-  return `
-┌──────────────────────────┐
-│  <b>${escapeTelegramHtml(title)}</b>
-└──────────────────────────┘${subtitle ? `\n${escapeTelegramHtml(subtitle)}` : ''}
-`.trim()
+  return tgHeader('✦', title, subtitle)
 }
 
 export function controlCenterSections(): string {
@@ -275,7 +335,7 @@ export function deliveryDiagnosticsKeyboard(): InlineKeyboardMarkup {
         { text: 'API Health', callback_data: TG_CALLBACK.API_HEALTH },
         { text: 'Linked Admins', callback_data: TG_CALLBACK.LINKED_ADMINS },
       ],
-      [{ text: 'Back to Admin', callback_data: TG_CALLBACK.MENU_ADMIN }],
+      [{ text: '← Admin Desk', callback_data: TG_CALLBACK.MENU_ADMIN }],
     ],
   }
 }
@@ -284,10 +344,10 @@ export function linkedAdminsKeyboard(): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
       [
-        { text: 'Link Chat', callback_data: TG_CALLBACK.LINK_GROUP },
+        { text: 'Link This Chat', callback_data: TG_CALLBACK.LINK_GROUP },
         { text: 'Chat Info', callback_data: TG_CALLBACK.GROUP_INFO },
       ],
-      [{ text: 'Back to Admin', callback_data: TG_CALLBACK.MENU_ADMIN }],
+      [{ text: '← Admin Desk', callback_data: TG_CALLBACK.MENU_ADMIN }],
     ],
   }
 }
@@ -305,37 +365,101 @@ export function formatWhatsAppUrl(phone?: string | null): string | null {
   return `https://wa.me/${normalized}`
 }
 
+export interface OrderActionKeyboardLinks {
+  adminOrderUrl?: string
+  storefrontUrl?: string
+  phone?: string | null
+  address?: string | null
+  status?: string | null
+}
+
+const CLOSED_STATUSES = new Set(['DELIVERED', 'CANCELLED', 'RETURNED', 'REFUNDED'])
+
+/**
+ * Order action row set. The first row follows the order's current status so the
+ * operator sees the next real step instead of a fixed pair of buttons, and the
+ * copy row puts phone + address one tap from the clipboard.
+ */
 export function orderActionKeyboard(
   invoiceNumber: string,
-  links?: { adminOrderUrl?: string; storefrontUrl?: string; phone?: string | null },
+  links?: OrderActionKeyboardLinks,
 ): InlineKeyboardMarkup {
-  const rows: InlineKeyboardButton[][] = [
-    [
-      { text: '✅ Confirm Order', callback_data: orderCallback('confirm', invoiceNumber) },
+  const status = (links?.status ?? 'PENDING').toUpperCase()
+  const rows: InlineKeyboardButton[][] = []
+
+  if (status === 'PENDING') {
+    rows.push([
+      { text: '✅ Confirm', callback_data: orderCallback('confirm', invoiceNumber) },
       { text: '🚚 Book Courier', callback_data: orderCallback('courier', invoiceNumber) },
-    ],
-  ]
-  const second: InlineKeyboardButton[] = [
-    { text: '📍 Track Order', callback_data: orderCallback('track', invoiceNumber) },
-  ]
-  if (links?.phone) {
-    const wa = formatWhatsAppUrl(links.phone)
-    if (wa) {
-      second.push({ text: '💬 WhatsApp', url: wa })
-    }
+    ])
+  } else if (status === 'CONFIRMED' || status === 'PROCESSING' || status === 'READY_TO_SHIP') {
+    rows.push([
+      { text: '🚚 Book Courier', callback_data: orderCallback('courier', invoiceNumber) },
+      { text: '🎉 Delivered', callback_data: orderCallback('delivered', invoiceNumber) },
+    ])
+  } else if (!CLOSED_STATUSES.has(status)) {
+    rows.push([
+      { text: '📍 Track', callback_data: orderCallback('track', invoiceNumber) },
+      { text: '🎉 Delivered', callback_data: orderCallback('delivered', invoiceNumber) },
+    ])
+  } else {
+    rows.push([
+      { text: '📍 Track', callback_data: orderCallback('track', invoiceNumber) },
+      { text: '🧾 Invoice', callback_data: orderCallback('invoice', invoiceNumber) },
+    ])
   }
-  rows.push(second)
 
-  const third: InlineKeyboardButton[] = []
+  const copyRow: InlineKeyboardButton[] = []
+  if (links?.phone?.trim()) {
+    copyRow.push(tgCopyButton('📞 Copy phone', tgCopyValue(links.phone)))
+  }
+  if (links?.address?.trim()) {
+    copyRow.push(tgCopyButton('📍 Copy address', tgCopyValue(links.address)))
+  }
+  if (copyRow.length > 0) rows.push(copyRow)
+
+  const contactRow: InlineKeyboardButton[] = []
+  const wa = formatWhatsAppUrl(links?.phone ?? null)
+  if (wa) contactRow.push({ text: '💬 WhatsApp', url: wa })
   if (links?.adminOrderUrl) {
-    third.push({ text: '🖥 Admin', url: links.adminOrderUrl })
+    contactRow.push({ text: '🖥 Admin', url: links.adminOrderUrl })
   } else if (links?.storefrontUrl) {
-    third.push({ text: '🌐 Store', url: links.storefrontUrl })
+    contactRow.push({ text: '🌐 Store', url: links.storefrontUrl })
   }
-  if (third.length > 0) {
-    rows.push(third)
-  }
+  if (contactRow.length > 0) rows.push(contactRow)
 
+  const tailRow: InlineKeyboardButton[] = [
+    tgCopyButton('🧾 Copy invoice', tgCopyValue(invoiceNumber)),
+  ]
+  if (!CLOSED_STATUSES.has(status)) {
+    tailRow.push({ text: '❌ Cancel', callback_data: orderCallback('cancel', invoiceNumber) })
+  }
+  rows.push(tailRow)
+
+  return { inline_keyboard: rows }
+}
+
+/** Copy row for a customer record — phone first, address second. */
+export function customerCopyKeyboard(opts: {
+  phone?: string | null
+  address?: string | null
+  invoice?: string | null
+}): InlineKeyboardMarkup {
+  const rows: InlineKeyboardButton[][] = []
+  const copyRow: InlineKeyboardButton[] = []
+  if (opts.phone?.trim()) copyRow.push(tgCopyButton('📞 Copy phone', tgCopyValue(opts.phone)))
+  if (opts.address?.trim()) copyRow.push(tgCopyButton('📍 Copy address', tgCopyValue(opts.address)))
+  if (copyRow.length > 0) rows.push(copyRow)
+
+  const actionRow: InlineKeyboardButton[] = []
+  const wa = formatWhatsAppUrl(opts.phone ?? null)
+  if (wa) actionRow.push({ text: '💬 WhatsApp', url: wa })
+  if (opts.invoice?.trim()) {
+    actionRow.push({ text: '📦 Open order', callback_data: orderCallback('open', opts.invoice.trim()) })
+  }
+  if (actionRow.length > 0) rows.push(actionRow)
+
+  rows.push([{ text: '← Customer Desk', callback_data: TG_CALLBACK.MENU_CUSTOMERS }])
   return { inline_keyboard: rows }
 }
 
@@ -350,13 +474,8 @@ export function loginCopyKeyboard(code: string): InlineKeyboardMarkup {
   const display = formatLoginTokenDisplay(code)
   return {
     inline_keyboard: [
-      [
-        {
-          text: '📋 Copy Login Token',
-          copy_text: { text: display },
-        } as InlineKeyboardButton,
-      ],
-      [{ text: '⬅️ Menu', callback_data: TG_CALLBACK.MENU_MAIN }],
+      [tgCopyButton('📋 Copy Login Token', display)],
+      [{ text: '← Control Center', callback_data: TG_CALLBACK.MENU_MAIN }],
     ],
   }
 }
@@ -375,55 +494,44 @@ export function welcomeMessage(opts: {
     ? '✅ This chat is linked to SPLARO notifications.'
     : '⚠️ Chat not linked yet — tap <b>Link This Chat</b> or send /link_group (admin only).'
 
-  return `
-┌──────────────────────────┐
-│  ✦ <b>${TG_UI.brandTitle}</b>  │
-└──────────────────────────┘
-
-${greet} · ${mode}
-
-${linkHint}
-
-━━━━━━━━━━━━━━━━━━━━
-
-<b>Control sections</b>
-${controlCenterSections()}
-
-Type an invoice like <code>SPL-####</code> to track an order
-Tap <b>AI Chat</b> to ask SPLARO AI
-
-━━━━━━━━━━━━━━━━━━━━
-<i>Ops-first control center for daily actions</i>
-`.trim()
+  return tgJoin(
+    `✦ <b>${escapeTelegramHtml(TG_UI.brandTitle)}</b>\n${greet} · ${escapeTelegramHtml(mode)}`,
+    linkHint,
+    `<b>Desks</b>\n${tgCard([controlCenterSections()])}`,
+    `Send <code>SPL-1001</code> to open an order · <code>01XXXXXXXXX</code> to check a customer\nTap <b>AI Chat</b> to ask SPLARO AI`,
+  )
 }
 
 export function menuMessage(): string {
-  return `
-┌──────────────────────────┐
-│  ✨ <b>SPLARO Control Panel</b>  │
-└──────────────────────────┘
-
-${controlCenterSections()}
-
-━━━━━━━━━━━━━━━━━━━━
-<b>Commands</b>
-<code>/status</code> · <code>/orders</code> · <code>/order SPL-####</code>
-<code>/invoice SPL-####</code> · <code>/confirm</code> · <code>/courier</code> · <code>/stock SKU123</code>
-`.trim()
+  return tgJoin(
+    tgHeader('✦', 'SPLARO Control Panel', 'Every desk from one place'),
+    `<b>Desks</b>\n${tgCard([controlCenterSections()])}`,
+    `<b>Commands</b>\n${tgCard([
+      '<code>/status</code> — live status',
+      '<code>/orders</code> — latest orders',
+      '<code>/order SPL-1001</code> — order card',
+      '<code>/find 01712345678</code> — customer + orders',
+      '<code>/invoice SPL-1001</code> — invoice link',
+      '<code>/confirm</code> · <code>/courier</code> · <code>/cancel</code> — order actions',
+      '<code>/stock SKU123</code> — stock lookup',
+    ])}`,
+  )
 }
 
 export const BOT_COMMANDS: BotCommand[] = [
   { command: 'start', description: 'Welcome & open menu' },
   { command: 'menu', description: 'Control panel' },
-  { command: 'login', description: 'Link admin or get login token' },
   { command: 'status', description: 'API & order summary' },
   { command: 'orders', description: 'Latest orders' },
   { command: 'order', description: 'Order details by invoice' },
+  { command: 'find', description: 'Find customer & orders by phone' },
   { command: 'check', description: 'Check customer number & fraud score' },
   { command: 'invoice', description: 'View & share invoice' },
   { command: 'confirm', description: 'Confirm order' },
   { command: 'cancel', description: 'Cancel order' },
   { command: 'courier', description: 'Book courier' },
+  { command: 'stock', description: 'Stock by SKU' },
+  { command: 'login', description: 'Link this Telegram to an admin account' },
   { command: 'link_group', description: 'Link group for notifications' },
   { command: 'group_info', description: 'Show chat ID' },
   { command: 'help', description: 'All commands' },
@@ -442,14 +550,25 @@ export const BUTTON_ROUTES: Record<string, string> = {
   [TG_BTN.LOW_STOCK]: TG_CALLBACK.LOW_STOCK,
   [TG_BTN.FINANCE]: TG_CALLBACK.MENU_FINANCE,
   Finance: TG_CALLBACK.MENU_FINANCE,
+  [TG_BTN.CUSTOMERS]: TG_CALLBACK.MENU_CUSTOMERS,
   [TG_BTN.AI_CHAT]: TG_CALLBACK.MENU_AI,
+  // Legacy label from keyboards pinned before login moved to the admin panel.
   [TG_BTN.ADMIN_LOGIN]: TG_CALLBACK.ADMIN_LOGIN,
   [TG_BTN.API_HEALTH]: TG_CALLBACK.API_HEALTH,
   [TG_BTN.GROUP_LINK]: TG_CALLBACK.LINK_GROUP,
   [TG_BTN.GROUP_INFO]: TG_CALLBACK.GROUP_INFO,
 }
 
-const CURRENT_KEYBOARD_LABELS = new Set<string>(Object.values(TG_BTN))
+const CURRENT_KEYBOARD_LABELS = new Set<string>([
+  TG_BTN.MENU,
+  TG_BTN.DASHBOARD,
+  TG_BTN.ORDERS_TODAY,
+  TG_BTN.PENDING,
+  TG_BTN.FINANCE,
+  TG_BTN.LOW_STOCK,
+  TG_BTN.CUSTOMERS,
+  TG_BTN.AI_CHAT,
+])
 
 /** Strip emoji / VS16 so a stale persistent keyboard still routes. */
 export function normalizeTelegramButtonLabel(text: string): string {
@@ -479,12 +598,12 @@ export function isStaleTelegramKeyboardLabel(text: string): boolean {
 }
 
 export const TELEGRAM_OPS_HINT =
-  'Invoice (SPL-####) লিখো, অথবা Control Center চাপো। AI চাইলে AI Chat।'
+  'Invoice (SPL-####) বা ফোন (01XXXXXXXXX) লিখো, অথবা Control Center চাপো। AI চাইলে AI Chat।'
 
 export function telegramOpsHint(latestInvoice?: string | null): string {
   const inv = latestInvoice?.trim()
   if (inv && /^SPL-\d+/i.test(inv)) {
-    return `${inv} লিখো, অথবা Control Center চাপো। AI চাইলে AI Chat।`
+    return `${inv} লিখো, অথবা ফোন নম্বর দাও (01XXXXXXXXX)। Control Center চাপলে সব ডেস্ক। AI চাইলে AI Chat।`
   }
   return TELEGRAM_OPS_HINT
 }
@@ -572,4 +691,3 @@ export function formatTelegramAiReply(raw: string): string {
 
   return formatted.join('\n')
 }
-

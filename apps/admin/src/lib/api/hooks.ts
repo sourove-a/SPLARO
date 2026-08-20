@@ -8,6 +8,7 @@ import {
   fetchDashboardInsights,
   fetchInventoryAlerts,
   fetchRevenueSeries,
+  fetchTrafficSources,
   periodFromLabel,
   saveDailyGoal,
 } from './dashboard'
@@ -53,7 +54,7 @@ import {
   duplicateCampaign,
   sendCampaign,
 } from './marketing'
-import { fetchCourierShipments, fetchCourierStats } from './courier'
+import { fetchCourierShipments, fetchCourierStats, fetchCourierProviders } from './courier'
 import { fetchInvoices, fetchInvoiceHealth, fetchInvoiceStats, fetchTransactions, fetchTransactionHealth, fetchTransaction, fetchReturns, updateReturnStatus, createReturn, type RmaApiStatus } from './commerce-finance'
 import { fetchSettings, updateSettings, fetchNewsletterSubscribers, fetchCatalogChannelStats, type AdminSettingsData } from './settings'
 import { revalidateWebCache } from './revalidate'
@@ -84,6 +85,7 @@ import {
   fetchExecutiveDashboard,
   createWarehouse,
   recordStockMovement,
+  recordOpeningStock,
   createStockTransfer,
   shipStockTransfer,
   receiveStockTransfer,
@@ -338,6 +340,15 @@ export function useCourierStats(days = 30) {
   })
 }
 
+export function useCourierProviders() {
+  return useQuery({
+    queryKey: ['courier-providers'],
+    queryFn: fetchCourierProviders,
+    staleTime: 60_000,
+    retry: 1,
+  })
+}
+
 export function useCreateOrder() {
   const qc = useQueryClient()
   return useMutation({
@@ -399,6 +410,16 @@ export function useRecordStockMovement() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: recordStockMovement,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['wms-overview'] })
+    },
+  })
+}
+
+export function useRecordOpeningStock() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: recordOpeningStock,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['wms-overview'] })
     },
@@ -1030,10 +1051,10 @@ export function useCommerceSubscriptions() {
   })
 }
 
-export function useCustomers(params?: { search?: string; limit?: number }) {
+export function useCustomers(params?: { search?: string; limit?: number; staff?: 'hide' | 'include' | 'only' }) {
   return useQuery({
     queryKey: ['customers', params],
-    queryFn: () => fetchCustomers({ ...params, limit: params?.limit ?? 100 }),
+    queryFn: () => fetchCustomers({ ...params, limit: params?.limit ?? 100, staff: params?.staff ?? 'hide' }),
     staleTime: 30_000,
   })
 }
@@ -1344,6 +1365,15 @@ export function useRevenueSeries(period: '7d' | '30d' | '90d') {
   })
 }
 
+export function useTrafficSources(period: '7d' | '30d' | '90d' = '30d') {
+  return useQuery({
+    queryKey: ['traffic-sources', period],
+    queryFn: () => fetchTrafficSources(period),
+    staleTime: 60_000,
+    retry: 1,
+  })
+}
+
 export function useConversionFunnel(period: '1d' | '7d' | '30d' | '90d' = '30d') {
   return useQuery({
     queryKey: ['conversion-funnel', period],
@@ -1406,8 +1436,8 @@ export function useSettings() {
   return useQuery({
     queryKey: ['admin-settings'],
     queryFn: fetchSettings,
-    staleTime: 15_000,
-    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+    refetchOnWindowFocus: process.env.NODE_ENV === 'production',
     retry: 2,
   })
 }
@@ -1758,8 +1788,13 @@ export function useIntegrations() {
   return useQuery({ queryKey: ['platform-integrations'], queryFn: fetchIntegrations, staleTime: 30_000, retry: 1 })
 }
 
-export function useSystemLogs() {
-  return useQuery({ queryKey: ['platform-system-logs'], queryFn: () => fetchSystemLogs(), staleTime: 15_000, retry: 1 })
+export function useSystemLogs(params?: { page?: number; limit?: number; q?: string; level?: string }) {
+  return useQuery({
+    queryKey: ['platform-system-logs', params?.page ?? 1, params?.limit ?? 50, params?.q ?? '', params?.level ?? 'all'],
+    queryFn: () => fetchSystemLogs(params),
+    staleTime: 15_000,
+    retry: 1,
+  })
 }
 
 export function useTelegramLogs() {

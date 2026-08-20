@@ -143,6 +143,7 @@ import { SeedDemoCatalogService } from './modules/catalog/seed-demo-catalog.serv
 import { ContentController, ContentService, FootwearConfigService, LegalPagesService } from './modules/content'
 import { GoogleSheetsController, GoogleSheetsService } from './modules/google-sheets'
 import { ReportsController, ReportsService } from './modules/reports'
+import { ExportCenterController } from './modules/exports/export-center.controller'
 import { RmaController, RmaService } from './modules/rma'
 import { CourierController } from './modules/courier/courier.controller'
 import { SteadfastWebhookController } from './modules/courier/steadfast-webhook.controller'
@@ -282,6 +283,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     AdminFinanceController,
     GoogleSheetsController,
     ReportsController,
+    ExportCenterController,
     AiProductAgentController,
     ManusController,
     AnalyticsController,

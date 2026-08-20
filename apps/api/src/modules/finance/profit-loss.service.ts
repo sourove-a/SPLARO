@@ -172,63 +172,40 @@ export class ProfitLossService {
   }
 
   async getSummary(storeId: string, from: Date, to: Date) {
-    const calculations = await this.prisma.profitCalculation.findMany({
+    const agg = await this.prisma.profitCalculation.aggregate({
       where: { storeId, calculatedAt: { gte: from, lte: to } },
-    })
-
-    const totals = calculations.reduce(
-      (acc, c) => ({
-        grossRevenue: acc.grossRevenue + Number(c.grossRevenue),
-        productCost: acc.productCost + Number(c.productCost),
-        courierCost: acc.courierCost + Number(c.courierCost),
-        packagingCost: acc.packagingCost + Number(c.packagingCost),
-        paymentGatewayFee: acc.paymentGatewayFee + Number(c.paymentGatewayFee),
-        discount: acc.discount + Number(c.discount),
-        returnLoss: acc.returnLoss + Number(c.returnLoss),
-        allocatedAdCost: acc.allocatedAdCost + Number(c.allocatedAdCost ?? 0),
-        netProfit: acc.netProfit + Number(c.netProfit),
-      }),
-      {
-        grossRevenue: 0,
-        productCost: 0,
-        courierCost: 0,
-        packagingCost: 0,
-        paymentGatewayFee: 0,
-        discount: 0,
-        returnLoss: 0,
-        allocatedAdCost: 0,
-        netProfit: 0,
-      },
-    )
-
-    const partners = await this.prisma.partner.findMany({
-      where: { storeId, isActive: true },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        currentBalance: true,
-        totalProfitShare: true,
-        sharePercent: true,
+      _count: { _all: true },
+      _sum: {
+        grossRevenue: true,
+        productCost: true,
+        courierCost: true,
+        packagingCost: true,
+        paymentGatewayFee: true,
+        discount: true,
+        returnLoss: true,
+        allocatedAdCost: true,
+        netProfit: true,
       },
     })
 
-    const byDay = new Map<string, number>()
-    for (const c of calculations) {
-      const key = new Date(c.calculatedAt).toISOString().slice(0, 10)
-      byDay.set(key, (byDay.get(key) ?? 0) + Number(c.grossRevenue))
+    const sum = agg._sum
+    const money = (value: unknown) => Number(value ?? 0)
+
+    return {
+      period: { from, to },
+      totals: {
+        grossRevenue: money(sum.grossRevenue),
+        productCost: money(sum.productCost),
+        courierCost: money(sum.courierCost),
+        packagingCost: money(sum.packagingCost),
+        paymentGatewayFee: money(sum.paymentGatewayFee),
+        discount: money(sum.discount),
+        returnLoss: money(sum.returnLoss),
+        allocatedAdCost: money(sum.allocatedAdCost),
+        netProfit: money(sum.netProfit),
+      },
+      orderCount: agg._count._all,
     }
-    const timeline = [...byDay.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, revenue]) => ({
-        label: new Date(`${key}T00:00:00`).toLocaleDateString('en-BD', {
-          day: 'numeric',
-          month: 'short',
-        }),
-        revenue: Math.round(revenue),
-      }))
-
-    return { period: { from, to }, totals, orderCount: calculations.length, partners, timeline }
   }
 
   async getDailyProfit(storeIdOrSlug: string, date = new Date()) {

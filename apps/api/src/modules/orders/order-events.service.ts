@@ -1,9 +1,11 @@
 import { Inject, Injectable, Logger, Optional, forwardRef } from '@nestjs/common'
+import { ModuleRef } from '@nestjs/core'
 import { PrismaService } from '../../common/prisma.service'
 import { RealtimePublisher } from '../../common/realtime/realtime.publisher'
 import { AutomationService } from '../automation/automation.service'
 import { LoyaltyService } from '../loyalty/loyalty.service'
 import { NotificationsService } from '../notifications/notifications.service'
+import { OrderNotificationsService } from '../notifications/order-notifications.service'
 import { AdminTelegramHubService } from '../notifications/admin-telegram-hub.service'
 import { WebhooksService, type WebhookEventType } from '../webhooks/webhooks.service'
 import { GoogleSyncQueueService } from '../google-workspace/google-sync-queue.service'
@@ -36,14 +38,23 @@ export class OrderEventsService {
     @Optional() private readonly webhooks: WebhooksService,
     @Optional() private readonly googleSync: GoogleSyncQueueService,
     @Optional() private readonly realtime: RealtimePublisher,
+    private readonly moduleRef: ModuleRef,
   ) {}
 
-  async onOrderPlaced(storeId: string, orderId: string): Promise<void> {
+  async onOrderPlaced(storeId: string, orderId: string, customerEmail?: string): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { items: true, customer: true },
     })
     if (!order) return
+
+    await this.fanOutOrderPlacedNotifications(
+      storeId,
+      orderId,
+      order.invoiceNumber,
+      customerEmail ?? order.customer?.email ?? undefined,
+      order,
+    )
 
     void this.realtime
       ?.publishOrderEvent({
@@ -72,6 +83,49 @@ export class OrderEventsService {
 
     // Check stock after deduction
     await this.checkLowStock(storeId, order.items.map((i) => i.variantId).filter(Boolean) as string[])
+  }
+
+  /**
+   * Resolve OrderNotifications at call-time. Constructor injection is Optional
+   * inside Telegram → OrderStatus → OrderEvents → OrderNotifications and Nest
+   * leaves that Optional `undefined`, so Notification Center never got the row.
+   */
+  private async fanOutOrderPlacedNotifications(
+    storeId: string,
+    orderId: string,
+    invoiceNumber: string,
+    customerEmail: string | undefined,
+    order: { shippingName: string; paymentMethod: string; total: unknown },
+  ): Promise<void> {
+    try {
+      const fanout = this.moduleRef.get(OrderNotificationsService, { strict: false })
+      if (fanout) {
+        await fanout.onOrderPlaced(storeId, orderId, customerEmail)
+        return
+      }
+    } catch (err: unknown) {
+      this.logger.error(
+        `Order notification resolve failed for ${invoiceNumber}: ${err instanceof Error ? err.message : err}`,
+      )
+    }
+
+    try {
+      await this.prisma.notificationDeliveryLog.create({
+        data: {
+          storeId,
+          channel: 'IN_APP',
+          recipient: `/dashboard/orders/${encodeURIComponent(invoiceNumber)}`,
+          subject: `New order · ${invoiceNumber}`,
+          body: `${order.shippingName} · ${order.paymentMethod.replace(/_/g, ' ')}`,
+          status: 'DELIVERED',
+          level: 'critical',
+        },
+      })
+    } catch (err: unknown) {
+      this.logger.error(
+        `In-app new-order notice failed for ${invoiceNumber}: ${err instanceof Error ? err.message : err}`,
+      )
+    }
   }
 
   async onStatusChanged(storeId: string, orderId: string, newStatus: OrderStatus, note?: string): Promise<void> {

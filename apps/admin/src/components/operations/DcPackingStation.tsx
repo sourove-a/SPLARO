@@ -25,13 +25,25 @@ import { resolveMediaUrl } from '@/lib/media-url'
 import { matchStationItem } from '@/lib/scan/match-sku'
 
 const MODES: Array<{ id: FulfillmentScanAction; label: string; sub: string }> = [
-  { id: 'pack', label: 'প্যাকিং (Pack)', sub: 'Confirmed / Processing → Packed · 1-scan pack' },
-  { id: 'dispatch', label: 'ডিসপ্যাচ (Dispatch)', sub: 'Packed → Shipped · label + courier handoff' },
+  { id: 'pack', label: 'Pack', sub: 'Confirmed / Processing → Packed · 1-scan pack' },
+  { id: 'dispatch', label: 'Dispatch', sub: 'Packed → Shipped · label + courier handoff' },
 ]
 
 const PACK_QUEUE = 'CONFIRMED,PROCESSING,COURIER_BOOKED'
 const HISTORY_KEY = 'splaro.packing.session-history'
 const AUDIO_MUTE_KEY = 'splaro.packing.audio-muted'
+const GOAL_KEY = 'splaro.packing.daily-goal'
+const SESSION_START_KEY = 'splaro.packing.session-started'
+const DIAG_OPEN_KEY = 'splaro.packing.diagnostics-open'
+const DEFAULT_GOAL = 50
+
+function formatSessionElapsed(startedAt: number, now: number) {
+  const total = Math.max(0, Math.floor((now - startedAt) / 1000))
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = total % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
 
 interface ScanRow {
   time: string
@@ -48,6 +60,19 @@ const card = {
   background: 'var(--surface)',
   backgroundImage: 'var(--card-sheen)',
 } as const
+
+const shortcutChip: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  height: 28,
+  padding: '0 10px',
+  borderRadius: 8,
+  border: '1px solid var(--line)',
+  background: 'var(--surface-2)',
+  font: `600 11.5px/1 ${FONT}`,
+  color: 'var(--ink-2)',
+}
 
 const th = {
   textAlign: 'left' as const,
@@ -144,6 +169,12 @@ function DcPackingBody() {
   const [checked, setChecked] = useState<Record<string, boolean>>({})
   const [autoPrint, setAutoPrint] = useState(true)
   const [soundMuted, setSoundMuted] = useState(false)
+  const [scanFlash, setScanFlash] = useState<'ok' | 'bad' | null>(null)
+  const [dailyGoal, setDailyGoal] = useState(DEFAULT_GOAL)
+  const [diagOpen, setDiagOpen] = useState(false)
+  const [hoverQueueId, setHoverQueueId] = useState<string | null>(null)
+  const [sessionNow, setSessionNow] = useState(() => Date.now())
+  const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null)
 
   // Modals
   const [courierModalOpen, setCourierModalOpen] = useState(false)
@@ -151,6 +182,13 @@ function DcPackingBody() {
 
   const inputRef = useRef<HTMLInputElement>(null)
   const mobileInputRef = useRef<HTMLInputElement>(null)
+  const flashTimerRef = useRef<number | undefined>(undefined)
+
+  const flashScan = useCallback((kind: 'ok' | 'bad') => {
+    setScanFlash(kind)
+    window.clearTimeout(flashTimerRef.current)
+    flashTimerRef.current = window.setTimeout(() => setScanFlash(null), 700)
+  }, [])
 
   const queueStatus = mode === 'pack' ? PACK_QUEUE : 'PACKED'
   const orders = useOrders({ status: queueStatus, limit: 50 })
@@ -162,6 +200,21 @@ function DcPackingBody() {
     setHistory(readHistory())
     const muted = localStorage.getItem(AUDIO_MUTE_KEY) === 'true'
     setSoundMuted(muted)
+    const storedGoal = Number(localStorage.getItem(GOAL_KEY))
+    if (Number.isFinite(storedGoal) && storedGoal > 0) setDailyGoal(Math.round(storedGoal))
+    setDiagOpen(localStorage.getItem(DIAG_OPEN_KEY) === 'true')
+    let started = Number(sessionStorage.getItem(SESSION_START_KEY))
+    if (!Number.isFinite(started) || started <= 0) {
+      started = Date.now()
+      sessionStorage.setItem(SESSION_START_KEY, String(started))
+    }
+    setSessionStartedAt(started)
+    return () => window.clearTimeout(flashTimerRef.current)
+  }, [])
+
+  useEffect(() => {
+    const tick = window.setInterval(() => setSessionNow(Date.now()), 1000)
+    return () => window.clearInterval(tick)
   }, [])
 
   useEffect(() => {
@@ -219,10 +272,12 @@ function DcPackingBody() {
         setCode(order.invoiceNumber)
         setBlocked(null)
         playStationSound('item', soundMuted)
+        flashScan('ok')
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Lookup failed'
         setBlocked({ id: trimmed, message })
         playStationSound('error', soundMuted)
+        flashScan('bad')
         toast('bad', 'Not found', message)
       } finally {
         setBusy(false)
@@ -230,7 +285,7 @@ function DcPackingBody() {
         mobileInputRef.current?.focus()
       }
     },
-    [busy, soundMuted, toast],
+    [busy, flashScan, soundMuted, toast],
   )
 
   const submit = useCallback(
@@ -256,6 +311,7 @@ function DcPackingBody() {
             by: 'you',
           })
           playStationSound(allDone ? 'success' : 'item', soundMuted)
+          flashScan('ok')
           toast(
             'ok',
             allDone ? 'Pick list complete' : label,
@@ -288,6 +344,7 @@ function DcPackingBody() {
         if (result.ok) {
           setBlocked(null)
           playStationSound('success', soundMuted)
+          flashScan('ok')
           toast('ok', `${result.invoiceNumber} ${mode === 'pack' ? 'packed' : 'dispatched'}`, result.message)
           if (autoPrint && mode === 'pack' && result.previousStatus !== result.status) {
             void printOrderLabel(result.invoiceNumber)
@@ -295,6 +352,7 @@ function DcPackingBody() {
         } else {
           setBlocked({ id: result.invoiceNumber || trimmed, message: result.message })
           playStationSound('error', soundMuted)
+          flashScan('bad')
           toast('bad', 'Scan rejected', result.message)
         }
         void todayStats.refetch()
@@ -304,6 +362,7 @@ function DcPackingBody() {
         pushHistory({ time, id: trimmed, ok: false, message, by: 'you' })
         setBlocked({ id: trimmed, message })
         playStationSound('error', soundMuted)
+        flashScan('bad')
         toast('bad', 'Scan failed', message)
       } finally {
         setCode('')
@@ -312,7 +371,7 @@ function DcPackingBody() {
         mobileInputRef.current?.focus()
       }
     },
-    [active, autoPrint, busy, checked, mode, orders, pushHistory, soundMuted, todayStats, toast],
+    [active, autoPrint, busy, checked, flashScan, mode, orders, pushHistory, soundMuted, todayStats, toast],
   )
 
   const handleBookCourier = async () => {
@@ -368,6 +427,12 @@ function DcPackingBody() {
   const done = mode === 'pack' ? stats.packed : stats.shipped
   const total = done + queue.length
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
+  const goalSafe = Math.max(1, dailyGoal)
+  const goalCount = mode === 'pack' ? stats.packed : stats.shipped
+  const goalPct = Math.min(100, Math.round((goalCount / goalSafe) * 100))
+  const sessionLabel = sessionStartedAt
+    ? `Session ${formatSessionElapsed(sessionStartedAt, sessionNow)}`
+    : 'Session --:--:--'
   const { api } = useAdminConnection(25_000)
   const pageStatus = dcPageStatus([orders], api.pulse)
   const canActOnActive =
@@ -376,25 +441,37 @@ function DcPackingBody() {
       ? ['CONFIRMED', 'PROCESSING', 'COURIER_BOOKED', 'PENDING'].includes(active.status)
       : active.status === 'PACKED')
 
+  const persistGoal = (value: number) => {
+    const next = Math.max(1, Math.min(9999, Math.round(value) || DEFAULT_GOAL))
+    setDailyGoal(next)
+    localStorage.setItem(GOAL_KEY, String(next))
+  }
+
+  const toggleDiag = () => {
+    const next = !diagOpen
+    setDiagOpen(next)
+    localStorage.setItem(DIAG_OPEN_KEY, String(next))
+  }
+
+  const endSession = () => {
+    sessionStorage.removeItem(SESSION_START_KEY)
+    router.push('/dashboard/operations')
+  }
+
   return (
     <>
       <DcPageHead
         crumbGroup="Operations · Packing Station"
-        title="প্যাকিং স্টেশন (Packing Station)"
+        title="Packing Station"
         statusLabel={pageStatus.label}
         statusTone={pageStatus.tone}
-        syncLabel={`${queue.length} in queue`}
+        syncLabel={`${sessionLabel} · ${queue.length} in queue`}
         syncing={orders.isFetching}
         onSync={() => {
           void orders.refetch()
           void todayStats.refetch()
         }}
         actions={[
-          {
-            label: soundMuted ? 'Muted' : 'Audio On',
-            icon: soundMuted ? 'icon-volume-x' : 'icon-volume-2',
-            onClick: toggleSound,
-          },
           {
             label: 'Bulk Labels',
             icon: 'icon-printer',
@@ -403,7 +480,7 @@ function DcPackingBody() {
           {
             label: 'End session',
             icon: 'icon-log-out',
-            onClick: () => router.push('/dashboard/operations'),
+            onClick: endSession,
           },
         ]}
       />
@@ -430,7 +507,7 @@ function DcPackingBody() {
             <span className="dc-mobile-kpi__label">Progress</span>
             <span className="dc-mobile-kpi__value">{pct}%</span>
             <span className="dc-mobile-kpi__sub">
-              {done}/{total || 0}
+              {done}/{total || 0} · goal {goalPct}%
             </span>
           </div>
         </div>
@@ -544,101 +621,137 @@ function DcPackingBody() {
       </div>
 
       {/* ── DESKTOP PACKING STATION VIEW ────────────────────── */}
-      <div
-        className="dc-desktop-route-panel"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.18fr) minmax(300px, 390px)',
-          gap: 16,
-          alignItems: 'start',
-        }}
-      >
-        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Mode Selector */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {MODES.map((m) => {
-              const on = m.id === mode
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setMode(m.id)}
-                  style={{
-                    flex: 1,
-                    minWidth: 180,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 3,
-                    padding: '12px 14px',
-                    borderRadius: 11,
-                    border: `1px solid ${on ? 'var(--violet-bd)' : 'var(--line)'}`,
-                    background: on ? 'var(--violet-soft)' : 'var(--surface)',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ font: `600 13.5px/1 ${FONT}`, color: on ? 'var(--violet)' : 'var(--ink)' }}>
-                      {m.label}
-                    </span>
-                    {on ? (
-                      <span style={{ width: 8, height: 8, borderRadius: 99, background: 'var(--violet)' }} />
-                    ) : null}
-                  </div>
-                  <span style={{ font: `400 11.5px/1.35 ${FONT}`, color: 'var(--ink-3)' }}>{m.sub}</span>
-                </button>
-              )
-            })}
-          </div>
+      <div className="dc-desktop-route-panel" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }} className="dc-pack-kpi-row">
+          <PackKpi icon="icon-package-check" color="var(--ok)" label="Packed today" value={String(stats.packed)} />
+          <PackKpi icon="icon-truck" color="var(--info)" label="Shipped today" value={String(stats.shipped)} />
+          <PackKpi icon="icon-list-ordered" color="var(--violet)" label="In queue" value={String(queue.length)} />
+          <PackKpi icon="icon-scan-line" color="var(--ink-2)" label="Scans session" value={String(history.length)} />
+        </div>
 
+        <div style={{ ...card, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ font: `600 12px/1 ${FONT}`, color: 'var(--ink)' }}>Today&rsquo;s fulfillment</span>
+            <span style={{ font: `700 18px/1 ${MONO}`, color: 'var(--ok)' }}>{pct}%</span>
+            <span style={{ font: `600 12px/1 ${MONO}`, color: 'var(--ink-2)' }}>
+              {done} / {total || 0}
+            </span>
+            <span style={{ font: `400 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>{queue.length} in queue</span>
+            <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <DcIcon name="icon-target" size={13} color="var(--violet)" />
+              <span style={{ font: `600 10.5px/1 ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                Daily goal
+              </span>
+              <input
+                type="number"
+                min={1}
+                max={9999}
+                value={dailyGoal}
+                onChange={(e) => persistGoal(Number(e.target.value))}
+                aria-label="Daily packing goal"
+                style={{
+                  width: 64,
+                  height: 28,
+                  padding: '0 8px',
+                  borderRadius: 7,
+                  border: '1px solid var(--line)',
+                  background: 'var(--surface-2)',
+                  color: 'var(--ink)',
+                  font: `600 12.5px/1 ${MONO}`,
+                }}
+              />
+              <span style={{ font: `600 12px/1 ${MONO}`, color: 'var(--ink-2)' }}>{goalPct}%</span>
+            </span>
+          </div>
+          <span style={{ display: 'block', height: 10, borderRadius: 99, background: 'var(--surface-3)', overflow: 'hidden' }}>
+            <span style={{ display: 'block', width: `${goalPct}%`, height: '100%', borderRadius: 99, background: 'var(--ok)', transition: 'width 320ms ease' }} />
+          </span>
+          <span style={{ font: `400 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+            {goalCount} of {goalSafe} {mode === 'pack' ? 'packed' : 'shipped'} toward today&rsquo;s goal
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          {MODES.map((m) => {
+            const on = m.id === mode
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setMode(m.id)}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                  padding: '14px 16px',
+                  borderRadius: 12,
+                  border: `1px solid ${on ? 'var(--violet-bd)' : 'var(--line)'}`,
+                  background: on ? 'var(--violet-soft)' : 'var(--surface)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ font: `700 14px/1 ${FONT}`, color: on ? 'var(--violet)' : 'var(--ink)' }}>{m.label}</span>
+                  <span style={{ width: 8, height: 8, borderRadius: 99, background: on ? 'var(--violet)' : 'var(--line-2)' }} />
+                </div>
+                <span style={{ font: `400 11.5px/1.35 ${FONT}`, color: on ? 'var(--ink-2)' : 'var(--ink-3)' }}>{m.sub}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: diagOpen
+              ? 'minmax(0, 560px) minmax(280px, 1fr) 260px'
+              : 'minmax(0, 560px) minmax(300px, 1fr) 48px',
+            gap: 14,
+            alignItems: 'start',
+          }}
+        >
+        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Scanner Input Station Card */}
           <div
+            data-scan-flash={scanFlash ?? undefined}
             style={{
-              border: '1px solid var(--violet-bd)',
+              position: 'relative',
+              border: `1px solid ${scanFlash === 'bad' ? 'var(--bad-bd)' : scanFlash === 'ok' ? 'var(--ok-bd)' : 'var(--violet-bd)'}`,
               borderRadius: 14,
               background: 'var(--surface)',
               overflow: 'hidden',
+              boxShadow: scanFlash === 'ok'
+                ? '0 0 0 3px var(--ok-soft)'
+                : scanFlash === 'bad'
+                  ? '0 0 0 3px var(--bad-soft)'
+                  : undefined,
+              transition: 'border-color 180ms ease, box-shadow 180ms ease',
             }}
           >
-            {/* Today's Progress Bar Header */}
-            <div
-              style={{
-                padding: '13px 18px',
-                borderBottom: '1px solid var(--line)',
-                background: 'var(--surface-2)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 13,
-                flexWrap: 'wrap',
-              }}
-            >
-              <span style={{ font: `600 12px/1 ${FONT}`, color: 'var(--ink)' }}>Today&rsquo;s fulfillment</span>
+            {scanFlash ? (
               <span
+                aria-hidden
                 style={{
-                  flex: 1,
-                  minWidth: 120,
-                  height: 6,
+                  position: 'absolute',
+                  top: 12,
+                  right: 14,
+                  zIndex: 2,
+                  display: 'grid',
+                  placeItems: 'center',
+                  width: 36,
+                  height: 36,
                   borderRadius: 99,
-                  background: 'var(--surface-3)',
-                  overflow: 'hidden',
-                  display: 'block',
+                  background: scanFlash === 'ok' ? 'var(--ok)' : 'var(--bad)',
+                  color: 'var(--surface)',
+                  animation: 'dc-pack-flash-pop 700ms ease',
                 }}
               >
-                <span
-                  style={{
-                    display: 'block',
-                    width: `${pct}%`,
-                    height: '100%',
-                    borderRadius: 99,
-                    background: 'var(--ok)',
-                  }}
-                />
+                <DcIcon name={scanFlash === 'ok' ? 'icon-check' : 'icon-x'} size={18} />
               </span>
-              <span style={{ font: `600 12px/1 ${MONO}`, color: 'var(--ink-2)' }}>
-                {done} / {total}
-              </span>
-              <span style={{ font: `400 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>{queue.length} in queue</span>
-            </div>
+            ) : null}
 
             <div style={{ padding: '20px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -663,7 +776,27 @@ function DcPackingBody() {
                 <span style={{ font: `400 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
                   USB HID · Keyboard wedge · Focus locked
                 </span>
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={toggleSound}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      height: 28,
+                      padding: '0 10px',
+                      borderRadius: 8,
+                      border: `1px solid ${soundMuted ? 'var(--line)' : 'var(--ok-bd)'}`,
+                      background: soundMuted ? 'var(--surface-2)' : 'var(--ok-soft)',
+                      color: soundMuted ? 'var(--ink-3)' : 'var(--ok)',
+                      cursor: 'pointer',
+                      font: `600 11.5px/1 ${FONT}`,
+                    }}
+                  >
+                    <DcIcon name={soundMuted ? 'icon-volume-x' : 'icon-volume-2'} size={13} />
+                    {soundMuted ? 'Muted' : 'Audio On'}
+                  </button>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, font: `500 12px/1 ${FONT}`, color: 'var(--ink-2)', cursor: 'pointer' }}>
                     <input type="checkbox" checked={autoPrint} onChange={(e) => setAutoPrint(e.target.checked)} />
                     Auto-print label on pack
@@ -677,14 +810,15 @@ function DcPackingBody() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 12,
-                  height: 64,
-                  padding: '0 18px',
-                  borderRadius: 11,
+                  height: 52,
+                  padding: '0 14px',
+                  borderRadius: 10,
                   border: '2px solid var(--violet)',
                   background: 'var(--surface-2)',
+                  maxWidth: 520,
                 }}
               >
-                <DcIcon name="icon-scan-line" size={22} color="var(--violet)" />
+                <DcIcon name="icon-scan-line" size={18} color="var(--violet)" />
                 <input
                   ref={inputRef}
                   value={code}
@@ -703,7 +837,7 @@ function DcPackingBody() {
                     border: 0,
                     background: 'transparent',
                     outline: 'none',
-                    font: `600 21px/1 ${MONO}`,
+                    font: `600 16px/1 ${MONO}`,
                     color: 'var(--ink)',
                     letterSpacing: '.02em',
                   }}
@@ -727,28 +861,18 @@ function DcPackingBody() {
                 </button>
               </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 14,
-                  font: `400 12px/1 ${FONT}`,
-                  color: 'var(--ink-3)',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <span style={{ font: `400 12px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
                   Scan invoice to preview ➔ scan item barcodes to tick pick list ➔ scan invoice again to {mode === 'pack' ? 'Pack' : 'Dispatch'}.
                 </span>
-                <div style={{ flex: 1 }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ ...shortcutChip }}>
                     <Kbd>F4</Kbd> Mode
                   </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ ...shortcutChip }}>
                     <Kbd>F2</Kbd> Label
                   </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ ...shortcutChip }}>
                     <Kbd>Esc</Kbd> Clear
                   </span>
                 </div>
@@ -956,17 +1080,8 @@ function DcPackingBody() {
           </div>
         </div>
 
-        {/* ── RIGHT SIDEBAR QUEUE & STATUS ────────────────────── */}
+        {/* ── QUEUE ─────────────────────────────────────────── */}
         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* KPI Summary Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <PackKpi icon="icon-package-check" color="var(--ok)" label="Packed today" value={String(stats.packed)} />
-            <PackKpi icon="icon-truck" color="var(--info)" label="Shipped today" value={String(stats.shipped)} />
-            <PackKpi icon="icon-list-ordered" color="var(--violet)" label="In queue" value={String(queue.length)} />
-            <PackKpi icon="icon-scan-line" color="var(--ink-2)" label="Scans session" value={String(history.length)} />
-          </div>
-
-          {/* Blocked Alert Card */}
           {blocked ? (
             <div
               style={{
@@ -1011,8 +1126,7 @@ function DcPackingBody() {
             </div>
           ) : null}
 
-          {/* Up Next Orders Queue */}
-          <div style={{ ...card, overflow: 'hidden' }}>
+          <div style={{ ...card, overflow: 'visible' }}>
             <div
               style={{
                 padding: '12px 14px',
@@ -1053,85 +1167,122 @@ function DcPackingBody() {
                 const pcs = o.items?.reduce((n, item) => n + item.quantity, 0) ?? 0
                 const isSelected = active?.invoiceNumber === o.invoiceNumber
                 return (
-                  <button
+                  <div
                     key={o.id}
-                    type="button"
-                    onClick={() => void loadPreview(o.invoiceNumber)}
-                    className="dc-hover-surface"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      width: '100%',
-                      padding: '10px 14px',
-                      border: 0,
-                      borderBottom: '1px solid var(--line)',
-                      background: isSelected ? 'var(--violet-soft)' : 'transparent',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                    }}
+                    style={{ position: 'relative' }}
+                    onMouseEnter={() => setHoverQueueId(o.id)}
+                    onMouseLeave={() => setHoverQueueId(null)}
                   >
-                    <span style={{ width: 18, flex: 'none', font: `600 11px/1 ${MONO}`, color: 'var(--ink-3)' }}>
-                      {i + 1}
-                    </span>
-                    <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                        <span style={{ font: `600 12px/1 ${MONO}`, color: isSelected ? 'var(--violet)' : 'var(--ink)' }}>
-                          {o.invoiceNumber}
-                        </span>
-                        {risk ? (
-                          <span
-                            style={{
-                              padding: '2px 5px',
-                              borderRadius: 4,
-                              border: `1px solid ${flag.bd}`,
-                              background: flag.bg,
-                              font: `700 9px/1 ${FONT}`,
-                              letterSpacing: '.06em',
-                              color: flag.fg,
-                            }}
-                          >
-                            COD RISK
+                    <button
+                      type="button"
+                      onClick={() => void loadPreview(o.invoiceNumber)}
+                      className="dc-hover-surface"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        width: '100%',
+                        padding: '10px 14px',
+                        border: 0,
+                        borderBottom: '1px solid var(--line)',
+                        background: isSelected ? 'var(--violet-soft)' : 'transparent',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span style={{ width: 18, flex: 'none', font: `600 11px/1 ${MONO}`, color: 'var(--ink-3)' }}>
+                        {i + 1}
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                          <span style={{ font: `600 12px/1 ${MONO}`, color: isSelected ? 'var(--violet)' : 'var(--ink)' }}>
+                            {o.invoiceNumber}
                           </span>
-                        ) : null}
+                          {risk ? (
+                            <span
+                              style={{
+                                padding: '2px 5px',
+                                borderRadius: 4,
+                                border: `1px solid ${flag.bd}`,
+                                background: flag.bg,
+                                font: `700 9px/1 ${FONT}`,
+                                letterSpacing: '.06em',
+                                color: flag.fg,
+                              }}
+                            >
+                              COD RISK
+                            </span>
+                          ) : null}
+                        </span>
+                        <span
+                          style={{
+                            font: `400 11px/1.3 ${FONT}`,
+                            color: 'var(--ink-3)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {o.shippingName} · {o.shippingCity || 'City'}
+                          {pcs ? ` · ${pcs} pcs` : ''}
+                        </span>
                       </span>
-                      <span
-                        style={{
-                          font: `400 11px/1.3 ${FONT}`,
-                          color: 'var(--ink-3)',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {o.shippingName} · {o.shippingCity || 'City'}
-                        {pcs ? ` · ${pcs} pcs` : ''}
+                      <span style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                        <span style={{ font: `600 11.5px/1 ${MONO}`, color: 'var(--ink-2)' }}>
+                          {formatTaka(Number(o.total))}
+                        </span>
+                        <span style={{ font: `400 10.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>{o.status}</span>
                       </span>
-                    </span>
-                    <span style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                      <span style={{ font: `600 11.5px/1 ${MONO}`, color: 'var(--ink-2)' }}>
-                        {formatTaka(Number(o.total))}
-                      </span>
-                      <span style={{ font: `400 10.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>{o.status}</span>
-                    </span>
-                  </button>
+                    </button>
+                    {hoverQueueId === o.id ? (
+                      <QueuePeek
+                        invoice={o.invoiceNumber}
+                        customer={o.shippingName}
+                        city={o.shippingCity}
+                        pcs={pcs}
+                        total={Number(o.total)}
+                        status={o.status}
+                      />
+                    ) : null}
+                  </div>
                 )
               })
             )}
           </div>
+        </div>
 
-          {/* Station Diagnostics Card */}
+        {diagOpen ? (
           <div style={{ ...card, padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <span
-              style={{
-                font: `600 10.5px/1 ${FONT}`,
-                letterSpacing: '.09em',
-                textTransform: 'uppercase',
-                color: 'var(--ink-3)',
-              }}
-            >
-              Station Diagnostics
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <span
+                style={{
+                  font: `600 10.5px/1 ${FONT}`,
+                  letterSpacing: '.09em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ink-3)',
+                }}
+              >
+                Station Diagnostics
+              </span>
+              <button
+                type="button"
+                onClick={toggleDiag}
+                title="Collapse diagnostics"
+                style={{
+                  display: 'grid',
+                  placeItems: 'center',
+                  width: 26,
+                  height: 26,
+                  borderRadius: 7,
+                  border: '1px solid var(--line)',
+                  background: 'var(--surface-2)',
+                  color: 'var(--ink-3)',
+                  cursor: 'pointer',
+                }}
+              >
+                <DcIcon name="icon-chevron-right" size={13} />
+              </button>
+            </div>
             <StationRow tone="ok" label="Scanner Input" value="Focus Locked" />
             <StationRow tone={busy ? 'warn' : 'ok'} label="Scan Endpoint" value="/admin/fulfillment/scan" />
             <StationRow
@@ -1141,9 +1292,59 @@ function DcPackingBody() {
             />
             <StationRow tone={autoPrint ? 'ok' : 'mute'} label="Auto Label" value={autoPrint ? 'On Pack' : 'Off'} />
             <StationRow tone={soundMuted ? 'mute' : 'ok'} label="Audio Feedback" value={soundMuted ? 'Muted' : 'Active'} />
+            <StationRow tone="info" label="Session" value={sessionLabel.replace('Session ', '')} />
           </div>
+        ) : (
+          <div
+            style={{
+              ...card,
+              padding: '8px 0',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <button
+              type="button"
+              onClick={toggleDiag}
+              title="Open diagnostics"
+              style={{
+                display: 'grid',
+                placeItems: 'center',
+                width: 32,
+                height: 32,
+                border: 0,
+                background: 'transparent',
+                color: 'var(--ink-3)',
+                cursor: 'pointer',
+              }}
+            >
+              <DcIcon name="icon-panel-right" size={16} />
+            </button>
+            <span style={{ width: 8, height: 8, borderRadius: 99, background: busy ? 'var(--warn)' : 'var(--ok)' }} title="Scanner" />
+            <span style={{ width: 8, height: 8, borderRadius: 99, background: orders.error ? 'var(--bad)' : 'var(--ok)' }} title="Queue feed" />
+            <span style={{ width: 8, height: 8, borderRadius: 99, background: soundMuted ? 'var(--ink-3)' : 'var(--ok)' }} title="Audio" />
+            <span style={{ width: 8, height: 8, borderRadius: 99, background: autoPrint ? 'var(--ok)' : 'var(--ink-3)' }} title="Auto-print" />
+          </div>
+        )}
         </div>
       </div>
+
+      <style>{`
+        @keyframes dc-pack-flash-pop {
+          0% { transform: scale(0.6); opacity: 0; }
+          35% { transform: scale(1.08); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @media (max-width: 1100px) {
+          .dc-pack-kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        @media (hover: none) {
+          .dc-pack-queue-peek { display: none !important; }
+        }
+      `}</style>
+
 
       {/* ── COURIER BOOKING MODAL ────────────────────────────── */}
       <DcModal
@@ -1389,14 +1590,63 @@ function ActiveOrderCard({
   )
 }
 
+function QueuePeek({
+  invoice,
+  customer,
+  city,
+  pcs,
+  total,
+  status,
+}: {
+  invoice: string
+  customer: string
+  city?: string | null
+  pcs: number
+  total: number
+  status: string
+}) {
+  return (
+    <div
+      className="dc-pack-queue-peek"
+      style={{
+        position: 'absolute',
+        left: 12,
+        right: 12,
+        top: '100%',
+        zIndex: 8,
+        marginTop: 6,
+        padding: '10px 12px',
+        borderRadius: 10,
+        border: '1px solid var(--line)',
+        background: 'var(--surface)',
+        backgroundImage: 'var(--card-sheen)',
+        boxShadow: '0 10px 28px rgba(0,0,0,0.18)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        pointerEvents: 'none',
+      }}
+    >
+      <span style={{ font: `700 12px/1 ${MONO}`, color: 'var(--violet)' }}>{invoice}</span>
+      <span style={{ font: `600 12px/1.35 ${FONT}`, color: 'var(--ink)' }}>{customer || 'Customer'}</span>
+      <span style={{ font: `400 11.5px/1.35 ${FONT}`, color: 'var(--ink-3)' }}>
+        {city || '—'} · {pcs} pcs · {formatTaka(total)}
+      </span>
+      <span style={{ font: `600 10.5px/1 ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+        {status}
+      </span>
+    </div>
+  )
+}
+
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
     <kbd
       style={{
-        padding: '2px 6px',
+        padding: '3px 7px',
         borderRadius: 5,
         border: '1px solid var(--line)',
-        font: `600 10.5px/1 ${MONO}`,
+        font: `600 11px/1 ${MONO}`,
         color: 'var(--ink-2)',
         background: 'var(--surface-3)',
       }}

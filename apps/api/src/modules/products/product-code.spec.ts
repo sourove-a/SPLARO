@@ -2,6 +2,7 @@ import {
   buildVariantIdentityBarcode,
   buildVariantIdentitySku,
   canonicalSizeToken,
+  displaySizeLabel,
   ean13CheckDigit,
   isValidProductCode,
   isValidVariantIdentityBarcode,
@@ -117,9 +118,13 @@ describe('variant identity codes', () => {
     expect(canonicalSizeToken('One Size')).toBe('OS')
     expect(canonicalSizeToken('one-size')).toBe('OS')
     expect(canonicalSizeToken('Free Size')).toBe('OS')
+    expect(canonicalSizeToken('free sie')).toBe('OS')
     expect(canonicalSizeToken('2XL')).toBe('XXL')
     expect(canonicalSizeToken('xxxl')).toBe('XXXL')
     expect(canonicalSizeToken('100ml')).toBe('100ML')
+    expect(displaySizeLabel('free sie')).toBe('free size')
+    expect(displaySizeLabel('Free Sie')).toBe('free size')
+    expect(displaySizeLabel('M')).toBe('M')
   })
 
   it('carries the same identity in the barcode, with a valid check digit', () => {

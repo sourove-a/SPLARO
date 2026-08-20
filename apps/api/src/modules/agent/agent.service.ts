@@ -228,6 +228,52 @@ export class AgentService {
     return this.getConfig(storeId)
   }
 
+  /**
+   * Clear one provider credential.
+   *
+   * `updateConfig` deliberately ignores empty values so a blank field keeps the
+   * stored key — which left no way to take a key back out once it was saved.
+   * Removal therefore gets its own call: an operator has to ask for it, and it
+   * can never happen as a side effect of saving the rest of the form.
+   *
+   * The env fallback is reported back, because clearing the database row does
+   * not stop a provider whose key also lives in the server environment — the
+   * admin must be told that instead of seeing "removed" and still being billed.
+   */
+  async clearProviderKey(storeIdRaw: string, provider: string) {
+    const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    const map: Record<string, { field: string | null; env: string }> = {
+      openrouter: { field: null, env: 'OPENROUTER_API_KEY' },
+      openai: { field: 'openaiKey', env: 'OPENAI_API_KEY' },
+      gemini: { field: 'geminiKey', env: 'GEMINI_API_KEY' },
+      claude: { field: 'claudeKey', env: 'ANTHROPIC_API_KEY' },
+      grok: { field: 'grokKey', env: 'GROK_API_KEY' },
+      manus: { field: 'manusKey', env: 'MANUS_API_KEY' },
+    }
+    const target = map[provider]
+    if (!target) throw new BadRequestException('Unknown provider')
+
+    // OpenRouter never had a column — its key only ever lived in integrations.
+    if (target.field) {
+      await this.prisma.agentConfig.updateMany({
+        where: { storeId },
+        data: { [target.field]: null },
+      })
+    }
+    const removed = await this.integrations.deleteSetting(storeId, provider, 'apiKey')
+
+    this.router.invalidateCache()
+
+    const envFallback = Boolean(process.env[target.env]?.trim())
+    return {
+      cleared: true,
+      removedStoredSecret: removed,
+      envFallback,
+      envVar: target.env,
+      config: await this.getConfig(storeId),
+    }
+  }
+
   async switchModel(storeIdRaw: string, model: AgentModelId) {
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
     await this.prisma.agentConfig.upsert({

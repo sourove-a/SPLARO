@@ -52,7 +52,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
   const safeDescription = sanitizeStorefrontDescription(
     product.metaDescription ?? product.description,
-    `${product.name} — premium piece from SPLARO.`,
+    `${product.name} from SPLARO.`,
   )
   const safeOgDescription =
     sanitizeStorefrontShortDescription(product.shortDescription, safeDescription) ??
@@ -188,7 +188,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         name: product.name,
         description: sanitizeStorefrontDescription(
           product.description,
-          `${product.name} — premium piece from SPLARO.`,
+          `${product.name} from SPLARO.`,
         ),
         sku: product.sku,
         ...(product.sku ? { mpn: product.sku, productID: product.sku } : {}),

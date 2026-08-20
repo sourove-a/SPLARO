@@ -9,6 +9,10 @@ const ROLE_DISPLAY: Record<string, string> = {
   VIEWER: 'Viewer',
 }
 
+const OWNER_PLACEHOLDER_NAME = /^(splaro(\s+(ceo|admin))?)$/i
+
+const PROFILE_EDIT_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STAFF'])
+
 /** Roles the Owner can assign to other staff */
 export const ASSIGNABLE_STAFF_ROLES = [
   { value: 'SUPER_ADMIN', label: 'Super Admin' },
@@ -26,8 +30,13 @@ export function formatAdminRoleLabel(role: string, email?: string | null): strin
   return ROLE_DISPLAY[role] ?? role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-/** Sidebar / header display name — never “SPLARO CEO”; owner shows brand name `splaro`. */
+/** Sidebar / header display name — owner placeholder stays `splaro`; a saved name is shown. */
 export function formatAdminDisplayName(name: string, email?: string | null): string {
-  if (isOwnerEmail(email)) return 'splaro'
-  return name
+  const trimmed = name.trim()
+  if (isOwnerEmail(email) && (!trimmed || OWNER_PLACEHOLDER_NAME.test(trimmed))) return 'splaro'
+  return trimmed || 'SPLARO admin'
+}
+
+export function canEditAdminProfile(role?: string | null): boolean {
+  return PROFILE_EDIT_ROLES.has((role ?? '').toUpperCase())
 }

@@ -39,6 +39,11 @@ export class PathaoService {
     return this.infrastructure.resolveRuntimeCredentials(storeId, 'pathao')
   }
 
+  async isConfigured(storeId: string): Promise<boolean> {
+    const { configured } = await this.infrastructure.getConfig(storeId, 'pathao')
+    return configured
+  }
+
   private async getToken(storeId: string): Promise<string> {
     const cached = this.tokenCache.get(storeId)
     if (cached && cached.expiry > new Date()) {

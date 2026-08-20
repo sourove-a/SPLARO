@@ -8,6 +8,7 @@ import { FONT, MONO } from '@/components/dc/tokens'
 import { useCreateProductVariant, useUpdateProductVariant, useArchiveProductVariant } from '@/lib/api/hooks'
 import { toastFail, toastApiSaved, toastOk, toastWarn } from '@/lib/admin/feedback'
 import { printVariantStickers } from '@/lib/admin/variant-stickers'
+import { displaySizeLabel } from '@splaro/config'
 import {
   confirmVariantArchived,
   confirmVariantCreated,
@@ -215,7 +216,7 @@ function serverStock(v: Variant): number {
 
 function draftFromVariant(v: Variant): RowDraft {
   return {
-    size: v.size ?? '',
+    size: displaySizeLabel(v.size) || '',
     color: v.color ?? '',
     colorName: v.colorName ?? '',
     colorHex: v.colorHex ?? '',
@@ -472,7 +473,7 @@ export function ProductVariantManager({
   const existingKeys = useMemo(() => {
     const keys = new Set<string>()
     variants.forEach((v) => {
-      const size = (v.id && drafts[v.id]?.size) || v.size || ''
+      const size = (v.id && drafts[v.id]?.size) || displaySizeLabel(v.size) || ''
       const hex = (v.id && drafts[v.id]?.colorHex) || v.colorHex || ''
       if (size.trim()) keys.add(existingSizeKey(size, hex))
     })
@@ -1046,7 +1047,7 @@ export function ProductVariantManager({
 
   const archiveRow = async (v: Variant) => {
     if (!v.id) return
-    if (!window.confirm(`Archive variant ${v.size ?? '—'} / ${v.colorName ?? v.color ?? '—'}?`)) return
+    if (!window.confirm(`Archive variant ${displaySizeLabel(v.size) || '—'} / ${v.colorName ?? v.color ?? '—'}?`)) return
     const ok = await confirmVariantArchived(
       productId,
       v.id,
@@ -1336,7 +1337,7 @@ export function ProductVariantManager({
                     name: [productName?.trim(), d.colorName.trim() || d.color.trim()]
                       .filter(Boolean)
                       .join(' · ') || 'SPLARO',
-                    size: d.size.trim() || v.size || '',
+                    size: displaySizeLabel(d.size.trim() || v.size) || '',
                     sku: d.sku.trim() || v.sku || '',
                     barcode: d.barcode.trim() || v.barcode || '',
                   }

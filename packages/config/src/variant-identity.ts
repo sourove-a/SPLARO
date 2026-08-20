@@ -61,7 +61,7 @@ export function canonicalSizeToken(size: string | null | undefined): string {
   const compact = raw.replace(/[^A-Z0-9.]/g, '')
   if (!compact) return 'OS'
 
-  if (/^(ONESIZE|ONE|FREESIZE|FREE|STD|STANDARD|OS)$/.test(compact)) return 'OS'
+  if (/^(ONESIZE|ONE|FREESIZE|FREESIE|FREE|STD|STANDARD|OS)$/.test(compact)) return 'OS'
   if (/^(2XL|XXL)$/.test(compact)) return 'XXL'
   if (/^(3XL|XXXL)$/.test(compact)) return 'XXXL'
   if (/^(4XL|XXXXL)$/.test(compact)) return '4XL'

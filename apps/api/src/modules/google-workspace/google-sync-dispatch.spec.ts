@@ -18,10 +18,16 @@ function buildProcessor() {
   const prisma = {
     googleSyncJob: { update: jest.fn().mockResolvedValue({}) },
     googleSyncLog: { create: jest.fn().mockResolvedValue({}) },
-    googleWorkspaceConnection: { update: jest.fn().mockResolvedValue({}) },
+    googleWorkspaceConnection: {
+      update: jest.fn().mockResolvedValue({}),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
   } as unknown as PrismaService
   const telegram = { test: jest.fn().mockResolvedValue(undefined) }
-  const notifications = { notifySyncFailed: jest.fn().mockResolvedValue(undefined) }
+  const notifications = {
+    notifySyncFailed: jest.fn().mockResolvedValue(undefined),
+    notifyInApp: jest.fn().mockResolvedValue(true),
+  }
   const financeSheets = {
     markWorkspaceSyncComplete: jest.fn().mockResolvedValue([]),
   }
@@ -109,5 +115,31 @@ describe('GoogleSyncProcessor dispatch', () => {
     expect(
       (prisma as unknown as { googleSyncLog: { create: jest.Mock } }).googleSyncLog.create,
     ).toHaveBeenCalled()
+  })
+
+  it('marks tokenHealth on auth failure even when auto-sync is already off', async () => {
+    const { processor, sheets, prisma } = buildProcessor()
+    sheets.syncOrder.mockRejectedValueOnce(
+      new Error('Google refresh token missing. Reconnect your Google account.'),
+    )
+
+    const failing = {
+      data: { storeId: 'store-1', jobType: GOOGLE_SYNC_JOB_TYPES.ORDER, resourceId: 'o1' },
+      attemptsMade: 0,
+      opts: { attempts: 3 },
+    } as never
+
+    await expect(processor.process(failing)).rejects.toThrow(/refresh token missing/)
+    expect(
+      (prisma as unknown as { googleWorkspaceConnection: { updateMany: jest.Mock } })
+        .googleWorkspaceConnection.updateMany,
+    ).toHaveBeenCalledWith({
+      where: { storeId: 'store-1' },
+      data: {
+        autoSyncEnabled: false,
+        tokenHealth: 'needs_reconnect',
+        lastError: 'Google refresh token missing. Reconnect your Google account.',
+      },
+    })
   })
 })

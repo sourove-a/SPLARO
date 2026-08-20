@@ -2,8 +2,6 @@ import { Controller, Delete, Get, Header, Logger, NotFoundException, BadRequestE
 import type { Request } from 'express'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { PrismaService } from '../../common/prisma.service'
-import { deleteOrderWithRelations } from '../../common/order-cleanup'
-import { restoreOrderStock } from '../../common/order-stock.util'
 import { generatePaymentCode } from '../../common/payment-code.util'
 import { StorefrontOrdersService } from '../storefront/storefront-orders.service'
 import { ProfitLossService } from '../finance/profit-loss.service'
@@ -15,6 +13,7 @@ import { OrderStatusService } from './order-status.service'
 import { AdminTelegramHubService } from '../notifications/admin-telegram-hub.service'
 import { FinanceAuditService } from '../../common/finance-audit.service'
 import { resolveStoreId } from '../../common/store.util'
+import { createdAtRange } from '../../common/created-at-range.util'
 import { resolveAdminPagination } from '../../common/admin-pagination.util'
 import { orderSearchFilters } from '../../common/identifier-search.util'
 import {
@@ -142,10 +141,13 @@ export class OrdersController {
     @Query('search') search?: string,
     @Query('paymentMethod') paymentMethod?: string,
     @Query('sort') sort?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
     const { page: pageNum, limit: take, skip } = resolveAdminPagination(page, limit)
     const statusFilter = parseOrderStatusFilter(status)
+    const createdAt = createdAtRange(from, to)
     const where: Prisma.OrderWhereInput = {
       storeId: sid,
       ...(statusFilter ? { status: statusFilter } : {}),
@@ -156,6 +158,7 @@ export class OrdersController {
         ? { paymentMethod: parsePaymentMethodFilter(paymentMethod) }
         : {}),
       ...(search ? { OR: orderSearchFilters(search) } : {}),
+      ...(createdAt ? { createdAt } : {}),
     }
 
     const [orders, total] = await Promise.all([
@@ -696,18 +699,17 @@ export class OrdersController {
       throw new NotFoundException('Order not found')
     }
 
-    try {
-      const deleted = await this.prisma.$transaction(async (tx) => {
-        // Return items to inventory before wiping the order (no-op when a
-        // prior cancel/refund already restored them).
-        await restoreOrderStock(tx, id, `Stock restored — order ${existing.invoiceNumber} deleted`)
-        return deleteOrderWithRelations(tx, id)
-      })
-      if (!deleted) throw new NotFoundException('Order not found')
+    if (existing.status === 'CANCELLED') {
+      return { success: true }
+    }
 
-      void this.telegramHub
-        .notifyOrderDeleted(existing.storeId, existing)
-        .catch((err: unknown) => this.logger.error(`notifyOrderDeleted failed for order ${id}: ${err instanceof Error ? err.message : err}`))
+    try {
+      await this.orderStatus.applyStatusChange(
+        id,
+        'CANCELLED',
+        `Cancelled from admin — ${existing.invoiceNumber} retired`,
+        req.adminUser?.storeId,
+      )
       return { success: true }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Delete failed'

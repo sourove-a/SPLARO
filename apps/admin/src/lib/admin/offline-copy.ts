@@ -10,9 +10,9 @@ export function apiOfflineMessage(context = 'data'): string {
 
 export function apiOfflineSaveMessage(): string {
   if (isProd) {
-    return 'API unreachable — save is disabled until connection is restored.'
+    return 'API unreachable — retry the health check, then save again.'
   }
-  return 'API offline — save is disabled until pnpm dev:stack is running.'
+  return 'API unreachable — retry the health check (or start pnpm dev:stack), then save again.'
 }
 
 export function apiOfflineHintShort(): string {

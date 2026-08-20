@@ -12,6 +12,8 @@ import {
   mergeStorefrontConfig,
   mergeHeaderNav,
   mergeCatalogChannels,
+  upsertPrimarySmtpAccount,
+  smtpPoolNeedsPrimarySync,
   type StorefrontConfig,
 } from './storefront-config'
 import { mergeStoryDeckCards } from './story-deck-defaults'
@@ -113,7 +115,11 @@ export class SettingsController {
         headerNav: ensureEssentialHeaderDepartments(config.headerNav),
         footerGroups: config.footerGroups ?? [],
       },
-      menuOverrides: config.menuOverrides ?? { autoSync: true, departments: [] },
+      menuOverrides: {
+        autoSync: config.menuOverrides?.autoSync ?? true,
+        hideEmptyCategories: config.menuOverrides?.hideEmptyCategories !== false,
+        departments: config.menuOverrides?.departments ?? [],
+      },
       marquee: config.marquee ?? { enabled: false, items: [] },
       specialOffer: config.specialOffer ?? { enabled: false, template: 'countdown', title: '', ctaLabel: 'Shop now', ctaHref: '/shop' },
       newsletter: config.newsletter ?? emptyStorefrontConfig().newsletter,
@@ -147,6 +153,11 @@ export class SettingsController {
         facebookPixelId: settings?.facebookPixelId ?? '',
         googleAnalyticsId: settings?.googleAnalyticsId ?? '',
       },
+      seo: {
+        metaTitle: config.seo?.metaTitle ?? '',
+        metaDescription: config.seo?.metaDescription ?? '',
+        googleSiteVerification: config.seo?.googleSiteVerification ?? '',
+      },
       telegram: telegram
         ? {
             botToken: '',
@@ -164,7 +175,17 @@ export class SettingsController {
 
   @Get()
   async getSettings(@Query('storeId') storeId: string) {
-    const store = await this.resolveStore(storeId)
+    let store = await this.resolveStore(storeId)
+    const config = mergeStorefrontConfig(store.settings?.storefrontConfig)
+    if (smtpPoolNeedsPrimarySync(config.smtp, config.smtpAccounts) && store.settings) {
+      const smtpAccounts = upsertPrimarySmtpAccount(config.smtp, config.smtpAccounts)
+      await this.prisma.siteSettings.update({
+        where: { storeId: store.id },
+        data: { storefrontConfig: { ...config, smtpAccounts } as object },
+      })
+      await this.cache.invalidateStoreResource(store.id, 'settings')
+      store = await this.resolveStore(storeId)
+    }
     return await this.mapResponse(store)
   }
 
@@ -304,6 +325,11 @@ export class SettingsController {
       marketing?: {
         facebookPixelId?: string
         googleAnalyticsId?: string
+      }
+      seo?: {
+        metaTitle?: string
+        metaDescription?: string
+        googleSiteVerification?: string
       }
     },
   ) {
@@ -451,6 +477,23 @@ export class SettingsController {
             },
           }
         : {}),
+      ...(body.seo
+        ? {
+            seo: {
+              metaTitle: (body.seo.metaTitle ?? currentConfig.seo?.metaTitle ?? '').trim(),
+              metaDescription: (body.seo.metaDescription ?? currentConfig.seo?.metaDescription ?? '').trim(),
+              googleSiteVerification: (
+                body.seo.googleSiteVerification ??
+                currentConfig.seo?.googleSiteVerification ??
+                ''
+              ).trim(),
+            },
+          }
+        : {}),
+    }
+
+    if (body.smtp || smtpPoolNeedsPrimarySync(nextConfig.smtp, nextConfig.smtpAccounts)) {
+      nextConfig.smtpAccounts = upsertPrimarySmtpAccount(nextConfig.smtp, nextConfig.smtpAccounts)
     }
 
     const storePatch = {
@@ -480,7 +523,7 @@ export class SettingsController {
     const socialPatch = body.social
     const contactPatch = body.contact
 
-    if (paymentPatch || shippingPatch || socialPatch || contactPatch || body.marquee || body.specialOffer || body.newsletter || body.ourStory || body.homepage || body.homepageCatalog || body.catalogChannels || body.shopFilters || body.catalog || body.navigation || body.branding || body.smtp || body.smtpAccounts || body.emailEnabled !== undefined || body.marketing) {
+    if (paymentPatch || shippingPatch || socialPatch || contactPatch || body.marquee || body.specialOffer || body.newsletter || body.ourStory || body.homepage || body.homepageCatalog || body.catalogChannels || body.shopFilters || body.catalog || body.navigation || body.branding || body.smtp || body.smtpAccounts || body.emailEnabled !== undefined || body.marketing || body.seo || smtpPoolNeedsPrimarySync(nextConfig.smtp, nextConfig.smtpAccounts)) {
       await this.prisma.siteSettings.upsert({
         where: { storeId: store.id },
         create: {

@@ -15,7 +15,7 @@ import { useUiStore } from '@/store/uiStore'
 import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 import { ProductDiscountBadge, ProductPrice } from '@/components/product/ProductPrice'
-import { pluralize } from '@/lib/utils/pluralize'
+import { cardColorLabel, type CardColorOption } from '@/lib/catalog/card-color-label'
 import { trackAddToCart, trackAddToWishlist, trackSelectItem } from '@/lib/analytics/meta-pixel'
 import { resolveQuickAddVariant } from '@/lib/catalog/index'
 import { resolveStockStatus } from '@/lib/catalog/stock-status'
@@ -36,6 +36,7 @@ export interface SplaroProductCardProps {
   collection?: string
   productCode?: string
   colorHexes?: string[]
+  colorOptions?: CardColorOption[]
   status?: string
   meta?: string
   /** Show clear Unisex label when product is tagged/categorized as such. */
@@ -64,6 +65,7 @@ export function SplaroProductCard({
   category,
   collection,
   colorHexes = [],
+  colorOptions,
   status = 'Ready',
   meta,
   isUnisex = false,
@@ -114,6 +116,7 @@ export function SplaroProductCard({
   const useCssHoverCrossfade = (isShop || isHomepage) && imageGallery.length > 1
   const hoverSrc = imageGallery[1] ?? null
   const imageFit = isHomepage || isShop ? 'cover' : fit
+  const colorLabel = cardColorLabel(colorOptions, colorHexes)
   const showCollectionTag = Boolean(tag) && !isHomepage && !isShop
   const stockStatus = resolveStockStatus(
     typeof stockUnits === 'number' ? stockUnits : inStock ? undefined : 0,
@@ -443,9 +446,9 @@ export function SplaroProductCard({
           <h3 className="splaro-card__name">{name}</h3>
         </div>
 
-        {colorHexes.length > 0 ? (
+        {colorLabel ? (
           <div className="splaro-card__colors">
-            <span>{pluralize(colorHexes.length, 'color')}</span>
+            <span>{colorLabel}</span>
             {isShop && !isHomepage ? (
               <ChevronDown size={11} strokeWidth={2} aria-hidden />
             ) : (

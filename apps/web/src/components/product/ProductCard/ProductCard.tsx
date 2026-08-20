@@ -13,7 +13,7 @@ import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { cn } from '@/lib/utils/cn'
 import { ProductDiscountBadge, ProductPrice } from '@/components/product/ProductPrice'
-import { pluralize } from '@/lib/utils/pluralize'
+import { cardColorLabel } from '@/lib/catalog/card-color-label'
 import { trackAddToCart, trackAddToWishlist, trackSelectItem } from '@/lib/analytics/meta-pixel'
 import { resolveQuickAddVariant } from '@/lib/catalog/index'
 import { resolveStockStatus } from '@/lib/catalog/stock-status'
@@ -184,7 +184,7 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
 
   const hasDiscount = Boolean(product.compareAtPrice && product.compareAtPrice > product.price)
 
-  const colorCount = product.colorOptions?.length ?? 0
+  const colorLine = cardColorLabel(product.colorOptions, product.colorHexes)
   const hasMultipleImages = images.length > 1
   const currentImage = images[imgIndex] ?? images[0] ?? PRODUCT_IMAGE_PLACEHOLDER
 
@@ -291,12 +291,12 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
           </span>
         </div>
 
-        {colorCount > 0 && (
+        {colorLine ? (
           <p className="pc-info__colors">
-            <span>{pluralize(colorCount, 'color')}</span>
+            <span>{colorLine}</span>
             <ChevronDown size={12} strokeWidth={2} aria-hidden />
           </p>
-        )}
+        ) : null}
 
         <ProductPrice
           price={product.price}
@@ -343,6 +343,7 @@ function ProductCardShop({
   const reducedMotion = useReducedMotion()
   const { showMotion } = useMotionReady()
   const mediaTransition = productMediaTransitionStyle(product.id, reducedMotion)
+  const colorLine = cardColorLabel(product.colorOptions, colorHexes)
 
   const handleBag = (size?: string, color?: string) => {
     if (onShopAddToBag) {
@@ -433,10 +434,10 @@ function ProductCardShop({
 
           <div className="shop-product-card__info">
             <h3 className="shop-product-card__title">{product.name}</h3>
-            {colorHexes.length > 0 ? (
+            {colorLine ? (
               <div className="shop-product-card__colors">
                 <span className="shop-product-card__colors-text">
-                  {pluralize(colorHexes.length, 'color')}
+                  {colorLine}
                 </span>
                 <span className="shop-product-card__color-dots" aria-hidden>
                   {colorHexes.slice(0, 3).map((color) => (

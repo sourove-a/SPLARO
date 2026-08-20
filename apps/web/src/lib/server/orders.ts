@@ -1,4 +1,4 @@
-import { SPLARO_INVOICE_BRAND, buildInvoiceBrandHeader } from '@splaro/config'
+import { SPLARO_INVOICE_BRAND, buildInvoiceBrandHeader, displaySizeLabel } from '@splaro/config'
 import { fetchOrderByIdViaApi, fetchOrdersViaApi } from '@/lib/server/api-orders'
 import {
   readOrders,
@@ -111,7 +111,7 @@ function resolveItemImageUrl(image: string, siteUrl: string): string {
 }
 
 function formatProductVariant(item: StoredOrderItem): string {
-  const parts = [item.size, item.color].filter(Boolean)
+  const parts = [displaySizeLabel(item.size), item.color].filter(Boolean)
   return parts.join(' · ')
 }
 

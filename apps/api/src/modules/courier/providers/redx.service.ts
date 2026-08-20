@@ -33,6 +33,11 @@ export class RedxService {
     return apiKey
   }
 
+  async isConfigured(storeId: string): Promise<boolean> {
+    const { configured } = await this.infrastructure.getConfig(storeId, 'redx')
+    return configured
+  }
+
   async createParcel(storeId: string, data: RedXParcelData): Promise<RedXResponse> {
     const apiKey = await this.getApiKey(storeId)
 

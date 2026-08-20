@@ -34,9 +34,16 @@ import { SearchService } from '../search/search.service'
 import { assertStoreBrandId } from '../../common/assert-store-brand'
 import { assertStoreCategoryId } from '../../common/assert-store-category'
 import { resolveStoreId, slugify } from '../../common/store.util'
+import { createdAtRange } from '../../common/created-at-range.util'
 import { assertJhingephoolSareeOnly } from '../collections/jhingephool.util'
 import { resolveAdminPagination } from '../../common/admin-pagination.util'
 import { fireAndForget } from '../../common/fire-and-forget'
+import {
+  buildProductMetaDescription,
+  buildProductMetaTitle,
+  collapseDuplicateAdjacentWords,
+  hasMetaValue,
+} from '../../common/seo-meta.util'
 import { normalizeProductHex, productHexOrDefault } from '../../common/color-hex.util'
 import { revalidateStorefrontWeb } from '../../common/revalidate-web'
 import { mergeStorefrontConfig } from '../settings/storefront-config'
@@ -46,6 +53,7 @@ import {
   categoryCode,
   resolveCustomerFacingSiteUrl,
   toStoredMediaUrl,
+  normalizeStoredSize,
 } from '@splaro/config'
 import {
   CATALOG_BULK_MAX_ROWS,
@@ -123,6 +131,11 @@ function resolvePublishState(body: {
     status: isPublished ? 'PUBLISHED' : 'DRAFT',
     publishAt: publishAtValid,
   }
+}
+
+function optionalSize(value: string | null | undefined): string | null | undefined {
+  if (value === undefined) return undefined
+  return normalizeStoredSize(value)
 }
 
 function optionalTrimmed(value: string | null | undefined): string | null | undefined {
@@ -583,7 +596,9 @@ export class ProductsController {
     const clash = await this.prisma.product.findFirst({ where: { storeId: sid, slug } })
     if (clash) slug = `${slug}-${Date.now().toString(36)}`
 
-    const sizes = body.sizes?.length ? body.sizes : ['M', 'L']
+    const sizes = (body.sizes?.length ? body.sizes : ['M', 'L']).map(
+      (size) => normalizeStoredSize(size) ?? size,
+    )
     const variantStock = Math.max(0, Math.min(9999, Number(body.defaultStock) || 10))
     const legacyImageUrls = Array.from(new Set([body.imageUrl, ...(body.imageUrls ?? [])]
       .map((url) => toStoredMediaUrl(url))
@@ -648,7 +663,7 @@ export class ProductsController {
         .replace(/^-|-$/g, '')}`.slice(0, 48)
 
     const requestedVariants = body.variants?.map((variant) => ({
-      size: optionalTrimmed(variant.size) ?? null,
+      size: optionalSize(variant.size) ?? null,
       color: optionalTrimmed(variant.colorName) ?? 'Default',
       colorName: optionalTrimmed(variant.colorName) ?? 'Default',
       colorHex: productHexOrDefault(variant.colorHex),
@@ -774,8 +789,12 @@ export class ProductsController {
         occasion: body.occasion,
         season: body.season,
         careInstructions: body.careInstructions,
-        metaTitle: body.metaTitle,
-        metaDescription: body.metaDescription,
+        metaTitle: hasMetaValue(body.metaTitle)
+          ? collapseDuplicateAdjacentWords(body.metaTitle!.trim())
+          : buildProductMetaTitle(body.name),
+        metaDescription: hasMetaValue(body.metaDescription)
+          ? collapseDuplicateAdjacentWords(body.metaDescription!.trim())
+          : buildProductMetaDescription(body.name, body.description, body.shortDescription),
         isFeatured: body.isFeatured ?? false,
         isNewArrival: body.isNewArrival ?? false,
         isBestSeller: body.isBestSeller ?? false,
@@ -901,9 +920,11 @@ export class ProductsController {
   async exportCatalog(
     @Query('storeId') storeId: string,
     @Query('status') status?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
-    const rows = await loadCatalogExportRows(this.prisma, sid, status)
+    const rows = await loadCatalogExportRows(this.prisma, sid, status, createdAtRange(from, to))
     return { rows, total: rows.length }
   }
 
@@ -1252,7 +1273,7 @@ export class ProductsController {
       }
     }
 
-    const nextSize = body.size !== undefined ? body.size.trim() || null : variant.size
+    const nextSize = body.size !== undefined ? optionalSize(body.size) ?? null : variant.size
     const nextColor = body.color !== undefined ? body.color.trim() || null : variant.color
     const nextColorName =
       body.colorName !== undefined ? body.colorName.trim() || null : variant.colorName

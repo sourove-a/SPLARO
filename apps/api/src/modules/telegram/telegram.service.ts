@@ -31,14 +31,27 @@ import {
   type TelegramNewOrderPayload,
 } from './telegram-order-message'
 import type { TelegramDeliveryDiagnostics, TelegramHealthSnapshot } from './telegram.types'
+import {
+  resolveTelegramOperationalView,
+  resolveTelegramTransportMode,
+  webhookUrlsMatch,
+} from './telegram-health.util'
 import { formatBDT } from '../../common/utils/currency'
-import { resolveCustomerFacingAdminUrl, resolveCustomerFacingSiteUrl } from '@splaro/config'
+import {
+  formatCleanAddress,
+  resolveCustomerFacingAdminUrl,
+  resolveCustomerFacingSiteUrl,
+} from '@splaro/config'
 import { buildInvoiceAccessToken } from '@splaro/config/invoice-access'
 import type { TelegramRole } from '@prisma/client'
 import {
   BOT_COMMANDS,
+  ORDER_ACTION_STATUS,
   TELEGRAM_AI_UNAVAILABLE,
   TG_CALLBACK,
+  customerCopyKeyboard,
+  inlineCustomersMenu,
+  type TelegramOrderAction,
   aiPromptForAction,
   aiPromptLabel,
   collectNewOrderChatIds,
@@ -46,7 +59,6 @@ import {
   deliveryDiagnosticsKeyboard,
   formatLoginTokenDisplay,
   formatTelegramAiReply,
-  formatWhatsAppUrl,
   inlineAdminMenu,
   inlineAiMenu,
   inlineCourierMenu,
@@ -62,6 +74,7 @@ import {
   menuMessage,
   orderListKeyboard,
   orderActionKeyboard,
+  orderCallback,
   parseListCallback,
   parseOrderCallback,
   premiumHeader,
@@ -71,6 +84,17 @@ import {
   telegramOpsHint,
   welcomeMessage,
 } from './telegram-ui'
+import {
+  tgCard,
+  tgDhakaTime,
+  tgExpandableCard,
+  tgHeader,
+  tgJoin,
+  tgPrettyPayment,
+  tgPrettyStatus,
+  tgStatusEmoji,
+} from './telegram-format'
+import { GoogleSheetsService } from '../google-sheets/google-sheets.service'
 
 interface TelegramCtx {
   chatId: string
@@ -88,6 +112,8 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
   private lastDeliveryStatus: 'success' | 'failed' | 'none' = 'none'
   private lastDeliveryError: string | null = null
   private lastDeliveryAt: Date | null = null
+  private cachedWebhookRegistered = false
+  private cachedBotUsername: string | null = null
   private readonly notificationDedupe = new Map<string, number>()
   private readonly aiModeChats = new Set<string>()
 
@@ -236,7 +262,8 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
       })
       const info = await this.bot.getWebHookInfo()
       const registered = info?.url?.replace(/\/$/, '') ?? ''
-      if (registered === target) {
+      if (webhookUrlsMatch(target, registered)) {
+        this.cachedWebhookRegistered = true
         this.logger.log(`Telegram webhook registered → ${target}`)
         return
       }
@@ -248,7 +275,8 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
       })
       const retryInfo = await this.bot.getWebHookInfo()
       const retryUrl = retryInfo?.url?.replace(/\/$/, '') ?? ''
-      if (retryUrl === target) {
+      if (webhookUrlsMatch(target, retryUrl)) {
+        this.cachedWebhookRegistered = true
         this.logger.log(`Telegram webhook registered → ${target}`)
         return
       }
@@ -493,7 +521,14 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     if (!this.shouldSendNotification(dedupeKey)) return
 
     const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
-    if (!config?.notifyOrders) return
+    if (!config?.notifyOrders) {
+      await this.logNewOrderDispatch(storeId, order.invoiceNumber, {
+        delivered: false,
+        recipient: 'none',
+        error: config ? 'Telegram new-order alerts are turned off' : 'Telegram is not configured',
+      })
+      return
+    }
 
     let customerHistory: TelegramNewOrderPayload['customerHistory'] = null
     let steadfastReport: TelegramNewOrderPayload['steadfastReport'] = null
@@ -544,6 +579,10 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
       adminOrderUrl,
       storefrontUrl,
       phone: order.shippingPhone,
+      address:
+        formatCleanAddress(order.shippingAddress, order.shippingCity, order.shippingDistrict) ||
+        order.shippingAddress,
+      status: order.orderStatus,
     })
 
     const linkedAdmins = await this.prisma.telegramUser.findMany({
@@ -559,7 +598,14 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
       linkedTelegramIds: linkedAdmins.map((u) => u.telegramId),
       envAdminUserId: this.config.get<string>('TELEGRAM_ADMIN_USER_ID'),
     })
-    if (destinations.length === 0) return
+    if (destinations.length === 0) {
+      await this.logNewOrderDispatch(storeId, order.invoiceNumber, {
+        delivered: false,
+        recipient: 'none',
+        error: 'No Telegram chat destinations configured',
+      })
+      return
+    }
 
     const extras = {
       link_preview_options: { is_disabled: true },
@@ -577,6 +623,11 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
         message: delivered ? msg : 'New order fan-out failed for all destinations',
         success: delivered,
       },
+    })
+    await this.logNewOrderDispatch(storeId, order.invoiceNumber, {
+      delivered,
+      recipient: destinations.join(','),
+      error: delivered ? null : 'New order fan-out failed for all destinations',
     })
   }
 
@@ -615,14 +666,14 @@ Status: Ready to send invoices
           ? 'Customer Returned From Gateway'
           : 'Payment Started'
 
-    const msg = `
-${icon} <b>${label}</b>
-━━━━━━━━━━━━━━━━━━━━
-📋 Order: <code>${input.invoiceNumber}</code>
-💳 Gateway: ${input.gateway ?? 'Online payment'}
-━━━━━━━━━━━━━━━━━━━━
-<i>Send <code>${input.invoiceNumber}</code> to track</i>
-`.trim()
+    const msg = tgJoin(
+      tgHeader(icon, label),
+      tgCard([
+        `📋 Order — <code>${escapeTelegramHtml(input.invoiceNumber)}</code>`,
+        `💳 Gateway — ${escapeTelegramHtml(input.gateway ?? 'Online payment')}`,
+      ]),
+      `<i>Send <code>${escapeTelegramHtml(input.invoiceNumber)}</code> to open the order</i>`,
+    )
 
     await this.sendToStore(storeId, msg)
   }
@@ -662,69 +713,241 @@ Customer was charged AFTER this order was ${input.orderStatus}.
     await this.sendToStore(storeId, msg)
   }
 
+  /** Admin + storefront deep links used by every order keyboard. */
+  private buildOrderLinks(invoiceNumber: string): { adminOrderUrl: string; storefrontUrl: string } {
+    const adminBase = resolveCustomerFacingAdminUrl(
+      this.config.get<string>('ADMIN_URL') ?? this.config.get<string>('NEXT_PUBLIC_ADMIN_URL'),
+    )
+    const adminOrderUrl = `${adminBase.replace(/\/+$/, '').replace(/\/login$/i, '')}/dashboard/orders/${encodeURIComponent(invoiceNumber)}`
+    return { adminOrderUrl, storefrontUrl: resolveCustomerFacingSiteUrl() }
+  }
+
+  private orderCardInclude() {
+    return {
+      items: {
+        select: {
+          productName: true,
+          variantName: true,
+          sku: true,
+          quantity: true,
+          price: true,
+          subtotal: true,
+        },
+      },
+      courier: {
+        select: {
+          provider: true,
+          status: true,
+          trackingCode: true,
+          trackingUrl: true,
+          consignmentId: true,
+        },
+      },
+    }
+  }
+
+  /**
+   * One order card shared by /order, invoice search, list drill-down and every
+   * status action, so the operator always sees the same layout. Phone, address
+   * and invoice are <code> spans (tap = copy) and the keyboard adds explicit
+   * copy buttons for the two fields couriers ask for.
+   */
+  private renderOrderCard(order: {
+    invoiceNumber: string
+    status: string
+    paymentStatus: string
+    paymentMethod: string
+    subtotal: unknown
+    deliveryCharge: unknown
+    discount: unknown
+    total: unknown
+    couponCode?: string | null
+    shippingName: string
+    shippingPhone: string
+    shippingAddress: string
+    shippingCity: string
+    shippingDistrict?: string | null
+    isInsideDhaka?: boolean
+    notes?: string | null
+    createdAt: Date
+    items: {
+      productName: string
+      variantName?: string | null
+      sku?: string | null
+      quantity: number
+      price: unknown
+      subtotal: unknown
+    }[]
+    courier?: {
+      provider: string
+      status: string
+      trackingCode?: string | null
+      trackingUrl?: string | null
+      consignmentId?: string | null
+    } | null
+  }): string {
+    const address = formatCleanAddress(
+      order.shippingAddress,
+      order.shippingCity,
+      order.shippingDistrict ?? null,
+    )
+    const meta = [
+      tgDhakaTime(order.createdAt),
+      `${tgPrettyPayment(order.paymentMethod)} · ${tgPrettyStatus(order.paymentStatus)}`,
+      order.isInsideDhaka ? 'Inside Dhaka' : 'Outside Dhaka',
+    ]
+      .filter(Boolean)
+      .join(' · ')
+
+    const statusRows = [
+      `📌 Status · <b>${escapeTelegramHtml(tgPrettyStatus(order.status))}</b>`,
+    ]
+    if (order.courier) {
+      const courierBits = [
+        escapeTelegramHtml(tgPrettyStatus(order.courier.provider)),
+        escapeTelegramHtml(tgPrettyStatus(order.courier.status)),
+      ].join(' · ')
+      statusRows.push(`🚚 Courier · ${courierBits}`)
+      const tracking = order.courier.trackingCode ?? order.courier.consignmentId
+      if (tracking) {
+        statusRows.push(`📦 Tracking · <code>${escapeTelegramHtml(tracking)}</code>`)
+      }
+    } else {
+      statusRows.push('🚚 Courier · <i>not booked yet</i>')
+    }
+
+    const customerRows = [
+      `👤 <b>${escapeTelegramHtml(order.shippingName)}</b>`,
+      `📞 <code>${escapeTelegramHtml(order.shippingPhone)}</code>`,
+      `📍 <code>${escapeTelegramHtml(address || order.shippingAddress)}</code>`,
+    ]
+
+    const itemLines = order.items.map((item, index) => {
+      const variant = item.variantName?.trim()
+      const amount = formatBDT(Number(item.quantity > 1 ? item.subtotal : item.price))
+      return [
+        `${index + 1}. <b>${escapeTelegramHtml(item.productName)}</b>`,
+        ...(variant ? [escapeTelegramHtml(variant)] : []),
+        `×${item.quantity}`,
+        `<b>${escapeTelegramHtml(amount)}</b>`,
+      ].join(' · ')
+    })
+    const itemsCard = itemLines.length > 4 ? tgExpandableCard(itemLines) : tgCard(itemLines)
+
+    const moneyRows = [
+      `Subtotal — ${escapeTelegramHtml(formatBDT(Number(order.subtotal)))}`,
+      `Delivery — ${escapeTelegramHtml(formatBDT(Number(order.deliveryCharge)))}`,
+    ]
+    if (Number(order.discount) > 0) {
+      const coupon = order.couponCode?.trim()
+        ? ` (<code>${escapeTelegramHtml(order.couponCode.trim())}</code>)`
+        : ''
+      moneyRows.push(`Discount — −${escapeTelegramHtml(formatBDT(Number(order.discount)))}${coupon}`)
+    }
+    moneyRows.push(`<b>Total — ${escapeTelegramHtml(formatBDT(Number(order.total)))}</b>`)
+
+    return tgJoin(
+      `${tgStatusEmoji(order.status)} <b>Order</b> · <code>${escapeTelegramHtml(order.invoiceNumber)}</code>\n<i>${escapeTelegramHtml(meta)}</i>`,
+      tgCard(statusRows),
+      tgCard(customerRows),
+      `🧾 <b>Items</b> · ${order.items.length} line${order.items.length === 1 ? '' : 's'}\n${itemsCard}`,
+      tgCard(moneyRows),
+      order.notes?.trim() ? `📝 <i>${escapeTelegramHtml(order.notes.trim())}</i>` : '',
+    )
+  }
+
+  /** Full order card with status-aware actions + phone/address copy buttons. */
   async replyOrderTrack(chatId: string, invoiceNumber: string, storeId?: string): Promise<void> {
     const order = await this.prisma.order.findFirst({
-      where: { invoiceNumber },
-      include: { items: { take: 4 }, courier: true },
+      where: { invoiceNumber, ...(storeId ? { storeId } : {}) },
+      include: this.orderCardInclude(),
     })
 
     if (!order) {
       const latest = storeId ? await this.latestInvoiceNumber(storeId) : null
       const hint = latest
         ? `\nLatest live invoice: <code>${latest}</code>`
-        : '\nType a live invoice (SPL-####), or tap Control Center.'
+        : '\nSend a live invoice (SPL-####), or tap Control Center.'
       await this.bot?.sendMessage(
         chatId,
-        `❌ Order <code>${invoiceNumber}</code> not found.${hint}`,
+        `❌ Order <code>${escapeTelegramHtml(invoiceNumber)}</code> not found.${hint}`,
         { parse_mode: 'HTML', reply_markup: mainReplyKeyboard() },
       )
       return
     }
 
-    const statusEmoji: Record<string, string> = {
-      PENDING: '⏳',
-      CONFIRMED: '✅',
-      PROCESSING: '🔧',
-      COURIER_BOOKED: '🚚',
-      IN_TRANSIT: '📦',
-      DELIVERED: '✅',
-      CANCELLED: '❌',
-      RETURNED: '🔄',
-    }
-
-    const items = order.items
-      .map((item) => `• ${item.productName} × ${item.quantity}`)
-      .join('\n')
-
-    const msg = `
-📦 <b>Order ${invoiceNumber}</b>
-
-Status: ${statusEmoji[order.status] ?? '•'} ${order.status.replace(/_/g, ' ')}
-Payment: ${order.paymentStatus.replace(/_/g, ' ')} · ${order.paymentMethod.replace(/_/g, ' ')}
-Total: <b>${formatBDT(Number(order.total))}</b>
-Customer: ${order.shippingName}
-Phone: <code>${order.shippingPhone}</code>
-City: ${order.shippingCity}
-${order.courier?.trackingCode ? `Tracking: <code>${order.courier.trackingCode}</code>` : 'Courier: Not booked yet'}
-
-<b>Items</b>
-${items}
-`.trim()
-
-    const adminBase = resolveCustomerFacingAdminUrl(
-      this.config.get<string>('ADMIN_URL') ?? this.config.get<string>('NEXT_PUBLIC_ADMIN_URL'),
+    const address = formatCleanAddress(
+      order.shippingAddress,
+      order.shippingCity,
+      order.shippingDistrict,
     )
-    const adminOrderUrl = `${adminBase.replace(/\/+$/, '').replace(/\/login$/i, '')}/dashboard/orders/${encodeURIComponent(order.invoiceNumber)}`
-    const storefrontUrl = resolveCustomerFacingSiteUrl()
+    const links = this.buildOrderLinks(order.invoiceNumber)
 
-    await this.bot?.sendMessage(chatId, msg, {
+    await this.bot?.sendMessage(chatId, this.renderOrderCard(order), {
       parse_mode: 'HTML',
+      link_preview_options: { is_disabled: true },
       reply_markup: orderActionKeyboard(order.invoiceNumber, {
-        adminOrderUrl,
-        storefrontUrl,
+        ...links,
         phone: order.shippingPhone,
+        address: address || order.shippingAddress,
+        status: order.status,
       }),
     })
+  }
+
+  /**
+   * Status buttons (Processing / Delivered / Returned / Cancel) go through the
+   * same OrderStatusService the admin panel uses, so stock restore, history and
+   * order events stay identical no matter where the tap came from.
+   */
+  private async executeOrderStatusAction(
+    ctx: TelegramCtx,
+    invoiceNumber: string,
+    action: TelegramOrderAction,
+  ): Promise<void> {
+    const nextStatus = ORDER_ACTION_STATUS[action]
+    if (!nextStatus) return
+    const roles: TelegramRole[] =
+      action === 'cancel' || action === 'returned'
+        ? ['SUPER_ADMIN', 'MANAGER']
+        : ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']
+    if (!(await this.requireRoles(ctx, roles))) return
+
+    const order = await this.prisma.order.findFirst({
+      where: { storeId: ctx.storeId, invoiceNumber },
+      select: { id: true, status: true },
+    })
+    if (!order) {
+      await this.bot?.sendMessage(ctx.chatId, '❌ Order not found')
+      return
+    }
+    if (order.status === nextStatus) {
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        `ℹ️ <code>${escapeTelegramHtml(invoiceNumber)}</code> is already <b>${escapeTelegramHtml(tgPrettyStatus(nextStatus))}</b>`,
+        { parse_mode: 'HTML' },
+      )
+      return
+    }
+
+    try {
+      await this.orderStatus.applyStatusChange(
+        order.id,
+        nextStatus,
+        `${tgPrettyStatus(nextStatus)} via Telegram bot`,
+        ctx.storeId,
+      )
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        `${tgStatusEmoji(nextStatus)} <code>${escapeTelegramHtml(invoiceNumber)}</code> → <b>${escapeTelegramHtml(tgPrettyStatus(nextStatus))}</b>`,
+        { parse_mode: 'HTML' },
+      )
+      await this.logCommand(ctx.chatId, `/${action} ${invoiceNumber}`, ctx.userId)
+      await this.replyOrderTrack(ctx.chatId, invoiceNumber, ctx.storeId)
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Status change failed'
+      await this.bot?.sendMessage(ctx.chatId, `❌ ${escapeTelegramHtml(errMsg)}`, { parse_mode: 'HTML' })
+    }
   }
 
   private async latestInvoiceNumber(storeId: string): Promise<string | null> {
@@ -740,8 +963,13 @@ ${items}
     const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
     if (!config?.notifyStock) return
 
-    const list = items.map((i) => `  🔸 ${i.name} (<code>${i.sku}</code>): <b>${i.stock} left</b>`).join('\n')
-    const msg = `🚨 <b>Low Stock Alert</b>\n━━━━━━━━━━━━━━━━━━━━\n${list}\n━━━━━━━━━━━━━━━━━━━━\n<i>Restock soon to avoid stockouts</i>`
+    const rows = items.map(
+      (i) => `🔸 <b>${escapeTelegramHtml(i.name)}</b> · <code>${escapeTelegramHtml(i.sku)}</code> · <b>${i.stock}</b> left`,
+    )
+    const msg = tgJoin(
+      tgHeader('🚨', 'Low Stock Alert', `${items.length} variant${items.length === 1 ? '' : 's'} need restock`),
+      tgCard(rows),
+    )
     await this.sendToStore(storeId, msg)
   }
 
@@ -753,15 +981,15 @@ ${items}
     const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
     if (!config?.notifyCourier) return
 
-    const msg = `
-❌ <b>Courier Booking Failed</b>
-━━━━━━━━━━━━━━━━━━━━
-📋 Invoice: <code>${order.invoiceNumber}</code>
-🏢 Provider: ${order.provider}
-⚠️ Error: ${order.error}
-━━━━━━━━━━━━━━━━━━━━
-<i>Added to retry queue · Check admin panel</i>
-`.trim()
+    const msg = tgJoin(
+      tgHeader('❌', 'Courier Booking Failed'),
+      tgCard([
+        `📋 Invoice — <code>${escapeTelegramHtml(order.invoiceNumber)}</code>`,
+        `🏢 Provider — ${escapeTelegramHtml(order.provider)}`,
+        `⚠️ Error — ${escapeTelegramHtml(order.error)}`,
+      ]),
+      '<i>Added to retry queue · retry from the order card</i>',
+    )
 
     await this.sendToStore(storeId, msg)
   }
@@ -776,20 +1004,18 @@ ${items}
     const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
     if (!config?.notifyCourier) return
 
-    const tracking = order.trackingCode
-      ? `\n📦 Tracking: <code>${order.trackingCode}</code>${order.trackingUrl ? `\n🔗 ${order.trackingUrl}` : ''}`
-      : order.consignmentId
-        ? `\n📦 Consignment: <code>${order.consignmentId}</code>`
-        : ''
+    const rows = [
+      `📋 Invoice — <code>${escapeTelegramHtml(order.invoiceNumber)}</code>`,
+      `🏢 Provider — ${escapeTelegramHtml(order.provider)}`,
+    ]
+    if (order.trackingCode) {
+      rows.push(`📦 Tracking — <code>${escapeTelegramHtml(order.trackingCode)}</code>`)
+      if (order.trackingUrl) rows.push(`🔗 ${escapeTelegramHtml(order.trackingUrl)}`)
+    } else if (order.consignmentId) {
+      rows.push(`📦 Consignment — <code>${escapeTelegramHtml(order.consignmentId)}</code>`)
+    }
 
-    const msg = `
-✅ <b>Courier Booked</b>
-━━━━━━━━━━━━━━━━━━━━
-📋 Invoice: <code>${order.invoiceNumber}</code>
-🏢 Provider: ${order.provider}${tracking}
-━━━━━━━━━━━━━━━━━━━━
-<i>Parcel ready for pickup</i>
-`.trim()
+    const msg = tgJoin(tgHeader('✅', 'Courier Booked', 'Parcel ready for pickup'), tgCard(rows))
 
     await this.sendToStore(storeId, msg)
   }
@@ -809,18 +1035,14 @@ ${items}
       }),
     ])
 
-    const msg = `
-┌──────────────────────────┐
-│  📊 <b>Daily Report</b>              │
-│  ${today.toLocaleDateString('en-BD')}           │
-└──────────────────────────┘
-
-📦 Orders today: <b>${orders}</b>
-💰 Revenue: <b>${formatBDT(Number(revenue._sum.total ?? 0))}</b>
-
-━━━━━━━━━━━━━━━━━━━━
-<i>Full analytics on admin panel</i>
-`.trim()
+    const msg = tgJoin(
+      tgHeader('📊', 'Daily Report', tgDhakaTime(new Date())),
+      tgCard([
+        `📦 Orders today — <b>${orders}</b>`,
+        `💰 Revenue — <b>${escapeTelegramHtml(formatBDT(Number(revenue._sum.total ?? 0)))}</b>`,
+      ]),
+      '<i>Full analytics in the admin panel</i>',
+    )
 
     await this.sendToStore(storeId, msg)
   }
@@ -883,6 +1105,21 @@ ${items}
       if (!ctx) return
       const invoice = match?.[1]?.trim()
       await this.executeInvoice(ctx, invoice)
+    })
+
+    this.bot.onText(/\/find(?:@\w+)?(?:\s+(.+)|$)/i, async (msg, match) => {
+      const ctx = await this.resolveContext(msg)
+      if (!ctx) return
+      const query = match?.[1]?.trim()
+      if (!query) {
+        await this.executeCustomerLookupHelp(ctx)
+        return
+      }
+      if (/^SPL-/i.test(query)) {
+        await this.replyOrderTrack(ctx.chatId, query.toUpperCase(), ctx.storeId)
+        return
+      }
+      await this.executeCustomerLookup(ctx, query)
     })
 
     this.bot.onText(/\/check(?:@\w+)?(?:\s+(.+)|$)/i, async (msg, match) => {
@@ -1010,12 +1247,23 @@ ${items}
       const orderAction = parseOrderCallback(data)
       if (orderAction) {
         await this.bot?.answerCallbackQuery(query.id)
-        if (orderAction.action === 'track') {
-          await this.replyOrderTrack(ctx.chatId, orderAction.invoice, ctx.storeId)
-        } else if (orderAction.action === 'confirm') {
-          await this.executeConfirmOrder(ctx, orderAction.invoice)
-        } else {
-          await this.executeBookCourier(ctx, orderAction.invoice)
+        switch (orderAction.action) {
+          case 'track':
+          case 'open':
+            await this.replyOrderTrack(ctx.chatId, orderAction.invoice, ctx.storeId)
+            break
+          case 'confirm':
+            await this.executeConfirmOrder(ctx, orderAction.invoice)
+            break
+          case 'courier':
+            await this.executeBookCourier(ctx, orderAction.invoice)
+            break
+          case 'invoice':
+            await this.executeInvoice(ctx, orderAction.invoice)
+            break
+          default:
+            await this.executeOrderStatusAction(ctx, orderAction.invoice, orderAction.action)
+            break
         }
         return
       }
@@ -1023,7 +1271,9 @@ ${items}
       const listAction = parseListCallback(data)
       if (listAction) {
         await this.bot?.answerCallbackQuery(query.id)
-        if (listAction.kind === 'orders') {
+        if (listAction.kind === 'pending') {
+          await this.executePendingOrders(ctx, listAction.page)
+        } else {
           await this.executeOrdersList(ctx, listAction.page)
         }
         return
@@ -1082,6 +1332,13 @@ ${items}
       const invoiceNumber = text.toUpperCase()
       if (/^SPL-\d+/.test(invoiceNumber)) {
         await this.replyOrderTrack(ctx.chatId, invoiceNumber, ctx.storeId)
+        return
+      }
+
+      // A bare BD mobile number is the fastest customer lookup an operator has.
+      const digitsOnly = text.replace(/[\s-]/g, '')
+      if (/^(?:\+?88)?01\d{9}$/.test(digitsOnly)) {
+        await this.executeCustomerLookup(ctx, digitsOnly)
         return
       }
 
@@ -1189,6 +1446,30 @@ ${items}
           },
         )
         break
+      case TG_CALLBACK.MENU_CUSTOMERS:
+        if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+        await this.bot?.sendMessage(
+          ctx.chatId,
+          tgJoin(
+            tgHeader('◐', 'Customer Desk', 'Buyer history, COD risk, and one-tap contact.'),
+            tgCard([
+              'Send a phone number (<code>01XXXXXXXXX</code>) for an instant customer card',
+              'Send an invoice (<code>SPL-1001</code>) to open that order',
+            ]),
+          ),
+          { parse_mode: 'HTML', reply_markup: inlineCustomersMenu() },
+        )
+        break
+      case TG_CALLBACK.TOP_CUSTOMERS:
+        if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER']))) return
+        await this.executeTopCustomers(ctx)
+        break
+      case TG_CALLBACK.CUSTOMER_LOOKUP_HELP:
+        await this.executeCustomerLookupHelp(ctx)
+        break
+      case TG_CALLBACK.ORDER_SEARCH_HELP:
+        await this.executeOrderSearchHelp(ctx)
+        break
       case TG_CALLBACK.MENU_AI:
         if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
         await this.bot?.sendMessage(
@@ -1231,7 +1512,7 @@ ${items}
         await this.executeTodaySales(ctx)
         break
       case TG_CALLBACK.PENDING:
-        await this.executePendingOrders(ctx)
+        await this.executePendingOrders(ctx, 0)
         break
       case TG_CALLBACK.LOW_STOCK:
         await this.executeLowStock(ctx)
@@ -1256,8 +1537,7 @@ ${items}
         break
       case TG_CALLBACK.SYNC_SHEETS:
         if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'FINANCE_STAFF']))) return
-        await this.bot?.sendMessage(ctx.chatId, '📊 Google Sheets sync queued. Check admin Sync Logs.')
-        await this.logCommand(ctx.chatId, '/sync_sheets', ctx.userId)
+        await this.executeSyncSheets(ctx)
         break
       case TG_CALLBACK.AI_PROMPT_SALES:
       case TG_CALLBACK.AI_PROMPT_RISK:
@@ -1303,10 +1583,48 @@ ${items}
 
   private async executeTodayOrders(ctx: TelegramCtx): Promise<void> {
     const today = new Date(); today.setHours(0, 0, 0, 0)
-    const count = await this.prisma.order.count({ where: { storeId: ctx.storeId, createdAt: { gte: today } } })
+    const [byStatus, revenue, latest] = await Promise.all([
+      this.prisma.order.groupBy({
+        by: ['status'],
+        where: { storeId: ctx.storeId, createdAt: { gte: today } },
+        _count: { _all: true },
+      }),
+      this.prisma.order.aggregate({
+        where: { storeId: ctx.storeId, createdAt: { gte: today }, status: { not: 'CANCELLED' } },
+        _sum: { total: true },
+      }),
+      this.prisma.order.findMany({
+        where: { storeId: ctx.storeId, createdAt: { gte: today } },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: { invoiceNumber: true, status: true, total: true, shippingName: true },
+      }),
+    ])
+
+    const count = byStatus.reduce((sum, row) => sum + row._count._all, 0)
+    const statusRows = byStatus
+      .sort((a, b) => b._count._all - a._count._all)
+      .map(
+        (row) =>
+          `${tgStatusEmoji(row.status)} ${escapeTelegramHtml(tgPrettyStatus(row.status))} — <b>${row._count._all}</b>`,
+      )
+
+    const latestRows = latest.map(
+      (o) =>
+        `<code>${escapeTelegramHtml(o.invoiceNumber)}</code> · ${escapeTelegramHtml(o.shippingName)} · <b>${escapeTelegramHtml(formatBDT(Number(o.total)))}</b>`,
+    )
+
     await this.bot?.sendMessage(
       ctx.chatId,
-      `📦 <b>Today's Orders</b>\n━━━━━━━━━━━━━━━━━━━━\nCount: <b>${count}</b>\nStatus: ${count > 0 ? 'Live order flow detected' : 'No new orders yet'}`,
+      tgJoin(
+        tgHeader('📦', "Today's Orders", tgDhakaTime(new Date())),
+        tgCard([
+          `Orders — <b>${count}</b>`,
+          `Revenue — <b>${escapeTelegramHtml(formatBDT(Number(revenue._sum.total ?? 0)))}</b>`,
+        ]),
+        statusRows.length ? `<b>By status</b>\n${tgCard(statusRows)}` : '',
+        latestRows.length ? `<b>Latest</b>\n${tgCard(latestRows)}` : '<i>No orders yet today</i>',
+      ),
       { parse_mode: 'HTML', reply_markup: inlineOrdersMenu() },
     )
     await this.logCommand(ctx.chatId, '/today_orders', ctx.userId)
@@ -1319,21 +1637,88 @@ ${items}
       _sum: { total: true },
       _count: true,
     })
+    const orders = agg._count
+    const revenue = Number(agg._sum.total ?? 0)
+    const avg = orders > 0 ? revenue / orders : 0
     await this.bot?.sendMessage(
       ctx.chatId,
-      `💰 <b>Today's Sales</b>\n━━━━━━━━━━━━━━━━━━━━\nOrders: <b>${agg._count}</b>\nRevenue: <b>${formatBDT(Number(agg._sum.total ?? 0))}</b>`,
+      tgJoin(
+        tgHeader('💰', "Today's Sales", tgDhakaTime(new Date())),
+        tgCard([
+          `Orders — <b>${orders}</b>`,
+          `Revenue — <b>${escapeTelegramHtml(formatBDT(revenue))}</b>`,
+          `Average order — ${escapeTelegramHtml(formatBDT(Math.round(avg)))}`,
+        ]),
+      ),
       { parse_mode: 'HTML', reply_markup: inlineOrdersMenu() },
     )
     await this.logCommand(ctx.chatId, '/today_sales', ctx.userId)
   }
 
-  private async executePendingOrders(ctx: TelegramCtx): Promise<void> {
-    const count = await this.prisma.order.count({ where: { storeId: ctx.storeId, status: 'PENDING' } })
+  /**
+   * Pending queue is the screen the shop actually works from, so it lists the
+   * real orders (not a bare count) and gives each one a Confirm / Open row.
+   */
+  private async executePendingOrders(ctx: TelegramCtx, page = 0): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+    const pageSize = 5
+    const [count, orders] = await Promise.all([
+      this.prisma.order.count({ where: { storeId: ctx.storeId, status: 'PENDING' } }),
+      this.prisma.order.findMany({
+        where: { storeId: ctx.storeId, status: 'PENDING' },
+        orderBy: { createdAt: 'asc' },
+        skip: Math.max(0, page) * pageSize,
+        take: pageSize + 1,
+        select: {
+          invoiceNumber: true,
+          total: true,
+          shippingName: true,
+          shippingPhone: true,
+          isCodRisk: true,
+          createdAt: true,
+        },
+      }),
+    ])
+
+    if (count === 0) {
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        tgJoin(tgHeader('✅', 'Pending Queue', 'Queue is clear — nothing waiting to confirm.')),
+        { parse_mode: 'HTML', reply_markup: inlineOrdersMenu() },
+      )
+      return
+    }
+
+    const hasMore = orders.length > pageSize
+    const visible = orders.slice(0, pageSize)
+
+    const rows = visible.map((o) =>
+      [
+        `<code>${escapeTelegramHtml(o.invoiceNumber)}</code>${o.isCodRisk ? ' ⚠️' : ''}`,
+        escapeTelegramHtml(o.shippingName),
+        `<code>${escapeTelegramHtml(o.shippingPhone)}</code>`,
+        `<b>${escapeTelegramHtml(formatBDT(Number(o.total)))}</b> · ${escapeTelegramHtml(tgDhakaTime(o.createdAt))}`,
+      ].join('\n'),
+    )
+
+    const keyboard = orderListKeyboard(page, hasMore, 'pending')
+    keyboard.inline_keyboard = [
+      ...visible.map((o) => [
+        { text: `✅ ${o.invoiceNumber}`, callback_data: orderCallback('confirm', o.invoiceNumber) },
+        { text: '📂 Open', callback_data: orderCallback('open', o.invoiceNumber) },
+      ]),
+      ...keyboard.inline_keyboard,
+    ]
+
     await this.bot?.sendMessage(
       ctx.chatId,
-      `⏳ <b>Pending Orders</b>\n━━━━━━━━━━━━━━━━━━━━\nCount: <b>${count}</b>\nAction: ${count > 0 ? 'Review confirmations / courier' : 'Queue is clear'}`,
-      { parse_mode: 'HTML', reply_markup: inlineOrdersMenu() },
+      tgJoin(
+        tgHeader('⏳', 'Pending Queue', `${count} order${count === 1 ? '' : 's'} waiting · page ${page + 1}`),
+        tgCard([rows.join('\n\n')]),
+      ),
+      { parse_mode: 'HTML', reply_markup: keyboard },
     )
+    await this.logCommand(ctx.chatId, '/pending_orders', ctx.userId)
   }
 
   private async executeLowStock(ctx: TelegramCtx): Promise<void> {
@@ -1347,13 +1732,25 @@ ${items}
       await this.bot?.sendMessage(ctx.chatId, '✅ No low stock items found', { reply_markup: inlineOrdersMenu() })
       return
     }
-    const list = variants
-      .map((v) => `• ${v.product.name} (${[v.size, v.color].filter(Boolean).join(' ').trim()}): <b>${v.stock}</b>`)
-      .join('\n')
+    const rows = variants.map((v) => {
+      const variantLabel = [v.size, v.color].filter(Boolean).join(' · ')
+      return [
+        `${v.stock <= 0 ? '🔴' : '🟠'} <b>${escapeTelegramHtml(v.product.name)}</b>`,
+        variantLabel ? escapeTelegramHtml(variantLabel) : '',
+        v.sku ? `<code>${escapeTelegramHtml(v.sku)}</code>` : '',
+        `<b>${v.stock}</b> left`,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    })
     await this.bot?.sendMessage(
       ctx.chatId,
-      `⚠️ <b>Low Stock (${variants.length})</b>\n━━━━━━━━━━━━━━━━━━━━\n${list}`,
-      { parse_mode: 'HTML', reply_markup: inlineOrdersMenu() },
+      tgJoin(
+        tgHeader('⚠️', 'Low Stock', `${variants.length} variant${variants.length === 1 ? '' : 's'} at or below 5`),
+        tgCard(rows),
+        'Send <code>/stock SKU123</code> for one variant.',
+      ),
+      { parse_mode: 'HTML', reply_markup: inlineInventoryMenu() },
     )
   }
 
@@ -1362,9 +1759,19 @@ ${items}
     const count = await this.prisma.order.count({
       where: { storeId: ctx.storeId, status: 'DELIVERED', deliveredAt: { gte: today } },
     })
+    const revenue = await this.prisma.order.aggregate({
+      where: { storeId: ctx.storeId, status: 'DELIVERED', deliveredAt: { gte: today } },
+      _sum: { total: true },
+    })
     await this.bot?.sendMessage(
       ctx.chatId,
-      `✅ <b>Delivered Today</b>\n━━━━━━━━━━━━━━━━━━━━\nCount: <b>${count}</b>`,
+      tgJoin(
+        tgHeader('🎉', 'Delivered Today', tgDhakaTime(new Date())),
+        tgCard([
+          `Parcels — <b>${count}</b>`,
+          `Collected value — <b>${escapeTelegramHtml(formatBDT(Number(revenue._sum.total ?? 0)))}</b>`,
+        ]),
+      ),
       { parse_mode: 'HTML', reply_markup: inlineOrdersMenu() },
     )
   }
@@ -1378,23 +1785,258 @@ ${items}
     })
     await this.bot?.sendMessage(
       ctx.chatId,
-      `💸 <b>Expenses Today</b>\n━━━━━━━━━━━━━━━━━━━━\nTotal: <b>${formatBDT(Number(agg._sum.amount ?? 0))}</b>\nEntries: ${agg._count}`,
+      tgJoin(
+        tgHeader('💸', 'Expenses Today', tgDhakaTime(new Date())),
+        tgCard([
+          `Approved total — <b>${escapeTelegramHtml(formatBDT(Number(agg._sum.amount ?? 0)))}</b>`,
+          `Entries — ${agg._count}`,
+        ]),
+      ),
       { parse_mode: 'HTML', reply_markup: inlineFinanceMenu() },
     )
   }
 
+  /** Live probe — the old version reported a stale systemHealthLog row. */
   private async executeApiHealth(ctx: TelegramCtx): Promise<void> {
-    const latest = await this.prisma.systemHealthLog.findFirst({
+    const startedAt = Date.now()
+    let dbOk = true
+    try {
+      await this.prisma.$queryRaw`SELECT 1`
+    } catch {
+      dbOk = false
+    }
+    const dbMs = Date.now() - startedAt
+
+    let botOk = false
+    let botUsername: string | null = null
+    if (this.bot) {
+      try {
+        const me = await this.bot.getMe()
+        botOk = true
+        botUsername = me.username ?? null
+      } catch {
+        botOk = false
+      }
+    }
+
+    const rows = [
+      `${dbOk ? '🟢' : '🔴'} Database — ${dbOk ? `<b>up</b> · ${dbMs}ms` : '<b>unreachable</b>'}`,
+      `${botOk ? '🟢' : '🔴'} Bot API — ${botOk ? `<b>up</b>${botUsername ? ` · @${escapeTelegramHtml(botUsername)}` : ''}` : '<b>unreachable</b>'}`,
+    ]
+
+    const lastLog = await this.prisma.systemHealthLog.findFirst({
       where: { service: 'api' },
       orderBy: { checkedAt: 'desc' },
+      select: { status: true, responseMs: true, checkedAt: true },
     })
-    const status = latest?.status ?? 'UP'
-    const emoji = status === 'UP' ? '🟢' : '🔴'
+    if (lastLog) {
+      rows.push(
+        `🗒 Last cron check — ${escapeTelegramHtml(lastLog.status)}${lastLog.responseMs ? ` · ${lastLog.responseMs}ms` : ''} · ${escapeTelegramHtml(tgDhakaTime(lastLog.checkedAt))}`,
+      )
+    }
+
     await this.bot?.sendMessage(
       ctx.chatId,
-      `${emoji} <b>API Health: ${status}</b>${latest?.responseMs ? `\nResponse: ${latest.responseMs}ms` : ''}\n\n<i>SPLARO API connected</i>`,
+      tgJoin(tgHeader('🩺', 'API Health', 'Checked just now'), tgCard(rows)),
       { parse_mode: 'HTML', reply_markup: inlineAdminMenu() },
     )
+  }
+
+  /** Customer card — history, COD risk, and one-tap copy of phone + address. */
+  private async executeCustomerLookup(ctx: TelegramCtx, queryRaw: string): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+    const digits = queryRaw.replace(/\D/g, '')
+    if (digits.length < 6) {
+      await this.executeCustomerLookupHelp(ctx)
+      return
+    }
+    const digits10 = digits.slice(-10)
+
+    const [orders, sfReport] = await Promise.all([
+      this.prisma.order.findMany({
+        where: { storeId: ctx.storeId, shippingPhone: { contains: digits10 } },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+        select: {
+          invoiceNumber: true,
+          status: true,
+          total: true,
+          shippingName: true,
+          shippingPhone: true,
+          shippingAddress: true,
+          shippingCity: true,
+          shippingDistrict: true,
+          createdAt: true,
+        },
+      }),
+      this.courier?.checkCustomerFraud(ctx.storeId, digits10).catch(() => null) ?? null,
+    ])
+
+    if (orders.length === 0) {
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        tgJoin(
+          tgHeader('🔍', 'No customer found', `Nothing in this store for ${digits10}`),
+          'Try the full number, or send an invoice like <code>SPL-1001</code>.',
+        ),
+        { parse_mode: 'HTML', reply_markup: inlineCustomersMenu() },
+      )
+      return
+    }
+
+    const latest = orders[0]!
+    const delivered = orders.filter((o) => o.status === 'DELIVERED').length
+    const failed = orders.filter((o) => o.status === 'RETURNED' || o.status === 'CANCELLED').length
+    const spend = orders
+      .filter((o) => o.status !== 'CANCELLED')
+      .reduce((sum, o) => sum + Number(o.total), 0)
+    const address = formatCleanAddress(
+      latest.shippingAddress,
+      latest.shippingCity,
+      latest.shippingDistrict,
+    )
+
+    const riskRows: string[] = []
+    if (sfReport && sfReport.totalParcels > 0) {
+      const icon = sfReport.successRate >= 70 ? '🟢' : sfReport.successRate >= 50 ? '🟡' : '🔴'
+      riskRows.push(
+        `${icon} Steadfast — <b>${sfReport.successRate}%</b> success · ${sfReport.delivered} delivered · ${sfReport.cancelled} returned of ${sfReport.totalParcels}`,
+      )
+    } else {
+      riskRows.push('⚪️ Steadfast — no network history')
+    }
+
+    const orderRows = orders.map(
+      (o) =>
+        `${tgStatusEmoji(o.status)} <code>${escapeTelegramHtml(o.invoiceNumber)}</code> · ${escapeTelegramHtml(tgPrettyStatus(o.status))} · <b>${escapeTelegramHtml(formatBDT(Number(o.total)))}</b> · ${escapeTelegramHtml(tgDhakaTime(o.createdAt))}`,
+    )
+
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      tgJoin(
+        tgHeader('🔍', latest.shippingName, `${orders.length} order${orders.length === 1 ? '' : 's'} in this store`),
+        tgCard([
+          `📞 <code>${escapeTelegramHtml(latest.shippingPhone)}</code>`,
+          `📍 <code>${escapeTelegramHtml(address || latest.shippingAddress)}</code>`,
+        ]),
+        tgCard([
+          `Delivered — <b>${delivered}</b>`,
+          `Returned / cancelled — <b>${failed}</b>`,
+          `Lifetime value — <b>${escapeTelegramHtml(formatBDT(spend))}</b>`,
+        ]),
+        tgCard(riskRows),
+        `<b>Orders</b>\n${tgCard(orderRows)}`,
+      ),
+      {
+        parse_mode: 'HTML',
+        link_preview_options: { is_disabled: true },
+        reply_markup: customerCopyKeyboard({
+          phone: latest.shippingPhone,
+          address: address || latest.shippingAddress,
+          invoice: latest.invoiceNumber,
+        }),
+      },
+    )
+    await this.logCommand(ctx.chatId, `/find ${digits10}`, ctx.userId)
+  }
+
+  private async executeCustomerLookupHelp(ctx: TelegramCtx): Promise<void> {
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      tgJoin(
+        tgHeader('🔍', 'Customer Lookup', 'Phone number in, full history out.'),
+        tgCard([
+          'Send <code>01712345678</code> — customer card with copy buttons',
+          '<code>/find 01712345678</code> — same from a command',
+          '<code>/check 01712345678</code> — courier fraud score only',
+        ]),
+      ),
+      { parse_mode: 'HTML', reply_markup: inlineCustomersMenu() },
+    )
+  }
+
+  private async executeOrderSearchHelp(ctx: TelegramCtx): Promise<void> {
+    const latest = await this.latestInvoiceNumber(ctx.storeId)
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      tgJoin(
+        tgHeader('📂', 'Find Order', 'Invoice or phone — both work.'),
+        tgCard([
+          `Send <code>${escapeTelegramHtml(latest ?? 'SPL-1001')}</code> — full order card`,
+          'Send <code>01712345678</code> — every order from that buyer',
+          '<code>/invoice SPL-1001</code> — printable invoice link',
+        ]),
+      ),
+      { parse_mode: 'HTML', reply_markup: inlineOrdersMenu() },
+    )
+  }
+
+  private async executeTopCustomers(ctx: TelegramCtx): Promise<void> {
+    const grouped = await this.prisma.order.groupBy({
+      by: ['shippingPhone'],
+      where: { storeId: ctx.storeId, status: { not: 'CANCELLED' } },
+      _sum: { total: true },
+      _count: { _all: true },
+      orderBy: { _sum: { total: 'desc' } },
+      take: 8,
+    })
+
+    if (grouped.length === 0) {
+      await this.bot?.sendMessage(ctx.chatId, '📭 No customer orders yet.', {
+        reply_markup: inlineCustomersMenu(),
+      })
+      return
+    }
+
+    const names = await this.prisma.order.findMany({
+      where: { storeId: ctx.storeId, shippingPhone: { in: grouped.map((g) => g.shippingPhone) } },
+      distinct: ['shippingPhone'],
+      orderBy: { createdAt: 'desc' },
+      select: { shippingPhone: true, shippingName: true },
+    })
+    const nameByPhone = new Map(names.map((n) => [n.shippingPhone, n.shippingName]))
+
+    const rows = grouped.map((g, index) => {
+      const name = nameByPhone.get(g.shippingPhone) ?? 'Customer'
+      return `${index + 1}. <b>${escapeTelegramHtml(name)}</b> · <code>${escapeTelegramHtml(g.shippingPhone)}</code>\n   ${g._count._all} order${g._count._all === 1 ? '' : 's'} · <b>${escapeTelegramHtml(formatBDT(Number(g._sum.total ?? 0)))}</b>`
+    })
+
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      tgJoin(tgHeader('⭐', 'Top Customers', 'By lifetime value'), tgCard([rows.join('\n')])),
+      { parse_mode: 'HTML', reply_markup: inlineCustomersMenu() },
+    )
+    await this.logCommand(ctx.chatId, '/top_customers', ctx.userId)
+  }
+
+  /** Real Google Sheets run — the button used to only claim a sync was queued. */
+  private async executeSyncSheets(ctx: TelegramCtx): Promise<void> {
+    await this.bot?.sendMessage(ctx.chatId, '📊 Running Google Sheets sync…')
+    try {
+      const sheets = this.moduleRef.get(GoogleSheetsService, { strict: false })
+      const result = await sheets.syncAll(ctx.storeId, `telegram:${ctx.userId}`)
+      const rows = Array.isArray(result)
+        ? result.map((entry) => {
+            const record = entry as { sheetType?: string; type?: string; success?: boolean; rows?: number; error?: string }
+            const label = record.sheetType ?? record.type ?? 'sheet'
+            const ok = record.success !== false && !record.error
+            return `${ok ? '🟢' : '🔴'} ${escapeTelegramHtml(String(label))}${record.rows != null ? ` · ${record.rows} rows` : ''}${record.error ? ` · ${escapeTelegramHtml(record.error)}` : ''}`
+          })
+        : ['🟢 Sync completed']
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        tgJoin(tgHeader('📊', 'Google Sheets Sync', tgDhakaTime(new Date())), tgCard(rows)),
+        { parse_mode: 'HTML', reply_markup: inlineFinanceMenu() },
+      )
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Sheets sync failed'
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        `❌ Sheets sync failed — ${escapeTelegramHtml(errMsg)}`,
+        { parse_mode: 'HTML', reply_markup: inlineFinanceMenu() },
+      )
+    }
+    await this.logCommand(ctx.chatId, '/sync_sheets', ctx.userId)
   }
 
   private async executeAdminLogin(ctx: TelegramCtx): Promise<void> {
@@ -1402,7 +2044,15 @@ ${items}
     if (!linked) {
       await this.bot?.sendMessage(
         ctx.chatId,
-        `🔐 <b>Admin login</b>\n\nYour Telegram is not linked yet.\n\n1. Open Admin → Telegram Bot\n2. Tap <b>Generate link token</b>\n3. Send here:\n<code>/login XXXX-XXXX</code>\n\nThen request login from the admin panel.`,
+        tgJoin(
+          tgHeader('🔐', 'Link your Telegram', 'One-time setup — then login codes arrive here on their own.'),
+          tgCard([
+            '1. Open Admin → Telegram Bot',
+            '2. Tap <b>Generate link token</b>',
+            '3. Send it here as <code>/login XXXX-XXXX</code>',
+          ]),
+          'After linking, just sign in at the admin panel with your email — the token is pushed to this chat automatically.',
+        ),
         { parse_mode: 'HTML' },
       )
       return
@@ -1584,16 +2234,15 @@ ${items}
 
       const adminUrl = this.adminLoginUrl()
       const displayCode = formatLoginTokenDisplay(code)
-      const htmlMessage =
-        `┌──────────────────────────┐\n` +
-        `│  🔐 <b>SPLARO Admin Login</b>     │\n` +
-        `└──────────────────────────┘\n\n` +
-        `👤 Email: <code>${email}</code>\n` +
-        `🎟 Token: <code>${displayCode}</code>\n\n` +
-        `⏱ Valid for <b>10 minutes</b> · one-time use\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `📋 Tap <b>Copy Login Token</b> → paste → Verify\n` +
-        `<i>${adminUrl}</i>`
+      const htmlMessage = tgJoin(
+        tgHeader('🔐', 'SPLARO Admin Login', 'Requested from the admin panel just now'),
+        tgCard([
+          `👤 Email — <code>${escapeTelegramHtml(email)}</code>`,
+          `🎟 Token — <code>${escapeTelegramHtml(displayCode)}</code>`,
+          '⏱ Valid <b>10 minutes</b> · one-time use',
+        ]),
+        `📋 Tap <b>Copy Login Token</b> → paste → Verify\n<i>${escapeTelegramHtml(adminUrl)}</i>`,
+      )
       const plainMessage =
         `SPLARO Admin Login\n\n` +
         `Email: ${email}\n` +
@@ -1655,7 +2304,8 @@ ${items}
   }
 
   async getLoginDeliveryDiagnostics(storeIdRaw: string, email: string): Promise<TelegramDeliveryDiagnostics> {
-    const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    // Resolves for validation only — throws when the store slug is unknown.
+    await resolveStoreId(this.prisma, storeIdRaw)
     if (!this.bot) {
       const token = await this.resolveBotToken()
       if (!token) {
@@ -1699,29 +2349,71 @@ ${items}
     const tokenConfigured = this.botTokenSource !== 'none' || Boolean(await this.resolveBotToken())
     const webhookUrl = this.config.get<string>('TELEGRAM_WEBHOOK_URL')?.trim() || null
     const pollingEnv = this.config.get<string>('SPLARO_TELEGRAM_POLLING')
-    let transportMode: TelegramHealthSnapshot['transportMode'] = 'disabled'
-    if (this.bot) {
-      if (webhookUrl) transportMode = 'webhook'
-      else if (pollingEnv !== '0') transportMode = 'polling'
-      else transportMode = 'send-only'
-    }
+    const transportMode = resolveTelegramTransportMode({
+      botPresent: Boolean(this.bot),
+      tokenConfigured,
+      webhookUrl,
+      pollingEnabled: pollingEnv !== '0',
+    })
 
-    let botUsername: string | null = null
-    let webhookRegistered = false
+    let botUsername = this.cachedBotUsername
+    let webhookRegistered = this.cachedWebhookRegistered
     let networkVerified = false
 
     if (this.bot) {
       try {
-        const me = await this.bot.getMe()
-        botUsername = me.username ?? null
+        const me = await Promise.race([
+          this.bot.getMe(),
+          new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('getMe timeout')), 2500)
+          }),
+        ])
+        botUsername = me.username ?? this.cachedBotUsername
+        this.cachedBotUsername = botUsername
         networkVerified = true
         if (webhookUrl) {
-          const info = await this.bot.getWebHookInfo()
-          webhookRegistered = (info.url?.replace(/\/$/, '') ?? '') === webhookUrl.replace(/\/$/, '')
+          const info = await Promise.race([
+            this.bot.getWebHookInfo(),
+            new Promise<never>((_, reject) => {
+              setTimeout(() => reject(new Error('getWebHookInfo timeout')), 2500)
+            }),
+          ])
+          webhookRegistered = webhookUrlsMatch(webhookUrl, info.url)
+          this.cachedWebhookRegistered = webhookRegistered
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'getMe failed'
         this.logger.warn(`Telegram health check network error: ${msg}`)
+        webhookRegistered = this.cachedWebhookRegistered
+        botUsername = this.cachedBotUsername
+        networkVerified = this.lastDeliveryStatus === 'success' || this.cachedWebhookRegistered
+      }
+    }
+
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    let lastDeliveryStatus = this.lastDeliveryStatus
+    let lastDeliveryError = this.lastDeliveryError
+    let lastDeliveryAt = this.lastDeliveryAt
+    let recentSuccesses = 0
+
+    if (config) {
+      const [recentOk, lastLog] = await Promise.all([
+        this.prisma.telegramLog.count({
+          where: { configId: config.id, success: true, createdAt: { gte: dayAgo } },
+        }),
+        lastDeliveryStatus === 'none'
+          ? this.prisma.telegramLog.findFirst({
+              where: { configId: config.id },
+              orderBy: { createdAt: 'desc' },
+              select: { success: true, createdAt: true, message: true },
+            })
+          : Promise.resolve(null),
+      ])
+      recentSuccesses = recentOk
+      if (lastLog && lastDeliveryStatus === 'none') {
+        lastDeliveryStatus = lastLog.success ? 'success' : 'failed'
+        lastDeliveryAt = lastLog.createdAt
+        lastDeliveryError = lastLog.success ? null : lastLog.message
       }
     }
 
@@ -1731,6 +2423,16 @@ ${items}
       username: u.username,
       role: u.role,
     }))
+
+    const operational = resolveTelegramOperationalView({
+      tokenConfigured,
+      botRunning: Boolean(this.bot),
+      transportMode,
+      webhookRegistered,
+      networkVerified,
+      lastDeliveryStatus,
+      recentSuccesses,
+    })
 
     return {
       botTokenConfigured: tokenConfigured,
@@ -1744,10 +2446,15 @@ ${items}
       linkedAdmins,
       configChatIdMasked: config?.chatId ? maskTelegramId(config.chatId) : null,
       hasLinkedAdminChat: linkedAdmins.length > 0 || Boolean(config?.chatId),
-      lastDeliveryStatus: this.lastDeliveryStatus,
-      lastDeliveryError: this.lastDeliveryError,
-      lastDeliveryAt: this.lastDeliveryAt?.toISOString() ?? null,
+      lastDeliveryStatus,
+      lastDeliveryError,
+      lastDeliveryAt: lastDeliveryAt?.toISOString() ?? null,
       networkVerified,
+      operationalState: operational.state,
+      operationalLabel: operational.chipLabel,
+      operationalSync: operational.syncLabel,
+      transportValue: operational.transportValue,
+      transportDetail: operational.transportDetail,
     }
   }
 
@@ -1761,6 +2468,31 @@ ${items}
     this.lastDeliveryStatus = 'failed'
     this.lastDeliveryError = message
     this.lastDeliveryAt = new Date()
+  }
+
+  private async logNewOrderDispatch(
+    storeId: string,
+    invoiceNumber: string,
+    result: { delivered: boolean; recipient: string; error: string | null },
+  ): Promise<void> {
+    try {
+      await this.prisma.notificationDeliveryLog.create({
+        data: {
+          storeId,
+          channel: 'TELEGRAM',
+          recipient: result.recipient,
+          subject: `New order · ${invoiceNumber}`,
+          body: result.error ?? `Telegram new-order alert for ${invoiceNumber}`,
+          status: result.delivered ? 'DELIVERED' : 'FAILED',
+          level: 'critical',
+          errorMsg: result.error,
+        },
+      })
+    } catch (error) {
+      this.logger.warn(
+        `Telegram delivery log failed for ${invoiceNumber}: ${error instanceof Error ? error.message : error}`,
+      )
+    }
   }
 
   private shouldSendNotification(key: string, ttlMs = 60_000): boolean {
@@ -1798,7 +2530,18 @@ ${items}
 
     await this.bot?.sendMessage(
       ctx.chatId,
-      `${premiumHeader('SPLARO Live Status')}\n${apiEmoji} API: <b>${apiStatus}</b>${latestHealth?.responseMs ? ` (${latestHealth.responseMs}ms)` : ''}\nBot: ${botOk ? 'Running' : 'Disabled'}\n\nOrders today: <b>${todayOrders}</b>\nRevenue: <b>${formatBDT(Number(todayRevenue._sum.total ?? 0))}</b>\nPending: <b>${pending}</b>`,
+      tgJoin(
+        tgHeader('✦', 'Live Status', tgDhakaTime(new Date())),
+        tgCard([
+          `${apiEmoji} API — <b>${escapeTelegramHtml(apiStatus)}</b>${latestHealth?.responseMs ? ` · ${latestHealth.responseMs}ms` : ''}`,
+          `${botOk ? '🟢' : '🔴'} Bot — <b>${botOk ? 'running' : 'disabled'}</b>`,
+        ]),
+        tgCard([
+          `Orders today — <b>${todayOrders}</b>`,
+          `Revenue — <b>${escapeTelegramHtml(formatBDT(Number(todayRevenue._sum.total ?? 0)))}</b>`,
+          `Pending — <b>${pending}</b>`,
+        ]),
+      ),
       { parse_mode: 'HTML', reply_markup: inlineMainMenu() },
     )
     await this.logCommand(ctx.chatId, '/status', ctx.userId)
@@ -1827,18 +2570,27 @@ ${items}
     }
 
     const hasMore = orders.length > 5
-    const lines = orders
-      .slice(0, 5)
-      .map(
-        (o) =>
-          `• <code>${o.invoiceNumber}</code> · ${o.status.replace(/_/g, ' ')} · ${formatBDT(Number(o.total))}\n  ${o.shippingName}`,
-      )
-      .join('\n')
+    const visible = orders.slice(0, 5)
+    const rows = visible.map(
+      (o) =>
+        `${tgStatusEmoji(o.status)} <code>${escapeTelegramHtml(o.invoiceNumber)}</code> · ${escapeTelegramHtml(o.shippingName)}\n   ${escapeTelegramHtml(tgPrettyStatus(o.status))} · <b>${escapeTelegramHtml(formatBDT(Number(o.total)))}</b> · ${escapeTelegramHtml(tgDhakaTime(o.createdAt))}`,
+    )
+
+    const keyboard = orderListKeyboard(page, hasMore)
+    keyboard.inline_keyboard = [
+      ...visible.map((o) => [
+        { text: `📂 ${o.invoiceNumber}`, callback_data: orderCallback('open', o.invoiceNumber) },
+      ]),
+      ...keyboard.inline_keyboard,
+    ]
 
     await this.bot?.sendMessage(
       ctx.chatId,
-      `${premiumHeader(`Latest Orders · Page ${page + 1}`)}\n${lines}\n\n<i>/order SPL-1001 for details</i>`,
-      { parse_mode: 'HTML', reply_markup: orderListKeyboard(page, hasMore) },
+      tgJoin(
+        tgHeader('📦', 'Latest Orders', `Page ${page + 1}`),
+        tgCard([rows.join('\n\n')]),
+      ),
+      { parse_mode: 'HTML', reply_markup: keyboard },
     )
     await this.logCommand(ctx.chatId, '/orders', ctx.userId)
   }
@@ -1984,15 +2736,16 @@ ${items}
     )
     const adminOrderUrl = `${adminBase.replace(/\/+$/, '').replace(/\/login$/i, '')}/dashboard/orders/${encodeURIComponent(order.invoiceNumber)}`
 
-    const msg = `
-📄 <b>Invoice · ${escapeTelegramHtml(order.invoiceNumber)}</b>
-
-Customer: ${escapeTelegramHtml(order.shippingName)} (<code>${escapeTelegramHtml(order.shippingPhone)}</code>)
-Total: <b>${escapeTelegramHtml(formatBDT(Number(order.total)))}</b>
-Status: <b>${escapeTelegramHtml(order.status.replace(/_/g, ' '))}</b>
-
-🔗 <a href="${webInvoiceUrl}">View / Print Customer Invoice</a>
-`.trim()
+    const msg = tgJoin(
+      tgHeader('📄', `Invoice · ${order.invoiceNumber}`, tgDhakaTime(order.createdAt)),
+      tgCard([
+        `👤 ${escapeTelegramHtml(order.shippingName)}`,
+        `📞 <code>${escapeTelegramHtml(order.shippingPhone)}</code>`,
+        `${tgStatusEmoji(order.status)} Status — <b>${escapeTelegramHtml(tgPrettyStatus(order.status))}</b>`,
+        `💵 Total — <b>${escapeTelegramHtml(formatBDT(Number(order.total)))}</b>`,
+      ]),
+      `🔗 <a href="${webInvoiceUrl}">View / print customer invoice</a>`,
+    )
 
     await this.bot?.sendMessage(ctx.chatId, msg, {
       parse_mode: 'HTML',
@@ -2000,6 +2753,7 @@ Status: <b>${escapeTelegramHtml(order.status.replace(/_/g, ' '))}</b>
         adminOrderUrl,
         storefrontUrl: webInvoiceUrl,
         phone: order.shippingPhone,
+        status: order.status,
       }),
     })
     await this.logCommand(ctx.chatId, `/invoice ${invoiceNumber}`, ctx.userId)
@@ -2046,37 +2800,41 @@ Status: <b>${escapeTelegramHtml(order.status.replace(/_/g, ' '))}</b>
       (o) => o.status === 'RETURNED' || o.status === 'CANCELLED',
     ).length
 
-    let sfText = '⚠️ Steadfast API not connected or no data'
+    const riskRows: string[] = []
     if (sfRes && sfRes.totalParcels > 0) {
       const icon = sfRes.successRate >= 70 ? '🟢' : sfRes.successRate >= 50 ? '🟡' : '🔴'
-      sfText = `${icon} <b>${sfRes.successRate}% Success Rate</b>\n• Total parcels: ${sfRes.totalParcels}\n• Delivered: ${sfRes.delivered}\n• Cancelled/Returned: ${sfRes.cancelled}`
+      riskRows.push(`${icon} Success rate — <b>${sfRes.successRate}%</b>`)
+      riskRows.push(
+        `Parcels — ${sfRes.totalParcels} · delivered ${sfRes.delivered} · returned ${sfRes.cancelled}`,
+      )
+    } else {
+      riskRows.push('⚪️ Steadfast — no network history for this number')
     }
 
-    const orderLines = pastOrders.length
-      ? pastOrders.map((o) => `• <code>${o.invoiceNumber}</code> · ${o.status} · ${formatBDT(Number(o.total))}`).join('\n')
-      : '• No past orders in this store'
+    const orderRows = pastOrders.length
+      ? pastOrders.map(
+          (o) =>
+            `${tgStatusEmoji(o.status)} <code>${escapeTelegramHtml(o.invoiceNumber)}</code> · ${escapeTelegramHtml(tgPrettyStatus(o.status))} · <b>${escapeTelegramHtml(formatBDT(Number(o.total)))}</b>`,
+        )
+      : ['No past orders in this store']
 
-    const wa = formatWhatsAppUrl(phone)
-    const replyMarkup = wa
-      ? {
-          inline_keyboard: [[{ text: '💬 WhatsApp Customer', url: wa }]],
-        }
-      : undefined
-
-    const msg = `
-🔍 <b>Customer Report:</b> <code>${escapeTelegramHtml(phone)}</code>
-
-🚚 <b>Steadfast Network Rating:</b>
-${sfText}
-
-📦 <b>Store History (${totalOrders} orders):</b>
-• Delivered: <b>${delivered}</b> · Cancelled/Returned: <b>${returnedOrCancelled}</b>
-${orderLines}
-`.trim()
+    const msg = tgJoin(
+      tgHeader('🔍', 'Customer Report', phone),
+      `<b>Courier network</b>\n${tgCard(riskRows)}`,
+      `<b>Store history</b>\n${tgCard([
+        `Orders — <b>${totalOrders}</b>`,
+        `Delivered — <b>${delivered}</b> · Returned/cancelled — <b>${returnedOrCancelled}</b>`,
+      ])}`,
+      tgCard(orderRows),
+    )
 
     await this.bot?.sendMessage(ctx.chatId, msg, {
       parse_mode: 'HTML',
-      reply_markup: replyMarkup,
+      link_preview_options: { is_disabled: true },
+      reply_markup: customerCopyKeyboard({
+        phone,
+        ...(pastOrders[0] ? { invoice: pastOrders[0].invoiceNumber } : {}),
+      }),
     })
     await this.logCommand(ctx.chatId, `/check ${phone}`, ctx.userId)
   }

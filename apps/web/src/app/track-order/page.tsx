@@ -4,7 +4,7 @@ import TrackOrderClient from './page-client'
 
 export const metadata: Metadata = {
   title: 'Track Order',
-  description: 'Track your SPLARO orders with the phone number used at checkout.',
+  description: 'Track your SPLARO order with SPL-#### or the phone number used at checkout.',
 }
 
 type TrackOrderPageProps = {

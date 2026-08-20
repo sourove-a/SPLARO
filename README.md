@@ -913,7 +913,7 @@ SPLARO-BRAND/
 
 - `[LIVE]` Auto-generated invoice on every order
 - `[LIVE]` A4 luxury PDF / printable web invoice (`/invoices/SPL-####`)
-- `[LIVE]` Invoice number format: `SPL-YYYY-#####`
+- `[LIVE]` Invoice number format: `SPL-####`
 - `[LIVE]` Tax breakdown and delivery fee itemization
 - `[LIVE]` 1-click invoice print directly from admin order details
 - `[LIVE]` Clean brand header sanitization (never localhost)

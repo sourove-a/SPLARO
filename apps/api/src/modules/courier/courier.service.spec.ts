@@ -77,6 +77,7 @@ describe('CourierService booking honesty', () => {
         trackingCode: 'TRK-1',
         trackingUrl: 'https://steadfast.com.bd/t/1',
       }),
+      hasRealCredentials: jest.fn().mockResolvedValue(true),
     }
 
     const service = new CourierService(
@@ -145,7 +146,7 @@ describe('CourierService booking honesty', () => {
     } as unknown as PrismaService
     const service = new CourierService(
       prisma,
-      { createParcel } as never,
+      { createParcel, hasRealCredentials: jest.fn().mockResolvedValue(true) } as never,
       {} as never,
       {} as never,
       {} as never,
@@ -162,6 +163,57 @@ describe('CourierService booking honesty', () => {
     expect(result.success).toBe(false)
     expect(createParcel).not.toHaveBeenCalled()
     expect(upsert).not.toHaveBeenCalled()
+  })
+
+  it('refuses an unconfigured provider before calling the courier API', async () => {
+    const createOrder = jest.fn()
+    const prisma = {
+      order: {
+        findFirst: jest.fn().mockResolvedValue({ ...order, courier: null }),
+      },
+      courierShipment: { upsert: jest.fn(), findUnique: jest.fn().mockResolvedValue(null) },
+    } as unknown as PrismaService
+    const service = new CourierService(
+      prisma,
+      { hasRealCredentials: jest.fn().mockResolvedValue(true) } as never,
+      { createOrder, isConfigured: jest.fn().mockResolvedValue(false) } as never,
+      { isConfigured: jest.fn().mockResolvedValue(false) } as never,
+      { isConfigured: jest.fn().mockReturnValue(false) } as never,
+      { isConfigured: jest.fn().mockReturnValue(false) } as never,
+      { isConfigured: jest.fn().mockReturnValue(false) } as never,
+      { notifyAdmin: jest.fn() } as never,
+      null,
+      { add: jest.fn() } as never,
+      { isReady: () => true } as unknown as RedisService,
+      orderStatus,
+    )
+    const result = await service.bookCourier('ord-1', 'PATHAO' as never)
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/not configured/i)
+    expect(createOrder).not.toHaveBeenCalled()
+  })
+
+  it('lists Steadfast as the only configured provider when others have no keys', async () => {
+    const prisma = {
+      order: { findFirst: jest.fn() },
+      courierShipment: { upsert: jest.fn(), findUnique: jest.fn() },
+    } as unknown as PrismaService
+    const service = new CourierService(
+      prisma,
+      { hasRealCredentials: jest.fn().mockResolvedValue(true) } as never,
+      { isConfigured: jest.fn().mockResolvedValue(false) } as never,
+      { isConfigured: jest.fn().mockResolvedValue(false) } as never,
+      { isConfigured: jest.fn().mockReturnValue(false) } as never,
+      { isConfigured: jest.fn().mockReturnValue(false) } as never,
+      { isConfigured: jest.fn().mockReturnValue(false) } as never,
+      { notifyAdmin: jest.fn() } as never,
+      null,
+      { add: jest.fn() } as never,
+      { isReady: () => true } as unknown as RedisService,
+      orderStatus,
+    )
+    const providers = await service.listProviders('store-1')
+    expect(providers.filter((p) => p.configured).map((p) => p.value)).toEqual(['STEADFAST'])
   })
 })
 

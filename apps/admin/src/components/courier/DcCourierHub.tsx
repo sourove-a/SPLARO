@@ -10,7 +10,7 @@ import { DcScreenProvider, useDcScreen } from '@/components/dc/DcScreenContext'
 import { DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
-import { useCourierShipments, useCourierStats } from '@/lib/api/hooks'
+import { useCourierShipments, useCourierStats, useCourierProviders } from '@/lib/api/hooks'
 import {
   bookCourierShipment,
   retryCourierShipment,
@@ -19,13 +19,16 @@ import {
   cancelCourierBookingLocal,
   updateCourierStatus,
   bulkUpdateCourierStatus,
+  pickBookableCourierProvider,
   type CourierShipmentRow,
+  type CourierProviderOption,
 } from '@/lib/api/courier'
 import { toastCourierResult, toastFail, toastInfo, toastOk, toastWarn } from '@/lib/admin/feedback'
 import { isDevCourierConsignment, isLiveCourierConsignment } from '@/lib/admin/courier-save'
 import { DcModal } from '@/components/dc/DcModal'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { formatBdPhone } from '@/lib/format/bd-phone'
 
 const card = {
   border: '1px solid var(--line)',
@@ -90,6 +93,22 @@ function label(status: string) {
   return status.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase())
 }
 
+function providerOptionLabel(p: CourierProviderOption, recommended: boolean) {
+  if (!p.configured) return `${p.label} — Setup required`
+  if (recommended && p.recommended) return `${p.label} (Recommended)`
+  return p.label
+}
+
+function bookingSelectOptions(loaded: CourierProviderOption[]): CourierProviderOption[] {
+  if (loaded.length > 0) return loaded
+  return COURIER_PROVIDERS.filter((p) => p.value).map((p) => ({
+    value: p.value,
+    label: p.label,
+    recommended: p.value === 'STEADFAST',
+    configured: false,
+  }))
+}
+
 function stableTime(value?: string | null) {
   if (!value) return '—'
   if (!value.includes('T')) return value
@@ -109,6 +128,8 @@ function DcCourierBody() {
   const router = useRouter()
   const { toast } = useDcScreen()
   const qc = useQueryClient()
+  const providersQuery = useCourierProviders()
+  const bookingProviders = providersQuery.data?.providers ?? []
 
   // Filters and search state
   const [statusTab, setStatusTab] = useState<string>('ALL')
@@ -500,9 +521,15 @@ function DcCourierBody() {
                         }}
                         style={{ ...inputStyle, flex: '0 0 auto' }}
                       >
-                        {COURIER_PROVIDERS.map((p) => (
-                          <option key={p.value} value={p.value}>{p.label}</option>
-                        ))}
+                        {COURIER_PROVIDERS.map((p) => {
+                          const meta = bookingProviders.find((row) => row.value === p.value)
+                          const setupNeeded = Boolean(p.value && meta && !meta.configured)
+                          return (
+                            <option key={p.value || 'all'} value={p.value}>
+                              {setupNeeded ? `${p.label} — Setup required` : p.label}
+                            </option>
+                          )
+                        })}
                       </select>
 
                       {selectedIds.length > 0 ? (
@@ -632,7 +659,7 @@ function DcCourierBody() {
                                       {r.order?.shippingName ?? '—'}
                                     </strong>
                                     <span style={{ font: `400 11px/1.2 ${MONO}`, color: 'var(--ink-3)' }}>
-                                      {r.order?.shippingPhone ?? '—'}
+                                      {r.order?.shippingPhone ? formatBdPhone(r.order.shippingPhone) : '—'}
                                     </span>
                                   </div>
                                 </td>
@@ -697,7 +724,7 @@ function DcCourierBody() {
                                         type="button"
                                         disabled={bookMutation.isPending}
                                         onClick={() => {
-                                          setSelectedProvider(r.provider || 'STEADFAST')
+                                          setSelectedProvider(pickBookableCourierProvider(r.provider, bookingProviders))
                                           setConfirmBook({ orderId: r.orderId, invoice: r.order?.invoiceNumber ?? r.orderId })
                                         }}
                                         style={{
@@ -718,7 +745,7 @@ function DcCourierBody() {
                                         type="button"
                                         disabled={retryMutation.isPending}
                                         onClick={() => {
-                                          setRetryProvider(r.provider || 'STEADFAST')
+                                          setRetryProvider(pickBookableCourierProvider(r.provider, bookingProviders))
                                           setConfirmRetry({ orderId: r.orderId, invoice: r.order?.invoiceNumber ?? r.orderId })
                                         }}
                                         style={{
@@ -961,8 +988,17 @@ function DcCourierBody() {
         subtitle="Dispatches parcel to the courier API and assigns an official consignment ID."
         confirmLabel="Confirm & Book"
         busy={bookMutation.isPending}
+        disabled={!bookingProviders.some((p) => p.value === selectedProvider && p.configured)}
+        disabledLabel="Setup required"
         onClose={() => setConfirmBook(null)}
-        onConfirm={() => confirmBook && bookMutation.mutate({ orderId: confirmBook.orderId, provider: selectedProvider })}
+        onConfirm={() => {
+          if (!confirmBook) return
+          if (!bookingProviders.some((p) => p.value === selectedProvider && p.configured)) {
+            toastWarn('This courier needs credentials in Settings → Infrastructure')
+            return
+          }
+          bookMutation.mutate({ orderId: confirmBook.orderId, provider: selectedProvider })
+        }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -972,14 +1008,18 @@ function DcCourierBody() {
               onChange={(e) => setSelectedProvider(e.target.value)}
               style={inputStyle}
             >
-              <option value="STEADFAST">Steadfast Courier (Recommended)</option>
-              <option value="PATHAO">Pathao Courier</option>
-              <option value="REDX">REDX</option>
-              <option value="PAPERFLY">Paperfly</option>
-              <option value="SUNDARBAN">Sundarban Courier</option>
-              <option value="SA_PARIBAHAN">SA Paribahan</option>
+              {bookingSelectOptions(bookingProviders).map((p) => (
+                <option key={p.value} value={p.value} disabled={!p.configured}>
+                  {providerOptionLabel(p, true)}
+                </option>
+              ))}
             </select>
           </label>
+          {!bookingProviders.some((p) => p.configured) ? (
+            <span style={{ font: `400 11px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
+              No courier credentials saved. Configure Steadfast in Settings → Infrastructure.
+            </span>
+          ) : null}
         </div>
       </DcModal>
 
@@ -990,8 +1030,17 @@ function DcCourierBody() {
         subtitle="Sends the parcel to the courier again. If recipient info was faulty, verify order address first."
         confirmLabel="Retry Shipment"
         busy={retryMutation.isPending}
+        disabled={!bookingProviders.some((p) => p.value === retryProvider && p.configured)}
+        disabledLabel="Setup required"
         onClose={() => setConfirmRetry(null)}
-        onConfirm={() => confirmRetry && retryMutation.mutate({ orderId: confirmRetry.orderId, provider: retryProvider })}
+        onConfirm={() => {
+          if (!confirmRetry) return
+          if (!bookingProviders.some((p) => p.value === retryProvider && p.configured)) {
+            toastWarn('This courier needs credentials in Settings → Infrastructure')
+            return
+          }
+          retryMutation.mutate({ orderId: confirmRetry.orderId, provider: retryProvider })
+        }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1001,12 +1050,11 @@ function DcCourierBody() {
               onChange={(e) => setRetryProvider(e.target.value)}
               style={inputStyle}
             >
-              <option value="STEADFAST">Steadfast Courier</option>
-              <option value="PATHAO">Pathao Courier</option>
-              <option value="REDX">REDX</option>
-              <option value="PAPERFLY">Paperfly</option>
-              <option value="SUNDARBAN">Sundarban Courier</option>
-              <option value="SA_PARIBAHAN">SA Paribahan</option>
+              {bookingSelectOptions(bookingProviders).map((p) => (
+                <option key={p.value} value={p.value} disabled={!p.configured}>
+                  {providerOptionLabel(p, false)}
+                </option>
+              ))}
             </select>
           </label>
         </div>
@@ -1157,7 +1205,7 @@ function DcCourierBody() {
             <div style={{ padding: '11px 13px', borderRadius: 9, background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: 5 }}>
               <span style={{ font: `600 10.5px/1 ${FONT}`, color: 'var(--ink-3)', textTransform: 'uppercase' }}>Recipient Info</span>
               <strong style={{ font: `600 13px/1.2 ${FONT}`, color: 'var(--ink)' }}>{shipmentDetail.data.order?.shippingName}</strong>
-              <span style={{ font: `400 11.5px/1.2 ${MONO}`, color: 'var(--ink-2)' }}>{shipmentDetail.data.order?.shippingPhone}</span>
+              <span style={{ font: `400 11.5px/1.2 ${MONO}`, color: 'var(--ink-2)' }}>{shipmentDetail.data.order?.shippingPhone ? formatBdPhone(shipmentDetail.data.order.shippingPhone) : '—'}</span>
               <span style={{ font: `400 11.5px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>{shipmentDetail.data.order?.shippingAddress ?? 'No address'}</span>
             </div>
 

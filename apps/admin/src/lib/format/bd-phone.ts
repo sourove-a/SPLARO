@@ -1,9 +1,8 @@
 /**
- * Bangladesh phone formatting.
+ * Bangladesh phone formatting for the staff admin.
  *
- * House format is `01905-010205` — 11 digits, hyphen after the operator prefix.
- * The public support number is the only one shown internationally.
- * Search must be digit-aware, so `digitsOf` is exported alongside.
+ * Display is the full 11-digit local number (`01905010205`) — no hyphen, no
+ * masking. Search must be digit-aware, so `digitsOf` is exported alongside.
  */
 
 const BD_OPERATOR: Record<string, string> = {
@@ -27,11 +26,11 @@ export function localBdNumber(value: string | null | undefined): string {
   return d.length === 10 ? `0${d}` : d
 }
 
-/** `01905-010205`. Returns the input untouched when it is not an 11-digit BD number. */
+/** Full 11-digit local number for staff. Untouched when it is not a BD mobile. */
 export function formatBdPhone(value: string | null | undefined): string {
   const local = localBdNumber(value)
   if (local.length !== 11) return String(value ?? '')
-  return `${local.slice(0, 5)}-${local.slice(5)}`
+  return local
 }
 
 /** `tel:` target, always international so it dials from any handset. */

@@ -28,6 +28,17 @@ describe('resolveRoutePermission unmapped writes', () => {
     })
   })
 
+  it('maps Export Center history and log onto orders:view', () => {
+    expect(resolveRoutePermission('admin/exports/history', 'GET')).toEqual({
+      moduleSlug: 'orders',
+      action: 'view',
+    })
+    expect(resolveRoutePermission('admin/exports/log', 'POST')).toEqual({
+      moduleSlug: 'orders',
+      action: 'view',
+    })
+  })
+
   it('still skips the staff-self Telegram link path', () => {
     expect(resolveRoutePermission('admin/security/staff/me/telegram-link-token', 'POST')).toBeNull()
   })

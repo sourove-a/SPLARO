@@ -37,7 +37,7 @@ function preferLocalConnectUrl(serverUrl: string | undefined): string {
   return fromServer ? toStreamableUrl(fromServer) : DEFAULT_CONNECT_URL
 }
 
-export function McpLinkTokenPanel() {
+export function McpLinkTokenPanel({ embedded = false }: { embedded?: boolean }) {
   const adminSession = useAdminSession()
   const isOwner = adminSession.data?.role === 'SUPER_ADMIN'
   const [tokens, setTokens] = useState<McpTokenRow[]>([])
@@ -84,22 +84,30 @@ export function McpLinkTokenPanel() {
     void probeUpstream()
   }, [reload, probeUpstream])
 
+  const shellStyle: CSSProperties | undefined = embedded
+    ? undefined
+    : { padding: 16, borderRadius: 12, border: '1px solid var(--line-2)' }
+  const Shell = embedded ? 'div' : 'section'
+  const shellProps = embedded ? {} : { id: 'mcp-link-token' as const }
+
   if (adminSession.isLoading) {
     return (
-      <section id="mcp-link-token" style={{ padding: 16, borderRadius: 12, border: '1px solid var(--line-2)' }}>
+      <Shell {...shellProps} style={shellStyle}>
         <p style={{ margin: 0, font: `400 12.5px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>Loading MCP controls…</p>
-      </section>
+      </Shell>
     )
   }
 
   if (!isOwner) {
     return (
-      <section id="mcp-link-token" style={{ padding: 16, borderRadius: 12, border: '1px solid var(--line-2)' }}>
-        <p style={{ margin: 0, font: `700 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>Private MCP link</p>
-        <p style={{ margin: '6px 0 0', font: `400 12.5px/1.55 ${FONT}`, color: 'var(--ink-2)' }}>
+      <Shell {...shellProps} style={shellStyle}>
+        {embedded ? null : (
+          <p style={{ margin: 0, font: `700 13.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>Private MCP link</p>
+        )}
+        <p style={{ margin: embedded ? 0 : '6px 0 0', font: `400 12.5px/1.55 ${FONT}`, color: 'var(--ink-2)' }}>
           Owner (SUPER_ADMIN) only — ask the store owner to generate a ChatGPT/Claude link token.
         </p>
-      </section>
+      </Shell>
     )
   }
 
@@ -187,11 +195,13 @@ export function McpLinkTokenPanel() {
   const isOnline = upstreamOk === true
 
   return (
-    <section id="mcp-link-token" style={card}>
+    <Shell {...shellProps} style={embedded ? undefined : card}>
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, marginBottom: 16 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <p style={{ margin: 0, font: `700 14px/1.3 ${FONT}`, color: 'var(--ink)' }}>Private MCP link</p>
+            {embedded ? null : (
+              <p style={{ margin: 0, font: `700 14px/1.3 ${FONT}`, color: 'var(--ink)' }}>Private MCP link</p>
+            )}
             <span
               style={{
                 display: 'inline-flex',
@@ -373,6 +383,6 @@ export function McpLinkTokenPanel() {
           ))}
         </ul>
       )}
-    </section>
+    </Shell>
   )
 }

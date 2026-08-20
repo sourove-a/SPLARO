@@ -25,6 +25,7 @@ export type UploadAdminImageResult = {
   aiUpscaled?: boolean
   originalUrl?: string
   publicUrl?: string
+  r2Url?: string | null
   width?: number | null
   height?: number | null
   sizeBytes?: number

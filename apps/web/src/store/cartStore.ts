@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { displaySizeLabel } from '@splaro/config'
 
 export interface CartItem {
   productId: string
@@ -40,8 +41,8 @@ function preferColorLabel(a?: string, b?: string): string | undefined {
 function sameCartLine(a: CartItem, b: Pick<CartItem, 'productId' | 'variantId' | 'size' | 'color'>) {
   if (a.productId !== b.productId) return false
 
-  const sizeA = normPart(a.size)
-  const sizeB = normPart(b.size)
+  const sizeA = normPart(displaySizeLabel(a.size))
+  const sizeB = normPart(displaySizeLabel(b.size))
   if (sizeA && sizeB && sizeA !== sizeB) return false
 
   const varA = a.variantId ?? ''
@@ -71,15 +72,20 @@ function mergeCartLine(existing: CartItem, incoming: CartItem): CartItem {
 
 export type CartLineRef = Pick<CartItem, 'productId' | 'variantId' | 'size' | 'color'>
 
+function withCorrectSize<T extends { size?: string }>(item: T): T {
+  const size = displaySizeLabel(item.size)
+  return size ? { ...item, size } : item
+}
+
 export function cartLineKey(line: CartLineRef) {
-  return `${line.productId}:${line.variantId ?? ''}:${line.size ?? ''}:${line.color ?? ''}`
+  return `${line.productId}:${line.variantId ?? ''}:${displaySizeLabel(line.size)}:${line.color ?? ''}`
 }
 
 export function toCartLineRef(item: CartItem): CartLineRef {
   return {
     productId: item.productId,
     ...(item.variantId !== undefined ? { variantId: item.variantId } : {}),
-    ...(item.size !== undefined ? { size: item.size } : {}),
+    ...(displaySizeLabel(item.size) ? { size: displaySizeLabel(item.size) } : {}),
     ...(item.color !== undefined ? { color: item.color } : {}),
   }
 }
@@ -115,14 +121,15 @@ export const useCartStore = create<CartStore>()(
       setHydrated: () => set({ _hydrated: true }),
 
       addItem: (newItem) => {
+        const incoming = withCorrectSize(newItem)
         const items = get().items
-        const existing = items.find((i) => sameCartLine(i, newItem))
+        const existing = items.find((i) => sameCartLine(i, incoming))
 
         let updated: CartItem[]
         if (existing) {
-          updated = items.map((i) => (sameCartLine(i, newItem) ? mergeCartLine(i, newItem) : i))
+          updated = items.map((i) => (sameCartLine(i, incoming) ? mergeCartLine(i, incoming) : i))
         } else {
-          updated = [...items, newItem as CartItem]
+          updated = [...items, incoming as CartItem]
         }
 
         set({ items: updated, ...cartTotals(updated) })
@@ -145,7 +152,8 @@ export const useCartStore = create<CartStore>()(
       },
 
       replaceItems: (items) => {
-        set({ items, ...cartTotals(items) })
+        const next = items.map((item) => withCorrectSize(item))
+        set({ items: next, ...cartTotals(next) })
       },
 
       clearCart: () => set({ items: [], itemCount: 0, subtotal: 0 }),

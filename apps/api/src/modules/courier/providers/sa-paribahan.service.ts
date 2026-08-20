@@ -29,6 +29,10 @@ export class SaParibahonService {
     this.clientId = this.config.get<string>('SA_PARIBAHAN_CLIENT_ID') ?? ''
   }
 
+  isConfigured(): boolean {
+    return Boolean(this.apiKey.trim() && this.clientId.trim())
+  }
+
   async createParcel(payload: SaParibahonPayload): Promise<CourierBookingResult> {
     if (!this.apiKey || !this.clientId) {
       return { success: false, error: 'SA_PARIBAHAN_API_KEY and SA_PARIBAHAN_CLIENT_ID not configured' }

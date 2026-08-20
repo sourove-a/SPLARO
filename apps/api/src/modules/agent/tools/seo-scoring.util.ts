@@ -60,7 +60,7 @@ export function scoreProductSeo(product: {
     suggestions.metaTitle = `${product.name} | SPLARO Bangladesh`.slice(0, 60)
   }
   if (!desc || desc.length < 120) {
-    const base = `Shop ${product.name} at SPLARO — premium women's fashion in Bangladesh. Quality fabric, elegant design, fast delivery.`
+    const base = `Shop ${product.name} at SPLARO — fashion for men, women and kids in Bangladesh. Secure checkout and nationwide delivery.`
     suggestions.metaDescription = base.slice(0, 160)
   }
 

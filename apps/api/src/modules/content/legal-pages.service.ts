@@ -3,6 +3,7 @@ import {
   DEFAULT_LEGAL_PAGES,
   LEGAL_PAGE_CATALOG,
   LEGAL_PAGE_SLUGS,
+  legalPageLooksStale,
   type LegalPageContent,
   type LegalPageSlug,
 } from '@splaro/types'
@@ -30,33 +31,71 @@ function catalogMeta(slug: LegalPageSlug) {
   return meta
 }
 
+export function rewriteStaleOrderFormat(body: string) {
+  return body.replace(/SPL-YYYY-X+/gi, 'SPL-####').replace(/SPL-YYYY-#+/g, 'SPL-####')
+}
+
+/** Drop VAT claims until a real tax rate is configured and calculated. */
+export function rewriteUnconfiguredVatCopy(body: string) {
+  return body
+    .replace(
+      /All prices are listed in Bangladeshi Taka \(BDT\) inclusive of applicable VAT where stated\./gi,
+      'All prices are listed in Bangladeshi Taka (BDT).',
+    )
+    .replace(/A VAT invoice is included/gi, 'An invoice is included')
+    .replace(/\binclusive of applicable VAT( where stated)?\b/gi, '')
+    .replace(/\bVAT invoice\b/gi, 'invoice')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/ \./g, '.')
+}
+
+function firstText(...values: Array<string | null | undefined>): string {
+  for (const value of values) {
+    if (value?.trim()) return value.trim()
+  }
+  return ''
+}
+
+function withFallbackMeta(
+  content: LegalPageContent,
+  fallback: LegalPageContent,
+  row?: Pick<SitePage, 'metaTitle' | 'metaDesc'>,
+): LegalPageContent {
+  return {
+    ...content,
+    metaTitle:
+      firstText(row?.metaTitle, content.metaTitle, fallback.metaTitle, fallback.title) || fallback.title,
+    metaDescription:
+      firstText(row?.metaDesc, content.metaDescription, fallback.metaDescription, fallback.description) ||
+      fallback.description,
+  }
+}
+
 function parseStoredContent(row: SitePage, slug: LegalPageSlug): LegalPageContent {
   const fallback = DEFAULT_LEGAL_PAGES[slug]
-  if (!row.content) return fallback
+  if (!row.content) return withFallbackMeta(fallback, fallback, row)
 
   try {
     const parsed = JSON.parse(row.content) as Partial<LegalPageContent>
     if (Array.isArray(parsed.sections) && parsed.sections.length > 0) {
-      return {
+      const content: LegalPageContent = {
         title: parsed.title?.trim() || row.title || fallback.title,
         description: parsed.description?.trim() || row.metaDesc || fallback.description,
         sections: parsed.sections.map((section) => ({
           heading: section.heading?.trim() || 'Section',
-          body: section.body?.trim() || '',
+          body: rewriteUnconfiguredVatCopy(rewriteStaleOrderFormat(section.body?.trim() || '')),
         })),
-        metaTitle: row.metaTitle ?? parsed.metaTitle ?? parsed.title ?? fallback.title,
-        metaDescription: row.metaDesc ?? parsed.metaDescription ?? parsed.description ?? fallback.description,
+        metaTitle: parsed.metaTitle,
+        metaDescription: parsed.metaDescription,
       }
+      if (legalPageLooksStale(content)) return withFallbackMeta(fallback, fallback, row)
+      return withFallbackMeta(content, fallback, row)
     }
   } catch {
     /* fall through */
   }
 
-  return {
-    ...fallback,
-    metaTitle: row.metaTitle ?? fallback.title,
-    metaDescription: row.metaDesc ?? fallback.description,
-  }
+  return withFallbackMeta(fallback, fallback, row)
 }
 
 @Injectable()

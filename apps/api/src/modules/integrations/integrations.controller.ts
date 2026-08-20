@@ -323,7 +323,7 @@ export class IntegrationsController {
 
         const tokenIssue =
           (item.provider === 'gmail' || item.provider === 'google_sheets' || item.provider === 'google_drive') &&
-          (googleStatus?.tokenHealth === 'expired' || googleStatus?.tokenHealth === 'revoked')
+          (googleStatus?.tokenHealth === 'needs_reconnect' || googleStatus?.tokenHealth === 'degraded')
 
         return {
           id: item.id,

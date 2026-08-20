@@ -10,7 +10,7 @@ import { FONT, MONO, formatTaka, statusToneStyle } from '@/components/dc/tokens'
 import { resolveMediaUrl } from '@/lib/media-url'
 import { downloadInvoice } from '@/lib/admin/admin-actions'
 import { formatBdPhone, operatorOf, telHref } from '@/lib/format/bd-phone'
-import { formatCleanAddress } from '@splaro/config'
+import { formatCleanAddress, displaySizeLabel } from '@splaro/config'
 import { verifyDeleteSuccess } from '@/lib/admin/mutation-verify'
 import { useDeleteOrder, useOrder, usePermission, useUpdateOrderStatus } from '@/lib/api/hooks'
 import type { ApiOrder } from '@/lib/api/orders'
@@ -367,7 +367,7 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
                 <span style={sectionTitle}>Items</span>
                 {(d.items ?? []).map((it) => {
                   const name = it.productName ?? it.product?.name ?? 'Product'
-                  const variant = [it.variant?.size, it.variant?.color].filter(Boolean).join(' · ')
+                  const variant = [displaySizeLabel(it.variant?.size), it.variant?.color].filter(Boolean).join(' · ')
                   // The drawer used to render a striped placeholder unconditionally —
                   // the order item carries an image on three possible fields.
                   const rawThumb =
@@ -752,12 +752,12 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
       />
       <DcModal
         open={confirmDelete}
-        title={d ? `Delete ${d.invoiceNumber} permanently?` : 'Delete order permanently?'}
-        subtitle="Order, invoice, payment, courier, return, stock reservation, loyalty reward, and related records will be removed. Inventory is restored. This cannot be undone."
-        confirmLabel="Delete permanently"
+        title={d ? `Cancel ${d.invoiceNumber}?` : 'Cancel order?'}
+        subtitle="The order stays on file as CANCELLED. Inventory is restored. This invoice number is retired and will never be given to a new order."
+        confirmLabel="Cancel and retire number"
         danger
         busy={deleteOrder.isPending}
-        busyLabel="Deleting…"
+        busyLabel="Cancelling…"
         onClose={() => {
           if (deleteOrder.isPending) return
           setConfirmDelete(false)
@@ -775,8 +775,8 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
               if (!verifyDeleteSuccess(saved)) return
               toast(
                 'ok',
-                `${d.invoiceNumber} permanently deleted`,
-                'Server confirmed deletion and restored inventory.',
+                `${d.invoiceNumber} cancelled`,
+                'Number retired — it will not be given to a new order.',
               )
               setConfirmDelete(false)
               setDeleteConfirmation('')
@@ -785,7 +785,7 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
             .catch((err: unknown) => {
               toast(
                 'bad',
-                'Could not delete order',
+                'Could not cancel order',
                 err instanceof Error ? err.message : `DELETE /admin/orders/${d.id} failed`,
               )
             })

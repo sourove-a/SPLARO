@@ -16,7 +16,7 @@ export interface SizeOptionUi {
 }
 
 const ONE_SIZE_RE =
-  /^(one[\s-]?size(?:\s+fits\s+all)?|onesize|free[\s-]?size|freesize|os|o\/s|osfa|uni|universal|unique|std|standard|default|n\/?a|none|-|—|–)$/i
+  /^(one[\s-]?size(?:\s+fits\s+all)?|onesize|free[\s-]?sie|free[\s-]?size|freesize|os|o\/s|osfa|uni|universal|unique|std|standard|default|n\/?a|none|-|—|–)$/i
 
 export function isOneSizeLabel(label: string): boolean {
   return ONE_SIZE_RE.test(label.trim())

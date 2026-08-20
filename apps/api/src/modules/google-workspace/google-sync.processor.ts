@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq'
 import { Logger } from '@nestjs/common'
-import { Job } from 'bullmq'
+import { Job, UnrecoverableError } from 'bullmq'
 import { PrismaService } from '../../common/prisma.service'
 import { GoogleSheetsFinanceService } from '../finance/finance-support.service'
 import { TelegramIntegrationService } from '../integrations/telegram-integration.service'
@@ -126,35 +126,37 @@ export class GoogleSyncProcessor extends WorkerHost {
         },
       })
 
-      if (isSheetsAuthFailure(msg)) {
-        await this.prisma.googleWorkspaceConnection.updateMany({
-          where: { storeId, autoSyncEnabled: true },
-          data: { autoSyncEnabled: false, tokenHealth: 'needs_reconnect', lastError: msg.slice(0, 500) },
-        })
-      } else {
-        await this.prisma.googleWorkspaceConnection.update({
-          where: { storeId },
-          data: { lastError: msg },
-        })
+      const authFailure = isSheetsAuthFailure(msg)
+      await this.prisma.googleWorkspaceConnection.updateMany({
+        where: { storeId },
+        data: authFailure
+          ? {
+              autoSyncEnabled: false,
+              tokenHealth: 'needs_reconnect',
+              lastError: msg.slice(0, 500),
+            }
+          : { lastError: msg },
+      })
+
+      if (authFailure) {
+        await this.notifications
+          .notifyInApp({
+            storeId,
+            subject: 'Google Sheets auto-sync paused',
+            body: `${msg} Auto-sync is off until you reconnect Google.`,
+            href: '/dashboard/google-workspace/connect',
+            level: 'warn',
+            dedupeWindowMinutes: 720,
+          })
+          .catch(() => undefined)
+        throw new UnrecoverableError(msg)
       }
 
       if (job.attemptsMade + 1 >= (job.opts.attempts ?? 3)) {
-        if (isSheetsAuthFailure(msg)) {
-          await this.notifications
-            .notifyInApp({
-              storeId,
-              subject: 'Google Sheets auto-sync paused',
-              body: `${msg} Auto-sync is off until you reconnect Google.`,
-              href: '/dashboard/google-workspace/connect',
-              level: 'warn',
-            })
-            .catch(() => undefined)
-        } else {
-          await this.telegram
-            .test(storeId, undefined, `⚠️ SPLARO Google Sync failed: ${jobType}\n${msg}`)
-            .catch(() => undefined)
-          await this.notifications.notifySyncFailed(storeId, jobType, msg).catch(() => undefined)
-        }
+        await this.telegram
+          .test(storeId, undefined, `⚠️ SPLARO Google Sync failed: ${jobType}\n${msg}`)
+          .catch(() => undefined)
+        await this.notifications.notifySyncFailed(storeId, jobType, msg).catch(() => undefined)
       }
 
       throw err

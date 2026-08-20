@@ -15,7 +15,7 @@ const CONTENT_TABS: Array<{ id: string; label: string; href: string }> = [
   { id: 'legal', label: 'Legal Pages', href: '/dashboard/legal-pages' },
   { id: 'media', label: 'Media Library', href: '/dashboard/media-library' },
   { id: 'footwear', label: 'Footwear', href: '/dashboard/footwear-page' },
-  { id: 'theme', label: 'Theme', href: '/dashboard/theme-builder' },
+  { id: 'branding', label: 'Branding', href: '/dashboard/branding' },
   { id: 'lookbooks', label: 'Lookbooks', href: '/dashboard/lookbooks' },
   { id: 'reels', label: 'Reels', href: '/dashboard/reels' },
   { id: 'blog', label: 'Blog', href: '/dashboard/blog' },

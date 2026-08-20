@@ -39,6 +39,11 @@ export interface TelegramHealth {
   lastDeliveryError: string | null
   lastDeliveryAt: string | null
   networkVerified: boolean
+  operationalState?: 'online' | 'degraded' | 'offline' | 'unconfigured'
+  operationalLabel?: string
+  operationalSync?: string
+  transportValue?: string
+  transportDetail?: string
   lastTestedAt: string | null
   lastTestStatus: string | null
   lastTestMessage: string | null

@@ -100,13 +100,17 @@ export class BannersController {
   }
 
   @Patch('bulk/sort')
-  async bulkSort(@Body() body: { items: { id: string; sortOrder: number }[] }) {
+  async bulkSort(
+    @Query('storeId') storeId: string,
+    @Body() body: { items: { id: string; sortOrder: number }[] },
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
     await Promise.all(
       body.items.map((item) =>
         this.prisma.banner.update({ where: { id: item.id }, data: { sortOrder: item.sortOrder } }),
       ),
     )
-    void revalidateStorefrontWeb(['storefront-banners', 'hero-banners'])
+    await this.bustBannerCache(sid)
     return { ok: true, updated: body.items.length }
   }
 

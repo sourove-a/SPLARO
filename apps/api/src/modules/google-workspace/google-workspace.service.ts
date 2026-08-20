@@ -11,6 +11,7 @@ import { GoogleServiceAccountService } from './google-service-account.service'
 import { GoogleSyncQueueService } from './google-sync-queue.service'
 import { GoogleSearchConsoleService } from './google-search-console.service'
 import { isGoogleServiceAccountEmail } from './google-api.util'
+import { readEncryptedRefreshToken, resolveSheetsDisplayHealth } from './google-sheets-auth.util'
 
 @Injectable()
 export class GoogleWorkspaceService {
@@ -41,7 +42,7 @@ export class GoogleWorkspaceService {
     const recentLogs = await this.prisma.googleSyncLog.findMany({
       where: { storeId },
       orderBy: { createdAt: 'desc' },
-      take: 5,
+      take: 30,
     })
     const failedCount = await this.prisma.googleSyncLog.count({
       where: { storeId, status: 'failed', createdAt: { gte: new Date(Date.now() - 24 * 3600_000) } },
@@ -51,7 +52,16 @@ export class GoogleWorkspaceService {
     const saConfigured = this.serviceAccount.isConfigured()
     const saEmail = saConfigured ? this.serviceAccount.getEmail() : null
     const authMode = conn ? this.serviceAccount.parseAuthMode(conn.scopes) : saConfigured ? 'service_account' : 'oauth'
-    const oauthConnected = Boolean(token?.refreshTokenEncrypted)
+    const refresh = readEncryptedRefreshToken(token?.refreshTokenEncrypted, (value) =>
+      this.crypto.decrypt(value),
+    )
+    const oauthConnected = refresh.ok
+    const displayHealth = resolveSheetsDisplayHealth({
+      storedHealth: conn?.tokenHealth,
+      oauthDecryptable: oauthConnected,
+      saMode: saConfigured && authMode === 'service_account',
+      recentJobs: recentLogs,
+    })
     const oauthEmail =
       gmailCfg?.senderEmail ??
       (oauthConnected && conn?.googleEmail && !isGoogleServiceAccountEmail(conn.googleEmail)
@@ -74,16 +84,10 @@ export class GoogleWorkspaceService {
       serviceAccountEmail: saEmail,
       serviceAccountConfigured: saConfigured,
       googleEmail: oauthEmail ?? saEmail ?? conn?.googleEmail ?? null,
-      tokenHealth: oauthConnected
-        ? conn?.tokenHealth ?? 'healthy'
-        : saConfigured && conn?.isConnected
-          ? conn?.tokenHealth === 'needs_reconnect'
-            ? 'needs_reconnect'
-            : 'healthy'
-          : conn?.tokenHealth ?? (conn?.isConnected ? 'needs_reconnect' : 'missing'),
+      tokenHealth: displayHealth.health,
       tokenExpiry: token?.tokenExpiry?.toISOString() ?? null,
       lastSyncAt: conn?.lastSyncAt?.toISOString() ?? null,
-      lastError: conn?.lastError ?? null,
+      lastError: displayHealth.lastJobError ?? conn?.lastError ?? null,
       autoSyncEnabled: conn?.autoSyncEnabled ?? true,
       contactsSyncEnabled: conn?.contactsSyncEnabled ?? false,
       spreadsheetId,
@@ -125,7 +129,7 @@ export class GoogleWorkspaceService {
         merchant: { connected: oauthConnected },
       },
       recentFailures24h: failedCount,
-      recentLogs,
+      recentLogs: recentLogs.slice(0, 5),
     }
   }
 
@@ -137,7 +141,9 @@ export class GoogleWorkspaceService {
           where: { connectionId_serviceName: { connectionId: conn.id, serviceName: 'oauth' } },
         })
       : null
-    const hasOAuth = Boolean(oauthToken?.refreshTokenEncrypted)
+    const hasOAuth = readEncryptedRefreshToken(oauthToken?.refreshTokenEncrypted, (value) =>
+      this.crypto.decrypt(value),
+    ).ok
     const preferOAuth = mode === 'gmail' || (mode !== 'sheets' && hasOAuth)
 
     if (!preferOAuth && this.serviceAccount.isConfigured()) {

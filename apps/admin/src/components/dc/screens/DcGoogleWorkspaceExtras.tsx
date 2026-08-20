@@ -138,6 +138,16 @@ function DcGoogleWorkspaceExtrasBody({ initial }: { initial: GoogleExtrasTab }) 
   const oauthLinked = Boolean(status.data?.oauthConnected)
   const serviceAccountOnly = connected && !oauthLinked
   const linkedEmail = status.data?.oauthEmail ?? status.data?.googleEmail ?? null
+  const tokenHealth = (status.data?.tokenHealth ?? '').toLowerCase()
+  const tokenHealthy = tokenHealth === 'healthy' || tokenHealth === 'ok'
+  const jobRows = logs.data?.items ?? []
+  const jobsBroken =
+    jobRows.length > 0 &&
+    jobRows.filter((row) => row.status === 'failed' || row.status === 'error').length * 2 >=
+      jobRows.length
+  const connectionHealthy = oauthLinked && tokenHealthy && !jobsBroken
+  const reconnectNeeded =
+    !connectionHealthy && (oauthLinked || serviceAccountOnly || Boolean(status.data?.googleEmail))
 
   return (
     <>
@@ -163,11 +173,15 @@ function DcGoogleWorkspaceExtrasBody({ initial }: { initial: GoogleExtrasTab }) 
                   // store offered "Disconnect" and had no way back to the
                   // consent screen, which is why a missing token could not be
                   // repaired from this page.
-                  label: oauthLinked ? 'Disconnect' : 'Connect Google',
-                  icon: oauthLinked ? 'icon-unlink' : 'icon-link',
+                  label: connectionHealthy
+                    ? 'Disconnect'
+                    : reconnectNeeded
+                      ? 'Reconnect Google'
+                      : 'Connect Google',
+                  icon: connectionHealthy ? 'icon-unlink' : 'icon-link',
                   variant: 'primary' as const,
                   onClick: () => {
-                    if (oauthLinked) void revoke.mutateAsync()
+                    if (connectionHealthy) void revoke.mutateAsync()
                     else void connect.mutateAsync()
                   },
                 },
@@ -238,12 +252,20 @@ function DcGoogleWorkspaceExtrasBody({ initial }: { initial: GoogleExtrasTab }) 
           items={[
             {
               label: 'Connection',
-              value: oauthLinked ? 'Linked' : serviceAccountOnly ? 'Reconnect needed' : 'Off',
-              tone: oauthLinked ? 'ok' : 'warn',
+              value: connectionHealthy
+                ? 'Linked'
+                : reconnectNeeded
+                  ? 'Reconnect needed'
+                  : 'Off',
+              tone: connectionHealthy ? 'ok' : reconnectNeeded ? 'bad' : 'warn',
             },
             {
               label: 'Google account',
-              value: oauthLinked ? (linkedEmail ?? 'Linked') : 'Not linked',
+              value: connectionHealthy
+                ? (linkedEmail ?? 'Linked')
+                : linkedEmail && reconnectNeeded
+                  ? `${linkedEmail} — reconnect`
+                  : 'Not linked',
             },
             {
               label: 'Gmail sender',
@@ -259,9 +281,11 @@ function DcGoogleWorkspaceExtrasBody({ initial }: { initial: GoogleExtrasTab }) 
         ) : (
           <div style={{ font: '400 13px/1.5 var(--font-ui, inherit)', color: 'var(--ink-2)' }}>
             {tab === 'connect'
-              ? connected
+              ? connectionHealthy
                 ? 'Google account is linked. Sheets sync lives under Integrations → Google Sheets.'
-                : 'Connect OAuth to enable Gmail, Drive, and Sheets sync.'
+                : reconnectNeeded
+                  ? 'The Google account is listed but the refresh token is missing or recent sync jobs failed. Reconnect with consent so Sheets can write again.'
+                  : 'Connect OAuth to enable Gmail, Drive, and Sheets sync.'
               : tab === 'drive'
                 ? 'Creates the default SPLARO backup folder tree in the connected Drive.'
                 : tab === 'oauth'

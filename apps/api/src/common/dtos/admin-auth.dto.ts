@@ -108,3 +108,10 @@ export class AdminGoogleLoginDto {
   @MaxLength(64)
   storeId?: string
 }
+
+export class AdminUpdateProfileDto {
+  @IsString()
+  @MinLength(1, { message: 'Name is required' })
+  @MaxLength(80)
+  name!: string
+}

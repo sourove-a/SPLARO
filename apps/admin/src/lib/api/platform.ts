@@ -66,8 +66,14 @@ export function fetchIntegrations() {
   return apiFetch<IntegrationsData>('/admin/platform/integrations')
 }
 
-export function fetchSystemLogs(limit = 50) {
-  return apiFetch<SystemLogsData>(`/admin/platform/system-logs?limit=${limit}`)
+export function fetchSystemLogs(params?: { limit?: number; page?: number; q?: string; level?: string }) {
+  const qs = new URLSearchParams()
+  if (params?.limit) qs.set('limit', String(params.limit))
+  if (params?.page) qs.set('page', String(params.page))
+  if (params?.q?.trim()) qs.set('q', params.q.trim())
+  if (params?.level && params.level !== 'all') qs.set('level', params.level)
+  const query = qs.toString()
+  return apiFetch<SystemLogsData>(`/admin/platform/system-logs${query ? `?${query}` : ''}`)
 }
 
 export function fetchTelegramLogs(limit = 50) {
@@ -170,7 +176,17 @@ export interface IntegrationsData {
 }
 
 export interface SystemLogsData {
-  logs: { id: string; level: 'info' | 'warn' | 'error'; msg: string; time: string }[]
+  logs: {
+    id: string
+    level: 'info' | 'warning' | 'error' | 'critical'
+    msg: string
+    time: string
+    createdAt?: string
+  }[]
+  total?: number
+  page?: number
+  pageSize?: number
+  totalPages?: number
 }
 
 export interface TelegramLogsData {

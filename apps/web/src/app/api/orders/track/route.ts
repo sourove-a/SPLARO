@@ -97,21 +97,25 @@ export async function GET(request: Request) {
     searchParams.get('order')?.trim() ||
     searchParams.get('invoice')?.trim()
 
-  if (!phone) {
-    return NextResponse.json({ error: 'Phone number is required' }, { status: 400 })
+  if (!phone && !orderRef) {
+    return NextResponse.json(
+      { error: 'Enter a phone number or order number (SPL-####)' },
+      { status: 400 },
+    )
   }
 
-  const normalizedPhone = phone.replace(/\D/g, '')
-  if (normalizedPhone.length < 10) {
+  const normalizedPhone = phone ? phone.replace(/\D/g, '') : ''
+  if (phone && normalizedPhone.length < 10) {
     return NextResponse.json({ error: 'Enter a valid phone number' }, { status: 400 })
   }
 
   const sessionToken = await getSessionToken()
   const phoneAccessToken = await getPhoneAccessToken()
 
-  const trackResult = await apiTrackOrders(phone, {
+  const trackResult = await apiTrackOrders(phone ?? '', {
     ...(sessionToken ? { sessionToken } : {}),
     ...(phoneAccessToken ? { phoneAccessToken } : {}),
+    ...(orderRef ? { invoice: orderRef } : {}),
   })
 
   let orders: StoredOrder[] = []
@@ -131,6 +135,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: trackResult.error }, { status: trackResult.status })
     }
     if (trackResult.status === 401 || trackResult.status === 403) {
+      return NextResponse.json({ error: trackResult.error }, { status: trackResult.status })
+    }
+
+    if (!phone) {
       return NextResponse.json({ error: trackResult.error }, { status: trackResult.status })
     }
 
@@ -176,7 +184,11 @@ export async function GET(request: Request) {
 
   if (!orders.length) {
     return NextResponse.json(
-      { error: 'No orders found for this phone number' },
+      {
+        error: orderRef
+          ? 'No order found for that number'
+          : 'No orders found for this phone number',
+      },
       { status: 404 },
     )
   }

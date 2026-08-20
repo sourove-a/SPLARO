@@ -32,6 +32,7 @@ import {
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { DcEmptyState, DcErrorState } from '@/components/dc/blocks/DcStates'
 import type { DcModuleState } from '@/components/dc/DcPageHead'
+import { HEALTH_INTERVAL_MS, useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import type { IntegrationCard } from '@/lib/api/integrations'
 import { integrationSetupPath } from '@/lib/integrations/routes'
@@ -223,6 +224,7 @@ export function AllIntegrationsPanel({
 }: AllIntegrationsPanelProps) {
   void embedded
   const { data, isError, error, isLoading, refetch } = useIntegrationsCatalog()
+  const { lastChecked } = useAdminConnection()
   const testTelegram = useTestTelegramIntegration()
   const testAi = useTestAiIntegration()
   const testGoogle = useTestGoogleIntegration()
@@ -248,15 +250,11 @@ export function AllIntegrationsPanel({
   const failedProbeCount = items.filter(
     (i) => i.lastTestStatus && i.lastTestStatus !== 'success',
   ).length
-  const lastHealthAt = useMemo(() => {
-    const stamped = items
-      .map((i) => i.lastTestedAt)
-      .filter((v): v is string => Boolean(v))
-      .sort()
-      .at(-1)
-    return stamped ?? null
-  }, [items])
-  const lastHealthValue = isLoading ? '…' : relativeTime(lastHealthAt)
+  const lastHealthValue = isLoading
+    ? '…'
+    : lastChecked
+      ? relativeTime(lastChecked.toISOString())
+      : 'pending'
 
   const runTest = async (item: IntegrationCard) => {
     setTestingId(item.id)
@@ -363,7 +361,7 @@ export function AllIntegrationsPanel({
             {
               label: 'Last health check',
               value: lastHealthValue,
-              sub: 'catalog refresh every 60 seconds',
+              sub: `API health every ${HEALTH_INTERVAL_MS / 1000} seconds`,
             },
           ]}
         />

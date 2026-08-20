@@ -459,8 +459,31 @@ export default function ProductPageClient({
     let attachTries = 0
     let relatedAttachTries = 0
 
+    /**
+     * React's streaming SSR leaves the fallback copy of this subtree in the DOM
+     * inside `<div hidden id="S:0">`, so `querySelector` hands back a 0x0 clone
+     * of the CTA, the related rail and the footer. Every measurement below then
+     * read zero and the mobile sticky bar bailed out on every scroll — the bar
+     * simply never appeared on a phone. Take the first element that actually
+     * has a box instead.
+     */
+    const firstRendered = (selector: string): HTMLElement | null => {
+      const nodes = document.querySelectorAll<HTMLElement>(selector)
+      for (const node of nodes) {
+        const rect = node.getBoundingClientRect()
+        if (rect.width > 0 || rect.height > 0) return node
+      }
+      return null
+    }
+
+    const hasBox = (el: HTMLElement | null): el is HTMLElement => {
+      if (!el) return false
+      const rect = el.getBoundingClientRect()
+      return rect.width > 0 || rect.height > 0
+    }
+
     const resolveCta = () =>
-      ctaRef.current ?? (document.querySelector('.pp-info__ctas') as HTMLElement | null)
+      (hasBox(ctaRef.current) ? ctaRef.current : null) ?? firstRendered('.pp-info__ctas')
 
     const updateFloatingCta = () => {
       const el = resolveCta()
@@ -475,7 +498,7 @@ export default function ProductPageClient({
       }
 
       // Never sit on top of the footer (footer markup locked — hide sticky instead).
-      const footer = document.querySelector('footer.site-footer, footer[data-site-chrome]')
+      const footer = firstRendered('footer.site-footer, footer[data-site-chrome]')
       if (footer) {
         const footerTop = footer.getBoundingClientRect().top
         if (footerTop < window.innerHeight - 12) {
@@ -485,7 +508,7 @@ export default function ProductPageClient({
       }
 
       // Hide before "You may also like" — related is a sibling after ProductPageClient.
-      const related = document.querySelector('.pp-related')
+      const related = firstRendered('.pp-related')
       if (related) {
         const relatedTop = related.getBoundingClientRect().top
         if (relatedTop < window.innerHeight - 24) {
@@ -508,7 +531,7 @@ export default function ProductPageClient({
       // The mobile tab bar is fixed at z-120 over the page. A CTA sitting
       // under it is not reachable however "visible" its coordinates look, so
       // the bottom inset has to be the bar's real height, not a token gap.
-      const navBar = document.querySelector('.mobile-bottom-nav')
+      const navBar = firstRendered('.mobile-bottom-nav')
       const bottomInset =
         navBar && navBar.getBoundingClientRect().height > 0
           ? navBar.getBoundingClientRect().height + 12
@@ -528,10 +551,12 @@ export default function ProductPageClient({
         threshold: [0, 0.01, 0.1],
       })
 
-      const footer = document.querySelector('footer.site-footer, footer[data-site-chrome]')
+      // Same hidden-clone guard as updateFloatingCta: observing the 0x0 copy
+      // means the observer never fires for the element on screen.
+      const footer = firstRendered('footer.site-footer, footer[data-site-chrome]')
       if (footer) boundaryIo.observe(footer)
 
-      const related = document.querySelector('.pp-related')
+      const related = firstRendered('.pp-related')
       if (related) {
         boundaryIo.observe(related)
         return true

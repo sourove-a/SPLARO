@@ -1,4 +1,4 @@
-import type { HomepageCatalogConfig, HomepageCatalogTile } from '@splaro/config'
+import type { HomepageCatalogConfig, HomepageCatalogTile, HomepageSectionId } from '@splaro/config'
 import { apiFetch } from './client'
 import type { CatalogChannel, ShopFiltersConfig } from '@splaro/types'
 
@@ -28,6 +28,7 @@ export interface DepartmentMenuOverride {
 
 export interface MenuOverridesConfig {
   autoSync?: boolean
+  hideEmptyCategories?: boolean
   departments?: DepartmentMenuOverride[]
 }
 
@@ -132,6 +133,7 @@ export interface HomepageSectionsConfig {
   ourStory: boolean
   instagram: boolean
   newsletter: boolean
+  order?: HomepageSectionId[]
 }
 
 export interface MarqueeConfig {
@@ -228,6 +230,11 @@ export interface AdminSettingsData {
   marketing: {
     facebookPixelId: string
     googleAnalyticsId: string
+  }
+  seo: {
+    metaTitle: string
+    metaDescription: string
+    googleSiteVerification: string
   }
   telegram?: {
     botToken: string

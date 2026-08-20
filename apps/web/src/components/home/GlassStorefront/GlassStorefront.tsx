@@ -9,6 +9,7 @@ import { useStorefrontSettings } from '@/components/providers/StorefrontSettings
 import type { HeroBanner } from '@/lib/api/banners'
 import type { HomepageDepartmentRow } from '@/lib/catalog/homepage-department-rows'
 import { resolveHomepageSections } from '@/lib/storefront/homepage-defaults'
+import { resolveHomepageSectionOrder, type HomepageSectionId } from '@splaro/config'
 import { NewsletterSection } from '@/components/home/NewsletterSection/NewsletterSection'
 
 function isDeptHiddenInNav(
@@ -68,44 +69,68 @@ export function GlassStorefront({
     return departmentRows.filter((row) => !isDeptHiddenInNav(row.slug, nav))
   }, [departmentRows, settings.config.headerNav])
   const showCatalog = homepage.catalog && visibleDepartmentRows.length > 0
+  const order = resolveHomepageSectionOrder(homepage.order)
 
-  return (
-    <>
-      {showHero && homepage.hero ? (
-        <HeroSlider key="home-hero" initialBanners={heroBanners} />
-      ) : null}
-
-      {/*
-        TrustBar is intentionally not rendered on the homepage — the badge strip
-        sat directly under the hero and broke the run from campaign image into
-        the catalog. The `homepage.trustBar` admin toggle still drives the
-        component everywhere else; restore it here by putting back
-        `{homepage.trustBar ? <TrustBar key="home-trust" /> : null}`.
-      */}
-      {homepage.marquee ? (
-        <div key="home-post-hero" className="home-post-hero">
-          <MarqueeStrip key="home-marquee" />
-        </div>
-      ) : null}
-
-      <div key="home-ed-root" className="ed-root">
-        {showSpecialOffer ? <SpecialOffer key="home-special-offer" /> : null}
-
-        {showCatalog ? (
-          <section
-            key="home-catalog"
-            className="ed-catalog-intro"
-            aria-label="Shop by department"
-          >
+  const renderSection = (key: HomepageSectionId) => {
+    switch (key) {
+      case 'hero':
+        return showHero && homepage.hero ? <HeroSlider key="home-hero" initialBanners={heroBanners} /> : null
+      case 'marquee':
+        return homepage.marquee ? (
+          <div key="home-post-hero" className="home-post-hero">
+            <MarqueeStrip key="home-marquee" />
+          </div>
+        ) : null
+      case 'specialOffer':
+        return showSpecialOffer ? <SpecialOffer key="home-special-offer" /> : null
+      case 'catalog':
+        return showCatalog ? (
+          <section key="home-catalog" className="ed-catalog-intro" aria-label="Shop by department">
             <div className="ed-catalog-intro__ambient" aria-hidden />
             <HomeDepartmentRows rows={visibleDepartmentRows} />
           </section>
-        ) : null}
+        ) : null
+      case 'ourStory':
+        return storySlot ? <div key="home-story">{storySlot}</div> : null
+      case 'newsletter':
+        return showNewsletter ? <NewsletterSection key="home-newsletter" /> : null
+      case 'trustBar':
+      case 'collections':
+      case 'instagram':
+        return null
+      default:
+        return null
+    }
+  }
 
-        {storySlot}
+  const nodes: ReactNode[] = []
+  let body: ReactNode[] = []
+  const flushBody = () => {
+    if (body.length === 0) return
+    nodes.push(
+      <div key={`home-ed-root-${nodes.length}`} className="ed-root">
+        {body}
+      </div>,
+    )
+    body = []
+  }
 
-        {showNewsletter ? <NewsletterSection key="home-newsletter" /> : null}
-      </div>
-    </>
-  )
+  for (const key of order) {
+    const node = renderSection(key)
+    if (!node) continue
+    if (key === 'hero') {
+      flushBody()
+      nodes.push(node)
+      continue
+    }
+    if (key === 'marquee') {
+      flushBody()
+      nodes.push(node)
+      continue
+    }
+    body.push(node)
+  }
+  flushBody()
+
+  return <>{nodes}</>
 }

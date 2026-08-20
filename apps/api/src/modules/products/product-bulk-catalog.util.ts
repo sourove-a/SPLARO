@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common'
 import { Prisma } from '@prisma/client'
-import { toStoredMediaUrl } from '@splaro/config'
+import { toStoredMediaUrl, displaySizeLabel, normalizeStoredSize } from '@splaro/config'
 import { productHexOrDefault } from '../../common/color-hex.util'
 import type { PrismaService } from '../../common/prisma.service'
 import { slugify } from '../../common/store.util'
@@ -210,6 +210,7 @@ export async function loadCatalogExportRows(
   prisma: PrismaService,
   storeId: string,
   status?: string,
+  createdAt?: Prisma.DateTimeFilter,
 ): Promise<CatalogExportRow[]> {
   const where: Prisma.ProductWhereInput = {
     storeId,
@@ -218,6 +219,7 @@ export async function loadCatalogExportRows(
       : status === 'draft'
         ? { isPublished: false }
         : {}),
+    ...(createdAt ? { createdAt } : {}),
   }
 
   const rows: CatalogExportRow[] = []
@@ -305,7 +307,7 @@ export async function loadCatalogExportRows(
           care: cell(p.careInstructions),
           image_url: cell(imageUrls[0]),
           image_urls: imageUrls.slice(1).join(' | '),
-          size: cell(v.size),
+          size: cell(displaySizeLabel(v.size)),
           color: cell(v.colorName ?? v.color),
           color_hex: cell(v.colorHex),
           variant_sku: cell(v.sku),
@@ -474,7 +476,7 @@ export async function upsertCatalogRow(
       existingVariant = await prisma.productVariant.findFirst({
         where: {
           productId: product.id,
-          ...(row.size?.trim() ? { size: row.size.trim() } : {}),
+          ...(row.size?.trim() ? { size: normalizeStoredSize(row.size) } : {}),
           OR: [
             { colorName: { equals: colorNeedle, mode: 'insensitive' } },
             { color: { equals: colorNeedle, mode: 'insensitive' } },
@@ -506,7 +508,7 @@ export async function upsertCatalogRow(
     const primaryImage = imageUrls[0]
     const colorName = row.color?.trim() || 'Default'
     const colorHex = productHexOrDefault(row.colorHex)
-    const size = row.size?.trim() || null
+    const size = normalizeStoredSize(row.size)
     const price =
       row.price !== undefined
         ? row.price

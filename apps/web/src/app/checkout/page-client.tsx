@@ -8,11 +8,15 @@ import { Controller, useForm } from 'react-hook-form'
 import {
   Building2,
   AlertCircle,
+  Banknote,
+  Check,
   FileText,
   MapPin,
   Mail,
   Phone,
   RefreshCw,
+  ShieldCheck,
+  Truck,
   UserRound,
 } from 'lucide-react'
 import { type CartItem, useCartStore } from '@/store/cartStore'
@@ -43,7 +47,7 @@ import { buildOrderConfirmationPath } from '@/lib/invoice-url'
 import {
   DIGITAL_PAYMENT_DISCOUNT_RATE,
 } from '@/lib/utils/currency'
-import { computeDeliveryFeeBdt } from '@/lib/checkout/shipping'
+import { computeDeliveryFeeBdt, isDeliveryQuotePending } from '@/lib/checkout/shipping'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { useClientMounted } from '@/hooks/useClientMounted'
 import { attributionForOrder, getStoredAttribution } from '@/lib/analytics/attribution'
@@ -174,6 +178,8 @@ export default function CheckoutPageClient() {
     () => buildPaymentOptions(paymentSettings),
     [paymentSettings],
   )
+  const codOnly =
+    paymentOptions.length === 1 && paymentOptions[0]?.id === 'Cash on Delivery'
 
   const {
     register,
@@ -229,14 +235,30 @@ export default function CheckoutPageClient() {
     [deliveryFields],
   )
   const showPromoStep = promoChecked && hasActivePromo
-  const checkoutSteps = useMemo(() => getCheckoutSteps(showPromoStep), [showPromoStep])
+  const checkoutSteps = useMemo(
+    () => getCheckoutSteps(showPromoStep, codOnly),
+    [showPromoStep, codOnly],
+  )
   const stepStatuses = useMemo(
-    () => getCheckoutStepStatuses(deliveryComplete, paymentEngaged, submitting, showPromoStep),
-    [deliveryComplete, paymentEngaged, submitting, showPromoStep],
+    () =>
+      getCheckoutStepStatuses(
+        deliveryComplete,
+        paymentEngaged,
+        submitting,
+        showPromoStep,
+        codOnly,
+      ),
+    [deliveryComplete, paymentEngaged, submitting, showPromoStep, codOnly],
   )
   const progressPercent = useMemo(
-    () => getCheckoutProgressLine(deliveryComplete, deliveryFieldProgress(deliveryFields), showPromoStep),
-    [deliveryComplete, deliveryFields, showPromoStep],
+    () =>
+      getCheckoutProgressLine(
+        deliveryComplete,
+        deliveryFieldProgress(deliveryFields),
+        showPromoStep,
+        codOnly,
+      ),
+    [deliveryComplete, deliveryFields, showPromoStep, codOnly],
   )
 
   const thanaOptions = useMemo(() => getThanasForDistrict(city), [city])
@@ -1099,47 +1121,85 @@ export default function CheckoutPageClient() {
               </CheckoutSection>
             ) : null}
 
-            <CheckoutSection className="checkout-section checkout-section-card" delay={0.54}>
-              <div className="checkout-section__head">
-                <div className="checkout-section__titles">
-                  <h2>Payment method</h2>
+            {codOnly ? (
+              <CheckoutSection
+                className="checkout-section checkout-section-card checkout-section--payment"
+                delay={0.54}
+              >
+                <div className="checkout-section__head">
+                  <div className="checkout-section__titles">
+                    <h2>Payment method</h2>
+                  </div>
+                  <span className="checkout-cod__tag">COD only</span>
                 </div>
-              </div>
-              <div className="checkout-payments">
-                {paymentOptions.map((option) => {
-                  const available = isPaymentAvailable(option.id, paymentSettings)
-                  const needsSignIn = isGuest && isDigitalPayment(option.id)
-                  const disabledReason = !available
-                    ? 'Not available — contact support to enable'
-                    : needsSignIn
-                      ? 'Sign in to pay online — Cash on Delivery works without an account'
-                      : undefined
-                  return (
-                    <CheckoutPaymentCard
-                      key={option.id}
-                      option={option}
-                      selected={payment}
-                      disabled={!available || needsSignIn}
-                      {...(disabledReason ? { disabledReason } : {})}
-                      onSelect={(id) => {
-                        setValue('payment', id, { shouldValidate: true })
-                        setPaymentEngaged(true)
-                        trackSelectPayment({
-                          paymentType: id,
-                          value: totalBdt,
-                          numItems: itemCount,
-                          items: analyticsItems,
-                          ...(couponApplied && couponCode.trim()
-                            ? { coupon: couponCode.trim() }
-                            : {}),
-                        })
-                        clearSubmitError()
-                      }}
-                    />
-                  )
-                })}
-              </div>
-            </CheckoutSection>
+                <div className="checkout-cod" role="status">
+                  <span className="checkout-cod__icon" aria-hidden>
+                    <Banknote className="h-[1.05rem] w-[1.05rem]" strokeWidth={1.9} />
+                  </span>
+                  <div className="checkout-cod__body">
+                    <p className="checkout-cod__label">Cash on Delivery</p>
+                    <p className="checkout-cod__hint">
+                      Pay the courier in cash when your parcel arrives
+                    </p>
+                  </div>
+                  <span className="checkout-cod__check" aria-hidden>
+                    <Check className="h-3 w-3" strokeWidth={3.2} />
+                  </span>
+                </div>
+                <ul className="checkout-cod__points">
+                  <li>
+                    <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
+                    No advance payment
+                  </li>
+                  <li>
+                    <Truck className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
+                    Delivery charge included in the total
+                  </li>
+                </ul>
+              </CheckoutSection>
+            ) : (
+              <CheckoutSection className="checkout-section checkout-section-card" delay={0.54}>
+                <div className="checkout-section__head">
+                  <div className="checkout-section__titles">
+                    <h2>Payment method</h2>
+                  </div>
+                </div>
+                <div className="checkout-payments">
+                  {paymentOptions.map((option) => {
+                    const available = isPaymentAvailable(option.id, paymentSettings)
+                    const needsSignIn = isGuest && isDigitalPayment(option.id)
+                    const disabledReason = !available
+                      ? 'Not available — contact support to enable'
+                      : needsSignIn
+                        ? 'Sign in to pay online — Cash on Delivery works without an account'
+                        : undefined
+                    return (
+                      <CheckoutPaymentCard
+                        key={option.id}
+                        option={option}
+                        selected={payment}
+                        disabled={!available || needsSignIn}
+                        {...(disabledReason ? { disabledReason } : {})}
+                        onSelect={(id) => {
+                          setValue('payment', id, { shouldValidate: true })
+                          setPaymentEngaged(true)
+                          trackSelectPayment({
+                            paymentType: id,
+                            value: totalBdt,
+                            numItems: itemCount,
+                            items: analyticsItems,
+                            ...(couponApplied && couponCode.trim()
+                              ? { coupon: couponCode.trim() }
+                              : {}),
+                          })
+                          clearSubmitError()
+                        }}
+                      />
+                    )
+                  })}
+                </div>
+              </CheckoutSection>
+            )}
 
             <CheckoutSubmitPanel
               totalBdt={totalBdt}
@@ -1161,6 +1221,9 @@ export default function CheckoutPageClient() {
             payment={payment}
             deliveryProgress={deliveryProgress}
             freeDeliveryThreshold={freeDeliveryThreshold}
+            deliveryPending={isDeliveryQuotePending(city)}
+            dhakaDeliveryCharge={shipping.dhakaDeliveryCharge}
+            outsideDhakaCharge={shipping.outsideDhakaCharge}
           />
         </div>
       </section>

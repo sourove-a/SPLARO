@@ -15,6 +15,7 @@ import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
 import type { WmsTransfer, WmsWarehouse } from '@/lib/api/commerce-os'
 import {
   useReceiveStockTransfer,
+  useRecordOpeningStock,
   useRecordStockMovement,
   useShipStockTransfer,
   useWmsOverview,
@@ -125,12 +126,14 @@ function DcWarehouseStockBody() {
   const { toast } = useDcScreen()
   const wms = useWmsOverview()
   const record = useRecordStockMovement()
+  const opening = useRecordOpeningStock()
   const ship = useShipStockTransfer()
   const receive = useReceiveStockTransfer()
   const { api } = useAdminConnection(25_000)
 
   const [form, setForm] = useState({ sku: '', delta: '', reason: 'ADJUSTMENT', note: '' })
   const [confirmMove, setConfirmMove] = useState(false)
+  const [confirmOpening, setConfirmOpening] = useState(false)
   const [confirmShip, setConfirmShip] = useState<WmsTransfer | null>(null)
   const [confirmReceive, setConfirmReceive] = useState<WmsTransfer | null>(null)
 
@@ -139,6 +142,10 @@ function DcWarehouseStockBody() {
   const movements = useMemo(() => d?.movements ?? [], [d])
   const transfers = useMemo(() => d?.transfers ?? [], [d])
   const summary = d?.stockSummary ?? { available: 0, reserved: 0, damaged: 0 }
+  const fromProduct = summary.source === 'product-inventory'
+  const hasSellable = summary.available > 0 || (d?.productStock?.units ?? 0) > 0
+  const trulyEmpty = warehouses.length === 0 && movements.length === 0 && !hasSellable
+  const canSeedOpening = fromProduct && movements.length === 0 && summary.available > 0
 
   const bins = useMemo(() => warehouses.reduce((t, w) => t + binCount(w), 0), [warehouses])
   const pending = transfers.filter((t) => t.status.toUpperCase() === 'PENDING')
@@ -228,6 +235,15 @@ function DcWarehouseStockBody() {
         syncing={wms.isFetching}
         onSync={() => void wms.refetch()}
         actions={[
+          ...(canSeedOpening
+            ? [
+                {
+                  label: 'Record opening stock',
+                  icon: 'icon-clipboard-list',
+                  onClick: () => setConfirmOpening(true),
+                },
+              ]
+            : []),
           {
             label: 'Export CSV',
             icon: 'icon-download',
@@ -244,7 +260,7 @@ function DcWarehouseStockBody() {
           hint="Stock in the bins is unaffected — only this view failed to load."
           onRetry={() => void wms.refetch()}
         />
-      ) : warehouses.length === 0 && movements.length === 0 ? (
+      ) : trulyEmpty ? (
         <DcEmptyState
           icon="icon-warehouse"
           title="No stock movements yet"
@@ -259,7 +275,11 @@ function DcWarehouseStockBody() {
               gap: 12,
             }}
           >
-            <Kpi label="Available" value={n(summary.available)} sub="sellable across every bin" />
+            <Kpi
+              label="Available"
+              value={n(summary.available)}
+              sub={fromProduct ? 'from product inventory' : 'sellable across every bin'}
+            />
             <Kpi
               label="Reserved"
               value={n(summary.reserved)}
@@ -529,7 +549,13 @@ function DcWarehouseStockBody() {
                   meta="every write, who made it and why — this is the audit trail"
                 />
                 {movements.length === 0 ? (
-                  <Note text="No movements recorded yet." />
+                  <Note
+                    text={
+                      hasSellable
+                        ? 'Stock exists on products but was never receipted. Record opening stock to write the ledger without changing qty.'
+                        : 'No movements recorded yet.'
+                    }
+                  />
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', minWidth: 860, borderCollapse: 'collapse' }}>
@@ -721,6 +747,41 @@ function DcWarehouseStockBody() {
           </div>
         </>
       )}
+
+      <DcModal
+        open={confirmOpening}
+        title="Record opening stock from product inventory?"
+        subtitle="Writes ADJUSTMENT ledger rows at the current product qty. Sellable stock on products does not change."
+        confirmLabel="Record opening stock"
+        busy={opening.isPending}
+        busyLabel="Recording…"
+        onClose={() => {
+          if (opening.isPending) return
+          setConfirmOpening(false)
+        }}
+        onConfirm={() => {
+          if (opening.isPending) return
+          void opening
+            .mutateAsync()
+            .then((saved) => {
+              setConfirmOpening(false)
+              toast(
+                'ok',
+                `Opening stock recorded · ${saved.seeded} SKU${saved.seeded === 1 ? '' : 's'}`,
+                saved.skipped > 0
+                  ? `${saved.skipped} already had a ledger row and were left alone.`
+                  : 'Product qty was not changed.',
+              )
+            })
+            .catch((err: unknown) => {
+              toast(
+                'bad',
+                'Could not record opening stock',
+                err instanceof Error ? err.message : 'POST /commerce-os/wms/opening-stock failed',
+              )
+            })
+        }}
+      />
 
       <DcModal
         open={confirmMove}

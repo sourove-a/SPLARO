@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useSyncExternalStore } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -32,6 +32,12 @@ type PingResponse = {
   }
 }
 
+export const HEALTH_INTERVAL_MS = 30_000
+const COOLDOWN_MS = 12_000
+const OFFLINE_AFTER_FAILURES = 2
+const PING_TIMEOUT_MS = 15_000
+const FALLBACK_TIMEOUT_MS = 8_000
+
 const CHECKING: ServiceConnection = { pulse: 'checking', latencyMs: null }
 
 function toPulse(online: boolean | undefined, degraded?: boolean): ConnectionPulse {
@@ -43,7 +49,6 @@ function toPulse(online: boolean | undefined, degraded?: boolean): ConnectionPul
 
 function mapService(row?: { online?: boolean; latencyMs?: number | null; message?: string }): ServiceConnection {
   if (!row) return { pulse: 'offline', latencyMs: null }
-  // Explicit unknown (online omitted) → degraded, never invent hard offline
   if (row.online === undefined) {
     return {
       pulse: 'degraded',
@@ -57,10 +62,6 @@ function mapService(row?: { online?: boolean; latencyMs?: number | null; message
     ...(row.message ? { message: row.message } : {}),
   }
 }
-
-/** Shared poller — one /api/ping for the whole admin shell (not per-component). */
-const DEFAULT_INTERVAL_MS = 45_000
-const PING_TIMEOUT_MS = 8_000
 
 type Snapshot = {
   api: ServiceConnection
@@ -82,7 +83,9 @@ const listeners = new Set<() => void>()
 let intervalId: number | null = null
 let inFlight: Promise<void> | null = null
 let subscriberCount = 0
-let activeIntervalMs = DEFAULT_INTERVAL_MS
+let consecutiveFailures = 0
+let lastSuccessAt = 0
+let lastAttemptAt = 0
 
 function emit() {
   for (const listener of listeners) listener()
@@ -93,8 +96,39 @@ function setSnapshot(next: Partial<Snapshot>) {
   emit()
 }
 
-async function runPing(): Promise<void> {
+function hadSuccessfulPing(): boolean {
+  return snapshot.lastChecked != null && snapshot.api.pulse !== 'checking'
+}
+
+function applyPingFailure(message: string, confirmed = false) {
+  consecutiveFailures += confirmed ? OFFLINE_AFTER_FAILURES : 1
+  if (hadSuccessfulPing() && consecutiveFailures < OFFLINE_AFTER_FAILURES) {
+    setSnapshot({ checking: false })
+    return
+  }
+  setSnapshot({
+    api: {
+      pulse: 'offline',
+      latencyMs: null,
+      message,
+    },
+    storefront: { pulse: 'offline', latencyMs: null },
+    database: { pulse: 'offline', latencyMs: null },
+    lastChecked: new Date(),
+    checking: false,
+  })
+}
+
+async function runPing(opts?: { force?: boolean }): Promise<void> {
   if (inFlight) return inFlight
+
+  const now = Date.now()
+  if (!opts?.force) {
+    if (lastSuccessAt && now - lastSuccessAt < COOLDOWN_MS) return
+    if (lastAttemptAt && now - lastAttemptAt < COOLDOWN_MS && hadSuccessfulPing()) return
+  }
+
+  lastAttemptAt = now
 
   inFlight = (async () => {
     setSnapshot({ checking: true })
@@ -116,7 +150,7 @@ async function runPing(): Promise<void> {
       if (!data) {
         const res = await fetch('/api/proxy/health', {
           cache: 'no-store',
-          signal: AbortSignal.timeout(5_000),
+          signal: AbortSignal.timeout(FALLBACK_TIMEOUT_MS),
         })
         const online = res.ok
         let databaseOnline = false
@@ -124,7 +158,7 @@ async function runPing(): Promise<void> {
           try {
             const fullRes = await fetch('/api/proxy/health/full', {
               cache: 'no-store',
-              signal: AbortSignal.timeout(5_000),
+              signal: AbortSignal.timeout(FALLBACK_TIMEOUT_MS),
             })
             if (fullRes.ok) {
               const full = (await fullRes.json()) as {
@@ -135,6 +169,12 @@ async function runPing(): Promise<void> {
           } catch {
             /* optional */
           }
+        }
+        if (!online) {
+          applyPingFailure(
+            isProd ? 'Admin API proxy unreachable' : 'Admin proxy unreachable — restart pnpm dev:admin',
+          )
+          return
         }
         data = {
           online,
@@ -160,6 +200,14 @@ async function runPing(): Promise<void> {
       }
 
       const services = data.services
+      const apiPulse = services ? mapService(services.api).pulse : toPulse(Boolean(data.online))
+      if (apiPulse === 'offline') {
+        applyPingFailure(services?.api?.message ?? 'API unreachable', true)
+        return
+      }
+
+      consecutiveFailures = 0
+      lastSuccessAt = Date.now()
 
       if (services) {
         setSnapshot({
@@ -183,19 +231,9 @@ async function runPing(): Promise<void> {
         })
       }
     } catch {
-      setSnapshot({
-        api: {
-          pulse: 'offline',
-          latencyMs: null,
-          message: isProd
-            ? 'Admin API proxy unreachable'
-            : 'Admin proxy unreachable — restart pnpm dev:admin',
-        },
-        storefront: { pulse: 'offline', latencyMs: null },
-        database: { pulse: 'offline', latencyMs: null },
-        lastChecked: new Date(),
-        checking: false,
-      })
+      applyPingFailure(
+        isProd ? 'Admin API proxy unreachable' : 'Admin proxy unreachable — restart pnpm dev:admin',
+      )
     } finally {
       inFlight = null
     }
@@ -204,21 +242,19 @@ async function runPing(): Promise<void> {
   return inFlight
 }
 
-function ensureInterval(intervalMs: number) {
-  activeIntervalMs = Math.min(activeIntervalMs, intervalMs)
+function ensureInterval() {
   if (typeof window === 'undefined') return
-  if (intervalId !== null) {
-    window.clearInterval(intervalId)
-  }
-  intervalId = window.setInterval(() => void runPing(), activeIntervalMs)
+  if (intervalId !== null) return
+  intervalId = window.setInterval(() => void runPing(), HEALTH_INTERVAL_MS)
 }
 
 function subscribe(listener: () => void) {
   listeners.add(listener)
   subscriberCount += 1
   if (subscriberCount === 1) {
-    void runPing()
-    ensureInterval(activeIntervalMs)
+    const stale = !lastSuccessAt || Date.now() - lastSuccessAt >= HEALTH_INTERVAL_MS
+    if (stale) void runPing()
+    ensureInterval()
   }
   return () => {
     listeners.delete(listener)
@@ -226,7 +262,6 @@ function subscribe(listener: () => void) {
     if (subscriberCount === 0 && intervalId !== null) {
       window.clearInterval(intervalId)
       intervalId = null
-      activeIntervalMs = DEFAULT_INTERVAL_MS
     }
   }
 }
@@ -250,19 +285,14 @@ function getServerSnapshot(): Snapshot {
 
 /**
  * Platform connection pulse for Nest / storefront / DB.
- * All callers share one poller — avoids stampeding `/api/ping` from sidebar + header + panels.
+ * All callers share one 30s poller — the interval argument is accepted for
+ * call-site compatibility and does not start extra probes.
  */
-export function useAdminConnection(intervalMs = DEFAULT_INTERVAL_MS): AdminConnectionState {
+export function useAdminConnection(_intervalMs = HEALTH_INTERVAL_MS): AdminConnectionState {
   const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 
-  useEffect(() => {
-    if (intervalMs < activeIntervalMs) {
-      ensureInterval(intervalMs)
-    }
-  }, [intervalMs])
-
   const refresh = useCallback(async () => {
-    await runPing()
+    await runPing({ force: true })
   }, [])
 
   return {

@@ -6,18 +6,40 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { DcIcon } from './DcIcon'
 import { FONT, MONO } from './tokens'
 import type { CommandNavItem } from '@/lib/navigation/admin-nav'
+import { GOTO_TARGETS, type RecentPage } from '@/lib/navigation/keyboard-nav'
+import { fetchCustomers } from '@/lib/api/customers'
+import { fetchOrders } from '@/lib/api/orders'
+import { fetchProducts } from '@/lib/api/products'
 
 export interface DcCommandPaletteProps {
   open: boolean
   onClose: () => void
   items: CommandNavItem[]
+  /** Last pages visited this session — shown before anything is typed. */
+  recent?: RecentPage[]
 }
 
+/** A palette row: a nav route, a recent page, or a record from the catalog. */
+interface PaletteRow {
+  key: string
+  href: string
+  label: string
+  description?: string | undefined
+  icon: string
+  group: string
+}
+
+/** Entity lookups start here — below this a query is still being typed. */
+const ENTITY_MIN_CHARS = 2
+const ENTITY_DEBOUNCE_MS = 220
+
 /** ⌘K palette over every admin route. */
-export function DcCommandPalette({ open, onClose, items }: DcCommandPaletteProps) {
+export function DcCommandPalette({ open, onClose, items, recent = [] }: DcCommandPaletteProps) {
   const router = useRouter()
   const [query, setQuery] = useState('')
   const [cursor, setCursor] = useState(0)
+  const [entityRows, setEntityRows] = useState<PaletteRow[]>([])
+  const [entityLoading, setEntityLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -29,18 +51,120 @@ export function DcCommandPalette({ open, onClose, items }: DcCommandPaletteProps
     }
   }, [open])
 
-  const results = useMemo(() => {
+  /**
+   * Records, not just routes.
+   *
+   * The palette used to index navigation only, so looking up SPL-1042 meant
+   * opening Orders and searching again. Orders, products and customers are
+   * queried in parallel, debounced, and every response is dropped unless it is
+   * still the current query — otherwise a slow request for an earlier query
+   * lands on top of the results for what was typed after it.
+   */
+  useEffect(() => {
+    const q = query.trim()
+    if (!open || q.length < ENTITY_MIN_CHARS) {
+      setEntityRows([])
+      setEntityLoading(false)
+      return
+    }
+
+    let live = true
+    setEntityLoading(true)
+    const timer = window.setTimeout(() => {
+      void Promise.allSettled([
+        fetchOrders({ search: q, limit: 4 }),
+        fetchProducts({ search: q, limit: 4 }),
+        fetchCustomers({ search: q, limit: 4 }),
+      ]).then(([orders, products, customers]) => {
+        if (!live) return
+        const rows: PaletteRow[] = []
+
+        if (orders.status === 'fulfilled') {
+          for (const order of orders.value.orders ?? []) {
+            rows.push({
+              key: `order-${order.id}`,
+              href: `/dashboard/orders/${order.invoiceNumber ?? order.id}`,
+              label: order.invoiceNumber ?? order.id,
+              description: [order.shippingName, order.status].filter(Boolean).join(' · '),
+              icon: 'icon-shopping-bag',
+              group: 'Orders',
+            })
+          }
+        }
+        if (products.status === 'fulfilled') {
+          for (const product of products.value.products ?? []) {
+            rows.push({
+              key: `product-${product.id}`,
+              href: `/dashboard/products/${product.id}/edit`,
+              label: product.name,
+              description: product.sku ?? product.category?.name ?? undefined,
+              icon: 'icon-package',
+              group: 'Products',
+            })
+          }
+        }
+        if (customers.status === 'fulfilled') {
+          for (const customer of customers.value.customers ?? []) {
+            const name = [customer.firstName, customer.lastName].filter(Boolean).join(' ').trim()
+            rows.push({
+              key: `customer-${customer.id}`,
+              href: `/dashboard/customers/${customer.id}`,
+              label: name || customer.phone || customer.email || 'Customer',
+              description: customer.phone ?? customer.email ?? undefined,
+              icon: 'icon-users',
+              group: 'Customers',
+            })
+          }
+        }
+
+        setEntityRows(rows)
+        setEntityLoading(false)
+      })
+    }, ENTITY_DEBOUNCE_MS)
+
+    return () => {
+      live = false
+      window.clearTimeout(timer)
+    }
+  }, [open, query])
+
+  const results = useMemo((): PaletteRow[] => {
     const q = query.trim().toLowerCase()
-    const pool = q
-      ? items.filter(
-          (i) =>
-            i.label.toLowerCase().includes(q) ||
-            i.group.toLowerCase().includes(q) ||
-            (i.description ?? '').toLowerCase().includes(q),
-        )
-      : items
-    return pool.slice(0, 40)
-  }, [items, query])
+    const navRows: PaletteRow[] = (
+      q
+        ? items.filter(
+            (i) =>
+              i.label.toLowerCase().includes(q) ||
+              i.group.toLowerCase().includes(q) ||
+              (i.description ?? '').toLowerCase().includes(q),
+          )
+        : items
+    ).map((item) => ({
+      key: `nav-${item.href}`,
+      href: item.href,
+      label: item.label,
+      description: item.description,
+      icon: item.icon,
+      group: item.group,
+    }))
+
+    // Nothing typed yet: lead with where this session has already been.
+    if (!q) {
+      const recentRows: PaletteRow[] = recent.map((page) => ({
+        key: `recent-${page.href}`,
+        href: page.href,
+        label: page.label,
+        description: page.href,
+        icon: 'icon-history',
+        group: 'Recent',
+      }))
+      return [...recentRows, ...navRows].slice(0, 40)
+    }
+
+    // Typed: records first — a query with two-plus characters is usually a
+    // record, and routes are one keystroke away with the arrow keys anyway.
+    return [...entityRows, ...navRows].slice(0, 40)
+  }, [entityRows, items, query, recent])
 
   useEffect(() => {
     setCursor(0)
@@ -48,7 +172,7 @@ export function DcCommandPalette({ open, onClose, items }: DcCommandPaletteProps
 
   if (!open) return null
 
-  const go = (item: CommandNavItem | undefined) => {
+  const go = (item: PaletteRow | undefined) => {
     if (!item) return
     onClose()
     router.push(item.href)
@@ -117,9 +241,7 @@ export function DcCommandPalette({ open, onClose, items }: DcCommandPaletteProps
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            // The palette indexes nav routes and actions, not entities — don't
-            // promise order/product/customer search it can't do.
-            placeholder="Search screens and actions…"
+            placeholder="Search screens, orders, products, customers…"
             aria-label="Search admin"
             // Same autofill guard as the sidebar filter — the password manager
             // otherwise injects the saved admin email the moment this focuses.
@@ -172,7 +294,7 @@ export function DcCommandPalette({ open, onClose, items }: DcCommandPaletteProps
               const on = i === cursor
               return (
                 <button
-                  key={item.href}
+                  key={item.key}
                   type="button"
                   onMouseEnter={() => setCursor(i)}
                   onClick={() => go(item)}
@@ -265,8 +387,14 @@ export function DcCommandPalette({ open, onClose, items }: DcCommandPaletteProps
         >
           <span>↑↓ navigate</span>
           <span>↵ open</span>
+          <span title="Press g then the key">
+            g{' '}
+            {Object.entries(GOTO_TARGETS)
+              .map(([key]) => key)
+              .join(' / ')}
+          </span>
           <span style={{ flex: 1 }} />
-          <span>{results.length} results</span>
+          <span>{entityLoading ? 'searching…' : `${results.length} results`}</span>
         </div>
       </div>
     </div>

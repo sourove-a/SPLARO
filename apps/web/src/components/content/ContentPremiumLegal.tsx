@@ -132,17 +132,6 @@ export function ContentPremiumLegal({
       <div className="legal-premium__mesh" aria-hidden="true" />
       <div className="legal-premium__grain" aria-hidden="true" />
 
-      <div className="legal-premium__watermark" aria-hidden="true">
-        <Image
-          src="/images/logo/splaro-logo-black-premium.png"
-          alt=""
-          width={280}
-          height={149}
-          className="legal-premium__watermark-logo"
-          unoptimized
-        />
-      </div>
-
       <div className="legal-premium__layout">
         <motion.div
           className="legal-premium__hero-wrap"

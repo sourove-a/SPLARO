@@ -132,7 +132,7 @@ function DcDailyClosingBody() {
     <>
       <DcPageHead
         crumbGroup="Finance · Daily Closing"
-        title="দৈনিক হিসাব"
+        title="Daily Closing"
         statusLabel={pageStatus.label}
         statusTone={pageStatus.tone}
         syncLabel={
@@ -213,7 +213,7 @@ function DcDailyClosingBody() {
                 <MoneyRow
                   icon="icon-receipt"
                   color="var(--warn)"
-                  label="Khoroch · expenses"
+                  label="Expenses"
                   sub="courier, packaging, ads and salaries"
                   amount={`− ${formatTaka(Number(latest?.totalExpenses ?? 0))}`}
                 />

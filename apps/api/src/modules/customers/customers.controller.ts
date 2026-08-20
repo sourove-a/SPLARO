@@ -3,10 +3,11 @@ import { PrismaService } from '../../common/prisma.service'
 import { deleteOrderWithRelations } from '../../common/order-cleanup'
 import { buildCustomerLookupWhere } from '../../common/customer-code.util'
 import { resolveStoreId } from '../../common/store.util'
+import { createdAtRange } from '../../common/created-at-range.util'
 import { resolveAdminPagination } from '../../common/admin-pagination.util'
 import { isStaffProtectedUser } from '../../common/primary-owner.util'
 import { LoyaltyService } from '../loyalty/loyalty.service'
-import { CustomersService } from './customers.service'
+import { CustomersService, STAFF_CUSTOMER_TAG } from './customers.service'
 import type { LoyaltyTier, Prisma } from '@prisma/client'
 import {
   buildFraudFlags,
@@ -55,11 +56,31 @@ export class CustomersController {
     @Query('limit') limit = 20,
     @Query('search') search?: string,
     @Query('tier') tier?: string,
+    @Query('staff') staff?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const sid = await this.sid(storeId)
+    await this.customersService.backfillOrphanGuestOrders(sid, 40)
     const { page: pageNum, limit: take, skip } = resolveAdminPagination(page, limit)
+    const staffMode = staff === 'only' ? 'only' : staff === 'include' ? 'include' : 'hide'
+    const staffHide: Prisma.CustomerWhereInput =
+      staffMode === 'hide'
+        ? {
+            AND: [
+              { NOT: { tags: { has: STAFF_CUSTOMER_TAG } } },
+              { user: { is: { role: 'CUSTOMER' } } },
+            ],
+          }
+        : staffMode === 'only'
+          ? {
+              OR: [{ tags: { has: STAFF_CUSTOMER_TAG } }, { user: { is: { role: { not: 'CUSTOMER' } } } }],
+            }
+          : {}
+    const createdAt = createdAtRange(from, to)
     const where: Prisma.CustomerWhereInput = {
       storeId: sid,
+      ...staffHide,
       ...(tier ? { loyaltyTier: tier as LoyaltyTier } : {}),
       ...(search ? {
         OR: [
@@ -70,6 +91,7 @@ export class CustomersController {
           { email: { contains: search, mode: 'insensitive' as const } },
         ],
       } : {}),
+      ...(createdAt ? { createdAt } : {}),
     }
 
     const [rows, total] = await Promise.all([
@@ -86,6 +108,7 @@ export class CustomersController {
               googleId: true,
               emailVerified: true,
               avatar: true,
+              role: true,
             },
           },
         },
@@ -99,6 +122,7 @@ export class CustomersController {
     const customers = rows.map(({ user, ...c }) => ({
       ...c,
       isBlocked: user ? !user.isActive : false,
+      isStaff: (c.tags ?? []).includes(STAFF_CUSTOMER_TAG) || (user?.role != null && user.role !== 'CUSTOMER'),
       authProvider: user?.authProvider ?? 'password',
       googleLinked: Boolean(user?.googleId),
       emailVerified: user?.emailVerified ?? false,
@@ -125,10 +149,20 @@ export class CustomersController {
 
   /** Export customers CSV — static segment before :id */
   @Get('export')
-  async exportCsv(@Query('storeId') storeId: string, @Query('tier') tier?: string) {
+  async exportCsv(
+    @Query('storeId') storeId: string,
+    @Query('tier') tier?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
     const sid = await this.sid(storeId)
+    const createdAt = createdAtRange(from, to)
     const customers = await this.prisma.customer.findMany({
-      where: { storeId: sid, ...(tier ? { loyaltyTier: tier as import('@prisma/client').LoyaltyTier } : {}) },
+      where: {
+        storeId: sid,
+        ...(tier ? { loyaltyTier: tier as import('@prisma/client').LoyaltyTier } : {}),
+        ...(createdAt ? { createdAt } : {}),
+      },
       select: {
         customerCode: true, firstName: true, lastName: true, phone: true, email: true,
         loyaltyTier: true, loyaltyPoints: true, totalOrders: true, totalSpent: true,
@@ -442,6 +476,19 @@ export class CustomersController {
       ),
     )
     return { ok: true, updated: customers.length }
+  }
+
+  @Post('merge')
+  async merge(
+    @Body()
+    body: { keepId?: string; mergeIds?: string[]; storeId?: string },
+  ) {
+    const sid = await this.sid(body.storeId)
+    const keepId = body.keepId?.trim()
+    const mergeIds = (body.mergeIds ?? []).map((id) => id.trim()).filter(Boolean)
+    if (!keepId) throw new BadRequestException('keepId is required')
+    const kept = await this.customersService.mergeCustomers(sid, keepId, mergeIds)
+    return { ok: true, customer: kept, merged: mergeIds.length }
   }
 
   /** Get wishlist for a customer */

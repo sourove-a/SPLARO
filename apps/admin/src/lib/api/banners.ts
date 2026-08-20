@@ -51,6 +51,13 @@ export function updateBanner(
   })
 }
 
+export function sortBanners(items: { id: string; sortOrder: number }[]) {
+  return apiFetch<{ ok: boolean; updated: number }>('/admin/banners/bulk/sort', {
+    method: 'PATCH',
+    body: JSON.stringify({ items }),
+  })
+}
+
 export function deleteBanner(id: string) {
   return apiFetch<{ deleted: boolean }>(`/admin/banners/${id}`, { method: 'DELETE' })
 }

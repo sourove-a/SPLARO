@@ -70,8 +70,19 @@ export class PlatformController {
   }
 
   @Get('system-logs')
-  getSystemLogs(@Query('storeId') storeId: string, @Query('limit') limit?: string) {
-    return this.platform.getSystemLogs(storeId, limit ? Number(limit) : 50)
+  getSystemLogs(
+    @Query('storeId') storeId: string,
+    @Query('limit') limit?: string,
+    @Query('page') page?: string,
+    @Query('q') q?: string,
+    @Query('level') level?: string,
+  ) {
+    return this.platform.getSystemLogs(storeId, {
+      limit: limit ? Number(limit) : undefined,
+      page: page ? Number(page) : undefined,
+      q,
+      level,
+    })
   }
 
   @Get('telegram-logs')

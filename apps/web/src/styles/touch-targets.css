@@ -51,7 +51,8 @@
 
   /* A disabled stepper must not keep a live 44px pad sitting over the
      enabled one next to it. */
-  .pp-qty__btn:disabled::after {
+  .pp-qty__btn:disabled::after,
+  .pp-qty__btn:disabled::before {
     pointer-events: none;
   }
 
@@ -61,8 +62,151 @@
 
   /* Hero dots are 26px and only ~8px apart. Padding both to a full 44
      would overlap; 40 clears the gap while still being a real target. */
-  .hero-dot::after {
+  .hero-dot::after,
+  .hero-dot::before {
     min-width: 40px;
     min-height: 40px;
+  }
+}
+
+/* ── Second pass ──────────────────────────────────────────────────────
+   Measured by hit-testing, not by box size: for each control the four
+   points 22px from its centre are probed with elementFromPoint, and a
+   control only passes when all four resolve back to it. That is what a
+   thumb actually experiences, and it caught two classes of miss the box
+   check could not — a pad that exists but is covered, and a pad that
+   never applied because another rule owns the pseudo-element.
+
+   Same rules as above: the drawn size never changes, only the hit area. */
+
+@media (pointer: coarse), (max-width: 768px) {
+  .site-header-glass__icon-btn,
+  .shop-mobile-toolbar__filter,
+  .shop-mobile-toolbar__sort,
+  .shop-mobile-toolbar__density-btn,
+  .shop-breadcrumbs__link,
+  .splaro-card__wish,
+  .cart-line__qty-btn,
+  .cart-line__remove,
+  .cart-page__clear,
+  .cart-summary__continue {
+    position: relative;
+  }
+
+  .site-header-glass__icon-btn::after,
+  .shop-mobile-toolbar__filter::after,
+  .shop-mobile-toolbar__sort::after,
+  .shop-mobile-toolbar__density-btn::after,
+  .shop-breadcrumbs__link::after,
+  .splaro-card__wish::after,
+  .cart-line__remove::after,
+  .cart-page__clear::after,
+  .cart-summary__continue::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-width: 44px;
+    min-height: 44px;
+    width: 100%;
+    height: 100%;
+    transform: translate(-50%, -50%);
+    background: transparent;
+    pointer-events: auto;
+  }
+
+  /* The two steppers sit 6px apart inside one pill. A full-width pad on
+     each would overlap the other and hand the tap to whichever paints
+     last, so the pad grows to the full 44 vertically and only as wide as
+     the gap allows. */
+  .cart-line__qty-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-width: 36px;
+    min-height: 44px;
+    width: 100%;
+    height: 100%;
+    transform: translate(-50%, -50%);
+    background: transparent;
+    pointer-events: auto;
+  }
+
+  .cart-line__qty-btn:disabled::after,
+  .cart-line__qty-btn.is-disabled::after {
+    pointer-events: none;
+  }
+
+  /* Density toggle is a 33px pair with ~4px between them — same trade. */
+  .shop-mobile-toolbar__density-btn::after {
+    min-width: 38px;
+  }
+
+  /*
+   * Gallery zoom / prev / next carry `pp-pressable`, whose `::after` is the
+   * sheen sweep in pdp.css. That rule loads later and won the cascade, so
+   * the pad added above never existed on these three and they stayed at
+   * 34px. `::before` is unclaimed, so the pad goes there instead.
+   */
+  .pp-view .pp-gallery__zoom,
+  .pp-view .pp-gallery__nav {
+    position: absolute;
+  }
+
+  /*
+   * `::after` on these is not reliably ours — measured live, the pad on
+   * `.pp-qty__btn` and the gallery buttons resolved to `pointer-events: none`,
+   * i.e. another rule owns that pseudo-element and the pad never took. The
+   * same pad on `::before`, which nothing else claims, does take.
+   */
+  .pp-qty__btn::before,
+  .pp-view .pp-share__btn::before,
+  .hero-dot::before,
+  .home-dept-row__explore::before,
+  .pp-view .pp-gallery__zoom::before,
+  .pp-view .pp-gallery__nav::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-width: 44px;
+    min-height: 44px;
+    width: 100%;
+    height: 100%;
+    transform: translate(-50%, -50%);
+    background: transparent;
+    /*
+     * !important is load-bearing here, not decoration: measured live, both
+     * pseudo-elements of these controls resolve to `pointer-events: none`
+     * from a rule the dev build does not expose through cssRules, so a plain
+     * `auto` loses and the pad exists but cannot be tapped. The pad paints
+     * nothing, so forcing it back on has no visual effect.
+     */
+    pointer-events: auto !important;
+    z-index: 1;
+  }
+
+}
+
+/*
+ * The two rules below change a drawn height rather than a hit area, so they
+ * are kept off the `pointer: coarse` arm on purpose: a touch-screen laptop
+ * reports coarse at 1920px, and growing a control there would be a desktop
+ * layout change. Narrow viewports only.
+ */
+@media (max-width: 768px) {
+  /*
+   * Category pills live inside `.h-scroll-rail__track`, which scrolls and
+   * clips — an overflowing pad would be cut off, so these grow for real.
+   * 39px → 44px moves the rail by 5px and nothing else.
+   */
+  .shop-category-pill__item {
+    min-height: 44px;
+  }
+
+  /* Sticky purchase bar buttons were 2.65rem (42.4px). */
+  .pp-mobile-sticky-bar__btn {
+    min-height: 44px;
   }
 }

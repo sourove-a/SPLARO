@@ -5,6 +5,7 @@ import { searchDigits } from '../../common/identifier-search.util'
 import { generateOrderCode } from '../../common/order-code.util'
 import { generatePaymentCode } from '../../common/payment-code.util'
 import { OrderEventsService } from '../orders/order-events.service'
+import { CustomersService } from '../customers/customers.service'
 import { ProfitLossService } from '../finance/profit-loss.service'
 import type { PaymentMethod, Prisma } from '@prisma/client'
 
@@ -40,6 +41,7 @@ export class PosService {
     private readonly prisma: PrismaService,
     @Optional() private readonly orderEvents: OrderEventsService,
     @Optional() private readonly profitLoss: ProfitLossService,
+    @Optional() private readonly customers: CustomersService,
   ) {}
 
   async searchCatalog(
@@ -246,6 +248,18 @@ export class PosService {
     const customerName = input.customerName?.trim() || 'Walk-in Customer'
     const customerPhone = input.customerPhone?.trim() || '0000000000'
     const staffNote = input.staffName?.trim() ? `Staff: ${input.staffName.trim()}` : null
+    let posCustomerId: string | null = null
+    if (this.customers && input.customerPhone?.trim()) {
+      try {
+        const profile = await this.customers.ensureFromCheckout(sid, {
+          name: customerName,
+          phone: customerPhone,
+        })
+        posCustomerId = profile.id
+      } catch {
+        /* walk-in without a real BD mobile stays unlinked */
+      }
+    }
     const adminNotes = ['POS in-store sale', staffNote, input.notes?.trim()].filter(Boolean).join(' · ')
 
     let order:
@@ -261,9 +275,9 @@ export class PosService {
       | undefined
 
     for (let attempt = 0; attempt < 6; attempt++) {
-      const invoiceNumber = await generateOrderCode(this.prisma, sid)
       try {
         order = await this.prisma.$transaction(async (tx) => {
+      const invoiceNumber = await generateOrderCode(tx, sid)
       const paymentNumber = await generatePaymentCode(tx, sid)
       const created = await tx.order.create({
         data: {
@@ -286,6 +300,7 @@ export class PosService {
           trafficSource: 'POS',
           landingPage: '/admin/pos',
           adminNotes,
+          ...(posCustomerId ? { customerId: posCustomerId } : {}),
           confirmedAt: new Date(),
           deliveredAt: new Date(),
           fraudScore: 0,

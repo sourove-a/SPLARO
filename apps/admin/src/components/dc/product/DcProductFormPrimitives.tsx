@@ -1,6 +1,7 @@
 'use client'
 
 import type { CSSProperties, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { DcIcon } from '@/components/dc/DcIcon'
 import { FONT, MONO } from '@/components/dc/tokens'
@@ -60,6 +61,34 @@ export function DcReadyRing({
   )
 }
 
+const SECTION_OPEN_PREFIX = 'splaro:pform-open'
+
+function readSectionOpen(id?: string): boolean {
+  if (!id || typeof window === 'undefined') return true
+  try {
+    return window.localStorage.getItem(`${SECTION_OPEN_PREFIX}:${id}`) !== '0'
+  } catch {
+    return true
+  }
+}
+
+function writeSectionOpen(id: string, open: boolean): void {
+  try {
+    window.localStorage.setItem(`${SECTION_OPEN_PREFIX}:${id}`, open ? '1' : '0')
+  } catch {
+    // Private mode — the section simply reopens next visit.
+  }
+}
+
+/**
+ * A form section.
+ *
+ * Sections stay open by default and only collapse when the operator collapses
+ * them — auto-collapsing a "done" section hides fields that a later edit makes
+ * incomplete again, and the publish button would then be blocked by something
+ * invisible. A collapsed section still force-opens whenever the rail or a
+ * readiness blocker jumps to it, so nothing can be required and hidden at once.
+ */
 export function DcSectionCard({
   id,
   num,
@@ -75,8 +104,32 @@ export function DcSectionCard({
   badge?: ReactNode
   children: ReactNode
 }) {
+  const [open, setOpen] = useState(true)
+
+  useEffect(() => {
+    setOpen(readSectionOpen(id))
+  }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    const openOnHash = () => {
+      if (window.location.hash === `#${id}`) setOpen(true)
+    }
+    openOnHash()
+    window.addEventListener('hashchange', openOnHash)
+    return () => window.removeEventListener('hashchange', openOnHash)
+  }, [id])
+
+  const toggle = () => {
+    setOpen((prev) => {
+      const next = !prev
+      if (id) writeSectionOpen(id, next)
+      return next
+    })
+  }
+
   return (
-    <div id={id} className="dc-pform-card">
+    <div id={id} className="dc-pform-card" data-open={open ? 'true' : 'false'}>
       <div className="dc-pform-card__head">
         <span className="dc-pform-card__num" style={{ font: `700 11px/1 ${MONO}` }}>
           {num}
@@ -90,8 +143,19 @@ export function DcSectionCard({
           ) : null}
         </span>
         {badge}
+        <button
+          type="button"
+          className="dc-pform-card__toggle"
+          onClick={toggle}
+          aria-expanded={open}
+          aria-label={`${open ? 'Collapse' : 'Expand'} ${title}`}
+        >
+          <DcIcon name={open ? 'icon-chevron-up' : 'icon-chevron-down'} size={13} />
+        </button>
       </div>
-      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>{children}</div>
+      <div className="dc-pform-card__body" hidden={!open}>
+        {children}
+      </div>
     </div>
   )
 }
@@ -201,105 +265,68 @@ export function DcJumpRail({
   readyPct,
   readyFg = 'var(--violet)',
   onPreview,
+  savedLabel,
 }: {
   items: Array<{ id: string; label: string; done?: boolean; active?: boolean }>
   readyPct: number
   readyFg?: string
   /** Optional preview click — scrolls to storefront card or opens preview. */
   onPreview?: () => void
+  /** Autosave receipt, e.g. "Draft saved 2 min ago". */
+  savedLabel?: string
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const activeId = items.find((j) => j.active)?.id
+
+  // The rail scrolls horizontally on narrow screens; without this the section
+  // you are editing can sit off-screen inside its own nav.
+  useEffect(() => {
+    if (!activeId) return
+    const track = scrollRef.current
+    const tab = track?.querySelector<HTMLElement>(`[data-jump-tab="${activeId}"]`)
+    if (!track || !tab) return
+    const left = tab.offsetLeft - track.clientWidth / 2 + tab.offsetWidth / 2
+    track.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
+  }, [activeId])
+
+  const doneCount = items.filter((j) => j.done).length
+
   return (
-    <div
-      style={{
-        position: 'sticky',
-        top: 72,
-        zIndex: 6,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '0 4px 0 6px',
-        height: 44,
-        border: '1px solid var(--line)',
-        borderRadius: 12,
-        background: 'color-mix(in srgb, var(--surface) 88%, transparent)',
-        backdropFilter: 'blur(16px)',
-      }}
-    >
-      <div
-        className="dc-jump-scroll"
-        style={{
-          flex: 1,
-          minWidth: 0,
-          display: 'flex',
-          alignItems: 'stretch',
-          gap: 0,
-          overflowX: 'auto',
-          height: '100%',
-        }}
-      >
+    <nav className="dc-pform-rail" aria-label="Product form sections">
+      <div ref={scrollRef} className="dc-jump-scroll dc-pform-rail__track">
         {items.map((j) => (
           <a
             key={j.id}
             href={`#${j.id}`}
-            style={{
-              flex: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              height: '100%',
-              padding: '0 12px',
-              font: `600 12.5px/1 ${FONT}`,
-              color: j.active ? 'var(--ink)' : 'var(--ink-3)',
-              textDecoration: 'none',
-              borderBottom: j.active ? '2px solid var(--violet)' : '2px solid transparent',
-              background: 'transparent',
-            }}
+            data-jump-tab={j.id}
+            className={`dc-pform-tab${j.active ? ' dc-pform-tab--on' : ''}${j.done ? ' dc-pform-tab--done' : ''}`}
+            aria-current={j.active ? 'true' : undefined}
           >
-            {j.label}
+            <span className="dc-pform-tab__dot" aria-hidden />
+            <span>{j.label}</span>
           </a>
         ))}
       </div>
 
-      {onPreview ? (
-        <button
-          type="button"
-          onClick={onPreview}
-          className="dc-hover-ink"
-          style={{
-            flex: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            height: 30,
-            padding: '0 11px',
-            borderRadius: 8,
-            border: '1px solid var(--line)',
-            background: 'var(--surface-2)',
-            color: 'var(--ink-2)',
-            cursor: 'pointer',
-            font: `600 11.5px/1 ${FONT}`,
-          }}
-        >
-          <DcIcon name="icon-eye" size={13} />
-          Preview
-        </button>
-      ) : null}
-
-      <span
-        style={{
-          flex: 'none',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          paddingRight: 8,
-          paddingLeft: 4,
-          borderLeft: '1px solid var(--line)',
-          height: 28,
-        }}
-      >
-        <DcReadyRing pct={readyPct} size={28} fg={readyFg} />
-        <span style={{ font: `700 12px/1 ${MONO}`, color: readyFg }}>{Math.round(readyPct)}%</span>
-      </span>
-    </div>
+      <div className="dc-pform-rail__meta">
+        {savedLabel ? (
+          <span className="dc-pform-rail__saved" title={savedLabel}>
+            <DcIcon name="icon-check" size={12} />
+            <span className="dc-pform-rail__saved-label">Saved</span>
+          </span>
+        ) : null}
+        {onPreview ? (
+          <button type="button" onClick={onPreview} className="dc-pform-rail__preview dc-hover-ink">
+            <DcIcon name="icon-eye" size={13} />
+            <span className="dc-pform-rail__preview-label">Preview</span>
+          </button>
+        ) : null}
+        <span className="dc-pform-rail__ready" title={`${doneCount} of ${items.length} sections filled`}>
+          <DcReadyRing pct={readyPct} size={26} fg={readyFg} />
+          <span style={{ font: `700 11.5px/1 ${MONO}`, color: readyFg }}>{Math.round(readyPct)}%</span>
+        </span>
+      </div>
+    </nav>
   )
 }
 
@@ -457,9 +484,12 @@ export function DcStickyPublishBar({
 export function DcReadinessList({
   items,
   readyPct,
+  onJump,
 }: {
-  items: Array<{ ok: boolean; label: string; sub: string; jumpTo?: string }>
+  items: Array<{ ok: boolean; label: string; sub: string; jumpTo?: string; fieldId?: string }>
   readyPct: number
+  /** Called with the blocker's field id so the form can focus and flash it. */
+  onJump?: (item: { jumpTo?: string | undefined; fieldId?: string | undefined }) => void
 }) {
   const fg = readyPct >= 100 ? 'var(--ok)' : 'var(--violet)'
   const remaining = items.filter((r) => !r.ok).length
@@ -497,7 +527,13 @@ export function DcReadinessList({
       {items.map((r) => (
         // An unfinished check is the fastest route to the field that is
         // missing, so it acts as a link; a finished one is just a receipt.
-        <Row key={r.label} jumpTo={r.ok ? undefined : r.jumpTo}>
+        <Row
+          key={r.label}
+          jumpTo={r.ok ? undefined : r.jumpTo}
+          {...(!r.ok && onJump
+            ? { onJump: () => onJump({ jumpTo: r.jumpTo, fieldId: r.fieldId }) }
+            : {})}
+        >
           <DcIcon
             name={r.ok ? 'icon-check' : 'icon-circle'}
             size={12}
@@ -527,9 +563,11 @@ export function DcReadinessList({
 /** Readiness row: a link when there is somewhere to go, otherwise a plain row. */
 function Row({
   jumpTo,
+  onJump,
   children,
 }: {
   jumpTo?: string | undefined
+  onJump?: (() => void) | undefined
   children: ReactNode
 }) {
   const style: CSSProperties = {
@@ -543,7 +581,12 @@ function Row({
   }
   if (!jumpTo) return <div style={style}>{children}</div>
   return (
-    <a href={`#${jumpTo}`} style={{ ...style, cursor: 'pointer' }} className="dc-hover-ink">
+    <a
+      href={`#${jumpTo}`}
+      style={{ ...style, cursor: 'pointer' }}
+      className="dc-hover-ink"
+      onClick={onJump}
+    >
       {children}
     </a>
   )

@@ -97,6 +97,16 @@ export function verifySettingsApplied(
     }
   }
 
+  if (patch.seo) {
+    const r = verifyStringFields(
+      patch.seo,
+      saved.seo,
+      ['metaTitle', 'metaDescription', 'googleSiteVerification'] as const,
+      'SEO',
+    )
+    if (!r.ok) return r
+  }
+
   if (patch.store) {
     const storeKeys = [
       'name',

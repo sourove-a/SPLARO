@@ -139,6 +139,13 @@ export class CourierController {
     return { byStatus, byProvider, recentFailed }
   }
 
+  /** Which courier APIs have real credentials — Hub booking dropdown. */
+  @Get('providers')
+  async providers(@Query('storeId') storeId?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return { providers: await this.courier.listProviders(sid) }
+  }
+
   /** Bulk status update — also drives order status when mapped */
   @Post('bulk/status')
   async bulkStatus(

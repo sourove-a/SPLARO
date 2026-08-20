@@ -1,9 +1,18 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { DcShell } from '@/components/dc'
+import {
+  isTypingTarget,
+  parseRecentPages,
+  pushRecentPage,
+  RECENT_PAGES_KEY,
+  resolveGotoKey,
+  type RecentPage,
+} from '@/lib/navigation/keyboard-nav'
 import { DcAdminProfilePopover } from '@/components/dc/DcAdminProfilePopover'
 import { DcCommandPalette } from '@/components/dc/DcCommandPalette'
 import { DcConnectionPopover } from '@/components/dc/DcConnectionPopover'
@@ -17,7 +26,7 @@ import { useOnlinePresence } from '@/lib/hooks/use-online-presence'
 import { getCommandItems, normalizeAdminHref } from '@/lib/navigation/admin-nav'
 import { getHandoffSidebarNavGroups } from '@/lib/navigation/handoff-sidebar'
 import type { AdminNavSession } from '@/lib/navigation/admin-nav-permissions'
-import { formatAdminDisplayName, formatAdminRoleLabel } from '@/lib/auth/role-label'
+import { canEditAdminProfile, formatAdminDisplayName, formatAdminRoleLabel } from '@/lib/auth/role-label'
 import { useAdminUiStore } from '@/store/uiStore'
 import { useAdminOrdersRealtime } from '@/lib/realtime/useAdminOrdersRealtime'
 
@@ -62,8 +71,11 @@ export interface DcAdminShellProps {
 
 export function DcAdminShell({ banner, children }: DcAdminShellProps) {
   const pathname = usePathname()
+  const gotoArmedAt = useRef<number | null>(null)
+  const [recentPages, setRecentPages] = useState<RecentPage[]>([])
   const router = useRouter()
   const { data: sessionUser } = useAdminSession()
+  const qc = useQueryClient()
   useAdminOrdersRealtime(Boolean(sessionUser))
   const { api, storefront, database, checking, refresh: refreshConnection } = useAdminConnection(25_000)
   const apiReachable = api.pulse === 'online' || api.pulse === 'degraded'
@@ -164,19 +176,73 @@ export function DcAdminShell({ banner, children }: DcAdminShellProps) {
   // Unread only — never invent a badge from fixture NOTIFS.
   const notifBadge = notifUnread
 
-  // ⌘K / Ctrl+K anywhere in the admin.
+  // ⌘K / Ctrl+K anywhere in the admin, plus "g then x" jumps.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setPaletteOpen((v) => !v)
+        return
+      }
+
+      const result = resolveGotoKey(
+        { armedAt: gotoArmedAt.current },
+        e.key,
+        {
+          now: Date.now(),
+          hasModifier: e.metaKey || e.ctrlKey || e.altKey,
+          // Never steal a keystroke from a field — typing "go" in the order
+          // search must stay text, not navigation.
+          typing: isTypingTarget(e.target),
+        },
+      )
+
+      if (result.action === 'arm') {
+        gotoArmedAt.current = Date.now()
+        return
+      }
+      if (result.action === 'reset') {
+        gotoArmedAt.current = null
+        return
+      }
+      if (result.action === 'navigate') {
+        e.preventDefault()
+        gotoArmedAt.current = null
+        router.push(result.href)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [router])
 
   const activeHref = useMemo(() => normalizeAdminHref(pathname ?? '/dashboard'), [pathname])
+
+  /**
+   * Recent pages.
+   *
+   * Written on navigation and read back through the palette, so an operator who
+   * was three screens deep can return without walking the menu again. Stored in
+   * sessionStorage: it is a trail through this sitting, not a saved preference,
+   * and it must not follow one admin onto the next person's session.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined' || !activeHref) return
+    const label =
+      commandItems.find((item) => normalizeAdminHref(item.href) === activeHref)?.label ??
+      activeHref.split('/').filter(Boolean).slice(-1)[0] ??
+      'Dashboard'
+    try {
+      const next = pushRecentPage(
+        parseRecentPages(window.sessionStorage.getItem(RECENT_PAGES_KEY)),
+        { href: activeHref, label, at: Date.now() },
+      )
+      window.sessionStorage.setItem(RECENT_PAGES_KEY, JSON.stringify(next))
+      setRecentPages(next)
+    } catch {
+      // Private mode or a full quota — recents are a convenience, not a feature
+      // the shell may fail on.
+    }
+  }, [activeHref, commandItems])
 
   // Product create/edit already has a sticky readiness + storefront preview rail —
   // stacking the global Quick Actions rail makes the first viewport cramped.
@@ -248,12 +314,17 @@ export function DcAdminShell({ banner, children }: DcAdminShellProps) {
         lastLoginIp={profileExtras.lastLoginIp}
         lastLoginAt={profileExtras.lastLoginAt}
         canChangePassword={profileExtras.canChangePassword}
+        canEditProfile={canEditAdminProfile(sessionUser?.role)}
+        onNameSaved={() => {
+          void qc.invalidateQueries({ queryKey: ['admin-session'] })
+        }}
         presence={presence ?? null}
       />
       <DcCommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
         items={commandItems}
+        recent={recentPages}
       />
       <DcNotificationsPopover
         open={notifOpen}

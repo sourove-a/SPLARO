@@ -9,7 +9,6 @@ import { heroSlideCopy } from '@/lib/api/hero-banners'
 import { LiquidGlassNavButton } from '@/components/ui/LiquidGlass/LiquidGlassNavButton'
 import { cn } from '@/lib/utils/cn'
 import {
-  HERO_DEFAULT_VIDEO,
   classifyHeroMedia,
   isDirectVideoUrl,
   isHeroVideoUrl,
@@ -42,11 +41,6 @@ function slideDirection(from: number, to: number, total: number): SlideDirection
   const backward = (from - to + total) % total
   return forward <= backward ? 'forward' : 'backward'
 }
-
-/** Override via NEXT_PUBLIC_HERO_VIDEO — cinematic background on first slide.
- *  Always routed through normalizeHeroVideoUrl() so it gets the same UHD→HD +
- *  mobile-SD-rendition treatment as a real banner video (see resolveSlideVideo). */
-const HERO_VIDEO = process.env.NEXT_PUBLIC_HERO_VIDEO?.trim() || HERO_DEFAULT_VIDEO
 
 export interface HeroSlide {
   id: string
@@ -102,18 +96,11 @@ function heroVideoSources(slide: HeroSlide, _mobile = false, _lightweight = fals
   return [...new Set(urls.filter(Boolean))]
 }
 
-function resolveSlideVideo(media: string, index: number) {
+function resolveSlideVideo(media: string) {
   const classified = classifyHeroMedia(media)
   if (classified.youtubeId) return { youtubeId: classified.youtubeId }
   if (classified.vimeoId) return { vimeoId: classified.vimeoId }
   if (isDirectVideoUrl(media)) return normalizeHeroVideoUrl(media)
-  if (index === 0 && process.env.NEXT_PUBLIC_HERO_VIDEO?.trim()) {
-    const override = HERO_VIDEO
-    const ov = classifyHeroMedia(override)
-    if (ov.youtubeId) return { youtubeId: ov.youtubeId }
-    if (ov.vimeoId) return { vimeoId: ov.vimeoId }
-    if (isDirectVideoUrl(override)) return normalizeHeroVideoUrl(override)
-  }
   return {}
 }
 
@@ -136,7 +123,7 @@ function mapBannerToSlide(banner: HeroBanner, index: number): HeroSlide {
   const mobileMedia = banner.mobileImage?.trim() || ''
   const copy = heroSlideCopy(banner)
   const poster = resolveSlidePoster(media, index, banner)
-  const videoConfig = resolveSlideVideo(media, index)
+  const videoConfig = resolveSlideVideo(media)
 
   return {
     id: banner.id,
@@ -1028,29 +1015,27 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
         </div>
       ) : null}
 
-      <div
-        className="hero-slider-controls"
-        aria-hidden={slides.length <= 1}
-        data-ready={ready ? 'true' : 'false'}
-      >
-        {slides.map((s, i) => (
-          <button
-            key={s.id}
-            type="button"
-            className={i === index ? 'hero-dot active' : 'hero-dot'}
-            onClick={() => goTo(i)}
-            disabled={!ready}
-            aria-label={ready ? `Go to slide ${i + 1}` : 'Slideshow still loading'}
-            aria-current={i === index ? 'true' : undefined}
-          />
-        ))}
-        <div className="hero-progress" aria-hidden>
-          <div
-            key={`progress-${index}`}
-            className={cn('hero-progress-fill', progressPaused && 'hero-progress-fill--paused')}
-          />
+      {slides.length > 1 ? (
+        <div className="hero-slider-controls" data-ready={ready ? 'true' : 'false'}>
+          {slides.map((s, i) => (
+            <button
+              key={s.id}
+              type="button"
+              className={i === index ? 'hero-dot active' : 'hero-dot'}
+              onClick={() => goTo(i)}
+              disabled={!ready}
+              aria-label={ready ? `Go to slide ${i + 1}` : 'Slideshow still loading'}
+              aria-current={i === index ? 'true' : undefined}
+            />
+          ))}
+          <div className="hero-progress" aria-hidden>
+            <div
+              key={`progress-${index}`}
+              className={cn('hero-progress-fill', progressPaused && 'hero-progress-fill--paused')}
+            />
+          </div>
         </div>
-      </div>
+      ) : null}
     </section>
   )
 }

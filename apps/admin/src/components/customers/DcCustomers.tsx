@@ -13,7 +13,7 @@ import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/
 import { downloadCsv } from '@/lib/admin/admin-actions'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
 import { verifyCustomerCreated } from '@/lib/admin/customer-mutation-verify'
-import { bulkDeleteCustomers, createCustomer } from '@/lib/api/customers'
+import { bulkDeleteCustomers, bulkAddCustomerTags, createCustomer, mergeCustomers } from '@/lib/api/customers'
 import { useCustomers } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { formatBdPhone, phoneMatches } from '@/lib/format/bd-phone'
@@ -93,8 +93,10 @@ function DcCustomersBody() {
   const [removeTargets, setRemoveTargets] = useState<ApiCustomer[] | null>(null)
   const [removeOrders, setRemoveOrders] = useState(false)
   const [removing, setRemoving] = useState(false)
+  const [hideStaff, setHideStaff] = useState(true)
+  const [merging, setMerging] = useState(false)
 
-  const customers = useCustomers({ limit: 200 })
+  const customers = useCustomers({ limit: 200, staff: hideStaff ? 'hide' : 'include' })
   const { api } = useAdminConnection(25_000)
   const pageStatus = dcPageStatus([customers], api.pulse)
   const all = useMemo(() => customers.data?.customers ?? [], [customers.data])
@@ -201,6 +203,57 @@ function DcCustomersBody() {
     }
   }
 
+  const runMerge = async () => {
+    if (selectedRows.length < 2) {
+      toastFail('Select two or more profiles to merge.')
+      return
+    }
+    const ranked = [...selectedRows].sort((a, b) => {
+      const orders = (b.totalOrders ?? 0) - (a.totalOrders ?? 0)
+      if (orders !== 0) return orders
+      return String(a.customerCode ?? a.id).localeCompare(String(b.customerCode ?? b.id))
+    })
+    const keep = ranked[0]!
+    const absorb = ranked.slice(1)
+    setMerging(true)
+    try {
+      const result = await mergeCustomers(
+        keep.id,
+        absorb.map((c) => c.id),
+      )
+      if (!result.ok) {
+        toastFail('Merge was not confirmed by the API.')
+        return
+      }
+      toastOk(`Merged ${absorb.length + 1} profiles into ${customerPublicId(result.customer)}.`)
+      setSelected(new Set([keep.id]))
+      void customers.refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not merge these customers.')
+    } finally {
+      setMerging(false)
+    }
+  }
+
+  const runMarkStaff = async () => {
+    if (selectedRows.length === 0) return
+    try {
+      const result = await bulkAddCustomerTags(
+        selectedRows.map((c) => c.id),
+        ['staff'],
+      )
+      if (!result.ok) {
+        toastFail('Staff tag was not saved.')
+        return
+      }
+      toastOk(`Marked ${result.updated} profile${result.updated === 1 ? '' : 's'} as staff.`)
+      setSelected(new Set())
+      void customers.refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not tag staff accounts.')
+    }
+  }
+
   const removeOrderCount = (removeTargets ?? []).reduce((sum, c) => sum + (c.totalOrders ?? 0), 0)
 
   return (
@@ -261,7 +314,7 @@ function DcCustomersBody() {
         <DcEmptyState
           icon="icon-users"
           title="No customers yet"
-          body="A customer record is created on the first checkout. Nothing to segment until then."
+          body="Guest checkout now creates a customer from the phone number. Staff test accounts stay hidden unless you show them."
           cta="Open Orders"
           onCta={() => router.push('/dashboard/orders')}
         />
@@ -400,6 +453,43 @@ function DcCustomersBody() {
                   >
                     Clear
                   </button>
+                  {selectedRows.length >= 2 ? (
+                    <button
+                      type="button"
+                      disabled={merging}
+                      onClick={() => void runMerge()}
+                      className="dc-hover-ink"
+                      style={{
+                        height: 30,
+                        padding: '0 11px',
+                        borderRadius: 8,
+                        border: '1px solid var(--line)',
+                        background: 'var(--surface-2)',
+                        color: 'var(--ink)',
+                        cursor: merging ? 'wait' : 'pointer',
+                        font: `600 12px/1 ${FONT}`,
+                      }}
+                    >
+                      {merging ? 'Merging…' : `Merge ${selectedRows.length}`}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void runMarkStaff()}
+                    className="dc-hover-ink"
+                    style={{
+                      height: 30,
+                      padding: '0 11px',
+                      borderRadius: 8,
+                      border: '1px solid var(--line)',
+                      background: 'var(--surface-2)',
+                      color: 'var(--ink-2)',
+                      cursor: 'pointer',
+                      font: `600 12px/1 ${FONT}`,
+                    }}
+                  >
+                    Mark as staff
+                  </button>
                   <button
                     type="button"
                     onClick={() => openRemove(selectedRows)}
@@ -425,6 +515,26 @@ function DcCustomersBody() {
               <span style={{ font: `500 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>
                 {rows.length} of {all.length}
               </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={hideStaff}
+                aria-label="Hide staff test accounts"
+                onClick={() => setHideStaff((v) => !v)}
+                className="dc-hover-ink"
+                style={{
+                  height: 30,
+                  padding: '0 11px',
+                  borderRadius: 8,
+                  border: '1px solid var(--line)',
+                  background: hideStaff ? 'var(--surface-2)' : 'var(--surface)',
+                  color: 'var(--ink-2)',
+                  cursor: 'pointer',
+                  font: `600 12px/1 ${FONT}`,
+                }}
+              >
+                {hideStaff ? 'Staff hidden' : 'Showing staff'}
+              </button>
             </div>
 
             {rows.length === 0 ? (
@@ -562,6 +672,21 @@ function DcCustomersBody() {
                                 <span style={{ font: `500 13px/1 ${FONT}`, color: 'var(--ink)' }}>
                                   {fullName(c)}
                                 </span>
+                                {c.isStaff ? (
+                                  <span
+                                    style={{
+                                      padding: '2px 6px',
+                                      borderRadius: 5,
+                                      font: `700 9.5px/1 ${FONT}`,
+                                      letterSpacing: '.06em',
+                                      border: '1px solid var(--line)',
+                                      background: 'var(--surface-2)',
+                                      color: 'var(--ink-3)',
+                                    }}
+                                  >
+                                    STAFF
+                                  </span>
+                                ) : null}
                                 {c.isBlocked ? (
                                   <span
                                     style={{

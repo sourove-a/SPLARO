@@ -1,6 +1,7 @@
 import type { CartItem } from '@/store/cartStore'
 import { cartLineKey } from '@/store/cartStore'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
+import { displaySizeLabel } from '@splaro/config'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 const CART_SYNC_TIMEOUT_MS =
@@ -91,7 +92,7 @@ function mapApiCartItem(raw: Record<string, unknown>): CartItem | null {
   }
   const variantId = raw.variantId ? String(raw.variantId) : variant?.id ? String(variant.id) : undefined
   if (variantId) item.variantId = variantId
-  if (variant?.size) item.size = String(variant.size)
+  if (variant?.size) item.size = displaySizeLabel(String(variant.size))
   if (variant?.color) item.color = String(variant.color)
   return item
 }

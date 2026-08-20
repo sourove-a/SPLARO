@@ -6,6 +6,7 @@ import { useNewsletterSubscribers, useSettings, useUpdateSettings } from '@/lib/
 import { ApiError } from '@/lib/api/client'
 import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
 import { apiOfflineMessage, apiOfflineSaveMessage } from '@/lib/admin/offline-copy'
+import { mergeBrandingDraft } from '@/lib/admin/branding-hydrate'
 import { verifySettingsApplied } from '@/lib/admin/settings-save'
 import { usePermission } from '@/lib/api/hooks'
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_OUR_STORY, mergeStoryDeckCards } from '@/lib/storefront/homepage-defaults'
@@ -44,6 +45,7 @@ export const EMPTY_SETTINGS: AdminSettingsData = {
   smtpAccounts: [],
   emailEnabled: false,
   marketing: { facebookPixelId: '', googleAnalyticsId: '' },
+  seo: { metaTitle: '', metaDescription: '', googleSiteVerification: '' },
   telegram: null,
 }
 
@@ -93,7 +95,7 @@ export function SettingsShell() {
         ...EMPTY_SETTINGS,
         ...apiData,
         store: { ...EMPTY_SETTINGS.store, ...(apiData.store ?? {}) },
-        branding: { ...EMPTY_SETTINGS.branding, ...(apiData.branding ?? {}) },
+        branding: mergeBrandingDraft(apiData.branding, apiData.store),
         contact: { ...EMPTY_SETTINGS.contact, ...(apiData.contact ?? {}) },
         social: { ...EMPTY_SETTINGS.social, ...(apiData.social ?? {}) },
         shipping: {
@@ -107,6 +109,7 @@ export function SettingsShell() {
         },
         payments: { ...EMPTY_SETTINGS.payments, ...(apiData.payments ?? {}) },
         marketing: { ...EMPTY_SETTINGS.marketing, ...(apiData.marketing ?? {}) },
+        seo: { ...EMPTY_SETTINGS.seo, ...(apiData.seo ?? {}) },
         smtp: { ...EMPTY_SETTINGS.smtp, ...(apiData.smtp ?? {}), password: '' },
         smtpAccounts: (apiData.smtpAccounts ?? []).map((account) => ({ ...account, password: '' })),
         newsletter: { ...EMPTY_SETTINGS.newsletter, ...(apiData.newsletter ?? {}) },
@@ -226,7 +229,7 @@ export function SettingsShell() {
             }}
           >
             {!settingsLoaded
-              ? apiOfflineSaveMessage()
+              ? `${apiOfflineSaveMessage()} Use Retry health check in the sidebar.`
               : 'You do not have permission to save settings.'}
           </p>
         ) : null}

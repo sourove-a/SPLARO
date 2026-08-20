@@ -40,7 +40,12 @@ export interface WmsOverview {
   warehouses: WmsWarehouse[]
   movements: WmsMovement[]
   transfers: WmsTransfer[]
-  stockSummary: { available: number; reserved: number; damaged: number }
+  stockSummary: {
+    available: number
+    reserved: number
+    damaged: number
+    source?: 'wms-bins' | 'product-inventory'
+  }
   productStock?: { units: number; skus: number }
 }
 
@@ -243,6 +248,13 @@ export function recordStockMovement(input: {
   return apiFetch<{ movement: WmsMovement }>('/commerce-os/wms/movements', {
     method: 'POST',
     body: JSON.stringify(input),
+  })
+}
+
+export function recordOpeningStock() {
+  return apiFetch<{ seeded: number; skipped: number }>('/commerce-os/wms/opening-stock', {
+    method: 'POST',
+    body: JSON.stringify({ confirm: true }),
   })
 }
 

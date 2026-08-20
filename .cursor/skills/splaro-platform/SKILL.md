@@ -200,7 +200,7 @@ Luxury customer site — Next.js 15, Framer Motion, Zustand, BDT.
 2. **Server-side order math** — delivery fee, coupon, digital discount recomputed in `app/api/orders/route.ts` + API; never trust checkout POST body totals alone.
 3. **Auth via BFF** — `app/api/auth/*` (login, signup, OTP, Google, me, logout).
 4. **Payments** — `app/api/payments/{bkash,nagad,sslcommerz}/*`; mobile flow at `/checkout/mobile-payment`.
-5. **Design tokens** — ivory `#FAF8F5`, luxury black `#111111`, gold `#C8A97E`; utilities in `globals.css` (`.btn-luxury`, `.glass`, `.container-luxury`). See `AI_GUIDE.md` for full design system.
+5. **Design tokens** — ivory `#FAF8F5`, luxury black `#111111`, gold `#C8A97E`; utilities in `globals.css` (`.btn-luxury`, `.glass`, `.container-luxury`). See `AI_GUIDE.md` for full design system. **Bug/logic fixes must not restyle** — keep theme, colors, fonts, and layout identical unless the owner explicitly asks for a visual change.
 6. **Chunk/CSS recovery** — `ChunkReloadGuard` + `pnpm dev:reset` if vendor-chunks break; owner only hard-refreshes browser.
 
 ### PDP — no double UI (owner lock)

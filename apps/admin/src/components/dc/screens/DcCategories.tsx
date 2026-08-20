@@ -21,6 +21,7 @@ import {
   confirmCategoryUpdated,
 } from '@/lib/admin/catalog-save'
 import { downloadCsv } from '@/lib/admin/admin-actions'
+import { categoryTreeRoots } from '@/lib/admin/category-tree-roots'
 import {
   createCategory,
   deleteCategory,
@@ -73,11 +74,7 @@ function DcCategoriesBody() {
   })
   const { api } = useAdminConnection(25_000)
 
-  const roots = useMemo(() => {
-    const d = tree.data as { categories?: CategoryTreeNode[] } | CategoryTreeNode[] | undefined
-    if (Array.isArray(d)) return d
-    return d?.categories ?? []
-  }, [tree.data])
+  const roots = useMemo(() => categoryTreeRoots(tree.data), [tree.data])
 
   const rows = useMemo(() => flatten(roots), [roots])
 

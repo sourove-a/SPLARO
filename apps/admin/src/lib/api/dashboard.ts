@@ -79,6 +79,17 @@ export function fetchConversionFunnel(period: '1d' | '7d' | '30d' | '90d' = '30d
   return apiFetch<ConversionFunnelResponse>(`/admin/analytics/funnel?period=${period}`)
 }
 
+export interface TrafficSourceRow {
+  source: string
+  orders: number
+  revenue: number
+}
+
+/** Orders grouped by the attribution source recorded at checkout. */
+export function fetchTrafficSources(period: '7d' | '30d' | '90d' = '30d') {
+  return apiFetch<TrafficSourceRow[]>(`/admin/analytics/traffic?period=${period}`)
+}
+
 export interface InventoryAlertsResponse {
   outOfStock: number
   lowStock: number

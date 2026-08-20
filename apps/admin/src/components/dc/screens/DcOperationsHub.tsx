@@ -417,7 +417,9 @@ function DcOperationsHubBody() {
               sub={
                 wms.error
                   ? 'GET /commerce-os/wms/overview failed'
-                  : `${stock?.reserved ?? 0} reserved · ${stock?.damaged ?? 0} damaged`
+                  : stock?.source === 'product-inventory'
+                    ? `from product inventory · ${stock.reserved} reserved`
+                    : `${stock?.reserved ?? 0} reserved · ${stock?.damaged ?? 0} damaged`
               }
             />
             <Kpi

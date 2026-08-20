@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { DcContentNav } from '@/components/dc/DcContentNav'
 import { DcIcon } from '@/components/dc/DcIcon'
@@ -13,11 +13,13 @@ import { DcField, DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, toneStyle } from '@/components/dc/tokens'
+import { categoryTreeRoots } from '@/lib/admin/category-tree-roots'
 import type { CategoryTreeNode } from '@/lib/api/categories'
 import { useCategoryTree, useSeedDefaultCategories, useSettings, useUpdateSettings } from '@/lib/api/hooks'
 import type { DepartmentMenuOverride, NavLink } from '@/lib/api/settings'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { verifySettingsApplied } from '@/lib/admin/settings-save'
+import { arrayMove, DcDragHandle, DcSortableList, useDcSortable, type DcSortHandle } from '@/components/dc/DcSortableList'
 
 const card = {
   border: '1px solid var(--line)',
@@ -99,6 +101,7 @@ function mergeMissingHeaderDefaults(current: NavLink[]): { next: NavLink[]; adde
 interface Draft {
   headerNav: NavLink[]
   autoSync: boolean
+  hideEmptyCategories: boolean
   departments: DepartmentMenuOverride[]
 }
 
@@ -106,6 +109,10 @@ const same = (a: Draft, b: Draft) => JSON.stringify(a) === JSON.stringify(b)
 
 function overrideForSlug(draft: Draft | null, slug: string) {
   return draft?.departments.find((x) => x.departmentSlug === slug)
+}
+
+function treeProductCount(node: CategoryTreeNode): number {
+  return (node._count?.products ?? 0) + (node.children ?? []).reduce((sum, child) => sum + treeProductCount(child), 0)
 }
 
 export function DcMenuControl() {
@@ -136,6 +143,7 @@ function DcMenuControlBody() {
     return {
       headerNav: (d.navigation?.headerNav ?? []).map((l) => ({ ...l })),
       autoSync: d.menuOverrides?.autoSync ?? true,
+      hideEmptyCategories: d.menuOverrides?.hideEmptyCategories !== false,
       departments: (d.menuOverrides?.departments ?? []).map((x) => ({ ...x })),
     }
   }, [settings.data])
@@ -144,14 +152,7 @@ function DcMenuControlBody() {
     if (baseline) setDraft(baseline)
   }, [baseline])
 
-  const roots: CategoryTreeNode[] = useMemo(() => {
-    const d = tree.data as
-      | { categories?: CategoryTreeNode[]; tree?: CategoryTreeNode[] }
-      | CategoryTreeNode[]
-      | undefined
-    if (Array.isArray(d)) return d
-    return d?.tree ?? d?.categories ?? []
-  }, [tree.data])
+  const roots: CategoryTreeNode[] = useMemo(() => categoryTreeRoots(tree.data), [tree.data])
 
   const accessoriesRoot = roots.find((r) => r.slug === 'accessories')
   const accessoriesHeader = draft?.headerNav.find(
@@ -166,17 +167,61 @@ function DcMenuControlBody() {
 
   const patch = (next: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...next } : d))
 
-  const moveLink = (index: number, direction: -1 | 1) =>
-    setDraft((d) => {
-      if (!d) return d
-      const target = index + direction
-      if (target < 0 || target >= d.headerNav.length) return d
-      const headerNav = [...d.headerNav]
-      const held = headerNav[index]!
-      headerNav[index] = headerNav[target]!
-      headerNav[target] = held
-      return { ...d, headerNav }
+  const persistMenu = (next: Draft) => {
+    const settingsPatch = {
+      navigation: {
+        headerNav: next.headerNav,
+        footerGroups: settings.data?.navigation?.footerGroups ?? [],
+      },
+      menuOverrides: {
+        autoSync: next.autoSync,
+        hideEmptyCategories: next.hideEmptyCategories,
+        departments: next.departments,
+      },
+    }
+    update.mutate(settingsPatch, {
+      onSuccess: (saved) => {
+        const verified = verifySettingsApplied(settingsPatch, saved)
+        if (!verified.ok) {
+          toast('bad', 'Order not verified', verified.reason)
+          void settings.refetch()
+          return
+        }
+        toast('ok', 'Order saved and verified', 'The storefront menu reads this order now.')
+      },
+      onError: (err) =>
+        toast(
+          'bad',
+          'Could not save the order',
+          err instanceof Error ? err.message : 'PATCH /admin/settings failed',
+        ),
     })
+  }
+
+  const applyHeaderNav = (headerNav: Draft['headerNav']) => {
+    if (!draft) return
+    const next = { ...draft, headerNav }
+    patch({ headerNav })
+    persistMenu(next)
+  }
+
+  const moveLink = (index: number, direction: -1 | 1) => {
+    if (!draft) return
+    const target = index + direction
+    if (target < 0 || target >= draft.headerNav.length) return
+    applyHeaderNav(arrayMove(draft.headerNav, index, target))
+  }
+
+  const applyCategoryOrder = (slug: string, ids: string[]) => {
+    if (!draft) return
+    const exists = draft.departments.some((x) => x.departmentSlug === slug)
+    const departments = exists
+      ? draft.departments.map((x) => (x.departmentSlug === slug ? { ...x, categoryOrder: ids } : x))
+      : [...draft.departments, { departmentSlug: slug, categoryOrder: ids }]
+    const next = { ...draft, departments }
+    patch({ departments })
+    persistMenu(next)
+  }
 
   const overrideFor = (slug: string) => draft?.departments.find((x) => x.departmentSlug === slug)
 
@@ -252,7 +297,11 @@ function DcMenuControlBody() {
         headerNav: draft.headerNav,
         footerGroups: settings.data?.navigation?.footerGroups ?? [],
       },
-      menuOverrides: { autoSync: draft.autoSync, departments: draft.departments },
+      menuOverrides: {
+        autoSync: draft.autoSync,
+        hideEmptyCategories: draft.hideEmptyCategories,
+        departments: draft.departments,
+      },
     }
     update.mutate(
       settingsPatch,
@@ -453,16 +502,21 @@ function DcMenuControlBody() {
                     textWrap: 'pretty',
                   }}
                 >
-                  Each row is one link in the storefront header. Arrows set the order the storefront
-                  reads. Use Restore default links if Accessories (or Shop/Men/…) disappeared.
+                  Each row is one link in the storefront header. Drag the handle or use the arrows.
+                  Order saves immediately. Use Restore default links if Accessories (or Shop/Men/…) disappeared.
                 </p>
 
                 {draft.headerNav.length === 0 ? (
                   <EmptyRow text="No header links. The storefront header renders empty." />
                 ) : (
-                  draft.headerNav.map((link, i) => (
+                  <DcSortableList
+                    ids={draft.headerNav.map((link, i) => `header-${i}-${link.href}`)}
+                    onReorder={(from, to) => applyHeaderNav(arrayMove(draft.headerNav, from, to))}
+                  >
+                  {draft.headerNav.map((link, i) => (
+                    <MenuSortableRow key={`header-${i}-${link.href}`} id={`header-${i}-${link.href}`}>
+                      {(handle) => (
                     <VisRow
-                      key={`${link.href}-${i}`}
                       label={link.label}
                       sub={link.href}
                       on={!link.hidden}
@@ -477,6 +531,7 @@ function DcMenuControlBody() {
                       }
                       before={
                         <>
+                          <DcDragHandle {...handle} />
                           <IconBtn
                             icon="icon-chevron-up"
                             title="Move up"
@@ -490,7 +545,10 @@ function DcMenuControlBody() {
                         </>
                       }
                     />
-                  ))
+                      )}
+                    </MenuSortableRow>
+                  ))}
+                  </DcSortableList>
                 )}
 
                 <div style={{ paddingTop: 12, borderTop: '1px solid var(--line)', marginTop: 2 }}>
@@ -592,6 +650,74 @@ function DcMenuControlBody() {
                     />
                   </button>
                 </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '11px 0',
+                    borderTop: '1px solid var(--line)',
+                  }}
+                >
+                  <span
+                    style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}
+                  >
+                    <span style={{ font: `500 12.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+                      Auto-hide categories with 0 products
+                    </span>
+                    <span
+                      style={{
+                        font: `400 11.5px/1.4 ${FONT}`,
+                        color: 'var(--ink-3)',
+                        textWrap: 'pretty',
+                      }}
+                    >
+                      Empty departments leave the header. Use Force visible to keep a coming-soon
+                      collection in the menu.
+                    </span>
+                  </span>
+                  <span
+                    style={{
+                      flex: 'none',
+                      font: `600 11px/1 ${FONT}`,
+                      letterSpacing: '.06em',
+                      color: draft.hideEmptyCategories ? 'var(--violet)' : 'var(--ink-3)',
+                    }}
+                  >
+                    {draft.hideEmptyCategories ? 'ON' : 'OFF'}
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={draft.hideEmptyCategories}
+                    aria-label="Auto-hide categories with 0 products"
+                    onClick={() => patch({ hideEmptyCategories: !draft.hideEmptyCategories })}
+                    style={{
+                      position: 'relative',
+                      display: 'block',
+                      width: 38,
+                      height: 21,
+                      flex: 'none',
+                      padding: 0,
+                      border: 0,
+                      cursor: 'pointer',
+                      borderRadius: 99,
+                      background: draft.hideEmptyCategories ? 'var(--violet-solid)' : 'var(--surface-3)',
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: 2,
+                        ...(draft.hideEmptyCategories ? { right: 2 } : { left: 2 }),
+                        width: 17,
+                        height: 17,
+                        borderRadius: 99,
+                        background: draft.hideEmptyCategories ? 'var(--on-violet)' : 'var(--ink-3)',
+                      }}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -600,7 +726,10 @@ function DcMenuControlBody() {
               const deptHidden = override?.hidden === true
               const forced = override?.forceVisible === true
               const hiddenIds = new Set(override?.hiddenCategoryIds ?? [])
-              const children = dept.children ?? []
+              const children = orderMenuCategories(dept.children ?? [], override?.categoryOrder)
+              const deptCount = treeProductCount(dept)
+              const deptAutoHidden =
+                !deptHidden && !forced && draft.hideEmptyCategories && deptCount === 0
               return (
                 <div key={dept.id} style={{ flex: '1 1 56%', minWidth: 340, maxWidth: '100%' }}>
                   <div style={{ ...card, padding: '6px 16px 12px' }}>
@@ -626,10 +755,20 @@ function DcMenuControlBody() {
                       sub={
                         deptHidden
                           ? 'hidden from the header mega menu'
-                          : 'shown in the header mega menu'
+                          : deptAutoHidden
+                            ? 'auto-hidden — 0 live products'
+                            : 'shown in the header mega menu'
                       }
-                      on={!deptHidden}
-                      badge={forced ? 'FORCE VISIBLE' : deptHidden ? 'HIDDEN' : 'VISIBLE'}
+                      on={!deptHidden && !deptAutoHidden}
+                      badge={
+                        forced
+                          ? 'FORCE VISIBLE'
+                          : deptHidden
+                            ? 'HIDDEN'
+                            : deptAutoHidden
+                              ? 'AUTO-HIDDEN'
+                              : 'VISIBLE'
+                      }
                       buttonLabel={deptHidden ? 'Show department' : 'Hide department'}
                       onToggle={() => setDepartment(dept.slug, { hidden: !deptHidden })}
                       before={
@@ -657,22 +796,62 @@ function DcMenuControlBody() {
                     {children.length === 0 ? (
                       <EmptyRow text="No child categories — this department renders as a single link." />
                     ) : (
-                      children.map((cat) => {
-                        const count = cat._count?.products ?? 0
+                      <DcSortableList
+                        ids={children.map((cat) => cat.id)}
+                        onReorder={(from, to) =>
+                          applyCategoryOrder(dept.slug, arrayMove(children, from, to).map((c) => c.id))
+                        }
+                      >
+                      {children.map((cat, catIndex) => {
+                        const count = treeProductCount(cat)
                         const hidden = hiddenIds.has(cat.id)
+                        const autoHidden = !hidden && draft.hideEmptyCategories && count === 0
                         return (
+                          <MenuSortableRow key={cat.id} id={cat.id}>
+                            {(handle) => (
                           <VisRow
-                            key={cat.id}
                             label={cat.name}
                             sub={`/${dept.slug}/${cat.slug} · ${count} product${count === 1 ? '' : 's'}`}
                             note={count === 0 ? 'empty category' : undefined}
-                            on={!hidden}
-                            badge={hidden ? 'HIDDEN' : 'VISIBLE'}
+                            on={!hidden && !autoHidden}
+                            badge={hidden ? 'HIDDEN' : autoHidden ? 'AUTO-HIDDEN' : 'VISIBLE'}
                             buttonLabel={hidden ? 'Show in menu' : 'Hide from menu'}
                             onToggle={() => toggleCategory(dept.slug, cat.id)}
+                            before={
+                              <>
+                                <DcDragHandle {...handle} />
+                                <IconBtn
+                                  icon="icon-chevron-up"
+                                  title="Move up"
+                                  onClick={() => {
+                                    const target = catIndex - 1
+                                    if (target < 0) return
+                                    applyCategoryOrder(
+                                      dept.slug,
+                                      arrayMove(children, catIndex, target).map((c) => c.id),
+                                    )
+                                  }}
+                                />
+                                <IconBtn
+                                  icon="icon-chevron-down"
+                                  title="Move down"
+                                  onClick={() => {
+                                    const target = catIndex + 1
+                                    if (target >= children.length) return
+                                    applyCategoryOrder(
+                                      dept.slug,
+                                      arrayMove(children, catIndex, target).map((c) => c.id),
+                                    )
+                                  }}
+                                />
+                              </>
+                            }
                           />
+                            )}
+                          </MenuSortableRow>
                         )
-                      })
+                      })}
+                      </DcSortableList>
                     )}
                   </div>
                 </div>
@@ -719,6 +898,27 @@ function DcMenuControlBody() {
 }
 
 /* ── shared bits ─────────────────────────────────────────────────── */
+
+function orderMenuCategories<T extends { id: string }>(items: T[], order?: string[]): T[] {
+  if (!order?.length) return items
+  const rank = new Map(order.map((id, index) => [id, index]))
+  return [...items].sort((a, b) => (rank.get(a.id) ?? 1_000_000) - (rank.get(b.id) ?? 1_000_000))
+}
+
+function MenuSortableRow({
+  id,
+  children,
+}: {
+  id: string
+  children: (handle: DcSortHandle) => ReactNode
+}) {
+  const drag = useDcSortable(id)
+  return (
+    <div ref={drag.setNodeRef} style={drag.style}>
+      {children({ listeners: drag.listeners, attributes: drag.attributes })}
+    </div>
+  )
+}
 
 function SectionHead({ title, meta }: { title: string; meta: string }) {
   return (

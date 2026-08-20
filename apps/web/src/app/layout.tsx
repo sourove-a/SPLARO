@@ -26,9 +26,9 @@ import { SPLARO_TAB_ICONS, splaroMetadataIcons } from '@splaro/config'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
 import {
   SPLARO_HOME_DESCRIPTION,
-  SPLARO_HOME_TITLE,
   SPLARO_ORG_DESCRIPTION,
 } from '@/lib/seo/brand-positioning'
+import { resolveDefaultStorefrontMeta } from '@/lib/seo/default-meta'
 import { serializeJsonLd } from '@/lib/seo/json-ld'
 import { DEFAULT_SUPPORT_EMAIL, DEFAULT_SUPPORT_PHONE_E164 } from '@/lib/storefront/defaults'
 
@@ -74,99 +74,102 @@ const cdnOrigin = (() => {
   return 'https://splaro.co'
 })()
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: {
-    default: SPLARO_HOME_TITLE,
-    template: '%s | SPLARO',
-  },
-  description: SPLARO_HOME_DESCRIPTION,
-  keywords: [
-    'SPLARO',
-    'SPLARO Bangladesh',
-    'premium fashion Bangladesh',
-    'fashion Dhaka',
-    'buy clothes online Bangladesh',
-    'COD fashion Bangladesh',
-    'men fashion Bangladesh',
-    'women fashion Bangladesh',
-    'kids fashion Bangladesh',
-    'apparel Bangladesh',
-    'ethnic wear Bangladesh',
-    'panjabi online',
-    'handbags Bangladesh',
-    'footwear Bangladesh',
-    'accessories Bangladesh',
-    'Uttara fashion store',
-  ],
-  authors: [{ name: 'SPLARO', url: siteUrl }],
-  creator: 'SPLARO',
-  publisher: 'SPLARO',
-  category: 'shopping',
-  applicationName: 'SPLARO',
-  alternates: {
-    canonical: siteUrl,
-    languages: { 'en-BD': siteUrl, en: siteUrl },
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
+export async function generateMetadata(): Promise<Metadata> {
+  const { title, description, googleSiteVerification } = await resolveDefaultStorefrontMeta()
+  return {
+    metadataBase: new URL(siteUrl),
+    title: {
+      default: title,
+      template: '%s | SPLARO',
+    },
+    description,
+    keywords: [
+      'SPLARO',
+      'SPLARO Bangladesh',
+      'premium fashion Bangladesh',
+      'fashion Dhaka',
+      'buy clothes online Bangladesh',
+      'COD fashion Bangladesh',
+      'men fashion Bangladesh',
+      'women fashion Bangladesh',
+      'kids fashion Bangladesh',
+      'apparel Bangladesh',
+      'ethnic wear Bangladesh',
+      'panjabi online',
+      'handbags Bangladesh',
+      'footwear Bangladesh',
+      'accessories Bangladesh',
+      'Uttara fashion store',
+    ],
+    authors: [{ name: 'SPLARO', url: siteUrl }],
+    creator: 'SPLARO',
+    publisher: 'SPLARO',
+    category: 'shopping',
+    applicationName: 'SPLARO',
+    alternates: {
+      canonical: siteUrl,
+      languages: { 'en-BD': siteUrl, en: siteUrl },
+    },
+    robots: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
-  },
-  openGraph: {
-    type: 'website',
-    locale: 'en_BD',
-    alternateLocale: ['en_US'],
-    siteName: 'SPLARO',
-    title: SPLARO_HOME_TITLE,
-    description: SPLARO_HOME_DESCRIPTION,
-    url: siteUrl,
-    images: [
-      {
-        url: `${siteUrl}/og-image.jpg`,
-        width: 1200,
-        height: 630,
-        alt: SPLARO_HOME_TITLE,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
       },
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: SPLARO_HOME_TITLE,
-    description: SPLARO_HOME_DESCRIPTION,
-    images: [`${siteUrl}/og-image.jpg`],
-    creator: '@splaro_official',
-  },
-  icons: splaroMetadataIcons,
-  ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim()
-    ? {
-        verification: {
-          google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION.trim(),
+    },
+    openGraph: {
+      type: 'website',
+      locale: 'en_BD',
+      alternateLocale: ['en_US'],
+      siteName: 'SPLARO',
+      title,
+      description,
+      url: siteUrl,
+      images: [
+        {
+          url: `${siteUrl}/og-image.jpg`,
+          width: 1200,
+          height: 630,
+          alt: title,
         },
-      }
-    : {}),
-  ...(process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION?.trim() ||
-  process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION?.trim()
-    ? {
-        other: {
-          ...(process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION?.trim()
-            ? { 'msvalidate.01': process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION.trim() }
-            : {}),
-          ...(process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION?.trim()
-            ? {
-                'facebook-domain-verification':
-                  process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION.trim(),
-              }
-            : {}),
-        },
-      }
-    : {}),
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [`${siteUrl}/og-image.jpg`],
+      creator: '@splaro_official',
+    },
+    icons: splaroMetadataIcons,
+    ...(googleSiteVerification
+      ? {
+          verification: {
+            google: googleSiteVerification,
+          },
+        }
+      : {}),
+    ...(process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION?.trim() ||
+    process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION?.trim()
+      ? {
+          other: {
+            ...(process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION?.trim()
+              ? { 'msvalidate.01': process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION.trim() }
+              : {}),
+            ...(process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION?.trim()
+              ? {
+                  'facebook-domain-verification':
+                    process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION.trim(),
+                }
+              : {}),
+          },
+        }
+      : {}),
+  }
 }
 
 export const viewport: Viewport = {

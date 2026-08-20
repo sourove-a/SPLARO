@@ -1,6 +1,7 @@
 import { getServerApiBaseUrl } from '@splaro/config'
 import {
   DEFAULT_LEGAL_PAGES,
+  legalPageLooksStale,
   type LegalPageContent,
   type LegalPageSection,
   type LegalPageSlug,
@@ -50,14 +51,19 @@ export async function getLegalPage(slug: LegalPageSlug): Promise<LegalPageConten
     if (!res?.ok) return fallback
 
     const data = (await res.json()) as LegalPageContent
+    if (legalPageLooksStale(data) || !(data.sections ?? []).length) return fallback
     const sections = mergeLegalSections(data.sections ?? [], fallback.sections)
     return {
       title: data.title?.trim() || fallback.title,
       description: data.description?.trim() || fallback.description,
       sections: sections.length ? sections : fallback.sections,
-      metaTitle: pageTitleSegment(data.metaTitle ?? fallback.metaTitle) || data.title?.trim() || fallback.title,
+      metaTitle:
+        pageTitleSegment(data.metaTitle ?? fallback.metaTitle) || data.title?.trim() || fallback.title,
       metaDescription:
-        data.metaDescription ?? fallback.metaDescription ?? data.description ?? fallback.description,
+        data.metaDescription?.trim() ||
+        fallback.metaDescription ||
+        data.description?.trim() ||
+        fallback.description,
     }
   } catch {
     return fallback
