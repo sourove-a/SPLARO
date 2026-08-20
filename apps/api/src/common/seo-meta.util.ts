@@ -2,8 +2,27 @@ export function stripHtml(text: string): string {
   return text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+export function hasMetaValue(value?: string | null): boolean {
+  return Boolean(value?.trim())
+}
+
+/** Collapse “Premium premium” / repeated adjacent words in generated meta. */
+export function collapseDuplicateAdjacentWords(text: string): string {
+  return text.replace(/\b([\p{L}]+)\s+\1\b/giu, '$1')
+}
+
+const STALE_META_PATTERN =
+  /\bpremium\s+premium\b|luxury women's fashion|premium women's fashion|premium piece from SPLARO/i
+
+export function isStaleProductMeta(value?: string | null): boolean {
+  const trimmed = value?.trim() ?? ''
+  if (!trimmed) return true
+  if (STALE_META_PATTERN.test(trimmed)) return true
+  return collapseDuplicateAdjacentWords(trimmed) !== trimmed
+}
+
 export function buildProductMetaTitle(name: string): string {
-  const clean = name.trim()
+  const clean = collapseDuplicateAdjacentWords(name.trim())
   const suffix = ' | SPLARO'
   const withSuffix = `${clean}${suffix}`
   if (withSuffix.length <= 60) return withSuffix
@@ -16,16 +35,13 @@ export function buildProductMetaDescription(
   description?: string | null,
   shortDescription?: string | null,
 ): string {
-  const raw = stripHtml((shortDescription || description || '').trim())
-  if (raw.length >= 100 && raw.length <= 160) return raw
-  if (raw.length > 160) return `${raw.slice(0, 157).trimEnd()}...`
+  const raw = collapseDuplicateAdjacentWords(stripHtml((shortDescription || description || '').trim()))
+  if (raw.length >= 100 && raw.length <= 160 && !isStaleProductMeta(raw)) return raw
+  if (raw.length > 160 && !isStaleProductMeta(raw)) return `${raw.slice(0, 157).trimEnd()}...`
 
-  const fallback =
-    `Shop ${name} at SPLARO — luxury women's fashion from Bangladesh. Premium quality, secure checkout & nationwide delivery.`
+  const fallback = collapseDuplicateAdjacentWords(
+    `Shop ${name.trim()} at SPLARO — fashion for men, women and kids in Bangladesh. Secure checkout and nationwide delivery.`,
+  )
   if (fallback.length <= 160) return fallback
   return `${fallback.slice(0, 157).trimEnd()}...`
-}
-
-export function hasMetaValue(value?: string | null): boolean {
-  return Boolean(value?.trim())
 }

@@ -41,7 +41,13 @@ export async function GET() {
   const base = getServerApiBaseUrl()
   const checkedAt = new Date().toISOString()
 
-  const apiProbe = await probe(`${base}/health`, 5000)
+  const storefrontOrigin = getStorefrontProbeOrigin()
+  const storefrontUrl = `${storefrontOrigin}/api/products?limit=1`
+
+  const [apiProbe, storefrontProbe] = await Promise.all([
+    probe(`${base}/health`, 5000),
+    probe(storefrontUrl, 6000),
+  ])
   let databaseOnline = false
   let databaseLatency: number | null = null
   let databaseMessage: string | undefined
@@ -72,10 +78,6 @@ export async function GET() {
   } else {
     databaseMessage = 'API offline'
   }
-
-  const storefrontOrigin = getStorefrontProbeOrigin()
-  const storefrontUrl = `${storefrontOrigin}/api/products?limit=1`
-  const storefrontProbe = await probe(storefrontUrl, 6000)
 
   const services = {
     api: {

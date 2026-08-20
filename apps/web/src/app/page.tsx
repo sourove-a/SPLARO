@@ -9,27 +9,33 @@ import { resolveHeroBanners } from '@/lib/api/hero-banners'
 import { resolveLocalHeroVariants } from '@/lib/assets/hero-cdn'
 import { classifyHeroMedia } from '@splaro/config'
 import { getHomepageDepartmentRows } from '@/lib/catalog/homepage-department-rows'
-import {
-  SPLARO_HOME_DESCRIPTION,
-  SPLARO_HOME_TITLE,
-} from '@/lib/seo/brand-positioning'
 import { createRouteMetadata } from '@/lib/seo/route-metadata'
+import { resolveDefaultStorefrontMeta } from '@/lib/seo/default-meta'
 import {
   EMPTY_HOMEPAGE_REVIEWS,
   getHomepageReviews,
 } from '@/lib/server/storefront-reviews'
-import { resolveHomepageSections, resolveOurStory } from '@/lib/storefront/homepage-defaults'
+import { resolveHomepageSections, resolveHomepageSectionOrder, resolveOurStory } from '@/lib/storefront/homepage-defaults'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
 
-export const metadata = createRouteMetadata({
-  title: SPLARO_HOME_TITLE,
-  description: SPLARO_HOME_DESCRIPTION,
-  path: '/',
-})
+export async function generateMetadata() {
+  const { title, description } = await resolveDefaultStorefrontMeta()
+  return createRouteMetadata({
+    title,
+    description,
+    path: '/',
+  })
+}
 
 export const revalidate = 60
 
-async function HomeCatalog() {
+async function HomeCatalog({
+  heroBanners,
+  includeHero,
+}: {
+  heroBanners: Awaited<ReturnType<typeof resolveHeroBanners>>
+  includeHero: boolean
+}) {
   const settings = await getStorefrontSettings()
   const homepage = resolveHomepageSections(settings.config.homepage)
   const story = resolveOurStory(settings.config.ourStory)
@@ -51,7 +57,8 @@ async function HomeCatalog() {
   return (
     <GlassStorefront
       departmentRows={departmentRows}
-      showHero={false}
+      heroBanners={heroBanners}
+      showHero={includeHero}
       storySlot={
         showStory ? (
           <BrandStorySection key="home-brand-story" story={story} reviews={reviews} />
@@ -65,6 +72,7 @@ export default async function HomePage() {
   const settings = await getStorefrontSettings()
   const homepage = resolveHomepageSections(settings.config.homepage)
   const heroBanners = homepage.hero ? resolveHeroBanners(await fetchHeroBanners()) : []
+  const heroFirst = homepage.hero && resolveHomepageSectionOrder(homepage.order)[0] === 'hero'
   const firstMedia = heroBanners[0]?.image ?? ''
   const firstClassified = classifyHeroMedia(firstMedia)
   const lcpSource =
@@ -95,7 +103,7 @@ export default async function HomePage() {
           />
         </>
       ) : null}
-      {heroBanners.length ? (
+      {heroFirst && heroBanners.length ? (
         <HeroSlider
           key={heroBanners
             .map((banner) => `${banner.id}:${banner.image}:${banner.title ?? ''}:${banner.subtitle ?? ''}`)
@@ -104,7 +112,7 @@ export default async function HomePage() {
         />
       ) : null}
       <Suspense fallback={null}>
-        <HomeCatalog />
+        <HomeCatalog heroBanners={heroBanners} includeHero={!heroFirst} />
       </Suspense>
     </>
   )

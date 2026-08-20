@@ -199,8 +199,12 @@ export async function trackOrdersByPhone(
   | { ok: false; error: string; requiresOtp?: boolean }
 > {
   try {
-    const params = new URLSearchParams({ phone })
-    if (orderNumber?.trim()) params.set('id', orderNumber.trim())
+    const params = new URLSearchParams()
+    if (phone.trim()) params.set('phone', phone.trim())
+    if (orderNumber?.trim()) params.set('invoice', orderNumber.trim())
+    if (![...params.keys()].length) {
+      return { ok: false, error: 'Enter a phone number or order number (SPL-####)' }
+    }
     const response = await fetch(`/api/orders/track?${params.toString()}`, {
       cache: 'no-store',
       credentials: 'include',

@@ -84,7 +84,7 @@ export const HANDOFF_SIDEBAR_GROUPS: ReadonlyArray<{ group: string; hrefs: reado
       '/dashboard/menu-control',
       '/dashboard/legal-pages',
       '/dashboard/footwear-page',
-      '/dashboard/theme-builder',
+      '/dashboard/branding',
       '/dashboard/lookbooks',
       '/dashboard/reels',
       '/dashboard/blog',

@@ -3039,42 +3039,11 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
 }
 
 .home-story-deck__glow {
-  position: absolute;
-  top: 16%;
-  left: var(--story-glow-x);
-  width: min(500px, 56vw);
-  height: min(340px, 38vw);
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: radial-gradient(
-    circle at 50% 48%,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(255, 255, 255, 0.03) 36%,
-    transparent 70%
-  );
-  filter: blur(12px);
-  transition: left 780ms cubic-bezier(0.16, 1, 0.3, 1);
-  mix-blend-mode: screen;
+  display: none;
 }
 
 .home-story-deck__shadow-pool {
-  pointer-events: none;
-  position: absolute;
-  left: 50%;
-  bottom: 6%;
-  z-index: 1;
-  width: min(22rem, 58vw);
-  height: 2.4rem;
-  transform: translateX(-50%);
-  border-radius: 999px;
-  background: radial-gradient(
-    ellipse 70% 100% at 50% 50%,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.03) 45%,
-    transparent 72%
-  );
-  filter: blur(6px);
-  opacity: 0.85;
+  display: none;
 }
 
 .home-story-deck__vignette {
@@ -3313,13 +3282,13 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
    * them; only the values changed. Worth renaming to `--story-accent*` in a
    * dedicated pass.
    */
-  --story-green: #ece6da;
-  --story-green-deep: #b9b0a0;
-  --story-green-soft: #fffaf0;
-  --story-green-glow: rgba(236, 230, 218, 0.2);
+  --story-green: #f2f2f2;
+  --story-green-deep: #c8c8c8;
+  --story-green-soft: #ffffff;
+  --story-green-glow: rgba(255, 255, 255, 0.2);
   --plat-hi: rgba(255, 255, 255, 0.92);
-  --plat-mid: rgba(236, 230, 218, 0.38);
-  --plat-lo: rgba(185, 176, 160, 0.22);
+  --plat-mid: rgba(255, 255, 255, 0.38);
+  --plat-lo: rgba(190, 190, 195, 0.22);
   --story-ink: #ffffff;
   position: absolute;
   top: 50%;
@@ -3329,13 +3298,12 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
   margin-left: calc(min(21.25rem, 64vw) / -2);
   margin-top: calc(min(29.5rem, 76vw) / -2);
   border-radius: 1.15rem;
-  border: 1px solid rgba(236, 230, 218, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   background: linear-gradient(180deg, rgba(24, 24, 26, 0.98) 0%, rgba(10, 10, 11, 1) 100%);
   /* Depth only — the coloured aura is gone. */
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 0 0 1px rgba(0, 0, 0, 0.6),
-    0 18px 44px rgba(0, 0, 0, 0.55);
+    0 0 0 1px rgba(0, 0, 0, 0.6);
   overflow: hidden;
   transform-style: preserve-3d;
   backface-visibility: hidden;
@@ -3351,12 +3319,11 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
 }
 
 .home-story-deck__card:not(.is-active) {
-  border-color: rgba(236, 230, 218, 0.08);
+  border-color: rgba(255, 255, 255, 0.08);
   background: linear-gradient(180deg, rgba(17, 17, 19, 0.98) 0%, rgba(7, 7, 8, 1) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.03),
-    0 0 0 1px rgba(0, 0, 0, 0.55),
-    0 14px 30px rgba(0, 0, 0, 0.45);
+    0 0 0 1px rgba(0, 0, 0, 0.55);
 }
 
 /*
@@ -3366,12 +3333,11 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
  * frame, and it ran forever on an element the reader is trying to read.
  */
 .home-story-deck__card.is-active {
-  border-color: rgba(236, 230, 218, 0.32);
+  border-color: rgba(255, 255, 255, 0.32);
   background: linear-gradient(180deg, rgba(30, 30, 33, 1) 0%, rgba(11, 11, 13, 1) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 0 0 1px rgba(0, 0, 0, 0.7),
-    0 26px 60px rgba(0, 0, 0, 0.6);
+    0 0 0 1px rgba(0, 0, 0, 0.7);
 }
 
 
@@ -3407,8 +3373,8 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
   display: block;
   z-index: 4;
   box-shadow:
-    inset 0 0 0 1px rgba(236, 230, 218, 0.14),
-    inset 0 0 28px rgba(236, 230, 218, 0.04);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 0 28px rgba(255, 255, 255, 0.04);
 }
 
 .home-story-deck__card-edge {
@@ -3419,10 +3385,10 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
     linear-gradient(#000, #000) padding-box,
     linear-gradient(
       135deg,
-      rgba(255, 250, 240, 0.75),
-      rgba(236, 230, 218, 0.35) 40%,
-      rgba(185, 176, 160, 0.2) 70%,
-      rgba(255, 250, 240, 0.45)
+      rgba(255, 255, 255, 0.75),
+      rgba(255, 255, 255, 0.35) 40%,
+      rgba(190, 190, 195, 0.2) 70%,
+      rgba(255, 255, 255, 0.45)
     ) border-box;
   opacity: 0.55;
   -webkit-mask:
@@ -3481,10 +3447,10 @@ html:not([data-scrolling='1']):not([data-perf='lite']):not([data-os='windows']) 
     from 0deg,
     transparent 0deg,
     transparent 250deg,
-    rgba(236, 230, 218, 0.15) 268deg,
-    rgba(190, 255, 210, 0.95) 286deg,
-    rgba(236, 230, 218, 0.7) 304deg,
-    rgba(185, 176, 160, 0.25) 328deg,
+    rgba(255, 255, 255, 0.15) 268deg,
+    rgba(255, 255, 255, 0.7) 286deg,
+    rgba(255, 255, 255, 0.7) 304deg,
+    rgba(190, 190, 195, 0.25) 328deg,
     transparent 348deg,
     transparent 360deg
   );
@@ -3567,12 +3533,12 @@ html[data-scrolling] .home-story-deck__card.is-active {
   inset: 0.7rem;
   z-index: 1;
   border-radius: 0.85rem;
-  border: 1px solid rgba(236, 230, 218, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 
 .home-story-deck__card.is-active .home-story-deck__card-engraved {
-  border-color: rgba(255, 250, 240, 0.22);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .home-story-deck__card-bevel {
@@ -3617,7 +3583,7 @@ html[data-scrolling] .home-story-deck__card.is-active {
   height: 0.22rem;
   border-radius: 999px;
   rotate: 0deg;
-  background: #fffaf0;
+  background: #ffffff;
   /* Flat point, no halo. A glowing dot reads as an LED indicator; a printed
      registration mark is what an editorial layout uses. */
   box-shadow: none;
@@ -3626,7 +3592,7 @@ html[data-scrolling] .home-story-deck__card.is-active {
 
 .home-story-deck__card.is-active .home-story-deck__corner-dot {
   opacity: 0.65;
-  background: #f3efe6;
+  background: #f0f0f0;
 }
 
 .home-story-deck__corner--tl .home-story-deck__corner-dot,
@@ -3714,16 +3680,7 @@ html[data-scrolling] .home-story-deck__card.is-active {
 }
 
 .home-story-deck__seal-glow {
-  pointer-events: none;
-  position: absolute;
-  inset: -14%;
-  border-radius: 999px;
-  background: radial-gradient(
-    circle,
-    rgba(236, 230, 218, 0.4) 0%,
-    transparent 70%
-  );
-  opacity: 0.75;
+  display: none;
 }
 
 .home-story-deck__card.is-active .home-story-deck__seal-glow {
@@ -3738,32 +3695,30 @@ html[data-scrolling] .home-story-deck__card.is-active {
 
 .home-story-deck__seal-ring--outer {
   inset: 0;
-  border: 1px solid rgba(236, 230, 218, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.45);
   background:
     radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.08), transparent 58%),
-    rgba(236, 230, 218, 0.08);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 0 16px rgba(236, 230, 218, 0.25);
+    rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 
 .home-story-deck__seal-ring--mid {
   inset: 0.4rem;
-  border: 1px solid rgba(236, 230, 218, 0.28);
-  border-top-color: rgba(255, 250, 240, 0.55);
-  border-bottom-color: rgba(185, 176, 160, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-top-color: rgba(255, 255, 255, 0.55);
+  border-bottom-color: rgba(190, 190, 195, 0.15);
 }
 
 .home-story-deck__seal-ring--inner {
   inset: 0.72rem;
-  border: 1px dashed rgba(255, 250, 240, 0.28);
+  border: 1px dashed rgba(255, 255, 255, 0.28);
   opacity: 0.85;
 }
 
 .home-story-deck__card.is-active .home-story-deck__seal-ring--outer {
-  border-color: rgba(255, 250, 240, 0.75);
+  border-color: rgba(255, 255, 255, 0.75);
 }
 
 .home-story-deck__medallion {
@@ -3773,7 +3728,7 @@ html[data-scrolling] .home-story-deck__card.is-active {
   width: 1.85rem;
   height: 1.85rem;
   place-items: center;
-  color: #fffaf0;
+  color: #ffffff;
 }
 
 /* Active logo: slow orbit + soft icon float */
@@ -3867,7 +3822,7 @@ html[data-scrolling] .home-story-deck__card.is-active {
   font-weight: 650;
   letter-spacing: 0.38em;
   text-transform: uppercase;
-  color: rgba(255, 250, 240, 0.78);
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .home-story-deck__card-mid {
@@ -3930,9 +3885,9 @@ html[data-scrolling] .home-story-deck__card.is-active {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(236, 230, 218, 0.35),
-    rgba(255, 250, 240, 0.75),
-    rgba(236, 230, 218, 0.35),
+    rgba(255, 255, 255, 0.35),
+    rgba(255, 255, 255, 0.75),
+    rgba(255, 255, 255, 0.35),
     transparent
   );
   transform: translateY(-50%);
@@ -3945,10 +3900,8 @@ html[data-scrolling] .home-story-deck__card.is-active {
   height: 0.26rem;
   border-radius: 1px;
   rotate: 45deg;
-  background: linear-gradient(145deg, #f3efe6, #d9d2c4);
-  box-shadow:
-    0 0 10px rgba(236, 230, 218, 0.65),
-    0 0 0 1px rgba(255, 250, 240, 0.3);
+  background: linear-gradient(145deg, #f0f0f0, #d0d0d0);
+  box-shadow: none;
 }
 
 .home-story-deck__card-foot {
@@ -4552,11 +4505,8 @@ html[data-os='windows'] .home-story-deck__card {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   background: linear-gradient(180deg, #16181c 0%, #08090b 100%) !important;
-  border-color: rgba(236, 230, 218, 0.4) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 0 20px rgba(236, 230, 218, 0.18),
-    0 16px 36px rgba(0, 0, 0, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
   filter: none !important;
   transform-style: flat;
   backface-visibility: hidden;
@@ -4566,26 +4516,22 @@ html[data-os='windows'] .home-story-deck__card {
 html[data-perf='lite'] .home-story-deck__card.is-active,
 html[data-os='windows'] .home-story-deck__card.is-active {
   background: linear-gradient(180deg, #1c2026 0%, #0a0b0d 100%) !important;
-  border-color: rgba(255, 250, 240, 0.6) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 0 28px rgba(236, 230, 218, 0.3),
-    0 0 60px rgba(236, 230, 218, 0.16),
-    0 20px 44px rgba(0, 0, 0, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
 
 html[data-perf='lite'] .home-story-deck__card:not(.is-active),
 html[data-os='windows'] .home-story-deck__card:not(.is-active) {
   background: #0c0d10 !important;
-  border-color: rgba(236, 230, 218, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
 }
 
 html[data-perf='lite'] .home-story-deck__seal-ring--outer,
 html[data-os='windows'] .home-story-deck__seal-ring--outer {
   background:
     radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.08), transparent 62%),
-    rgba(236, 230, 218, 0.1) !important;
-  border-color: rgba(236, 230, 218, 0.45) !important;
+    rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.45) !important;
 }
 
 html[data-perf='lite'] .home-story-deck__card.is-active .home-story-deck__seal-ring--mid,

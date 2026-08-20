@@ -20,7 +20,7 @@ import {
   DEFAULT_SUPPORT_PHONE_E164,
   beautifyStoreAddress,
 } from '@/lib/storefront/defaults'
-import { ACCESSORIES_MEGA_CATEGORIES } from '@/lib/storefront/accessories-nav'
+import { healAccessoriesHeaderNav } from '@/lib/storefront/accessories-nav'
 import { EDITORIAL } from '@/lib/assets/editorial-images'
 import {
   DEFAULT_HOMEPAGE_CATALOG,
@@ -161,6 +161,11 @@ export interface StorefrontSettings {
     homepageCatalog?: HomepageCatalogConfig
     catalogChannels?: CatalogChannel[]
     shopFilters?: ShopFiltersConfig
+    seo?: {
+      metaTitle?: string
+      metaDescription?: string
+      googleSiteVerification?: string
+    }
   }
   marketing?: {
     facebookPixelId?: string
@@ -289,14 +294,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
           ],
         },
       },
-      {
-        label: 'Accessories',
-        href: '/accessories',
-        megaMenu: {
-          categories: [...ACCESSORIES_MEGA_CATEGORIES],
-          heroes: [],
-        },
-      },
+      { label: 'Accessories', href: '/accessories' },
     ],
     footerGroups: [
       {
@@ -369,6 +367,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
     homepage: DEFAULT_HOMEPAGE_SECTIONS,
     catalogChannels: DEFAULT_CATALOG_CHANNELS.map((channel) => ({ ...channel })),
     shopFilters: DEFAULT_SHOP_FILTERS,
+    seo: { metaTitle: '', metaDescription: '', googleSiteVerification: '' },
   },
   marketing: { facebookPixelId: '', googleAnalyticsId: '' },
 }
@@ -552,65 +551,6 @@ function ensureHomeNavLink(nav: NavLink[]): NavLink[] {
   return [{ label: 'Home', href: '/' }, ...nav]
 }
 
-/** Belt-and-suspenders: API NavBuilder also heals; keep Accessories if nav cache is stale. */
-function ensureAccessoriesHeaderLink(nav: NavLink[]): NavLink[] {
-  const pathOf = (href: string) => href.split(/[?#]/, 1)[0]?.replace(/\/$/, '') || '/'
-  const isAccessories = (item: NavLink) => {
-    const href = pathOf(item.href ?? '')
-    const label = item.label?.trim().toLowerCase() ?? ''
-    return (
-      href === '/accessories' ||
-      href === '/c/accessories' ||
-      href === '/collections/accessories' ||
-      label === 'accessories'
-    )
-  }
-
-  const idx = nav.findIndex(isAccessories)
-  if (idx >= 0) {
-    const item = nav[idx]!
-    const needsHref = pathOf(item.href) !== '/accessories'
-    const needsShow = Boolean(item.hidden)
-    const needsMega = !item.megaMenu?.categories?.length
-    if (!needsHref && !needsShow && !needsMega) return nav
-    const next = [...nav]
-    next[idx] = {
-      label: item.label?.trim() || 'Accessories',
-      href: '/accessories',
-      megaMenu: item.megaMenu?.categories?.length
-        ? item.megaMenu
-        : {
-            categories: [...ACCESSORIES_MEGA_CATEGORIES],
-            heroes: [],
-          },
-    }
-    return next
-  }
-
-  const footwearIdx = nav.findIndex((item) => {
-    const href = pathOf(item.href ?? '')
-    return (
-      href === '/c/footwear' ||
-      href === '/collections/footwear' ||
-      item.label?.trim().toLowerCase() === 'footwear'
-    )
-  })
-  const link: NavLink = {
-    label: 'Accessories',
-    href: '/accessories',
-    megaMenu: {
-      categories: [...ACCESSORIES_MEGA_CATEGORIES],
-      heroes: [],
-    },
-  }
-  if (footwearIdx >= 0) {
-    const next = [...nav]
-    next.splice(footwearIdx + 1, 0, link)
-    return next
-  }
-  return [...nav, link]
-}
-
 function isPlaceholderMegaImage(url: string | undefined): boolean {
   const value = url?.trim() ?? ''
   return !value || /placeholder-product|placehold\.co/i.test(value)
@@ -633,7 +573,7 @@ function applyStoreDefaults(settings: StorefrontSettings): StorefrontSettings {
     ? settings.config.headerNav
     : FALLBACK_SETTINGS.config.headerNav
   const normalizedHeaderNav = stripPlaceholderMegaHeroes(
-    ensureAccessoriesHeaderLink(ensureHomeNavLink(headerNav ?? [])),
+    healAccessoriesHeaderNav(ensureHomeNavLink(headerNav ?? [])),
   )
 
   const catalogChannels = mergeCatalogChannels(

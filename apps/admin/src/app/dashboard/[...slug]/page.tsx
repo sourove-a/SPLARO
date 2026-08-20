@@ -120,6 +120,7 @@ const DC_BESPOKE: Record<string, () => React.ReactElement> = {
   '/dashboard/bulk': () => <DcBulkCsv />,
   '/dashboard/analytics': () => <DcAnalytics />,
   '/dashboard/footwear-page': () => <DcFootwearPage />,
+  '/dashboard/branding': () => <DcThemeBuilder />,
   '/dashboard/theme-builder': () => <DcThemeBuilder />,
   '/dashboard/lookbooks': () => <DcLookbooks />,
   '/dashboard/reels': () => <DcReels />,

@@ -611,13 +611,14 @@ export function ShopCatalog({
     setVisibleCount((count) => count + PAGE_SIZE)
   }
 
-  const hasActiveFilters =
-    currentCategory !== 'All' ||
+  const userFiltersActive =
     selectedColor !== 'All' ||
     selectedSize !== 'All' ||
     selectedPrice !== defaultPriceLabel ||
     mobilePriceRangeActive ||
     !isDefaultSort(sortBy, shopFilters)
+  const categoryPillFilter = listingMode !== 'scoped' && currentCategory !== 'All'
+  const hasActiveFilters = categoryPillFilter || userFiltersActive
 
   const totalKnown =
     useApiListing && !hasActiveFilters
@@ -626,7 +627,11 @@ export function ShopCatalog({
 
   const canLoadMore = isHomepage ? false : visibleProducts.length < totalKnown
 
-  const catalogIsEmpty = catalogProducts.length === 0 && catalogSource === 'empty'
+  const showComingSoon =
+    filteredProducts.length === 0 &&
+    catalogSource !== 'api-unavailable' &&
+    !userFiltersActive &&
+    !categoryPillFilter
 
   const gridFilterKey = [
     currentCategory,
@@ -810,6 +815,7 @@ export function ShopCatalog({
                     {...(card.images.length > 2 ? { galleryImages: card.images } : {})}
                     {...(cardCode ? { productCode: cardCode } : {})}
                     colorHexes={product.colors}
+                    {...(product.colorOptions?.length ? { colorOptions: product.colorOptions } : {})}
                     status={product.status}
                     {...(product.isUnisex || card.isUnisex ? { isUnisex: true } : {})}
                     inStock={product.inStock ?? isStorefrontProductInStock(product)}
@@ -883,14 +889,13 @@ export function ShopCatalog({
         filteredProducts.length === 0 &&
         catalogSource !== 'api-unavailable' ? (
           <div className="shop-empty glass-tile">
-            {catalogIsEmpty && !hasActiveFilters ? (
+            {showComingSoon ? (
               <>
-                <p className="shop-empty__eyebrow">Catalog coming soon</p>
-                <h2 className="shop-empty__title">New pieces are on the way.</h2>
+                <p className="shop-empty__eyebrow">Coming soon</p>
+                <h2 className="shop-empty__title">We&apos;re adding products to this collection.</h2>
                 <span className="shop-empty__rule" aria-hidden />
                 <p className="shop-empty__body">
-                  The collection is being prepared. Check back shortly, or reach out and
-                  we&apos;ll help you find something.
+                  This collection doesn&apos;t have live pieces yet. Browse Shop, or check back shortly.
                 </p>
               </>
             ) : (

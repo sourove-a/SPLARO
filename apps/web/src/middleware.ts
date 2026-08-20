@@ -71,6 +71,25 @@ function redirectToTarget(request: NextRequest, target: string, status = 307) {
 }
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+  const gscHtml = pathname.match(/^\/google([A-Za-z0-9_-]+)\.html$/)
+  if (gscHtml?.[1]) {
+    const token = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim()
+    if (token && gscHtml[1] === token) {
+      return new NextResponse(`google-site-verification: ${token}`, {
+        status: 200,
+        headers: {
+          'content-type': 'text/html; charset=utf-8',
+          'cache-control': 'public, max-age=300',
+        },
+      })
+    }
+    const rewrite = request.nextUrl.clone()
+    rewrite.pathname = `/api/gsc-verify/${gscHtml[1]}`
+    rewrite.search = ''
+    return NextResponse.rewrite(rewrite)
+  }
+
   const host = request.headers.get('host')?.split(':')[0]?.toLowerCase()
   if (host === 'www.splaro.co') {
     // Build a fresh URL rather than mutating request.nextUrl.clone() — behind
@@ -96,8 +115,6 @@ export async function middleware(request: NextRequest) {
     res.headers.set('X-Robots-Tag', 'noindex, nofollow')
     return res
   }
-
-  const { pathname } = request.nextUrl
 
   const managedRedirects = await getStorefrontRedirects()
   const matched = matchRedirect(pathname, managedRedirects)

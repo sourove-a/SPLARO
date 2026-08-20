@@ -39,6 +39,7 @@ import { buildInvoiceUrl } from '@/lib/invoice-url'
 import { displayOrderCode, orderConfirmedDocumentTitle } from '@splaro/config'
 import { formatBDT } from '@/lib/utils/currency'
 import { checkoutMotionTransition, checkoutTapSpring } from '@/lib/checkout/checkout-motion'
+import { displaySizeLabel } from '@splaro/config'
 import { copyTextToClipboard } from '@/lib/utils/clipboard'
 import { useOrderRealtime } from '@/lib/realtime/useOrderRealtime'
 
@@ -400,7 +401,7 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
                     <div className="checkout-item__meta">
                       <p className="checkout-item__name">{item.name}</p>
                       <p className="checkout-item__detail">
-                        {item.size ? `Size ${item.size}` : `Qty ${item.quantity}`}
+                        {item.size ? `Size ${displaySizeLabel(item.size)}` : `Qty ${item.quantity}`}
                         {item.size && item.quantity > 1 ? ` · Qty ${item.quantity}` : ''}
                       </p>
                       <p className="checkout-item__unit">{formatBDT(item.price)} each</p>

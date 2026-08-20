@@ -45,7 +45,24 @@ export interface DepartmentMenuOverride {
 
 export interface MenuOverridesConfig {
   autoSync?: boolean
+  /** When true (default), empty categories and empty department header links stay out of navigation. */
+  hideEmptyCategories?: boolean
   departments?: DepartmentMenuOverride[]
+}
+
+export function shouldHideEmptyNavNode(input: {
+  hideEmptyCategories: boolean
+  forceVisible?: boolean
+  productCount: number
+}): boolean {
+  return input.hideEmptyCategories && !input.forceVisible && input.productCount <= 0
+}
+
+/** Header departments that stay in the menu even with zero products. */
+export const ALWAYS_ON_MENU_DEPARTMENTS = ['women', 'men', 'kids', 'footwear', 'accessories'] as const
+
+export function isAlwaysOnMenuDepartment(slug: string | null | undefined): boolean {
+  return Boolean(slug && (ALWAYS_ON_MENU_DEPARTMENTS as readonly string[]).includes(slug))
 }
 
 export interface FooterLink {
@@ -142,6 +159,7 @@ export interface HomepageSectionsConfig {
   ourStory: boolean
   instagram: boolean
   newsletter: boolean
+  order?: HomepageSectionId[]
 }
 
 export interface MarqueeConfig {
@@ -168,6 +186,63 @@ export interface SmtpAccountConfig extends SmtpConfig {
   lastTestStatus?: 'success' | 'failed'
   lastTestMessage?: string
   lastTestedAt?: string
+}
+
+/** Canonical pool row for Settings → Notifications primary mailbox. */
+export const PRIMARY_SMTP_ACCOUNT_ID = 'smtp-primary'
+
+/** Keep the Notifications SMTP form and the campaign delivery pool in sync. */
+export function upsertPrimarySmtpAccount(
+  smtp: SmtpConfig | undefined,
+  accounts: SmtpAccountConfig[] | undefined,
+): SmtpAccountConfig[] {
+  const pool = [...(accounts ?? [])]
+  if (!smtp?.host?.trim() || !smtp.user?.trim()) return pool
+  const existing = pool.find((account) => account.id === PRIMARY_SMTP_ACCOUNT_ID)
+  const password = smtp.password?.trim() || existing?.password?.trim() || ''
+  if (!password) return pool
+
+  const primary: SmtpAccountConfig = {
+    id: PRIMARY_SMTP_ACCOUNT_ID,
+    label: (smtp.fromEmail || smtp.user).trim(),
+    priority: 1,
+    enabled: smtp.enabled !== false,
+    host: smtp.host.trim(),
+    port: smtp.port || 587,
+    secure: Boolean(smtp.secure),
+    user: smtp.user.trim(),
+    password,
+    fromName: smtp.fromName || '',
+    fromEmail: smtp.fromEmail || smtp.user.trim(),
+    replyTo: smtp.replyTo,
+    lastTestStatus: existing?.lastTestStatus,
+    lastTestMessage: existing?.lastTestMessage,
+    lastTestedAt: existing?.lastTestedAt,
+  }
+  const rest = pool
+    .filter((account) => account.id !== PRIMARY_SMTP_ACCOUNT_ID)
+    .map((account, index) => ({ ...account, priority: index + 2 }))
+  return [primary, ...rest]
+}
+
+export function smtpPoolNeedsPrimarySync(
+  smtp: SmtpConfig | undefined,
+  accounts: SmtpAccountConfig[] | undefined,
+): boolean {
+  const next = upsertPrimarySmtpAccount(smtp, accounts)
+  const current = accounts ?? []
+  const nextPrimary = next.find((account) => account.id === PRIMARY_SMTP_ACCOUNT_ID)
+  const currentPrimary = current.find((account) => account.id === PRIMARY_SMTP_ACCOUNT_ID)
+  if (!nextPrimary) return false
+  if (!currentPrimary) return true
+  return (
+    currentPrimary.host !== nextPrimary.host ||
+    currentPrimary.user !== nextPrimary.user ||
+    currentPrimary.password !== nextPrimary.password ||
+    currentPrimary.fromEmail !== nextPrimary.fromEmail ||
+    currentPrimary.enabled !== nextPrimary.enabled ||
+    currentPrimary.port !== nextPrimary.port
+  )
 }
 
 export interface ShippingZonesConfig {
@@ -208,6 +283,13 @@ export interface StorefrontConfig {
    * prompt to set it rather than assuming a target.
    */
   dailyRevenueGoal?: number
+  /** Default <title> / meta description when a page has no custom SEO. */
+  seo?: {
+    metaTitle?: string
+    metaDescription?: string
+    /** Google Search Console HTML-tag token — emitted as google-site-verification. */
+    googleSiteVerification?: string
+  }
 }
 
 export type { CatalogChannel }
@@ -216,7 +298,9 @@ export { DEFAULT_CATALOG_CHANNELS, mergeCatalogChannels }
 import {
   DEFAULT_HOMEPAGE_CATALOG,
   mergeHomepageCatalog,
+  resolveHomepageSectionOrder,
   type HomepageCatalogConfig,
+  type HomepageSectionId,
 } from '@splaro/config'
 import {
   DEFAULT_HOMEPAGE_SECTIONS,
@@ -415,6 +499,9 @@ export function emptyStorefrontConfig(): StorefrontConfig {
       fromEmail: 'noreply@splaro.co',
       replyTo: 'support@splaro.co',
     },
+    smtpAccounts: [],
+    menuOverrides: { autoSync: true, hideEmptyCategories: true, departments: [] },
+    seo: { metaTitle: '', metaDescription: '', googleSiteVerification: '' },
   }
 }
 
@@ -446,19 +533,36 @@ export function mergeStorefrontConfig(raw: unknown): StorefrontConfig {
         hint: '',
       },
     },
-    homepage: { ...base.homepage!, ...input.homepage },
+    homepage: {
+      ...base.homepage!,
+      ...input.homepage,
+      order: resolveHomepageSectionOrder(input.homepage?.order ?? base.homepage?.order),
+    },
     homepageCatalog: mergeHomepageCatalog(input.homepageCatalog ?? base.homepageCatalog),
     smtp: { ...base.smtp!, ...input.smtp },
-    smtpAccounts: Array.isArray(input.smtpAccounts) ? input.smtpAccounts : [],
+    smtpAccounts: Array.isArray(input.smtpAccounts) ? input.smtpAccounts : (base.smtpAccounts ?? []),
     catalogChannels: mergeCatalogChannels(input.catalogChannels ?? base.catalogChannels),
     shopFilters: mergeShopFilters(input.shopFilters ?? base.shopFilters),
     shippingZones: { ...base.shippingZones!, ...input.shippingZones },
     catalog: { ...base.catalog!, ...input.catalog },
-    menuOverrides: input.menuOverrides ?? base.menuOverrides,
+    menuOverrides: {
+      autoSync: input.menuOverrides?.autoSync ?? true,
+      hideEmptyCategories: input.menuOverrides?.hideEmptyCategories !== false,
+      departments: input.menuOverrides?.departments ?? [],
+    },
     headerNav: mergeHeaderNav(
       base.headerNav,
       input.headerNav?.length ? input.headerNav : base.headerNav ?? DEFAULT_HEADER_NAV,
     ),
     footerGroups: input.footerGroups?.length ? input.footerGroups : base.footerGroups,
+    seo: {
+      metaTitle: (input.seo?.metaTitle ?? base.seo?.metaTitle ?? '').trim(),
+      metaDescription: (input.seo?.metaDescription ?? base.seo?.metaDescription ?? '').trim(),
+      googleSiteVerification: (
+        input.seo?.googleSiteVerification ??
+        base.seo?.googleSiteVerification ??
+        ''
+      ).trim(),
+    },
   }
 }

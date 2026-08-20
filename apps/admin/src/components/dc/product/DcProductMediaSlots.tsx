@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import Image from 'next/image'
 
 import { DcIcon } from '@/components/dc/DcIcon'
@@ -9,6 +9,7 @@ import { DcField, DcInput } from '@/components/dc/product/DcProductFormPrimitive
 import { FONT, MONO } from '@/components/dc/tokens'
 import { toastFail, toastWarn } from '@/lib/admin/feedback'
 import { uploadAdminImage } from '@/lib/api/upload'
+import { arrayMove, DcSortableList, useDcSortable } from '@/components/dc/DcSortableList'
 
 /**
  * Every slot crops to 4/5 because that is what `.shop-product-card__media`
@@ -16,8 +17,6 @@ import { uploadAdminImage } from '@/lib/api/upload'
  * shows, and mixing ratios left the grid rows ragged.
  */
 const SLOT_RATIO = '4 / 5'
-
-const SLOT_DRAG_TYPE = 'application/x-splaro-media-slot'
 
 const SLOT_META = [
   { key: 'main', label: 'Main card thumbnail', hint: 'Upload · URL · library', ratio: SLOT_RATIO },
@@ -72,7 +71,10 @@ export function DcProductMediaSlots({
   const [busyIdx, setBusyIdx] = useState<number | null>(null)
   const [urlDrafts, setUrlDrafts] = useState<Record<number, string>>({})
   const [librarySlot, setLibrarySlot] = useState<number | null>(null)
-  const [draggingFrom, setDraggingFrom] = useState<number | null>(null)
+  // Move / homepage / URL / library controls used to sit permanently under all
+  // six tiles — five stacked control rows each, which is what turned this one
+  // section into most of the page. They now open for a single slot at a time.
+  const [openTools, setOpenTools] = useState<number | null>(null)
   const [dropTarget, setDropTarget] = useState<number | null>(null)
   const inputRefs = useRef<Array<HTMLInputElement | null>>([])
   const slots = padSlots(imageUrls)
@@ -105,6 +107,14 @@ export function DcProductMediaSlots({
       next[from] = toUrl ?? ''
       next[to] = fromUrl
       emit(next)
+    },
+    [emit, imageUrls],
+  )
+
+  const reorderSlots = useCallback(
+    (from: number, to: number) => {
+      if (from === to || from < 0 || to < 0 || from >= SLOT_META.length || to >= SLOT_META.length) return
+      emit(arrayMove(padSlots(imageUrls), from, to))
     },
     [emit, imageUrls],
   )
@@ -169,43 +179,38 @@ export function DcProductMediaSlots({
           </span>
         </div>
       ) : null}
+      <DcSortableList
+        ids={SLOT_META.map((slot) => slot.key)}
+        layout="grid"
+        disabled={Boolean(disabled)}
+        onReorder={reorderSlots}
+      >
       <div className="dc-media-grid">
         {SLOT_META.map((slot, index) => {
           const url = slots[index]
           const busy = busyIdx === index
           const isHomepage = Boolean(url && homepageUrl && url === homepageUrl)
-          const isDrop = dropTarget === index && draggingFrom !== null && draggingFrom !== index
+          const isDrop = dropTarget === index
           return (
-            <div key={slot.key} style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <SortableSlotShell
+              key={slot.key}
+              id={slot.key}
+              className={`dc-media-slot${index === 0 ? ' dc-media-slot--main' : ''}`}
+              disabled={Boolean(disabled) || !url}
+            >
+              {(drag) => (
+            <>
               <button
                 type="button"
                 disabled={disabled || busy}
-                draggable={Boolean(url) && !disabled}
                 onClick={() => {
                   if (url) return
                   inputRefs.current[index]?.click()
                 }}
-                onDragStart={(e) => {
-                  if (!url || disabled) {
-                    e.preventDefault()
-                    return
-                  }
-                  e.dataTransfer.setData(SLOT_DRAG_TYPE, String(index))
-                  e.dataTransfer.setData('text/plain', `splaro-slot:${index}`)
-                  e.dataTransfer.effectAllowed = 'move'
-                  setDraggingFrom(index)
-                }}
-                onDragEnd={() => {
-                  setDraggingFrom(null)
-                  setDropTarget(null)
-                }}
                 onDragOver={(e) => {
                   e.preventDefault()
-                  const hasSlot =
-                    e.dataTransfer.types.includes(SLOT_DRAG_TYPE) ||
-                    e.dataTransfer.types.includes('text/plain')
-                  e.dataTransfer.dropEffect = hasSlot && draggingFrom !== null ? 'move' : 'copy'
-                  if (hasSlot) setDropTarget(index)
+                  e.dataTransfer.dropEffect = 'copy'
+                  setDropTarget(index)
                 }}
                 onDragLeave={() => {
                   setDropTarget((current) => (current === index ? null : current))
@@ -213,14 +218,6 @@ export function DcProductMediaSlots({
                 onDrop={(e) => {
                   e.preventDefault()
                   setDropTarget(null)
-                  setDraggingFrom(null)
-                  const slotRaw =
-                    e.dataTransfer.getData(SLOT_DRAG_TYPE) || e.dataTransfer.getData('text/plain')
-                  const fromMatch = slotRaw.match(/^(?:splaro-slot:)?(\d+)$/)
-                  if (fromMatch) {
-                    moveSlot(Number(fromMatch[1]), index)
-                    return
-                  }
                   const file = e.dataTransfer.files?.[0]
                   if (file) void uploadTo(index, file)
                 }}
@@ -237,11 +234,11 @@ export function DcProductMediaSlots({
                       ? '1px solid var(--line)'
                       : '1px dashed var(--line-2)',
                   background: 'var(--surface-2)',
-                  cursor: disabled ? 'not-allowed' : url ? 'grab' : 'pointer',
+                  cursor: disabled ? 'not-allowed' : url ? 'default' : 'pointer',
                   overflow: 'hidden',
                   padding: 0,
                   color: 'var(--ink-3)',
-                  opacity: draggingFrom === index ? 0.55 : 1,
+                  opacity: drag.isDragging ? 0.55 : 1,
                 }}
               >
                 <input
@@ -261,12 +258,15 @@ export function DcProductMediaSlots({
                   <>
                     <Image src={url} alt={slot.label} fill sizes="180px" style={{ objectFit: 'cover' }} unoptimized />
                     <span
-                      aria-hidden
+                      aria-label="Drag to reorder"
+                      {...drag.attributes}
+                      {...drag.listeners}
+                      onClick={(e) => e.stopPropagation()}
                       style={{
                         position: 'absolute',
                         left: 8,
                         top: 8,
-                        zIndex: 1,
+                        zIndex: 2,
                         display: 'grid',
                         placeItems: 'center',
                         width: 26,
@@ -274,7 +274,8 @@ export function DcProductMediaSlots({
                         borderRadius: 8,
                         background: 'rgba(10,10,12,.72)',
                         color: 'var(--on-violet)',
-                        pointerEvents: 'none',
+                        cursor: 'grab',
+                        touchAction: 'none',
                       }}
                     >
                       <DcIcon name="icon-grip-vertical" size={13} />
@@ -370,12 +371,63 @@ export function DcProductMediaSlots({
                 )}
               </button>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ flex: 1, font: `500 11px/1.3 ${FONT}`, color: 'var(--ink-2)' }}>{slot.label}</span>
-                <span style={{ font: `600 9.5px/1 ${MONO}`, color: 'var(--ink-3)' }}>
-                  {index === 0 ? 'MAIN' : String(index + 1).padStart(2, '0')}
+                <span style={{ flex: 1, minWidth: 0, font: `500 11px/1.3 ${FONT}`, color: 'var(--ink-2)' }}>
+                  {slot.label}
                 </span>
+                <button
+                  type="button"
+                  className="dc-media-slot__tools-toggle"
+                  aria-expanded={openTools === index}
+                  aria-label={`${openTools === index ? 'Hide' : 'Show'} options for ${slot.label}`}
+                  onClick={() => setOpenTools((current) => (current === index ? null : index))}
+                >
+                  <DcIcon name={openTools === index ? 'icon-chevron-up' : 'icon-ellipsis'} size={12} />
+                </button>
               </span>
+              <div
+                className="dc-media-slot__tools"
+                data-open={openTools === index ? 'true' : 'false'}
+                hidden={openTools !== index}
+              >
               <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  type="button"
+                  disabled={disabled || !url || index === 0}
+                  aria-label={`Move ${slot.label} earlier`}
+                  onClick={() => reorderSlots(index, index - 1)}
+                  style={{
+                    height: 30,
+                    width: 30,
+                    display: 'grid',
+                    placeItems: 'center',
+                    borderRadius: 8,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface)',
+                    cursor: disabled || !url || index === 0 ? 'default' : 'pointer',
+                    color: 'var(--ink-2)',
+                  }}
+                >
+                  <DcIcon name="icon-chevron-up" size={12} />
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled || !url || index === SLOT_META.length - 1}
+                  aria-label={`Move ${slot.label} later`}
+                  onClick={() => reorderSlots(index, index + 1)}
+                  style={{
+                    height: 30,
+                    width: 30,
+                    display: 'grid',
+                    placeItems: 'center',
+                    borderRadius: 8,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface)',
+                    cursor: disabled || !url || index === SLOT_META.length - 1 ? 'default' : 'pointer',
+                    color: 'var(--ink-2)',
+                  }}
+                >
+                  <DcIcon name="icon-chevron-down" size={12} />
+                </button>
                 <select
                   aria-label={`Use ${slot.label} as`}
                   disabled={disabled || !url}
@@ -481,10 +533,14 @@ export function DcProductMediaSlots({
                   <DcIcon name="icon-folder-open" size={12} />
                 </button>
               </div>
-            </div>
+              </div>
+            </>
+              )}
+            </SortableSlotShell>
           )
         })}
       </div>
+      </DcSortableList>
 
       <div
         style={{
@@ -508,8 +564,8 @@ export function DcProductMediaSlots({
       </div>
 
       <span style={{ font: `400 11px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
-        {filled} of 6 filled · first image is the shop card · drag a photo onto another slot (or use Move to) to swap Main / Front /
-        Back
+        {filled} of 6 filled · first image is the shop card · drag the handle to reorder · tap ••• on a tile for move,
+        link, library and homepage
         {categoryName ? ` · Set homepage saves the tile for ${categoryName}` : ''} · uploads go to{' '}
         <code style={{ fontFamily: MONO }}>{uploadFolder}</code>
       </span>
@@ -522,6 +578,25 @@ export function DcProductMediaSlots({
           if (librarySlot != null) writeSlot(librarySlot, picked)
         }}
       />
+    </div>
+  )
+}
+
+function SortableSlotShell({
+  id,
+  className,
+  disabled,
+  children,
+}: {
+  id: string
+  className: string
+  disabled?: boolean
+  children: (drag: ReturnType<typeof useDcSortable>) => ReactNode
+}) {
+  const drag = useDcSortable(id, disabled)
+  return (
+    <div ref={drag.setNodeRef} className={className} style={drag.style}>
+      {children(drag)}
     </div>
   )
 }

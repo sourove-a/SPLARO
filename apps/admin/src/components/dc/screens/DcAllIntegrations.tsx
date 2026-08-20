@@ -9,7 +9,7 @@ import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { AllIntegrationsPanel } from '@/components/modules/IntegrationPanels'
 import { useIntegrationsCatalog } from '@/lib/api/integration-hooks'
 import { integrationSetupPath } from '@/lib/integrations/routes'
-import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { HEALTH_INTERVAL_MS, useAdminConnection } from '@/lib/hooks/use-admin-connection'
 
 function relativeHealth(value: string | null) {
   if (!value) return 'no health check yet'
@@ -34,15 +34,9 @@ export function DcAllIntegrations() {
 function DcAllIntegrationsBody() {
   const router = useRouter()
   const catalog = useIntegrationsCatalog()
-  const { api } = useAdminConnection(25_000)
+  const { api, lastChecked } = useAdminConnection()
   const integrations = useMemo(() => catalog.data?.integrations ?? [], [catalog.data])
   const firstSetup = integrations.find((item) => !item.connected) ?? integrations[0]
-  const lastHealthAt =
-    integrations
-      .map((item) => item.lastTestedAt)
-      .filter((value): value is string => Boolean(value))
-      .sort()
-      .at(-1) ?? null
   const pageStatus = dcPageStatus([catalog], api.pulse)
   const [previewState, setPreviewState] = useState<DcModuleState>('live')
 
@@ -56,7 +50,9 @@ function DcAllIntegrationsBody() {
         syncLabel={
           catalog.isFetching
             ? 'checking every connection…'
-            : relativeHealth(lastHealthAt)
+            : lastChecked
+              ? relativeHealth(lastChecked.toISOString())
+              : `API health every ${HEALTH_INTERVAL_MS / 1000}s`
         }
         syncing={catalog.isFetching}
         onSync={() => void catalog.refetch()}

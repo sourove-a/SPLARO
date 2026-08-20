@@ -53,6 +53,7 @@ const ALLOWED_FOLDERS = new Set([
   'banners',
   'media',
   'wholesale',
+  'expenses',
 ])
 
 function isProductFolder(folder: string): boolean {
@@ -518,6 +519,9 @@ export async function POST(request: Request) {
     if (isProductFolder(folder) && !RASTER.has(detectedMime)) {
       throw new UploadError('Product photos must be JPG, PNG, WebP or GIF')
     }
+    if (folder === 'expenses' && detectedMime !== 'application/pdf' && !RASTER.has(detectedMime)) {
+      throw new UploadError('Receipts must be an image or PDF')
+    }
     if (detectedMime === 'image/svg+xml') {
       // SVG is the one type whose whole body has to be inspected, and the one
       // type small enough that reading it back costs nothing.
@@ -655,12 +659,15 @@ export async function POST(request: Request) {
               : mimeType.startsWith('image/')
                 ? 'image'
                 : 'other'
-    // R2 sync — background, best-effort
-    syncToR2(outputFile, url, mimeType).catch(() => {})
-
-    const r2Url = process.env.CLOUDFLARE_R2_PUBLIC_URL
+    const constructedR2 = process.env.CLOUDFLARE_R2_PUBLIC_URL
       ? `${process.env.CLOUDFLARE_R2_PUBLIC_URL.replace(/\/+$/, '')}/${url.replace(/^\//, '')}`
       : null
+    let r2Url = constructedR2
+    if (folder === 'expenses') {
+      r2Url = (await syncToR2(outputFile, url, mimeType)) ?? constructedR2
+    } else {
+      void syncToR2(outputFile, url, mimeType)
+    }
 
     return NextResponse.json({
       url,

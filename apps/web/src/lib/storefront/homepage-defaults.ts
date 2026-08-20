@@ -1,3 +1,5 @@
+import { resolveHomepageSectionOrder, type HomepageSectionId } from '@splaro/config'
+
 export type StoryPillarIcon = 'sprout' | 'leaf' | 'gem' | 'star' | 'heart' | 'sparkles'
 
 export interface StoryPillarConfig {
@@ -64,7 +66,7 @@ export type {
   HomepageCatalogConfig,
   HomepageCatalogTile,
 } from '@splaro/config'
-export { DEFAULT_HOMEPAGE_CATALOG, mergeHomepageCatalog } from '@splaro/config'
+export { DEFAULT_HOMEPAGE_CATALOG, mergeHomepageCatalog, resolveHomepageSectionOrder } from '@splaro/config'
 
 export interface HomepageSectionsConfig {
   hero: boolean
@@ -76,6 +78,7 @@ export interface HomepageSectionsConfig {
   ourStory: boolean
   instagram: boolean
   newsletter: boolean
+  order?: HomepageSectionId[]
 }
 
 export const DEFAULT_STORY_PILLARS: StoryPillarConfig[] = [
@@ -157,7 +160,11 @@ export function resolveOurStory(input?: Partial<OurStoryConfig>): OurStoryConfig
 }
 
 export function resolveHomepageSections(input?: Partial<HomepageSectionsConfig>): HomepageSectionsConfig {
-  return { ...DEFAULT_HOMEPAGE_SECTIONS, ...input }
+  return {
+    ...DEFAULT_HOMEPAGE_SECTIONS,
+    ...input,
+    order: resolveHomepageSectionOrder(input?.order),
+  }
 }
 
 export function visibleCustomerStories(_config: OurStoryConfig) {

@@ -45,16 +45,14 @@ function productAccessoryHaystack(product: CatalogProduct) {
   return `${product.name} ${product.slug} ${product.categorySlug ?? ''} ${product.categoryName ?? ''}`.toLowerCase()
 }
 
+function matchesAccessorySlug(product: CatalogProduct, catId: string) {
+  const slug = (product.categorySlug ?? '').toLowerCase()
+  return slug === catId || slug.startsWith(`${catId}-`) || slug.endsWith(`-${catId}`)
+}
+
 function matchesAccessoryCategory(product: CatalogProduct, activeCat: string) {
   if (activeCat === 'all') return true
-  const slug = (product.categorySlug ?? '').toLowerCase()
-  if (
-    slug === activeCat ||
-    slug.startsWith(`${activeCat}-`) ||
-    slug.endsWith(`-${activeCat}`)
-  ) {
-    return true
-  }
+  if (matchesAccessorySlug(product, activeCat)) return true
 
   const hay = productAccessoryHaystack(product)
   const keywords = ACCESSORY_KEYWORDS[activeCat]
@@ -69,7 +67,7 @@ function matchesAccessoryCategory(product: CatalogProduct, activeCat: string) {
 
 function countForCategory(products: CatalogProduct[], catId: string) {
   if (catId === 'all') return products.length
-  return products.filter((product) => matchesAccessoryCategory(product, catId)).length
+  return products.filter((product) => matchesAccessorySlug(product, catId)).length
 }
 
 function sortProducts(products: CatalogProduct[], sort: SortOption) {
@@ -221,6 +219,7 @@ function AccessoryProductCard({ product, index }: { product: CatalogProduct; ind
         {...(product.hoverImage ? { imageHover: product.hoverImage } : {})}
         {...(product.code ? { productCode: product.code } : {})}
         colorHexes={colorHexes}
+        {...(product.colorOptions?.length ? { colorOptions: product.colorOptions } : {})}
         status={product.status}
         sizes={product.sizes}
         onAddToBag={() => {
@@ -299,14 +298,14 @@ function AccessoriesEmptyState({
         </span>
         <h2 className="accessories-empty__title">
           {catalogEmpty
-            ? 'No accessories live yet'
+            ? 'Coming soon'
             : filteredEmpty
               ? `No ${label.toLowerCase()} right now`
               : 'Nothing matched this filter'}
         </h2>
         <p className="accessories-empty__body">
           {catalogEmpty
-            ? 'Accessories are not published in the live catalog yet. Check Shop or New arrivals for pieces that are live now.'
+            ? "We're adding products to this collection. Check Shop or New arrivals for pieces that are live now."
             : filteredEmpty
               ? `We do not have ${label.toLowerCase()} live right now. Browse all accessories or the main shop.`
               : 'Try another category or reset filters to see what is currently live.'}

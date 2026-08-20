@@ -97,6 +97,7 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     p('commerce-exec', 'CEO Dashboard', 'Overview', q('/commerce-os/executive/dashboard')),
     p('hub-notifications', 'Notification Center', 'Overview', q('/admin/hub/notifications/overview')),
     p('hub-export', 'Export Center', 'Overview', q('/finance-reports/dashboard')),
+    p('export-history', 'Export History', 'Overview', q('/admin/exports/history')),
     p('dash-recent-orders', 'Recent Orders', 'Overview', q('/admin/dashboard/recent-orders') + '&limit=5'),
     p('dash-revenue-chart', 'Revenue Chart', 'Overview', q('/admin/dashboard/revenue-chart')),
     p('dash-orders-status', 'Orders by Status', 'Overview', q('/admin/dashboard/orders-by-status')),
@@ -165,7 +166,7 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     // ── Content (one probe per admin nav item) ────────────────────────────
     p('content-home', 'Home Page', 'Content', q('/admin/hub/content/overview')),
     p('content-footwear', 'Footwear Page', 'Content', q('/admin/settings')),
-    p('content-theme', 'Theme Builder', 'Content', q('/admin/settings')),
+    p('content-theme', 'Branding', 'Content', q('/admin/settings')),
     p('content-menus', 'Menu Control', 'Content', q('/admin/content/menus')),
     p('content-hero', 'Hero Slider', 'Content', q('/admin/banners')),
     p('content-lookbooks', 'Lookbooks', 'Content', q('/admin/collections')),
@@ -285,6 +286,7 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
 
     // ── Operations ────────────────────────────────────────────────────────
     p('courier-stats', 'Courier Hub', 'Operations', q('/admin/courier/stats/overview')),
+    p('courier-providers', 'Courier Providers', 'Operations', q('/admin/courier/providers')),
     p('courier-list', 'Courier Bookings', 'Operations', q('/admin/courier') + '&limit=5'),
     p('settings', 'Shipping & Settings', 'Operations', q('/admin/settings')),
 

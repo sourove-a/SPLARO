@@ -1,4 +1,4 @@
-import { getServerApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl, displaySizeLabel } from '@splaro/config'
 import { slugFromCategory } from '@/data/storefront'
 import type { ColorOption, StorefrontProduct } from '@/data/storefront'
 import type { ProductBrand, ProductDetailData, ProductVariantData } from '@splaro/types'
@@ -305,7 +305,7 @@ export function mapLiveProduct(
   )
   const colorOptions = buildColorOptions(variants, img)
   const colors = colorOptions.map((option) => option.hex)
-  const rawSizes = [...new Set(variants.map((v) => v.size).filter(Boolean))] as string[]
+  const rawSizes = [...new Set(variants.map((v) => displaySizeLabel(v.size)).filter(Boolean))]
   const activeStock = variants
     .filter((v) => v.isActive !== false)
     .reduce((sum, v) => sum + Number(v.stock ?? 0), 0)
@@ -320,7 +320,7 @@ export function mapLiveProduct(
       const image = v.image ? sanitizeRemoteImageUrl(v.image) : undefined
       return {
         id: v.id,
-        ...(v.size ? { size: v.size } : {}),
+        ...(displaySizeLabel(v.size) ? { size: displaySizeLabel(v.size) } : {}),
         ...(v.colorHex ? { colorHex: v.colorHex.toLowerCase() } : {}),
         ...(colorName ? { colorName } : {}),
         ...(image ? { image } : {}),

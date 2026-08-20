@@ -400,7 +400,7 @@ export async function apiVerifyOtp(
 
 export async function apiTrackOrders(
   phone: string,
-  opts?: { sessionToken?: string; phoneAccessToken?: string },
+  opts?: { sessionToken?: string; phoneAccessToken?: string; invoice?: string },
 ): Promise<
   | { orders: Record<string, unknown>[] }
   | { error: string; status: number; requiresOtp?: boolean }
@@ -410,10 +410,12 @@ export async function apiTrackOrders(
     headers['x-splaro-phone-access'] = opts.phoneAccessToken
   }
 
+  const params = new URLSearchParams({ storeId: STORE_ID })
+  if (phone.trim()) params.set('phone', phone.trim())
+  if (opts?.invoice?.trim()) params.set('invoice', opts.invoice.trim())
+
   const res = await fetchWithTimeout(
-    apiUrl(
-      `/storefront/orders/track?storeId=${encodeURIComponent(STORE_ID)}&phone=${encodeURIComponent(phone)}`,
-    ),
+    apiUrl(`/storefront/orders/track?${params.toString()}`),
     { headers, cache: 'no-store', timeoutMs: upstreamFetchTimeoutMs() },
   )
   if (!res) {

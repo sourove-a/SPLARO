@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 
@@ -11,7 +11,8 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, formatTaka } from '@/components/dc/tokens'
-import { fetchFinanceDashboard, fetchProfitLoss, type ProfitLossSummary } from '@/lib/api/finance'
+import { fetchPartners, fetchProfitLoss, type ProfitLossSummary } from '@/lib/api/finance'
+import { isProfitLossEmpty } from '@/lib/finance/profit-loss-view'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { downloadCsv } from '@/lib/admin/admin-actions'
 import { toastOk, toastWarn } from '@/lib/admin/feedback'
@@ -68,20 +69,23 @@ function DcProfitLossBody() {
     queryFn: () => fetchProfitLoss(period) as Promise<ProfitLossSummary>,
     staleTime: 60_000,
     retry: 1,
+    placeholderData: keepPreviousData,
   })
 
-  /** Share percentages live on the finance dashboard, not on the P&L payload. */
-  const dash = useQuery({
-    queryKey: ['finance-dashboard'],
-    queryFn: fetchFinanceDashboard,
-    staleTime: 45_000,
-    retry: 1,
-  })
-  const partners = useMemo(() => dash.data?.partners ?? [], [dash.data])
-
-  const pageStatus = dcPageStatus([pl], api.pulse)
   const t = pl.data?.totals
   const orderCount = pl.data?.orderCount ?? 0
+  const emptyPeriod = Boolean(pl.data) && isProfitLossEmpty(orderCount, Number(t?.grossRevenue || 0))
+
+  const partnersQuery = useQuery({
+    queryKey: ['partners'],
+    queryFn: fetchPartners,
+    staleTime: 45_000,
+    retry: 1,
+    enabled: Boolean(pl.data) && !emptyPeriod,
+  })
+  const partners = useMemo(() => partnersQuery.data ?? [], [partnersQuery.data])
+
+  const pageStatus = dcPageStatus([pl], api.pulse === 'checking' ? undefined : api.pulse)
 
   const rows = useMemo(() => {
     if (!t) return []
@@ -146,7 +150,7 @@ function DcProfitLossBody() {
             }
 
   const exportCsv = () => {
-    if (!t) {
+    if (!t || emptyPeriod) {
       toastWarn('No profit/loss data to export')
       return
     }
@@ -176,10 +180,10 @@ function DcProfitLossBody() {
         statusLabel={pageStatus.label}
         statusTone={pageStatus.tone}
         syncLabel={
-          pl.isFetching
-            ? 'syncing…'
-            : pl.data?.period
-              ? `${fmtDate(pl.data.period.from)} → ${fmtDate(pl.data.period.to)}`
+          pl.data?.period
+            ? `${fmtDate(pl.data.period.from)} → ${fmtDate(pl.data.period.to)}`
+            : pl.isFetching
+              ? 'syncing…'
               : 'no period returned'
         }
         syncing={pl.isFetching}
@@ -228,7 +232,7 @@ function DcProfitLossBody() {
         })}
       </div>
 
-      {pl.isLoading ? (
+      {pl.isPending && !pl.data ? (
         <DcLoadingState blocks={skeleton} />
       ) : pl.error ? (
         <DcErrorState
@@ -236,11 +240,11 @@ function DcProfitLossBody() {
           hint="Orders and expenses are unaffected — only this report failed to compute."
           onRetry={() => void pl.refetch()}
         />
-      ) : !t ? (
+      ) : !t || emptyPeriod ? (
         <DcEmptyState
           icon="icon-trending-up"
-          title="No profit data for this period"
-          body="The report computes from delivered orders. Nothing was delivered in this window, so there is nothing to split into cost and profit."
+          title="No transactions yet"
+          body="Your P&L will appear once orders start coming in."
         />
       ) : (
         <>
@@ -526,7 +530,7 @@ function DcProfitLossBody() {
                     not a payout
                   </span>
                 </div>
-                {dash.error ? (
+                {partnersQuery.error ? (
                   <div
                     style={{
                       padding: '20px 0',
@@ -536,8 +540,20 @@ function DcProfitLossBody() {
                       wordBreak: 'break-word',
                     }}
                   >
-                    GET /finance-reports/dashboard →{' '}
-                    {dash.error instanceof Error ? dash.error.message : 'request failed'}
+                    GET /partners →{' '}
+                    {partnersQuery.error instanceof Error ? partnersQuery.error.message : 'request failed'}
+                  </div>
+                ) : partnersQuery.isPending ? (
+                  <div
+                    style={{
+                      padding: '22px 0',
+                      textAlign: 'center',
+                      borderTop: '1px solid var(--line)',
+                      font: `400 12px/1.55 ${FONT}`,
+                      color: 'var(--ink-3)',
+                    }}
+                  >
+                    Loading partner shares…
                   </div>
                 ) : partners.length === 0 ? (
                   <div

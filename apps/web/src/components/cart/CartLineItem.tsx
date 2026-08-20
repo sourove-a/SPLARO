@@ -3,6 +3,7 @@ import { Minus, Plus, Trash2 } from 'lucide-react'
 import type { CartItem } from '@/store/cartStore'
 import { formatBDT } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils/cn'
+import { displaySizeLabel } from '@splaro/config'
 
 interface CartLineItemProps {
   item: CartItem
@@ -31,9 +32,9 @@ export function CartLineItem({ item, onDecrease, onIncrease, onRemove }: CartLin
       <div className="cart-line__meta">
         <div className="cart-line__copy">
           <p className="cart-line__name">{item.name}</p>
-          {item.size || item.color ? (
+          {displaySizeLabel(item.size) || item.color ? (
             <p className="cart-line__variant">
-              {[item.size, item.color].filter(Boolean).join(' · ')}
+              {[displaySizeLabel(item.size), item.color].filter(Boolean).join(' · ')}
             </p>
           ) : null}
           <p className="cart-line__price">

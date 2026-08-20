@@ -1,0 +1,23 @@
+---
+description: >-
+  Never restyle SPLARO. Bug/logic fixes must keep the current UI/UX, theme,
+  colors, fonts, and layout identical. Do not invent a new look.
+alwaysApply: true
+---
+
+# Preserve existing design
+
+Do **not** change the existing UI/UX theme, design, colors, fonts, or layout.
+All fixes must respect the current design system exactly as it is.
+Do not introduce new UI patterns, component styles, or visual changes.
+Only fix the functional bug/logic — keep the existing look and feel identical.
+Work within the existing theme, not your own interpretation.
+
+- Reuse existing tokens, classes, and components (`admin-tokens.css`, DC tokens, storefront CSS).
+- No new palettes, font stacks, spacing scales, card skins, or layout rewrites on a bugfix.
+- Visual change only when the owner **explicitly** asks to change design/UI.
+
+```
+❌ Restyle a broken page “while you’re there”
+✅ Fix the logic and leave markup/CSS as-is
+```

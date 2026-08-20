@@ -64,7 +64,7 @@ import { EmailService } from '../email/email.service'
 import { CustomersService } from '../customers/customers.service'
 import { StorefrontAuthService } from './storefront-auth.service'
 import { StorefrontWishlistService } from './storefront-wishlist.service'
-import { StorefrontOtpService } from './storefront-otp.service'
+import { StorefrontOtpService, isStorefrontPhoneOtpEnabled } from './storefront-otp.service'
 import { InvoiceService } from '../invoices/invoice.service'
 import { LegalPagesService } from '../content/legal-pages.service'
 import { FootwearConfigService } from '../content/footwear-config.service'
@@ -939,20 +939,40 @@ export class StorefrontController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async trackOrders(
     @Query('storeId') storeId: string,
-    @Query('phone') phone: string,
+    @Query('phone') phone?: string,
+    @Query('invoice') invoice?: string,
+    @Query('id') id?: string,
+    @Query('order') order?: string,
     @Headers('authorization') authorization?: string,
     @Headers('x-splaro-session') sessionHeader?: string,
     @Headers('x-splaro-phone-access') phoneAccess?: string,
   ) {
-    if (!phone) throw new BadRequestException('phone is required')
+    const phoneRaw = phone?.trim() ?? ''
+    const invoiceRef = (invoice ?? id ?? order)?.trim() ?? ''
+    if (!phoneRaw && !invoiceRef) {
+      throw new BadRequestException('phone or invoice is required')
+    }
     const sid = await resolveStoreId(this.prisma, storeId)
+
+    if (invoiceRef) {
+      const found = await this.storefrontOrders.findByInvoiceForTracking(
+        storeId,
+        invoiceRef,
+        phoneRaw || undefined,
+      )
+      if (!found) throw new NotFoundException('Order not found')
+      return { orders: toPublicStorefrontOrders([found]) }
+    }
+
     const sessionToken = sessionFromHeaders(authorization, sessionHeader)
     const sessionPhone = sessionToken
       ? await this.storefrontAuth.sessionPhone(sessionToken)
       : null
-    await this.storefrontOtp.assertPhoneAccess(sid, phone, phoneAccess, sessionPhone)
+    if (isStorefrontPhoneOtpEnabled()) {
+      await this.storefrontOtp.assertPhoneAccess(sid, phoneRaw, phoneAccess, sessionPhone)
+    }
 
-    const orders = await this.storefrontOrders.listForUser(storeId, phone)
+    const orders = await this.storefrontOrders.listForUser(storeId, phoneRaw)
     return { orders: toPublicStorefrontOrders(orders) }
   }
 

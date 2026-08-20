@@ -17,13 +17,26 @@ function isUniqueViolation(error: unknown, field?: string): boolean {
   return Array.isArray(target) && target.includes(field)
 }
 
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'bigint') {
+    const n = Number(value)
+    return Number.isFinite(n) ? n : null
+  }
+  return null
+}
+
+function orderSequenceKey(storeId: string): string {
+  return `order:${storeId}`
+}
+
 /**
  * Highest SPL-#### for a store — O(1) Postgres MAX, not a full table pull.
- * Falls back to a short recent window if raw SQL is unavailable.
+ * Used only to seed / catch up CodeSequence; the counter never decrements.
  */
 async function findHighestSplNumber(db: Db, storeId: string): Promise<number> {
   try {
-    const rows = await db.$queryRaw<Array<{ max: number | null }>>`
+    const rows = await db.$queryRaw<Array<{ max: number | bigint | null }>>`
       SELECT MAX(
         CAST(NULLIF(regexp_replace("invoiceNumber", '[^0-9]', '', 'g'), '') AS INTEGER)
       ) AS max
@@ -31,8 +44,8 @@ async function findHighestSplNumber(db: Db, storeId: string): Promise<number> {
       WHERE "storeId" = ${storeId}
         AND "invoiceNumber" ILIKE 'SPL-%'
     `
-    const max = rows[0]?.max
-    if (typeof max === 'number' && Number.isFinite(max)) return max
+    const max = asFiniteNumber(rows[0]?.max)
+    if (max !== null) return max
   } catch {
     // Transaction / driver edge — fall through to bounded scan.
   }
@@ -56,12 +69,41 @@ async function findHighestSplNumber(db: Db, storeId: string): Promise<number> {
 }
 
 /**
- * Next SPL-#### candidate. Uniqueness is enforced by the Order.invoiceNumber
- * unique constraint + caller retry — no per-candidate findUnique round-trips.
+ * Next SPL-#### from a never-decrementing CodeSequence row (`order:${storeId}`).
+ * Call inside the same transaction as `order.create` so the row lock serializes
+ * concurrent checkouts. Hard-deleting an order does not rewind this counter.
  */
 export async function generateOrderCode(db: Db, storeId: string): Promise<string> {
-  const next = Math.max(ORDER_CODE_START, (await findHighestSplNumber(db, storeId)) + 1)
-  return formatSplOrderCode(next)
+  const highest = await findHighestSplNumber(db, storeId)
+  const seed = BigInt(Math.max(ORDER_CODE_START, highest + 1))
+  const key = orderSequenceKey(storeId)
+
+  await db.$executeRaw`
+    INSERT INTO "CodeSequence" ("key", "nextValue", "updatedAt")
+    VALUES (${key}, ${seed}, NOW())
+    ON CONFLICT ("key") DO NOTHING
+  `
+
+  const rows = await db.$queryRaw<{ nextValue: bigint }[]>`
+    UPDATE "CodeSequence"
+    SET "nextValue" = GREATEST("nextValue", ${seed}) + 1, "updatedAt" = NOW()
+    WHERE "key" = ${key}
+    RETURNING "nextValue"
+  `
+  const after = rows[0]?.nextValue
+  if (after === undefined) {
+    throw new Error(`Order counter ${key} is missing`)
+  }
+  return formatSplOrderCode(Number(after - 1n))
+}
+
+async function withTx(db: Db, work: (tx: Prisma.TransactionClient) => Promise<void>): Promise<void> {
+  const client = db as PrismaClient
+  if (typeof client.$transaction === 'function') {
+    await client.$transaction(work)
+    return
+  }
+  await work(db as Prisma.TransactionClient)
 }
 
 /** Assign SPL-#### to legacy orders that still expose raw ids or non-SPL codes. */
@@ -83,11 +125,13 @@ export async function backfillOrderInvoiceCodes(
     if (!needsInvoiceCodeBackfill(row.invoiceNumber, row.id)) continue
 
     for (let attempt = 0; attempt < 8; attempt++) {
-      const candidate = await generateOrderCode(db, storeId)
       try {
-        await db.order.update({
-          where: { id: row.id },
-          data: { invoiceNumber: candidate },
+        await withTx(db, async (tx) => {
+          const candidate = await generateOrderCode(tx, storeId)
+          await tx.order.update({
+            where: { id: row.id },
+            data: { invoiceNumber: candidate },
+          })
         })
         fixed++
         break

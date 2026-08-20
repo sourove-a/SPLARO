@@ -11,7 +11,7 @@ export default async function SizeGuidePage() {
   return (
     <ContentPage
       title={page.title || 'Size Guide'}
-      description="Women, men & kids — centimetres, true to size."
+      description={page.description || 'Women, men & kids — centimetres, true to size.'}
       sections={page.sections}
       variant="size-guide"
       premiumBadge="Fit · Atelier"

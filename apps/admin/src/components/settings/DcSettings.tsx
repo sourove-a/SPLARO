@@ -22,10 +22,10 @@ import { SettingsShell } from './SettingsShell'
  */
 export function DcSettings() {
   const router = useRouter()
-  const { api } = useAdminConnection(30_000)
+  const { api } = useAdminConnection()
   const settings = useSettings()
   const pageStatus = dcPageStatus([settings], api.pulse)
-  const online = api.pulse === 'online'
+  const online = api.pulse === 'online' || api.pulse === 'degraded'
 
   return (
     <DcScreenProvider screen="settings" onNavigate={(next) => router.push(`/dashboard/${next}`)}>

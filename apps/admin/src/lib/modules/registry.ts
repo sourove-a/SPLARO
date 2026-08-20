@@ -55,6 +55,7 @@ export const REGISTERED_MODULE_HREFS: string[] = [
   '/dashboard/analytics',
   '/dashboard/telegram-bot',
   '/dashboard/footwear-page',
+  '/dashboard/branding',
   '/dashboard/theme-builder',
   '/dashboard/lookbooks',
   '/dashboard/reels',

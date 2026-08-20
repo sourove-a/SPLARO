@@ -27,6 +27,10 @@ export class SundarbanService {
     this.merchantId = this.config.get<string>('SUNDARBAN_MERCHANT_ID') ?? ''
   }
 
+  isConfigured(): boolean {
+    return Boolean(this.apiKey.trim() && this.merchantId.trim())
+  }
+
   async createParcel(payload: SundarbanPayload): Promise<CourierBookingResult> {
     if (!this.apiKey || !this.merchantId) {
       return { success: false, error: 'SUNDARBAN_API_KEY and SUNDARBAN_MERCHANT_ID not configured' }

@@ -2,6 +2,8 @@ import { collectDescendantIds } from './category-tree.util'
 
 describe('collectDescendantIds', () => {
   const flat = [
+    { id: 'women', parentId: null },
+    { id: 'salwar', parentId: 'women' },
     { id: 'men', parentId: null },
     { id: 'panjabi', parentId: 'men' },
     { id: 'formal', parentId: 'men' },
@@ -14,6 +16,11 @@ describe('collectDescendantIds', () => {
 
   it('includes root and all depths under men (not men-footwear)', () => {
     expect(collectDescendantIds(flat, 'men').sort()).toEqual(['formal', 'men', 'panjabi'].sort())
+  })
+
+  it('does not leak women descendants into /c/men', () => {
+    expect(collectDescendantIds(flat, 'men')).not.toContain('salwar')
+    expect(collectDescendantIds(flat, 'women').sort()).toEqual(['salwar', 'women'].sort())
   })
 
   it('keeps men-footwear under footwear only', () => {

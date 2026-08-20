@@ -22,11 +22,11 @@ export function CartEmptyState({ onClose }: CartEmptyStateProps) {
       <div className="cart-empty-state__seal" aria-hidden>
         <span className="cart-empty-state__seal-line" />
         <BagIcon size={34} strokeWidth={1.15} />
-        <span className="cart-empty-state__zero">00</span>
+        <span className="cart-empty-state__zero">0</span>
       </div>
 
       <div className="cart-empty-state__copy">
-        <p className="cart-empty-state__kicker">Your edit · 00 pieces</p>
+        <p className="cart-empty-state__kicker">Your edit · 0 pieces</p>
         <h2 id="empty-bag-title" className="cart-empty-state__title">
           Your bag is waiting.
         </h2>

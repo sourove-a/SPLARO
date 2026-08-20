@@ -9,6 +9,7 @@ import {
   Check,
   ChevronRight,
   FileText,
+  Hash,
   Package,
   Phone,
   Shield,
@@ -397,6 +398,7 @@ export default function TrackOrderClient({
   const router = useRouter()
   const { phoneOtpEnabled } = useStorefrontAuthConfig()
   const [phone, setPhone] = useState(() => formatBdPhoneInput(initialPhone))
+  const [invoice, setInvoice] = useState(() => initialInvoice.trim().toUpperCase())
   const [otpCode, setOtpCode] = useState('')
   const [otpStep, setOtpStep] = useState(false)
   const [otpSending, setOtpSending] = useState(false)
@@ -421,25 +423,33 @@ export default function TrackOrderClient({
   }, [initialInvoice, initialKey, router])
 
   const runSearch = useCallback(
-    async (nextPhone: string) => {
+    async (nextPhone: string, nextInvoice = invoice) => {
       const trimmedPhone = nextPhone.trim()
-      const phoneError = getBdPhoneError(trimmedPhone)
-      if (phoneError) {
+      const trimmedInvoice = nextInvoice.trim()
+      if (!trimmedPhone && !trimmedInvoice) {
         setSearched(true)
         setResult(null)
-        setError(phoneError)
+        setError('Enter a phone number or order number (SPL-####).')
         return
+      }
+      if (trimmedPhone) {
+        const phoneError = getBdPhoneError(trimmedPhone)
+        if (phoneError) {
+          setSearched(true)
+          setResult(null)
+          setError(phoneError)
+          return
+        }
       }
 
       setLoading(true)
       setSearched(true)
       setError(null)
 
-      // Phone-only lookup — returns all orders for this checkout number.
-      const payload = await trackOrdersByPhone(trimmedPhone)
+      const payload = await trackOrdersByPhone(trimmedPhone, trimmedInvoice || undefined)
       if (!payload.ok) {
         setResult(null)
-        if (payload.requiresOtp && phoneOtpEnabled) {
+        if (payload.requiresOtp && phoneOtpEnabled && trimmedPhone) {
           setOtpStep(true)
           setError('Enter the code sent to your phone.')
         } else {
@@ -447,7 +457,11 @@ export default function TrackOrderClient({
         }
       } else if (!payload.data.orders.length) {
         setResult(null)
-        setError('No orders found for this phone number.')
+        setError(
+          trimmedInvoice
+            ? 'No order found for that number.'
+            : 'No orders found for this phone number.',
+        )
       } else {
         setOtpStep(false)
         setResult(payload.data)
@@ -455,7 +469,7 @@ export default function TrackOrderClient({
 
       setLoading(false)
     },
-    [phoneOtpEnabled],
+    [invoice, phoneOtpEnabled],
   )
 
   const sendOtp = async () => {
@@ -510,10 +524,10 @@ export default function TrackOrderClient({
 
   useEffect(() => {
     if (didPrefillSearch.current) return
-    if (!initialPhone.trim()) return
+    if (!initialPhone.trim() && !initialInvoice.trim()) return
     didPrefillSearch.current = true
-    void runSearch(formatBdPhoneInput(initialPhone))
-  }, [initialPhone, runSearch])
+    void runSearch(formatBdPhoneInput(initialPhone), initialInvoice.trim())
+  }, [initialPhone, initialInvoice, runSearch])
 
   const historyOrders = useMemo(() => {
     if (!result) return []
@@ -547,8 +561,8 @@ export default function TrackOrderClient({
       })
     },
     onReconcile: async () => {
-      if (!phone.trim()) return
-      const payload = await trackOrdersByPhone(phone.trim())
+      if (!phone.trim() && !invoice.trim()) return
+      const payload = await trackOrdersByPhone(phone.trim(), invoice.trim() || undefined)
       if (payload.ok) setResult(payload.data)
     },
   })
@@ -559,7 +573,7 @@ export default function TrackOrderClient({
       void verifyOtpAndSearch()
       return
     }
-    void runSearch(phone)
+    void runSearch(phone, invoice)
   }
 
   const hasResults = Boolean(result?.orders?.length)
@@ -576,6 +590,9 @@ export default function TrackOrderClient({
               <Package className="track-mark__icon" strokeWidth={1.55} />
             </div>
             <h1 className="track-title font-serif">Track</h1>
+            <p className="track-subtitle">
+              Enter your checkout phone or order number.
+            </p>
             <div className="track-route" aria-hidden>
               <span className="track-route__dot track-route__dot--on" />
               <span className="track-route__line" />
@@ -587,41 +604,37 @@ export default function TrackOrderClient({
             </div>
           </header>
 
-          <form className="track-form track-form--phone-only" onSubmit={handleSubmit}>
+          <form className="track-form track-form--lookup" onSubmit={handleSubmit}>
+            <label className="track-input track-input--order">
+              <Hash className="track-input__icon" aria-hidden />
+              <span className="track-input__label">Order number</span>
+              <input
+                type="text"
+                name="invoice"
+                autoComplete="off"
+                spellCheck={false}
+                value={invoice}
+                onChange={(event) => setInvoice(event.target.value.toUpperCase())}
+                placeholder="e.g. SPL-1001"
+                aria-label="Order number"
+                disabled={phoneOtpEnabled && otpStep}
+              />
+            </label>
             <label className="track-input track-input--phone">
               <Phone className="track-input__icon" aria-hidden />
-              <span className="sr-only">Phone number</span>
+              <span className="track-input__label">Phone</span>
               <input
-                required
                 type="tel"
                 name="phone"
                 inputMode="numeric"
                 autoComplete="tel-national"
                 value={phone}
                 onChange={(event) => setPhone(formatBdPhoneInput(event.target.value))}
-                placeholder="01XXXXXXXXX"
-                aria-label="Phone number"
+                placeholder="e.g. 01700000000"
+                aria-label="Phone"
                 disabled={phoneOtpEnabled && otpStep}
               />
             </label>
-
-            {phoneOtpEnabled && otpStep ? (
-              <label className="track-input">
-                <Shield className="track-input__icon" aria-hidden />
-                <span className="sr-only">Verification code</span>
-                <input
-                  required
-                  inputMode="numeric"
-                  name="otp"
-                  autoComplete="one-time-code"
-                  value={otpCode}
-                  onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="••••••"
-                  aria-label="Verification code"
-                  maxLength={6}
-                />
-              </label>
-            ) : null}
 
             <button
               type="submit"
@@ -641,6 +654,24 @@ export default function TrackOrderClient({
                 <ArrowRight className="h-5 w-5" aria-hidden />
               )}
             </button>
+
+            {phoneOtpEnabled && otpStep ? (
+              <label className="track-input track-input--otp">
+                <Shield className="track-input__icon" aria-hidden />
+                <span className="sr-only">Verification code</span>
+                <input
+                  required
+                  inputMode="numeric"
+                  name="otp"
+                  autoComplete="one-time-code"
+                  value={otpCode}
+                  onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="••••••"
+                  aria-label="Verification code"
+                  maxLength={6}
+                />
+              </label>
+            ) : null}
 
             {phoneOtpEnabled ? (
               <button

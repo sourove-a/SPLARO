@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { formatCleanAddress } from '@splaro/config'
+import { formatCleanAddress, displaySizeLabel } from '@splaro/config'
 import {
   toastFail,
+  toastOk,
   refreshWithToast,
   toastApiSaved,
 } from '@/lib/admin/feedback'
@@ -40,7 +41,7 @@ import {
 import { useInfrastructureConfig } from '@/lib/api/integration-hooks'
 import { mapPaymentMethod, mapOrderStatus, type OrderPaymentStatus } from '@/lib/api/orders'
 import { formatBDT } from '@/lib/utils/currency'
-import { whatsappHref } from '@/lib/format/bd-phone'
+import { formatBdPhone, whatsappHref } from '@/lib/format/bd-phone'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 import { useAdminUiStore } from '@/store/uiStore'
 
@@ -159,7 +160,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
     // Two lines can carry the same product name (same SKU split across sizes,
     // or a re-add), so the row key comes from the line id, never the name.
     key: item.id || `line-${index}`,
-    name: `${item.product?.name ?? item.productName ?? 'Item'}${item.variant?.size ? ` · ${item.variant.size}` : ''}`,
+    name: `${item.product?.name ?? item.productName ?? 'Item'}${item.variant?.size ? ` · ${displaySizeLabel(item.variant.size)}` : ''}`,
     qty: item.quantity,
     price: Number(item.price ?? 0),
   })) ?? []
@@ -187,14 +188,20 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
   }
 
   const handleDeleteOrder = async () => {
-    if (!window.confirm(`Delete order ${order.invoiceNumber}? This cannot be undone.`)) return
+    if (
+      !window.confirm(
+        `Cancel ${order.invoiceNumber}? It stays on file as CANCELLED and the number will not be reused.`,
+      )
+    ) {
+      return
+    }
     try {
       const result = await deleteOrderMutation.mutateAsync(order.id)
       if (!verifyDeleteSuccess(result)) return
-      toastApiSaved(`Order ${order.invoiceNumber}`)
-      navigate(moduleHref)
+      toastOk(`${order.invoiceNumber} cancelled — number retired`)
+      void refetch()
     } catch (err) {
-      toastFail(err instanceof Error ? err.message : 'Could not delete order.')
+      toastFail(err instanceof Error ? err.message : 'Could not cancel order.')
     }
   }
 
@@ -458,7 +465,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
           <SideCard title="Customer" icon={Phone}>
             <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', margin: 0 }}>{order.shippingName}</p>
             <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-3)', margin: '6px 0 0' }}>
-              <Phone style={{ width: 12, height: 12 }} />{order.shippingPhone}
+              <Phone style={{ width: 12, height: 12 }} />{formatBdPhone(order.shippingPhone)}
             </p>
             <button
               type="button"

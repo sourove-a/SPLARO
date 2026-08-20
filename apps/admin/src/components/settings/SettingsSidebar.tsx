@@ -52,7 +52,7 @@ const SECTIONS: { id: SettingsSection; label: string; icon: typeof Globe; desc: 
   { id: 'notifications', label: 'Notifications', icon: Mail, desc: 'SMTP, Telegram, newsletter' },
   { id: 'marketing', label: 'Marketing', icon: BarChart3, desc: 'Meta Pixel, GA4' },
   { id: 'infrastructure', label: 'Infrastructure', icon: Cloud, desc: 'R2 storage, Steadfast' },
-  { id: 'domain', label: 'Domain & SEO', icon: Wifi, desc: 'Custom domain, meta tags' },
+  { id: 'domain', label: 'Domain & SEO', icon: Wifi, desc: 'Domain, store identity, default meta' },
 ]
 
 interface Props {
@@ -62,11 +62,12 @@ interface Props {
 }
 
 function ConnectionStatus({ settingsLoaded }: { settingsLoaded: boolean }) {
-  const { api, checking } = useAdminConnection(30_000)
+  const { api, checking, refresh } = useAdminConnection()
   const apiReachable = api.pulse === 'online' || api.pulse === 'degraded'
   const latency = api.latencyMs
-  const online = settingsLoaded && apiReachable
-  const isChecking = checking && api.pulse === 'checking'
+  const firstCheck = checking && api.pulse === 'checking'
+  const confirmedOffline = api.pulse === 'offline'
+  const online = settingsLoaded && (apiReachable || (checking && !confirmedOffline && api.pulse !== 'checking'))
 
   return (
     <div
@@ -85,19 +86,39 @@ function ConnectionStatus({ settingsLoaded }: { settingsLoaded: boolean }) {
       </span>
       <div className="settings-nav-status__body">
         <p className="settings-nav-status__title">
-          {isChecking ? 'Checking API…' : online ? 'API connected' : 'API offline'}
+          {firstCheck ? 'Checking API…' : online ? 'API connected' : 'API unreachable'}
         </p>
         <p className="settings-nav-status__sub">
-          {isChecking
+          {firstCheck
             ? 'Pinging backend health…'
             : !settingsLoaded
-              ? 'Settings not loaded — start API'
-              : !apiReachable
-                ? 'Cannot reach API — save disabled'
+              ? 'Settings not loaded — retry or start API'
+              : confirmedOffline
+                ? 'Health check failed — retry before saving'
                 : latency != null
                   ? `${latency}ms · settings loaded from server`
                   : 'Settings loaded from server'}
         </p>
+        {confirmedOffline || !settingsLoaded ? (
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={checking}
+            style={{
+              marginTop: 8,
+              height: 26,
+              padding: '0 10px',
+              borderRadius: 7,
+              border: '1px solid var(--line-2)',
+              background: 'var(--surface-2)',
+              color: 'var(--ink-2)',
+              font: `600 11px/1 ${FONT}`,
+              cursor: checking ? 'wait' : 'pointer',
+            }}
+          >
+            {checking ? 'Retrying…' : 'Retry health check'}
+          </button>
+        ) : null}
       </div>
       <span
         className={cn(

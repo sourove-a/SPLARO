@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import {
   getServerApiBaseUrl,
+  displaySizeLabel,
 } from '@splaro/config'
 import {
   buildInvoiceAccessToken,
@@ -222,7 +223,9 @@ function mapApiOrderToStored(order: {
         price: Number(item.price),
         image: item.image ?? '',
         slug: item.slug?.trim() || '',
-        ...(item.size || sizeFromName ? { size: item.size || sizeFromName } : {}),
+        ...(item.size || sizeFromName
+          ? { size: displaySizeLabel(item.size || sizeFromName) }
+          : {}),
         ...(item.color || colorFromName ? { color: item.color || colorFromName } : {}),
       }
     }),

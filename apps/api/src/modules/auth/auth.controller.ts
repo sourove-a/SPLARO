@@ -5,6 +5,7 @@ import {
   Headers,
   Inject,
   Param,
+  Patch,
   Post,
   Req,
   ServiceUnavailableException,
@@ -23,6 +24,7 @@ import {
   AdminRequestLoginDto,
   AdminResetPasswordDto,
   AdminGoogleLoginDto,
+  AdminUpdateProfileDto,
 } from '../../common/dtos/admin-auth.dto'
 import { AuthService } from './auth.service'
 import { TelegramService } from '../telegram/telegram.service'
@@ -248,6 +250,30 @@ export class AuthController {
       lastLoginIp: extras.lastLoginIp,
       lastLoginAt: extras.lastLoginAt,
       requestIp,
+    }
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Patch('profile')
+  async updateProfile(
+    @Body() body: AdminUpdateProfileDto,
+    @Headers('authorization') authorization?: string,
+  ) {
+    const token = authorization?.replace(/^Bearer\s+/i, '').trim()
+    if (!token) throw new UnauthorizedException('Missing bearer token')
+    const user = await this.auth.verifyLiveToken(token)
+    if (!user) throw new UnauthorizedException('Invalid or expired session')
+    const updated = await this.auth.updateOwnProfile(user.userId, body.name)
+    return {
+      ok: true,
+      user: {
+        id: updated.id,
+        email: updated.email,
+        name: updated.name,
+        role: user.role,
+        storeId: user.storeId,
+        permissions: user.permissions,
+      },
     }
   }
 

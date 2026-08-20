@@ -225,7 +225,13 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
     }
   }
 
-  if (r2.isLoading || steadfast.isLoading || pathao.isLoading || redx.isLoading) {
+  const waiting =
+    !r2.data &&
+    !steadfast.data &&
+    !pathao.data &&
+    !redx.data &&
+    (r2.isLoading || steadfast.isLoading || pathao.isLoading || redx.isLoading)
+  if (waiting) {
     return (
       <div className="flex items-center gap-2 py-8 text-sm text-[var(--admin-text-muted)]">
         <Loader2 className="h-4 w-4 animate-spin" />

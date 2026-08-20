@@ -94,7 +94,7 @@ export const ALIAS_REDIRECTS: Record<string, string> = {
   '/dashboard/billing': '/dashboard',
   '/dashboard/marketplace/overview': '/dashboard',
   '/dashboard/social-commerce/hub': '/dashboard/campaigns',
-  '/dashboard/observability/disaster-recovery': '/dashboard/observability/center',
+  '/dashboard/theme-builder': '/dashboard/branding',
   '/dashboard/backups': '/dashboard/api-health',
   '/dashboard/influencers': '/dashboard/campaigns',
   '/dashboard/segments': '/dashboard/customers',

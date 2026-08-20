@@ -26,6 +26,12 @@ export class PaperflyService {
 
   constructor(@Inject(ConfigService) private readonly config: ConfigService) {}
 
+  isConfigured(): boolean {
+    const clientId = this.config.get<string>('PAPERFLY_CLIENT_ID')?.trim()
+    const clientSecret = this.config.get<string>('PAPERFLY_CLIENT_SECRET')?.trim()
+    return Boolean(clientId && clientSecret)
+  }
+
   private get headers() {
     const clientId = this.config.get<string>('PAPERFLY_CLIENT_ID')
     const clientSecret = this.config.get<string>('PAPERFLY_CLIENT_SECRET')

@@ -6,6 +6,11 @@ import { resolveStoreId } from '../../common/store.util'
 import { EncryptionService } from '../integrations/encryption.service'
 import { GoogleOAuthService } from './google-oauth.service'
 import { GoogleServiceAccountService } from './google-service-account.service'
+import {
+  isSheetsAuthFailure,
+  readEncryptedRefreshToken,
+  REFRESH_TOKEN_MISSING,
+} from './google-sheets-auth.util'
 
 function asPrisma(db: PrismaService): PrismaClient {
   return db
@@ -42,33 +47,45 @@ export class GoogleClientService {
           select: { refreshTokenEncrypted: true },
         })
       : null
-    if (tokenRow?.refreshTokenEncrypted) return { ok: true, mode: 'oauth' }
+    const refresh = readEncryptedRefreshToken(tokenRow?.refreshTokenEncrypted, (value) =>
+      this.crypto.decrypt(value),
+    )
+    if (refresh.ok) return { ok: true, mode: 'oauth' }
 
     return {
       ok: false,
-      reason: 'Google account not connected. Connect in Google Workspace → Connect Google Account.',
+      reason: tokenRow?.refreshTokenEncrypted
+        ? refresh.reason
+        : 'Google account not connected. Connect in Google Workspace → Connect Google Account.',
     }
   }
 
-  /** Stop the 3-minute live cron from retrying an unfixable auth state. */
+  /** Stop the live cron from retrying an unfixable auth state. Always persist tokenHealth. */
   async pauseLiveSync(storeIdRaw: string, reason: string): Promise<boolean> {
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    const existing = await this.prisma.googleWorkspaceConnection.findUnique({
+      where: { storeId },
+      select: { autoSyncEnabled: true },
+    })
     const result = await this.prisma.googleWorkspaceConnection.updateMany({
-      where: { storeId, autoSyncEnabled: true },
+      where: { storeId },
       data: {
         autoSyncEnabled: false,
         tokenHealth: 'needs_reconnect',
         lastError: reason.slice(0, 500),
       },
     })
-    if (result.count > 0) {
+    const paused = Boolean(existing?.autoSyncEnabled) && result.count > 0
+    if (paused) {
       this.logger.warn(`Paused Google Sheets auto-sync for ${storeId}: ${reason}`)
     }
-    return result.count > 0
+    return paused
   }
 
   async resumeLiveSync(storeIdRaw: string): Promise<void> {
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    const ready = await this.canUseSheets(storeId)
+    if (!ready.ok) throw new BadRequestException(ready.reason)
     await this.prisma.googleWorkspaceConnection.updateMany({
       where: { storeId },
       data: { autoSyncEnabled: true, tokenHealth: 'healthy', lastError: null },
@@ -102,32 +119,25 @@ export class GoogleClientService {
     const tokenRow = await db.googleWorkspaceToken.findUnique({
       where: { connectionId_serviceName: { connectionId: conn.id, serviceName: 'oauth' } },
     })
-    if (!tokenRow?.refreshTokenEncrypted) {
-      throw new BadRequestException('Google refresh token missing. Reconnect your Google account.')
-    }
-
-    let refreshToken: string
-    try {
-      refreshToken = this.crypto.decrypt(tokenRow.refreshTokenEncrypted).trim()
-    } catch {
-      throw new BadRequestException(
-        'Google refresh token could not be decrypted. Reconnect your Google account.',
-      )
-    }
-    if (!refreshToken) {
-      throw new BadRequestException('Google refresh token missing. Reconnect your Google account.')
+    const refresh = readEncryptedRefreshToken(tokenRow?.refreshTokenEncrypted, (value) =>
+      this.crypto.decrypt(value),
+    )
+    if (!refresh.ok) {
+      await this.markTokenUnhealthy(storeId, refresh.reason)
+      throw new BadRequestException(refresh.reason)
     }
 
     const oauth2 = await this.oauth.getOAuthClient(storeId)
     oauth2.setCredentials({
-      access_token: tokenRow.accessTokenEncrypted
+      access_token: tokenRow?.accessTokenEncrypted
         ? this.crypto.decrypt(tokenRow.accessTokenEncrypted)
         : undefined,
-      refresh_token: refreshToken,
-      expiry_date: tokenRow.tokenExpiry?.getTime(),
+      refresh_token: refresh.token,
+      expiry_date: tokenRow?.tokenExpiry?.getTime(),
     })
 
     oauth2.on('tokens', async (tokens) => {
+      if (!tokenRow) return
       if (!tokens.access_token && !tokens.refresh_token) return
       await db.googleWorkspaceToken.update({
         where: { id: tokenRow.id },
@@ -144,7 +154,30 @@ export class GoogleClientService {
       })
     })
 
+    try {
+      await oauth2.getAccessToken()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (isSheetsAuthFailure(msg) || /invalid_grant|invalid credentials/i.test(msg)) {
+        const reason = 'Google token expired or revoked. Reconnect your Google account.'
+        await this.markTokenUnhealthy(storeId, reason)
+        throw new BadRequestException(reason)
+      }
+      throw err
+    }
+
     return oauth2
+  }
+
+  private async markTokenUnhealthy(storeId: string, reason: string): Promise<void> {
+    await this.prisma.googleWorkspaceConnection.updateMany({
+      where: { storeId },
+      data: {
+        autoSyncEnabled: false,
+        tokenHealth: 'needs_reconnect',
+        lastError: (reason || REFRESH_TOKEN_MISSING).slice(0, 500),
+      },
+    })
   }
 
   async getDriveAuth(storeIdRaw: string): Promise<Auth.GoogleAuth | Auth.OAuth2Client> {

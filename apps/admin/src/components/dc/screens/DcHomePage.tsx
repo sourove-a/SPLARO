@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { DcContentNav } from '@/components/dc/DcContentNav'
 import { DcHomepageCatalogTiles } from '@/components/dc/screens/DcHomepageCatalogTiles'
@@ -15,7 +15,8 @@ import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, toneStyle } from '@/components/dc/tokens'
 import { useSettings, useUpdateSettings } from '@/lib/api/hooks'
 import type { HomepageCatalogConfig, HomepageSectionsConfig } from '@/lib/api/settings'
-import { DEFAULT_HOMEPAGE_CATALOG, mergeHomepageCatalog } from '@splaro/config'
+import { DEFAULT_HOMEPAGE_CATALOG, mergeHomepageCatalog, resolveHomepageSectionOrder, type HomepageSectionId } from '@splaro/config'
+import { arrayMove, DcDragHandle, DcSortableList, useDcSortable, type DcSortHandle } from '@/components/dc/DcSortableList'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { verifySettingsApplied } from '@/lib/admin/settings-save'
 import { getStorefrontOrigin } from '@/lib/storefront-origin'
@@ -27,7 +28,7 @@ const card = {
   backgroundImage: 'var(--card-sheen)',
 } as const
 
-type SectionKey = keyof HomepageSectionsConfig
+type SectionKey = HomepageSectionId
 
 /**
  * Storefront order, top to bottom — this is the sequence the home page renders,
@@ -113,6 +114,45 @@ function DcHomePageBody() {
 
   const shown = draft ? SECTIONS.filter((s) => draft[s.key]).length : 0
   const hidden = SECTIONS.length - shown
+  const orderedSections = useMemo(() => {
+    const keys = resolveHomepageSectionOrder(draft?.order)
+    return keys
+      .map((key) => SECTIONS.find((s) => s.key === key))
+      .filter((s): s is (typeof SECTIONS)[number] => Boolean(s))
+  }, [draft?.order])
+
+  const persistOrder = (keys: HomepageSectionId[]) => {
+    if (!draft) return
+    const next = { ...draft, order: keys }
+    setDraft(next)
+    update.mutate(
+      { homepage: next },
+      {
+        onSuccess: (saved) => {
+          const verified = verifySettingsApplied({ homepage: next }, saved)
+          if (!verified.ok) {
+            toast('bad', 'Order not verified', verified.reason)
+            void settings.refetch()
+            return
+          }
+          toast('ok', 'Order saved and verified', 'The storefront will render this sequence on the next request.')
+        },
+        onError: (err) =>
+          toast(
+            'bad',
+            'Could not save the order',
+            err instanceof Error ? err.message : 'PATCH /admin/settings failed',
+          ),
+      },
+    )
+  }
+
+  const moveSection = (index: number, direction: -1 | 1) => {
+    const keys = orderedSections.map((s) => s.key)
+    const target = index + direction
+    if (target < 0 || target >= keys.length) return
+    persistOrder(arrayMove(keys, index, target))
+  }
 
   const runSave = () => {
     if (!draft || !catalogDraft) return
@@ -266,25 +306,22 @@ function DcHomePageBody() {
                 textWrap: 'pretty',
               }}
             >
-              Listed in the order the storefront renders them. Order is fixed in the theme — this
-              screen controls whether each section appears, not where.
+              Listed in the order the storefront renders them. Drag the handle or use the arrows —
+              the new order is saved immediately. Visibility still uses Show / Hide.
             </p>
 
-            {SECTIONS.map((s, i) => {
+            <DcSortableList
+              ids={orderedSections.map((s) => s.key)}
+              onReorder={(from, to) => persistOrder(arrayMove(orderedSections.map((s) => s.key), from, to))}
+            >
+            {orderedSections.map((s, i) => {
               const on = draft[s.key]
               const t = toneStyle(on ? 'ok' : 'mute')
               return (
-                <div
-                  key={s.key}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 11,
-                    flexWrap: 'wrap',
-                    padding: '11px 0',
-                    borderTop: '1px solid var(--line)',
-                  }}
-                >
+                <HomeSortableRow key={s.key} id={s.key}>
+                  {(handle) => (
+                    <>
+                  <DcDragHandle {...handle} />
                   <span
                     style={{
                       display: 'grid',
@@ -301,6 +338,8 @@ function DcHomePageBody() {
                   >
                     {i + 1}
                   </span>
+                  <HomeIconBtn icon="icon-chevron-up" title="Move up" onClick={() => moveSection(i, -1)} />
+                  <HomeIconBtn icon="icon-chevron-down" title="Move down" onClick={() => moveSection(i, 1)} />
                   <span
                     style={{
                       display: 'grid',
@@ -409,9 +448,12 @@ function DcHomePageBody() {
                     <DcIcon name={on ? 'icon-eye-off' : 'icon-eye'} size={13} />
                     <span>{on ? 'Hide from site' : 'Show on site'}</span>
                   </button>
-                </div>
+                    </>
+                  )}
+                </HomeSortableRow>
               )
             })}
+            </DcSortableList>
           </div>
 
           {catalogDraft ? (
@@ -448,6 +490,58 @@ function DcHomePageBody() {
         </>
       )}
     </>
+  )
+}
+
+function HomeSortableRow({
+  id,
+  children,
+}: {
+  id: string
+  children: (handle: DcSortHandle) => ReactNode
+}) {
+  const drag = useDcSortable(id)
+  return (
+    <div
+      ref={drag.setNodeRef}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 11,
+        flexWrap: 'wrap',
+        padding: '11px 0',
+        borderTop: '1px solid var(--line)',
+        ...drag.style,
+      }}
+    >
+      {children({ listeners: drag.listeners, attributes: drag.attributes })}
+    </div>
+  )
+}
+
+function HomeIconBtn({ icon, title, onClick }: { icon: string; title: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      onClick={onClick}
+      className="dc-hover-ink"
+      style={{
+        display: 'grid',
+        placeItems: 'center',
+        width: 28,
+        height: 28,
+        flex: 'none',
+        borderRadius: 8,
+        border: '1px solid var(--line)',
+        background: 'var(--surface-2)',
+        color: 'var(--ink-3)',
+        cursor: 'pointer',
+      }}
+    >
+      <DcIcon name={icon} size={13} />
+    </button>
   )
 }
 

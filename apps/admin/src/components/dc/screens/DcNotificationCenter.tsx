@@ -57,6 +57,7 @@ const CHANNEL_TONE: Record<string, DcTone> = {
   TELEGRAM: 'info',
   EMAIL: 'info',
   SMS: 'ok',
+  IN_APP: 'info',
 }
 
 const STATUS_TONE: Record<string, DcTone> = {
@@ -445,7 +446,7 @@ function DcNotificationCenterBody() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
               {/* Channel Tabs */}
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {['ALL', 'TELEGRAM', 'SMS', 'EMAIL'].map((ch) => {
+                {['ALL', 'IN_APP', 'TELEGRAM', 'SMS', 'EMAIL'].map((ch) => {
                   const active = channelFilter === ch
                   return (
                     <button

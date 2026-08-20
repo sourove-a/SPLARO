@@ -12,7 +12,7 @@ import type {
   NavLink,
   StorefrontConfig,
 } from './storefront-config'
-import { ensureEssentialHeaderDepartments } from './storefront-config'
+import { ensureEssentialHeaderDepartments, isAlwaysOnMenuDepartment, shouldHideEmptyNavNode } from './storefront-config'
 
 type CategoryRow = {
   id: string
@@ -171,15 +171,9 @@ export class NavBuilderService {
   constructor(private readonly prisma: PrismaService) {}
 
   async buildStorefrontNav(storeId: string, config: StorefrontConfig): Promise<NavLink[]> {
-    // Saved headerNav may omit Accessories (or other essentials) — heal before mega build.
     const headerNav = ensureEssentialHeaderDepartments(config.headerNav)
-    const overrides = config.menuOverrides ?? { autoSync: true }
-    // Accessories must stay visible on storefront even if an old override hid the dept.
-    const departments = (overrides.departments ?? []).map((d) =>
-      d.departmentSlug === 'accessories' && d.hidden
-        ? { ...d, hidden: false, forceVisible: true }
-        : d,
-    )
+    const overrides = config.menuOverrides ?? { autoSync: true, hideEmptyCategories: true }
+    const hideEmpty = overrides.hideEmptyCategories !== false
 
     const flat = await this.prisma.category.findMany({
       where: { storeId, isActive: true },
@@ -195,6 +189,17 @@ export class NavBuilderService {
 
     const tree = buildCategoryTree(flat)
     const deptBySlug = new Map(tree.filter((n) => !n.parentId).map((n) => [n.slug, n]))
+    const accessoriesCount = deptBySlug.get('accessories')
+      ? totalVisibleProducts(deptBySlug.get('accessories')!)
+      : 0
+
+    const departments = (overrides.departments ?? []).map((d) => {
+      if (d.departmentSlug !== 'accessories' || !d.hidden) return d
+      if (shouldHideEmptyNavNode({ hideEmptyCategories: hideEmpty, forceVisible: d.forceVisible, productCount: accessoriesCount })) {
+        return d
+      }
+      return { ...d, hidden: false, forceVisible: true }
+    })
 
     return Promise.all(
       headerNav.map(async (item) => {
@@ -207,6 +212,18 @@ export class NavBuilderService {
         if (deptOverride?.hidden) return { ...item, hidden: true }
 
         const deptNode = deptBySlug.get(slug)
+        const productCount = deptNode ? totalVisibleProducts(deptNode) : 0
+        const forceVisible = Boolean(deptOverride?.forceVisible) || isAlwaysOnMenuDepartment(slug)
+        if (
+          shouldHideEmptyNavNode({
+            hideEmptyCategories: hideEmpty,
+            forceVisible,
+            productCount,
+          })
+        ) {
+          return { ...item, hidden: true, megaMenu: undefined }
+        }
+
         if (!deptNode) return item
 
         const megaMenu = await this.buildDepartmentMegaMenu(
@@ -216,7 +233,7 @@ export class NavBuilderService {
           overrides,
         )
         const hasCategories = megaMenu.categories.length > 0
-        if (!hasCategories && !deptOverride?.forceVisible) {
+        if (!hasCategories && !forceVisible) {
           return { ...item, megaMenu: undefined }
         }
 
@@ -233,9 +250,11 @@ export class NavBuilderService {
   ): Promise<MegaMenuConfig> {
     const hidden = new Set(override?.hiddenCategoryIds ?? [])
     const autoSync = menuOverrides.autoSync !== false
+    const hideEmpty = menuOverrides.hideEmptyCategories !== false
 
     let columns = dept.children
-      .filter((child) => child.isActive && totalVisibleProducts(child) > 0)
+      .filter((child) => child.isActive)
+      .filter((child) => !hideEmpty || totalVisibleProducts(child) > 0)
       .filter((child) => !hidden.has(child.id))
 
     if (!autoSync && override?.pinnedCategoryIds?.length) {
@@ -247,7 +266,8 @@ export class NavBuilderService {
 
     const categories: MegaMenuCategory[] = columns.map((col) => {
       const subs = col.children
-        .filter((c) => c.isActive && totalVisibleProducts(c) > 0)
+        .filter((c) => c.isActive)
+        .filter((c) => !hideEmpty || totalVisibleProducts(c) > 0)
         .filter((c) => !hidden.has(c.id))
         .map((c) => ({ label: c.name, href: departmentHref(c.slug) }))
 

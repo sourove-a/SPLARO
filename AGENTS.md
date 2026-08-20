@@ -18,6 +18,7 @@ local pass into a “100% perfect” or production-ready claim; external gates l
 - **Never fake success** — green toast / “saved” only after verified API `res.ok`.
 - **Never guess** — use grep/read/terminal; cite real file paths and env vars.
 - **No drive-by refactors** — don’t touch unrelated files or “clean up” without ask.
+- **Preserve existing design** — do not change theme, colors, fonts, layout, or UI patterns on a bug/logic fix. Reuse the current design system; no new look. Visual change only when the owner explicitly asks.
 - **No commits/PRs** unless owner explicitly asks.
 
 ### After editing (agent does this — not the owner)

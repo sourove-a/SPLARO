@@ -92,6 +92,7 @@ export function useTelegramHealth() {
     queryFn: fetchTelegramHealth,
     staleTime: 15_000,
     retry: 1,
+    placeholderData: (previous) => previous,
   })
 }
 
@@ -205,7 +206,7 @@ export function useInfrastructureConfig(provider: 'cloudflare_r2' | 'steadfast' 
   return useQuery({
     queryKey: ['infrastructure-config', provider],
     queryFn: () => fetchInfrastructureConfig(provider),
-    staleTime: 10_000,
+    staleTime: 30_000,
   })
 }
 

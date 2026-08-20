@@ -17,6 +17,8 @@ const HOSTINGER_SMTP = {
   replyTo: 'support@splaro.co',
 } as const
 
+const PRIMARY_SMTP_ACCOUNT_ID = 'smtp-primary'
+
 /** Hostinger aliases on noreply@splaro.co mailbox */
 const EMAIL_ALIASES = [
   { label: 'noreply', email: 'noreply@splaro.co', role: 'From — automated (orders, password reset)' },
@@ -77,8 +79,17 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
       toastFail('Host, username, and From email are required.')
       return
     }
+    const alreadyInPool = draft.smtpAccounts.some(
+      (account) =>
+        account.host.trim().toLowerCase() === draft.smtp.host.trim().toLowerCase() &&
+        account.user.trim().toLowerCase() === draft.smtp.user.trim().toLowerCase(),
+    )
+    if (alreadyInPool) {
+      toastFail('That mailbox is already in the delivery pool. Add a different host/user for failover.')
+      return
+    }
     if (!draft.smtp.password.trim()) {
-      toastFail('Enter app password for new SMTP account.')
+      toastFail('Enter app password for the extra SMTP account.')
       return
     }
     const account = {
@@ -143,7 +154,7 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
 
       <SectionCard
         title="Email (SMTP)"
-        subtitle="Hostinger mailbox noreply@splaro.co — aliases info@, hello@, support@ share the same password."
+        subtitle="Hostinger mailbox noreply@splaro.co — aliases info@, hello@, support@ share the same password. Saving this form also registers the mailbox in the delivery pool campaigns use."
       >
         <div style={{ marginBottom: '1rem' }}>
           <Toggle
@@ -158,15 +169,19 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
           <div className="smtp-pool__head" style={{ marginBottom: draft.smtpAccounts.length ? 12 : 0 }}>
             <div>
               <p className="smtp-pool__title">SMTP delivery pool</p>
-              <p className="smtp-pool__meta">{draft.smtpAccounts.length} saved account{draft.smtpAccounts.length === 1 ? '' : 's'} · priority failover enabled</p>
+              <p className="smtp-pool__meta">
+                {draft.smtpAccounts.length} saved account{draft.smtpAccounts.length === 1 ? '' : 's'} · campaigns and
+                failover use this list
+              </p>
             </div>
             <button type="button" className="admin-btn admin-btn--dark smtp-pool__add" onClick={addSmtpAccount} disabled={saving || !apiOnline}>
-              <Plus size={14} strokeWidth={1.75} /> Add SMTP account
+              <Plus size={14} strokeWidth={1.75} /> Add failover SMTP
             </button>
           </div>
           {draft.smtpAccounts.length === 0 ? (
             <div className="smtp-pool__empty">
-              No saved pool accounts. Fill the form below, enter the app password, then click <strong>Add SMTP account</strong>. When one mailbox fails, the next in priority is used automatically.
+              Primary mailbox is added to this pool when you click <strong>Save email settings</strong> below (password
+              must already be stored). Add failover SMTP only for a second mailbox.
             </div>
           ) : (
             <div className="smtp-pool__list">
@@ -181,7 +196,10 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
                     <div className="smtp-account__row">
                       <div className="smtp-account__badge"><Server size={16} strokeWidth={1.75} /></div>
                       <div className="smtp-account__info">
-                        <p className="smtp-account__name">{account.label || account.fromEmail}</p>
+                        <p className="smtp-account__name">
+                          {account.id === PRIMARY_SMTP_ACCOUNT_ID ? 'Primary · ' : ''}
+                          {account.label || account.fromEmail}
+                        </p>
                         <p className="smtp-account__sub">#{index + 1} · {account.host}:{account.port} · {account.user}</p>
                       </div>
                       <span className="smtp-account__status" data-health={healthState}>
@@ -190,29 +208,35 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
                       </span>
                       <button type="button" className="settings-text-link" disabled={testing !== null} onClick={() => void testSmtpAccount(account.id)}>Test</button>
                       <button type="button" className="settings-text-link" onClick={() => updateSmtpAccounts(draft.smtpAccounts.map((item) => item.id === account.id ? { ...item, enabled: !item.enabled } : item), 'SMTP account status')}>{account.enabled ? 'Disable' : 'Enable'}</button>
-                      <button
-                        type="button"
-                        aria-label={`Delete ${account.label}`}
-                        className="smtp-account__delete"
-                        onClick={() => {
-                          const label = account.label || account.fromEmail || 'this account'
-                          if (
-                            !window.confirm(
-                              `Remove SMTP account "${label}"? This saves immediately.`,
+                      {account.id === PRIMARY_SMTP_ACCOUNT_ID ? (
+                        <span className="settings-text-link" style={{ opacity: 0.55, cursor: 'default' }}>
+                          Saved with email settings
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          aria-label={`Delete ${account.label}`}
+                          className="smtp-account__delete"
+                          onClick={() => {
+                            const label = account.label || account.fromEmail || 'this account'
+                            if (
+                              !window.confirm(
+                                `Remove SMTP account "${label}"? This saves immediately.`,
+                              )
+                            ) {
+                              return
+                            }
+                            updateSmtpAccounts(
+                              draft.smtpAccounts
+                                .filter((item) => item.id !== account.id)
+                                .map((item, i) => ({ ...item, priority: i + 1 })),
+                              'SMTP account removed',
                             )
-                          ) {
-                            return
-                          }
-                          updateSmtpAccounts(
-                            draft.smtpAccounts
-                              .filter((item) => item.id !== account.id)
-                              .map((item, i) => ({ ...item, priority: i + 1 })),
-                            'SMTP account removed',
-                          )
-                        }}
-                      >
-                        <Trash2 size={14} strokeWidth={1.75} />
-                      </button>
+                          }}
+                        >
+                          <Trash2 size={14} strokeWidth={1.75} />
+                        </button>
+                      )}
                     </div>
                     {health && !health.ok ? <p className="smtp-account__error">{health.message}</p> : null}
                   </div>

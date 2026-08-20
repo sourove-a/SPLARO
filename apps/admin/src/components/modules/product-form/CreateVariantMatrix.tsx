@@ -14,6 +14,7 @@ import {
 } from '@/lib/admin/colour-names'
 import { deptHasNoSize, type SizeDeptKey } from '@/lib/admin/size-presets'
 import { previewVariantSku, type SkuIdentity } from '@/lib/admin/variant-sku'
+import { clampStock, parseBulkStock } from '@/lib/admin/bulk-stock'
 
 export type CreateColourRow = { id: string; name: string; hex: string; imageUrl: string }
 
@@ -200,6 +201,7 @@ export function CreateVariantMatrix({
 
   const [drafts, setDrafts] = useState<Record<string, DraftRow>>({})
   const [customSize, setCustomSize] = useState('')
+  const [bulkStockText, setBulkStockText] = useState('')
 
   const extraSizes = sizeList.filter((sz) => !sizeChips.includes(sz))
   const hasLocks = Object.values(drafts).some((row) => row.lock && Object.keys(row.lock).length > 0)
@@ -354,6 +356,43 @@ export function CreateVariantMatrix({
 
   const applyStockToColour = (colorId: string) => applyFieldToColour(colorId, 'stock')
 
+  // Parsed on every keystroke for the preview, but nothing is written until the
+  // operator taps Apply — a mis-read "L-5" must never land in stock silently.
+  const bulkStock = useMemo(
+    () => parseBulkStock(bulkStockText, sizeList),
+    [bulkStockText, sizeList],
+  )
+  const bulkStockUsable = bulkStock.entries.filter((entry) => entry.matched)
+
+  const applyBulkStock = () => {
+    if (bulkStockUsable.length === 0) {
+      toastFail('Nothing to apply — use "S 10, M 20" or a plain list like "10, 20, 5".')
+      return
+    }
+    setDrafts((prev) => {
+      const next = { ...prev }
+      for (const entry of bulkStockUsable) {
+        const value = String(clampStock(entry.qty))
+        for (const color of colourRows) {
+          const key = rowKey(color.id, entry.size)
+          const current = next[key] ?? {}
+          next[key] = {
+            ...current,
+            stock: value,
+            lock: { ...(current.lock ?? {}), stock: true },
+          }
+        }
+      }
+      return next
+    })
+    const skipped = bulkStock.entries.length - bulkStockUsable.length + bulkStock.ignored.length
+    toastOk(
+      `Stock set on ${bulkStockUsable.length} size${bulkStockUsable.length === 1 ? '' : 's'}`,
+      skipped > 0 ? `${skipped} entr${skipped === 1 ? 'y' : 'ies'} skipped — not in this size run.` : undefined,
+    )
+    setBulkStockText('')
+  }
+
   const printStickers = () => {
     printVariantStickers(
       lines.map((line) => ({
@@ -458,6 +497,54 @@ export function CreateVariantMatrix({
             ? 'Price comes from Main / Sale above. Set stock here. SKU and barcode are issued on save.'
             : 'Price comes from Main / Sale above. Stock (and SKU/barcode if you type them) copy into every row.'}
         </p>
+        {!sizeless && sizeList.length > 1 ? (
+          <div className="dc-bulk-stock">
+            <span className="dc-bulk-stock__label">Paste stock per size</span>
+            <div className="dc-bulk-stock__row">
+              <input
+                className="dc-bulk-stock__input"
+                value={bulkStockText}
+                onChange={(e) => setBulkStockText(e.target.value)}
+                placeholder={`${sizeList.slice(0, 3).join(' 10, ')} 10`}
+                aria-label="Paste stock per size"
+              />
+              <button
+                type="button"
+                className="dc-bulk-stock__apply"
+                onClick={applyBulkStock}
+                disabled={bulkStockUsable.length === 0}
+              >
+                Apply
+              </button>
+            </div>
+            {bulkStockText.trim() ? (
+              <div className="dc-bulk-stock__preview">
+                {bulkStock.entries.map((entry) => (
+                  <span
+                    key={`${entry.raw}-${entry.size}`}
+                    className={`dc-bulk-stock__chip${entry.matched ? '' : ' dc-bulk-stock__chip--off'}`}
+                    title={entry.matched ? undefined : 'Not one of the sizes above'}
+                  >
+                    {entry.size} → {clampStock(entry.qty)}
+                  </span>
+                ))}
+                {bulkStock.ignored.map((token) => (
+                  <span key={token} className="dc-bulk-stock__chip dc-bulk-stock__chip--off">
+                    {token} ✕
+                  </span>
+                ))}
+                {bulkStock.positional ? (
+                  <span className="dc-bulk-stock__note">Read in size order</span>
+                ) : null}
+              </div>
+            ) : (
+              <span className="dc-bulk-stock__note">
+                “S 10, M 20, L 5” — or a plain list “10, 20, 5” read in size order. Preview first,
+                then Apply.
+              </span>
+            )}
+          </div>
+        ) : null}
         <div
           style={{
             display: 'grid',

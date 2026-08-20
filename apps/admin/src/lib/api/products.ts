@@ -466,9 +466,15 @@ export interface CatalogExportRow {
 }
 
 /** Full-catalog export — no status filter = every product (draft + published). Long timeout for large stores. */
-export function fetchProductsExport(params?: { status?: 'published' | 'draft' }) {
+export function fetchProductsExport(params?: {
+  status?: 'published' | 'draft'
+  from?: string
+  to?: string
+}) {
   const qs = new URLSearchParams()
   if (params?.status) qs.set('status', params.status)
+  if (params?.from) qs.set('from', params.from)
+  if (params?.to) qs.set('to', params.to)
   const query = qs.toString()
   return apiFetch<{ rows: CatalogExportRow[]; total: number }>(
     `/admin/products/export${query ? `?${query}` : ''}`,

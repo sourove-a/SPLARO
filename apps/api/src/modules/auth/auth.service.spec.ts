@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 import { ForbiddenException } from '@nestjs/common'
-import { AuthService } from './auth.service'
+import { AuthService, splitAdminDisplayName } from './auth.service'
 import { hashPassword } from '../../common/password.util'
 
 describe('AuthService role-split login', () => {
@@ -326,5 +326,36 @@ describe('AuthService resolveAdminStaff missing', () => {
       exists: true,
     })
     expect(prisma.user.create).toHaveBeenCalled()
+  })
+})
+
+describe('updateOwnProfile', () => {
+  it('splits and saves the display name', async () => {
+    expect(splitAdminDisplayName('Amina Rahman')).toEqual({ firstName: 'Amina', lastName: 'Rahman' })
+
+    const update = jest.fn().mockResolvedValue({
+      id: 'u-editor',
+      email: 'editor@splaro.co',
+      firstName: 'Amina',
+      lastName: 'Rahman',
+    })
+    const service = new AuthService(
+      { user: { update } } as never,
+      { get: jest.fn() } as never,
+      {} as never,
+      { getCounter: jest.fn().mockResolvedValue(0) } as never,
+      {} as never,
+      { sendForStore: jest.fn() } as never,
+    )
+    await expect(service.updateOwnProfile('u-editor', 'Amina Rahman')).resolves.toEqual({
+      id: 'u-editor',
+      email: 'editor@splaro.co',
+      name: 'Amina Rahman',
+    })
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'u-editor' },
+      data: { firstName: 'Amina', lastName: 'Rahman' },
+      select: { id: true, email: true, firstName: true, lastName: true },
+    })
   })
 })

@@ -6,18 +6,16 @@ import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { admin2faPosture } from './admin-2fa-posture'
 import { httpsEnforcedPosture } from './https-posture'
-
-function relTime(date: Date | null | undefined): string {
-  if (!date) return 'Never'
-  const diff = Date.now() - date.getTime()
-  const mins = Math.floor(diff / 60_000)
-  if (mins < 1) return 'Just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ago`
-}
+import {
+  dedupeTelegramTestSuccess,
+  filterSystemLogs,
+  formatLogWhen,
+  mapAuditLevel,
+  paginateSystemLogs,
+  relTime,
+  type SystemLogLevel,
+  type SystemLogRow,
+} from './system-log.util'
 
 type MediaCursor = { at: Date; id: string }
 
@@ -143,7 +141,10 @@ export class PlatformService {
         orderBy: { createdAt: 'asc' },
       }),
       this.prisma.auditLog.findMany({
-        where: { storeId },
+        where: {
+          storeId,
+          NOT: { AND: [{ action: 'TEST_SUCCESS' }, { resource: 'telegram' }] },
+        },
         orderBy: { createdAt: 'desc' },
         take: 50,
         include: { user: { select: { firstName: true, lastName: true, email: true } } },
@@ -203,16 +204,19 @@ export class PlatformService {
       status: 'active',
     }))
 
-    const logs = auditLogs.map((log) => ({
-      id: log.id,
-      actor: log.user ? `${log.user.firstName} ${log.user.lastName}`.trim() : 'System',
-      action: log.action,
-      target: log.module,
-      resource: log.resource,
-      time: relTime(log.createdAt),
-      severity: log.action.toLowerCase().includes('fail') || log.action.toLowerCase().includes('block') ? 'danger' : 'info',
-      createdAt: log.createdAt,
-    }))
+    const logs = auditLogs.map((log) => {
+      const level = mapAuditLevel(log.action)
+      return {
+        id: log.id,
+        actor: log.user ? `${log.user.firstName} ${log.user.lastName}`.trim() : 'System',
+        action: log.action,
+        target: log.module,
+        resource: log.resource,
+        time: formatLogWhen(log.createdAt),
+        severity: level === 'info' ? 'info' : level === 'warning' ? 'warn' : 'danger',
+        createdAt: log.createdAt,
+      }
+    })
 
     const threats = auditLogs
       .filter((l) => l.action.toLowerCase().includes('fail') || l.action.toLowerCase().includes('block'))
@@ -220,7 +224,7 @@ export class PlatformService {
       .map((l) => ({
         id: l.id,
         action: l.action,
-        time: relTime(l.createdAt),
+        time: formatLogWhen(l.createdAt),
       }))
 
     return {
@@ -738,61 +742,86 @@ export class PlatformService {
     }
   }
 
-  async getSystemLogs(storeIdOrSlug: string, limit = 50) {
+  async getSystemLogs(
+    storeIdOrSlug: string,
+    opts: { limit?: number; page?: number; q?: string; level?: string } = {},
+  ) {
     const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
+    const rawLimit = Number(opts.limit)
+    const pageSize = [25, 50, 100, 500].includes(rawLimit) ? rawLimit : 50
+    const page = Math.max(1, Number(opts.page) || 1)
+    const take = 200
     const [audit, telegram, notifications, cron] = await Promise.all([
       this.prisma.auditLog.findMany({
         where: { storeId },
         orderBy: { createdAt: 'desc' },
-        take: limit,
+        take,
       }),
       this.prisma.telegramLog.findMany({
         where: { config: { storeId } },
         orderBy: { createdAt: 'desc' },
-        take: limit,
+        take,
       }),
       this.prisma.notificationDeliveryLog.findMany({
         where: { storeId },
         orderBy: { createdAt: 'desc' },
-        take: limit,
+        take,
       }),
       this.prisma.cronJobLog.findMany({ orderBy: { startedAt: 'desc' }, take: 20 }),
     ])
 
-    const combined = [
-      ...audit.map((l) => ({
-        id: l.id,
-        level: 'info' as const,
-        msg: `${l.action} · ${l.module}/${l.resource}`,
-        time: relTime(l.createdAt),
-        createdAt: l.createdAt,
-      })),
+    const combined: SystemLogRow[] = [
+      ...audit.map((l) => {
+        const extra =
+          l.newData && typeof l.newData === 'object' && !Array.isArray(l.newData)
+            ? (l.newData as Record<string, unknown>)
+            : {}
+        const repeats =
+          typeof extra.repeatCount === 'number' && extra.repeatCount > 1 ? ` · ×${extra.repeatCount}` : ''
+        return {
+          id: l.id,
+          level: mapAuditLevel(l.action),
+          msg: `${l.action} · ${l.module}/${l.resource}${repeats}`,
+          time: formatLogWhen(l.createdAt),
+          createdAt: l.createdAt,
+          action: l.action,
+          resource: l.resource,
+        }
+      }),
       ...telegram.map((l) => ({
         id: l.id,
-        level: (l.success ? 'info' : 'error') as 'info' | 'error' | 'warn',
+        level: (l.success ? 'info' : 'error') as SystemLogLevel,
         msg: `[Telegram] ${l.type}${l.command ? ` ${l.command}` : ''}: ${l.message.slice(0, 120)}`,
-        time: relTime(l.createdAt),
+        time: formatLogWhen(l.createdAt),
         createdAt: l.createdAt,
       })),
       ...notifications.map((l) => ({
         id: l.id,
-        level: (l.status === 'FAILED' ? 'error' : l.status === 'PENDING' ? 'warn' : 'info') as 'info' | 'error' | 'warn',
+        level: (l.status === 'FAILED' ? 'error' : l.status === 'PENDING' ? 'warning' : 'info') as SystemLogLevel,
         msg: `[${l.channel}] ${l.subject ?? l.recipient}: ${l.status}`,
-        time: relTime(l.createdAt),
+        time: formatLogWhen(l.createdAt),
         createdAt: l.createdAt,
       })),
       ...cron.map((l) => ({
         id: l.id,
-        level: (l.success ? 'info' : 'error') as 'info' | 'error' | 'warn',
+        level: (l.success ? 'info' : 'error') as SystemLogLevel,
         msg: `[Cron] ${l.jobName} · ${l.success ? 'OK' : 'FAILED'}`,
-        time: relTime(l.startedAt),
+        time: formatLogWhen(l.startedAt),
         createdAt: l.startedAt,
       })),
-    ]
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(0, limit)
+    ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
-    return { logs: combined }
+    const deduped = dedupeTelegramTestSuccess(combined)
+    const filtered = filterSystemLogs(deduped, { q: opts.q, level: opts.level })
+    const logs = paginateSystemLogs(filtered, page, pageSize)
+
+    return {
+      logs,
+      total: filtered.length,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(filtered.length / pageSize)),
+    }
   }
 
   async getTelegramLogs(storeIdOrSlug: string, limit = 50) {

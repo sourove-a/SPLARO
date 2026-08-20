@@ -107,6 +107,14 @@ export class CommerceOsController {
     return this.commerce.recordStockMovement(storeId, body)
   }
 
+  @Post('wms/opening-stock')
+  recordOpeningStock(
+    @Query('storeId') storeId: string,
+    @Body() body: { confirm?: boolean },
+  ) {
+    return this.commerce.recordOpeningStock(storeId, body)
+  }
+
   @Post('wms/transfers')
   createStockTransfer(
     @Query('storeId') storeId: string,

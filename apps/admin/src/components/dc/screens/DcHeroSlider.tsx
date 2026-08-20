@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { DcContentNav } from '@/components/dc/DcContentNav'
 import { DcIcon } from '@/components/dc/DcIcon'
@@ -17,6 +17,7 @@ import {
   createBanner,
   deleteBanner,
   fetchBanners,
+  sortBanners,
   updateBanner,
   type BannerRow,
 } from '@/lib/api/banners'
@@ -25,6 +26,7 @@ import { resolveMediaUrl } from '@/lib/media-url'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { DcMediaPickModal } from '@/components/dc/product/DcMediaPickModal'
 import { canonicalizeHeroMediaUrl, classifyHeroMedia, heroMediaPreviewSrc, isHeroVideoUrl } from '@splaro/config'
+import { arrayMove, DcDragHandle, DcSortableList, useDcSortable, type DcSortHandle } from '@/components/dc/DcSortableList'
 
 const HERO_POSITION = 'hero'
 
@@ -121,21 +123,11 @@ function DcHeroSliderBody() {
   })
 
   const reorder = useMutation({
-    mutationFn: async ({
-      currentId,
-      targetId,
-      index,
-      target,
-    }: {
-      currentId: string
-      targetId: string
-      index: number
-      target: number
-    }) => {
-      await updateBanner(currentId, { sortOrder: target })
-      await updateBanner(targetId, { sortOrder: index })
+    mutationFn: async (ordered: BannerRow[]) => {
+      const items = ordered.map((row, sortOrder) => ({ id: row.id, sortOrder }))
+      await sortBanners(items)
       const fresh = await fetchBanners(HERO_POSITION)
-      if (fresh.banners[index]?.id !== targetId || fresh.banners[target]?.id !== currentId) {
+      if (fresh.banners.map((row) => row.id).join() !== ordered.map((row) => row.id).join()) {
         throw new Error('Slide order did not persist on server')
       }
     },
@@ -263,13 +255,7 @@ function DcHeroSliderBody() {
   const move = (index: number, direction: -1 | 1) => {
     const target = index + direction
     if (target < 0 || target >= rows.length) return
-    // sortOrder is relative, so swapping two rows means writing both.
-    reorder.mutate({
-      currentId: rows[index]!.id,
-      targetId: rows[target]!.id,
-      index,
-      target,
-    })
+    reorder.mutate(arrayMove(rows, index, target))
   }
 
   const skeleton: DcBlock[] = [
@@ -347,8 +333,7 @@ function DcHeroSliderBody() {
                 textWrap: 'pretty',
               }}
             >
-              Order is the list order — there is no drag-and-drop yet, so do not promise it to the
-              team. Publish and hide apply immediately; text edits need an explicit save.
+              Order is the list order. Drag the handle or use the arrows; the server is checked after each move. Publish and hide apply immediately; text edits need an explicit save.
             </span>
           </div>
 
@@ -377,21 +362,19 @@ function DcHeroSliderBody() {
               <Dot color="var(--ink-3)" label={`${rows.length - live.length} hidden`} />
             </div>
 
+            <DcSortableList
+              ids={rows.map((row) => row.id)}
+              disabled={busy}
+              onReorder={(from, to) => reorder.mutate(arrayMove(rows, from, to))}
+            >
             {rows.map((b, i) => {
               const tone = toneStyle(b.isActive ? 'ok' : 'mute')
               const cover = b.image ? resolveMediaUrl(b.image) : null
               return (
-                <div
-                  key={b.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 13,
-                    flexWrap: 'wrap',
-                    padding: '13px 15px',
-                    borderBottom: '1px solid var(--line)',
-                  }}
-                >
+                <HeroSortableRow key={b.id} id={b.id} disabled={busy}>
+                  {(handle) => (
+                    <>
+                  <DcDragHandle {...handle} disabled={busy} />
                   <HeroMediaPreview url={cover} width={82} height={54} label={`${b.title || 'Hero'} preview`} />
 
                   <span
@@ -520,9 +503,12 @@ function DcHeroSliderBody() {
                       onClick={() => setRemoving(b)}
                     />
                   </span>
-                </div>
+                    </>
+                  )}
+                </HeroSortableRow>
               )
             })}
+            </DcSortableList>
           </div>
         </>
       )}
@@ -574,6 +560,34 @@ function DcHeroSliderBody() {
         onConfirm={() => removing && remove.mutate(removing.id)}
       />
     </>
+  )
+}
+
+function HeroSortableRow({
+  id,
+  disabled,
+  children,
+}: {
+  id: string
+  disabled?: boolean
+  children: (handle: DcSortHandle) => ReactNode
+}) {
+  const drag = useDcSortable(id, disabled)
+  return (
+    <div
+      ref={drag.setNodeRef}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 13,
+        flexWrap: 'wrap',
+        padding: '13px 15px',
+        borderBottom: '1px solid var(--line)',
+        ...drag.style,
+      }}
+    >
+      {children({ listeners: drag.listeners, attributes: drag.attributes })}
+    </div>
   )
 }
 

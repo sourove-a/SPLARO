@@ -4,6 +4,7 @@ import {
   buildProductMetaDescription,
   buildProductMetaTitle,
   hasMetaValue,
+  isStaleProductMeta,
 } from '../../common/seo-meta.util'
 import type { Prisma } from '@prisma/client'
 import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
@@ -260,6 +261,10 @@ export class SeoService {
           { metaTitle: '' },
           { metaDescription: null },
           { metaDescription: '' },
+          { metaDescription: { contains: 'Premium premium', mode: 'insensitive' } },
+          { metaDescription: { contains: "luxury women's fashion", mode: 'insensitive' } },
+          { metaDescription: { contains: "premium women's fashion", mode: 'insensitive' } },
+          { metaDescription: { contains: 'premium piece from SPLARO', mode: 'insensitive' } },
         ],
       },
       select: {
@@ -277,8 +282,9 @@ export class SeoService {
     let updated = 0
 
     for (const product of products) {
-      const needsTitle = !hasMetaValue(product.metaTitle)
-      const needsDescription = !hasMetaValue(product.metaDescription)
+      const needsTitle = !hasMetaValue(product.metaTitle) || isStaleProductMeta(product.metaTitle)
+      const needsDescription =
+        !hasMetaValue(product.metaDescription) || isStaleProductMeta(product.metaDescription)
       if (!needsTitle && !needsDescription) continue
 
       const metaTitle = needsTitle ? buildProductMetaTitle(product.name) : product.metaTitle!.trim()

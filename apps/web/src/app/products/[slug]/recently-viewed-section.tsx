@@ -81,6 +81,7 @@ export function RecentlyViewedSection({ excludeId }: { excludeId: string }) {
                 {...(images.length > 2 ? { galleryImages: images } : {})}
                 {...(item.sizes?.length ? { sizes: item.sizes } : {})}
                 {...(colors.length ? { colorHexes: colors } : {})}
+                {...(item.colorOptions?.length ? { colorOptions: item.colorOptions } : {})}
                 {...(item.category ? { category: item.category } : {})}
               />
             </div>

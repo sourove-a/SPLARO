@@ -1,9 +1,5 @@
 import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common'
-import {
-  formatCleanAddress,
-  formatSplOrderCode,
-  parseSplOrderNumber,
-} from '@splaro/config'
+import { formatCleanAddress, toStoredMediaUrl } from '@splaro/config'
 import {
   verifyInvoiceAccessToken,
 } from '@splaro/config/invoice-access'
@@ -13,7 +9,6 @@ import { resolveStoreId } from '../../common/store.util'
 import { assessOrderFraud } from '../../common/fraud.util'
 import { generateOrderCode } from '../../common/order-code.util'
 import { generatePaymentCode } from '../../common/payment-code.util'
-import { toStoredMediaUrl } from '@splaro/config'
 import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
 import { isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
 import { assertCouponForOrder } from '../coupons/coupon-validate.util'
@@ -28,6 +23,7 @@ import {
   resolveOrderDistrict,
 } from '../../common/delivery-charge.util'
 import { CommerceEventOutboxService } from '../orders/commerce-event-outbox.service'
+import { CustomersService } from '../customers/customers.service'
 import { fireAndForget } from '../../common/fire-and-forget'
 import { PaymentIntegrationService } from '../integrations/payment-integration.service'
 import { StockReservationService } from '../payments/stock-reservation.service'
@@ -151,6 +147,7 @@ export class StorefrontOrdersService {
     private readonly commerceEvents: CommerceEventOutboxService,
     private readonly paymentIntegration: PaymentIntegrationService,
     private readonly reservations: StockReservationService,
+    private readonly customers: CustomersService,
     @Optional() private readonly redis: RedisService,
   ) {}
 
@@ -344,8 +341,27 @@ export class StorefrontOrdersService {
     const normalizedPhone = normalizeBdPhone(input.customer.phone)
     const shippingEmail = input.customer.email?.trim().toLowerCase() || null
     const lineFingerprint = this.lineFingerprint(lines)
-    const customerIdentity = input.customerId
-      ? `customer:${input.customerId}`
+    let linkedCustomerId = input.customerId ?? null
+    if (!linkedCustomerId) {
+      try {
+        const profile = await this.customers.ensureFromCheckout(sid, {
+          name: input.customer.name,
+          phone: normalizedPhone,
+          email: shippingEmail,
+          address: input.customer.address,
+          city: input.customer.city,
+          district: input.customer.district ?? input.customer.city,
+          division: input.customer.division ?? 'Dhaka',
+        })
+        linkedCustomerId = profile.id
+      } catch (err) {
+        this.logger.warn(
+          `Guest checkout CRM link skipped: ${err instanceof Error ? err.message : 'unknown error'}`,
+        )
+      }
+    }
+    const customerIdentity = linkedCustomerId
+      ? `customer:${linkedCustomerId}`
       : `phone:${normalizedPhone}`
     const stockLines = lines.map((line) => ({
       variantId: line.variant.id,
@@ -400,14 +416,9 @@ export class StorefrontOrdersService {
       | undefined
 
     for (let attempt = 0; attempt < 6; attempt++) {
-      let invoiceNumber = await generateOrderCode(this.prisma, sid)
-      if (attempt > 0) {
-        // Concurrent claim of the same SPL code — jump ahead of the contested window.
-        const n = parseSplOrderNumber(invoiceNumber)
-        if (n != null) invoiceNumber = formatSplOrderCode(n + attempt)
-      }
       try {
         order = await this.prisma.$transaction(async (tx) => {
+          const invoiceNumber = await generateOrderCode(tx, sid)
           const paymentNumber = await generatePaymentCode(tx, sid)
           if (coupon) {
             await tx.$queryRaw`SELECT "id" FROM "Coupon" WHERE "id" = ${coupon.couponId} FOR UPDATE`
@@ -436,7 +447,7 @@ export class StorefrontOrdersService {
               storeId: sid,
               invoiceNumber,
               idempotencyKey: idemKey ?? null,
-              ...(input.customerId ? { customerId: input.customerId } : {}),
+              ...(linkedCustomerId ? { customerId: linkedCustomerId } : {}),
               status,
               paymentStatus,
               paymentMethod,
@@ -517,7 +528,7 @@ export class StorefrontOrdersService {
               data: {
                 couponId: coupon.couponId,
                 orderId: created.id,
-                customerId: input.customerId ?? null,
+                customerId: linkedCustomerId,
                 customerIdentity,
                 code: coupon.code,
                 discountAmount: coupon.discount,
@@ -586,6 +597,10 @@ export class StorefrontOrdersService {
       fireAndForget(this.commerceEvents.dispatchForOrder(order.id), 'orders.commerceEvents.cod')
     }
 
+    if (linkedCustomerId) {
+      fireAndForget(this.customers.refreshSpendStats(this.prisma, linkedCustomerId), 'orders.customerSpend')
+    }
+
     return order
   }
 
@@ -619,6 +634,31 @@ export class StorefrontOrdersService {
       orderBy: { createdAt: 'desc' },
       take: 50,
     })
+  }
+
+  /** Guest tracking by SPL-#### (optionally confirmed with checkout phone). */
+  async findByInvoiceForTracking(
+    storeId: string | undefined,
+    idOrInvoice: string,
+    phone?: string,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const ref = idOrInvoice.trim()
+    if (!ref) return null
+    const order = await this.prisma.order.findFirst({
+      where: {
+        storeId: sid,
+        OR: [{ id: ref }, { invoiceNumber: { equals: ref, mode: 'insensitive' } }],
+      },
+      include: this.storefrontOrderInclude,
+    })
+    if (!order) return null
+    const digits = phone?.replace(/\D/g, '') ?? ''
+    if (digits.length >= 10) {
+      const orderPhone = order.shippingPhone.replace(/\D/g, '')
+      if (digits.slice(-10) !== orderPhone.slice(-10)) return null
+    }
+    return order
   }
 
   async listForCustomer(storeId: string, customerId: string) {

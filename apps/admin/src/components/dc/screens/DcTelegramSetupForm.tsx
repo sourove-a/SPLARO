@@ -57,7 +57,10 @@ export function DcTelegramSetupForm() {
   }, [data])
 
   const tokenConfigured = Boolean(data?.tokenConfigured)
-  const connected = Boolean(tokenConfigured && chatId.trim() && isEnabled && health?.botRunning)
+  const connected = Boolean(
+    health?.operationalState === 'online' ||
+      (tokenConfigured && chatId.trim() && isEnabled && (health?.botRunning || health?.lastDeliveryStatus === 'success')),
+  )
 
   const handleSave = async () => {
     if (botTokenInput.trim() === '' && !tokenConfigured) {

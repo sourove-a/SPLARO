@@ -131,7 +131,7 @@ export const adminNavGroups: AdminNavGroup[] = [
       item('Hero Slider', 'hero-slider', 'SlidersHorizontal', 'Hero banners and carousel slides'),
       item('Media Library', 'media-library', 'Image', 'Upload, delete, and manage images'),
       item('Menu Control', 'menu-control', 'Menu', 'Header, footer, and navigation menus'),
-      item('Theme Builder', 'theme-builder', 'Palette', 'Visual theme customization'),
+      item('Branding', 'branding', 'Palette', 'Logo, favicon, store image, and footer copy'),
       item('Lookbooks', 'lookbooks', 'BookOpen', 'Editorial lookbooks and styling guides'),
       item('Reels', 'reels', 'Video', 'Short-form video and reels management'),
       item('Blog', 'blog', 'Newspaper', 'Blog posts and editorial content'),
@@ -321,6 +321,7 @@ const legacyHrefAliases: Record<string, string> = {
   '/dashboard/telegram/config': '/dashboard/telegram-bot',
   '/dashboard/settings?section=notifications#telegram': '/dashboard/telegram-bot',
   '/dashboard/banners': '/dashboard/hero-slider',
+  '/dashboard/theme-builder': '/dashboard/branding',
   '/dashboard/products/create': '/dashboard/products/new',
   '/dashboard/business-intelligence': '/dashboard/revenue-center',
 }

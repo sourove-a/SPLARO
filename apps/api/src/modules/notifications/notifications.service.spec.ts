@@ -92,6 +92,12 @@ describe('NotificationsService in-app alerts', () => {
     expect(minutesAgo).toBeGreaterThan(59)
     expect(minutesAgo).toBeLessThan(61)
   })
+
+  it('lets a recycled invoice notify again after the window (deleted then re-placed SPL-####)', async () => {
+    const { service, findFirst } = buildService({ id: 'old-spl-1001' })
+    await service.notifyInApp({ ...input, subject: 'New order · SPL-1001', dedupeWindowMinutes: 30 })
+    expect(findFirst.mock.calls[0]![0].where.createdAt).toBeDefined()
+  })
 })
 
 describe('NotificationsService admin alerts', () => {

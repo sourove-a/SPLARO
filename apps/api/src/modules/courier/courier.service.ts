@@ -16,6 +16,7 @@ import { TelegramService } from '../telegram/telegram.service'
 import { OrderStatusService } from '../orders/order-status.service'
 import { formatCleanAddress } from '@splaro/config'
 import type { CourierProvider, Order } from '@prisma/client'
+import { withCourierProviderAvailability } from './courier-providers'
 
 export interface BookCourierOptions {
   fromRetry?: boolean
@@ -134,6 +135,13 @@ export class CourierService {
     }
 
     const selectedProvider = provider ?? this.selectProvider(order)
+
+    if (!(await this.isProviderConfigured(order.storeId, selectedProvider))) {
+      return {
+        success: false,
+        error: `${selectedProvider} is not configured — save credentials in Settings → Infrastructure`,
+      }
+    }
 
     this.logger.log(`Booking courier ${selectedProvider} for order ${orderId}`)
 
@@ -262,6 +270,43 @@ export class CourierService {
     }
 
     return result
+  }
+
+  async listProviders(storeId: string) {
+    const [steadfast, pathao, redx] = await Promise.all([
+      this.steadfast.hasRealCredentials(storeId),
+      this.pathao.isConfigured(storeId),
+      this.redx.isConfigured(storeId),
+    ])
+    return withCourierProviderAvailability({
+      STEADFAST: steadfast,
+      PATHAO: pathao,
+      REDX: redx,
+      PAPERFLY: this.paperfly.isConfigured(),
+      SUNDARBAN: this.sundarban.isConfigured(),
+      SA_PARIBAHAN: this.saParibahon.isConfigured(),
+    })
+  }
+
+  private async isProviderConfigured(storeId: string, provider: CourierProvider): Promise<boolean> {
+    switch (provider) {
+      case 'STEADFAST':
+        return this.steadfast.hasRealCredentials(storeId)
+      case 'PATHAO':
+        return this.pathao.isConfigured(storeId)
+      case 'REDX':
+        return this.redx.isConfigured(storeId)
+      case 'PAPERFLY':
+        return this.paperfly.isConfigured()
+      case 'SUNDARBAN':
+        return this.sundarban.isConfigured()
+      case 'SA_PARIBAHAN':
+        return this.saParibahon.isConfigured()
+      case 'MANUAL':
+        return true
+      default:
+        return false
+    }
   }
 
   /**

@@ -1596,7 +1596,6 @@
 /* ── Collections page (/collections) ── */
 .collections-page {
   position: relative;
-  isolation: isolate;
   padding-bottom: 4.5rem;
 }
 
@@ -1605,7 +1604,7 @@
 }
 
 .collections-page__mast {
-  padding: 0.25rem 0 1.75rem;
+  padding: 0.85rem 0 1.75rem;
   border-bottom: 1px solid rgba(16, 17, 20, 0.08);
 }
 

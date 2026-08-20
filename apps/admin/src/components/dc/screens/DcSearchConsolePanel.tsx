@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import {
   Area,
@@ -358,6 +359,7 @@ function ConnectionStrip({
 function DisconnectedStrip({ status, onRefetch }: { status: GscStatus | null; onRefetch: () => void }) {
   const [busy, setBusy] = useState(false)
   const needsReconnect = Boolean(status?.needsReconnect)
+  const unverified = status?.status === 'missing_property'
   const connect = async () => {
     setBusy(true)
     try {
@@ -376,21 +378,38 @@ function DisconnectedStrip({ status, onRefetch }: { status: GscStatus | null; on
 
   return (
     <section style={{ ...card, padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <span style={capsLabel}>{needsReconnect ? 'Needs reconnect' : 'Not connected'}</span>
+      <span style={capsLabel}>
+        {unverified ? 'Unverified' : needsReconnect ? 'Needs reconnect' : 'Not connected'}
+      </span>
       <strong style={{ font: `700 18px/1.2 ${FONT}`, color: 'var(--ink)' }}>
-        {needsReconnect ? 'Grant read-only Search Console access' : 'Connect Google Workspace for Search Console'}
+        {unverified
+          ? 'Verify splaro.co in Google Search Console'
+          : needsReconnect
+            ? 'Grant read-only Search Console access'
+            : 'Connect Google Workspace for Search Console'}
       </strong>
       <span style={{ font: `400 12.5px/1.5 ${FONT}`, color: 'var(--ink-2)', maxWidth: 640 }}>
-        {status?.message ??
-          'Google ranking and crawl data stay empty until Workspace OAuth includes webmasters.readonly and a splaro.co property.'}
-        {' '}
-        Rankings are never invented. SEO daily brief still uses onsite search until this connects.
-        Reuses the existing Google Workspace client — no second OAuth app. Hint account: splaro.bd@gmail.com.
+        {unverified
+          ? 'This Google account has no verified splaro.co property. Paste the HTML-tag token in Settings → Domain & store identity → Google site verification, save, then click Verify in Search Console. Rankings stay empty until that property exists.'
+          : status?.message ??
+            'Google ranking and crawl data stay empty until Workspace OAuth includes webmasters.readonly and a splaro.co property.'}
+        {unverified
+          ? ''
+          : ' Rankings are never invented. SEO daily brief still uses onsite search until this connects. Reuses the existing Google Workspace client — no second OAuth app. Hint account: splaro.bd@gmail.com.'}
       </span>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button type="button" disabled={busy} onClick={() => void connect()} style={{ ...smallButton(busy), background: 'var(--ink)', color: 'var(--surface)', borderColor: 'var(--ink)' }}>
-          {busy ? 'Opening Google…' : needsReconnect ? 'Reconnect Google Workspace' : 'Connect Google Workspace'}
-        </button>
+        {unverified ? (
+          <Link
+            href="/dashboard/settings?section=domain"
+            style={{ ...smallButton(false), display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
+          >
+            Open Domain settings
+          </Link>
+        ) : (
+          <button type="button" disabled={busy} onClick={() => void connect()} style={{ ...smallButton(busy), background: 'var(--ink)', color: 'var(--surface)', borderColor: 'var(--ink)' }}>
+            {busy ? 'Opening Google…' : needsReconnect ? 'Reconnect Google Workspace' : 'Connect Google Workspace'}
+          </button>
+        )}
         <button type="button" onClick={onRefetch} style={smallButton(false)}>
           Recheck status
         </button>

@@ -1181,19 +1181,10 @@ Object.assign(SCREENS, <Record<string, ScreenDef>>{
 
   theme: () => [
     subnav(),
-    B.banner('ok', 'icon-check', 'Theme = storefront branding. Logo, favicon and footer copy save via Settings API — not a CSS theme canvas.'),
-    B.table('Brand and theme tokens', 'branding panel', ['Token','Value','Source'], [
-      [{ v:'Primary' }, { m:'#' + '712eff' }, { v:'tailwind.config.ts' }],
-      [{ v:'Ink · light' }, { m:'#' + '0a0a0a' }, { v:'tailwind.config.ts' }],
-      [{ v:'Ink · dark' }, { m:'#' + 'f4f4f6' }, { v:'tailwind.config.ts' }],
-      [{ v:'Body font' }, { m:'Inter' }, { v:'next/font' }],
-      [{ v:'Bangla font' }, { m:'Noto Sans Bengali' }, { v:'next/font' }],
-      [{ v:'Store name' }, { v:'SPLARO' }, { v:'Settings → Branding' }],
-      [{ v:'Support phone' }, { m:'+880 1711-000111' }, { v:'Settings → Contact' }],
-    ], 'main'),
+    B.banner('ok', 'icon-check', 'Branding is logo, favicon, store image, and footer copy — same record as Settings → Branding.'),
     B.list('Where to edit', '', [
-      { icon:'icon-palette', color:'var(--violet)', title:'Theme tab', sub:'logo, favicon, footer copy', value:'LIVE' },
-      { icon:'icon-settings', color:'var(--info)', title:'Full settings', sub:'branding section is the same fields', value:'OPEN' },
+      { icon:'icon-palette', color:'var(--violet)', title:'Branding', sub:'logo, favicon, footer copy', value:'LIVE' },
+      { icon:'icon-settings', color:'var(--info)', title:'Settings → Branding', sub:'same fields, one storefront record', value:'OPEN' },
     ], 'side'),
   ],
 
@@ -1270,7 +1261,7 @@ Object.assign(CONTENT_PAGES, <Record<string, PageMeta>>{
     actions:[{label:'Upload',icon:'icon-upload',kind:'primary'}] },
   footwear: { title:'Footwear Page', group:'Content · hidden nav', status:'beta', sync:'/dashboard/footwear-page', back:'homepage',
     actions:[{label:'Preview /footwear',icon:'icon-external-link',kind:'ghost'}] },
-  theme:    { title:'Theme Builder', group:'Content · hidden nav', status:'beta', sync:'read-only', back:'homepage', actions:[] },
+  theme:    { title:'Branding', group:'Content', status:'live', sync:'Settings → Branding', back:'homepage', actions:[] },
   lookbooks:{ title:'Lookbooks', group:'Content · hidden nav', status:'beta', sync:'from collections', back:'homepage', actions:[] },
   reels:    { title:'Reels', group:'Content · hidden nav', status:'beta', sync:'18 videos', back:'homepage', actions:[] },
   blog:     { title:'Blog', group:'Content · hidden nav', status:'beta', sync:'12 posts', back:'homepage', actions:[] },

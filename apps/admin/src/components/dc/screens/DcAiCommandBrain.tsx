@@ -40,22 +40,44 @@ function DcAiCommandBrainBody() {
             onClick: () => openAgentChat(),
           },
           {
-            label: 'Models & Keys',
+            label: 'Models',
             icon: 'icon-cpu',
-            onClick: () =>
-              document.getElementById('ai-models')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+            onClick: () => {
+              window.location.hash = 'ai-models'
+              document.getElementById('ai-models')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            },
+          },
+          {
+            label: 'Keys',
+            icon: 'icon-key',
+            onClick: () => {
+              window.location.hash = 'ai-keys'
+              document.getElementById('ai-keys')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            },
           },
           {
             label: 'Guardrails',
             icon: 'icon-shield',
-            onClick: () =>
-              document.getElementById('ai-guardrails')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+            onClick: () => {
+              window.location.hash = 'ai-guardrails'
+              document.getElementById('ai-guardrails')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            },
           },
           {
-            label: 'MCP link',
+            label: 'MCP',
             icon: 'icon-key-round',
-            onClick: () =>
-              document.getElementById('mcp-link-token')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+            onClick: () => {
+              window.location.hash = 'mcp-link-token'
+              document.getElementById('mcp-link-token')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            },
+          },
+          {
+            label: 'Activity',
+            icon: 'icon-activity',
+            onClick: () => {
+              window.location.hash = 'ai-activity'
+              document.getElementById('ai-activity')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            },
           },
         ]}
       />

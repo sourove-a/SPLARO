@@ -224,6 +224,11 @@ export function resolveRoutePermission(
     return { moduleSlug: 'orders', action: 'edit' }
   }
 
+  // Export Center dumps commerce data + writes an audit row — gated by orders:view.
+  if (normalized === 'admin/exports' || normalized.startsWith('admin/exports/')) {
+    return { moduleSlug: 'orders', action: 'view' }
+  }
+
   for (const rule of ROUTE_RULES) {
     if (rule.test(normalized)) {
       return { moduleSlug: rule.module, action: methodToAction(method) }

@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { DcIcon } from '@/components/dc/DcIcon'
 import { DcPageHead } from '@/components/dc/DcPageHead'
-import { dcConnectionChip } from '@/components/dc/page-status'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
@@ -146,12 +145,9 @@ function DcTelegramBotBody() {
 
   const data = integration.data
   const logs = useMemo(() => logsQuery.data?.logs ?? [], [logsQuery.data?.logs])
-  const conn = dcConnectionChip(api.pulse)
-  const apiOnline = api.pulse === 'online'
+  const apiDown = api.pulse === 'offline'
   const botConfigured = Boolean(data?.tokenConfigured && data?.chatId?.trim() && data?.isEnabled)
-  const botOk = Boolean(apiOnline && botConfigured && health.data?.botRunning)
   const botHandle = health.data?.botUsername ? `@${health.data.botUsername}` : '@splaro_bot'
-  const canSendTest = Boolean(botOk && !testMutation.isPending)
 
   const openSetup = () => {
     setSetupOpen(true)
@@ -190,6 +186,50 @@ function DcTelegramBotBody() {
       ops,
     }
   }, [logs, health.data, data?.chatId])
+
+  const recentDelivered = kpis.messages > 0 && kpis.failed === 0
+  const op = health.data
+  const botOk =
+    !apiDown &&
+    (op?.operationalState === 'online' ||
+      Boolean(op?.botRunning && botConfigured) ||
+      Boolean(botConfigured && recentDelivered))
+  const canSendTest = Boolean(botOk && !testMutation.isPending)
+
+  const statusLabel = apiDown
+    ? 'API OFFLINE'
+    : op?.operationalLabel
+      ?? (health.isLoading
+        ? recentDelivered
+          ? 'ONLINE'
+          : 'CHECKING'
+        : botConfigured && recentDelivered
+          ? 'ONLINE'
+          : botConfigured
+            ? 'CHECKING'
+            : 'NOT LINKED')
+  const statusTone = apiDown
+    ? 'bad'
+    : botOk || op?.operationalState === 'online'
+      ? 'ok'
+      : op?.operationalState === 'degraded'
+        ? 'warn'
+        : 'mute'
+  const syncLabel = apiDown
+    ? 'API unreachable'
+    : op?.operationalSync
+      ?? (recentDelivered
+        ? 'Online · delivering'
+        : health.isLoading
+          ? 'checking bot'
+          : botConfigured
+            ? 'token + chat saved · verify bot reachability'
+            : 'configure bot token + chat')
+  const transportValue =
+    op?.transportValue ?? (health.isLoading || !op ? (recentDelivered ? 'Online' : 'checking') : 'off')
+  const transportSub =
+    op?.transportDetail ??
+    (recentDelivered ? `${kpis.messages} delivered in 24h` : health.isLoading ? 'checking Telegram' : 'not configured')
 
   const recent = useMemo(() => logs.slice(0, 8), [logs])
 
@@ -268,15 +308,9 @@ function DcTelegramBotBody() {
       <DcPageHead
         crumbGroup="Integrations"
         title="Telegram Bot"
-        statusLabel={conn?.label ?? (botOk ? 'LIVE' : 'NOT LINKED')}
-        statusTone={conn?.tone ?? (botOk ? 'ok' : 'warn')}
-        syncLabel={
-          botOk
-            ? `bot online${health.data?.transportMode ? ` · ${health.data.transportMode}` : ''}`
-            : botConfigured
-              ? 'token + chat saved · verify bot reachability'
-              : 'configure bot token + chat'
-        }
+        statusLabel={statusLabel}
+        statusTone={statusTone}
+        syncLabel={syncLabel}
         syncing={integration.isFetching || health.isFetching}
         onSync={() => {
           void integration.refetch()
@@ -363,14 +397,8 @@ function DcTelegramBotBody() {
             />
             <Kpi
               label="Transport"
-              value={health.data?.transportMode ?? 'disabled'}
-              sub={
-                health.data?.webhookRegistered
-                  ? 'webhook registered'
-                  : health.data?.transportMode === 'polling'
-                    ? 'polling active'
-                    : 'needs verification'
-              }
+              value={transportValue}
+              sub={transportSub}
             />
             <Kpi
               label="Last delivery"
