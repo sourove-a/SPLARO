@@ -559,6 +559,7 @@ model Store {
   aiContentApprovals AIContentApproval[]
   warehouses         Warehouse[]
   suppliers          Supplier[]
+  supplierMarkets    SupplierMarket[]
   purchaseOrders     PurchaseOrder[]
   productionOrders   ProductionOrder[]
   fabricInventory    FabricInventory[]
@@ -901,6 +902,7 @@ model Product {
   reviews          Review[]
   orderItems       OrderItem[]
   inventoryLogs    InventoryLog[]
+  purchaseItems    PurchaseOrderItem[]
   wishlistItems    WishlistItem[]
   cartItems        CartItem[]
   aiJobs           AIJob[]
@@ -957,6 +959,7 @@ model ProductVariant {
   orderItems     OrderItem[]
   cartItems      CartItem[]
   inventoryLogs  InventoryLog[]
+  purchaseItems  PurchaseOrderItem[]
   reservationItems StockReservationItem[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -1001,6 +1004,7 @@ model Category {
   parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
   children    Category[] @relation("CategoryTree")
   products    Product[]
+  supplierLinks SupplierCategory[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -2665,58 +2669,133 @@ model WarehouseAudit {
 
 // ── COMMERCE OS: PROCUREMENT ──────────────────────────────────
 
+/// Reusable sourcing place (Islampur, Keraniganj, China). Kept as its own
+/// record rather than a string on Supplier so spend can be reported by place,
+/// and so one market can hold many suppliers.
+model SupplierMarket {
+  id             String          @id @default(cuid())
+  storeId        String
+  name           String
+  area           String?
+  city           String?
+  country        String?
+  note           String?
+  isActive       Boolean         @default(true)
+  store          Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  suppliers      Supplier[]
+  purchaseOrders PurchaseOrder[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([storeId, name])
+  @@index([storeId, isActive])
+}
+
 model Supplier {
   id          String          @id @default(cuid())
   storeId     String
+  /// Human reference (SUP-0001). Nullable because rows created before this
+  /// column existed have none, and backfilling them is not worth a lock.
+  code        String?
   name        String
   phone       String?
+  altPhone    String?
+  whatsapp    String?
   email       String?
+  shopName    String?
   address     String?
+  note        String?
+  marketId    String?
   dueAmount   Decimal         @default(0) @db.Decimal(14, 2)
   paidAmount  Decimal         @default(0) @db.Decimal(14, 2)
   isActive    Boolean         @default(true)
   store       Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  market      SupplierMarket? @relation(fields: [marketId], references: [id], onDelete: SetNull)
+  categories  SupplierCategory[]
   purchaseOrders PurchaseOrder[]
   payments    SupplierPayment[]
   ledger      SupplierLedgerEntry[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
+  @@unique([storeId, code])
   @@index([storeId, isActive])
+  @@index([storeId, marketId])
+}
+
+/// Which catalog categories a supplier actually supplies.
+model SupplierCategory {
+  supplierId String
+  categoryId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([supplierId, categoryId])
+  @@index([categoryId])
 }
 
 model PurchaseOrder {
   id          String              @id @default(cuid())
   storeId     String
   supplierId  String
+  /// Snapshot of where the goods came from. Copied from the supplier at entry
+  /// so later moving a supplier to another market cannot rewrite history.
+  marketId    String?
   poNumber    String
   status      PurchaseOrderStatus @default(DRAFT)
+  purchasedAt DateTime            @default(now())
+  receivedAt  DateTime?
   subtotal    Decimal             @default(0) @db.Decimal(14, 2)
+  discount    Decimal             @default(0) @db.Decimal(14, 2)
+  transportCost Decimal           @default(0) @db.Decimal(14, 2)
+  otherCost   Decimal             @default(0) @db.Decimal(14, 2)
   total       Decimal             @default(0) @db.Decimal(14, 2)
+  paidAmount  Decimal             @default(0) @db.Decimal(14, 2)
+  dueAmount   Decimal             @default(0) @db.Decimal(14, 2)
+  /// Set inside the receive transaction. The guard that makes stock-in
+  /// idempotent — a retried or double-tapped receive can never add twice.
+  stockApplied Boolean            @default(false)
   notes       String?
   createdBy   String?
   approvedBy  String?
   store       Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
   supplier    Supplier            @relation(fields: [supplierId], references: [id])
+  market      SupplierMarket?     @relation(fields: [marketId], references: [id], onDelete: SetNull)
   grns        GoodsReceivedNote[]
   items       PurchaseOrderItem[]
+  payments    SupplierPayment[]
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
   @@unique([storeId, poNumber])
   @@index([storeId, status])
+  @@index([storeId, supplierId])
+  @@index([storeId, purchasedAt])
 }
 
 model PurchaseOrderItem {
   id              String        @id @default(cuid())
   purchaseOrderId String
+  /// Both nullable: goods bought before the product exists in the catalog are
+  /// recorded by name only. Stock can move only for a line that names a
+  /// variant, because stock lives on ProductVariant.
+  productId       String?
+  variantId       String?
+  /// Always written, even when productId is set — renaming or deleting the
+  /// product later must not rewrite what this purchase actually said.
   productName     String
   sku             String?
   quantity        Int
   unitCost        Decimal       @db.Decimal(10, 2)
+  lineTotal       Decimal       @default(0) @db.Decimal(14, 2)
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product         Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
 
   @@index([purchaseOrderId])
+  @@index([productId])
+  @@index([variantId])
 }
 
 model GoodsReceivedNote {
@@ -2733,16 +2812,25 @@ model GoodsReceivedNote {
 }
 
 model SupplierPayment {
-  id         String   @id @default(cuid())
-  supplierId String
-  amount     Decimal  @db.Decimal(14, 2)
-  method     String?
-  reference  String?
-  paidAt     DateTime @default(now())
-  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  id              String   @id @default(cuid())
+  storeId         String?
+  supplierId      String
+  /// Set when the payment settles one specific purchase; null for a general
+  /// on-account payment against the supplier balance.
+  purchaseOrderId String?
+  amount          Decimal  @db.Decimal(14, 2)
+  method          String?
+  reference       String?
+  note            String?
+  createdBy       String?
+  paidAt          DateTime @default(now())
+  supplier        Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
 
   @@index([supplierId])
+  @@index([storeId, paidAt])
+  @@index([purchaseOrderId])
 }
 
 model SupplierLedgerEntry {
