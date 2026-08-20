@@ -420,6 +420,14 @@ export interface SheetsDashboardConnection {
   googleEmail: string | null
   autoSyncEnabled: boolean
   tokenHealth: string | null
+  lastError?: string | null
+  recentJobsFailed?: number
+  recentJobsSucceeded?: number
+  recentJobsTotal?: number
+  /** Every recent failure predates the last success — do not report as failing. */
+  recentFailureIsStale?: boolean
+  /** Newest confirmed success, from the connection row or the per-tab log. */
+  lastSyncAt?: string | null
   setupHref: string
 }
 

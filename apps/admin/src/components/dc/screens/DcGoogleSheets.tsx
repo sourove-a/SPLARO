@@ -21,6 +21,7 @@ import {
 } from '@/lib/api/finance'
 import {
   createDefaultSpreadsheet,
+  fetchGoogleOAuthUrl,
   fetchGoogleSyncLogs,
   linkGoogleSpreadsheet,
 } from '@/lib/api/google-workspace'
@@ -100,6 +101,58 @@ function statusTone(sheet: SheetsDashboardSheet): DcTone {
   return 'info'
 }
 
+/**
+ * Auth states only.
+ *
+ * `degraded` used to be in this list, so a store whose *jobs* had failed was
+ * told "Google token needs reconnect" — sending the operator to re-do OAuth
+ * for a problem that had nothing to do with the token. Job failures are
+ * reported by `jobsFailing` instead.
+ */
+/** "5 days ago" — so a stored error can never read as something happening now. */
+function relativeAge(iso: string | null | undefined): string {
+  if (!iso) return 'unknown time'
+  const at = new Date(iso).getTime()
+  if (Number.isNaN(at)) return 'unknown time'
+  const mins = Math.max(0, Math.round((Date.now() - at) / 60000))
+  if (mins < 60) return `${mins} min ago`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return hours === 1 ? '1 hour ago' : `${hours} hours ago`
+  const days = Math.round(hours / 24)
+  return days === 1 ? '1 day ago' : `${days} days ago`
+}
+
+function tokenHealthBad(health: string | null | undefined): boolean {
+  const h = (health ?? '').toLowerCase()
+  return (
+    h === 'needs_reconnect' ||
+    h === 'expired' ||
+    h === 'revoked' ||
+    h === 'missing' ||
+    h === 'unhealthy'
+  )
+}
+
+function jobFailed(status: string | null | undefined): boolean {
+  const s = (status ?? '').toLowerCase()
+  return s === 'failed' || s === 'error'
+}
+
+function jobSucceeded(status: string | null | undefined): boolean {
+  const s = (status ?? '').toLowerCase()
+  return s === 'success' || s === 'completed' || s === 'ok'
+}
+
+function isAuthJobError(msg: string | null | undefined): boolean {
+  const lower = (msg ?? '').toLowerCase()
+  return (
+    lower.includes('refresh token') ||
+    lower.includes('reconnect your google') ||
+    lower.includes('invalid_grant') ||
+    lower.includes('expired or revoked')
+  )
+}
+
 function statusWords(sheet: SheetsDashboardSheet): string {
   if (!sheet.configured) return 'Not set up'
   const s = (sheet.lastStatus ?? '').toUpperCase()
@@ -165,13 +218,42 @@ function DcGoogleSheetsBody() {
   const sheets = useMemo(() => dash.data?.sheets ?? [], [dash.data])
   const stats = dash.data?.stats
   const conn = dash.data?.connection
-  const pageStatus = dcPageStatus([dash, logs], api.pulse)
   const jobs = logs.data?.items ?? []
+  const recentTotal = conn?.recentJobsTotal ?? jobs.length
+  const recentFailed = conn?.recentJobsFailed ?? jobs.filter((j) => jobFailed(j.status)).length
+  const recentSucceeded =
+    conn?.recentJobsSucceeded ?? jobs.filter((j) => jobSucceeded(j.status)).length
+  // The API reports when every recent failure predates the last success; in
+  // that case the red state describes a version of the store that is gone.
+  const failureIsStale = conn?.recentFailureIsStale ?? false
+  const jobsFailing = !failureIsStale && recentTotal > 0 && recentFailed * 2 >= recentTotal
+  const authBroken =
+    tokenHealthBad(conn?.tokenHealth) ||
+    (!failureIsStale && jobs.some((j) => jobFailed(j.status) && isAuthJobError(j.errorMsg)))
+  const syncFailing = authBroken || jobsFailing
+  const pageStatus = dcPageStatus(
+    [dash, logs],
+    api.pulse,
+    syncFailing ? { label: 'SYNC FAILING', tone: 'bad' } : undefined,
+  )
 
   const failing = sheets.filter((s) => statusTone(s) === 'bad')
   const unconfigured = sheets.filter((s) => !s.configured)
   const neverSynced = sheets.filter((s) => s.configured && !s.lastSync)
   const needsSpreadsheet = Boolean(conn?.workspaceConnected && !conn?.spreadsheetLinked)
+
+  const reconnect = useMutation({
+    mutationFn: fetchGoogleOAuthUrl,
+    onSuccess: (data) => {
+      if (data?.url) {
+        window.location.href = data.url
+        return
+      }
+      toast('bad', 'Reconnect failed', 'No OAuth URL returned')
+    },
+    onError: (err) =>
+      toast('bad', 'Reconnect failed', err instanceof Error ? err.message : 'Could not start Google login'),
+  })
 
   const runCreateSpreadsheet = () => {
     createSheet.mutate(undefined, {
@@ -231,7 +313,11 @@ function DcGoogleSheetsBody() {
           dash.isFetching
             ? 'syncing…'
             : stats
-              ? `${stats.configured} of ${stats.total} tabs set up`
+              ? `${stats.configured} of ${stats.total} tabs set up${
+                  recentTotal > 0
+                    ? ` · ${recentSucceeded}/${recentTotal} last jobs succeeded`
+                    : ' · no sync run in the last 7 days'
+                }`
               : 'no tabs reported'
         }
         syncing={dash.isFetching}
@@ -309,7 +395,11 @@ function DcGoogleSheetsBody() {
             style={{
               ...card,
               borderLeft: `3px solid ${
-                conn?.workspaceConnected && conn?.spreadsheetLinked ? 'var(--ok)' : 'var(--warn)'
+                syncFailing
+                  ? 'var(--bad)'
+                  : conn?.workspaceConnected && conn?.spreadsheetLinked
+                    ? 'var(--ok)'
+                    : 'var(--warn)'
               }`,
               padding: '14px 16px',
               display: 'flex',
@@ -328,17 +418,20 @@ function DcGoogleSheetsBody() {
                 borderRadius: 9,
                 border: '1px solid var(--line)',
                 background: 'var(--surface-2)',
-                color:
-                  conn?.workspaceConnected && conn?.spreadsheetLinked
+                color: syncFailing
+                  ? 'var(--bad)'
+                  : conn?.workspaceConnected && conn?.spreadsheetLinked
                     ? 'var(--ok)'
                     : 'var(--warn)',
               }}
             >
               <DcIcon
                 name={
-                  conn?.workspaceConnected && conn?.spreadsheetLinked
-                    ? 'icon-check-circle'
-                    : 'icon-link-2-off'
+                  syncFailing
+                    ? 'icon-alert-triangle'
+                    : conn?.workspaceConnected && conn?.spreadsheetLinked
+                      ? 'icon-check-circle'
+                      : 'icon-link-2-off'
                 }
                 size={14}
               />
@@ -355,25 +448,61 @@ function DcGoogleSheetsBody() {
               <span style={{ font: `600 13.5px/1.35 ${FONT}`, color: 'var(--ink)' }}>
                 {!conn
                   ? 'Connection state not reported by the API'
-                  : !conn.workspaceConnected
-                    ? 'Google account not connected'
-                    : !conn.spreadsheetLinked
-                      ? 'Connected, but no spreadsheet linked'
-                      : `Pushing into a spreadsheet as ${conn.googleEmail ?? 'the connected account'}`}
+                  : authBroken
+                    ? 'Google token needs reconnect'
+                    : jobsFailing
+                      ? 'Recent sync jobs are failing'
+                      : !conn.workspaceConnected
+                        ? 'Google account not connected'
+                        : !conn.spreadsheetLinked
+                          ? 'Connected, but no spreadsheet linked'
+                          : `Pushing into a spreadsheet as ${conn.googleEmail ?? 'the connected account'}`}
               </span>
               <span
                 style={{ font: `400 12.5px/1.55 ${FONT}`, color: 'var(--ink-3)', textWrap: 'pretty' }}
               >
                 {!conn
                   ? 'The dashboard endpoint returned no connection block, so this screen cannot say whether a sync would land.'
-                  : !conn.workspaceConnected
-                    ? 'Nothing syncs until a Google account is authorised. Every button below will fail with an auth error.'
-                    : !conn.spreadsheetLinked
-                      ? 'The account is authorised but no spreadsheet is linked, so there is nowhere to write.'
-                      : `PostgreSQL is the store database. Sheets is a one-way backup export — editing the sheet never changes SPLARO. Auto-sync is ${conn.autoSyncEnabled ? 'on' : 'off'}${conn.tokenHealth ? ` · token ${conn.tokenHealth.toLowerCase()}` : ''}.`}
+                  : authBroken
+                    ? conn.lastError ||
+                      'Last sync jobs failed because the Google refresh token is missing or expired. Reconnect the account — a linked email is not enough.'
+                    : jobsFailing
+                      ? `${recentFailed}/${recentTotal} recent jobs failed. Auto-sync is ${conn.autoSyncEnabled ? 'on' : 'off'} · token ${conn.tokenHealth ?? 'unknown'}.`
+                      : !conn.workspaceConnected
+                        ? 'Nothing syncs until a Google account is authorised. Every button below will fail with an auth error.'
+                        : !conn.spreadsheetLinked
+                          ? 'The account is authorised but no spreadsheet is linked, so there is nowhere to write.'
+                          : `PostgreSQL is the store database. Sheets is a one-way backup export — editing the sheet never changes SPLARO. Auto-sync is ${conn.autoSyncEnabled ? 'on' : 'off'}${conn.tokenHealth ? ` · token ${conn.tokenHealth.toLowerCase()}` : ''}${
+                              failureIsStale && conn.lastError
+                                ? ` · last failure (${relativeAge(logs.data?.items?.find((j) => jobFailed(j.status))?.createdAt)}) is older than the last successful sync and is kept only as history.`
+                                : ''
+                            }`}
               </span>
             </span>
             <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {authBroken ? (
+                <button
+                  type="button"
+                  disabled={reconnect.isPending}
+                  onClick={() => reconnect.mutate()}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    height: 32,
+                    padding: '0 12px',
+                    borderRadius: 9,
+                    border: '1px solid var(--bad)',
+                    background: 'var(--surface-2)',
+                    color: 'var(--bad)',
+                    font: `600 12px/1 ${FONT}`,
+                    cursor: reconnect.isPending ? 'wait' : 'pointer',
+                  }}
+                >
+                  <DcIcon name="icon-link" size={13} />
+                  <span>{reconnect.isPending ? 'Opening Google…' : 'Reconnect Google'}</span>
+                </button>
+              ) : null}
               {needsSpreadsheet ? (
                 <>
                   <button
