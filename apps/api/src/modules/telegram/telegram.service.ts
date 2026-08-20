@@ -322,7 +322,10 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
       return true
     } catch (err) {
       const message = err instanceof Error ? err.message : 'unknown'
-      if (!/can't parse entities|unsupported start tag/i.test(message)) {
+      // ENTITY_TEXT_INVALID / CUSTOM_EMOJI_INVALID are the same class of failure
+      // as a parse error — Telegram refuses the whole message over one bad
+      // entity — so they must degrade to plain text instead of dropping a reply.
+      if (!/can't parse entities|unsupported start tag|ENTITY_TEXT_INVALID|CUSTOM_EMOJI_INVALID/i.test(message)) {
         this.logger.error(`Telegram send failed (${maskTelegramId(chatId)}): ${message}`)
         return false
       }
@@ -1377,8 +1380,7 @@ Customer was charged AFTER this order was ${input.orderStatus}.
       welcomeMessage({ name: firstName, isGroup: ctx.isGroup, storeLinked: linked }),
       { reply_markup: mainReplyKeyboard() },
     )
-    await this.bot?.sendMessage(ctx.chatId, menuMessage(), {
-      parse_mode: 'HTML',
+    await this.sendHtmlWithPlainFallback(ctx.chatId, menuMessage(), {
       reply_markup: inlineMainMenu(),
     })
   }

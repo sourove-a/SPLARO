@@ -1,7 +1,11 @@
 export const TG_UI = {
   brandTitle: 'SPLARO Commerce OS',
   customEmoji: {
-    enabled: true,
+    // Custom emoji entities are only deliverable by bots that own a Fragment
+    // username. Every other bot gets 400 ENTITY_TEXT_INVALID and Telegram drops
+    // the *whole* message — which is how Control Center went silent while every
+    // other desk still answered. Flip back on only once the bot is entitled.
+    enabled: false,
     orders: '5312361253610475399',
     courier: '5201691993775818138',
     finance: '5796253585100509494',
@@ -28,9 +32,15 @@ export const TG_UI = {
 
 export type TgEmojiSlot = keyof typeof TG_UI.customEmoji
 
+/** Telegram requires the tag body to be exactly one emoji. */
+const EMOJI_BODY = /\p{Extended_Pictographic}/u
+
 export function tgEmoji(slot: TgEmojiSlot, fallback: string): string {
   const id = TG_UI.customEmoji[slot]
-  if (!TG_UI.customEmoji.enabled || !id) return fallback
+  // A geometric glyph like "▣" is not an emoji, so wrapping it produces an
+  // entity Telegram rejects. Fall back to the plain glyph rather than send a
+  // message the API will refuse in full.
+  if (!TG_UI.customEmoji.enabled || !id || !EMOJI_BODY.test(fallback)) return fallback
   return `<tg-emoji emoji-id="${id}">${fallback}</tg-emoji>`
 }
 

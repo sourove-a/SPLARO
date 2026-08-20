@@ -12,7 +12,9 @@ import {
   parseListCallback,
   parseOrderCallback,
   welcomeMessage,
+  controlCenterSections,
 } from './telegram-ui'
+import { tgEmoji } from './telegram-ui-config'
 import { formatNewOrderTelegramMessage } from './telegram-order-message'
 
 /** Box-drawing chrome wrapped mid-line on phones — every screen must stay free of it. */
@@ -197,5 +199,22 @@ describe('Customer desk', () => {
     })
     expect(copyPayloads(kb.inline_keyboard)).toEqual(['01701711252', 'Uttara, Dhaka'])
     expect(buttonLabels(kb.inline_keyboard as { text: string }[][])).toContain('📦 Open order')
+  })
+})
+
+describe('Custom emoji entities never reach Telegram unusable', () => {
+  it('keeps welcome and menu free of tg-emoji tags', () => {
+    // A <tg-emoji> wrapping a non-emoji glyph made Telegram answer
+    // 400 ENTITY_TEXT_INVALID and drop the whole message, so Control Center
+    // silently returned nothing while every other desk still replied.
+    expect(welcomeMessage({ name: 'Sourove', isGroup: false, storeLinked: true })).not.toContain(
+      '<tg-emoji',
+    )
+    expect(menuMessage()).not.toContain('<tg-emoji')
+    expect(controlCenterSections()).not.toContain('<tg-emoji')
+  })
+
+  it('returns the bare glyph when the fallback is not an emoji', () => {
+    expect(tgEmoji('orders', '▣')).toBe('▣')
   })
 })
