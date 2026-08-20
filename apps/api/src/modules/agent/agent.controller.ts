@@ -169,6 +169,19 @@ export class AgentController {
     return this.agent.updateConfig(await this.storeId(req, storeId), body as Record<string, unknown>)
   }
 
+  /**
+   * Deleting a credential is its own verb — never a side effect of saving the
+   * config form. Provider comes from the path so the intent is auditable.
+   */
+  @Post('keys/:provider/clear')
+  async clearProviderKey(
+    @Param('provider') provider: string,
+    @Query('storeId') storeId: string,
+    @Req() req: AdminRequest,
+  ) {
+    return this.agent.clearProviderKey(await this.storeId(req, storeId), provider)
+  }
+
   @Post('model')
   async switchModel(
     @Query('storeId') storeId: string,

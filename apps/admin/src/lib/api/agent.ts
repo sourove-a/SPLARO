@@ -157,6 +157,29 @@ export async function updateAgentConfig(body: Partial<AgentConfigResponse>, stor
   return res.json() as Promise<AgentConfigResponse>
 }
 
+export interface ClearAgentKeyResult {
+  cleared: boolean
+  removedStoredSecret: boolean
+  /** True when the server env still supplies this provider after the DB row is gone. */
+  envFallback: boolean
+  envVar: string
+  config: AgentConfigResponse
+}
+
+/** Delete one stored provider key. Separate from updateAgentConfig on purpose. */
+export async function clearAgentProviderKey(provider: string, storeId?: string) {
+  const res = await fetch(agentUrl(`/agent/keys/${encodeURIComponent(provider)}/clear`, storeId), {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    credentials: 'include',
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(parseApiError(text))
+  }
+  return res.json() as Promise<ClearAgentKeyResult>
+}
+
 export async function switchAgentModel(model: AgentModelId, storeId?: string) {
   const res = await fetch(agentUrl('/agent/model', storeId), {
     method: 'POST',
