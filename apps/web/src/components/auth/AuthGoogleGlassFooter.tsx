@@ -14,6 +14,7 @@ import {
   type InAppBrowserInfo,
 } from '@/lib/auth/in-app-browser'
 import { writeGoogleReturnCookie } from '@/lib/auth/google-oauth-return'
+import { resolveGoogleLoginUri } from '@/lib/auth/google-login-uri'
 import { usePathname, useSearchParams } from 'next/navigation'
 
 const BAKED_GOOGLE =
@@ -44,7 +45,7 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
   useEffect(() => {
     setInApp(detectInAppBrowser())
     if (typeof window !== 'undefined') {
-      setLoginUri(`${window.location.origin}/api/auth/google/callback`)
+      setLoginUri(resolveGoogleLoginUri(window.location.origin))
     }
   }, [])
 

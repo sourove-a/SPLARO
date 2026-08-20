@@ -5,6 +5,12 @@ import {
   preferGoogleRedirectUx,
 } from './in-app-browser'
 import { sanitizeGoogleReturnPath } from './google-oauth-return'
+import {
+  GOOGLE_CLOUD_JS_ORIGINS,
+  GOOGLE_CLOUD_REDIRECT_URIS,
+  PRODUCTION_GOOGLE_LOGIN_URI,
+  resolveGoogleLoginUri,
+} from './google-login-uri'
 
 describe('detectInAppBrowser', () => {
   it('flags WhatsApp / Telegram / Instagram', () => {
@@ -49,5 +55,30 @@ describe('sanitizeGoogleReturnPath', () => {
     assert.equal(sanitizeGoogleReturnPath('https://evil.test'), '/account')
     assert.equal(sanitizeGoogleReturnPath('//evil.test'), '/account')
     assert.equal(sanitizeGoogleReturnPath('/checkout'), '/checkout')
+  })
+})
+
+describe('resolveGoogleLoginUri', () => {
+  it('pins splaro.co and www to the Console callback (not localhost)', () => {
+    assert.equal(resolveGoogleLoginUri('https://splaro.co'), PRODUCTION_GOOGLE_LOGIN_URI)
+    assert.equal(resolveGoogleLoginUri('https://www.splaro.co'), PRODUCTION_GOOGLE_LOGIN_URI)
+    assert.equal(PRODUCTION_GOOGLE_LOGIN_URI, 'https://splaro.co/api/auth/google/callback')
+  })
+
+  it('canonicalizes localhost to 127.0.0.1 (never send localhost to GIS)', () => {
+    assert.equal(
+      resolveGoogleLoginUri('http://127.0.0.1:3000'),
+      'http://127.0.0.1:3000/api/auth/google/callback',
+    )
+    assert.equal(
+      resolveGoogleLoginUri('http://localhost:3000'),
+      'http://127.0.0.1:3000/api/auth/google/callback',
+    )
+  })
+
+  it('lists Console origins and redirect URIs GIS may send', () => {
+    assert.ok(GOOGLE_CLOUD_JS_ORIGINS.includes('https://splaro.co'))
+    assert.ok(GOOGLE_CLOUD_REDIRECT_URIS.includes(PRODUCTION_GOOGLE_LOGIN_URI))
+    assert.ok(GOOGLE_CLOUD_REDIRECT_URIS.includes('https://splaro.co'))
   })
 })
