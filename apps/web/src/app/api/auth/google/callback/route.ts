@@ -71,7 +71,7 @@ export async function POST(request: Request) {
   const destination =
     result.needsPhone || result.user.needsPhone
       ? buildSignupPhonePath(nextPath)
-      : resolvePostAuthDestination(nextPath, 'login')
+      : resolvePostAuthDestination(nextPath, result.isNewUser ? 'signup' : 'login')
 
   const response = redirectTo(request, destination)
   response.cookies.set(GOOGLE_OAUTH_RETURN_COOKIE, '', { path: '/', maxAge: 0 })

@@ -8,6 +8,7 @@ import {
   googleReturnCookieSameSite,
   sanitizeGoogleReturnPath,
 } from './google-oauth-return'
+import { resolvePostAuthDestination } from './post-auth-destination'
 import {
   GOOGLE_CLOUD_JS_ORIGINS,
   GOOGLE_CLOUD_REDIRECT_URIS,
@@ -99,5 +100,20 @@ describe('resolveGoogleLoginUri', () => {
     assert.ok(GOOGLE_CLOUD_JS_ORIGINS.includes('https://splaro.co'))
     assert.ok(GOOGLE_CLOUD_REDIRECT_URIS.includes(PRODUCTION_GOOGLE_LOGIN_URI))
     assert.ok(GOOGLE_CLOUD_REDIRECT_URIS.includes('https://splaro.co'))
+  })
+})
+
+describe('resolvePostAuthDestination', () => {
+  it('welcomes a brand-new account, not a returning one', () => {
+    assert.equal(
+      resolvePostAuthDestination('/account', 'signup'),
+      '/account?tab=dashboard&welcome=1',
+    )
+    assert.equal(resolvePostAuthDestination('/account', 'login'), '/account')
+  })
+
+  it('keeps a checkout deep-link ahead of the welcome screen', () => {
+    assert.equal(resolvePostAuthDestination('/checkout', 'signup'), '/checkout')
+    assert.equal(resolvePostAuthDestination('/checkout?step=2', 'login'), '/checkout?step=2')
   })
 })

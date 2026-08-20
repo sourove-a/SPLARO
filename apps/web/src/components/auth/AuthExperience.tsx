@@ -267,6 +267,7 @@ export function AuthExperience() {
         const payload = (await response.json()) as {
           user?: { id: string; name: string; email: string; phone: string; needsPhone?: boolean }
           needsPhone?: boolean
+          isNewUser?: boolean
           error?: string
         }
 
@@ -299,14 +300,16 @@ export function AuthExperience() {
           return
         }
 
-        finishAuth(payload.user, mode)
+        // A returning shopper who happened to be on the Create-account tab is
+        // still a login — only a freshly created account earns the welcome.
+        finishAuth(payload.user, payload.isNewUser ? 'signup' : 'login')
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Network error. Please try again.'
         setError(message)
         setGoogleError(message)
       }
     },
-    [finishAuth, mode, nextPath, router, setGoogleError, setGoogleStep, signIn],
+    [finishAuth, nextPath, router, setGoogleError, setGoogleStep, signIn],
   )
 
   useEffect(() => {

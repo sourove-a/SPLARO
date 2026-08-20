@@ -26,6 +26,7 @@ import { detectInAppBrowser } from '@/lib/auth/in-app-browser'
 import { authFetch } from '@/lib/auth/auth-fetch'
 import { isAuthPath } from '@/lib/auth/auth-return'
 import { buildSignupPhonePath } from '@/lib/auth/signup-phone-path'
+import { resolvePostAuthDestination } from '@/lib/auth/post-auth-destination'
 import { invalidateAuthSessionReconcile } from '@/lib/api/session'
 import { navigateAfterAuth } from '@/lib/navigation/safe-client-navigate'
 import { useAuthStore } from '@/store/authStore'
@@ -120,6 +121,7 @@ function GoogleOneTapPrompt({
             needsPhone?: boolean
           }
           needsPhone?: boolean
+          isNewUser?: boolean
           error?: string
         }
 
@@ -140,7 +142,10 @@ function GoogleOneTapPrompt({
         if (payload.needsPhone || payload.user.needsPhone) {
           navigateAfterAuth(router, buildSignupPhonePath('/account'))
         } else {
-          navigateAfterAuth(router, '/account')
+          navigateAfterAuth(
+            router,
+            resolvePostAuthDestination('/account', payload.isNewUser ? 'signup' : 'login'),
+          )
         }
       } catch {
         // Network failure — leave dismiss untouched so One Tap can retry.

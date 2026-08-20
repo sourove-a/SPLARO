@@ -52,7 +52,7 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
   // Redirect POST needs a safe return path after Google returns the credential.
   useEffect(() => {
     if (!loginUri) return
-    const next = searchParams.get('next') || (pathname.startsWith('/signup') ? '/account' : '/account')
+    const next = searchParams.get('next') || '/account'
     writeGoogleReturnCookie(next)
   }, [loginUri, searchParams, pathname])
 
