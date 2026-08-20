@@ -77,19 +77,20 @@ export function detectInAppBrowser(
 }
 
 /**
- * GIS `ux_mode=popup` frequently leaves a blank accounts.google.com page on
- * mobile Safari/Chrome after account pick. Redirect mode returns the ID token
- * via POST to our login_uri instead.
+ * Prefer GIS `ux_mode=redirect` everywhere we can.
+ *
+ * Classic `popup` often lands on a blank `accounts.google.com/gsi/transform`
+ * window (desktop Chrome + mobile). Redirect POSTs the ID token to
+ * `/api/auth/google/callback` instead — no opener / COOP dance.
+ *
+ * In-app WebViews still skip GIS entirely (detectInAppBrowser).
  */
 export function preferGoogleRedirectUx(
   ua = typeof navigator !== 'undefined' ? navigator.userAgent : '',
-  maxTouchPoints = typeof navigator !== 'undefined' ? navigator.maxTouchPoints : 0,
+  _maxTouchPoints = typeof navigator !== 'undefined' ? navigator.maxTouchPoints : 0,
 ): boolean {
   if (detectInAppBrowser(ua).inApp) return false
-  if (/iPhone|iPad|iPod|Android/i.test(ua)) return true
-  // iPadOS 13+ can report as Macintosh while remaining touch-first.
-  if (maxTouchPoints > 1 && /Macintosh/i.test(ua)) return true
-  return false
+  return true
 }
 
 /** Prefer Safari / Chrome over the host app WebView. */
