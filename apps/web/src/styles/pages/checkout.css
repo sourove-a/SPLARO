@@ -990,6 +990,18 @@
   gap: 0.65rem;
 }
 
+.checkout-cod-note {
+  margin: 0 0 0.35rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.42);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: rgba(0, 0, 0, 0.72);
+}
+
 .checkout-payment {
   position: relative;
   overflow: hidden;
@@ -3650,26 +3662,27 @@ html[data-perf='lite'] .track-history-row {
   margin-top: 1.65rem;
 }
 
-.track-form--phone-only {
+.track-form--lookup {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: stretch;
   gap: 0.55rem;
 }
 
-.track-form--phone-only .track-btn--submit {
+.track-form--lookup .track-input--order,
+.track-form--lookup .track-input--otp,
+.track-form--lookup .track-btn--otp {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+}
+
+.track-form--lookup .track-btn--submit {
   width: 3.5rem;
   min-width: 3.5rem;
   height: 3.5rem;
   padding: 0;
 }
 
-.track-form--phone-only .track-input:nth-of-type(2),
-.track-form--phone-only .track-btn--otp {
-  grid-column: 1 / -1;
-  justify-self: stretch;
-}
-
-.track-form--phone-only .track-btn--otp {
+.track-form--lookup .track-btn--otp {
   min-height: 2.65rem;
   font-size: 0.78rem;
   font-weight: 700;
@@ -3716,6 +3729,16 @@ html[data-perf='lite'] .track-history-row {
   width: 1rem;
   height: 1rem;
   color: rgba(16, 17, 20, 0.42);
+}
+
+.track-input__label {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(16, 17, 20, 0.42);
+  white-space: nowrap;
 }
 
 .track-input input {
@@ -5771,4 +5794,136 @@ html[data-perf='lite'] .track-history-row {
 
 .checkout-payment--featured.checkout-payment--active {
   min-height: 3.35rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Cash-on-Delivery card — COD-only stores get a real payment
+   section instead of a bare sentence.
+   ═══════════════════════════════════════════════════════════════ */
+
+.checkout-cod-note {
+  display: none;
+}
+
+.checkout-cod__tag {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 17, 20, 0.08);
+  background: rgba(16, 17, 20, 0.04);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(16, 17, 20, 0.5);
+}
+
+.checkout-cod {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 3.15rem;
+  padding: 0.72rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(16, 17, 20, 0.38);
+  background: linear-gradient(180deg, #ffffff 0%, #f6f5f3 100%);
+  box-shadow:
+    0 0 0 1px rgba(16, 17, 20, 0.04),
+    0 8px 22px rgba(16, 22, 36, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.checkout-cod__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  height: 2.05rem;
+  width: 2.05rem;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 17, 20, 0.1);
+  background: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1);
+  color: #101114;
+}
+
+.checkout-cod__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.checkout-cod__label {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: #101114;
+}
+
+.checkout-cod__hint {
+  margin: 0.12rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: rgba(16, 17, 20, 0.5);
+}
+
+.checkout-cod__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  height: 1.15rem;
+  width: 1.15rem;
+  border-radius: 999px;
+  background: #101114;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(16, 17, 20, 0.06);
+}
+
+.checkout-cod__points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checkout-cod__points li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: rgba(16, 17, 20, 0.5);
+}
+
+.checkout-cod__points svg {
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+@media (max-width: 767px) {
+  .checkout-cod {
+    min-height: 2.95rem;
+    padding: 0.62rem 0.72rem;
+    gap: 0.6rem;
+  }
+
+  .checkout-cod__icon {
+    height: 1.85rem;
+    width: 1.85rem;
+  }
+
+  .checkout-cod__points {
+    gap: 0.3rem 0.7rem;
+    margin-top: 0.5rem;
+  }
 }

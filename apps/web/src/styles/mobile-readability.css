@@ -1,0 +1,132 @@
+/* ── Mobile text floor ────────────────────────────────────────────────
+   Functional copy on a phone — the text a shopper has to *read* to act:
+   breadcrumbs, stock state, addresses, product meta, cart lines, order
+   summary and helper text. Several of those sit at 10–12.8px, which is
+   below what a thumb-distance read wants.
+
+   What is deliberately left alone: the uppercase, wide-tracked micro
+   labels (PRICE, NEW ARRIVAL, category eyebrows, the COD and −29% chips).
+   Those are set small on purpose — that is the brand's typographic voice,
+   not an accessibility miss, and enlarging them would flatten the type
+   hierarchy the pages are built on.
+
+   Narrow viewports only. The `pointer: coarse` arm used by touch-targets
+   is deliberately not used here: this changes drawn type, and a touch
+   laptop at 1440px must keep the desktop scale.
+
+   Sizes were read with getComputedStyle at 375px before and after.
+
+   `!important` is used on purpose. Route layouts import their page sheet
+   after globals, so `pages/pdp.css` and `pages/shop.css` land later in the
+   cascade and several of these targets are also matched there at equal or
+   higher specificity (`.pp-view .pp-accordion__summary`). Without the flag
+   the rules below parse, apply to nothing, and the audit still reads 11px.
+   The block sets one property, on named classes, inside one breakpoint. */
+
+@media (max-width: 768px) {
+  /* ── Product page ─────────────────────────────────────────────── */
+  .pp-info__code,
+  .pp-info__brand-label,
+  .pp-accordion__summary {
+    font-size: 13px !important;
+  }
+
+  .pp-info__read-more,
+  .pp-info__read-more span {
+    font-size: 13px !important;
+  }
+
+  /* ── Product cards (shop, home rails, related) ────────────────── */
+  .splaro-card__name,
+  .splaro-card__price {
+    font-size: 13.5px !important;
+  }
+
+  .splaro-card__compare,
+  .splaro-card__colors {
+    font-size: 12.5px !important;
+  }
+
+  /* Stock state is a decision input, not decoration — it keeps its
+     uppercase treatment and only gains size. */
+  .splaro-card__stock {
+    font-size: 12.5px !important;
+  }
+
+  /* ── Shop chrome ──────────────────────────────────────────────── */
+  .shop-breadcrumbs__link,
+  .shop-breadcrumbs__current {
+    font-size: 13px !important;
+  }
+
+  /* ── Cart ─────────────────────────────────────────────────────── */
+  .cart-line__variant,
+  .cart-summary__note {
+    font-size: 13px !important;
+  }
+
+  .cart-empty-state__description,
+  .cart-empty-state__primary,
+  .cart-empty-state__secondary {
+    font-size: 13.5px !important;
+  }
+
+  .cart-empty-state__department {
+    font-size: 13px !important;
+  }
+
+  /* ── Checkout ─────────────────────────────────────────────────── */
+  /* Field labels, the +88 prefix and the line-item meta are all read while
+     typing an address — the step eyebrow and the COD / item-count pills
+     above them stay at their designed size. */
+  .checkout-field__label,
+  .checkout-item__detail,
+  .checkout-cod__hint,
+  .checkout-cod__points li,
+  .checkout-header__back span,
+  .checkout-header__signin {
+    font-size: 12.5px !important;
+  }
+
+  .checkout-phone-input__prefix,
+  .checkout-item__price {
+    font-size: 13px !important;
+  }
+
+  /* Delivery-fee line ("BDT 60 / BDT 120 — select district") is a number the
+     shopper is deciding on, not a caption. */
+  .checkout-delivery-progress__copy,
+  .checkout-delivery-progress__copy span {
+    font-size: 12.5px !important;
+  }
+
+  /* ── Home ─────────────────────────────────────────────────────── */
+  .home-dept-row__explore {
+    font-size: 13.5px !important;
+  }
+
+  /* ── Track order ──────────────────────────────────────────────── */
+  .track-footer a {
+    font-size: 13px !important;
+  }
+
+  /* ── Site chrome ──────────────────────────────────────────────── */
+  /* Store address and legal line in the footer. */
+  .footer-lux__store-place,
+  .footer-lux__store-locality {
+    font-size: 13px !important;
+  }
+
+  .footer-lux__copy {
+    font-size: 12.5px !important;
+  }
+
+  /*
+   * Bottom-nav labels stop at 12px, not 13: four items share 375px and
+   * "Account" is the widest — at 13px it wraps, which reads worse than a
+   * slightly smaller label that stays on one line.
+   */
+  .mobile-bottom-nav__label {
+    font-size: 12px !important;
+  }
+}
