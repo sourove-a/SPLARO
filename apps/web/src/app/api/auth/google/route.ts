@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   }
 
   const response = NextResponse.json(
-    { user: result.user, needsPhone: result.needsPhone },
+    { user: result.user, needsPhone: result.needsPhone, isNewUser: result.isNewUser },
     { status: 200 },
   )
   return attachSessionCookie(response, result.sessionToken)

@@ -26,6 +26,7 @@ import { detectInAppBrowser } from '@/lib/auth/in-app-browser'
 import { authFetch } from '@/lib/auth/auth-fetch'
 import { isAuthPath } from '@/lib/auth/auth-return'
 import { buildSignupPhonePath } from '@/lib/auth/signup-phone-path'
+import { resolvePostAuthDestination } from '@/lib/auth/post-auth-destination'
 import { invalidateAuthSessionReconcile } from '@/lib/api/session'
 import { navigateAfterAuth } from '@/lib/navigation/safe-client-navigate'
 import { useAuthStore } from '@/store/authStore'
@@ -55,20 +56,24 @@ function shouldPersistDismiss(notification: PromptMomentNotification): boolean {
   try {
     if (typeof notification.isNotDisplayed === 'function' && notification.isNotDisplayed()) {
       const reason = notification.getNotDisplayedReason?.()
-      // User previously opted out / suppressed — don't keep retrying forever.
       return reason === 'suppressed_by_user' || reason === 'opt_out_or_no_session'
     }
     if (typeof notification.isDismissedMoment === 'function' && notification.isDismissedMoment()) {
       return notification.getDismissedReason?.() === 'cancel_called'
     }
     if (typeof notification.isSkippedMoment === 'function' && notification.isSkippedMoment()) {
-      const reason = notification.getSkippedReason?.()
-      return reason === 'user_cancel' || reason === 'tap_outside'
+      return notification.getSkippedReason?.() === 'user_cancel'
     }
   } catch {
     return false
   }
   return false
+}
+
+function getOneTapBootDelays(): { idleTimeout: number; fallbackMs: number } {
+  const isWindows = /Windows/i.test(navigator.userAgent || '')
+  if (isWindows) return { idleTimeout: 1800, fallbackMs: 900 }
+  return { idleTimeout: 800, fallbackMs: 400 }
 }
 
 class OneTapErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -120,6 +125,7 @@ function GoogleOneTapPrompt({
             needsPhone?: boolean
           }
           needsPhone?: boolean
+          isNewUser?: boolean
           error?: string
         }
 
@@ -140,7 +146,10 @@ function GoogleOneTapPrompt({
         if (payload.needsPhone || payload.user.needsPhone) {
           navigateAfterAuth(router, buildSignupPhonePath('/account'))
         } else {
-          navigateAfterAuth(router, '/account')
+          navigateAfterAuth(
+            router,
+            resolvePostAuthDestination('/account', payload.isNewUser ? 'signup' : 'login'),
+          )
         }
       } catch {
         // Network failure — leave dismiss untouched so One Tap can retry.
@@ -173,7 +182,6 @@ function GoogleOneTapPrompt({
     promptMomentNotification: handlePromptMoment,
     cancel_on_tap_outside: true,
     auto_select: false,
-    // Classic iframe One Tap — FedCM NetworkError on loopback crashes Next overlay.
     use_fedcm_for_prompt: false,
     disabled: !enabled || !scriptLoadedSuccessfully,
   })
@@ -219,9 +227,7 @@ export function GoogleOneTap() {
       if (!cancelled) setBootReady(true)
     }
 
-    const win = /Windows/i.test(navigator.userAgent || '')
-    const idleTimeout = win ? 4500 : 2200
-    const fallbackMs = win ? 3500 : 1600
+    const { idleTimeout, fallbackMs } = getOneTapBootDelays()
 
     const idle =
       typeof window !== 'undefined' && 'requestIdleCallback' in window

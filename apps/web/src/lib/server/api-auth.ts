@@ -96,7 +96,12 @@ export async function apiAuthGoogle(
   credential: string,
   clientIp?: string | null,
 ): Promise<
-  | { sessionToken: string; user: ApiAuthUser; needsPhone: boolean }
+  | {
+      sessionToken: string
+      user: ApiAuthUser
+      needsPhone: boolean
+      isNewUser: boolean
+    }
   | { error: string }
 > {
   const res = await fetchWithTimeout(
@@ -120,6 +125,7 @@ export async function apiAuthGoogle(
     sessionToken?: string
     user?: ApiAuthUser
     needsPhone?: boolean
+    isNewUser?: boolean
   }
   if (!payload.sessionToken || !payload.user) {
     return { error: 'Google sign-in failed' }
@@ -128,6 +134,9 @@ export async function apiAuthGoogle(
     sessionToken: payload.sessionToken,
     user: payload.user,
     needsPhone: Boolean(payload.needsPhone),
+    // Nest sets this only when the request created the User row, so the welcome
+    // screen follows the account's age rather than which tab was on screen.
+    isNewUser: Boolean(payload.isNewUser),
   }
 }
 

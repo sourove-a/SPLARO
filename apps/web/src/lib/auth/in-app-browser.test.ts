@@ -4,7 +4,12 @@ import {
   detectInAppBrowser,
   preferGoogleRedirectUx,
 } from './in-app-browser'
-import { sanitizeGoogleReturnPath } from './google-oauth-return'
+import {
+  googleReturnCookieSameSite,
+  sanitizeGoogleReturnPath,
+} from './google-oauth-return'
+import { resolvePostAuthDestination } from './post-auth-destination'
+import { isGoogleOAuthOriginEligible } from './google-oauth-origin'
 import {
   GOOGLE_CLOUD_JS_ORIGINS,
   GOOGLE_CLOUD_REDIRECT_URIS,
@@ -42,7 +47,15 @@ describe('preferGoogleRedirectUx', () => {
   it('prefers redirect on desktop Chrome (popup blanks on gsi/transform)', () => {
     const ua =
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    assert.equal(preferGoogleRedirectUx(ua, 0), true)
+    assert.equal(preferGoogleRedirectUx(ua, 0, 'https://splaro.co'), true)
+  })
+
+  it('uses popup on http loopback so Chrome does not block the GIS POST', () => {
+    const ua =
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    assert.equal(preferGoogleRedirectUx(ua, 0, 'http://0.0.0.0:3000'), false)
+    assert.equal(preferGoogleRedirectUx(ua, 0, 'http://127.0.0.1:3000'), false)
+    assert.equal(preferGoogleRedirectUx(ua, 0, 'http://localhost:3000'), false)
   })
 
   it('skips redirect inside in-app browsers (GIS blocked entirely)', () => {
@@ -55,6 +68,22 @@ describe('sanitizeGoogleReturnPath', () => {
     assert.equal(sanitizeGoogleReturnPath('https://evil.test'), '/account')
     assert.equal(sanitizeGoogleReturnPath('//evil.test'), '/account')
     assert.equal(sanitizeGoogleReturnPath('/checkout'), '/checkout')
+  })
+})
+
+describe('googleReturnCookieSameSite', () => {
+  it('uses None+Secure so the cross-site GIS POST still carries the cookie', () => {
+    assert.equal(googleReturnCookieSameSite('https:', 'splaro.co'), 'SameSite=None; Secure')
+    assert.equal(googleReturnCookieSameSite('https:', 'www.splaro.co'), 'SameSite=None; Secure')
+  })
+
+  it('keeps None+Secure on http loopback (Chrome allows Secure there)', () => {
+    assert.equal(googleReturnCookieSameSite('http:', '127.0.0.1'), 'SameSite=None; Secure')
+    assert.equal(googleReturnCookieSameSite('http:', 'localhost'), 'SameSite=None; Secure')
+  })
+
+  it('falls back to Lax where Secure would be rejected outright', () => {
+    assert.equal(googleReturnCookieSameSite('http:', 'staging.splaro.test'), 'SameSite=Lax')
   })
 })
 
@@ -74,11 +103,50 @@ describe('resolveGoogleLoginUri', () => {
       resolveGoogleLoginUri('http://localhost:3000'),
       'http://127.0.0.1:3000/api/auth/google/callback',
     )
+    assert.equal(
+      resolveGoogleLoginUri('http://0.0.0.0:3000'),
+      'http://127.0.0.1:3000/api/auth/google/callback',
+    )
   })
 
   it('lists Console origins and redirect URIs GIS may send', () => {
     assert.ok(GOOGLE_CLOUD_JS_ORIGINS.includes('https://splaro.co'))
+    assert.ok(GOOGLE_CLOUD_JS_ORIGINS.includes('http://127.0.0.1:3000'))
     assert.ok(GOOGLE_CLOUD_REDIRECT_URIS.includes(PRODUCTION_GOOGLE_LOGIN_URI))
     assert.ok(GOOGLE_CLOUD_REDIRECT_URIS.includes('https://splaro.co'))
+    assert.ok(GOOGLE_CLOUD_REDIRECT_URIS.includes('http://127.0.0.1:3000'))
+  })
+})
+
+describe('resolvePostAuthDestination', () => {
+  it('welcomes a brand-new account, not a returning one', () => {
+    assert.equal(
+      resolvePostAuthDestination('/account', 'signup'),
+      '/account?tab=dashboard&welcome=1',
+    )
+    assert.equal(resolvePostAuthDestination('/account', 'login'), '/account')
+  })
+
+  it('keeps a checkout deep-link ahead of the welcome screen', () => {
+    assert.equal(resolvePostAuthDestination('/checkout', 'signup'), '/checkout')
+    assert.equal(resolvePostAuthDestination('/checkout?step=2', 'login'), '/checkout?step=2')
+  })
+})
+
+describe('isGoogleOAuthOriginEligible', () => {
+  it('never mounts GIS on 0.0.0.0 — not a trustworthy origin, so the button cannot draw', () => {
+    assert.equal(isGoogleOAuthOriginEligible('0.0.0.0'), false)
+    assert.equal(isGoogleOAuthOriginEligible('[::]'), false)
+  })
+
+  it('hides GIS on the LAN address a phone-on-wifi uses — it can never be registered', () => {
+    assert.equal(isGoogleOAuthOriginEligible('192.168.0.104'), false)
+    assert.equal(isGoogleOAuthOriginEligible('10.0.0.7'), false)
+    assert.equal(isGoogleOAuthOriginEligible('172.20.1.5'), false)
+  })
+
+  it('allows real hosts', () => {
+    assert.equal(isGoogleOAuthOriginEligible('splaro.co'), true)
+    assert.equal(isGoogleOAuthOriginEligible('admin.splaro.co'), true)
   })
 })

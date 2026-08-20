@@ -77,19 +77,31 @@ export function detectInAppBrowser(
 }
 
 /**
- * Prefer GIS `ux_mode=redirect` everywhere we can.
- *
- * Classic `popup` often lands on a blank `accounts.google.com/gsi/transform`
- * window (desktop Chrome + mobile). Redirect POSTs the ID token to
- * `/api/auth/google/callback` instead — no opener / COOP dance.
- *
- * In-app WebViews still skip GIS entirely (detectInAppBrowser).
+ * GIS `ux_mode=redirect` on **https** (splaro.co) avoids the blank popup.
+ * On **http loopback** (`0.0.0.0` / localhost / 127.0.0.1) redirect POSTs from
+ * Google HTTPS → local HTTP and Chrome shows "form is not secure". Use popup.
  */
 export function preferGoogleRedirectUx(
   ua = typeof navigator !== 'undefined' ? navigator.userAgent : '',
   _maxTouchPoints = typeof navigator !== 'undefined' ? navigator.maxTouchPoints : 0,
+  origin = typeof window !== 'undefined' ? window.location.origin : '',
 ): boolean {
   if (detectInAppBrowser(ua).inApp) return false
+  try {
+    const u = new URL(origin)
+    const host = u.hostname.toLowerCase()
+    const loopback =
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '0.0.0.0' ||
+      host === '[::1]' ||
+      host === '::1' ||
+      host === '[::]' ||
+      host === '::'
+    if (u.protocol === 'http:' && loopback) return false
+  } catch {
+    /* empty origin in unit tests → production default (redirect) */
+  }
   return true
 }
 

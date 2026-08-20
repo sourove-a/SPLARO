@@ -5,6 +5,7 @@ export const PRODUCTION_GOOGLE_LOGIN_URI = 'https://splaro.co/api/auth/google/ca
 export const GOOGLE_CLOUD_JS_ORIGINS = [
   'https://splaro.co',
   'https://www.splaro.co',
+  'http://127.0.0.1:3000',
 ] as const
 
 export const GOOGLE_CLOUD_REDIRECT_URIS = [
@@ -31,7 +32,7 @@ export function resolveGoogleLoginUri(origin: string): string {
     return PRODUCTION_GOOGLE_LOGIN_URI
   }
   // Dev: same origin as middleware (localhost → 127.0.0.1). Never send "localhost".
-  if (host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1') {
+  if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '[::1]' || host === '::1' || host === '[::]' || host === '::') {
     try {
       const port = new URL(origin).port || '3000'
       return `http://127.0.0.1:${port}/api/auth/google/callback`

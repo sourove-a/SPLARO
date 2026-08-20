@@ -41,10 +41,15 @@ function useAuthCopy(mode: AuthMode) {
   return useMemo(
     () =>
       mode === 'login'
-        ? { title: 'Sign in', subtitle: 'Welcome back.' }
-        : { title: 'Create account', subtitle: 'One account for orders and your bag.' },
+        ? { title: 'Sign in', subtitle: 'Welcome back — Google is the fastest way in.' }
+        : { title: 'Create account', subtitle: 'Continue with Google — then add your mobile.' },
     [mode],
   )
+}
+
+function checkoutNextPhone(nextPath: string): string {
+  if (nextPath !== '/checkout' && !nextPath.startsWith('/checkout?')) return ''
+  return loadCheckoutCustomerDraft().phone
 }
 
 export function AuthExperience() {
@@ -161,10 +166,10 @@ export function AuthExperience() {
   // prefill so the user confirms instead of retyping it.
   useEffect(() => {
     if (!showPhoneStep) return
-    const existing = user?.phone?.trim()
-    if (!existing) return
-    setPhone((current) => current || formatBdPhoneInput(existing))
-  }, [showPhoneStep, user?.phone])
+    const seed = user?.phone?.trim() || checkoutNextPhone(nextPath)
+    if (!seed) return
+    setPhone((current) => current || formatBdPhoneInput(seed))
+  }, [showPhoneStep, user?.phone, nextPath])
 
   // Soft-focus after paint — autoFocus can white-flash mobile keyboards.
   useEffect(() => {
@@ -267,6 +272,7 @@ export function AuthExperience() {
         const payload = (await response.json()) as {
           user?: { id: string; name: string; email: string; phone: string; needsPhone?: boolean }
           needsPhone?: boolean
+          isNewUser?: boolean
           error?: string
         }
 
@@ -299,14 +305,16 @@ export function AuthExperience() {
           return
         }
 
-        finishAuth(payload.user, mode)
+        // A returning shopper who happened to be on the Create-account tab is
+        // still a login — only a freshly created account earns the welcome.
+        finishAuth(payload.user, payload.isNewUser ? 'signup' : 'login')
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Network error. Please try again.'
         setError(message)
         setGoogleError(message)
       }
     },
-    [finishAuth, mode, nextPath, router, setGoogleError, setGoogleStep, signIn],
+    [finishAuth, nextPath, router, setGoogleError, setGoogleStep, signIn],
   )
 
   useEffect(() => {
@@ -604,10 +612,10 @@ export function AuthExperience() {
   const googlePhoneFields = (
     <>
       <p className="auth-card__subtitle auth-card__subtitle--phone-step">
-        Hi {googleName.split(' ')[0] || user?.name?.split(' ')[0] || 'there'} — one last step. Add
-        your Bangladesh mobile so we can confirm orders and delivery.
+        Hi {googleName.split(' ')[0] || user?.name?.split(' ')[0] || 'there'} — your mobile for
+        delivery, then you&apos;re in.
       </p>
-      <p className="auth-form__hint">Use 01XXXXXXXXX (11 digits).</p>
+      <p className="auth-form__hint">01XXXXXXXXX</p>
       <AuthField
         required
         type="tel"
@@ -687,8 +695,8 @@ export function AuthExperience() {
           </div>
         </div>
       ) : null}
-      <AuthSubmitButton loading={loading} loadingLabel="Saving…">
-        Save phone & continue
+      <AuthSubmitButton loading={loading} loadingLabel="Continuing…">
+        Continue
       </AuthSubmitButton>
       <button
         type="button"

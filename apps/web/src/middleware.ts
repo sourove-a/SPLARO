@@ -70,15 +70,49 @@ function redirectToTarget(request: NextRequest, target: string, status = 307) {
   return NextResponse.redirect(publicRedirectUrl(request, path ?? target, search), status)
 }
 
+/** The host the browser actually asked for, which dev's nextUrl does not carry. */
+function devRequestHost(request: NextRequest): { hostname: string; port: string } {
+  const raw = (request.headers.get('host') ?? request.nextUrl.host).trim().toLowerCase()
+  const match = raw.match(/^(\[[^\]]+\]|[^:]+)(?::(\d+))?$/)
+  return {
+    hostname: match?.[1] ?? raw,
+    port: match?.[2] || request.nextUrl.port || '3000',
+  }
+}
+
+/**
+ * Dev names for *this* machine that are not http://127.0.0.1.
+ * The LAN address is deliberately absent: a phone on the same wifi has to keep
+ * reaching the laptop by IP, and sending it to 127.0.0.1 would point it at
+ * itself. Google sign-in stays hidden there via the origin gate instead.
+ */
+function isDevLocalAlias(hostname: string): boolean {
+  return (
+    hostname === 'localhost' ||
+    hostname === '0.0.0.0' ||
+    hostname === '[::1]' ||
+    hostname === '::1' ||
+    hostname === '[::]' ||
+    hostname === '::' ||
+    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)
+  )
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Dev only: canonicalize localhost → 127.0.0.1 so Google GIS needs one origin
-  // (http://127.0.0.1:3000). Production hosts are never touched.
+  // Dev only: canonicalize every local alias → 127.0.0.1 so Google GIS needs one
+  // origin (http://127.0.0.1:3000). The dev server binds 0.0.0.0 and the LAN IP,
+  // so those hosts answer too — but Chrome only treats localhost and 127.0.0.1
+  // as trustworthy, and GIS silently refuses to draw its button anywhere else.
+  // Redirecting is kinder than leaving an empty pill on a URL that can never
+  // work. Production hosts are never touched.
   if (process.env.NODE_ENV === 'development') {
-    const hostname = request.nextUrl.hostname.toLowerCase()
-    if (hostname === 'localhost') {
-      const port = request.nextUrl.port || '3000'
+    // `nextUrl.hostname` reports the address the dev server bound to (0.0.0.0),
+    // not the host the browser asked for, so read the Host header instead —
+    // otherwise 127.0.0.1 redirects to itself and the page never loads.
+    const { hostname, port } = devRequestHost(request)
+    if (hostname !== '127.0.0.1' && isDevLocalAlias(hostname)) {
       const target = new URL(
         `${pathname}${request.nextUrl.search}`,
         `http://127.0.0.1:${port}/`,
