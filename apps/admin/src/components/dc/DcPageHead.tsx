@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
+
 import { DcIcon } from './DcIcon'
 import { FONT, toneStyle, type DcTone } from './tokens'
 
@@ -56,9 +58,47 @@ export function DcPageHead({
   onStateChange,
 }: DcPageHeadProps) {
   const status = toneStyle(statusTone)
+  const headRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * Publishes the height of the sticky chrome (app header + this page head) as
+   * `--dc-chrome-h`. Screens with their own sticky sub-nav — the product form's
+   * section rail — pin themselves below that instead of guessing a constant,
+   * which is what made the rail slide up under the head while scrolling.
+   */
+  useEffect(() => {
+    const el = headRef.current
+    if (!el) return
+
+    const apply = () => {
+      const cs = getComputedStyle(el)
+      // Under 820px this head is static and the mobile app bar is the chrome.
+      if (cs.position === 'sticky') {
+        const top = Number.parseFloat(cs.top) || 0
+        document.documentElement.style.setProperty('--dc-chrome-h', `${top + el.offsetHeight}px`)
+        return
+      }
+      const mobileBar = document.querySelector('.dc-mobile-app-header')
+      const mobileH = mobileBar instanceof HTMLElement ? mobileBar.offsetHeight : 0
+      document.documentElement.style.setProperty('--dc-chrome-h', `${mobileH}px`)
+    }
+
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(el)
+    const mobileBar = document.querySelector('.dc-mobile-app-header')
+    if (mobileBar instanceof HTMLElement) observer.observe(mobileBar)
+    window.addEventListener('resize', apply)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', apply)
+      document.documentElement.style.removeProperty('--dc-chrome-h')
+    }
+  }, [title, actions.length])
 
   return (
     <div
+      ref={headRef}
       className="dc-page-head"
       data-has-actions={actions.length > 0 ? 'true' : 'false'}
       data-has-back={onBack ? 'true' : 'false'}

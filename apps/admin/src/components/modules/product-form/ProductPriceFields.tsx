@@ -38,6 +38,7 @@ export function ProductPriceFields({
     >
       <DcField label="Main price · ৳" hint="Original / MRP">
         <DcInput
+          id="np-field-price"
           mono
           value={mainPrice}
           onChange={(e) => {

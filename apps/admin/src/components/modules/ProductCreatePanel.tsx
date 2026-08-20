@@ -56,10 +56,25 @@ import {
   splitBilingualDescription,
 } from '@/lib/admin/product-description-draft'
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
-import { useBrands, useCategoryTree, useCollections, useCreateProduct, usePermission } from '@/lib/api/hooks'
+import {
+  useAdminSession,
+  useBrands,
+  useCategoryTree,
+  useCollections,
+  useCreateProduct,
+  usePermission,
+} from '@/lib/api/hooks'
+import {
+  clearProductDraft,
+  draftAgeLabel,
+  loadProductDraft,
+  saveProductDraft,
+  type ProductDraftSnapshot,
+} from '@/lib/admin/product-draft'
 import { PERMISSION_DENIED_TITLE } from '@/lib/auth/permissions'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { generateAIProduct } from '@/lib/api/finance'
+import { fetchProduct, fetchProducts, type ApiProduct } from '@/lib/api/products'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { fetchSkuIdentity, type SkuIdentity } from '@/lib/admin/variant-sku'
 import { BN_COPY, EN_COPY, filterToScript, gateScript, scriptWarning } from '@/lib/admin/bilingual-copy'
@@ -119,6 +134,11 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const [subDepartmentId, setSubDepartmentId] = useState('')
   const [handleOverride, setHandleOverride] = useState('')
   const [homepageBusy, setHomepageBusy] = useState(false)
+  const { data: adminSession } = useAdminSession()
+  const draftScope = adminSession?.id ?? ''
+  const [draftOffer, setDraftOffer] = useState<ProductDraftSnapshot | null>(null)
+  const [draftReady, setDraftReady] = useState(false)
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -174,6 +194,66 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
 
   const set = (key: keyof typeof form, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [key]: value }))
+
+  // Offer the last draft once the session (and therefore the per-admin key) is
+  // known. Never applied on its own — a stale draft silently overwriting a
+  // fresh form is worse than losing it.
+  useEffect(() => {
+    if (draftReady) return
+    if (adminSession === undefined) return
+    setDraftOffer(loadProductDraft(draftScope))
+    setDraftReady(true)
+  }, [adminSession, draftReady, draftScope])
+
+  const restoreDraft = useCallback(() => {
+    const snapshot = draftOffer
+    if (!snapshot) return
+    setForm((prev) => ({ ...prev, ...(snapshot.form as Partial<typeof prev>) }))
+    if (snapshot.colorRows.length > 0) {
+      setColorRows(snapshot.colorRows)
+      setActiveColorId(snapshot.colorRows[0]?.id ?? '')
+    }
+    setDepartmentId(snapshot.departmentId)
+    setSubDepartmentId(snapshot.subDepartmentId)
+    setHandleOverride(snapshot.handleOverride)
+    setAltText(snapshot.altText)
+    setDraftOffer(null)
+    toastOk('Draft restored', 'Nothing is saved to the catalog until you publish.')
+  }, [draftOffer])
+
+  const discardDraft = useCallback(() => {
+    clearProductDraft(draftScope)
+    setDraftOffer(null)
+    setDraftSavedAt(null)
+  }, [draftScope])
+
+  // Autosave. Held back while a draft is being offered so an empty form cannot
+  // overwrite the very snapshot the operator is deciding about.
+  useEffect(() => {
+    if (!draftReady || draftOffer) return
+    const timer = setTimeout(() => {
+      saveProductDraft(draftScope, {
+        form,
+        colorRows,
+        departmentId,
+        subDepartmentId,
+        handleOverride,
+        altText,
+      })
+      setDraftSavedAt(Date.now())
+    }, 800)
+    return () => clearTimeout(timer)
+  }, [
+    altText,
+    colorRows,
+    departmentId,
+    draftOffer,
+    draftReady,
+    draftScope,
+    form,
+    handleOverride,
+    subDepartmentId,
+  ])
 
   useEffect(() => {
     if (!activeColorId && colorRows[0]) setActiveColorId(colorRows[0].id)
@@ -686,7 +766,11 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         },
         () => createProduct.mutateAsync(payload),
       )
-      if (productId) navigate(`${moduleHref}/${productId}/edit`)
+      if (productId) {
+        // Only a verified create retires the draft.
+        clearProductDraft(draftScope)
+        navigate(`${moduleHref}/${productId}/edit`)
+      }
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Failed to create product. Is API running on :4000?')
     }
@@ -733,6 +817,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         label: 'English title',
         sub: 'Drives the handle and SEO title',
         jumpTo: 'np-basics',
+        fieldId: 'np-field-name',
       },
       {
         ok: form.imageUrls.length > 0,
@@ -757,6 +842,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         label: 'Selling price',
         sub: 'Regular price in BDT',
         jumpTo: 'np-pricing',
+        fieldId: 'np-field-price',
       },
       {
         ok: hasDescriptionCopy,
@@ -815,6 +901,150 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- jump ids are stable labels
   }, [form.name, form.imageUrls.length, form.categoryId, departmentId])
 
+  const [cloneQuery, setCloneQuery] = useState('')
+  const [cloneResults, setCloneResults] = useState<ApiProduct[]>([])
+  const [cloneBusy, setCloneBusy] = useState(false)
+
+  // Debounced catalog search for the clone picker. Typing a name is the whole
+  // interaction — no modal, no separate screen.
+  useEffect(() => {
+    const term = cloneQuery.trim()
+    if (term.length < 2) {
+      setCloneResults([])
+      return
+    }
+    let cancelled = false
+    const timer = setTimeout(() => {
+      void fetchProducts({ search: term, limit: 6, page: 1 })
+        .then((res) => {
+          if (!cancelled) setCloneResults(res.products ?? [])
+        })
+        .catch(() => {
+          if (!cancelled) setCloneResults([])
+        })
+    }, 320)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [cloneQuery])
+
+  /**
+   * Clone copies everything that describes the product and nothing that
+   * identifies it: SKU, barcode, RM/QR codes and the handle are left blank so
+   * the API mints fresh ones — copying them would collide on the unique index
+   * and fail the create. The copy also lands as a draft, never live.
+   */
+  const cloneFromProduct = useCallback(
+    async (productId: string) => {
+      setCloneBusy(true)
+      try {
+        const source = await fetchProduct(productId)
+        const variants = source.variants ?? []
+        const sizes = [...new Set(variants.map((v) => (v.size ?? '').trim()).filter(Boolean))]
+        const colourMap = new Map<string, ColorRow>()
+        for (const v of variants) {
+          const name = (v.colorName ?? v.color ?? '').trim()
+          if (!name || colourMap.has(name.toLowerCase())) continue
+          colourMap.set(name.toLowerCase(), {
+            id: newColorId(),
+            name,
+            hex: normalizeHex(v.colorHex ?? '') ?? DEFAULT_COLOUR_HEX,
+            imageUrl: v.image ?? '',
+          })
+        }
+        const images = (source.images ?? [])
+          .slice()
+          .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+          .map((img) => img.url)
+          .filter(Boolean)
+        const split = splitBilingualDescription(source.description ?? '')
+
+        setForm((prev) => ({
+          ...prev,
+          name: `${source.name} Copy`,
+          nameBn: '',
+          shortDescription: source.shortDescription ?? '',
+          descriptionEn: split.en,
+          descriptionBn: split.bn,
+          metaTitle: '',
+          metaDescription: '',
+          basePrice: String(Number(source.basePrice) || ''),
+          compareAtPrice: source.compareAtPrice ? String(Number(source.compareAtPrice)) : '',
+          costPrice: source.costPrice ? String(Number(source.costPrice)) : '',
+          // Identity fields stay empty on purpose — see the comment above.
+          sku: '',
+          barcode: '',
+          rmCode: '',
+          qrCode: '',
+          tags: (source.tags ?? []).join(', '),
+          collectionId: source.collections?.[0]?.collectionId ?? '',
+          brandId: source.brandId ?? '',
+          categoryId: source.categoryId ?? '',
+          imageUrls: images,
+          sizes: sizes.length ? sizes.join(', ') : prev.sizes,
+          fabricContent: source.fabricContent ?? '',
+          fitType: source.fitType ?? prev.fitType,
+          occasion: source.occasion ?? '',
+          careInstructions: source.careInstructions ?? '',
+          season: source.season ?? '',
+          weight: source.weight ? String(Number(source.weight)) : '',
+          badge: source.badge ?? '',
+          lowStockThreshold: String(source.lowStockThreshold ?? 5),
+          publishAt: '',
+          // A clone is never born live — the operator publishes after review.
+          isPublished: false,
+          status: 'DRAFT',
+        }))
+        setHandleOverride('')
+        if (colourMap.size > 0) {
+          const rows = [...colourMap.values()]
+          setColorRows(rows)
+          setActiveColorId(rows[0]?.id ?? '')
+        }
+        if (source.categoryId) {
+          const dept = categoryPicker.departmentForCategory(source.categoryId)
+          if (dept) setDepartmentId(dept)
+        }
+        setCloneQuery('')
+        setCloneResults([])
+        toastOk(
+          `Copied from “${source.name}”`,
+          'SKU, barcode and handle stay blank — saved as draft until you publish.',
+        )
+      } catch (err) {
+        toastFail(err instanceof Error ? err.message : 'Could not load that product')
+      } finally {
+        setCloneBusy(false)
+      }
+    },
+    [categoryPicker],
+  )
+
+  /**
+   * A blocker used to only scroll to the section — the operator still had to
+   * hunt for the field inside it. Now the field is focused and flashed, so the
+   * fix is where the cursor already is.
+   */
+  const focusBlockerField = useCallback((target: { jumpTo?: string | undefined; fieldId?: string | undefined }) => {
+    const { fieldId } = target
+    if (!fieldId) return
+    window.setTimeout(() => {
+      const el = document.getElementById(fieldId)
+      if (!(el instanceof HTMLElement)) return
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
+        el.focus({ preventScroll: true })
+      }
+      const host = el.closest('.dc-pform-field') ?? el
+      host.classList.remove('dc-pform-flash')
+      // Reflow so the animation restarts when the same blocker is tapped twice.
+      void (host as HTMLElement).offsetWidth
+      host.classList.add('dc-pform-flash')
+      window.setTimeout(() => host.classList.remove('dc-pform-flash'), 1400)
+    }, 260)
+  }, [])
+
   const priced = resolveSellingPrices(form.basePrice, form.compareAtPrice)
   const priceNum = priced.sellingPrice || 0
   const compareNum = priced.compareAt || 0
@@ -864,12 +1094,38 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         </div>
       ) : null}
 
+      {draftOffer ? (
+        <div className="dc-draft-banner" role="status">
+          <span className="dc-draft-banner__icon" aria-hidden>
+            <DcIcon name="icon-rotate-ccw" size={14} />
+          </span>
+          <span className="dc-draft-banner__copy">
+            <span className="dc-draft-banner__title">
+              Unsaved draft from {draftAgeLabel(draftOffer.savedAt)}
+            </span>
+            <span className="dc-draft-banner__sub">
+              {typeof draftOffer.form.name === 'string' && draftOffer.form.name.trim()
+                ? `“${draftOffer.form.name}”`
+                : 'Untitled product'}{' '}
+              — restore it, or start clean.
+            </span>
+          </span>
+          <button type="button" className="dc-draft-banner__primary" onClick={restoreDraft}>
+            Restore draft
+          </button>
+          <button type="button" className="dc-draft-banner__ghost" onClick={discardDraft}>
+            Discard
+          </button>
+        </div>
+      ) : null}
+
       <div className="dc-product-create__layout">
         <div className="dc-product-create__main">
           <DcJumpRail
             items={jumpItems}
             readyPct={readyChecks.pct}
             readyFg={readyChecks.pct >= 100 ? 'var(--ok)' : 'var(--violet)'}
+            {...(draftSavedAt ? { savedLabel: `Draft saved ${draftAgeLabel(draftSavedAt)}` } : {})}
             onPreview={() => {
               setRailOpen((open) => !open)
             }}
@@ -1037,6 +1293,43 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                 </div>
               </div>
             </div>
+
+            <div className="dc-clone">
+              <span className="dc-clone__label">Or copy an existing product</span>
+              <input
+                className="dc-clone__input"
+                value={cloneQuery}
+                onChange={(e) => setCloneQuery(e.target.value)}
+                placeholder="Search catalog — e.g. cotton saree"
+                disabled={cloneBusy}
+                aria-label="Search a product to copy"
+              />
+              {cloneResults.length > 0 ? (
+                <div className="dc-clone__results">
+                  {cloneResults.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="dc-clone__result"
+                      disabled={cloneBusy}
+                      onClick={() => void cloneFromProduct(item.id)}
+                    >
+                      <span className="dc-clone__result-name">{item.name}</span>
+                      <span className="dc-clone__result-meta">
+                        {formatTaka(Number(item.basePrice) || 0)}
+                        {item.category?.name ? ` · ${item.category.name}` : ''}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : cloneQuery.trim().length >= 2 && !cloneBusy ? (
+                <span className="dc-clone__empty">No match in the catalog.</span>
+              ) : null}
+              <span className="dc-clone__hint">
+                Copies photos, price, sizes, colours and copy. SKU, barcode and handle stay blank so
+                the API mints new ones — the copy is created as a draft.
+              </span>
+            </div>
           </DcSectionCard>
 
           <DcSectionCard
@@ -1058,6 +1351,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                 tone={scriptWarning(form.name, 'en') ? 'warn' : undefined}
               >
                 <DcInput
+                  id="np-field-name"
                   value={form.name}
                   placeholder={EN_COPY.titlePlaceholder}
                   onChange={(e) => set('name', gateScript(form.name, e.target.value, 'en'))}
@@ -1293,7 +1587,10 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                     style={{
                       padding: 13,
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                      // Capped, not 1fr: a name and a hex are short fields, and
+                      // stretching two of them across the card read as an empty row.
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 240px))',
+                      justifyContent: 'start',
                       gap: 11,
                     }}
                   >
@@ -1380,9 +1677,18 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
               onMainChange={(next) => set('basePrice', next)}
               onSaleChange={(next) => set('compareAtPrice', next)}
             />
-            <DcField label="Cost per item · ৳" hint="Never shown to customers.">
-              <DcInput mono value={form.costPrice} onChange={(e) => set('costPrice', e.target.value)} />
-            </DcField>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 260px))',
+                justifyContent: 'start',
+                gap: 12,
+              }}
+            >
+              <DcField label="Cost per item · ৳" hint="Never shown to customers.">
+                <DcInput mono value={form.costPrice} onChange={(e) => set('costPrice', e.target.value)} />
+              </DcField>
+            </div>
             <div
               style={{
                 display: 'flex',
@@ -1953,7 +2259,11 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                 ))}
               </div>
             </div>
-            <DcReadinessList items={readyChecks.checks} readyPct={readyChecks.pct} />
+            <DcReadinessList
+              items={readyChecks.checks}
+              readyPct={readyChecks.pct}
+              onJump={focusBlockerField}
+            />
           </div>
         ) : null}
       </div>
