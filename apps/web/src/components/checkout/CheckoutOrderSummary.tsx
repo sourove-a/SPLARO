@@ -8,6 +8,7 @@ import type { CartItem } from '@/store/cartStore'
 import { formatBDT, DIGITAL_PAYMENT_DISCOUNT_RATE } from '@/lib/utils/currency'
 import type { PaymentMethod } from '@/lib/checkout/payments'
 import { checkoutChromeMotion, checkoutEnterTransition } from '@/lib/checkout/checkout-motion'
+import { displaySizeLabel } from '@splaro/config'
 
 interface CheckoutOrderSummaryProps {
   items: CartItem[]
@@ -20,11 +21,14 @@ interface CheckoutOrderSummaryProps {
   payment: PaymentMethod
   deliveryProgress: number | null
   freeDeliveryThreshold: number
+  deliveryPending?: boolean
+  dhakaDeliveryCharge?: number
+  outsideDhakaCharge?: number
 }
 
 function formatVariantDetail(item: CartItem): string {
   const parts: string[] = []
-  if (item.size) parts.push(`Size ${item.size}`)
+  if (item.size) parts.push(`Size ${displaySizeLabel(item.size)}`)
   if (item.color) {
     const isHex = item.color.startsWith('#')
     parts.push(isHex ? `Color ${item.color.toUpperCase()}` : item.color)
@@ -44,10 +48,17 @@ export function CheckoutOrderSummary({
   payment,
   deliveryProgress,
   freeDeliveryThreshold,
+  deliveryPending = false,
+  dhakaDeliveryCharge = 0,
+  outsideDhakaCharge = 0,
 }: CheckoutOrderSummaryProps) {
   const paymentLabel =
     payment === 'Cash on Delivery' ? 'Cash on delivery' : payment
   const reduced = useReducedMotion()
+  const deliveryQuote =
+    dhakaDeliveryCharge === outsideDhakaCharge
+      ? `From ${formatBDT(dhakaDeliveryCharge)}`
+      : `${formatBDT(dhakaDeliveryCharge)} / ${formatBDT(outsideDhakaCharge)}`
 
   return (
     <motion.aside
@@ -62,7 +73,16 @@ export function CheckoutOrderSummary({
         </span>
       </div>
 
-      {deliveryProgress !== null ? (
+      {deliveryPending && subtotal > 0 ? (
+        <div className="checkout-delivery-progress">
+          <div className="checkout-delivery-progress__copy">
+            <Truck className="h-3.5 w-3.5" strokeWidth={2.2} />
+            <span>
+              {deliveryQuote} — select district
+            </span>
+          </div>
+        </div>
+      ) : deliveryProgress !== null ? (
         <div className="checkout-delivery-progress">
           <div className="checkout-delivery-progress__copy">
             <Truck className="h-3.5 w-3.5" strokeWidth={2.2} />
@@ -129,7 +149,13 @@ export function CheckoutOrderSummary({
             </div>
             <div className="checkout-summary-line">
               <span>Delivery</span>
-              <span>{delivery === 0 ? 'Free' : formatBDT(delivery)}</span>
+              <span>
+                {deliveryPending
+                  ? deliveryQuote
+                  : delivery === 0
+                    ? 'Free'
+                    : formatBDT(delivery)}
+              </span>
             </div>
             {discount > 0 ? (
               <div className="checkout-summary-line checkout-summary-line--discount">

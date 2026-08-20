@@ -9,6 +9,11 @@ export function isDhakaDistrict(district: string | undefined): boolean {
   return district?.trim().toLowerCase() === 'dhaka'
 }
 
+/** No district yet — fee is 0 in totals but must not be labeled Free. */
+export function isDeliveryQuotePending(district: string | undefined): boolean {
+  return !district?.trim()
+}
+
 export function computeDeliveryFeeBdt(
   subtotal: number,
   district: string | undefined,

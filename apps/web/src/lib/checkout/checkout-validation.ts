@@ -32,8 +32,11 @@ export type CheckoutStepStatus = 'pending' | 'active' | 'complete'
 
 const STEPS_WITHOUT_PROMO = ['Delivery', 'Payment', 'Confirm'] as const
 const STEPS_WITH_PROMO = ['Delivery', 'Promo code', 'Payment', 'Confirm'] as const
+const STEPS_COD_ONLY = ['Delivery', 'Confirm'] as const
+const STEPS_COD_ONLY_PROMO = ['Delivery', 'Promo code', 'Confirm'] as const
 
-export function getCheckoutSteps(hasPromoStep: boolean): readonly string[] {
+export function getCheckoutSteps(hasPromoStep: boolean, codOnly = false): readonly string[] {
+  if (codOnly) return hasPromoStep ? STEPS_COD_ONLY_PROMO : STEPS_COD_ONLY
   return hasPromoStep ? STEPS_WITH_PROMO : STEPS_WITHOUT_PROMO
 }
 
@@ -42,7 +45,18 @@ export function getCheckoutStepStatuses(
   paymentEngaged: boolean,
   submitting = false,
   hasPromoStep = false,
+  codOnly = false,
 ): CheckoutStepStatus[] {
+  if (codOnly) {
+    if (hasPromoStep) {
+      if (!deliveryComplete) return ['active', 'pending', 'pending']
+      if (submitting) return ['complete', 'complete', 'active']
+      return ['complete', 'active', 'pending']
+    }
+    if (!deliveryComplete) return ['active', 'pending']
+    return ['complete', 'active']
+  }
+
   if (hasPromoStep) {
     if (!deliveryComplete) return ['active', 'pending', 'pending', 'pending']
     if (!paymentEngaged) return ['complete', 'active', 'pending', 'pending']
@@ -60,8 +74,9 @@ export function getCheckoutProgressLine(
   deliveryComplete: boolean,
   fieldProgress: number,
   hasPromoStep = false,
+  codOnly = false,
 ): number {
   if (deliveryComplete) return 100
-  const span = hasPromoStep ? 40 : 50
+  const span = hasPromoStep && !codOnly ? 40 : 50
   return Math.round(fieldProgress * span)
 }
