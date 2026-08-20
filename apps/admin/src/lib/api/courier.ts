@@ -91,6 +91,25 @@ export function fetchCourierStats(days = 30) {
   return apiFetch<CourierStatsResponse>(`/admin/courier/stats/overview?days=${days}`)
 }
 
+export interface CourierProviderOption {
+  value: string
+  label: string
+  recommended: boolean
+  configured: boolean
+}
+
+export function fetchCourierProviders() {
+  return apiFetch<{ providers: CourierProviderOption[] }>('/admin/courier/providers')
+}
+
+export function pickBookableCourierProvider(
+  preferred: string | undefined,
+  providers: CourierProviderOption[],
+): string {
+  if (preferred && providers.some((p) => p.value === preferred && p.configured)) return preferred
+  return providers.find((p) => p.configured)?.value ?? 'STEADFAST'
+}
+
 export function bookCourierShipment(orderId: string, provider?: string) {
   return apiFetch<{
     id: string

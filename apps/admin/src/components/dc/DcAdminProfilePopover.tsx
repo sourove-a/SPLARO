@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 
 import { DcIcon } from '@/components/dc/DcIcon'
 import { FONT, MONO } from '@/components/dc/tokens'
-import { toastFail, toastOk } from '@/lib/admin/feedback'
-import { changeAdminPassword } from '@/lib/api/auth-profile'
+import { toastFail, toastInfo, toastOk } from '@/lib/admin/feedback'
+import { changeAdminPassword, updateAdminProfile } from '@/lib/api/auth-profile'
 import type { PresenceSnapshot } from '@/lib/api/presence'
 
 export interface DcAdminProfilePopoverProps {
@@ -20,6 +20,8 @@ export interface DcAdminProfilePopoverProps {
   lastLoginIp?: string | null
   lastLoginAt?: string | null
   canChangePassword?: boolean
+  canEditProfile?: boolean
+  onNameSaved?: ((name: string) => void) | undefined
   presence?: PresenceSnapshot | null
 }
 
@@ -63,12 +65,19 @@ export function DcAdminProfilePopover({
   lastLoginIp,
   lastLoginAt,
   canChangePassword = false,
+  canEditProfile = false,
+  onNameSaved,
   presence,
 }: DcAdminProfilePopoverProps) {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [displayName, setDisplayName] = useState(name)
+  const [saving, setSaving] = useState<'name' | 'password' | null>(null)
+
+  useEffect(() => {
+    if (open) setDisplayName(name)
+  }, [open, name])
 
   useEffect(() => {
     if (!open) return
@@ -107,7 +116,7 @@ export function DcAdminProfilePopover({
       toastFail('New password and confirm do not match.')
       return
     }
-    setSaving(true)
+    setSaving('password')
     try {
       await changeAdminPassword(currentPassword, newPassword)
       toastOk('Password updated')
@@ -117,7 +126,30 @@ export function DcAdminProfilePopover({
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Could not change password')
     } finally {
-      setSaving(false)
+      setSaving(null)
+    }
+  }
+
+  const submitName = async () => {
+    const next = displayName.trim()
+    if (!next) {
+      toastFail('Name is required')
+      return
+    }
+    if (next === name.trim()) {
+      toastInfo('Name is already saved')
+      return
+    }
+    setSaving('name')
+    try {
+      const saved = await updateAdminProfile(next)
+      const savedName = saved.user?.name?.trim() || next
+      toastOk('Name updated')
+      onNameSaved?.(savedName)
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not update name')
+    } finally {
+      setSaving(null)
     }
   }
 
@@ -233,6 +265,43 @@ export function DcAdminProfilePopover({
           </span>
         </div>
 
+        {canEditProfile ? (
+          <div
+            style={{
+              padding: '12px 16px 4px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
+            <div style={{ font: `600 12px/1 ${FONT}`, color: 'var(--ink)' }}>Display name</div>
+            <ProfileInput
+              type="text"
+              placeholder="Your name"
+              value={displayName}
+              onChange={setDisplayName}
+              autoComplete="name"
+            />
+            <button
+              type="button"
+              disabled={saving !== null}
+              onClick={() => void submitName()}
+              style={{
+                height: 34,
+                borderRadius: 9,
+                border: 0,
+                background: 'var(--violet-solid)',
+                color: 'var(--on-violet)',
+                font: `600 12.5px/1 ${FONT}`,
+                cursor: saving ? 'wait' : 'pointer',
+                opacity: saving ? 0.7 : 1,
+              }}
+            >
+              {saving === 'name' ? 'Saving…' : 'Save name'}
+            </button>
+          </div>
+        ) : null}
+
         <div style={{ padding: '14px 14px 2px' }}>
           <div
             style={{
@@ -341,7 +410,7 @@ export function DcAdminProfilePopover({
             />
             <button
               type="button"
-              disabled={saving}
+              disabled={saving !== null}
               onClick={() => void submitPassword()}
               style={{
                 height: 34,
@@ -354,7 +423,7 @@ export function DcAdminProfilePopover({
                 opacity: saving ? 0.7 : 1,
               }}
             >
-              {saving ? 'Saving…' : 'Update password'}
+              {saving === 'password' ? 'Saving…' : 'Update password'}
             </button>
           </div>
         ) : (

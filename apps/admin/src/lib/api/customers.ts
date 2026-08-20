@@ -19,6 +19,7 @@ export interface ApiCustomer {
   createdAt: string
   lastOrderDate?: string | null
   isBlocked?: boolean
+  isStaff?: boolean
   authProvider?: string
   googleLinked?: boolean
   emailVerified?: boolean
@@ -69,11 +70,21 @@ export interface ApiCustomerDetail extends ApiCustomer {
   fraudSignals?: CustomerFraudSignals
 }
 
-export function fetchCustomers(params?: { search?: string; limit?: number; page?: number }) {
+export function fetchCustomers(params?: {
+  search?: string
+  limit?: number
+  page?: number
+  staff?: 'hide' | 'include' | 'only'
+  from?: string
+  to?: string
+}) {
   const qs = new URLSearchParams()
   if (params?.search) qs.set('search', params.search)
   if (params?.limit) qs.set('limit', String(params.limit))
   if (params?.page) qs.set('page', String(params.page))
+  if (params?.staff) qs.set('staff', params.staff)
+  if (params?.from) qs.set('from', params.from)
+  if (params?.to) qs.set('to', params.to)
   const query = qs.toString()
   return apiFetch<{ customers: ApiCustomer[]; total: number; page?: number; totalPages?: number }>(
     `/admin/customers${query ? `?${query}` : ''}`,
@@ -136,5 +147,19 @@ export function createCustomer(input: {
   return apiFetch<ApiCustomer>('/admin/customers', {
     method: 'POST',
     body: JSON.stringify(input),
+  })
+}
+
+export function mergeCustomers(keepId: string, mergeIds: string[]) {
+  return apiFetch<{ ok: boolean; customer: ApiCustomer; merged: number }>('/admin/customers/merge', {
+    method: 'POST',
+    body: JSON.stringify({ keepId, mergeIds }),
+  })
+}
+
+export function bulkAddCustomerTags(ids: string[], tags: string[]) {
+  return apiFetch<{ ok: boolean; updated: number }>('/admin/customers/bulk/tags', {
+    method: 'POST',
+    body: JSON.stringify({ customerIds: ids, tags }),
   })
 }
