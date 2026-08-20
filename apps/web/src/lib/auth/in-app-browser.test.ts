@@ -125,7 +125,14 @@ describe('isGoogleOAuthOriginEligible', () => {
     assert.equal(isGoogleOAuthOriginEligible('[::]'), false)
   })
 
+  it('hides GIS on the LAN address a phone-on-wifi uses — it can never be registered', () => {
+    assert.equal(isGoogleOAuthOriginEligible('192.168.0.104'), false)
+    assert.equal(isGoogleOAuthOriginEligible('10.0.0.7'), false)
+    assert.equal(isGoogleOAuthOriginEligible('172.20.1.5'), false)
+  })
+
   it('allows real hosts', () => {
     assert.equal(isGoogleOAuthOriginEligible('splaro.co'), true)
+    assert.equal(isGoogleOAuthOriginEligible('admin.splaro.co'), true)
   })
 })

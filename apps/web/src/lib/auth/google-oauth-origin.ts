@@ -1,31 +1,42 @@
 /**
  * Pure origin gate for storefront Google Identity Services.
+ *
+ * GIS only draws its button on an origin registered in the Google Cloud client,
+ * and only on an origin the browser considers trustworthy. Anywhere else it
+ * fails silently, leaving an empty pill the shopper can click forever — so the
+ * gate says no up front and the sign-in card shows a hint instead.
+ *
  * Loopback stays off unless NEXT_PUBLIC_GOOGLE_OAUTH_LOCAL_ENABLED=true
- * (register http://127.0.0.1:3000 — web middleware redirects localhost → 127.0.0.1 in dev).
+ * (register http://127.0.0.1:3000 — middleware canonicalizes dev hosts to it).
  */
 
 /**
- * The dev server binds 0.0.0.0, so the port answers on it — but Chrome does not
- * count 0.0.0.0 as a trustworthy origin the way it does localhost and 127.0.0.1.
- * On a non-secure context GIS refuses to draw the button and Google will not
- * accept the host as an origin, so the shopper just sees an empty pill. Send
- * them to 127.0.0.1 instead of mounting something that cannot work.
+ * The dev server binds 0.0.0.0 and the LAN address, so the port answers there,
+ * but Chrome only treats localhost and 127.0.0.1 as trustworthy and neither
+ * host can be registered with Google. Phone-on-wifi testing lands on the LAN IP.
  */
-const UNUSABLE_HOSTS = new Set(['0.0.0.0', '[::]', '::'])
+function isUnusableDevHost(hostname: string): boolean {
+  if (hostname === '0.0.0.0' || hostname === '[::]' || hostname === '::') return true
+  return (
+    /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+    /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+    /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(hostname)
+  )
+}
 
-export function isGoogleOAuthOriginUnusable(hostname: string): boolean {
-  return UNUSABLE_HOSTS.has(hostname.trim().toLowerCase())
+function isLoopbackHost(hostname: string): boolean {
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '[::1]' ||
+    hostname === '::1'
+  )
 }
 
 export function isGoogleOAuthOriginEligible(hostname: string): boolean {
   const localEnabled = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_LOCAL_ENABLED === 'true'
   const normalized = hostname.trim().toLowerCase()
-  if (isGoogleOAuthOriginUnusable(normalized)) return false
-  const isLoopback =
-    normalized === 'localhost' ||
-    normalized === '127.0.0.1' ||
-    normalized === '[::1]' ||
-    normalized === '::1'
-
-  return !isLoopback || localEnabled
+  if (isUnusableDevHost(normalized)) return false
+  if (isLoopbackHost(normalized)) return localEnabled
+  return true
 }
