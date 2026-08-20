@@ -8,8 +8,6 @@ import {
   googleReturnCookieSameSite,
   sanitizeGoogleReturnPath,
 } from './google-oauth-return'
-import { resolvePostAuthDestination } from './post-auth-destination'
-import { isGoogleOAuthOriginEligible } from './google-oauth-origin'
 import {
   GOOGLE_CLOUD_JS_ORIGINS,
   GOOGLE_CLOUD_REDIRECT_URIS,
