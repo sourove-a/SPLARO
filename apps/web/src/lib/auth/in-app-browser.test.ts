@@ -9,6 +9,7 @@ import {
   sanitizeGoogleReturnPath,
 } from './google-oauth-return'
 import { resolvePostAuthDestination } from './post-auth-destination'
+import { isGoogleOAuthOriginEligible } from './google-oauth-origin'
 import {
   GOOGLE_CLOUD_JS_ORIGINS,
   GOOGLE_CLOUD_REDIRECT_URIS,
@@ -115,5 +116,16 @@ describe('resolvePostAuthDestination', () => {
   it('keeps a checkout deep-link ahead of the welcome screen', () => {
     assert.equal(resolvePostAuthDestination('/checkout', 'signup'), '/checkout')
     assert.equal(resolvePostAuthDestination('/checkout?step=2', 'login'), '/checkout?step=2')
+  })
+})
+
+describe('isGoogleOAuthOriginEligible', () => {
+  it('never mounts GIS on 0.0.0.0 — not a trustworthy origin, so the button cannot draw', () => {
+    assert.equal(isGoogleOAuthOriginEligible('0.0.0.0'), false)
+    assert.equal(isGoogleOAuthOriginEligible('[::]'), false)
+  })
+
+  it('allows real hosts', () => {
+    assert.equal(isGoogleOAuthOriginEligible('splaro.co'), true)
   })
 })
