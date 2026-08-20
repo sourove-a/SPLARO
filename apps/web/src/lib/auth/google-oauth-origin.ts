@@ -11,32 +11,27 @@
  */
 
 /**
- * The dev server binds 0.0.0.0 and the LAN address, so the port answers there,
- * but Chrome only treats localhost and 127.0.0.1 as trustworthy and neither
- * host can be registered with Google. Phone-on-wifi testing lands on the LAN IP.
+ * The dev server binds 0.0.0.0, so the port answers on it — but Chrome does not
+ * count 0.0.0.0 as a trustworthy origin the way it does localhost and 127.0.0.1.
+ * On a non-secure context GIS refuses to draw the button and Google will not
+ * accept the host as an origin, so the shopper just sees an empty pill. Send
+ * them to 127.0.0.1 instead of mounting something that cannot work.
  */
-function isUnusableDevHost(hostname: string): boolean {
-  if (hostname === '0.0.0.0' || hostname === '[::]' || hostname === '::') return true
-  return (
-    /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
-    /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
-    /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(hostname)
-  )
-}
+const UNUSABLE_HOSTS = new Set(['0.0.0.0', '[::]', '::'])
 
-function isLoopbackHost(hostname: string): boolean {
-  return (
-    hostname === 'localhost' ||
-    hostname === '127.0.0.1' ||
-    hostname === '[::1]' ||
-    hostname === '::1'
-  )
+export function isGoogleOAuthOriginUnusable(hostname: string): boolean {
+  return UNUSABLE_HOSTS.has(hostname.trim().toLowerCase())
 }
 
 export function isGoogleOAuthOriginEligible(hostname: string): boolean {
   const localEnabled = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_LOCAL_ENABLED === 'true'
   const normalized = hostname.trim().toLowerCase()
-  if (isUnusableDevHost(normalized)) return false
-  if (isLoopbackHost(normalized)) return localEnabled
-  return true
+  if (isGoogleOAuthOriginUnusable(normalized)) return false
+  const isLoopback =
+    normalized === 'localhost' ||
+    normalized === '127.0.0.1' ||
+    normalized === '[::1]' ||
+    normalized === '::1'
+
+  return !isLoopback || localEnabled
 }
