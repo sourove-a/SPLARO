@@ -336,7 +336,7 @@
 }
 
 .dc-pform-tab--done .dc-pform-tab__dot {
-  background: var(--ok, #2f9e64);
+  background: var(--ok);
 }
 
 .dc-pform-tab--on .dc-pform-tab__dot {
