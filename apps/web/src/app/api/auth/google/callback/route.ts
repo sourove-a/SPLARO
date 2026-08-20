@@ -12,8 +12,7 @@ import { resolvePostAuthDestination } from '@/lib/auth/post-auth-destination'
 
 /**
  * GIS `ux_mode=redirect` posts the ID token here (form-urlencoded).
- * Desktop keeps popup + JSON `/api/auth/google`; mobile Safari needs this path
- * or accounts.google.com stays blank after account pick.
+ * Popup mode blanks on accounts.google.com/gsi/transform — storefront uses redirect.
  */
 function originFrom(request: Request): string {
   try {

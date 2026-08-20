@@ -33,10 +33,14 @@ describe('preferGoogleRedirectUx', () => {
     assert.equal(preferGoogleRedirectUx(ua, 5), true)
   })
 
-  it('keeps popup on desktop Chrome', () => {
+  it('prefers redirect on desktop Chrome (popup blanks on gsi/transform)', () => {
     const ua =
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    assert.equal(preferGoogleRedirectUx(ua, 0), false)
+    assert.equal(preferGoogleRedirectUx(ua, 0), true)
+  })
+
+  it('skips redirect inside in-app browsers (GIS blocked entirely)', () => {
+    assert.equal(preferGoogleRedirectUx('Mozilla/5.0 WhatsApp/2.0', 5), false)
   })
 })
 
