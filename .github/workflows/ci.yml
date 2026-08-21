@@ -166,6 +166,16 @@ jobs:
         env:
           NODE_ENV: test
 
+      - name: Web unit tests
+        run: pnpm --filter @splaro/web test:unit
+        env:
+          NODE_ENV: test
+
+      - name: Admin unit tests
+        run: pnpm --filter @splaro/admin test:unit
+        env:
+          NODE_ENV: test
+
       - name: API e2e tests
         run: pnpm --filter @splaro/api test:e2e
         env:
