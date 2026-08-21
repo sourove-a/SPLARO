@@ -52,3 +52,17 @@ export function buildCategoryTree<T extends { id: string; parentId: string | nul
 
   return roots
 }
+
+/** Drop nodes with no live products in themselves or descendants. */
+export function pruneEmptyCategoryNodes<
+  T extends { children: T[]; _count?: { products?: number } },
+>(nodes: T[]): T[] {
+  const kept: T[] = []
+  for (const node of nodes) {
+    const children = pruneEmptyCategoryNodes(node.children)
+    const own = node._count?.products ?? 0
+    if (own <= 0 && children.length === 0) continue
+    kept.push({ ...node, children })
+  }
+  return kept
+}

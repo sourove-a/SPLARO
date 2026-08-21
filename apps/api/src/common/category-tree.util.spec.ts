@@ -1,4 +1,4 @@
-import { collectDescendantIds } from './category-tree.util'
+import { buildCategoryTree, collectDescendantIds, pruneEmptyCategoryNodes } from './category-tree.util'
 
 describe('collectDescendantIds', () => {
   const flat = [
@@ -33,5 +33,18 @@ describe('collectDescendantIds', () => {
     expect(collectDescendantIds(flat, 'kids').sort()).toEqual(
       ['boys-wear', 'kids', 'kids-boys-panjabi'].sort(),
     )
+  })
+})
+
+describe('pruneEmptyCategoryNodes', () => {
+  it('keeps a parent only when a descendant has products', () => {
+    const tree = buildCategoryTree([
+      { id: 'women', parentId: null, sortOrder: 0, _count: { products: 0 } },
+      { id: 'saree', parentId: 'women', sortOrder: 0, _count: { products: 2 } },
+      { id: 'empty', parentId: 'women', sortOrder: 1, _count: { products: 0 } },
+    ])
+    const pruned = pruneEmptyCategoryNodes(tree)
+    expect(pruned.map((n) => n.id)).toEqual(['women'])
+    expect(pruned[0]?.children.map((n) => n.id)).toEqual(['saree'])
   })
 })

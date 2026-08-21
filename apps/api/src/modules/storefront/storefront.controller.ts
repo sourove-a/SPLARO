@@ -41,7 +41,11 @@ import {
 } from '../../common/dtos/storefront.dto'
 import { PrismaService } from '../../common/prisma.service'
 import { CATALOG_CACHE_TTL } from '../../common/catalog-cache.constants'
-import { buildCategoryTree, collectDescendantIds } from '../../common/category-tree.util'
+import {
+  buildCategoryTree,
+  collectDescendantIds,
+  pruneEmptyCategoryNodes,
+} from '../../common/category-tree.util'
 import { CacheService } from '../../common/cache.service'
 import {
   assertCartLineStock,
@@ -1211,10 +1215,23 @@ export class StorefrontController {
     return this.cache.getOrSet(this.cache.storeKey(sid, 'categories'), CATALOG_CACHE_TTL.categories, async () => {
       const categories = await this.prisma.category.findMany({
         where: { storeId: sid, isActive: true },
-        include: { _count: { select: { products: true } } },
+        include: {
+          _count: {
+            select: { products: { where: storefrontVisibleProductWhere() } },
+          },
+        },
         orderBy: { sortOrder: 'asc' },
       })
-      return { categories, tree: buildCategoryTree(categories) }
+      const tree = pruneEmptyCategoryNodes(buildCategoryTree(categories))
+      const keep = new Set<string>()
+      const walk = (nodes: typeof tree) => {
+        for (const node of nodes) {
+          keep.add(node.id)
+          walk(node.children)
+        }
+      }
+      walk(tree)
+      return { categories: categories.filter((c) => keep.has(c.id)), tree }
     })
   }
 

@@ -199,7 +199,13 @@ export function upsertPrimarySmtpAccount(
   const pool = [...(accounts ?? [])]
   if (!smtp?.host?.trim() || !smtp.user?.trim()) return pool
   const existing = pool.find((account) => account.id === PRIMARY_SMTP_ACCOUNT_ID)
-  const password = smtp.password?.trim() || existing?.password?.trim() || ''
+  const envUser = process.env.SMTP_USER?.trim() || ''
+  const envPass = process.env.SMTP_PASS?.trim() || ''
+  const password =
+    smtp.password?.trim() ||
+    existing?.password?.trim() ||
+    (envUser && envUser === smtp.user.trim() ? envPass : '') ||
+    ''
   if (!password) return pool
 
   const primary: SmtpAccountConfig = {
@@ -223,6 +229,32 @@ export function upsertPrimarySmtpAccount(
     .filter((account) => account.id !== PRIMARY_SMTP_ACCOUNT_ID)
     .map((account, index) => ({ ...account, priority: index + 2 }))
   return [primary, ...rest]
+}
+
+/** UI/API list: show the Notifications mailbox even when the pool JSON is still empty. */
+export function displaySmtpAccounts(
+  smtp: SmtpConfig | undefined,
+  accounts: SmtpAccountConfig[] | undefined,
+): SmtpAccountConfig[] {
+  const pool = accounts ?? []
+  if (pool.length > 0) return pool
+  if (!smtp?.host?.trim() || !smtp.user?.trim()) return []
+  return [
+    {
+      id: PRIMARY_SMTP_ACCOUNT_ID,
+      label: (smtp.fromEmail || smtp.user).trim(),
+      priority: 1,
+      enabled: smtp.enabled !== false,
+      host: smtp.host.trim(),
+      port: smtp.port || 587,
+      secure: Boolean(smtp.secure),
+      user: smtp.user.trim(),
+      password: smtp.password?.trim() || '',
+      fromName: smtp.fromName || '',
+      fromEmail: smtp.fromEmail || smtp.user.trim(),
+      replyTo: smtp.replyTo,
+    },
+  ]
 }
 
 export function smtpPoolNeedsPrimarySync(

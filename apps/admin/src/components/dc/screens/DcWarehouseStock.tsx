@@ -478,9 +478,17 @@ function DcWarehouseStockBody() {
                     </tr>
                   </thead>
                   <tbody>
-                    {warehouses.map((w) => {
+                    {warehouses.map((w, index) => {
                       const tone = toneStyle(w.isActive ? 'ok' : 'mute')
-                      const stock = warehouseStock(w)
+                      const binStock = warehouseStock(w)
+                      const stock =
+                        fromProduct && index === 0
+                          ? {
+                              available: summary.available,
+                              reserved: summary.reserved,
+                              damaged: binStock.damaged,
+                            }
+                          : binStock
                       return (
                         <tr key={w.id} style={{ borderBottom: '1px solid var(--line)' }}>
                           <td style={{ padding: '10px 15px', font: `500 13px/1 ${FONT}`, color: 'var(--ink)' }}>
@@ -524,11 +532,19 @@ function DcWarehouseStockBody() {
                           <td style={{ padding: '10px 15px' }}>
                             <Chip
                               tone={
-                                binCount(w) === 0 && w.isActive ? toneStyle('mute') : tone
+                                !w.isActive
+                                  ? toneStyle('mute')
+                                  : fromProduct && index === 0
+                                    ? toneStyle('ok')
+                                    : binCount(w) === 0
+                                      ? toneStyle('mute')
+                                      : tone
                               }
                               label={
                                 !w.isActive
                                   ? 'Archived'
+                                  : fromProduct && index === 0
+                                    ? 'From product inventory'
                                   : binCount(w) === 0
                                     ? 'Empty — no bins yet'
                                     : 'Active'

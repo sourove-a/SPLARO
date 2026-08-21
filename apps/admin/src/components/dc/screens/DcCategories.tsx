@@ -282,7 +282,8 @@ function DcCategoriesBody() {
                 <tbody>
                   {rows.map(({ node, depth, path }) => {
                     const visible = node.isActive !== false
-                    const tone = toneStyle(visible ? 'ok' : 'mute')
+                    const empty = (node._count?.products ?? 0) === 0
+                    const tone = toneStyle(!visible ? 'mute' : empty ? 'warn' : 'ok')
                     return (
                       <tr key={node.id}>
                         <td>
@@ -350,7 +351,7 @@ function DcCategoriesBody() {
                                 background: 'currentColor',
                               }}
                             />
-                            {visible ? 'Visible' : 'Hidden'}
+                            {!visible ? 'Hidden' : empty ? 'Empty — hidden on site' : 'Visible'}
                           </span>
                         </td>
                         <td>

@@ -6,6 +6,7 @@ import {
   shouldHideEmptyNavNode,
   isAlwaysOnMenuDepartment,
   smtpPoolNeedsPrimarySync,
+  displaySmtpAccounts,
   upsertPrimarySmtpAccount,
 } from './storefront-config'
 
@@ -98,9 +99,16 @@ describe('primary SMTP delivery pool', () => {
     replyTo: 'support@splaro.co',
   }
 
-  it('does not invent a pool row without a password', () => {
+  it('does not persist a pool row without a password', () => {
     expect(upsertPrimarySmtpAccount({ ...smtp, password: '' }, [])).toEqual([])
     expect(smtpPoolNeedsPrimarySync({ ...smtp, password: '' }, [])).toBe(false)
+  })
+
+  it('shows the Notifications mailbox in the pool UI without a stored password', () => {
+    const visible = displaySmtpAccounts({ ...smtp, password: '' }, [])
+    expect(visible).toHaveLength(1)
+    expect(visible[0]?.id).toBe(PRIMARY_SMTP_ACCOUNT_ID)
+    expect(visible[0]?.user).toBe('noreply@splaro.co')
   })
 
   it('upserts smtp-primary from the Notifications mailbox', () => {

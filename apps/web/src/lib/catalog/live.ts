@@ -729,12 +729,14 @@ export async function fetchLiveCategories(): Promise<
         _count?: { products?: number }
       }>
     }
-    return (data.categories ?? []).map((row) => ({
-      slug: row.slug,
-      name: row.name,
-      imageUrl: row.image ?? null,
-      productCount: row._count?.products ?? 0,
-    }))
+    return (data.categories ?? [])
+      .map((row) => ({
+        slug: row.slug,
+        name: row.name,
+        imageUrl: row.image ?? null,
+        productCount: row._count?.products ?? 0,
+      }))
+      .filter((row) => row.productCount > 0)
   } catch {
     return []
   }

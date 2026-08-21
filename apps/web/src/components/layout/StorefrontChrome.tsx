@@ -200,9 +200,13 @@ function StorefrontChromeInner({ children }: { children: ReactNode }) {
 
 export function StorefrontChrome({ children }: { children: ReactNode }) {
   return (
-    <Suspense fallback={null}>
-      <StorefrontPresence />
-      <StorefrontChromeInner>{children}</StorefrontChromeInner>
-    </Suspense>
+    <>
+      <Suspense fallback={null}>
+        <StorefrontPresence />
+      </Suspense>
+      <Suspense fallback={<>{children}</>}>
+        <StorefrontChromeInner>{children}</StorefrontChromeInner>
+      </Suspense>
+    </>
   )
 }

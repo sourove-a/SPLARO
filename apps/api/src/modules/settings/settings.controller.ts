@@ -14,6 +14,7 @@ import {
   mergeCatalogChannels,
   upsertPrimarySmtpAccount,
   smtpPoolNeedsPrimarySync,
+  displaySmtpAccounts,
   type StorefrontConfig,
 } from './storefront-config'
 import { mergeStoryDeckCards } from './story-deck-defaults'
@@ -147,7 +148,10 @@ export class SettingsController {
       smtp: config.smtp
         ? { ...config.smtp, password: '' }
         : emptyStorefrontConfig().smtp,
-      smtpAccounts: (config.smtpAccounts ?? []).map((account) => ({ ...account, password: '' })),
+      smtpAccounts: displaySmtpAccounts(config.smtp, config.smtpAccounts).map((account) => ({
+        ...account,
+        password: '',
+      })),
       emailEnabled: settings?.emailEnabled ?? true,
       marketing: {
         facebookPixelId: settings?.facebookPixelId ?? '',
