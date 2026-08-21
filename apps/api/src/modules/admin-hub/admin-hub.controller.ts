@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, Query } from '@nestjs/common'
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common'
 import { AdminHubService } from './admin-hub.service'
 import type { SupportTicketChannel, TaskPriority } from '@prisma/client'
 
@@ -52,12 +52,95 @@ export class AdminHubController {
     return this.hub.createAffiliate(storeId, body)
   }
 
+  @Get('procurement/summary')
+  procurementSummary(@Query('storeId') storeId: string) {
+    return this.hub.procurementSummary(storeId)
+  }
+
+  @Get('procurement/markets')
+  listMarkets(@Query('storeId') storeId: string) {
+    return this.hub.listSupplierMarkets(storeId)
+  }
+
+  @Post('procurement/markets')
+  createMarket(
+    @Query('storeId') storeId: string,
+    @Body() body: { name: string; area?: string; city?: string; country?: string; note?: string },
+  ) {
+    return this.hub.createSupplierMarket(storeId, body)
+  }
+
+  @Patch('procurement/markets/:id')
+  updateMarket(
+    @Query('storeId') storeId: string,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      name?: string
+      area?: string
+      city?: string
+      country?: string
+      note?: string
+      isActive?: boolean
+    },
+  ) {
+    return this.hub.updateSupplierMarket(storeId, id, body)
+  }
+
+  @Get('procurement/suppliers')
+  listSuppliers(
+    @Query('storeId') storeId: string,
+    @Query('search') search?: string,
+    @Query('marketId') marketId?: string,
+  ) {
+    return this.hub.listSuppliers(storeId, { search, marketId })
+  }
+
+  @Get('procurement/suppliers/:id')
+  getSupplier(@Query('storeId') storeId: string, @Param('id') id: string) {
+    return this.hub.getSupplier(storeId, id)
+  }
+
   @Post('procurement/suppliers')
   createSupplier(
     @Query('storeId') storeId: string,
-    @Body() body: { name: string; phone?: string; email?: string; address?: string },
+    @Body()
+    body: {
+      name: string
+      phone?: string
+      altPhone?: string
+      whatsapp?: string
+      email?: string
+      shopName?: string
+      address?: string
+      note?: string
+      marketId?: string
+      categoryIds?: string[]
+    },
   ) {
     return this.hub.createSupplier(storeId, body)
+  }
+
+  @Patch('procurement/suppliers/:id')
+  updateSupplier(
+    @Query('storeId') storeId: string,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      name?: string
+      phone?: string
+      altPhone?: string
+      whatsapp?: string
+      email?: string
+      shopName?: string
+      address?: string
+      note?: string
+      marketId?: string | null
+      categoryIds?: string[]
+      isActive?: boolean
+    },
+  ) {
+    return this.hub.updateSupplier(storeId, id, body)
   }
 
   @Post('procurement/purchase-orders')
@@ -66,8 +149,22 @@ export class AdminHubController {
     @Body()
     body: {
       supplierId: string
+      marketId?: string
+      purchasedAt?: string
       notes?: string
-      items: { productName: string; sku?: string; quantity: number; unitCost: number }[]
+      discount?: number
+      transportCost?: number
+      otherCost?: number
+      paidAmount?: number
+      paymentMethod?: string
+      items: {
+        productId?: string
+        variantId?: string
+        productName?: string
+        sku?: string
+        quantity: number
+        unitCost: number
+      }[]
     },
   ) {
     return this.hub.createPurchaseOrder(storeId, body)
@@ -76,9 +173,27 @@ export class AdminHubController {
   @Post('procurement/goods-received')
   receiveGoodsGrn(
     @Query('storeId') storeId: string,
-    @Body() body: { purchaseOrderId?: string; notes?: string },
+    @Body() body: { purchaseOrderId?: string; notes?: string; receivedBy?: string },
   ) {
     return this.hub.receiveGoodsGrn(storeId, body)
+  }
+
+  @Post('procurement/supplier-payments')
+  recordSupplierPayment(
+    @Query('storeId') storeId: string,
+    @Body()
+    body: {
+      supplierId: string
+      purchaseOrderId?: string
+      amount: number
+      method?: string
+      reference?: string
+      note?: string
+      paidAt?: string
+      createdBy?: string
+    },
+  ) {
+    return this.hub.recordSupplierPayment(storeId, body)
   }
 
   @Post('support/tickets')
