@@ -150,36 +150,3 @@ describe('isGoogleOAuthOriginEligible', () => {
     assert.equal(isGoogleOAuthOriginEligible('admin.splaro.co'), true)
   })
 })
-
-describe('resolvePostAuthDestination', () => {
-  it('welcomes a brand-new account, not a returning one', () => {
-    assert.equal(
-      resolvePostAuthDestination('/account', 'signup'),
-      '/account?tab=dashboard&welcome=1',
-    )
-    assert.equal(resolvePostAuthDestination('/account', 'login'), '/account')
-  })
-
-  it('keeps a checkout deep-link ahead of the welcome screen', () => {
-    assert.equal(resolvePostAuthDestination('/checkout', 'signup'), '/checkout')
-    assert.equal(resolvePostAuthDestination('/checkout?step=2', 'login'), '/checkout?step=2')
-  })
-})
-
-describe('isGoogleOAuthOriginEligible', () => {
-  it('never mounts GIS on 0.0.0.0 — not a trustworthy origin, so the button cannot draw', () => {
-    assert.equal(isGoogleOAuthOriginEligible('0.0.0.0'), false)
-    assert.equal(isGoogleOAuthOriginEligible('[::]'), false)
-  })
-
-  it('hides GIS on the LAN address a phone-on-wifi uses — it can never be registered', () => {
-    assert.equal(isGoogleOAuthOriginEligible('192.168.0.104'), false)
-    assert.equal(isGoogleOAuthOriginEligible('10.0.0.7'), false)
-    assert.equal(isGoogleOAuthOriginEligible('172.20.1.5'), false)
-  })
-
-  it('allows real hosts', () => {
-    assert.equal(isGoogleOAuthOriginEligible('splaro.co'), true)
-    assert.equal(isGoogleOAuthOriginEligible('admin.splaro.co'), true)
-  })
-})
