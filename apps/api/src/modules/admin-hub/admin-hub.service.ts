@@ -8,6 +8,17 @@ import {
   type SocialPlatformKey,
 } from '../settings/social-channel-defaults'
 import type { Prisma, SupportTicketChannel, TaskPriority } from '@prisma/client'
+import {
+  applyPaymentToBalance,
+  applyPurchaseToBalance,
+  computePurchaseTotals,
+  fromPaisa,
+  nextSequenceCode,
+  normalizePhone,
+  normalizePurchaseItems,
+  splitStockableItems,
+  type PurchaseItemInput,
+} from './procurement.core'
 
 const STATIC_CMS_PAGES = [
   { id: 'cms-about', slug: '/about', title: 'About SPLARO', blocks: 6 },
@@ -526,19 +537,301 @@ export class AdminHubService {
     })
   }
 
-  async createSupplier(
+  // ── Procurement ─────────────────────────────────────────────────────────
+
+  async listSupplierMarkets(storeIdOrSlug: string) {
+    const storeId = await this.sid(storeIdOrSlug)
+    return this.prisma.supplierMarket.findMany({
+      where: { storeId },
+      orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
+      include: { _count: { select: { suppliers: true } } },
+    })
+  }
+
+  async createSupplierMarket(
     storeIdOrSlug: string,
-    body: { name: string; phone?: string; email?: string; address?: string },
+    body: { name: string; area?: string; city?: string; country?: string; note?: string },
   ) {
     const storeId = await this.sid(storeIdOrSlug)
+    const name = body.name?.trim()
+    if (!name) throw new BadRequestException('Market name is required')
+
+    const existing = await this.prisma.supplierMarket.findFirst({ where: { storeId, name } })
+    if (existing) throw new BadRequestException(`Market "${name}" already exists`)
+
+    return this.prisma.supplierMarket.create({
+      data: {
+        storeId,
+        name,
+        area: body.area?.trim() || null,
+        city: body.city?.trim() || null,
+        country: body.country?.trim() || null,
+        note: body.note?.trim() || null,
+      },
+    })
+  }
+
+  async updateSupplierMarket(
+    storeIdOrSlug: string,
+    marketId: string,
+    body: {
+      name?: string
+      area?: string
+      city?: string
+      country?: string
+      note?: string
+      isActive?: boolean
+    },
+  ) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const market = await this.prisma.supplierMarket.findFirst({ where: { id: marketId, storeId } })
+    if (!market) throw new NotFoundException('Market not found')
+
+    const name = body.name?.trim()
+    if (name && name !== market.name) {
+      const clash = await this.prisma.supplierMarket.findFirst({ where: { storeId, name } })
+      if (clash) throw new BadRequestException(`Market "${name}" already exists`)
+    }
+
+    return this.prisma.supplierMarket.update({
+      where: { id: market.id },
+      data: {
+        name: name ?? undefined,
+        area: body.area?.trim() ?? undefined,
+        city: body.city?.trim() ?? undefined,
+        country: body.country?.trim() ?? undefined,
+        note: body.note?.trim() ?? undefined,
+        isActive: body.isActive ?? undefined,
+      },
+    })
+  }
+
+  async listSuppliers(storeIdOrSlug: string, query?: { search?: string; marketId?: string }) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const search = query?.search?.trim()
+    const marketId = query?.marketId?.trim()
+
+    return this.prisma.supplier.findMany({
+      where: {
+        storeId,
+        ...(marketId ? { marketId } : {}),
+        ...(search
+          ? {
+              OR: [
+                { name: { contains: search, mode: 'insensitive' as const } },
+                { phone: { contains: search } },
+                { shopName: { contains: search, mode: 'insensitive' as const } },
+                { code: { contains: search, mode: 'insensitive' as const } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
+      include: {
+        market: { select: { id: true, name: true, city: true } },
+        categories: { include: { category: { select: { id: true, name: true } } } },
+        _count: { select: { purchaseOrders: true } },
+      },
+    })
+  }
+
+  async getSupplier(storeIdOrSlug: string, supplierId: string) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const supplier = await this.prisma.supplier.findFirst({
+      where: { id: supplierId, storeId },
+      include: {
+        market: true,
+        categories: { include: { category: { select: { id: true, name: true } } } },
+      },
+    })
+    if (!supplier) throw new NotFoundException('Supplier not found')
+
+    const [purchases, payments, ledger] = await Promise.all([
+      this.prisma.purchaseOrder.findMany({
+        where: { storeId, supplierId },
+        orderBy: { purchasedAt: 'desc' },
+        take: 50,
+        include: { items: true, market: { select: { name: true } } },
+      }),
+      this.prisma.supplierPayment.findMany({
+        where: { supplierId },
+        orderBy: { paidAt: 'desc' },
+        take: 50,
+      }),
+      this.prisma.supplierLedgerEntry.findMany({
+        where: { supplierId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+    ])
+
+    return { supplier, purchases, payments, ledger }
+  }
+
+  /** Categories must belong to this store — a cross-store id would leak a name. */
+  private async assertCategoriesInStore(storeId: string, categoryIds: string[]): Promise<string[]> {
+    const ids = [...new Set(categoryIds.map((id) => id.trim()).filter(Boolean))]
+    if (!ids.length) return []
+    const found = await this.prisma.category.findMany({
+      where: { id: { in: ids }, storeId },
+      select: { id: true },
+    })
+    if (found.length !== ids.length) {
+      throw new BadRequestException('One or more categories do not belong to this store')
+    }
+    return ids
+  }
+
+  async createSupplier(
+    storeIdOrSlug: string,
+    body: {
+      name: string
+      phone?: string
+      altPhone?: string
+      whatsapp?: string
+      email?: string
+      shopName?: string
+      address?: string
+      note?: string
+      marketId?: string
+      categoryIds?: string[]
+    },
+  ) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const name = body.name?.trim()
+    if (!name) throw new BadRequestException('Supplier name is required')
+
+    const phone = normalizePhone(body.phone)
+    if (phone) {
+      // No unique index on phone: existing rows may already hold duplicates, and
+      // adding one would have failed the migration. Enforced here instead, where
+      // the operator gets a name to go look at.
+      const existing = await this.prisma.supplier.findMany({
+        where: { storeId },
+        select: { id: true, name: true, phone: true },
+      })
+      const clash = existing.find((s) => normalizePhone(s.phone) === phone)
+      if (clash) {
+        throw new BadRequestException(
+          `Phone ${body.phone} already belongs to supplier "${clash.name}"`,
+        )
+      }
+    }
+
+    if (body.marketId) {
+      const market = await this.prisma.supplierMarket.findFirst({
+        where: { id: body.marketId, storeId },
+      })
+      if (!market) throw new BadRequestException('Market not found for this store')
+    }
+
+    const categoryIds = await this.assertCategoriesInStore(storeId, body.categoryIds ?? [])
+    const codes = await this.prisma.supplier.findMany({ where: { storeId }, select: { code: true } })
+    const code = nextSequenceCode(
+      'SUP',
+      codes.map((row) => row.code),
+    )
+
     return this.prisma.supplier.create({
       data: {
         storeId,
-        name: body.name,
-        phone: body.phone,
-        email: body.email,
-        address: body.address,
+        code,
+        name,
+        phone: body.phone?.trim() || null,
+        altPhone: body.altPhone?.trim() || null,
+        whatsapp: body.whatsapp?.trim() || null,
+        email: body.email?.trim() || null,
+        shopName: body.shopName?.trim() || null,
+        address: body.address?.trim() || null,
+        note: body.note?.trim() || null,
+        marketId: body.marketId?.trim() || null,
+        categories: categoryIds.length
+          ? { create: categoryIds.map((categoryId) => ({ categoryId })) }
+          : undefined,
       },
+      include: {
+        market: { select: { id: true, name: true } },
+        categories: { include: { category: { select: { id: true, name: true } } } },
+      },
+    })
+  }
+
+  async updateSupplier(
+    storeIdOrSlug: string,
+    supplierId: string,
+    body: {
+      name?: string
+      phone?: string
+      altPhone?: string
+      whatsapp?: string
+      email?: string
+      shopName?: string
+      address?: string
+      note?: string
+      marketId?: string | null
+      categoryIds?: string[]
+      isActive?: boolean
+    },
+  ) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const supplier = await this.prisma.supplier.findFirst({ where: { id: supplierId, storeId } })
+    if (!supplier) throw new NotFoundException('Supplier not found')
+
+    const phone = normalizePhone(body.phone)
+    if (phone && normalizePhone(supplier.phone) !== phone) {
+      const others = await this.prisma.supplier.findMany({
+        where: { storeId, id: { not: supplier.id } },
+        select: { name: true, phone: true },
+      })
+      const clash = others.find((s) => normalizePhone(s.phone) === phone)
+      if (clash) {
+        throw new BadRequestException(
+          `Phone ${body.phone} already belongs to supplier "${clash.name}"`,
+        )
+      }
+    }
+
+    if (body.marketId) {
+      const market = await this.prisma.supplierMarket.findFirst({
+        where: { id: body.marketId, storeId },
+      })
+      if (!market) throw new BadRequestException('Market not found for this store')
+    }
+
+    const categoryIds =
+      body.categoryIds === undefined
+        ? null
+        : await this.assertCategoriesInStore(storeId, body.categoryIds)
+
+    return this.prisma.$transaction(async (tx) => {
+      if (categoryIds !== null) {
+        await tx.supplierCategory.deleteMany({ where: { supplierId: supplier.id } })
+        if (categoryIds.length) {
+          await tx.supplierCategory.createMany({
+            data: categoryIds.map((categoryId) => ({ supplierId: supplier.id, categoryId })),
+          })
+        }
+      }
+
+      return tx.supplier.update({
+        where: { id: supplier.id },
+        data: {
+          name: body.name?.trim() || undefined,
+          phone: body.phone?.trim() ?? undefined,
+          altPhone: body.altPhone?.trim() ?? undefined,
+          whatsapp: body.whatsapp?.trim() ?? undefined,
+          email: body.email?.trim() ?? undefined,
+          shopName: body.shopName?.trim() ?? undefined,
+          address: body.address?.trim() ?? undefined,
+          note: body.note?.trim() ?? undefined,
+          marketId: body.marketId === undefined ? undefined : body.marketId || null,
+          isActive: body.isActive ?? undefined,
+        },
+        include: {
+          market: { select: { id: true, name: true } },
+          categories: { include: { category: { select: { id: true, name: true } } } },
+        },
+      })
     })
   }
 
@@ -546,120 +839,226 @@ export class AdminHubService {
     storeIdOrSlug: string,
     body: {
       supplierId: string
+      marketId?: string
+      purchasedAt?: string
       notes?: string
-      items: { productName: string; sku?: string; quantity: number; unitCost: number }[]
+      discount?: number
+      transportCost?: number
+      otherCost?: number
+      paidAmount?: number
+      paymentMethod?: string
+      items: PurchaseItemInput[]
     },
   ) {
     const storeId = await this.sid(storeIdOrSlug)
     const supplier = await this.prisma.supplier.findFirst({
       where: { id: body.supplierId, storeId },
     })
-    if (!supplier) {
-      throw new Error('Supplier not found for this store')
+    if (!supplier) throw new NotFoundException('Supplier not found for this store')
+
+    const items = normalizePurchaseItems(body.items ?? [])
+    if (!items.length) throw new BadRequestException('At least one line item is required')
+
+    // Every catalog link is re-checked against this store. Without it a crafted
+    // productId would attach another store's product to this purchase, and the
+    // receive step would then move that store's stock.
+    const variantIds = items.map((i) => i.variantId).filter((id): id is string => Boolean(id))
+    const productIds = items.map((i) => i.productId).filter((id): id is string => Boolean(id))
+
+    // `in: []` matches nothing, so the empty case needs no special branch.
+    const [variants, products] = await Promise.all([
+      this.prisma.productVariant.findMany({
+        where: { id: { in: variantIds }, product: { storeId } },
+        select: { id: true, sku: true, productId: true },
+      }),
+      this.prisma.product.findMany({
+        where: { id: { in: productIds }, storeId },
+        select: { id: true, name: true },
+      }),
+    ])
+
+    const variantById = new Map(variants.map((v) => [v.id, v]))
+    const productById = new Map(products.map((p) => [p.id, p]))
+
+    for (const id of new Set(variantIds)) {
+      if (!variantById.has(id)) throw new BadRequestException('Variant not found for this store')
+    }
+    for (const id of new Set(productIds)) {
+      if (!productById.has(id)) throw new BadRequestException('Product not found for this store')
     }
 
-    const items = body.items
-      .map((item) => ({
-        productName: item.productName.trim(),
-        sku: item.sku?.trim() || undefined,
-        quantity: Math.max(1, Math.floor(Number(item.quantity) || 0)),
-        unitCost: Math.max(0, Number(item.unitCost) || 0),
-      }))
-      .filter((item) => item.productName.length > 0)
-
-    if (!items.length) {
-      throw new Error('At least one line item is required')
+    const totals = computePurchaseTotals(items, body)
+    const marketId = body.marketId?.trim() || supplier.marketId || null
+    if (marketId) {
+      const market = await this.prisma.supplierMarket.findFirst({
+        where: { id: marketId, storeId },
+      })
+      if (!market) throw new BadRequestException('Market not found for this store')
     }
 
-    const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitCost, 0)
-    const count = await this.prisma.purchaseOrder.count({ where: { storeId } })
-    const poNumber = `PO-${String(count + 1).padStart(4, '0')}`
+    const purchasedAt = body.purchasedAt ? new Date(body.purchasedAt) : new Date()
+    if (Number.isNaN(purchasedAt.getTime())) {
+      throw new BadRequestException('purchasedAt is not a valid date')
+    }
 
-    return this.prisma.purchaseOrder.create({
-      data: {
-        storeId,
-        supplierId: supplier.id,
-        poNumber,
-        status: 'DRAFT',
-        subtotal,
-        total: subtotal,
-        notes: body.notes?.trim() || undefined,
-        items: {
-          create: items.map((item) => ({
-            productName: item.productName,
-            sku: item.sku,
-            quantity: item.quantity,
-            unitCost: item.unitCost,
-          })),
+    const existingNumbers = await this.prisma.purchaseOrder.findMany({
+      where: { storeId },
+      select: { poNumber: true },
+    })
+    const poNumber = nextSequenceCode(
+      'PO',
+      existingNumbers.map((row) => row.poNumber),
+    )
+
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.purchaseOrder.create({
+        data: {
+          storeId,
+          supplierId: supplier.id,
+          marketId,
+          poNumber,
+          status: 'DRAFT',
+          purchasedAt,
+          subtotal: totals.subtotal,
+          discount: totals.discount,
+          transportCost: totals.transportCost,
+          otherCost: totals.otherCost,
+          total: totals.total,
+          paidAmount: totals.paidAmount,
+          dueAmount: totals.dueAmount,
+          notes: body.notes?.trim() || null,
+          items: {
+            create: items.map((item) => {
+              const variant = item.variantId ? variantById.get(item.variantId) : undefined
+              const product = item.productId ? productById.get(item.productId) : undefined
+              return {
+                productId: item.productId,
+                variantId: item.variantId,
+                // Snapshot: a rename or delete later must not rewrite what this
+                // purchase said was bought.
+                productName: item.productName || product?.name || variant?.sku || 'Item',
+                sku: item.sku ?? variant?.sku ?? null,
+                quantity: item.quantity,
+                unitCost: fromPaisa(item.unitCostPaisa),
+                lineTotal: fromPaisa(item.lineTotalPaisa),
+              }
+            }),
+          },
         },
-      },
-      include: {
-        supplier: { select: { name: true } },
-        items: true,
-      },
+        include: {
+          supplier: { select: { id: true, name: true } },
+          market: { select: { id: true, name: true } },
+          items: true,
+        },
+      })
+
+      // The liability is real the moment goods are bought, not when they are
+      // received, so the supplier balance moves here.
+      const balance = applyPurchaseToBalance(
+        { dueAmount: Number(supplier.dueAmount), paidAmount: Number(supplier.paidAmount) },
+        totals,
+      )
+      await tx.supplier.update({
+        where: { id: supplier.id },
+        data: { dueAmount: balance.dueAmount, paidAmount: balance.paidAmount },
+      })
+      await tx.supplierLedgerEntry.create({
+        data: {
+          supplierId: supplier.id,
+          type: 'PURCHASE',
+          amount: totals.total,
+          balance: balance.dueAmount,
+          note: `${poNumber} · ${items.length} item(s)`,
+        },
+      })
+
+      if (totals.paidAmount > 0) {
+        await tx.supplierPayment.create({
+          data: {
+            storeId,
+            supplierId: supplier.id,
+            purchaseOrderId: created.id,
+            amount: totals.paidAmount,
+            method: body.paymentMethod?.trim() || null,
+            note: `Paid at entry · ${poNumber}`,
+            paidAt: purchasedAt,
+          },
+        })
+      }
+
+      return created
     })
   }
 
   async receiveGoodsGrn(
     storeIdOrSlug: string,
-    body: { purchaseOrderId?: string; notes?: string },
+    body: { purchaseOrderId?: string; notes?: string; receivedBy?: string },
   ) {
     const storeId = await this.sid(storeIdOrSlug)
     const purchaseOrderId = body.purchaseOrderId?.trim()
     if (!purchaseOrderId) throw new BadRequestException('purchaseOrderId is required')
 
-    const po = await this.prisma.purchaseOrder.findFirst({
-      where: { id: purchaseOrderId, storeId },
-      include: { items: true },
-    })
-    if (!po) throw new NotFoundException('Purchase order not found')
-    if (po.status === 'COMPLETED' || po.status === 'CANCELLED') {
-      throw new BadRequestException(`Cannot receive goods for PO in ${po.status} status`)
-    }
-    if (po.status === 'RECEIVED') {
-      throw new BadRequestException('Purchase order already received')
-    }
-
-    const grnCount = await this.prisma.goodsReceivedNote.count({
-      where: { purchaseOrder: { storeId } },
-    })
-    const grnNumber = `GRN-${String(grnCount + 1).padStart(4, '0')}`
-
     return this.prisma.$transaction(async (tx) => {
-      const freshPo = await tx.purchaseOrder.findFirst({
+      const po = await tx.purchaseOrder.findFirst({
         where: { id: purchaseOrderId, storeId },
         include: { items: true },
       })
-      if (!freshPo) throw new NotFoundException('Purchase order not found')
-      if (freshPo.status === 'COMPLETED' || freshPo.status === 'CANCELLED') {
-        throw new BadRequestException(`Cannot receive goods for PO in ${freshPo.status} status`)
+      if (!po) throw new NotFoundException('Purchase order not found')
+      if (po.status === 'CANCELLED') {
+        throw new BadRequestException('Cannot receive goods for a cancelled purchase')
       }
-      if (freshPo.status === 'RECEIVED') {
-        throw new BadRequestException('Purchase order already received')
-      }
-      const existingGrn = await tx.goodsReceivedNote.findFirst({
-        where: { purchaseOrderId: freshPo.id },
+
+      // The idempotency gate. Claiming the flag and the status in one
+      // conditional write means a double-tapped or retried receive finds zero
+      // rows on the second pass and cannot add stock twice.
+      const claimed = await tx.purchaseOrder.updateMany({
+        where: { id: po.id, storeId, stockApplied: false },
+        data: { stockApplied: true, status: 'RECEIVED', receivedAt: new Date() },
       })
-      if (existingGrn) {
-        throw new BadRequestException('Purchase order already received')
+      if (claimed.count === 0) {
+        return {
+          alreadyReceived: true,
+          purchaseOrder: { id: po.id, poNumber: po.poNumber, status: po.status },
+          stockedLines: 0,
+          skippedLines: po.items.length,
+        }
       }
+
+      const grnNumbers = await tx.goodsReceivedNote.findMany({
+        where: { purchaseOrder: { storeId } },
+        select: { grnNumber: true },
+      })
+      const grnNumber = nextSequenceCode(
+        'GRN',
+        grnNumbers.map((row) => row.grnNumber),
+      )
 
       const grn = await tx.goodsReceivedNote.create({
         data: {
-          purchaseOrderId: freshPo.id,
+          purchaseOrderId: po.id,
           grnNumber,
+          receivedBy: body.receivedBy?.trim() || null,
           notes: body.notes?.trim() || null,
         },
       })
 
-      for (const item of freshPo.items) {
-        const sku = item.sku?.trim()
-        if (!sku) continue
-        const variant = await tx.productVariant.findFirst({
-          where: { sku, product: { storeId } },
-          select: { id: true, sku: true, stock: true },
-        })
+      const { stockable, skipped } = splitStockableItems(po.items)
+      let stockedLines = 0
+
+      for (const item of stockable) {
+        // Prefer the explicit link; fall back to SKU so lines captured before
+        // variants were linked still move stock.
+        const variant = item.variantId
+          ? await tx.productVariant.findFirst({
+              where: { id: item.variantId, product: { storeId } },
+              select: { id: true, sku: true, stock: true, productId: true },
+            })
+          : await tx.productVariant.findFirst({
+              where: { sku: item.sku ?? undefined, product: { storeId } },
+              select: { id: true, sku: true, stock: true, productId: true },
+            })
         if (!variant) continue
+
         const quantityBefore = variant.stock
         const quantityAfter = quantityBefore + item.quantity
         await tx.productVariant.update({
@@ -675,21 +1074,167 @@ export class AdminHubService {
             quantityBefore,
             quantityAfter,
             delta: item.quantity,
-            note: `GRN ${grnNumber} · PO ${freshPo.poNumber}`,
+            note: `GRN ${grnNumber} · PO ${po.poNumber}`,
           },
         })
+        await tx.inventoryLog.create({
+          data: {
+            productId: variant.productId,
+            variantId: variant.id,
+            action: 'PURCHASE',
+            quantity: item.quantity,
+            stockBefore: quantityBefore,
+            stockAfter: quantityAfter,
+            note: `GRN ${grnNumber} · PO ${po.poNumber}`,
+            createdBy: body.receivedBy?.trim() || null,
+          },
+        })
+        stockedLines += 1
       }
-
-      await tx.purchaseOrder.update({
-        where: { id: freshPo.id },
-        data: { status: 'RECEIVED' },
-      })
 
       return {
+        alreadyReceived: false,
         grn,
-        purchaseOrder: { id: freshPo.id, poNumber: freshPo.poNumber, status: 'RECEIVED' as const },
+        purchaseOrder: { id: po.id, poNumber: po.poNumber, status: 'RECEIVED' as const },
+        stockedLines,
+        // Surfaced so the operator is told which lines did not move stock rather
+        // than assuming inventory rose for the whole purchase.
+        skippedLines: skipped.length + (stockable.length - stockedLines),
       }
     })
+  }
+
+  async recordSupplierPayment(
+    storeIdOrSlug: string,
+    body: {
+      supplierId: string
+      purchaseOrderId?: string
+      amount: number
+      method?: string
+      reference?: string
+      note?: string
+      paidAt?: string
+      createdBy?: string
+    },
+  ) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const supplier = await this.prisma.supplier.findFirst({
+      where: { id: body.supplierId, storeId },
+    })
+    if (!supplier) throw new NotFoundException('Supplier not found')
+
+    const amount = Number(body.amount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Payment amount must be greater than zero')
+    }
+
+    const paidAt = body.paidAt ? new Date(body.paidAt) : new Date()
+    if (Number.isNaN(paidAt.getTime())) throw new BadRequestException('paidAt is not a valid date')
+
+    const purchaseOrderId = body.purchaseOrderId?.trim() || null
+    if (purchaseOrderId) {
+      const po = await this.prisma.purchaseOrder.findFirst({
+        where: { id: purchaseOrderId, storeId, supplierId: supplier.id },
+      })
+      if (!po) throw new NotFoundException('Purchase order not found for this supplier')
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const balance = applyPaymentToBalance(
+        { dueAmount: Number(supplier.dueAmount), paidAmount: Number(supplier.paidAmount) },
+        amount,
+      )
+
+      if (purchaseOrderId) {
+        const po = await tx.purchaseOrder.findFirst({ where: { id: purchaseOrderId, storeId } })
+        if (po) {
+          const poBalance = applyPaymentToBalance(
+            { dueAmount: Number(po.dueAmount), paidAmount: Number(po.paidAmount) },
+            amount,
+          )
+          await tx.purchaseOrder.update({
+            where: { id: po.id },
+            data: { dueAmount: poBalance.dueAmount, paidAmount: poBalance.paidAmount },
+          })
+        }
+      }
+
+      await tx.supplier.update({
+        where: { id: supplier.id },
+        data: { dueAmount: balance.dueAmount, paidAmount: balance.paidAmount },
+      })
+
+      const payment = await tx.supplierPayment.create({
+        data: {
+          storeId,
+          supplierId: supplier.id,
+          purchaseOrderId,
+          amount,
+          method: body.method?.trim() || null,
+          reference: body.reference?.trim() || null,
+          note: body.note?.trim() || null,
+          createdBy: body.createdBy?.trim() || null,
+          paidAt,
+        },
+      })
+
+      await tx.supplierLedgerEntry.create({
+        data: {
+          supplierId: supplier.id,
+          type: 'PAYMENT',
+          amount,
+          balance: balance.dueAmount,
+          note: body.note?.trim() || body.reference?.trim() || null,
+        },
+      })
+
+      return { payment, balance }
+    })
+  }
+
+  async procurementSummary(storeIdOrSlug: string) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const [activeSuppliers, activeMarkets, purchaseAgg, topDue, spendByMarket, marketNames] =
+      await Promise.all([
+        this.prisma.supplier.count({ where: { storeId, isActive: true } }),
+        this.prisma.supplierMarket.count({ where: { storeId, isActive: true } }),
+        this.prisma.purchaseOrder.aggregate({
+          where: { storeId },
+          _sum: { total: true, paidAmount: true, dueAmount: true },
+          _count: true,
+        }),
+        this.prisma.supplier.findMany({
+          where: { storeId, dueAmount: { gt: 0 } },
+          orderBy: { dueAmount: 'desc' },
+          take: 10,
+          select: { id: true, name: true, phone: true, dueAmount: true },
+        }),
+        this.prisma.purchaseOrder.groupBy({
+          by: ['marketId'],
+          where: { storeId },
+          _sum: { total: true },
+          _count: true,
+        }),
+        this.prisma.supplierMarket.findMany({ where: { storeId }, select: { id: true, name: true } }),
+      ])
+
+    const marketNameById = new Map(marketNames.map((m) => [m.id, m.name]))
+
+    return {
+      activeSuppliers,
+      activeMarkets,
+      purchaseCount: purchaseAgg._count,
+      totalPurchased: Number(purchaseAgg._sum.total ?? 0),
+      totalPaid: Number(purchaseAgg._sum.paidAmount ?? 0),
+      totalDue: Number(purchaseAgg._sum.dueAmount ?? 0),
+      topDueSuppliers: topDue.map((s) => ({ ...s, dueAmount: Number(s.dueAmount) })),
+      spendByMarket: spendByMarket.map((row) => ({
+        marketId: row.marketId,
+        marketName: row.marketId ? (marketNameById.get(row.marketId) ?? 'Unknown') : 'Unassigned',
+        purchases: row._count,
+        total: Number(row._sum.total ?? 0),
+      })),
+    }
   }
 
   async createSupportTicket(
