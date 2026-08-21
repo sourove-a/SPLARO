@@ -111,3 +111,9 @@ infrastructure/vps/.env.production.generated
 
 # Local release artifacts
 SPLARO-windows.zip
+
+# Banner masters — high-res exports kept locally / in Drive, not in git.
+# PNGs do not delta-compress, so every re-export would add its full size
+# to history permanently. The 1640x624 deliverables are tracked.
+assets/banners/**/*-master-*.png
+assets/banners/**/*-4K-*.png
