@@ -55,7 +55,7 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
 
   // Redirect POST needs a safe return path after Google returns the credential.
   useEffect(() => {
-    if (!loginUri) return
+    if (!useRedirectUx || !loginUri) return
     const next = searchParams.get('next') || '/account'
     writeGoogleReturnCookie(next)
   }, [useRedirectUx, loginUri, searchParams, pathname])
