@@ -1,0 +1,218 @@
+/**
+ * Procurement arithmetic, kept free of Prisma so it can be tested without a
+ * database.
+ *
+ * Money is handled in integer paisa inside this file. A purchase adds a line
+ * total, a discount, transport and "other" cost, then splits the result into
+ * paid and due — five float additions is all it takes for 1200.00 to come out
+ * as 1199.9999999999998 and for a supplier balance to drift a paisa per entry.
+ */
+
+/** Two-decimal money as an integer count of paisa. */
+export type Paisa = number
+
+export function toPaisa(value: unknown): Paisa {
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n)) return 0
+  return Math.round(n * 100)
+}
+
+export function fromPaisa(value: Paisa): number {
+  return Math.round(value) / 100
+}
+
+export interface PurchaseItemInput {
+  productId?: string | null
+  variantId?: string | null
+  productName?: string | null
+  sku?: string | null
+  quantity?: unknown
+  unitCost?: unknown
+}
+
+export interface NormalizedPurchaseItem {
+  productId: string | null
+  variantId: string | null
+  productName: string
+  sku: string | null
+  quantity: number
+  unitCostPaisa: Paisa
+  lineTotalPaisa: Paisa
+}
+
+/**
+ * Drop unusable lines and clamp the rest.
+ *
+ * A line with no name and no catalog link cannot be reported on later, so it is
+ * dropped rather than stored as an empty row. Quantity floors at 1 because a
+ * zero-quantity purchase line is always a typo, never an intent.
+ */
+export function normalizePurchaseItems(items: PurchaseItemInput[]): NormalizedPurchaseItem[] {
+  const out: NormalizedPurchaseItem[] = []
+  for (const raw of items ?? []) {
+    const productId = raw.productId?.trim() || null
+    const variantId = raw.variantId?.trim() || null
+    const productName = raw.productName?.trim() || ''
+    const sku = raw.sku?.trim() || null
+    if (!productName && !productId && !variantId) continue
+
+    const quantity = Math.max(1, Math.floor(Number(raw.quantity) || 0))
+    const unitCostPaisa = Math.max(0, toPaisa(raw.unitCost))
+    out.push({
+      productId,
+      variantId,
+      productName,
+      sku,
+      quantity,
+      unitCostPaisa,
+      lineTotalPaisa: unitCostPaisa * quantity,
+    })
+  }
+  return out
+}
+
+export interface PurchaseChargeInput {
+  discount?: unknown
+  transportCost?: unknown
+  otherCost?: unknown
+  paidAmount?: unknown
+}
+
+export interface PurchaseTotals {
+  subtotal: number
+  discount: number
+  transportCost: number
+  otherCost: number
+  total: number
+  paidAmount: number
+  dueAmount: number
+}
+
+/**
+ * Compute every money field server-side.
+ *
+ * The client sends line quantities and costs; it never sends a total. Trusting
+ * a client-supplied total would let a tampered request record a 50,000 tk
+ * purchase as 50 tk and silently corrupt the supplier balance.
+ */
+export function computePurchaseTotals(
+  items: NormalizedPurchaseItem[],
+  charges: PurchaseChargeInput = {},
+): PurchaseTotals {
+  const subtotal = items.reduce((sum, item) => sum + item.lineTotalPaisa, 0)
+
+  // A discount larger than the goods themselves is a typo; clamping keeps the
+  // total from going negative and inverting the supplier's balance.
+  const discount = Math.min(subtotal, Math.max(0, toPaisa(charges.discount)))
+  const transportCost = Math.max(0, toPaisa(charges.transportCost))
+  const otherCost = Math.max(0, toPaisa(charges.otherCost))
+
+  const total = subtotal - discount + transportCost + otherCost
+
+  // Overpayment is clamped rather than carried as negative due — an advance to
+  // a supplier is a different transaction than settling this purchase.
+  const paidAmount = Math.min(total, Math.max(0, toPaisa(charges.paidAmount)))
+  const dueAmount = total - paidAmount
+
+  return {
+    subtotal: fromPaisa(subtotal),
+    discount: fromPaisa(discount),
+    transportCost: fromPaisa(transportCost),
+    otherCost: fromPaisa(otherCost),
+    total: fromPaisa(total),
+    paidAmount: fromPaisa(paidAmount),
+    dueAmount: fromPaisa(dueAmount),
+  }
+}
+
+/**
+ * Next value for a padded human reference (SUP-0007, PO-0042).
+ *
+ * Derived from the highest existing number rather than a row count: counting
+ * reuses a number as soon as a row is deleted, and the unique index then
+ * rejects the next insert.
+ */
+export function nextSequenceCode(prefix: string, existing: Array<string | null | undefined>): string {
+  const pattern = new RegExp(`^${prefix}-(\\d+)$`, 'i')
+  let highest = 0
+  for (const code of existing) {
+    const match = pattern.exec(code?.trim() ?? '')
+    if (!match) continue
+    const n = Number(match[1])
+    if (Number.isFinite(n) && n > highest) highest = n
+  }
+  return `${prefix}-${String(highest + 1).padStart(4, '0')}`
+}
+
+/** Bangladeshi mobile numbers, compared on digits so 01712-345678 == +8801712345678. */
+export function normalizePhone(phone?: string | null): string | null {
+  const digits = (phone ?? '').replace(/\D/g, '')
+  if (!digits) return null
+  if (digits.startsWith('880') && digits.length === 13) return `0${digits.slice(3)}`
+  if (digits.startsWith('0') && digits.length === 11) return digits
+  return digits
+}
+
+export interface SupplierBalance {
+  dueAmount: number
+  paidAmount: number
+}
+
+/**
+ * Apply a payment to a supplier balance.
+ *
+ * Paying more than is owed leaves due at zero rather than negative: the extra
+ * is still recorded as paid, so the ledger stays honest about cash out, but the
+ * balance never claims the supplier owes the store money.
+ */
+export function applyPaymentToBalance(
+  balance: SupplierBalance,
+  amount: unknown,
+): SupplierBalance & { appliedToDue: number } {
+  const paid = Math.max(0, toPaisa(amount))
+  const due = Math.max(0, toPaisa(balance.dueAmount))
+  const alreadyPaid = Math.max(0, toPaisa(balance.paidAmount))
+  const appliedToDue = Math.min(due, paid)
+
+  return {
+    dueAmount: fromPaisa(due - appliedToDue),
+    paidAmount: fromPaisa(alreadyPaid + paid),
+    appliedToDue: fromPaisa(appliedToDue),
+  }
+}
+
+/**
+ * Move a supplier balance by a newly recorded purchase.
+ *
+ * The liability exists the moment goods are bought, not when they are received,
+ * so this runs at purchase entry. Anything paid at entry counts as cash out and
+ * never lands in due.
+ */
+export function applyPurchaseToBalance(
+  balance: SupplierBalance,
+  totals: { dueAmount: number; paidAmount: number },
+): SupplierBalance {
+  const due = Math.max(0, toPaisa(balance.dueAmount)) + Math.max(0, toPaisa(totals.dueAmount))
+  const paid = Math.max(0, toPaisa(balance.paidAmount)) + Math.max(0, toPaisa(totals.paidAmount))
+  return { dueAmount: fromPaisa(due), paidAmount: fromPaisa(paid) }
+}
+
+/**
+ * Which purchase lines can actually move stock.
+ *
+ * Stock lives on ProductVariant, so a line naming only a product — or only a
+ * free-text name — records cost but cannot move inventory. Callers surface the
+ * skipped count so the operator is told, rather than quietly believing stock
+ * went up.
+ */
+export function splitStockableItems<T extends { variantId: string | null; sku: string | null }>(
+  items: T[],
+): { stockable: T[]; skipped: T[] } {
+  const stockable: T[] = []
+  const skipped: T[] = []
+  for (const item of items) {
+    if (item.variantId || item.sku) stockable.push(item)
+    else skipped.push(item)
+  }
+  return { stockable, skipped }
+}
