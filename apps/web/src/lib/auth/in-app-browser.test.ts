@@ -47,7 +47,15 @@ describe('preferGoogleRedirectUx', () => {
   it('prefers redirect on desktop Chrome (popup blanks on gsi/transform)', () => {
     const ua =
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    assert.equal(preferGoogleRedirectUx(ua, 0), true)
+    assert.equal(preferGoogleRedirectUx(ua, 0, 'https://splaro.co'), true)
+  })
+
+  it('uses popup on http loopback so Chrome does not block the GIS POST', () => {
+    const ua =
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    assert.equal(preferGoogleRedirectUx(ua, 0, 'http://0.0.0.0:3000'), false)
+    assert.equal(preferGoogleRedirectUx(ua, 0, 'http://127.0.0.1:3000'), false)
+    assert.equal(preferGoogleRedirectUx(ua, 0, 'http://localhost:3000'), false)
   })
 
   it('skips redirect inside in-app browsers (GIS blocked entirely)', () => {
@@ -95,12 +103,18 @@ describe('resolveGoogleLoginUri', () => {
       resolveGoogleLoginUri('http://localhost:3000'),
       'http://127.0.0.1:3000/api/auth/google/callback',
     )
+    assert.equal(
+      resolveGoogleLoginUri('http://0.0.0.0:3000'),
+      'http://127.0.0.1:3000/api/auth/google/callback',
+    )
   })
 
   it('lists Console origins and redirect URIs GIS may send', () => {
     assert.ok(GOOGLE_CLOUD_JS_ORIGINS.includes('https://splaro.co'))
+    assert.ok(GOOGLE_CLOUD_JS_ORIGINS.includes('http://127.0.0.1:3000'))
     assert.ok(GOOGLE_CLOUD_REDIRECT_URIS.includes(PRODUCTION_GOOGLE_LOGIN_URI))
     assert.ok(GOOGLE_CLOUD_REDIRECT_URIS.includes('https://splaro.co'))
+    assert.ok(GOOGLE_CLOUD_REDIRECT_URIS.includes('http://127.0.0.1:3000'))
   })
 })
 

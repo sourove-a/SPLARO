@@ -11,6 +11,7 @@ import {
   copyTextToClipboard,
   detectInAppBrowser,
   openInExternalBrowser,
+  preferGoogleRedirectUx,
   type InAppBrowserInfo,
 } from '@/lib/auth/in-app-browser'
 import { writeGoogleReturnCookie } from '@/lib/auth/google-oauth-return'
@@ -27,6 +28,7 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
   /** 0 until measured — avoids mounting GIS at a stale width (right-side gap in the pill). */
   const [googleButtonWidth, setGoogleButtonWidth] = useState(0)
   const [inApp, setInApp] = useState<InAppBrowserInfo | null>(null)
+  const [useRedirectUx, setUseRedirectUx] = useState(false)
   const [loginUri, setLoginUri] = useState('')
   const [copied, setCopied] = useState(false)
   const pathname = usePathname()
@@ -41,20 +43,22 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
   const googleClientId = runtimeGoogleClientId || BAKED_GOOGLE
   const configured = Boolean(googleClientId)
   const originEligible = useGoogleOAuthOriginEligibility()
+  const googleButtonText = pathname === '/signup' ? 'signup_with' : 'continue_with'
 
   useEffect(() => {
     setInApp(detectInAppBrowser())
     if (typeof window !== 'undefined') {
+      setUseRedirectUx(preferGoogleRedirectUx())
       setLoginUri(resolveGoogleLoginUri(window.location.origin))
     }
   }, [])
 
   // Redirect POST needs a safe return path after Google returns the credential.
   useEffect(() => {
-    if (!loginUri) return
+    if (!useRedirectUx || !loginUri) return
     const next = searchParams.get('next') || '/account'
     writeGoogleReturnCookie(next)
-  }, [loginUri, searchParams, pathname])
+  }, [useRedirectUx, loginUri, searchParams, pathname])
 
   useLayoutEffect(() => {
     const host = googleHostRef.current
@@ -200,7 +204,8 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
             googleButtonWidth <= 0 && 'auth-google-glass__native--measuring',
           )}
         >
-          {googleButtonWidth > 0 && loginUri ? (
+          {googleButtonWidth > 0 && (!useRedirectUx || loginUri) ? (
+            useRedirectUx ? (
               <GoogleLogin
                 key={`${googleButtonWidth}-redirect`}
                 onSuccess={handleCredential}
@@ -208,7 +213,7 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
                 type="standard"
                 theme="outline"
                 size="large"
-                text="continue_with"
+                text={googleButtonText}
                 shape="pill"
                 logo_alignment="center"
                 width={googleButtonWidth}
@@ -217,6 +222,23 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
                 login_uri={loginUri}
                 use_fedcm_for_button={false}
               />
+            ) : (
+              <GoogleLogin
+                key={`${googleButtonWidth}-popup`}
+                onSuccess={handleCredential}
+                onError={() => setGoogleError('Google sign-in was cancelled or failed.')}
+                type="standard"
+                theme="outline"
+                size="large"
+                text={googleButtonText}
+                shape="pill"
+                logo_alignment="center"
+                width={googleButtonWidth}
+                locale="en"
+                ux_mode="popup"
+                use_fedcm_for_button={false}
+              />
+            )
           ) : null}
           {googleLoading ? (
             <span className="auth-google-glass__loading-cover" aria-live="polite">

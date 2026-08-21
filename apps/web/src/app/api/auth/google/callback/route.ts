@@ -9,22 +9,14 @@ import {
 } from '@/lib/auth/google-oauth-return'
 import { buildSignupPhonePath } from '@/lib/auth/signup-phone-path'
 import { resolvePostAuthDestination } from '@/lib/auth/post-auth-destination'
+import { resolvePublicWebOrigin } from '@/lib/server/public-web-origin'
 
 /**
  * GIS `ux_mode=redirect` posts the ID token here (form-urlencoded).
  * Popup mode blanks on accounts.google.com/gsi/transform — storefront uses redirect.
  */
-function originFrom(request: Request): string {
-  try {
-    return new URL(request.url).origin
-  } catch {
-    return process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || 'https://splaro.co'
-  }
-}
-
 function redirectTo(request: Request, path: string): NextResponse {
-  const url = new URL(path, originFrom(request))
-  return NextResponse.redirect(url)
+  return NextResponse.redirect(new URL(path, resolvePublicWebOrigin(request)))
 }
 
 export async function GET(request: Request) {
