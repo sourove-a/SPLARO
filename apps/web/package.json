@@ -14,7 +14,8 @@
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
     "check": "tsc --noEmit && next lint",
-    "test:unit": "npx tsx --test src/lib/navigation/navigation-recovery.test.ts src/lib/api/session.test.ts src/lib/checkout/customer-draft.test.ts src/lib/checkout/checkout-validation.test.ts src/lib/assets/image-quality-allowlist.test.ts src/lib/api/review-auth-gate.test.ts src/lib/catalog/listing.test.ts src/lib/api/hero-banners.test.ts src/lib/storefront/accessories-nav.test.ts src/lib/auth/in-app-browser.test.ts src/lib/server/public-web-origin.test.ts"
+    "test:unit": "tsx --test \"src/**/*.test.ts\" \"src/**/*.test.tsx\"",
+    "test": "pnpm run test:unit"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -65,6 +66,7 @@
     "prettier": "^3.3.3",
     "prettier-plugin-tailwindcss": "^0.6.5",
     "tailwindcss": "^3.4.6",
+    "tsx": "^4.16.0",
     "typescript": "^5.5.3"
   }
 }
