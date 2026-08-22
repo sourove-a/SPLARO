@@ -14,7 +14,9 @@ import {
   buildInvoiceAccessToken,
 } from '@splaro/config/invoice-access'
 
-function resolveChromeExecutable(puppeteerExecutablePath: () => string): string | undefined {
+async function resolveChromeExecutable(
+  puppeteerExecutablePath: () => string | Promise<string>,
+): Promise<string | undefined> {
   const fromEnv = process.env.PUPPETEER_EXECUTABLE_PATH?.trim()
   if (fromEnv && existsSync(fromEnv)) return fromEnv
 
@@ -37,7 +39,7 @@ function resolveChromeExecutable(puppeteerExecutablePath: () => string): string 
   }
 
   try {
-    const bundled = puppeteerExecutablePath()
+    const bundled = await puppeteerExecutablePath()
     if (bundled && existsSync(bundled)) return bundled
   } catch {
     /* bundled chrome not installed */
@@ -99,7 +101,9 @@ export class InvoiceService {
     const html = await this.buildHtml(orderId, { showToolbar: false, autoPrint: false })
     try {
       const puppeteer = await import('puppeteer')
-      const executablePath = resolveChromeExecutable(() => puppeteer.default.executablePath())
+      const executablePath = await resolveChromeExecutable(() =>
+        puppeteer.default.executablePath(),
+      )
       if (!executablePath) {
         throw new Error(
           'Chrome not found for PDF. Set PUPPETEER_EXECUTABLE_PATH or install Chrome.',
