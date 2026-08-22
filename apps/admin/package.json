@@ -13,7 +13,7 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "check": "node ../../scripts/check-admin-css-retired.mjs && node ../../scripts/check-admin-auth-contrast.mjs && node ../../scripts/admin-hex-to-tokens.mjs --check && tsc --noEmit && next lint",
-    "test:unit": "tsx --test \"src/**/*.test.ts\" \"src/**/*.test.tsx\"",
+    "test:unit": "tsx --test $(find src -name '*.test.ts' -o -name '*.test.tsx' | sort)",
     "test": "pnpm run test:unit"
   },
   "dependencies": {
