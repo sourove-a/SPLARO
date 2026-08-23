@@ -99,7 +99,8 @@ export class InvoiceService {
     const html = await this.buildHtml(orderId, { showToolbar: false, autoPrint: false })
     try {
       const puppeteer = await import('puppeteer')
-      const executablePath = resolveChromeExecutable(() => puppeteer.default.executablePath())
+      const bundledChrome = await Promise.resolve(puppeteer.default.executablePath())
+      const executablePath = resolveChromeExecutable(() => bundledChrome)
       if (!executablePath) {
         throw new Error(
           'Chrome not found for PDF. Set PUPPETEER_EXECUTABLE_PATH or install Chrome.',
