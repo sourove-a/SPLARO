@@ -1,4 +1,5 @@
 import type { AgentMessage } from '../agent.types'
+import { usableAiSecret } from './ai-key.util'
 
 export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
 
@@ -74,6 +75,29 @@ export interface OpenAiChatPayload {
   max_tokens?: number
 }
 
+export async function probeOpenAiKey(plain: string): Promise<void> {
+  const key = usableAiSecret(plain)
+  if (!key) {
+    throw new Error('OpenAI key looks empty or like a placeholder. Paste a real key from platform.openai.com/api-keys')
+  }
+  let res: Response
+  try {
+    res = await fetch('https://api.openai.com/v1/models', {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(12_000),
+    })
+  } catch (err) {
+    throw new Error(`OpenAI key check failed (network): ${err instanceof Error ? err.message : 'error'}`)
+  }
+  if (res.status === 401) {
+    throw new Error('OpenAI rejected this key (401). Paste a fresh key from https://platform.openai.com/api-keys')
+  }
+  if (!res.ok) {
+    const body = (await res.text().catch(() => '')).slice(0, 180)
+    throw new Error(`OpenAI key check failed (${res.status}): ${body || res.statusText}`)
+  }
+}
+
 export async function callOpenAiChat(
   apiKey: string,
   payload: Omit<OpenAiChatPayload, 'model'>,
@@ -97,7 +121,7 @@ export async function callOpenAiChat(
     const errText = await res.text()
     if (res.status === 401) {
       throw new Error(
-        'OpenAI API key invalid (401). AI Command Brain e: (1) notun OpenAI key save koro, OR (2) Claude/Gemini/Manus select kore Save — Telegram o shei active model follow korbe.',
+        'OpenAI API key invalid (401). AI Command Brain e fresh sk- / sk-proj- key paste kore Save, then Telegram e /ai use koro.',
       )
     }
     lastError = `OpenAI error ${res.status}: ${errText.slice(0, 300)}`

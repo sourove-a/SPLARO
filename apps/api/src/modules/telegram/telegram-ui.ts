@@ -514,6 +514,7 @@ export function menuMessage(): string {
       '<code>/invoice SPL-1001</code> — invoice link',
       '<code>/confirm</code> · <code>/courier</code> · <code>/cancel</code> — order actions',
       '<code>/stock SKU123</code> — stock lookup',
+      '<code>/ai pending orders?</code> — talk to SPLARO AI',
     ])}`,
   )
 }
@@ -531,6 +532,7 @@ export const BOT_COMMANDS: BotCommand[] = [
   { command: 'cancel', description: 'Cancel order' },
   { command: 'courier', description: 'Book courier' },
   { command: 'stock', description: 'Stock by SKU' },
+  { command: 'ai', description: 'Talk to SPLARO AI (admin)' },
   { command: 'login', description: 'Link this Telegram to an admin account' },
   { command: 'link_group', description: 'Link group for notifications' },
   { command: 'group_info', description: 'Show chat ID' },
@@ -609,7 +611,16 @@ export function telegramOpsHint(latestInvoice?: string | null): string {
 }
 
 export const TELEGRAM_AI_UNAVAILABLE =
-  'AI is not configured. Use Control Center for orders, or tap AI Chat after keys are set.'
+  'AI is not configured. Save a working OpenAI (or Claude/Gemini) key in Admin → AI Command Brain, then send /ai here.'
+
+export const TELEGRAM_AI_HINT =
+  'AI mode on. Type a question — orders, stock, courier, SEO. /menu to leave AI. Or send /ai your question.'
+
+export function parseTelegramAiCommand(text: string): { prompt: string } | null {
+  const m = text.trim().match(/^\/ai(?:@\w+)?(?:\s+([\s\S]+))?$/i)
+  if (!m) return null
+  return { prompt: (m[1] ?? '').trim() }
+}
 
 export function isTelegramAiAction(action: string): boolean {
   return action === TG_CALLBACK.MENU_AI || action.startsWith('act:ai_prompt')
@@ -622,6 +633,9 @@ export function shouldRouteUnmatchedTextToAi(opts: { aiMode: boolean; isGroup: b
 export function sanitizeTelegramAiError(raw: string): string {
   const t = (raw ?? '').trim()
   if (!t) return TELEGRAM_AI_UNAVAILABLE
+  if (/OpenAI API key invalid \(401\)|OpenAI rejected this key \(401\)/i.test(t)) {
+    return t
+  }
   if (
     /invalid bearer token|authentication_error|your request was blocked/i.test(t) ||
     /^\s*[{[]/.test(t) ||

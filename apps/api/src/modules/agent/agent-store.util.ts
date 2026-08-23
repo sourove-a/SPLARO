@@ -29,7 +29,7 @@ export async function ensureAgentConfigRow(prisma: PrismaService, storeId: strin
   try {
     return await prisma.agentConfig.upsert({
       where: { storeId },
-      create: { storeId, systemPrompt: DEFAULT_AGENT_SYSTEM_PROMPT },
+      create: { storeId, systemPrompt: DEFAULT_AGENT_SYSTEM_PROMPT, activeModel: 'auto' },
       update: {},
     })
   } catch (error) {

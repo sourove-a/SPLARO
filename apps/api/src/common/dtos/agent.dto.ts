@@ -43,7 +43,7 @@ export class AgentConfigDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(2048)
   openrouterKey?: string
 
   @IsOptional()
@@ -53,28 +53,28 @@ export class AgentConfigDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(2048)
   openaiKey?: string
 
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(2048)
   geminiKey?: string
 
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(2048)
   claudeKey?: string
 
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(2048)
   grokKey?: string
 
   /** Manus task API — not selectable as active chat model. */
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(2048)
   manusKey?: string
 
   @IsOptional()

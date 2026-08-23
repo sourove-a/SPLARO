@@ -17,6 +17,7 @@ import {
   type ModelProviderOptions,
 } from './model.providers'
 import { DEFAULT_OPENAI_MODEL } from './openai-models'
+import { usableAiSecret } from './ai-key.util'
 import { cheapModelForProvider } from '../agent-difficulty'
 
 const CONFIG_CACHE_MS = 60_000
@@ -215,7 +216,7 @@ export class ModelRouter {
       const token = opts.authToken?.trim()
       return token || null
     }
-    const fromIntegration = await this.integrations.getPlain(storeId, 'claude', 'apiKey')
+    const fromIntegration = usableAiSecret(await this.integrations.getPlain(storeId, 'claude', 'apiKey'))
     if (fromIntegration) return fromIntegration
     const decrypted = this.decryptKey(rowKey)
     if (decrypted) return decrypted
@@ -280,25 +281,21 @@ export class ModelRouter {
   }
 
   private envKey(model: ConcreteModelId): string | null {
-    switch (model) {
-      case 'openrouter':
-        return this.config.get<string>('OPENROUTER_API_KEY') ?? null
-      case 'openai':
-        return this.config.get<string>('OPENAI_API_KEY') ?? null
-      case 'claude':
-        return this.config.get<string>('ANTHROPIC_API_KEY') ?? null
-      case 'gemini':
-        return this.config.get<string>('GEMINI_API_KEY') ?? null
-      case 'grok':
-        return this.config.get<string>('GROK_API_KEY') ?? null
-      case 'manus': {
-        const key = this.config.get<string>('MANUS_API_KEY')?.trim()
-        if (!key || /paste|your-|example|changeme|todo|replace/i.test(key) || key.length < 20) return null
-        return key
-      }
-      default:
-        return null
-    }
+    const raw =
+      model === 'openrouter'
+        ? this.config.get<string>('OPENROUTER_API_KEY')
+        : model === 'openai'
+          ? this.config.get<string>('OPENAI_API_KEY')
+          : model === 'claude'
+            ? this.config.get<string>('ANTHROPIC_API_KEY')
+            : model === 'gemini'
+              ? this.config.get<string>('GEMINI_API_KEY')
+              : model === 'grok'
+                ? this.config.get<string>('GROK_API_KEY')
+                : model === 'manus'
+                  ? this.config.get<string>('MANUS_API_KEY')
+                  : null
+    return usableAiSecret(raw)
   }
 
   private async resolveOpenAiModel(storeId: string): Promise<string> {
@@ -326,15 +323,11 @@ export class ModelRouter {
 
   private decryptKey(stored: string | null | undefined): string | null {
     if (!stored) return null
-    try {
-      return this.crypto.decrypt(stored)
-    } catch {
-      return stored.startsWith('enc:') ? null : stored
-    }
+    return usableAiSecret(this.crypto.tryDecrypt(stored))
   }
 
   private async resolveKey(storeId: string, model: ConcreteModelId, rowKey: string | null): Promise<string | null> {
-    const fromIntegration = await this.integrations.getPlain(storeId, model, 'apiKey')
+    const fromIntegration = usableAiSecret(await this.integrations.getPlain(storeId, model, 'apiKey'))
     if (fromIntegration) return fromIntegration
     const decrypted = this.decryptKey(rowKey)
     if (decrypted) return decrypted

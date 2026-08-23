@@ -531,7 +531,8 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
     }
     setSavingKey(id)
     try {
-      await updateAgentConfig({ [KEY_FIELD[id]]: val } as never)
+      await updateAgentConfig({ [KEY_FIELD[id]]: val, activeModel: id } as never)
+      setActiveModel(id)
       const [cfg, st] = await Promise.all([fetchAgentConfig(), fetchAgentStatus()])
       setSavedKeys({
         openrouter: cfg.openrouterKey ?? null,

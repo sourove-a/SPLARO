@@ -47,6 +47,7 @@ import type { TelegramRole } from '@prisma/client'
 import {
   BOT_COMMANDS,
   ORDER_ACTION_STATUS,
+  TELEGRAM_AI_HINT,
   TELEGRAM_AI_UNAVAILABLE,
   TG_CALLBACK,
   customerCopyKeyboard,
@@ -77,6 +78,7 @@ import {
   orderCallback,
   parseListCallback,
   parseOrderCallback,
+  parseTelegramAiCommand,
   premiumHeader,
   resolveTelegramButtonRoute,
   sanitizeTelegramAiError,
@@ -1083,6 +1085,18 @@ Customer was charged AFTER this order was ${input.orderStatus}.
     route(/^\/group_info(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.GROUP_INFO)
     route(/^\/chat_id(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.GROUP_INFO)
 
+    this.bot.onText(/^\/ai(?:@\w+)?(?:\s+([\s\S]+))?$/i, async (msg) => {
+      const ctx = await this.resolveContext(msg)
+      if (!ctx) return
+      const parsed = parseTelegramAiCommand(msg.text ?? '')
+      this.setAiMode(ctx.chatId, true)
+      if (!parsed?.prompt) {
+        await this.bot?.sendMessage(ctx.chatId, TELEGRAM_AI_HINT, { reply_markup: inlineAiMenu() })
+        return
+      }
+      await this.replyAgentChat(ctx.chatId, parsed.prompt, ctx.userId)
+    })
+
     this.bot.onText(/^\/login(?:@\w+)?(?:\s+(.+))?$/i, async (msg, match) => {
       const ctx = await this.resolveContext(msg)
       if (!ctx) return
@@ -1473,10 +1487,10 @@ Customer was charged AFTER this order was ${input.orderStatus}.
         await this.executeOrderSearchHelp(ctx)
         break
       case TG_CALLBACK.MENU_AI:
-        if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+        if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER']))) return
         await this.bot?.sendMessage(
           ctx.chatId,
-          `${premiumHeader('AI Assistant', 'Run prepared ops prompts or type your own question below.')}`,
+          `${premiumHeader('AI Assistant', 'Type a question, or /ai pending orders? — SUPER_ADMIN / MANAGER only.')}`,
           {
             parse_mode: 'HTML',
             reply_markup: inlineAiMenu(),
@@ -2965,12 +2979,21 @@ Customer was charged AFTER this order was ${input.orderStatus}.
   }
 
   private async replyAgentChat(chatId: string, text: string, telegramUserId?: string): Promise<void> {
-    if (!telegramUserId) return
+    if (!telegramUserId) {
+      await this.bot?.sendMessage(chatId, 'AI needs your Telegram user. Send /login first.')
+      return
+    }
     const teleUser = await this.prisma.telegramUser.findFirst({
       where: { telegramId: telegramUserId, isActive: true, config: { isActive: true } },
       include: { config: true },
     })
-    if (!teleUser || !['SUPER_ADMIN', 'MANAGER'].includes(teleUser.role)) return
+    if (!teleUser || !['SUPER_ADMIN', 'MANAGER'].includes(teleUser.role)) {
+      await this.bot?.sendMessage(
+        chatId,
+        'AI locked. Send /login to link this chat (SUPER_ADMIN or MANAGER). Then /ai your question.',
+      )
+      return
+    }
 
     const storeId = teleUser.config.storeId
 

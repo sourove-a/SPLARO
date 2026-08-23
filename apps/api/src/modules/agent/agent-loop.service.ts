@@ -269,6 +269,7 @@ export class AgentLoopService {
               break providerLoop
             } catch (err) {
               lastErr = err instanceof Error ? err : new Error('Model request failed')
+              if (/401|invalid_api_key|invalid api key/i.test(lastErr.message)) break
               if (attempt < RETRY_DELAYS_MS.length) await sleep(RETRY_DELAYS_MS[attempt] ?? 500)
             }
           }

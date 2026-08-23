@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { DEFAULT_AGENT_SYSTEM_PROMPT } from '../agent/prompts/system.prompt'
-import { DEFAULT_OPENAI_MODEL, OPENAI_MODELS, callOpenAiChat } from '../agent/providers/openai-models'
+import { DEFAULT_OPENAI_MODEL, OPENAI_MODELS, callOpenAiChat, probeOpenAiKey } from '../agent/providers/openai-models'
+import { normalizeAiSecret } from '../agent/providers/ai-key.util'
 import { EncryptionService } from './encryption.service'
 import { IntegrationAuditService } from './integration-audit.service'
 import { IntegrationsService } from './integrations.service'
@@ -59,9 +60,14 @@ export class AiIntegrationService {
   async update(storeIdRaw: string, body: AiIntegrationDto, userId?: string) {
     const storeId = await this.integrations.resolveStore(storeIdRaw)
     const keySaved = await this.integrations.hasSecret(storeId, 'openai', 'apiKey')
-    const newKey = body.apiKey?.trim()
+    const newKey = body.apiKey ? normalizeAiSecret(body.apiKey) : ''
 
     if (newKey && !this.crypto.isMaskedInput(newKey)) {
+      try {
+        await probeOpenAiKey(newKey)
+      } catch (err) {
+        throw new BadRequestException(err instanceof Error ? err.message : 'OpenAI key rejected')
+      }
       await this.integrations.upsertSecret({
         storeId,
         provider: 'openai',

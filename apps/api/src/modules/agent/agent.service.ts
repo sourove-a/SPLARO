@@ -8,7 +8,8 @@ import { DEFAULT_AGENT_SYSTEM_PROMPT } from './prompts/system.prompt'
 import { PromptManager } from './prompts/prompt.manager'
 import { ConversationStore } from './memory/conversation.store'
 import { ModelRouter } from './providers/model-router'
-import { sanitizeAgentHistory } from './providers/openai-models'
+import { sanitizeAgentHistory, probeOpenAiKey } from './providers/openai-models'
+import { normalizeAiSecret } from './providers/ai-key.util'
 import { AgentToolsService } from './tools/agent-tools.service'
 import { AgentLoopService } from './agent-loop.service'
 import { AgentAuditService } from './agent-audit.service'
@@ -145,9 +146,10 @@ export class AgentService {
     for (const field of keyFields) {
       const raw = body[field]
       if (raw !== undefined && raw !== '' && !String(raw).includes('••••')) {
-        const plain = String(raw).trim()
+        const plain = normalizeAiSecret(String(raw))
         if (field === 'openaiKey') {
           await this.assertOpenAiKey(plain)
+          if (body.activeModel === undefined) data.activeModel = 'openai'
         }
         if (field === 'manusKey') {
           await this.assertManusKey(plain)
@@ -287,25 +289,10 @@ export class AgentService {
 
   /** Reject dead keys at save-time — never show green "saved" for a 401 key. */
   private async assertOpenAiKey(plain: string) {
-    let res: Response
     try {
-      res = await fetch('https://api.openai.com/v1/models', {
-        headers: { Authorization: `Bearer ${plain}` },
-        signal: AbortSignal.timeout(12_000),
-      })
+      await probeOpenAiKey(plain)
     } catch (err) {
-      throw new BadRequestException(
-        `OpenAI key check failed (network): ${err instanceof Error ? err.message : 'error'}`,
-      )
-    }
-    if (res.status === 401) {
-      throw new BadRequestException(
-        'OpenAI rejected this key (401). Paste a fresh key from https://platform.openai.com/api-keys',
-      )
-    }
-    if (!res.ok) {
-      const body = (await res.text().catch(() => '')).slice(0, 180)
-      throw new BadRequestException(`OpenAI key check failed (${res.status}): ${body || res.statusText}`)
+      throw new BadRequestException(err instanceof Error ? err.message : 'OpenAI key check failed')
     }
   }
 

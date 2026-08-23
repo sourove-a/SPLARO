@@ -7,6 +7,7 @@ import {
   isStaleTelegramKeyboardLabel,
   telegramConfirmInvoiceAction,
   resolveTelegramButtonRoute,
+  parseTelegramAiCommand,
   sanitizeTelegramAiError,
   shouldRouteUnmatchedTextToAi,
   telegramOpsHint,
@@ -47,6 +48,14 @@ describe('Telegram button aliases', () => {
   })
 })
 
+describe('Telegram /ai command', () => {
+  it('parses /ai and /ai prompt', () => {
+    expect(parseTelegramAiCommand('/ai')).toEqual({ prompt: '' })
+    expect(parseTelegramAiCommand('/ai@splaro_bot pending koto')).toEqual({ prompt: 'pending koto' })
+    expect(parseTelegramAiCommand('hello')).toBeNull()
+  })
+})
+
 describe('Telegram AI opt-in', () => {
   it('does not send unmatched text to the agent unless AI Chat is on', () => {
     expect(shouldRouteUnmatchedTextToAi({ aiMode: false, isGroup: false })).toBe(false)
@@ -67,6 +76,9 @@ describe('Telegram AI opt-in', () => {
     ).toBe(TELEGRAM_AI_UNAVAILABLE)
     expect(sanitizeTelegramAiError('Pending 3 orders ready to confirm')).toBe(
       'Pending 3 orders ready to confirm',
+    )
+    expect(sanitizeTelegramAiError('OpenAI API key invalid (401). AI Command Brain e fresh sk-')).toContain(
+      '401',
     )
   })
 })
