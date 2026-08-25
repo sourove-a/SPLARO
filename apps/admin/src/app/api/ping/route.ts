@@ -42,11 +42,14 @@ export async function GET() {
   const checkedAt = new Date().toISOString()
 
   const storefrontOrigin = getStorefrontProbeOrigin()
-  const storefrontUrl = `${storefrontOrigin}/api/products?limit=1`
+  // Liveness only: /api/build-id touches no database and no upstream API, so a
+  // slow catalog query (or a cold dev compile) no longer reports the storefront
+  // as offline with "operation was aborted due to timeout".
+  const storefrontUrl = `${storefrontOrigin}/api/build-id`
 
   const [apiProbe, storefrontProbe] = await Promise.all([
     probe(`${base}/health`, 5000),
-    probe(storefrontUrl, 6000),
+    probe(storefrontUrl, 8000),
   ])
   let databaseOnline = false
   let databaseLatency: number | null = null

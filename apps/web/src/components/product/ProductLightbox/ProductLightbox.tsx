@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight, X as CloseIcon } from 'lucide-react'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import { MotionPressable } from '@/components/ui/MotionPressable'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
+import { videoEmbedSrc } from '@/lib/media/product-video'
 import { EASE_EXPO_OUT } from '@/lib/motion/config'
 import { cn } from '@/lib/utils/cn'
 import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap'
@@ -159,15 +160,26 @@ export function ProductLightbox({
             }}
           >
             {active?.type === 'video' ? (
-              <video
-                src={active.url}
-                className="pp-lightbox__media"
-                autoPlay
-                muted
-                loop
-                playsInline
-                controls
-              />
+              videoEmbedSrc(active.url) ? (
+                <iframe
+                  src={videoEmbedSrc(active.url) as string}
+                  className="pp-lightbox__media"
+                  style={{ border: 0 }}
+                  title={`${productName} video`}
+                  allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                  allowFullScreen
+                />
+              ) : (
+                <video
+                  src={active.url}
+                  className="pp-lightbox__media"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  controls
+                />
+              )
             ) : (
               <TransformWrapper
                 ref={pinchRef}

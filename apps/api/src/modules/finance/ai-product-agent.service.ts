@@ -196,7 +196,12 @@ export class AIProductAgentService {
   }
 
   private async generateContent(input: AIProductInput, storeId: string) {
-    const { provider, apiKey, model, providerOptions } = await this.modelRouter.getProvider(storeId)
+    /*
+     * Auto routing picks OpenRouter first, so one dead/rejected key there used
+     * to fail the whole fill even when a working OpenAI/Gemini key was saved.
+     * Walk every configured provider instead of trusting the first one.
+     */
+    const chain = await this.modelRouter.getFailoverChain(storeId, 'complex')
     const skuBase = input.productName
       .toUpperCase()
       .replace(/[^A-Z0-9]/g, '')
@@ -267,10 +272,38 @@ export class AIProductAgentService {
       },
     ]
 
-    const result = await provider.chat(messages, [], apiKey, providerOptions)
-    const content = result.content?.trim()
+    let content = ''
+    let model: string = chain[0]?.model ?? 'auto'
+    const failures: string[] = []
+    for (const candidate of chain) {
+      try {
+        const result = await candidate.provider.chat(
+          messages,
+          [],
+          candidate.apiKey,
+          candidate.providerOptions,
+        )
+        const text = result.content?.trim()
+        if (!text) {
+          failures.push(`${candidate.model}: empty content`)
+          continue
+        }
+        content = text
+        model = candidate.model
+        break
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'request failed'
+        failures.push(`${candidate.model}: ${reason}`)
+        this.logger.warn(`AI product fill failed on ${candidate.model} — ${reason}`)
+      }
+    }
+
     if (!content) {
-      throw new BadRequestException(`AI model (${model}) returned empty content`)
+      throw new BadRequestException(
+        failures.length
+          ? `AI fill failed on every configured model — ${failures.join(' | ')}`
+          : 'No AI API key configured. Add one in AI Command Brain.',
+      )
     }
 
     const jsonMatch = content.match(/\{[\s\S]*\}/)

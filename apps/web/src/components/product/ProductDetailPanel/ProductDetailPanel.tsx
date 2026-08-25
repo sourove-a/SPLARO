@@ -27,6 +27,7 @@ import { ProductDiscountBadge, ProductPrice } from '@/components/product/Product
 import { slugFromCategory } from '@/data/storefront'
 import { storefrontToDetailItem } from '@/lib/catalog/product-detail-map'
 import { resolveSizeOptionUi } from '@/lib/catalog/size-option-ui'
+import { videoEmbedSrc } from '@/lib/media/product-video'
 import { getRecentlyViewed, trackRecentlyViewed } from '@/lib/recentlyViewed'
 import { ProductMiniRow } from '@/components/product/ProductMiniRow/ProductMiniRow'
 import { SizeGuideModal } from '@/components/product/SizeGuideModal/SizeGuideModal'
@@ -303,15 +304,27 @@ export function ProductDetailPanel({
                     transition={{ duration: PRODUCT_GALLERY_MS, ease: productGalleryEase }}
                   >
                     {media[activeImage]?.type === 'video' ? (
-                      <video
-                        src={media[activeImage]!.url}
-                        className="pdp-gallery__video"
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                        controls
-                      />
+                      videoEmbedSrc(media[activeImage]!.url) ? (
+                        <iframe
+                          src={videoEmbedSrc(media[activeImage]!.url) as string}
+                          className="pdp-gallery__video"
+                          style={{ border: 0 }}
+                          title={`${product.name} video`}
+                          allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                          allowFullScreen
+                          loading="lazy"
+                        />
+                      ) : (
+                        <video
+                          src={media[activeImage]!.url}
+                          className="pdp-gallery__video"
+                          autoPlay
+                          muted
+                          loop
+                          playsInline
+                          controls
+                        />
+                      )
                     ) : (
                       <Image
                         src={media[activeImage]!.url}
@@ -390,7 +403,9 @@ export function ProductDetailPanel({
                     >
                       {item.type === 'video' ? (
                         <>
-                          <video src={item.url} muted playsInline className="pdp-gallery__video-thumb" />
+                          {videoEmbedSrc(item.url) ? null : (
+                            <video src={item.url} muted playsInline className="pdp-gallery__video-thumb" />
+                          )}
                           <span className="pp-gallery__thumb-play" aria-hidden>Play</span>
                         </>
                       ) : (

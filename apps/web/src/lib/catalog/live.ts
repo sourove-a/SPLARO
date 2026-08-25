@@ -4,6 +4,7 @@ import type { ColorOption, StorefrontProduct } from '@/data/storefront'
 import type { ProductBrand, ProductDetailData, ProductVariantData } from '@splaro/types'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
+import { videoEmbedSrc } from '@/lib/media/product-video'
 import {
   buildProductDescriptionFallback,
   formatProductWeightGrams,
@@ -132,7 +133,11 @@ interface LiveProduct {
 
 function isVideoMedia(image?: { url?: string | null; altText?: string | null }) {
   const url = image?.url ?? ''
-  return image?.altText === 'media:video' || /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url)
+  return (
+    image?.altText === 'media:video' ||
+    /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url) ||
+    videoEmbedSrc(url) !== null
+  )
 }
 
 function productMedia(images: LiveProduct['images']) {

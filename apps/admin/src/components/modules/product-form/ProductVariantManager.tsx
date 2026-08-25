@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import Image from 'next/image'
 import { DcIcon } from '@/components/dc/DcIcon'
 import { DcField, DcInput } from '@/components/dc/product/DcProductFormPrimitives'
@@ -180,6 +180,12 @@ interface ProductVariantManagerProps {
   /** Product-level main (MRP) and sale — empty row prices inherit these. */
   productMainPrice?: string
   productSalePrice?: string
+  /**
+   * Lets the product panel's own "Save changes" flush unsaved variant rows too,
+   * and show them as unsaved — editing stock and saving the product used to
+   * drop the variant edits silently.
+   */
+  onUnsavedChange?: (count: number, save: () => Promise<void>) => void
 }
 
 interface RowDraft {
@@ -293,6 +299,20 @@ function colourRowsFromVariants(rows: Variant[]): ColourDraft[] {
     : [{ id: 'c-seed-default', name: 'Default', hex: DEFAULT_COLOUR_HEX, image: '' }]
 }
 
+function isDraftEdited(d: RowDraft, base: RowDraft): boolean {
+  return (
+    d.size !== base.size ||
+    d.colorName !== base.colorName ||
+    d.colorHex !== base.colorHex ||
+    d.image !== base.image ||
+    d.sku !== base.sku ||
+    d.barcode !== base.barcode ||
+    d.price !== base.price ||
+    d.compareAtPrice !== base.compareAtPrice ||
+    d.stock !== base.stock
+  )
+}
+
 function isRowDirty(v: Variant, d: RowDraft): boolean {
   const base = draftFromVariant(v)
   return (
@@ -395,6 +415,7 @@ export function ProductVariantManager({
   departmentHint,
   productMainPrice = '',
   productSalePrice = '',
+  onUnsavedChange,
 }: ProductVariantManagerProps) {
   const updateVariant = useUpdateProductVariant()
   const createVariant = useCreateProductVariant()
@@ -411,6 +432,7 @@ export function ProductVariantManager({
     variants.forEach((v) => { if (v.id) map[v.id] = draftFromVariant(v) })
     return map
   })
+  const serverDraftRef = useRef<Record<string, RowDraft>>({})
   const [selectedSizes, setSelectedSizes] = useState<string[]>([])
   const [customSize, setCustomSize] = useState('')
   const [colorRows, setColorRows] = useState<ColourDraft[]>(() => colourRowsFromVariants(variants))
@@ -442,11 +464,21 @@ export function ProductVariantManager({
       variants.forEach((v) => {
         if (!v.id) return
         liveIds.add(v.id)
+        const fresh = draftFromVariant(v)
+        const lastServer = serverDraftRef.current[v.id]
+        serverDraftRef.current[v.id] = fresh
         if (v.id === busyId) return
-        next[v.id] = draftFromVariant(v)
+        // Keep whatever the admin is typing: only take server values when the row
+        // has no unsaved local edits (compared against the previous server snapshot).
+        const local = prev[v.id]
+        if (local && lastServer && isDraftEdited(local, lastServer)) return
+        next[v.id] = fresh
       })
       Object.keys(next).forEach((id) => {
-        if (!liveIds.has(id)) delete next[id]
+        if (!liveIds.has(id)) {
+          delete next[id]
+          delete serverDraftRef.current[id]
+        }
       })
       return next
     })
@@ -576,7 +608,9 @@ export function ProductVariantManager({
   }, [filteredVariants, drafts, sizeChips])
 
   const syncDraftFromServer = (variantId: string, row: Variant) => {
-    setDrafts((prev) => ({ ...prev, [variantId]: draftFromVariant(row) }))
+    const fresh = draftFromVariant(row)
+    serverDraftRef.current[variantId] = fresh
+    setDrafts((prev) => ({ ...prev, [variantId]: fresh }))
   }
 
   const toggleSizeChip = (size: string) => {
@@ -758,6 +792,14 @@ export function ProductVariantManager({
       setBulkAllBusy(null)
     }
   }
+
+  const saveAllRef = useRef(saveAllDirty)
+  useEffect(() => {
+    saveAllRef.current = saveAllDirty
+  })
+  useEffect(() => {
+    onUnsavedChange?.(dirtyIds.size, () => saveAllRef.current())
+  }, [dirtyIds.size, onUnsavedChange])
 
   const applyStockToAll = async () => {
     const stock = Number(bulk.stock)
@@ -1082,6 +1124,38 @@ export function ProductVariantManager({
     if (id) {
       setAddDraft(EMPTY_DRAFT)
       setShowManual(false)
+    }
+  }
+
+  /**
+   * Seed the manual add form from the variants already on the product so the
+   * admin only has to confirm — SKU/barcode stay blank because the API issues
+   * the canonical codes on create.
+   */
+  const nextVariantDraft = (): RowDraft => {
+    const last = variants.length ? variants[variants.length - 1] : null
+    const base = last ? draftFor(last) : null
+    const usedSizes = variants.map((v) => (v.id && drafts[v.id]?.size) || displaySizeLabel(v.size) || '')
+    const known = new Set(usedSizes.map((s) => s.trim().toLowerCase()).filter(Boolean))
+    const numeric = usedSizes.map((s) => Number(s.trim())).filter((n) => Number.isFinite(n) && n > 0)
+
+    let size = ''
+    if (numeric.length === usedSizes.filter(Boolean).length && numeric.length > 0) {
+      size = String(Math.max(...numeric) + 1)
+    } else {
+      size = sizeChips.find((chip) => !known.has(chip.trim().toLowerCase())) ?? ''
+    }
+
+    return {
+      ...EMPTY_DRAFT,
+      size,
+      color: base?.color ?? '',
+      colorName: base?.colorName || EMPTY_DRAFT.colorName,
+      colorHex: base?.colorHex || EMPTY_DRAFT.colorHex,
+      image: base?.image ?? '',
+      price: base?.price || productSalePrice.trim() || productMainPrice.trim(),
+      compareAtPrice: base?.compareAtPrice || productMainPrice.trim(),
+      stock: base?.stock || EMPTY_DRAFT.stock,
     }
   }
 
@@ -1952,6 +2026,7 @@ export function ProductVariantManager({
               <DcInput
                 mono
                 value={addDraft.sku}
+                placeholder="Auto"
                 onChange={(e) => setAddDraft((p) => ({ ...p, sku: e.target.value }))}
               />
             </DcField>
@@ -1959,6 +2034,7 @@ export function ProductVariantManager({
               <DcInput
                 mono
                 value={addDraft.barcode}
+                placeholder="Auto"
                 onChange={(e) => setAddDraft((p) => ({ ...p, barcode: e.target.value }))}
               />
             </DcField>
@@ -1987,7 +2063,10 @@ export function ProductVariantManager({
       ) : (
         <button
           type="button"
-          onClick={() => setShowManual(true)}
+          onClick={() => {
+            setAddDraft(nextVariantDraft())
+            setShowManual(true)
+          }}
           style={{
             display: 'flex',
             alignItems: 'center',

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Loader2, AlertTriangle } from 'lucide-react'
 import { DcIcon } from '@/components/dc/DcIcon'
@@ -117,6 +117,13 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
   const [qrPreviewUrl, setQrPreviewUrl] = useState('')
   const [barcodeGenerating, setBarcodeGenerating] = useState(false)
   const [barcodePreviewUrl, setBarcodePreviewUrl] = useState('')
+  const [variantUnsaved, setVariantUnsaved] = useState(0)
+  const saveVariantsRef = useRef<(() => Promise<void>) | null>(null)
+
+  const handleVariantUnsaved = useCallback((count: number, save: () => Promise<void>) => {
+    saveVariantsRef.current = save
+    setVariantUnsaved(count)
+  }, [])
 
   const [form, setForm] = useState({
     name: '',
@@ -440,9 +447,21 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
       category: categoryName,
     })
     const { en, bn } = splitBilingualDescription(full)
-    setForm((prev) => ({ ...prev, descriptionEn: en, descriptionBn: bn }))
+    // Never silently wipe copy the owner already wrote on a live product.
+    const hasExisting = Boolean(form.descriptionEn.trim() || form.descriptionBn.trim())
+    if (
+      hasExisting &&
+      !window.confirm('Replace the current English + Bangla description with a fresh draft?')
+    ) {
+      return
+    }
+    setForm((prev) => ({
+      ...prev,
+      descriptionEn: en || prev.descriptionEn,
+      descriptionBn: bn || prev.descriptionBn,
+    }))
     setDirty(true)
-    toastOk('Description draft ready', 'desc-draft-edit')
+    toastOk('Description draft ready — review, then Save', 'desc-draft-edit')
   }
 
   const applyBanglaPolish = () => {
@@ -603,6 +622,14 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
     if (!sellingPrice || sellingPrice <= 0) { toastFail('Enter a valid price.'); return }
     setSaving(true)
     try {
+      // Variant rows (stock, price, SKU) live in their own drafts — flush them
+      // here so one Save covers what the operator actually edited on screen.
+      const savedVariants = variantUnsaved > 0 && saveVariantsRef.current !== null
+      if (savedVariants) {
+        await saveVariantsRef.current!()
+        // Variant rows report their own result; skip a no-op product PATCH.
+        if (!dirty) return
+      }
       const tags = parseTagsInput(form.tags)
       const costPrice = form.costPrice.trim() ? Number(form.costPrice) : undefined
       const payload = {
@@ -1133,6 +1160,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
               productName={form.name || product.name}
               productMainPrice={form.basePrice}
               productSalePrice={form.compareAtPrice}
+              onUnsavedChange={handleVariantUnsaved}
               {...(departmentHint ? { departmentHint } : {})}
             />
           </DcSectionCard>
@@ -1267,8 +1295,20 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
               backdropFilter: 'blur(16px)',
             }}
           >
-            <span style={{ flex: 1, font: `600 12.5px/1.3 ${FONT}`, color: dirty ? 'var(--warn)' : 'var(--ink-3)' }}>
-              {dirty ? 'Unsaved changes' : 'All changes saved'}
+            <span
+              style={{
+                flex: 1,
+                font: `600 12.5px/1.3 ${FONT}`,
+                color: dirty || variantUnsaved > 0 ? 'var(--warn)' : 'var(--ink-3)',
+              }}
+            >
+              {dirty && variantUnsaved > 0
+                ? `Unsaved changes · ${variantUnsaved} variant${variantUnsaved === 1 ? '' : 's'}`
+                : variantUnsaved > 0
+                  ? `${variantUnsaved} unsaved variant${variantUnsaved === 1 ? '' : 's'}`
+                  : dirty
+                    ? 'Unsaved changes'
+                    : 'All changes saved'}
             </span>
             <button
               type="button"

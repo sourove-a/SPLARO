@@ -54,6 +54,7 @@ import { trackAddToCart, trackViewContent } from '@/lib/analytics/meta-pixel'
 import type { ProductDetailData } from '@/types/product'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
+import { videoEmbedSrc } from '@/lib/media/product-video'
 import { sanitizeStorefrontProductCode } from '@/lib/catalog/storefront-sanitize'
 import { buildProductDescriptionBn } from '@/lib/catalog/product-copy-bn'
 import { optimizeImageSrc } from '@/lib/assets/image-optimize'
@@ -1088,6 +1089,20 @@ export default function ProductPageClient({
 
   const renderGallerySlide = (item: (typeof media)[number], index: number) => {
     if (item.type === 'video') {
+      const embed = videoEmbedSrc(item.url)
+      if (embed) {
+        return (
+          <iframe
+            src={embed}
+            className="pp-gallery__video"
+            style={{ border: 0 }}
+            title={`${product.name} video`}
+            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+            allowFullScreen
+            loading="lazy"
+          />
+        )
+      }
       return (
         <video
           src={item.url}
