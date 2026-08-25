@@ -196,6 +196,17 @@ export class AgentLoopService {
 
     let modelId = providerOptions?.model ?? model
 
+    // Without this the operator sees a 401 for a provider they never selected.
+    const fallbackFrom = chain[0]!.fallbackFrom
+    if (fallbackFrom) {
+      yield {
+        type: 'token',
+        content:
+          `⚠️ ${providerLabel(fallbackFrom)} er API key save nai — ${providerLabel(String(model))} e fallback korlam. ` +
+          `AI Command Brain → ${providerLabel(fallbackFrom)} field e key save koro.\n\n`,
+      }
+    }
+
     if (model === 'manus') {
       yield {
         type: 'token',

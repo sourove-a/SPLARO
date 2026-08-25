@@ -24,11 +24,20 @@ const CONFIG_CACHE_MS = 60_000
 
 export type ConcreteModelId = Exclude<AgentModelId, 'auto'>
 
+/** Where a key came from — an operator-saved key outranks a leftover .env one. */
+type KeySource = 'db' | 'env'
+
+interface ResolvedKey {
+  key: string | null
+  source: KeySource | null
+}
+
 interface CachedConfig {
   at: number
   storeId: string
   activeModel: AgentModelId
   keys: Record<ConcreteModelId, string | null>
+  sources: Record<ConcreteModelId, KeySource | null>
 }
 
 const PROVIDER_PRIORITY: ConcreteModelId[] = [
@@ -61,19 +70,32 @@ export class ModelRouter {
     private readonly integrations: IntegrationsService,
   ) {}
 
+  /**
+   * A key an operator saved in AI Command Brain beats one that is only sitting
+   * in `.env`: a stale `OPENROUTER_API_KEY` used to win every fallback and
+   * answer with a 401 for a provider the operator never picked.
+   */
+  private pickFallback(cfg: CachedConfig): ConcreteModelId | null {
+    const ready = PROVIDER_PRIORITY.filter((m) => Boolean(cfg.keys[m]))
+    return ready.find((m) => cfg.sources[m] === 'db') ?? ready[0] ?? null
+  }
+
   async getProvider(storeIdRaw: string): Promise<{
     provider: ModelProvider
     apiKey: string
     model: AgentModelId
     providerOptions?: ModelProviderOptions
+    /** Set when the active model had no key and another provider took over. */
+    fallbackFrom?: ConcreteModelId
   }> {
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
     const cfg = await this.loadConfig(storeId)
     let selectedModel: ConcreteModelId
+    let fallbackFrom: ConcreteModelId | undefined
 
     if (cfg.activeModel === 'auto') {
       // In auto mode, find the first available provider with a configured key
-      const available = PROVIDER_PRIORITY.find((m) => Boolean(cfg.keys[m]))
+      const available = this.pickFallback(cfg)
       if (!available) {
         throw new Error(
           'No AI API key configured. AI Command Brain (or .env) e OpenRouter, OpenAI, Gemini, Claude, Grok ba Manus API key save koro.',
@@ -88,9 +110,10 @@ export class ModelRouter {
         selectedModel = target
       } else {
         // Fallback: If configured model has no key, look for any ready provider
-        const fallback = PROVIDER_PRIORITY.find((m) => Boolean(cfg.keys[m]))
+        const fallback = this.pickFallback(cfg)
         if (fallback) {
           selectedModel = fallback
+          fallbackFrom = target
           this.logger.warn(
             `[Auto-Fallback] Active model "${target}" lacks key — fallback to ${fallback}`,
           )
@@ -117,7 +140,13 @@ export class ModelRouter {
     const apiKey = cfg.keys[selectedModel]!
     const providerOptions = await this.resolveProviderOptions(storeId, selectedModel)
 
-    return { provider: this.providers[selectedModel], apiKey, model: selectedModel, providerOptions }
+    return {
+      provider: this.providers[selectedModel],
+      apiKey,
+      model: selectedModel,
+      providerOptions,
+      ...(fallbackFrom ? { fallbackFrom } : {}),
+    }
   }
 
   /**
@@ -133,14 +162,18 @@ export class ModelRouter {
       apiKey: string
       model: AgentModelId
       providerOptions?: ModelProviderOptions
+      fallbackFrom?: ConcreteModelId
     }>
   > {
     const primary = await this.getProviderForDifficulty(storeIdRaw, difficulty)
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
     const cfg = await this.loadConfig(storeId)
     const chain = [primary]
-    for (const id of PROVIDER_PRIORITY) {
-      if (id === primary.model) continue
+    // Operator-saved keys are tried before .env-only ones, same reason as pickFallback.
+    const rest = PROVIDER_PRIORITY.filter((id) => id !== primary.model && cfg.keys[id]).sort(
+      (a, b) => Number(cfg.sources[b] === 'db') - Number(cfg.sources[a] === 'db'),
+    )
+    for (const id of rest) {
       const apiKey = cfg.keys[id]
       if (!apiKey) continue
       chain.push({
@@ -210,17 +243,18 @@ export class ModelRouter {
     }
   }
 
-  private async resolveClaudeKey(storeId: string, rowKey: string | null): Promise<string | null> {
+  private async resolveClaudeKey(storeId: string, rowKey: string | null): Promise<ResolvedKey> {
     const opts = await this.resolveClaudeOptions(storeId)
     if (opts.authMode === 'antigravity_proxy' && opts.baseUrl) {
       const token = opts.authToken?.trim()
-      return token || null
+      return token ? { key: token, source: 'db' } : { key: null, source: null }
     }
     const fromIntegration = usableAiSecret(await this.integrations.getPlain(storeId, 'claude', 'apiKey'))
-    if (fromIntegration) return fromIntegration
+    if (fromIntegration) return { key: fromIntegration, source: 'db' }
     const decrypted = this.decryptKey(rowKey)
-    if (decrypted) return decrypted
-    return this.envKey('claude')
+    if (decrypted) return { key: decrypted, source: 'db' }
+    const fromEnv = this.envKey('claude')
+    return fromEnv ? { key: fromEnv, source: 'env' } : { key: null, source: null }
   }
 
   async getActiveModel(storeIdRaw: string): Promise<AgentModelId> {
@@ -326,12 +360,17 @@ export class ModelRouter {
     return usableAiSecret(this.crypto.tryDecrypt(stored))
   }
 
-  private async resolveKey(storeId: string, model: ConcreteModelId, rowKey: string | null): Promise<string | null> {
+  private async resolveKey(
+    storeId: string,
+    model: ConcreteModelId,
+    rowKey: string | null,
+  ): Promise<ResolvedKey> {
     const fromIntegration = usableAiSecret(await this.integrations.getPlain(storeId, model, 'apiKey'))
-    if (fromIntegration) return fromIntegration
+    if (fromIntegration) return { key: fromIntegration, source: 'db' }
     const decrypted = this.decryptKey(rowKey)
-    if (decrypted) return decrypted
-    return this.envKey(model)
+    if (decrypted) return { key: decrypted, source: 'db' }
+    const fromEnv = this.envKey(model)
+    return fromEnv ? { key: fromEnv, source: 'env' } : { key: null, source: null }
   }
 
   private async loadConfig(storeId: string): Promise<CachedConfig> {
@@ -342,7 +381,7 @@ export class ModelRouter {
 
     const row = await ensureAgentConfigRow(this.prisma, storeId)
 
-    const keys: Record<ConcreteModelId, string | null> = {
+    const resolved: Record<ConcreteModelId, ResolvedKey> = {
       openrouter: await this.resolveKey(storeId, 'openrouter', (row as unknown as { openrouterKey?: string }).openrouterKey ?? null),
       openai: await this.resolveKey(storeId, 'openai', row.openaiKey),
       claude: await this.resolveClaudeKey(storeId, row.claudeKey),
@@ -351,9 +390,16 @@ export class ModelRouter {
       manus: await this.resolveKey(storeId, 'manus', row.manusKey),
     }
 
+    const keys = {} as Record<ConcreteModelId, string | null>
+    const sources = {} as Record<ConcreteModelId, KeySource | null>
+    for (const id of Object.keys(resolved) as ConcreteModelId[]) {
+      keys[id] = resolved[id].key
+      sources[id] = resolved[id].source
+    }
+
     const activeModel = (row.activeModel as AgentModelId) || 'auto'
 
-    this.cache = { at: now, storeId, activeModel, keys }
+    this.cache = { at: now, storeId, activeModel, keys, sources }
     return this.cache
   }
 }
