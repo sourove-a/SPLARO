@@ -280,10 +280,20 @@ export class ModelRouter {
         ? Object.values(cfg.keys).some(Boolean)
         : Boolean(cfg.keys[cfg.activeModel as ConcreteModelId]) || Object.values(cfg.keys).some(Boolean)
 
+    // `activeModelReady` only says a chat will get *an* answer. It stayed true
+    // with the selected provider unconfigured, so the UI reported "ready" for a
+    // model that could not answer and quietly handed the turn to another one.
+    const activeModelHasKey =
+      cfg.activeModel === 'auto'
+        ? Object.values(cfg.keys).some(Boolean)
+        : Boolean(cfg.keys[cfg.activeModel as ConcreteModelId])
+
     return {
       activeModel: cfg.activeModel,
       models,
       activeModelReady: isReady,
+      activeModelHasKey,
+      fallbackModel: activeModelHasKey ? null : this.pickFallback(cfg),
     }
   }
 

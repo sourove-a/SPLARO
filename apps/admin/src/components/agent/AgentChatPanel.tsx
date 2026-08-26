@@ -420,10 +420,19 @@ export function AgentChatPanel({
         },
       ])
     } else if (event.type === 'error') {
+      // Keep what already streamed — the router explains a provider fallback in
+      // tokens, and overwriting it left only an unattributed provider error.
       setMessages((prev) =>
         prev.map((m) =>
           m.id === botMsgId
-            ? { ...m, content: event.content ?? 'Error', tone: 'error', pending: false }
+            ? {
+                ...m,
+                content: m.content
+                  ? `${m.content}\n\n${event.content ?? 'Error'}`
+                  : (event.content ?? 'Error'),
+                tone: 'error',
+                pending: false,
+              }
             : m,
         ),
       )

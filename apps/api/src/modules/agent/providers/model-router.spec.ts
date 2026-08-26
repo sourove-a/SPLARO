@@ -120,6 +120,21 @@ describe('ModelRouter key precedence', () => {
     expect(chain.map((slot) => slot.model)).toEqual(['openai', 'gemini', 'openrouter'])
   })
 
+  it('reports the selected model as keyless and names its stand-in', async () => {
+    const router = buildRouter({
+      activeModel: 'openai',
+      saved: { openrouter: STALE_OPENROUTER_ENV_SECRET },
+    })
+
+    const status = await router.getModelStatus('splaro')
+
+    // A chat still gets answered, so the panel may stay enabled...
+    expect(status.activeModelReady).toBe(true)
+    // ...but it must not call the selected, keyless provider "ready".
+    expect(status.activeModelHasKey).toBe(false)
+    expect(status.fallbackModel).toBe('openrouter')
+  })
+
   it('reports no key at all instead of routing to a provider with none', async () => {
     const router = buildRouter({ activeModel: 'openai' })
 

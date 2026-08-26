@@ -609,6 +609,14 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
   const budgetWarn = (budget?.pct ?? 0) >= 0.8
   const activeModelLabel = MODELS.find((m) => m.id === activeModel)?.label ?? activeModel
 
+  // A selected provider with no key still chats — another provider answers for
+  // it. Say so, instead of calling the selected one "ready".
+  const activeModelUsesFallback = Boolean(
+    chatReady && status && status.activeModelHasKey === false && status.fallbackModel,
+  )
+  const fallbackModelLabel =
+    MODELS.find((m) => m.id === status?.fallbackModel)?.label ?? status?.fallbackModel ?? ''
+
   // Never show a bare number where a decision belongs: name the one thing
   // standing between the operator and a working agent, and how to clear it.
   const decision: {
@@ -711,8 +719,12 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
             {
               label: 'Model',
               value: activeModelLabel,
-              sub: chatReady ? 'ready' : 'needs setup',
-              tone: chatReady ? 'success' : 'warning',
+              sub: !chatReady
+                ? 'needs setup'
+                : activeModelUsesFallback
+                  ? `no key — answers via ${fallbackModelLabel}`
+                  : 'ready',
+              tone: chatReady && !activeModelUsesFallback ? 'success' : 'warning',
             },
             {
               label: 'API',

@@ -51,7 +51,12 @@ export interface AgentStatusResponse {
   api: boolean
   database: boolean
   activeModel: AgentModelId
+  /** True when *some* provider can answer — not necessarily the selected one. */
   activeModelReady: boolean
+  /** True only when the selected provider has its own key. */
+  activeModelHasKey?: boolean
+  /** Provider that will answer instead, when the selected one has no key. */
+  fallbackModel?: AgentModelId | null
   models: Record<AgentModelId, { configured: boolean }>
   manusConfigured?: boolean
   telegram: { configured: boolean; isActive?: boolean; chatId: string | null }
