@@ -30,11 +30,13 @@ export function listMcpTokens(storeId = 'splaro') {
   return apiFetch<McpTokenList>(`/admin/mcp/tokens?storeId=${encodeURIComponent(storeId)}`)
 }
 
-export function createMcpToken(input?: { name?: string; storeId?: string }) {
+export type McpScope = 'mcp:read' | 'mcp:write'
+
+export function createMcpToken(input?: { name?: string; storeId?: string; scopes?: McpScope[] }) {
   const storeId = input?.storeId ?? 'splaro'
   return apiFetch<McpTokenCreated>(`/admin/mcp/tokens?storeId=${encodeURIComponent(storeId)}`, {
     method: 'POST',
-    body: JSON.stringify({ name: input?.name }),
+    body: JSON.stringify({ name: input?.name, scopes: input?.scopes }),
   })
 }
 

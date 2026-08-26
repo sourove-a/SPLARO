@@ -8,6 +8,7 @@ import {
   createMcpToken,
   listMcpTokens,
   revokeMcpToken,
+  type McpScope,
   type McpTokenCreated,
   type McpTokenRow,
 } from '@/lib/api/mcp'
@@ -45,6 +46,9 @@ export function McpLinkTokenPanel({ embedded = false }: { embedded?: boolean }) 
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [fresh, setFresh] = useState<McpTokenCreated | null>(null)
+  // Read-only unless the owner deliberately asks for write: this token goes to
+  // an outside assistant, and write scope lets it change stock and order status.
+  const [allowWrite, setAllowWrite] = useState(false)
   const [upstreamOk, setUpstreamOk] = useState<boolean | null>(null)
   const legacyConnectUrl = `${connectUrl}/sse`
 
@@ -114,10 +118,18 @@ export function McpLinkTokenPanel({ embedded = false }: { embedded?: boolean }) 
   const onGenerate = async () => {
     setBusy(true)
     try {
-      const created = await createMcpToken({ name: 'ChatGPT / Claude MCP' })
+      const scopes: McpScope[] = allowWrite ? ['mcp:read', 'mcp:write'] : ['mcp:read']
+      const created = await createMcpToken({
+        name: allowWrite ? 'ChatGPT / Claude MCP (read + write)' : 'ChatGPT / Claude MCP (read only)',
+        scopes,
+      })
       setFresh(created)
       setConnectUrl(preferLocalConnectUrl(created.connectUrl))
-      toastOk('MCP link token created — copy it now (shown once)')
+      toastOk(
+        allowWrite
+          ? 'MCP link token created with WRITE access — copy it now (shown once)'
+          : 'Read-only MCP link token created — copy it now (shown once)',
+      )
       await reload()
     } catch (err) {
       toastFail(err instanceof ApiError ? err.message : 'Could not create MCP token')
@@ -223,18 +235,42 @@ export function McpLinkTokenPanel({ embedded = false }: { embedded?: boolean }) 
             Connect ChatGPT or Claude to live orders and products with a private Bearer token — no public open endpoint.
           </p>
         </div>
-        <button
-          type="button"
-          style={{
-            ...primaryBtn,
-            opacity: busy ? 0.7 : 1,
-            cursor: busy ? 'not-allowed' : 'pointer',
-          }}
-          disabled={busy}
-          onClick={() => void onGenerate()}
-        >
-          {busy ? 'Generating…' : 'Generate link token'}
-        </button>
+        <div style={{ display: 'grid', gap: 8, justifyItems: 'end' }}>
+          <label
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 7,
+              font: `500 11.5px/1.3 ${FONT}`,
+              color: allowWrite ? 'var(--bad)' : 'var(--ink-2)',
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={allowWrite}
+              onChange={(e) => setAllowWrite(e.target.checked)}
+              disabled={busy}
+            />
+            Allow writes (order status, stock)
+          </label>
+          <button
+            type="button"
+            style={{
+              ...primaryBtn,
+              opacity: busy ? 0.7 : 1,
+              cursor: busy ? 'not-allowed' : 'pointer',
+            }}
+            disabled={busy}
+            onClick={() => void onGenerate()}
+          >
+            {busy
+              ? 'Generating…'
+              : allowWrite
+                ? 'Generate read + write token'
+                : 'Generate read-only token'}
+          </button>
+        </div>
       </div>
 
       <ol
@@ -367,6 +403,16 @@ export function McpLinkTokenPanel({ embedded = false }: { embedded?: boolean }) 
                 <p style={{ margin: '4px 0 0', font: `500 11px/1.4 ${MONO}`, color: 'var(--ink-3)' }}>
                   {row.prefix}… · {row.status}
                   {row.lastUsed ? ` · last used ${new Date(row.lastUsed).toLocaleString()}` : ' · never used'}
+                </p>
+                {/* A live write token is worth spotting at a glance. */}
+                <p
+                  style={{
+                    margin: '4px 0 0',
+                    font: `600 11px/1.4 ${MONO}`,
+                    color: row.scopes.includes('mcp:write') ? 'var(--bad)' : 'var(--ink-3)',
+                  }}
+                >
+                  {row.scopes.includes('mcp:write') ? 'read + write' : 'read only'}
                 </p>
               </div>
               {row.status === 'active' ? (

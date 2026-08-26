@@ -167,7 +167,10 @@ export class McpTokenService {
         requested.filter((s) => s === MCP_READ_SCOPE || s === MCP_WRITE_SCOPE),
       ),
     )
-    const finalScopes = scopes.length > 0 ? scopes : [MCP_READ_SCOPE, MCP_WRITE_SCOPE]
+    // Least privilege by default. This used to hand out read+write whenever the
+    // caller said nothing, so an "add a read-only connector" click shipped a
+    // token that could move stock and order status.
+    const finalScopes = scopes.length > 0 ? scopes : [MCP_READ_SCOPE]
 
     if (!finalScopes.includes(MCP_READ_SCOPE) && !finalScopes.includes(MCP_WRITE_SCOPE)) {
       throw new BadRequestException('scopes must include mcp:read and/or mcp:write')
