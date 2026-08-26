@@ -189,6 +189,55 @@
 
 }
 
+/* ── Third pass: PDP copy controls ────────────────────────────────────
+   Two controls under the buy box were never in either list above, and
+   measuring `::before` on them live returned `content: none` — no pad had
+   ever applied:
+
+     .pp-lang__opt   EN / বাং copy toggle, drawn 32×24
+     .pp-size-guide  "Size Guide" link-button, drawn 107×24
+
+   Both are 24px tall, the smallest touch targets on the page. Same
+   contract as the rest of this file: the drawn control is untouched, only
+   a transparent centred pad grows. */
+
+@media (pointer: coarse), (max-width: 768px) {
+  .pp-view .pp-lang__opt,
+  .pp-view .pp-size-guide {
+    position: relative;
+  }
+
+  .pp-view .pp-lang__opt::before,
+  .pp-view .pp-size-guide::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-height: 44px;
+    width: 100%;
+    height: 100%;
+    transform: translate(-50%, -50%);
+    background: transparent;
+    /* Matches the reasoning on the pads above: another rule resolves these
+       pseudo-elements to `pointer-events: none`, so the pad needs to force
+       itself back on. It paints nothing either way. */
+    pointer-events: auto !important;
+    z-index: 1;
+  }
+
+  /* EN and বাং sit side by side inside one pill. A full 44px-wide pad on
+     each would overlap and hand the tap to whichever paints last, so the
+     pad grows to 44 vertically and stays the chip's own width. */
+  .pp-view .pp-lang__opt::before {
+    min-width: 100%;
+  }
+
+  /* "Size Guide" is already 107px wide — height is the only shortfall. */
+  .pp-view .pp-size-guide::before {
+    min-width: 100%;
+  }
+}
+
 /*
  * The two rules below change a drawn height rather than a hit area, so they
  * are kept off the `pointer: coarse` arm on purpose: a touch-screen laptop

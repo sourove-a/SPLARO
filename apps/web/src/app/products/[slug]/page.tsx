@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { getProductDetailBySlug } from '@/lib/catalog/server'
 import { PDP_REVIEWS_VISIBLE } from '@/lib/catalog/pdp-reviews-visibility'
 import { pageTitleSegment } from '@/lib/seo/page-title'
+import { tidyMetaDescription } from '@/lib/seo/meta-description'
 import { serializeJsonLd } from '@/lib/seo/json-ld'
 import ProductPageClient from './product-page-client'
 import { RelatedProducts } from './related-products'
@@ -50,9 +51,11 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
   const { product } = result
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
-  const safeDescription = sanitizeStorefrontDescription(
-    product.metaDescription ?? product.description,
-    `${product.name} from SPLARO.`,
+  const safeDescription = tidyMetaDescription(
+    sanitizeStorefrontDescription(
+      product.metaDescription ?? product.description,
+      `${product.name} from SPLARO.`,
+    ),
   )
   const safeOgDescription =
     sanitizeStorefrontShortDescription(product.shortDescription, safeDescription) ??
@@ -186,9 +189,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
         '@type': 'Product',
         '@id': `${siteUrl}/products/${product.slug}#product`,
         name: product.name,
-        description: sanitizeStorefrontDescription(
-          product.description,
-          `${product.name} from SPLARO.`,
+        description: tidyMetaDescription(
+          sanitizeStorefrontDescription(
+            product.description,
+            `${product.name} from SPLARO.`,
+          ),
         ),
         sku: product.sku,
         ...(product.sku ? { mpn: product.sku, productID: product.sku } : {}),

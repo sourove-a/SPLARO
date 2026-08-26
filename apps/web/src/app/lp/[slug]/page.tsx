@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { ContentPage } from '@/components/content/ContentPage'
 import { getLandingPage } from '@/lib/content/get-landing-page'
+import { tidyMetaDescription } from '@/lib/seo/meta-description'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -13,7 +14,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!page) return { title: 'Page not found' }
   return {
     title: page.metaTitle ?? page.title,
-    description: page.metaDescription ?? page.description,
+    description: tidyMetaDescription(page.metaDescription ?? page.description),
   }
 }
 

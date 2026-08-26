@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { isFeatureEnabled } from '@splaro/config'
 import { ContentPage } from '@/components/content/ContentPage'
 import { getLegalPage } from '@/lib/content/get-legal-page'
+import { tidyMetaDescription } from '@/lib/seo/meta-description'
 
 export async function generateMetadata(): Promise<Metadata> {
   if (!isFeatureEnabled('loyalty')) {
@@ -11,7 +12,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const page = await getLegalPage('loyalty')
   return {
     title: page.metaTitle ?? page.title,
-    description: page.metaDescription ?? page.description,
+    description: tidyMetaDescription(page.metaDescription ?? page.description),
   }
 }
 

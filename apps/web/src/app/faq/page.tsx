@@ -2,12 +2,13 @@ import { ContentPage } from '@/components/content/ContentPage'
 import { getLegalPage } from '@/lib/content/get-legal-page'
 import { buildFaqPageJsonLd } from '@/lib/seo/geo-json-ld'
 import { createRouteMetadata } from '@/lib/seo/route-metadata'
+import { tidyMetaDescription } from '@/lib/seo/meta-description'
 
 export async function generateMetadata() {
   const page = await getLegalPage('faq')
   return createRouteMetadata({
     title: page.metaTitle ?? page.title,
-    description: page.metaDescription ?? page.description,
+    description: tidyMetaDescription(page.metaDescription ?? page.description),
     path: '/faq',
   })
 }
