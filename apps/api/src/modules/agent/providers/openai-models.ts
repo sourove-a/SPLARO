@@ -89,12 +89,28 @@ export async function probeOpenAiKey(plain: string): Promise<void> {
   } catch (err) {
     throw new Error(`OpenAI key check failed (network): ${err instanceof Error ? err.message : 'error'}`)
   }
-  if (res.status === 401) {
+  if (res.ok) return
+
+  const body = (await res.text().catch(() => '')).slice(0, 400)
+
+  // A restricted project key (sk-proj-…) can be perfectly good for chat and
+  // still be refused here, because listing models needs the api.model.read
+  // scope. Only a key OpenAI calls invalid is actually invalid; anything else
+  // gets decided by the call the agent really makes.
+  if (res.status === 401 && /invalid[_ ]api[_ ]key|Incorrect API key/i.test(body)) {
     throw new Error('OpenAI rejected this key (401). Paste a fresh key from https://platform.openai.com/api-keys')
   }
-  if (!res.ok) {
-    const body = (await res.text().catch(() => '')).slice(0, 180)
-    throw new Error(`OpenAI key check failed (${res.status}): ${body || res.statusText}`)
+
+  await probeOpenAiChat(key, body || res.statusText)
+}
+
+/** Last word on a key: the same chat call the agent uses, one token wide. */
+async function probeOpenAiChat(key: string, listFailure: string): Promise<void> {
+  try {
+    // Resolves only on a 2xx; every failure path throws with OpenAI's own text.
+    await callOpenAiChat(key, { messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 }, null)
+  } catch (err) {
+    throw new Error(`OpenAI key check failed: ${err instanceof Error ? err.message : listFailure}`)
   }
 }
 

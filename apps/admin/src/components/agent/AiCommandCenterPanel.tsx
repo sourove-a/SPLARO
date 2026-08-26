@@ -1079,7 +1079,11 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
                   <span style={{ ...dcCaps, margin: 0, flex: 1, minWidth: 140 }}>{m.keyLabel}</span>
 
-                  {hasSaved ? (
+                  {keyInputs[m.id].trim() ? (
+                    // A key sitting in the box is not a stored key. Say so, or the
+                    // operator reads "not saved" as the app losing what they typed.
+                    <span style={dcChip('warn')}>typed — press Save</span>
+                  ) : hasSaved ? (
                     <span
                       style={{
                         display: 'inline-flex',
@@ -1126,6 +1130,15 @@ export function AiCommandCenterPanel({ embedded = false }: { embedded?: boolean 
                         type={showKey[m.id] ? 'text' : 'password'}
                         value={keyInputs[m.id]}
                         onChange={(e) => setKeyInputs((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                        // Paste-then-Enter is the reflex here, and it used to do
+                        // nothing at all: the key sat in the box looking entered
+                        // while no request was ever sent.
+                        onKeyDown={(e) => {
+                          if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+                          e.preventDefault()
+                          if (savingKey === m.id || !keyInputs[m.id].trim()) return
+                          void handleSaveKey(m.id)
+                        }}
                         placeholder={hasSaved ? 'Paste the new key — blank keeps the stored one' : m.placeholder}
                         autoComplete="new-password"
                         autoCorrect="off"
