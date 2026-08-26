@@ -56,12 +56,17 @@ import { generateAIProduct } from '@/lib/api/finance'
 import { fetchProductQR, fetchProductBarcode, productStock } from '@/lib/api/products'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 import { BN_COPY, EN_COPY, filterToScript, gateScript, scriptWarning } from '@/lib/admin/bilingual-copy'
+import { hasUnsavedProductWork, productUnsavedLabel } from '@/lib/admin/product-unsaved'
 
 interface ProductEditPanelProps {
   productId: string
   moduleHref: string
   /** Kept for callers — edit always uses DC layout under DcPageHead. */
   embedded?: boolean
+  /** Lets the page head mirror what the footer bar already says. */
+  onUnsavedChange?: (state: { dirty: boolean; variantUnsaved: number }) => void
+  /** Hands the page head the real save, instead of it clicking the DOM button. */
+  onRegisterSave?: (save: () => Promise<void>) => void
 }
 
 function slugify(str: string) {
@@ -80,7 +85,13 @@ function toDatetimeLocalValue(value: string | Date | null | undefined): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export function ProductEditPanel({ productId, moduleHref, embedded = false }: ProductEditPanelProps) {
+export function ProductEditPanel({
+  productId,
+  moduleHref,
+  embedded = false,
+  onUnsavedChange,
+  onRegisterSave,
+}: ProductEditPanelProps) {
   const { navigate } = useAdminNavigate()
   const qc = useQueryClient()
   const { data: product, isLoading, isError, refetch } = useProduct(productId)
@@ -689,6 +700,50 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
       setSaving(false)
     }
   }
+
+  const hasUnsaved = hasUnsavedProductWork({ dirty, variantUnsaved })
+
+  // `handleSave` is rebuilt every render; keep the latest in a ref so the page
+  // head and the ⌘S handler can hold one stable function.
+  const handleSaveRef = useRef(handleSave)
+  useEffect(() => {
+    handleSaveRef.current = handleSave
+  })
+
+  const runSave = useCallback(async () => {
+    await handleSaveRef.current()
+  }, [])
+
+  useEffect(() => {
+    onRegisterSave?.(runSave)
+  }, [onRegisterSave, runSave])
+
+  useEffect(() => {
+    onUnsavedChange?.({ dirty, variantUnsaved })
+  }, [dirty, variantUnsaved, onUnsavedChange])
+
+  // A product edit holds a lot of typing — variant stock across every size, two
+  // languages of copy. Closing the tab used to drop all of it without a word.
+  useEffect(() => {
+    if (!hasUnsaved) return
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [hasUnsaved])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 's' || !(event.metaKey || event.ctrlKey) || event.shiftKey) return
+      event.preventDefault()
+      if (saving || !canEditProducts) return
+      void handleSaveRef.current()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [saving, canEditProducts])
 
   const handleArchive = async () => {
     if (!window.confirm(`Archive "${form.name}"? It will be hidden from storefront.`)) return
@@ -1302,13 +1357,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
                 color: dirty || variantUnsaved > 0 ? 'var(--warn)' : 'var(--ink-3)',
               }}
             >
-              {dirty && variantUnsaved > 0
-                ? `Unsaved changes · ${variantUnsaved} variant${variantUnsaved === 1 ? '' : 's'}`
-                : variantUnsaved > 0
-                  ? `${variantUnsaved} unsaved variant${variantUnsaved === 1 ? '' : 's'}`
-                  : dirty
-                    ? 'Unsaved changes'
-                    : 'All changes saved'}
+              {productUnsavedLabel({ dirty, variantUnsaved })}
             </span>
             <button
               type="button"
@@ -1338,6 +1387,7 @@ export function ProductEditPanel({ productId, moduleHref, embedded = false }: Pr
               data-dc-publish-primary="1"
               disabled={!canEditProducts || saving}
               onClick={() => void handleSave()}
+              title={canEditProducts ? 'Save (⌘S / Ctrl+S)' : 'Your role cannot edit products'}
               style={{
                 display: 'flex',
                 alignItems: 'center',

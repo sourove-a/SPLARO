@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
@@ -9,6 +9,7 @@ import { dcConnectionChip, dcPageStatus } from '@/components/dc/page-status'
 import { ProductEditPanel } from '@/components/modules/ProductEditPanel'
 import { toastFail } from '@/lib/admin/feedback'
 import { productStorefrontUrl } from '@/lib/admin/product-storefront-url'
+import { hasUnsavedProductWork, productSaveActionLabel } from '@/lib/admin/product-unsaved'
 import { useProduct } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 
@@ -34,9 +35,23 @@ export function DcProductEdit({
   const statusTone = connChip?.tone ??
     (product?.isPublished ? 'ok' : product ? 'mute' : queryStatus.tone)
 
+  const saveRef = useRef<(() => Promise<void>) | null>(null)
+  const [unsaved, setUnsaved] = useState({ dirty: false, variantUnsaved: 0 })
+  const hasUnsaved = hasUnsavedProductWork(unsaved)
+
+  const registerSave = useCallback((save: () => Promise<void>) => {
+    saveRef.current = save
+  }, [])
+
   const triggerSave = useCallback(() => {
     if (api.pulse === 'offline') {
       toastFail('API offline — cannot save until :4000 is up.')
+      return
+    }
+    // The panel hands us its own save. Clicking its DOM button stays as a
+    // fallback so this keeps working if the panel ever renders without it.
+    if (saveRef.current) {
+      void saveRef.current()
       return
     }
     const btn = document.querySelector(
@@ -48,6 +63,17 @@ export function DcProductEdit({
     }
     btn.click()
   }, [api.pulse])
+
+  const handleBack = useCallback(() => {
+    if (
+      hasUnsaved &&
+      typeof window !== 'undefined' &&
+      !window.confirm('You have unsaved changes. Leave this product without saving?')
+    ) {
+      return
+    }
+    router.push(moduleHref)
+  }, [hasUnsaved, moduleHref, router])
 
   return (
     <DcScreenProvider screen="product-edit" onNavigate={(next) => router.push(`/dashboard/${next}`)}>
@@ -63,7 +89,7 @@ export function DcProductEdit({
               ? `GET /products/${productId} · ${api.latencyMs}ms`
               : `GET /products/${productId}`
         }
-        onBack={() => router.push(moduleHref)}
+        onBack={handleBack}
         onSync={() => void refetch()}
         actions={[
           {
@@ -84,7 +110,9 @@ export function DcProductEdit({
             },
           },
           {
-            label: 'Save changes',
+            // The head sits above a long scroll — say whether anything is
+            // pending here too, instead of only in the footer bar.
+            label: productSaveActionLabel(unsaved),
             icon: 'icon-check',
             variant: 'primary',
             onClick: triggerSave,
@@ -92,7 +120,13 @@ export function DcProductEdit({
         ]}
       />
       <div className="dc-detail-host dc-product-edit">
-        <ProductEditPanel productId={productId} moduleHref={moduleHref} embedded />
+        <ProductEditPanel
+          productId={productId}
+          moduleHref={moduleHref}
+          embedded
+          onRegisterSave={registerSave}
+          onUnsavedChange={setUnsaved}
+        />
       </div>
     </DcScreenProvider>
   )
