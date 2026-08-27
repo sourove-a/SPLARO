@@ -86,9 +86,25 @@ export function fetchCustomers(params?: {
   if (params?.from) qs.set('from', params.from)
   if (params?.to) qs.set('to', params.to)
   const query = qs.toString()
-  return apiFetch<{ customers: ApiCustomer[]; total: number; page?: number; totalPages?: number }>(
-    `/admin/customers${query ? `?${query}` : ''}`,
-  )
+  return apiFetch<{
+    customers: ApiCustomer[]
+    total: number
+    /** Rows the staff filter is holding back — 0 unless staff=hide. */
+    staffHidden?: number
+    page?: number
+    totalPages?: number
+  }>(`/admin/customers${query ? `?${query}` : ''}`)
+}
+
+export interface CustomerPresence {
+  /** Customer ids on the storefront inside the presence window. */
+  online: string[]
+  source: 'live' | 'sessions'
+  updatedAt: string
+}
+
+export function fetchCustomerPresence() {
+  return apiFetch<CustomerPresence>('/admin/customers/presence')
 }
 
 export function fetchCustomer(id: string) {

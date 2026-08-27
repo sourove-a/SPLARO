@@ -98,8 +98,23 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
       >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
           <div className="relative shrink-0 self-start">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--violet-soft)] text-xl font-serif font-light text-[var(--violet)] sm:h-16 sm:w-16 sm:text-2xl">
-              {customer.firstName[0]}{customer.lastName[0]}
+            <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-[var(--violet-soft)] text-xl font-serif font-light text-[var(--violet)] sm:h-16 sm:w-16 sm:text-2xl">
+              {customer.avatar ? (
+                // Remote provider URL (Google). next/image would need every
+                // host allow-listed and buys nothing at 64px.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={customer.avatar}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <>
+                  {customer.firstName[0]}
+                  {customer.lastName[0]}
+                </>
+              )}
             </div>
             <span
               className={cn(

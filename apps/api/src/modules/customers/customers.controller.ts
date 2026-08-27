@@ -8,6 +8,7 @@ import { resolveAdminPagination } from '../../common/admin-pagination.util'
 import { isStaffProtectedUser } from '../../common/primary-owner.util'
 import { LoyaltyService } from '../loyalty/loyalty.service'
 import { CustomersService, STAFF_CUSTOMER_TAG } from './customers.service'
+import { PresenceService } from '../../common/presence.service'
 import type { LoyaltyTier, Prisma } from '@prisma/client'
 import {
   buildFraudFlags,
@@ -32,6 +33,7 @@ export class CustomersController {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(LoyaltyService) private readonly loyalty: LoyaltyService,
     @Inject(CustomersService) private readonly customersService: CustomersService,
+    @Inject(PresenceService) private readonly presence: PresenceService,
   ) {}
 
   private sid(raw?: string) {
@@ -94,7 +96,17 @@ export class CustomersController {
       ...(createdAt ? { createdAt } : {}),
     }
 
-    const [rows, total] = await Promise.all([
+    // How many rows the staff filter is holding back. Without this the list
+    // reads "9 of 9" while the operator's own shopper row — and every other
+    // staff account — is missing, with nothing on screen saying so.
+    const staffHiddenWhere: Prisma.CustomerWhereInput = {
+      storeId: sid,
+      OR: [{ tags: { has: STAFF_CUSTOMER_TAG } }, { user: { is: { role: { not: 'CUSTOMER' } } } }],
+      ...(tier ? { loyaltyTier: tier as LoyaltyTier } : {}),
+      ...(createdAt ? { createdAt } : {}),
+    }
+
+    const [rows, total, staffHidden] = await Promise.all([
       this.prisma.customer.findMany({
         where,
         select: {
@@ -117,6 +129,7 @@ export class CustomersController {
         take,
       }),
       this.prisma.customer.count({ where }),
+      staffMode === 'hide' ? this.prisma.customer.count({ where: staffHiddenWhere }) : 0,
     ])
 
     const customers = rows.map(({ user, ...c }) => ({
@@ -129,7 +142,7 @@ export class CustomersController {
       ...(user?.avatar ? { avatar: user.avatar } : {}),
     }))
 
-    return { customers, total, page: pageNum, totalPages: Math.ceil(total / take) }
+    return { customers, total, staffHidden, page: pageNum, totalPages: Math.ceil(total / take) }
   }
 
   @Post()
@@ -145,6 +158,17 @@ export class CustomersController {
   ) {
     const sid = await this.sid(body.storeId)
     return this.customersService.createFromAdmin(sid, body)
+  }
+
+  /**
+   * Which customers are on the storefront right now. Polled on its own rather
+   * than folded into the list, so a five-second dot refresh does not re-run the
+   * list's counts and joins.
+   */
+  @Get('presence')
+  async customerPresence(@Query('storeId') storeId: string) {
+    const sid = await this.sid(storeId)
+    return this.presence.getOnlineCustomers(sid)
   }
 
   /** Export customers CSV — static segment before :id */
