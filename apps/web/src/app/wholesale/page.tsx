@@ -5,7 +5,8 @@ import { fetchWithTimeout } from '@/lib/server/build-safe-fetch'
 
 export const metadata = createRouteMetadata({
   title: 'Wholesale & Export — SPLARO',
-  description: 'B2B wholesale and export partnership with SPLARO.',
+  description:
+    'Wholesale and export enquiry for SPLARO — quiet luxury apparel designed in Dhaka. Retail checkout stays Cash on Delivery.',
   path: '/wholesale',
 })
 
@@ -41,7 +42,7 @@ export default async function WholesalePage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={heroImage}
-              alt=""
+              alt={stock[0]?.title?.trim() || ''}
               className="wholesale-hero__image wholesale-hero__image--static"
             />
             <div className="wholesale-hero__veil" />
@@ -50,9 +51,63 @@ export default async function WholesalePage() {
         <div className="container-luxury wholesale-hero__copy">
           <p className="wholesale-hero__brand">SPLARO</p>
           <h1 className="wholesale-hero__title">Wholesale &amp; export</h1>
+          <p className="wholesale-hero__lede">
+            Quiet luxury apparel designed in Dhaka — for retailers, distributors, and export
+            partners. Share your order volume and we will reply with availability. This page is an
+            enquiry, not an online wholesale checkout; the retail shop remains Cash on Delivery.
+          </p>
           <a href="#wholesale-enquiry" className="wholesale-hero__cta">
             Start enquiry
           </a>
+        </div>
+      </section>
+
+      <section className="wholesale-points" aria-label="How wholesale works">
+        <div className="container-luxury wholesale-points__grid">
+          <article className="wholesale-point">
+            <span className="wholesale-point__icon" aria-hidden="true">
+              01
+            </span>
+            <div>
+              <h2 className="wholesale-point__title">Designed in Dhaka</h2>
+              <p className="wholesale-point__body">
+                Collections developed here for this climate and fit — not imported for another market.
+              </p>
+            </div>
+          </article>
+          <article className="wholesale-point">
+            <span className="wholesale-point__icon" aria-hidden="true">
+              02
+            </span>
+            <div>
+              <h2 className="wholesale-point__title">Women, men &amp; kids</h2>
+              <p className="wholesale-point__body">
+                Apparel we actually produce. We do not quote styles we cannot deliver.
+              </p>
+            </div>
+          </article>
+          <article className="wholesale-point">
+            <span className="wholesale-point__icon" aria-hidden="true">
+              03
+            </span>
+            <div>
+              <h2 className="wholesale-point__title">Bangladesh &amp; export</h2>
+              <p className="wholesale-point__body">
+                Domestic retailers and export partners. Tell us the destination in the form.
+              </p>
+            </div>
+          </article>
+          <article className="wholesale-point">
+            <span className="wholesale-point__icon" aria-hidden="true">
+              04
+            </span>
+            <div>
+              <h2 className="wholesale-point__title">Enquiry, not checkout</h2>
+              <p className="wholesale-point__body">
+                No wholesale cart or published MOQ here. We reply with stock and terms after you write.
+              </p>
+            </div>
+          </article>
         </div>
       </section>
 
@@ -64,7 +119,7 @@ export default async function WholesalePage() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={item.url}
-                  alt={item.title?.trim() || ''}
+                  alt={item.title?.trim() || 'SPLARO wholesale stock'}
                   className="wholesale-stock__img"
                 />
               </figure>

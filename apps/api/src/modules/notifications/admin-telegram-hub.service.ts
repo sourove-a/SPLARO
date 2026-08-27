@@ -91,6 +91,7 @@ Total: <b>${formatBDT(Number(order.total))}</b>${note ? `\nNote: ${note}` : ''}
       productInterest?: string
       monthlyQuantity?: string
       message?: string
+      photoCount?: number
     },
   ): Promise<void> {
     const who = input.companyName ? `${input.fullName} · ${input.companyName}` : input.fullName
@@ -119,6 +120,7 @@ Total: <b>${formatBDT(Number(order.total))}</b>${note ? `\nNote: ${note}` : ''}
       ...(input.monthlyQuantity
         ? [`Monthly qty: ${escapeTelegramHtml(input.monthlyQuantity)}`]
         : []),
+      ...(input.photoCount && input.photoCount > 0 ? [`Photos: ${input.photoCount}`] : []),
       ...(input.message ? ['', escapeTelegramHtml(input.message.slice(0, 500))] : []),
       '',
       '<i>Admin → Wholesale → Wholesale Leads</i>',

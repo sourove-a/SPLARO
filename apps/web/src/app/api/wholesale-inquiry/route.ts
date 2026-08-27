@@ -61,7 +61,11 @@ export async function POST(request: Request) {
       },
     )
 
-    const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string }
+    const data = (await res.json().catch(() => ({}))) as {
+      message?: string
+      error?: string
+      duplicate?: boolean
+    }
     if (!res.ok) {
       return NextResponse.json(
         { error: data.message ?? data.error ?? 'Could not send your enquiry. Please try again.' },
@@ -69,7 +73,11 @@ export async function POST(request: Request) {
       )
     }
 
-    return NextResponse.json({ ok: true, message: data.message })
+    return NextResponse.json({
+      ok: true,
+      message: data.message,
+      duplicate: Boolean(data.duplicate),
+    })
   } catch (error) {
     if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
       return NextResponse.json({ error: 'Request timed out — please try again.' }, { status: 504 })
