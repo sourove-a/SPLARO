@@ -38,6 +38,7 @@ import {
   StorefrontResetPasswordDto,
   StorefrontSignupDto,
   StorefrontSubmitReviewDto,
+  StorefrontCreateReturnDto,
 } from '../../common/dtos/storefront.dto'
 import { PrismaService } from '../../common/prisma.service'
 import { CATALOG_CACHE_TTL } from '../../common/catalog-cache.constants'
@@ -68,6 +69,7 @@ import { EmailService } from '../email/email.service'
 import { CustomersService } from '../customers/customers.service'
 import { StorefrontAuthService } from './storefront-auth.service'
 import { StorefrontWishlistService } from './storefront-wishlist.service'
+import { StorefrontReturnsService } from './storefront-returns.service'
 import { StorefrontOtpService, isStorefrontPhoneOtpEnabled } from './storefront-otp.service'
 import { InvoiceService } from '../invoices/invoice.service'
 import { LegalPagesService } from '../content/legal-pages.service'
@@ -142,6 +144,7 @@ export class StorefrontController {
     private readonly customers: CustomersService,
     private readonly storefrontAuth: StorefrontAuthService,
     private readonly storefrontWishlist: StorefrontWishlistService,
+    private readonly storefrontReturns: StorefrontReturnsService,
     private readonly storefrontOtp: StorefrontOtpService,
     private readonly invoices: InvoiceService,
     private readonly legalPages: LegalPagesService,
@@ -151,6 +154,25 @@ export class StorefrontController {
     private readonly paymentIntegration: PaymentIntegrationService,
     private readonly presence: PresenceService,
   ) {}
+
+  /**
+   * Resolve the signed-in shopper for customer-scoped routes. Every one of them
+   * repeated the same four steps; getting one of them wrong is how a customer
+   * ends up reading someone else's order.
+   */
+  private async requireCustomer(
+    storeId: string,
+    authorization?: string,
+    sessionHeader?: string,
+  ) {
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    if (!sessionToken) throw new UnauthorizedException('Not signed in')
+    const user = await this.storefrontAuth.validateSession(sessionToken)
+    if (!user) throw new UnauthorizedException('Session expired')
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const customerId = await this.storefrontAuth.ensureCustomerId(user, sid)
+    return { sid, customerId, user }
+  }
 
   @Get('nav')
   async getNav(@Query('storeId') storeId: string) {
@@ -914,6 +936,89 @@ export class StorefrontController {
     const customerId = await this.storefrontAuth.ensureCustomerId(user, sid)
     const orders = await this.storefrontOrders.listForCustomer(sid, customerId)
     return { orders: toPublicStorefrontOrders(orders) }
+  }
+
+  @Get('customer/returns')
+  async listCustomerReturns(
+    @Query('storeId') storeId: string,
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+  ) {
+    const { sid, customerId } = await this.requireCustomer(
+      storeId,
+      authorization,
+      sessionHeader,
+    )
+    return { returns: await this.storefrontReturns.listForCustomer(sid, customerId) }
+  }
+
+  /**
+   * What the shopper may still send back, and why not when the answer is
+   * nothing — the storefront asks before drawing the form so nobody fills one
+   * in only to be refused on submit.
+   */
+  @Get('customer/orders/:orderId/return-eligibility')
+  async returnEligibility(
+    @Param('orderId') orderId: string,
+    @Query('storeId') storeId: string,
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+  ) {
+    const { sid, customerId } = await this.requireCustomer(
+      storeId,
+      authorization,
+      sessionHeader,
+    )
+    return this.storefrontReturns.eligibility(sid, customerId, orderId)
+  }
+
+  @Post('customer/returns')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async createCustomerReturn(
+    @Query('storeId') storeId: string,
+    @Body() body: StorefrontCreateReturnDto,
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+  ) {
+    const { sid, customerId, user } = await this.requireCustomer(
+      storeId,
+      authorization,
+      sessionHeader,
+    )
+    const created = await this.storefrontReturns.create(sid, customerId, body)
+
+    // The request is already saved. An unreachable Telegram bot must not turn
+    // a filed return into a 500 the shopper retries.
+    await this.telegramHub
+      .notifyReturnRequest(sid, {
+        rmaNumber: created.rmaNumber,
+        invoiceNumber: created.invoiceNumber,
+        type: created.type === 'EXCHANGE' ? 'EXCHANGE' : 'RETURN',
+        customerName: user.name || user.phone || 'Customer',
+        reason: created.reason,
+        items: created.items.map(
+          (item) =>
+            `${item.productName}${item.variantName ? ` (${item.variantName})` : ''} \u00D7${item.quantity}`,
+        ),
+      })
+      .catch(() => undefined)
+
+    return { return: created }
+  }
+
+  @Get('customer/returns/:id')
+  async getCustomerReturn(
+    @Param('id') id: string,
+    @Query('storeId') storeId: string,
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+  ) {
+    const { sid, customerId } = await this.requireCustomer(
+      storeId,
+      authorization,
+      sessionHeader,
+    )
+    return { return: await this.storefrontReturns.getForCustomer(sid, customerId, id) }
   }
 
   @Post('orders/payment-event')

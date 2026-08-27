@@ -204,6 +204,46 @@ Customer: ${input.customerName}${input.verifiedPurchase ? ' · ✓ Verified purc
     await this.safeSend(storeId, msg)
   }
 
+  async notifyReturnRequest(
+    storeId: string,
+    input: {
+      rmaNumber: string
+      invoiceNumber: string
+      type: 'RETURN' | 'EXCHANGE'
+      customerName: string
+      reason: string
+      items: string[]
+    },
+  ): Promise<void> {
+    const label = input.type === 'EXCHANGE' ? 'Exchange' : 'Return'
+
+    await this.notifications.notifyInApp({
+      storeId,
+      subject: `${label} requested · ${input.invoiceNumber}`,
+      body: [input.customerName, input.reason].filter(Boolean).join(' · '),
+      href: '/dashboard/returns-rma',
+      level: 'warn',
+    })
+
+    if (!(await this.flag(storeId, 'notifyOrders'))) return
+
+    const lines = [
+      `\u{1F4E6} <b>${label} Requested</b>`,
+      '',
+      `RMA: <code>${escapeTelegramHtml(input.rmaNumber)}</code>`,
+      `Order: <code>${escapeTelegramHtml(input.invoiceNumber)}</code>`,
+      `Customer: ${escapeTelegramHtml(input.customerName)}`,
+      `Reason: ${escapeTelegramHtml(input.reason.slice(0, 200))}`,
+      ...(input.items.length
+        ? ['', ...input.items.slice(0, 10).map((item) => `\u2022 ${escapeTelegramHtml(item)}`)]
+        : []),
+      '',
+      '<i>Admin \u2192 Orders \u2192 Returns & RMA</i>',
+    ]
+
+    await this.safeSend(storeId, lines.join('\n'))
+  }
+
   async notifyAdminError(
     storeId: string,
     subject: string,

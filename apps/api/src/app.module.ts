@@ -116,6 +116,7 @@ import { StorefrontOrdersService } from './modules/storefront/storefront-orders.
 import { StorefrontAuthService } from './modules/storefront/storefront-auth.service'
 import { GoogleIdTokenService } from './modules/storefront/google-id-token.service'
 import { StorefrontWishlistService } from './modules/storefront/storefront-wishlist.service'
+import { StorefrontReturnsService } from './modules/storefront/storefront-returns.service'
 import { StorefrontOtpService } from './modules/storefront/storefront-otp.service'
 import { CategoriesController } from './modules/categories/categories.controller'
 import { CollectionsController } from './modules/collections/collections.controller'
@@ -418,6 +419,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     StorefrontAuthService,
     GoogleIdTokenService,
     StorefrontWishlistService,
+    StorefrontReturnsService,
     StorefrontOtpService,
     CustomersService,
     WholesaleService,
