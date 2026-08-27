@@ -125,7 +125,7 @@ function CustomerAvatar({
             width: dot,
             height: dot,
             borderRadius: 99,
-            background: 'var(--good, #16a34a)',
+            background: 'var(--ok)',
             // Rings against the row, not the avatar, so it reads at any tier colour.
             border: '2px solid var(--surface)',
           }}
@@ -616,7 +616,7 @@ function DcCustomersBody() {
                       width: 7,
                       height: 7,
                       borderRadius: 99,
-                      background: 'var(--good, #16a34a)',
+                      background: 'var(--ok)',
                     }}
                   />
                   {onlineCount} online
