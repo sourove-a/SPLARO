@@ -337,6 +337,7 @@ function DcWholesaleLeadsBody() {
               body="Buyers reach this list from the storefront footer — Company → Wholesale & Export."
             />
           ) : (
+            <>
             <div
               style={{
                 display: 'grid',
@@ -380,6 +381,7 @@ function DcWholesaleLeadsBody() {
                 </button>
               </div>
             ) : null}
+            </>
           )}
         </>
       )}
