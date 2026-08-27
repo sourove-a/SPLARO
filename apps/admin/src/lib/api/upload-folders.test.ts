@@ -10,8 +10,11 @@ const ROUTE = join(SRC, 'app/api/upload/route.ts')
 function allowedFolders(): Set<string> {
   const source = readFileSync(ROUTE, 'utf8')
   const block = /const ALLOWED_FOLDERS = new Set\(\[([\s\S]*?)\]\)/.exec(source)
-  assert.ok(block, 'ALLOWED_FOLDERS literal not found in the upload route')
-  return new Set([...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1]))
+  assert.ok(block?.[1], 'ALLOWED_FOLDERS literal not found in the upload route')
+  const folders = [...block[1].matchAll(/'([^']+)'/g)]
+    .map((m) => m[1])
+    .filter((folder): folder is string => Boolean(folder))
+  return new Set(folders)
 }
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -29,7 +32,9 @@ function requestedFolders(): Map<string, string> {
   for (const file of walk(SRC)) {
     const source = readFileSync(file, 'utf8')
     for (const m of source.matchAll(/uploadAdminImage\(\s*[^,)]+,\s*'([^']+)'/g)) {
-      found.set(m[1], file.slice(SRC.length + 1))
+      const folder = m[1]
+      if (!folder) continue
+      found.set(folder, file.slice(SRC.length + 1))
     }
   }
   return found
