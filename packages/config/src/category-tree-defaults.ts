@@ -83,6 +83,7 @@ export const CATEGORY_SUBCATEGORIES: Record<string, { name: string; slug: string
   accessories: [
     { name: "Women's Bags", slug: 'bags' },
     { name: 'Handbags', slug: 'handbags' },
+    { name: 'School Bags', slug: 'school-bags' },
     { name: 'Wallets', slug: 'wallets' },
     { name: 'Belts', slug: 'belts' },
     { name: 'Scarves', slug: 'scarves' },
