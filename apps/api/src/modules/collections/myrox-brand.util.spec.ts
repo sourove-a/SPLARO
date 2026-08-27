@@ -56,9 +56,13 @@ describe('house brands', () => {
     expect(updateManys[0].data.logo).toBe('/images/logo/splaro-logo-black-premium.webp')
   })
 
-  it('MYROX ships no default logo, so it never backfills one', async () => {
+  it('MYROX backfills its shipped mark only when the brand has no logo', async () => {
     const { prisma, updateManys } = fakePrisma()
     await ensureMyroxBrand(prisma, 'store_1')
-    expect(updateManys).toHaveLength(0)
+
+    expect(updateManys).toHaveLength(1)
+    expect(updateManys[0].where).toMatchObject({ storeId: 'store_1', slug: 'myrox' })
+    expect(updateManys[0].where.OR).toEqual([{ logo: null }, { logo: '' }])
+    expect(updateManys[0].data.logo).toBe('/images/logo/myrox-logo-horizontal.webp')
   })
 })
