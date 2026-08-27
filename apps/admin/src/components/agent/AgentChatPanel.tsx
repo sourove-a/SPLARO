@@ -492,6 +492,23 @@ export function AgentChatPanel({
     }
   }, [seedMessage, open, ready, streaming, sendMessage, onSeedConsumed])
 
+  // Escape closes the floating panel — the tray already closes on a click
+  // outside, and having only one of the two answer the key was its own snag.
+  // The model dropdown gets first refusal so Escape backs out of it instead.
+  useEffect(() => {
+    if (!open || embedded || !onClose) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      if (modelOpen) {
+        setModelOpen(false)
+        return
+      }
+      onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, embedded, onClose, modelOpen])
+
   const handleModelSwitch = async (next: AgentModelId) => {
     setModelOpen(false)
     try {
@@ -530,12 +547,12 @@ export function AgentChatPanel({
           ? 'admin-agent-chat--embedded relative w-full rounded-[24px]'
           : setupPage
             ? cn(
-                'admin-agent-chat--setup-page fixed bottom-5 right-5 z-[85] rounded-[24px]',
-                expanded ? 'w-[min(680px,calc(100vw-2.5rem))]' : 'w-[min(460px,calc(100vw-2rem))]',
+                'admin-agent-chat--setup-page fixed bottom-5 right-5 z-[85] rounded-[20px]',
+                expanded ? 'w-[min(560px,calc(100vw-2.5rem))]' : 'w-[min(384px,calc(100vw-2rem))]',
               )
             : cn(
-                'fixed bottom-5 right-5 z-[85] rounded-[24px]',
-                expanded ? 'w-[min(720px,calc(100vw-2.5rem))]' : 'w-[min(480px,calc(100vw-2rem))]',
+                'fixed bottom-5 right-5 z-[85] rounded-[20px]',
+                expanded ? 'w-[min(560px,calc(100vw-2.5rem))]' : 'w-[min(384px,calc(100vw-2rem))]',
               ),
       )}
       style={{
@@ -544,39 +561,36 @@ export function AgentChatPanel({
       }}
     >
       {/* HEADER */}
-      <header className="admin-agent-chat__head flex items-center justify-between border-b border-[var(--line)] bg-[var(--surface)] px-4 py-3.5">
-        <div className="flex items-center gap-3 min-w-0">
+      <header className="admin-agent-chat__head flex items-center justify-between gap-2 border-b border-[var(--line)] bg-[var(--surface)] px-3.5 py-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
           <AgentChatLauncher online={ready} size="inline" />
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="truncate text-[14px] font-bold text-[var(--ink)]">
-                {embedded ? 'SPLARO Command Brain' : 'SPLARO AI Assistant'}
-              </p>
-              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--violet-soft)] px-2 py-0.5 text-[10px] font-bold text-[var(--violet)]">
-                <Sparkles className="h-2.5 w-2.5" />
-                LIVE
-              </span>
-            </div>
+            {/* The launcher's own dot already says live, and the line below
+                names the model — a LIVE pill on top of both was noise. */}
+            <p className="truncate text-[13px] font-bold text-[var(--ink)]">
+              {embedded ? 'SPLARO Command Brain' : 'SPLARO AI'}
+            </p>
             <p className="truncate text-[11px] font-medium text-[var(--ink-3)]">
               {!apiOnline
                 ? 'API offline'
                 : ready
-                  ? `Active · ${MODEL_LABELS[model]} · Live DB Tools`
-                  : 'API key required in AI Command Brain'}
+                  ? MODEL_LABELS[model]
+                  : 'Needs an API key'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-0.5">
           {/* MODEL PICKER */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setModelOpen((v) => !v)}
-              className="flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 py-1 text-[11px] font-semibold text-[var(--ink)] hover:border-[var(--violet)] transition-colors"
+              title={`Model: ${MODEL_LABELS[model]}`}
+              className="flex items-center gap-1 rounded-lg px-1.5 py-1.5 text-[11px] font-semibold text-[var(--ink-3)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] transition-colors"
             >
-              <span className="truncate max-w-[90px]">{MODEL_LABELS[model].split(' ')[0]}</span>
-              <ChevronDown className="h-3 w-3 text-[var(--ink-3)]" />
+              <span className="truncate max-w-[64px]">{MODEL_LABELS[model].split(' ')[0]}</span>
+              <ChevronDown className="h-3 w-3" />
             </button>
             {modelOpen ? (
               <div className="absolute right-0 top-full z-20 mt-1 min-w-[170px] rounded-xl border border-[var(--line)] bg-[var(--surface)] py-1.5 shadow-xl">
@@ -701,14 +715,14 @@ export function AgentChatPanel({
       {/* MESSAGES VIEWPORT */}
       <div
         className={cn(
-          'flex min-h-[300px] flex-1 flex-col gap-3 overflow-y-auto px-4 py-4',
+          'flex min-h-[220px] flex-1 flex-col gap-3 overflow-y-auto px-4 py-4',
           expanded
-            ? 'max-h-[min(620px,65vh)]'
+            ? 'max-h-[min(560px,60vh)]'
             : embedded
               ? 'max-h-[min(520px,55vh)]'
               : setupPage
-                ? 'max-h-[min(380px,45vh)]'
-                : 'max-h-[min(480px,55vh)]',
+                ? 'max-h-[min(340px,42vh)]'
+                : 'max-h-[min(400px,48vh)]',
         )}
       >
         {messages.length === 0 ? (
