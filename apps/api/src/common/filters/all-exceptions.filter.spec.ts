@@ -5,13 +5,13 @@ import {
 } from '@nestjs/common'
 import { AllExceptionsFilter } from './all-exceptions.filter'
 
-function buildHost() {
+function buildHost(headers: Record<string, string> = {}) {
   const json = jest.fn()
   const status = jest.fn().mockReturnValue({ json })
   const host = {
     switchToHttp: () => ({
       getResponse: () => ({ status }),
-      getRequest: () => ({ method: 'POST', url: '/api/v1/thing', headers: {} }),
+      getRequest: () => ({ method: 'POST', url: '/api/v1/thing', headers }),
     }),
   } as unknown as ArgumentsHost
   return { host, status, json }
@@ -88,5 +88,36 @@ describe('AllExceptionsFilter status labelling', () => {
         fieldErrors: { sku: 'Already in use.' },
       }),
     )
+  })
+})
+
+describe('AllExceptionsFilter server-error alerts', () => {
+  it('reports a 5xx with the stack and request id', () => {
+    const alerts = { report: jest.fn() }
+    const filter = new AllExceptionsFilter(alerts as never)
+    const { host } = buildHost({ 'x-request-id': 'req-9' })
+
+    filter.catch(new InternalServerErrorException('database is on fire'), host)
+
+    expect(alerts.report).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        url: '/api/v1/thing',
+        statusCode: 500,
+        message: 'database is on fire',
+        requestId: 'req-9',
+      }),
+    )
+    expect(alerts.report.mock.calls[0][0].stack).toContain('InternalServerErrorException')
+  })
+
+  it('does not report a 4xx — those are the client is wrong, not the shop', () => {
+    const alerts = { report: jest.fn() }
+    const filter = new AllExceptionsFilter(alerts as never)
+    const { host } = buildHost()
+
+    filter.catch(new BadRequestException('Plain message'), host)
+
+    expect(alerts.report).not.toHaveBeenCalled()
   })
 })

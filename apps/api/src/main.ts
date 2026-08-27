@@ -6,6 +6,7 @@ import helmet from 'helmet'
 import compression from 'compression'
 import { AppModule } from './app.module'
 import { resolveCorsOriginsFromEnv } from './common/cors-origins.util'
+import { ServerErrorAlertService } from './modules/notifications/server-error-alert.service'
 
 async function listenWithRetry(
   app: Awaited<ReturnType<typeof NestFactory.create>>,
@@ -37,6 +38,8 @@ function isProduction() {
   return process.env['NODE_ENV'] === 'production'
 }
 
+let serverErrorAlerts: ServerErrorAlertService | undefined
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log'],
@@ -46,6 +49,16 @@ async function bootstrap() {
   const port = process.env['API_PORT'] ?? process.env['PORT_API'] ?? 4000
 
   app.enableShutdownHooks()
+
+  // Process-level failures never reach the exception filter, so hand the same
+  // alerter to the handlers below — a crash loop is the one thing the shop most
+  // needs to hear about.
+  try {
+    serverErrorAlerts = app.get(ServerErrorAlertService, { strict: false })
+  } catch {
+    logger.warn('Server error alerts unavailable — crashes will only be logged')
+  }
+
   const http = app.getHttpAdapter().getInstance()
   http.set('trust proxy', Number(process.env['TRUST_PROXY_HOPS'] ?? '1'))
 
@@ -139,8 +152,22 @@ bootstrap().catch((err: unknown) => {
 
 process.on('unhandledRejection', (reason) => {
   console.error('[API] Unhandled rejection:', reason)
+  serverErrorAlerts?.report({
+    method: 'PROCESS',
+    url: 'unhandledRejection',
+    statusCode: 500,
+    message: reason instanceof Error ? reason.message : String(reason),
+    ...(reason instanceof Error && reason.stack ? { stack: reason.stack } : {}),
+  })
 })
 
 process.on('uncaughtException', (err) => {
   console.error('[API] Uncaught exception:', err)
+  serverErrorAlerts?.report({
+    method: 'PROCESS',
+    url: 'uncaughtException',
+    statusCode: 500,
+    message: err.message,
+    ...(err.stack ? { stack: err.stack } : {}),
+  })
 })

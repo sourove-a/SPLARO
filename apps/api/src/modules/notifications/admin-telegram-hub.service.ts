@@ -261,6 +261,78 @@ ${context?.area ? `Area: ${context.area}\n` : ''}${context?.invoiceNumber ? `Ord
     await this.safeSend(storeId, msg)
   }
 
+  /**
+   * A 5xx or a process-level crash. Goes to every admin chat regardless of the
+   * per-topic notify flags — those are merchandising preferences, and an API
+   * that is throwing is not something the shop can opt out of hearing about.
+   */
+  async notifyServerError(input: {
+    method: string
+    route: string
+    url: string
+    statusCode: number
+    message: string
+    frames: string[]
+    requestId?: string
+    repeats: number
+    windowMinutes: number
+  }): Promise<void> {
+    const storeId = await this.defaultStoreId()
+    if (!storeId) return
+
+    await this.notifications.notifyInApp({
+      storeId,
+      subject: `API ${input.statusCode} \u00B7 ${input.method} ${input.route}`,
+      body: input.message.slice(0, 300),
+      href: '/dashboard/api-health',
+      level: 'critical',
+      dedupeWindowMinutes: input.windowMinutes,
+    })
+
+    const lines = [
+      `\u{1F6A8} <b>API ${input.statusCode}</b>`,
+      '',
+      `<code>${escapeTelegramHtml(`${input.method} ${input.url}`.slice(0, 200))}</code>`,
+      '',
+      escapeTelegramHtml(input.message.slice(0, 400)),
+      ...(input.frames.length
+        ? ['', ...input.frames.map((frame) => `<code>${escapeTelegramHtml(frame.slice(0, 160))}</code>`)]
+        : []),
+      ...(input.requestId ? ['', `Request: <code>${escapeTelegramHtml(input.requestId)}</code>`] : []),
+      ...(input.repeats
+        ? [`Repeated ${input.repeats}\u00D7 while muted.`]
+        : []),
+      '',
+      `<i>Next alert for this one no sooner than ${input.windowMinutes} min.</i>`,
+    ]
+
+    await this.safeSend(storeId, lines.join('\n'))
+  }
+
+  /** The hourly ceiling was hit — say so once instead of going silent. */
+  async notifyServerErrorsMuted(input: {
+    sentThisHour: number
+    distinctErrors: number
+  }): Promise<void> {
+    const storeId = await this.defaultStoreId()
+    if (!storeId) return
+
+    await this.safeSend(
+      storeId,
+      [
+        '\u{1F507} <b>API error alerts muted for this hour</b>',
+        '',
+        `${input.sentThisHour} alerts already sent, ${input.distinctErrors} distinct errors tracked.`,
+        'Further errors are still logged \u2014 check the API logs.',
+      ].join('\n'),
+    )
+  }
+
+  private async defaultStoreId(): Promise<string | null> {
+    const store = await this.prisma.store.findFirst({ select: { id: true } })
+    return store?.id ?? null
+  }
+
   async notifyBulkOperation(
     storeId: string,
     subject: string,
