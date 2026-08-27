@@ -94,38 +94,46 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
   privacy: page({
     title: 'Privacy Policy',
     description:
-      'How SPLARO collects, uses, and protects your information when you shop our quiet-luxury store in Bangladesh.',
+      'How SPLARO collects, uses, and protects your information — including Google sign-in and phone numbers — when you shop our quiet-luxury store in Bangladesh.',
     metaTitle: 'Privacy Policy',
     metaDescription:
-      'How SPLARO in Dhaka collects and protects your name, phone, and delivery details for Cash on Delivery orders across Bangladesh.',
+      'How SPLARO in Dhaka collects and protects your name, phone, Google login, and delivery details for Cash on Delivery orders across Bangladesh.',
     sections: [
       {
         heading: 'Overview',
-        body: 'SPLARO (“we”, “our”, “us”) operates splaro.co — quiet luxury fashion designed in Dhaka. This Privacy Policy explains how we handle your data when you browse, purchase, or contact us. By using our services, you agree to the practices described here.',
+        body: 'SPLARO (“we”, “our”, “us”) operates splaro.co — quiet luxury fashion designed in Dhaka. This Privacy Policy explains how we handle your data when you browse, create an account, sign in with Google, place a Cash on Delivery order, or contact us. By using our services, you agree to the practices described here.',
       },
       {
         heading: 'Information we collect',
-        body: 'We collect information you provide at checkout and in Customer Care — name, phone number, email, delivery address, and order history. We also collect technical data such as device type, browser, IP address, and cookies to keep the site secure and reliable.',
+        body: 'We collect information you provide at checkout, in Customer Care, and when you create an account — name, phone number, email, delivery address, and order history. If you sign in with Google, we receive your Google account name, verified email, Google account ID, and optional profile photo. When phone OTP is enabled, we collect the phone number and one-time code you submit. Signed-in customers may also save a wishlist, leave a product review, or join the newsletter. We collect technical data such as device type, browser, IP address, and cookies to keep the site secure and reliable.',
+      },
+      {
+        heading: 'Accounts & Google sign-in',
+        body: 'You can shop as a guest or create an account with email and password, phone OTP (when enabled), or Google Sign-In. Passwords are stored as a one-way hash — we cannot read them. Google Sign-In is processed by Google; we store only the identity Google confirms so we can keep you signed in. After Google Sign-In we may ask for a Bangladesh phone number so we can confirm Cash on Delivery orders. Login records may include IP address and device type for fraud prevention.',
       },
       {
         heading: 'How we use your information',
-        body: 'Your data lets us confirm Cash on Delivery orders, book Steadfast dispatch across Bangladesh, send SMS or WhatsApp updates, prevent fraud, and improve the store. With your consent, we may send collection news. We do not run a live loyalty programme and do not share data for unrelated marketing.',
+        body: 'Your data lets us confirm Cash on Delivery orders, keep you signed in, book Steadfast dispatch across Bangladesh, send SMS or WhatsApp updates, prevent fraud, and improve the store. With your consent, we may send collection news to the email or phone you gave us, including newsletter signup. We do not run a live loyalty programme and do not share data for unrelated marketing.',
       },
       {
         heading: 'Payment data',
         body: 'Checkout is Cash on Delivery only. We do not collect bKash, Nagad, or card credentials, and we do not store mobile-banking PINs or full card numbers. Order totals and delivery references are kept for accounting and dispute resolution as required by Bangladeshi law.',
       },
       {
+        heading: 'Cookies & analytics',
+        body: 'We use a session cookie to keep you signed in. When analytics is configured, we may load Google Analytics (with IP anonymisation), Meta Pixel, and Microsoft Clarity so we can understand how the store is used. These tools may set their own cookies. You can block third-party cookies in your browser; Cash on Delivery checkout will still work.',
+      },
+      {
         heading: 'Sharing with third parties',
-        body: 'We share name, phone, and delivery address with Steadfast solely to fulfil your order. Analytics providers may receive anonymised usage data. We never sell your personal information.',
+        body: 'We share name, phone, and delivery address with Steadfast solely to fulfil your order. If you use Google Sign-In, Google processes that login. Analytics providers (Google, Meta, Microsoft Clarity) may receive usage data when those tools are enabled. SMS and WhatsApp providers receive the phone number needed to send order updates. We never sell your personal information.',
       },
       {
         heading: 'Data retention & security',
-        body: 'Order records are retained for at least five years for tax and legal compliance. We use SSL encryption, access controls, and regular security reviews. You may request deletion of marketing preferences at any time.',
+        body: 'Order records are retained for at least five years for tax and legal compliance. Account, Google ID, and login records are kept while the account is active and for a reasonable period after closure if needed for disputes. We use SSL encryption, hashed passwords, access controls, and regular security reviews. You may request deletion of marketing preferences or your account at any time.',
       },
       {
         heading: 'Your rights',
-        body: `You may request access, correction, or deletion of personal data by emailing ${CARE_EMAIL}. We respond within 15 business days. You may opt out of promotional messages via the unsubscribe link or by replying STOP to SMS.`,
+        body: `You may request access, correction, or deletion of personal data — including Google login data and phone numbers — by emailing ${CARE_EMAIL}. We respond within 15 business days. You may opt out of promotional messages via the unsubscribe link or by replying STOP to SMS.`,
       },
       {
         heading: 'Contact',

@@ -52,6 +52,19 @@ describe('DEFAULT_LEGAL_PAGES', () => {
     expect(DEFAULT_LEGAL_PAGES.contact.sections.some((s) => s.body.includes('SPL-####'))).toBe(true)
   })
 
+  it('discloses Google sign-in, phone numbers, and analytics cookies on privacy', () => {
+    const privacy = [
+      DEFAULT_LEGAL_PAGES.privacy.description,
+      ...DEFAULT_LEGAL_PAGES.privacy.sections.map((s) => `${s.heading} ${s.body}`),
+    ].join('\n')
+    expect(privacy).toMatch(/Google Sign-In|Google sign-in/)
+    expect(privacy).toMatch(/phone number/)
+    expect(privacy).toMatch(/Google Analytics/)
+    expect(privacy).toMatch(/session cookie/)
+    expect(privacy).toMatch(/Cash on Delivery only/)
+    expect(privacy).not.toMatch(/Pathao|RedX/)
+  })
+
   it('flags original shipped template copy as stale', () => {
     expect(
       legalPageLooksStale({
