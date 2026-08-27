@@ -445,3 +445,57 @@ export class StorefrontSubmitReviewDto {
   })
   images?: string[]
 }
+
+export class StorefrontReturnItemDto {
+  @IsString()
+  orderItemId!: string
+
+  @IsInt()
+  @Min(1)
+  @Max(999)
+  quantity!: number
+}
+
+export class StorefrontCreateReturnDto {
+  @IsString()
+  orderId!: string
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^(RETURN|EXCHANGE)$/, {
+    message: 'type must be RETURN or EXCHANGE',
+  })
+  type?: 'RETURN' | 'EXCHANGE'
+
+  @IsString()
+  @MinLength(4)
+  @MaxLength(200)
+  reason!: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  description?: string
+
+  /**
+   * Photo paths this store issued from its own return-photo upload route.
+   * Only our own upload paths are accepted — an arbitrary URL here would let a
+   * customer plant remote content in the admin's returns queue.
+   */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(4)
+  @IsString({ each: true })
+  @Matches(/^\/uploads\/returns\/[A-Za-z0-9._-]+$/, {
+    each: true,
+    message: 'Return photos must be uploaded through SPLARO',
+  })
+  images?: string[]
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => StorefrontReturnItemDto)
+  items!: StorefrontReturnItemDto[]
+}
