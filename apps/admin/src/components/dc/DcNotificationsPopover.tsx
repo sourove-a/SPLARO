@@ -192,6 +192,17 @@ export function DcNotificationsPopover({
     })
   }, [items])
 
+  // Escape closes the tray, matching the assistant panel. Declared above the
+  // early return so the hook order stays stable across open/closed renders.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
   if (!open) {
     // Still mount unread accounting so the header badge stays honest while closed.
     return null

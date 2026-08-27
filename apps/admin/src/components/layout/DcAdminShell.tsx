@@ -89,9 +89,13 @@ export function DcAdminShell({ banner, children }: DcAdminShellProps) {
   const [onlineOpen, setOnlineOpen] = useState(false)
   const [connOpen, setConnOpen] = useState(false)
   const setAgentChatOpen = useAdminUiStore((s) => s.setAgentChatOpen)
+  // Kept in the store, not local state, so opening the assistant from anywhere
+  // closes the tray and vice versa — the two float over the same corner.
+  const notifOpen = useAdminUiStore((s) => s.notificationsOpen)
+  const setNotifOpen = useAdminUiStore((s) => s.setNotificationsOpen)
+  const toggleNotifOpen = useAdminUiStore((s) => s.toggleNotifications)
   const insights = useDashboardInsights('7 Days')
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const [notifOpen, setNotifOpen] = useState(false)
   const [notifUnread, setNotifUnread] = useState(0)
   const [notifUrgent, setNotifUrgent] = useState(0)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -162,8 +166,8 @@ export function DcAdminShell({ banner, children }: DcAdminShellProps) {
   const commandItems = useMemo(() => getCommandItems(navSession), [navSession])
 
   const openPalette = useCallback(() => setPaletteOpen(true), [])
-  const toggleNotifs = useCallback(() => setNotifOpen((v) => !v), [])
-  const closeNotifs = useCallback(() => setNotifOpen(false), [])
+  const toggleNotifs = useCallback(() => toggleNotifOpen(), [toggleNotifOpen])
+  const closeNotifs = useCallback(() => setNotifOpen(false), [setNotifOpen])
   const openOnline = useCallback(() => setOnlineOpen(true), [])
   const closeOnline = useCallback(() => setOnlineOpen(false), [])
   const openConnection = useCallback(() => setConnOpen(true), [])
