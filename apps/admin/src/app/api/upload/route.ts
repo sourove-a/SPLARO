@@ -51,6 +51,7 @@ const ALLOWED_FOLDERS = new Set([
   'products-accessories',
   'partners',
   'banners',
+  'brands',
   'media',
   'wholesale',
   'expenses',
