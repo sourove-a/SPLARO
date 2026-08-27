@@ -42,6 +42,7 @@ const REPARENT: Record<string, string> = {
   jewelry: 'accessories',
   bags: 'accessories',
   handbags: 'accessories',
+  'school-bags': 'accessories',
   'girls-wear': 'kids',
   'boys-wear': 'kids',
   'casual-shirts': 'men',

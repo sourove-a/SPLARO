@@ -32,6 +32,7 @@ const ACCESSORY_KEYWORDS: Record<string, string[]> = {
   watches: ['watch'],
   bags: ['bag', 'backpack', 'tote', 'duffel'],
   handbags: ['handbag', 'purse', 'clutch'],
+  'school-bags': ['school bag', 'schoolbag', 'school-bag', 'backpack'],
   jewelry: ['jewel', 'necklace', 'earring', 'bracelet', 'ring'],
   wallets: ['wallet', 'cardholder'],
   scarves: ['scarf', 'hijab', 'stole'],
@@ -59,8 +60,9 @@ function matchesAccessoryCategory(product: CatalogProduct, activeCat: string) {
   if (!keywords?.length) return false
 
   if (activeCat === 'hats' && /prayer/.test(hay)) return false
-  if (activeCat === 'bags' && /(wallet|watch|scarf|belt|prayer)/.test(hay)) return false
-  if (activeCat === 'handbags' && /(backpack|wallet|watch)/.test(hay)) return false
+  if (activeCat === 'bags' && /(wallet|watch|scarf|belt|prayer|school)/.test(hay)) return false
+  if (activeCat === 'handbags' && /(backpack|wallet|watch|school)/.test(hay)) return false
+  if (activeCat === 'school-bags' && /(handbag|wallet|watch|purse|clutch)/.test(hay)) return false
 
   return keywords.some((keyword) => hay.includes(keyword))
 }

@@ -63,6 +63,23 @@ export function BrandSelectChips({ brands, brandId, onBrandId }: BrandSelectChip
             on={brandId === row.id}
             onClick={() => onBrandId(brandId === row.id ? '' : row.id)}
           >
+            {row.logo ? (
+              <span
+                aria-hidden
+                style={{
+                  display: 'inline-block',
+                  width: 28,
+                  height: 11,
+                  marginRight: 5,
+                  verticalAlign: '-1px',
+                  backgroundColor: 'transparent',
+                  backgroundImage: `url(${JSON.stringify(row.logo)})`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'center',
+                  backgroundSize: 'contain',
+                }}
+              />
+            ) : null}
             {row.name}
           </DcChip>
         ))}
@@ -72,13 +89,13 @@ export function BrandSelectChips({ brands, brandId, onBrandId }: BrandSelectChip
           <span
             aria-hidden
             style={{
-              width: 88,
-              height: 28,
+              width: 72,
+              height: 24,
               flex: 'none',
               backgroundColor: 'var(--surface-2)',
               backgroundImage: `url(${JSON.stringify(selected.logo)})`,
               backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'left center',
+              backgroundPosition: 'center',
               backgroundSize: 'contain',
               border: '1px solid var(--line)',
               borderRadius: 6,

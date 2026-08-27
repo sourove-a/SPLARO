@@ -12,6 +12,7 @@ const SPLARO_BRAND_LOGO = '/images/logo/splaro-logo-black-premium.webp'
 const MYROX_BRAND_SLUG = 'myrox'
 const MYROX_BRAND_NAME = 'MYROX'
 const MYROX_BRAND_VENDOR = 'MYROX Lifestyle'
+const MYROX_BRAND_LOGO = '/images/logo/myrox-logo-horizontal.webp'
 
 export async function ensureJhingephoolCollection(prisma: PrismaService, storeId: string) {
   await prisma.collection.upsert({
@@ -90,6 +91,7 @@ export async function ensureMyroxBrand(prisma: PrismaService, storeId: string) {
     slug: MYROX_BRAND_SLUG,
     name: MYROX_BRAND_NAME,
     vendorLabel: MYROX_BRAND_VENDOR,
+    logo: MYROX_BRAND_LOGO,
   })
 }
 
