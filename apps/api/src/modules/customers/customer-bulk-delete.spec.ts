@@ -121,7 +121,7 @@ function buildController(
     $transaction: jest.fn(async (fn: (t: unknown) => Promise<unknown>) => fn(tx)),
   } as unknown as PrismaService
 
-  const controller = new CustomersController(prisma, {} as never, {} as never)
+  const controller = new CustomersController(prisma, {} as never, {} as never, {} as never)
   return { controller, tx, customerDelete, userDelete, userUpdate, prisma }
 }
 

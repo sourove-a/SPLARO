@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerApiBaseUrl } from '@splaro/config'
+import { getSessionToken, sessionHeaders } from '@/lib/server/api-auth'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
@@ -25,14 +26,16 @@ export async function POST(request: Request) {
 
     const base = getServerApiBaseUrl()
     const forwardedFor = clientAddress(request)
+    // Forward the session so the API can resolve who is browsing and light up
+    // their row in the admin customer list. Read from the cookie here rather
+    // than sent by the page — the heartbeat route is public, and an identity a
+    // browser could name is an identity anyone could claim.
+    const sessionToken = await getSessionToken()
     const res = await fetch(
       `${base}/storefront/presence/heartbeat?storeId=${encodeURIComponent(STORE_ID)}`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(forwardedFor ? { 'X-Forwarded-For': forwardedFor } : {}),
-        },
+        headers: sessionHeaders(sessionToken, forwardedFor ?? null),
         body: JSON.stringify({ visitorId }),
         cache: 'no-store',
       },

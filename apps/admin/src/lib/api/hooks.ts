@@ -42,7 +42,7 @@ import {
   type GscSort,
 } from './search-console'
 import { EMPTY_HELPDESK_OVERVIEW, EMPTY_SEO_OVERVIEW, isNetworkOrServerError } from './offline-defaults'
-import { fetchCustomers, fetchCustomer, deleteCustomer, blockCustomer } from './customers'
+import { fetchCustomers, fetchCustomer, deleteCustomer, blockCustomer, fetchCustomerPresence } from './customers'
 import { fetchLoyaltySummary, fetchReferralStats, fetchReferrals } from './loyalty'
 import { fetchAutomationRules } from './automation'
 import {
@@ -1056,6 +1056,23 @@ export function useCustomers(params?: { search?: string; limit?: number; staff?:
     queryKey: ['customers', params],
     queryFn: () => fetchCustomers({ ...params, limit: params?.limit ?? 100, staff: params?.staff ?? 'hide' }),
     staleTime: 30_000,
+  })
+}
+
+/**
+ * Who is browsing right now. Polled on a short interval because the whole point
+ * is that the dot goes out shortly after the shopper does — the presence window
+ * on the API side is 30s, so refetching every 15s never shows a stale green.
+ */
+export function useCustomerPresence(enabled = true) {
+  return useQuery({
+    queryKey: ['customer-presence'],
+    queryFn: fetchCustomerPresence,
+    enabled,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+    staleTime: 10_000,
+    retry: 1,
   })
 }
 

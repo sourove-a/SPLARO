@@ -14,7 +14,7 @@ import { downloadCsv } from '@/lib/admin/admin-actions'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
 import { verifyCustomerCreated } from '@/lib/admin/customer-mutation-verify'
 import { bulkDeleteCustomers, bulkAddCustomerTags, createCustomer, mergeCustomers } from '@/lib/api/customers'
-import { useCustomers } from '@/lib/api/hooks'
+import { useCustomerPresence, useCustomers } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { formatBdPhone, phoneMatches } from '@/lib/format/bd-phone'
 import type { ApiCustomer } from '@/lib/api/customers'
@@ -61,6 +61,80 @@ function initials(c: ApiCustomer) {
   )
 }
 
+/**
+ * The shopper's own photo when they have one — Google sign-in supplies it, and
+ * showing initials over the top of a real face made every row look the same.
+ * `online` paints the presence dot; `null`-ish avatars fall back to initials.
+ */
+function CustomerAvatar({
+  customer,
+  online,
+  size = 30,
+  tone,
+}: {
+  customer: ApiCustomer
+  online: boolean
+  size?: number
+  tone: { bg: string; bd: string; fg: string }
+}) {
+  const [broken, setBroken] = useState(false)
+  const src = customer.avatar
+  const dot = Math.max(8, Math.round(size * 0.32))
+
+  return (
+    <span style={{ position: 'relative', flex: 'none', width: size, height: size }}>
+      <span
+        style={{
+          display: 'grid',
+          placeItems: 'center',
+          width: size,
+          height: size,
+          overflow: 'hidden',
+          borderRadius: 99,
+          border: `1px solid ${tone.bd}`,
+          background: tone.bg,
+          color: tone.fg,
+          font: `700 ${Math.round(size * 0.37)}px/1 ${FONT}`,
+        }}
+      >
+        {src && !broken ? (
+          // Avatars are remote Google URLs. next/image would need every
+          // provider host allow-listed in next.config and buys nothing at 30px.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={src}
+            alt=""
+            width={size}
+            height={size}
+            referrerPolicy="no-referrer"
+            onError={() => setBroken(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        ) : (
+          initials(customer)
+        )}
+      </span>
+      {online ? (
+        <span
+          title="On the site now"
+          aria-label="Online now"
+          style={{
+            position: 'absolute',
+            right: -1,
+            bottom: -1,
+            width: dot,
+            height: dot,
+            borderRadius: 99,
+            background: 'var(--good, #16a34a)',
+            // Rings against the row, not the avatar, so it reads at any tier colour.
+            border: '2px solid var(--surface)',
+          }}
+        />
+      ) : null}
+    </span>
+  )
+}
+
 /** Segment is derived, not stored — same rule the design uses. */
 function segmentOf(c: ApiCustomer): Exclude<Segment, 'All'> {
   if (c.isBlocked) return 'Blocked'
@@ -97,6 +171,16 @@ function DcCustomersBody() {
   const [merging, setMerging] = useState(false)
 
   const customers = useCustomers({ limit: 200, staff: hideStaff ? 'hide' : 'include' })
+  const presence = useCustomerPresence()
+  const onlineIds = useMemo(
+    () => new Set(presence.data?.online ?? []),
+    [presence.data],
+  )
+  const onlineCount = useMemo(
+    () => (customers.data?.customers ?? []).filter((c) => onlineIds.has(c.id)).length,
+    [customers.data, onlineIds],
+  )
+  const staffHidden = customers.data?.staffHidden ?? 0
   const { api } = useAdminConnection(25_000)
   const pageStatus = dcPageStatus([customers], api.pulse)
   const all = useMemo(() => customers.data?.customers ?? [], [customers.data])
@@ -325,6 +409,7 @@ function DcCustomersBody() {
             segment={segment}
             counts={counts}
             query={query}
+            onlineIds={onlineIds}
             onQuery={setQuery}
             onSegment={setSegment}
             onOpen={(id) => router.push(`/dashboard/customers/${encodeURIComponent(id)}`)}
@@ -515,6 +600,28 @@ function DcCustomersBody() {
               <span style={{ font: `500 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>
                 {rows.length} of {all.length}
               </span>
+              {onlineCount > 0 ? (
+                <span
+                  title="Customers on the site right now"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    font: `600 12px/1 ${FONT}`,
+                    color: 'var(--ink-2)',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: 99,
+                      background: 'var(--good, #16a34a)',
+                    }}
+                  />
+                  {onlineCount} online
+                </span>
+              ) : null}
               <button
                 type="button"
                 role="switch"
@@ -533,7 +640,11 @@ function DcCustomersBody() {
                   font: `600 12px/1 ${FONT}`,
                 }}
               >
-                {hideStaff ? 'Staff hidden' : 'Showing staff'}
+                {hideStaff
+                  ? staffHidden > 0
+                    ? `Staff hidden (${staffHidden})`
+                    : 'Staff hidden'
+                  : 'Showing staff'}
               </button>
             </div>
 
@@ -644,22 +755,11 @@ function DcCustomersBody() {
                         </td>
                         <td style={{ padding: '10px 14px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span
-                              style={{
-                                display: 'grid',
-                                placeItems: 'center',
-                                width: 30,
-                                height: 30,
-                                flex: 'none',
-                                borderRadius: 99,
-                                border: `1px solid ${tierTone.bd}`,
-                                background: tierTone.bg,
-                                color: tierTone.fg,
-                                font: `700 11px/1 ${FONT}`,
-                              }}
-                            >
-                              {initials(c)}
-                            </span>
+                            <CustomerAvatar
+                              customer={c}
+                              online={onlineIds.has(c.id)}
+                              tone={tierTone}
+                            />
                             <span
                               style={{
                                 display: 'flex',
@@ -1040,6 +1140,7 @@ function MobileCustomersList({
   segment,
   counts,
   query,
+  onlineIds,
   onQuery,
   onSegment,
   onOpen,
@@ -1048,6 +1149,7 @@ function MobileCustomersList({
   segment: Segment
   counts: Record<string, number>
   query: string
+  onlineIds: Set<string>
   onQuery: (q: string) => void
   onSegment: (s: Segment) => void
   onOpen: (id: string) => void
@@ -1110,12 +1212,7 @@ function MobileCustomersList({
                 className="dc-mobile-list-card"
                 onClick={() => onOpen(customerPublicId(c))}
               >
-                <span
-                  className="dc-mobile-list-card__icon"
-                  style={{ background: tone.bg, color: tone.fg }}
-                >
-                  {initials(c)}
-                </span>
+                <CustomerAvatar customer={c} online={onlineIds.has(c.id)} size={34} tone={tone} />
                 <span className="dc-mobile-list-card__copy">
                   <span className="dc-mobile-list-card__title">{fullName(c)}</span>
                   <span className="dc-mobile-list-card__sub">

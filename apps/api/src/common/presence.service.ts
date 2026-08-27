@@ -8,6 +8,18 @@ const SESSION_FALLBACK_MS = 5 * 60_000
 
 export type PresenceSource = 'live' | 'sessions'
 
+/**
+ * Signed-in shoppers are recorded under this prefix alongside their anonymous
+ * visitor id, so the admin can tell *who* is browsing and not merely how many.
+ * Written once here and read back through onlineCustomerIds — a second literal
+ * anywhere else is how the two halves drift apart.
+ */
+const CUSTOMER_MEMBER_PREFIX = 'customer:'
+
+export function presenceCustomerMember(customerId: string): string {
+  return `${CUSTOMER_MEMBER_PREFIX}${customerId}`
+}
+
 export interface PresenceSnapshot {
   storefront: number
   admin: number
@@ -22,6 +34,13 @@ export interface OnlineAdmin {
   email: string | null
   avatar: string | null
   role: string
+}
+
+export interface OnlineCustomersSnapshot {
+  /** Customer ids seen inside the presence window. */
+  online: string[]
+  source: PresenceSource
+  updatedAt: string
 }
 
 export interface OnlineAdminsSnapshot {
@@ -97,6 +116,46 @@ export class PresenceService {
       source: 'sessions',
       updatedAt,
     }
+  }
+
+  /**
+   * Which shoppers are on the site right now. Redis is the live source; when it
+   * is down this falls back to device sessions, which is coarser (a session
+   * counts as "active" for five minutes) but keeps the dot honest rather than
+   * reporting everyone offline.
+   */
+  async getOnlineCustomers(storeIdRaw: string): Promise<OnlineCustomersSnapshot> {
+    const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    const updatedAt = new Date().toISOString()
+
+    if (this.redis.isReady) {
+      const members = await this.redis.listPresenceMembers(
+        this.setKey(storeId, 'storefront'),
+        PRESENCE_WINDOW_MS,
+      )
+      const online = members
+        .filter((m) => m.startsWith(CUSTOMER_MEMBER_PREFIX))
+        .map((m) => m.slice(CUSTOMER_MEMBER_PREFIX.length))
+        .filter(Boolean)
+      return { online: [...new Set(online)], source: 'live', updatedAt }
+    }
+
+    const since = new Date(Date.now() - SESSION_FALLBACK_MS)
+    const rows = await this.prisma.customer.findMany({
+      where: {
+        storeId,
+        user: {
+          is: {
+            deviceSessions: {
+              some: { isRevoked: false, expiresAt: { gt: new Date() }, lastActive: { gte: since } },
+            },
+          },
+        },
+      },
+      select: { id: true },
+    })
+
+    return { online: rows.map((r) => r.id), source: 'sessions', updatedAt }
   }
 
   async getOnlineAdmins(storeIdRaw: string): Promise<OnlineAdminsSnapshot> {

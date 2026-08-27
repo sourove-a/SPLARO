@@ -78,7 +78,7 @@ import { LegalPagesService } from '../content/legal-pages.service'
 import { FootwearConfigService } from '../content/footwear-config.service'
 import { PurgeDemoCatalogService } from '../catalog/purge-demo-catalog.service'
 import { PaymentIntegrationService } from '../integrations/payment-integration.service'
-import { PresenceService } from '../../common/presence.service'
+import { PresenceService, presenceCustomerMember } from '../../common/presence.service'
 import { internalSecretMatches } from '../../common/auth/internal-secret.util'
 
 function bearerToken(authorization?: string): string | undefined {
@@ -1843,7 +1843,14 @@ export class StorefrontController {
     throw new ForbiddenException('Demo catalog seed is disabled. Add real products in admin.')
   }
 
-  /** Storefront visitor heartbeat — powers admin header "online now" count. */
+  /**
+   * Storefront visitor heartbeat — powers the admin "online now" count, and the
+   * per-customer dot in the customer list.
+   *
+   * The signed-in identity is resolved from the session here rather than taken
+   * from the request body. This route is public, so a body-supplied customer id
+   * would let anyone paint any shopper green.
+   */
   @Post('presence/heartbeat')
   // Browser requests arrive through the web BFF. Allow normal concurrent traffic while
   // retaining an IP-based ceiling against presence-set inflation.
@@ -1851,6 +1858,8 @@ export class StorefrontController {
   async presenceHeartbeat(
     @Query('storeId') storeId: string,
     @Body() body: { visitorId?: string },
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
   ) {
     const visitorId = body.visitorId?.trim()
     if (!visitorId || visitorId.length > 128) {
@@ -1858,6 +1867,20 @@ export class StorefrontController {
     }
     const sid = await resolveStoreId(this.prisma, storeId)
     await this.presence.heartbeat(sid, visitorId, 'storefront')
+
+    // A shopper browsing in two tabs carries two visitor ids but one customer
+    // id, so the anonymous member still counts the sessions while this one
+    // answers "is this person here". Never create a customer row from a
+    // heartbeat — ensureCustomerId can reject an incomplete signup, and a
+    // background ping is no place to surface that.
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    if (sessionToken) {
+      const user = await this.storefrontAuth.validateSession(sessionToken)
+      if (user?.customerId) {
+        await this.presence.heartbeat(sid, presenceCustomerMember(user.customerId), 'storefront')
+      }
+    }
+
     return { ok: true }
   }
 
