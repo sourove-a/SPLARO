@@ -204,6 +204,11 @@ enum ReviewStatus {
   FLAGGED
 }
 
+enum StockAlertChannel {
+  EMAIL
+  SMS
+}
+
 enum RMAStatus {
   REQUESTED
   APPROVED
@@ -502,101 +507,102 @@ enum RuleConditionOperator {
 // ── STORE (SaaS Multi-tenant) ─────────────────────────────────
 
 model Store {
-  id               String             @id @default(cuid())
-  name             String
-  slug             String             @unique
-  domain           String?            @unique
-  subdomain        String?            @unique
-  logo             String?
-  favicon          String?
-  description      String?
-  email            String
-  phone            String?
-  address          String?
-  currency         String             @default("BDT")
-  timezone         String             @default("Asia/Dhaka")
-  locale           String             @default("en-BD")
-  isActive         Boolean            @default(true)
-  subscriptionPlan SubscriptionPlan   @default(FREE)
-  ownerId          String
-  owner            User               @relation("StoreOwner", fields: [ownerId], references: [id])
-  settings         SiteSettings?
-  products         Product[]
-  categories       Category[]
-  collections      Collection[]
-  brands           Brand[]
-  orders           Order[]
-  commerceEvents   CommerceEventOutbox[]
-  customers        Customer[]
-  coupons          Coupon[]
-  banners          Banner[]
-  mediaAssets      MediaAsset[]
-  mediaFolders     MediaFolder[]
-  staff            StaffRole[]
-  vendors          Vendor[]
-  subscription     Subscription?
-  menus            Menu[]
-  contentBlocks    ContentBlock[]
-  blogPosts        BlogPost[]
-  blogCategories   BlogCategory[]
-  pages            SitePage[]
-  automationRules  AutomationRule[]
-  loyaltyTiers     LoyaltyTierConfig[]
-  telegramConfig   TelegramConfig?
-  searchConfigs    SearchConfig[]
-  seoConfigs       SeoConfig[]
-  urlRedirects     UrlRedirect[]
-  campaigns        Campaign[]
-  webPushTokens    WebPushToken[]
-  rmas             RMA[]
-  partners         Partner[]
-  partnerShareSettings PartnerShareSetting[]
-  expenses         Expense[]
-  dailyClosings    DailyClosing[]
-  profitCalculations ProfitCalculation[]
-  financeAuditLogs FinanceAuditLog[]
-  googleSheetSyncLogs GoogleSheetSyncLog[]
-  aiContentApprovals AIContentApproval[]
-  warehouses         Warehouse[]
-  suppliers          Supplier[]
-  supplierMarkets    SupplierMarket[]
-  purchaseOrders     PurchaseOrder[]
-  productionOrders   ProductionOrder[]
-  fabricInventory    FabricInventory[]
-  supportTickets     SupportTicket[]
-  deliveryAgents     DeliveryAgent[]
-  departments        Department[]
-  employees          Employee[]
-  projects           Project[]
-  tasks              Task[]
-  companyDocuments   CompanyDocument[]
-  approvalRequests   ApprovalRequest[]
-  chartOfAccounts    ChartOfAccount[]
-  journalEntries     JournalEntry[]
-  affiliates         AffiliateAccount[]
-  apiKeys            ApiKey[]
-  notificationLogs   NotificationDeliveryLog[]
-  newsletterSubscribers NewsletterSubscriber[]
-  wholesaleInquiries WholesaleInquiry[]
-  wholesaleStockImages WholesaleStockImage[]
-  payrollRuns        PayrollRun[]
-  executiveInsights  ExecutiveInsight[]
-  agentConfig        AgentConfig?
-  agentConversations AgentConversation[]
-  agentPromptVersions AgentPromptVersion[]
-  agentRuns          AgentRun[]
-  agentPendingActions AgentPendingAction[]
-  integrationSettings IntegrationSetting[]
-  integrationTestLogs IntegrationTestLog[]
-  systemSettings     SystemSetting[]
+  id                        String                     @id @default(cuid())
+  name                      String
+  slug                      String                     @unique
+  domain                    String?                    @unique
+  subdomain                 String?                    @unique
+  logo                      String?
+  favicon                   String?
+  description               String?
+  email                     String
+  phone                     String?
+  address                   String?
+  currency                  String                     @default("BDT")
+  timezone                  String                     @default("Asia/Dhaka")
+  locale                    String                     @default("en-BD")
+  isActive                  Boolean                    @default(true)
+  subscriptionPlan          SubscriptionPlan           @default(FREE)
+  ownerId                   String
+  owner                     User                       @relation("StoreOwner", fields: [ownerId], references: [id])
+  settings                  SiteSettings?
+  products                  Product[]
+  categories                Category[]
+  collections               Collection[]
+  brands                    Brand[]
+  orders                    Order[]
+  commerceEvents            CommerceEventOutbox[]
+  customers                 Customer[]
+  coupons                   Coupon[]
+  banners                   Banner[]
+  mediaAssets               MediaAsset[]
+  mediaFolders              MediaFolder[]
+  staff                     StaffRole[]
+  vendors                   Vendor[]
+  subscription              Subscription?
+  menus                     Menu[]
+  contentBlocks             ContentBlock[]
+  blogPosts                 BlogPost[]
+  blogCategories            BlogCategory[]
+  pages                     SitePage[]
+  automationRules           AutomationRule[]
+  loyaltyTiers              LoyaltyTierConfig[]
+  telegramConfig            TelegramConfig?
+  searchConfigs             SearchConfig[]
+  seoConfigs                SeoConfig[]
+  urlRedirects              UrlRedirect[]
+  campaigns                 Campaign[]
+  webPushTokens             WebPushToken[]
+  rmas                      RMA[]
+  partners                  Partner[]
+  partnerShareSettings      PartnerShareSetting[]
+  expenses                  Expense[]
+  dailyClosings             DailyClosing[]
+  profitCalculations        ProfitCalculation[]
+  financeAuditLogs          FinanceAuditLog[]
+  googleSheetSyncLogs       GoogleSheetSyncLog[]
+  aiContentApprovals        AIContentApproval[]
+  warehouses                Warehouse[]
+  suppliers                 Supplier[]
+  supplierMarkets           SupplierMarket[]
+  purchaseOrders            PurchaseOrder[]
+  productionOrders          ProductionOrder[]
+  fabricInventory           FabricInventory[]
+  supportTickets            SupportTicket[]
+  deliveryAgents            DeliveryAgent[]
+  departments               Department[]
+  employees                 Employee[]
+  projects                  Project[]
+  tasks                     Task[]
+  companyDocuments          CompanyDocument[]
+  approvalRequests          ApprovalRequest[]
+  chartOfAccounts           ChartOfAccount[]
+  journalEntries            JournalEntry[]
+  affiliates                AffiliateAccount[]
+  apiKeys                   ApiKey[]
+  notificationLogs          NotificationDeliveryLog[]
+  newsletterSubscribers     NewsletterSubscriber[]
+  wholesaleInquiries        WholesaleInquiry[]
+  wholesaleStockImages      WholesaleStockImage[]
+  payrollRuns               PayrollRun[]
+  executiveInsights         ExecutiveInsight[]
+  agentConfig               AgentConfig?
+  agentConversations        AgentConversation[]
+  agentPromptVersions       AgentPromptVersion[]
+  agentRuns                 AgentRun[]
+  agentPendingActions       AgentPendingAction[]
+  integrationSettings       IntegrationSetting[]
+  integrationTestLogs       IntegrationTestLog[]
+  systemSettings            SystemSetting[]
   googleWorkspaceConnection GoogleWorkspaceConnection?
-  googleSheetConfigs GoogleSheetConfig[]
-  googleSyncJobs     GoogleSyncJob[]
-  googleSyncLogs     GoogleSyncLog[]
-  googleExportTemplates GoogleExportTemplate[]
-  googleAuditLogs    GoogleAuditLog[]
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  googleSheetConfigs        GoogleSheetConfig[]
+  googleSyncJobs            GoogleSyncJob[]
+  googleSyncLogs            GoogleSyncLog[]
+  googleExportTemplates     GoogleExportTemplate[]
+  googleAuditLogs           GoogleAuditLog[]
+  stockAlerts               StockAlert[]
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
 
   @@index([slug])
   @@index([domain])
@@ -605,41 +611,41 @@ model Store {
 // ── USER ──────────────────────────────────────────────────────
 
 model User {
-  id             String      @id @default(cuid())
-  email          String?     @unique
-  emailVerified  Boolean     @default(false)
-  phone          String?     @unique
-  phoneVerified  Boolean     @default(false)
-  passwordHash   String?
-  googleId       String?     @unique
-  authProvider   String?     @default("password")
-  firstName      String
-  lastName       String
-  avatar         String?
-  role           UserRole    @default(CUSTOMER)
-  isActive       Boolean     @default(true)
-  lastLoginAt    DateTime?
-  lastLoginIp    String?
-  lastLoginDevice String?
-  refreshToken   String?
-  resetToken     String?
-  resetTokenExp  DateTime?
-  verifyToken    String?
-  twoFASecret    String?
-  twoFAEnabled   Boolean     @default(false)
-  twoFABackupCodes String[]  @default([])
+  id               String          @id @default(cuid())
+  email            String?         @unique
+  emailVerified    Boolean         @default(false)
+  phone            String?         @unique
+  phoneVerified    Boolean         @default(false)
+  passwordHash     String?
+  googleId         String?         @unique
+  authProvider     String?         @default("password")
+  firstName        String
+  lastName         String
+  avatar           String?
+  role             UserRole        @default(CUSTOMER)
+  isActive         Boolean         @default(true)
+  lastLoginAt      DateTime?
+  lastLoginIp      String?
+  lastLoginDevice  String?
+  refreshToken     String?
+  resetToken       String?
+  resetTokenExp    DateTime?
+  verifyToken      String?
+  twoFASecret      String?
+  twoFAEnabled     Boolean         @default(false)
+  twoFABackupCodes String[]        @default([])
   // Personal Telegram chat ID for admin login OTP delivery (not shared group).
-  telegramId       String?   @unique
+  telegramId       String?         @unique
   telegramUsername String?
-  ownedStores    Store[]     @relation("StoreOwner")
-  staffRoles     StaffRole[]
-  vendor         Vendor?
-  customer       Customer?
-  auditLogs      AuditLog[]
-  loginHistory   LoginHistory[]
-  deviceSessions DeviceSession[]
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  ownedStores      Store[]         @relation("StoreOwner")
+  staffRoles       StaffRole[]
+  vendor           Vendor?
+  customer         Customer?
+  auditLogs        AuditLog[]
+  loginHistory     LoginHistory[]
+  deviceSessions   DeviceSession[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   @@index([email])
   @@index([phone])
@@ -718,13 +724,13 @@ model DeviceSession {
 }
 
 model IpRule {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   ip        String
-  type      String   // ALLOW | BLOCK
+  type      String // ALLOW | BLOCK
   note      String?
   createdBy String?
   expiresAt DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@unique([ip, type])
   @@index([ip])
@@ -746,47 +752,48 @@ model StaffRole {
 // ── CUSTOMER ──────────────────────────────────────────────────
 
 model Customer {
-  id                String         @id @default(cuid())
-  customerCode      String?
-  userId            String         @unique
-  storeId           String
-  firstName         String
-  lastName          String
-  email             String?
-  phone             String
-  totalOrders       Int            @default(0)
-  totalSpent        Decimal        @default(0) @db.Decimal(12, 2)
-  avgOrderValue     Decimal        @default(0) @db.Decimal(10, 2)
-  loyaltyPoints     Int            @default(0)
-  loyaltyTier       LoyaltyTier    @default(BRONZE)
-  vipScore          Int            @default(0)
-  codRiskScore      Int            @default(0)       // 0-100
-  notes             String?
-  adminNotes        String?
-  tags              String[]       @default([])
-  acceptMarketing   Boolean        @default(false)
-  lastOrderDate     DateTime?
-  firstOrderDate    DateTime?
-  referralCode      String?        @unique
-  referredBy        String?
-  birthday          DateTime?
-  birthdayCouponSent Boolean       @default(false)
-  user              User           @relation(fields: [userId], references: [id])
-  store             Store          @relation(fields: [storeId], references: [id])
-  addresses         Address[]
-  orders            Order[]
-  wishlist          Wishlist?
-  reviews           Review[]
-  cartSessions      CartSession[]
-  notifications     Notification[]
-  loyaltyHistory    LoyaltyHistory[]
-  customerNotes     CustomerNote[]
-  rmas              RMA[]
-  referrals         Referral[]
-  webPushTokens     WebPushToken[]
-  couponRedemptions CouponRedemption[]
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  id                 String             @id @default(cuid())
+  customerCode       String?
+  userId             String             @unique
+  storeId            String
+  firstName          String
+  lastName           String
+  email              String?
+  phone              String
+  totalOrders        Int                @default(0)
+  totalSpent         Decimal            @default(0) @db.Decimal(12, 2)
+  avgOrderValue      Decimal            @default(0) @db.Decimal(10, 2)
+  loyaltyPoints      Int                @default(0)
+  loyaltyTier        LoyaltyTier        @default(BRONZE)
+  vipScore           Int                @default(0)
+  codRiskScore       Int                @default(0) // 0-100
+  notes              String?
+  adminNotes         String?
+  tags               String[]           @default([])
+  acceptMarketing    Boolean            @default(false)
+  lastOrderDate      DateTime?
+  firstOrderDate     DateTime?
+  referralCode       String?            @unique
+  referredBy         String?
+  birthday           DateTime?
+  birthdayCouponSent Boolean            @default(false)
+  user               User               @relation(fields: [userId], references: [id])
+  store              Store              @relation(fields: [storeId], references: [id])
+  addresses          Address[]
+  orders             Order[]
+  wishlist           Wishlist?
+  reviews            Review[]
+  cartSessions       CartSession[]
+  notifications      Notification[]
+  loyaltyHistory     LoyaltyHistory[]
+  customerNotes      CustomerNote[]
+  rmas               RMA[]
+  stockAlerts        StockAlert[]
+  referrals          Referral[]
+  webPushTokens      WebPushToken[]
+  couponRedemptions  CouponRedemption[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   @@unique([storeId, customerCode])
   @@index([storeId])
@@ -809,7 +816,7 @@ model CustomerNote {
 }
 
 model Address {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   customerId    String
   label         String?
   firstName     String
@@ -821,12 +828,12 @@ model Address {
   district      String
   division      String
   postalCode    String?
-  isDefault     Boolean   @default(false)
-  isInsideDhaka Boolean   @default(false)
-  customer      Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  isDefault     Boolean  @default(false)
+  isInsideDhaka Boolean  @default(false)
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   orders        Order[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([customerId])
 }
@@ -834,81 +841,82 @@ model Address {
 // ── PRODUCT ───────────────────────────────────────────────────
 
 model Product {
-  id               String              @id @default(cuid())
-  storeId          String
-  categoryId       String?
-  brandId          String?
-  slug             String
-  name             String
-  description      String?
-  shortDescription String?
-  sku              String?
+  id                String              @id @default(cuid())
+  storeId           String
+  categoryId        String?
+  brandId           String?
+  slug              String
+  name              String
+  description       String?
+  shortDescription  String?
+  sku               String?
   /// Permanent six-digit customer-facing reference ("Product Code: 284731").
   /// Assigned once at creation, never rewritten by an update. Uniqueness is
   /// held by this index plus the IssuedProductCode ledger, which also stops a
   /// code from being handed to a second product after the first is deleted.
-  productCode      String?             @unique
-  rmCode           String?             // RM code for internal tracking
-  barcode          String?
-  qrCode           String?
+  productCode       String?             @unique
+  rmCode            String? // RM code for internal tracking
+  barcode           String?
+  qrCode            String?
   // Stable SPL-{CAT}-{MODEL} identity behind every variant SKU. Allocated once
   // on first save and never recomputed, so adding a colour/size later keeps the
   // product's existing model number.
-  skuCategoryCode  String?
-  skuModelNumber   Int?
-  basePrice        Decimal             @db.Decimal(10, 2)
-  compareAtPrice   Decimal?            @db.Decimal(10, 2)
-  costPrice        Decimal?            @db.Decimal(10, 2)
-  isPublished      Boolean             @default(false)
-  isFeatured       Boolean             @default(false)
-  isNewArrival     Boolean             @default(false)
-  isBestSeller     Boolean             @default(false)
-  isOnSale         Boolean             @default(false)
-  isHidden         Boolean             @default(false)
-  status           String              @default("PUBLISHED") // DRAFT | PUBLISHED | SCHEDULED | ARCHIVED
-  publishAt        DateTime?
-  weight           Decimal?            @db.Decimal(8, 3)
-  lengthCm         Decimal?            @db.Decimal(8, 2)
-  widthCm          Decimal?            @db.Decimal(8, 2)
-  heightCm         Decimal?            @db.Decimal(8, 2)
-  productType      String?
-  inventoryPolicy InventoryPolicy      @default(DENY)
+  skuCategoryCode   String?
+  skuModelNumber    Int?
+  basePrice         Decimal             @db.Decimal(10, 2)
+  compareAtPrice    Decimal?            @db.Decimal(10, 2)
+  costPrice         Decimal?            @db.Decimal(10, 2)
+  isPublished       Boolean             @default(false)
+  isFeatured        Boolean             @default(false)
+  isNewArrival      Boolean             @default(false)
+  isBestSeller      Boolean             @default(false)
+  isOnSale          Boolean             @default(false)
+  isHidden          Boolean             @default(false)
+  status            String              @default("PUBLISHED") // DRAFT | PUBLISHED | SCHEDULED | ARCHIVED
+  publishAt         DateTime?
+  weight            Decimal?            @db.Decimal(8, 3)
+  lengthCm          Decimal?            @db.Decimal(8, 2)
+  widthCm           Decimal?            @db.Decimal(8, 2)
+  heightCm          Decimal?            @db.Decimal(8, 2)
+  productType       String?
+  inventoryPolicy   InventoryPolicy     @default(DENY)
   preorderReleaseAt DateTime?
   additionalDetails Json?
-  fabricContent    String?
-  careInstructions String?
-  fitType          String?
-  occasion         String?
-  season           String?
-  origin           String?             @default("Bangladesh")
-  badge            String?
-  lowStockThreshold Int                @default(5)
-  tags             String[]            @default([])
-  metaTitle        String?
-  metaDescription  String?
-  metaKeywords     String[]            @default([])
-  schemaMarkup     Json?
-  viewCount        Int                 @default(0)
-  soldCount        Int                 @default(0)
-  rating           Decimal             @default(0) @db.Decimal(3, 2)
-  reviewCount      Int                 @default(0)
-  seoScore         Int?
-  store            Store               @relation(fields: [storeId], references: [id])
-  category         Category?           @relation(fields: [categoryId], references: [id])
-  brand            Brand?              @relation(fields: [brandId], references: [id], onDelete: SetNull)
-  collections      CollectionProduct[]
-  variants         ProductVariant[]
-  images           ProductImage[]
-  reviews          Review[]
-  orderItems       OrderItem[]
-  inventoryLogs    InventoryLog[]
-  purchaseItems    PurchaseOrderItem[]
-  wishlistItems    WishlistItem[]
-  cartItems        CartItem[]
-  aiJobs           AIJob[]
-  versionHistory   ProductVersion[]
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  fabricContent     String?
+  careInstructions  String?
+  fitType           String?
+  occasion          String?
+  season            String?
+  origin            String?             @default("Bangladesh")
+  badge             String?
+  lowStockThreshold Int                 @default(5)
+  tags              String[]            @default([])
+  metaTitle         String?
+  metaDescription   String?
+  metaKeywords      String[]            @default([])
+  schemaMarkup      Json?
+  viewCount         Int                 @default(0)
+  soldCount         Int                 @default(0)
+  rating            Decimal             @default(0) @db.Decimal(3, 2)
+  reviewCount       Int                 @default(0)
+  seoScore          Int?
+  store             Store               @relation(fields: [storeId], references: [id])
+  category          Category?           @relation(fields: [categoryId], references: [id])
+  brand             Brand?              @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  collections       CollectionProduct[]
+  variants          ProductVariant[]
+  images            ProductImage[]
+  reviews           Review[]
+  orderItems        OrderItem[]
+  inventoryLogs     InventoryLog[]
+  purchaseItems     PurchaseOrderItem[]
+  wishlistItems     WishlistItem[]
+  cartItems         CartItem[]
+  aiJobs            AIJob[]
+  versionHistory    ProductVersion[]
+  stockAlerts       StockAlert[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
   @@unique([storeId, slug])
   @@unique([storeId, skuCategoryCode, skuModelNumber])
@@ -922,47 +930,48 @@ model Product {
 }
 
 model ProductVersion {
-  id          String   @id @default(cuid())
-  productId   String
-  version     Int
-  snapshot    Json
-  changedBy   String?
-  changeNote  String?
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  productId  String
+  version    Int
+  snapshot   Json
+  changedBy  String?
+  changeNote String?
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
 
   @@index([productId])
 }
 
 model ProductVariant {
-  id             String         @id @default(cuid())
-  productId      String
-  sku            String?        @unique
+  id               String                 @id @default(cuid())
+  productId        String
+  sku              String?                @unique
   /// Colour's serial within this product (Silver 1, Black 2…). Stored rather
   /// than re-derived so renaming a colour, or reordering the matrix, can never
   /// renumber a variant whose SKU is already printed on a label.
-  colorSerial    Int?
-  barcode        String?        @unique
-  qrCode         String?
-  size           String?
-  color          String?
-  colorHex       String?
-  colorName      String?
-  material       String?
-  price          Decimal        @db.Decimal(10, 2)
-  compareAtPrice Decimal?       @db.Decimal(10, 2)
-  stock          Int            @default(0)
-  reservedStock  Int            @default(0)
-  image          String?
-  isActive       Boolean        @default(true)
-  product        Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  orderItems     OrderItem[]
-  cartItems      CartItem[]
-  inventoryLogs  InventoryLog[]
-  purchaseItems  PurchaseOrderItem[]
+  colorSerial      Int?
+  barcode          String?                @unique
+  qrCode           String?
+  size             String?
+  color            String?
+  colorHex         String?
+  colorName        String?
+  material         String?
+  price            Decimal                @db.Decimal(10, 2)
+  compareAtPrice   Decimal?               @db.Decimal(10, 2)
+  stock            Int                    @default(0)
+  reservedStock    Int                    @default(0)
+  image            String?
+  isActive         Boolean                @default(true)
+  product          Product                @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems       OrderItem[]
+  cartItems        CartItem[]
+  inventoryLogs    InventoryLog[]
+  purchaseItems    PurchaseOrderItem[]
   reservationItems StockReservationItem[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  stockAlerts      StockAlert[]
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
 
   @@unique([productId, size, color])
   @@index([productId])
@@ -985,28 +994,28 @@ model ProductImage {
 // ── CATEGORY & COLLECTION ─────────────────────────────────────
 
 model Category {
-  id          String     @id @default(cuid())
-  storeId     String
-  parentId    String?
-  name        String
-  slug        String
+  id            String             @id @default(cuid())
+  storeId       String
+  parentId      String?
+  name          String
+  slug          String
   /// Permanent numeric identity used as the first segment of every variant SKU
   /// (410-0123-01-42). Allocated automatically, never derived from the name, and
   /// never changed by a rename — SKUs already printed carry this number.
-  code        String?
-  description String?
-  image       String?
-  metaTitle   String?
-  metaDesc    String?
-  sortOrder   Int        @default(0)
-  isActive    Boolean    @default(true)
-  store       Store      @relation(fields: [storeId], references: [id])
-  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
-  children    Category[] @relation("CategoryTree")
-  products    Product[]
+  code          String?
+  description   String?
+  image         String?
+  metaTitle     String?
+  metaDesc      String?
+  sortOrder     Int                @default(0)
+  isActive      Boolean            @default(true)
+  store         Store              @relation(fields: [storeId], references: [id])
+  parent        Category?          @relation("CategoryTree", fields: [parentId], references: [id])
+  children      Category[]         @relation("CategoryTree")
+  products      Product[]
   supplierLinks SupplierCategory[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   @@unique([storeId, slug])
   @@unique([storeId, code])
@@ -1033,19 +1042,19 @@ model Collection {
 }
 
 model Brand {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   storeId     String
   name        String
   slug        String
   logo        String?
   vendorLabel String?
-  country     String   @default("Bangladesh")
-  isActive    Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  store       Store    @relation(fields: [storeId], references: [id])
+  country     String    @default("Bangladesh")
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  store       Store     @relation(fields: [storeId], references: [id])
   products    Product[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@unique([storeId, slug])
   @@index([storeId])
@@ -1064,84 +1073,85 @@ model CollectionProduct {
 // ── ORDER ─────────────────────────────────────────────────────
 
 model Order {
-  id                String               @id @default(cuid())
-  invoiceNumber     String               @unique
-  storeId           String
-  idempotencyKey    String?
-  customerId        String?
-  addressId         String?
-  status            OrderStatus          @default(PENDING)
-  paymentStatus     PaymentStatus        @default(UNPAID)
-  paymentMethod     PaymentMethod        @default(CASH_ON_DELIVERY)
-  subtotal          Decimal              @db.Decimal(12, 2)
-  deliveryCharge    Decimal              @default(0) @db.Decimal(8, 2)
-  discount          Decimal              @default(0) @db.Decimal(8, 2)
-  total             Decimal              @db.Decimal(12, 2)
-  advanceAmount     Decimal              @default(0) @db.Decimal(10, 2)
-  couponId          String?
-  couponCode        String?
-  isInsideDhaka     Boolean              @default(false)
-  isSameDay         Boolean              @default(false)
-  notes             String?
-  adminNotes        String?
-  internalNotes     OrderNote[]
-  isInsideDhaka2    Boolean              @default(false) // legacy compat
-  shippingName      String
-  shippingPhone     String
-  shippingEmail     String?
-  shippingAddress   String
-  shippingCity      String
-  shippingDistrict  String
-  shippingDivision  String
-  shippingPostal    String?
-  fraudScore        Int?
-  fraudFlags        String[]             @default([])
-  isCodRisk         Boolean              @default(false)
-  utmSource         String?
-  utmMedium         String?
-  utmCampaign       String?
-  utmContent        String?
-  utmTerm           String?
-  fbclid            String?
-  fbp               String?
-  fbc               String?
-  gclid             String?
-  referrer          String?
-  trafficSource     String?
-  landingPage       String?
-  clientIp          String?
+  id                    String                @id @default(cuid())
+  invoiceNumber         String                @unique
+  storeId               String
+  idempotencyKey        String?
+  customerId            String?
+  addressId             String?
+  status                OrderStatus           @default(PENDING)
+  paymentStatus         PaymentStatus         @default(UNPAID)
+  paymentMethod         PaymentMethod         @default(CASH_ON_DELIVERY)
+  subtotal              Decimal               @db.Decimal(12, 2)
+  deliveryCharge        Decimal               @default(0) @db.Decimal(8, 2)
+  discount              Decimal               @default(0) @db.Decimal(8, 2)
+  total                 Decimal               @db.Decimal(12, 2)
+  advanceAmount         Decimal               @default(0) @db.Decimal(10, 2)
+  couponId              String?
+  couponCode            String?
+  isInsideDhaka         Boolean               @default(false)
+  isSameDay             Boolean               @default(false)
+  notes                 String?
+  adminNotes            String?
+  internalNotes         OrderNote[]
+  isInsideDhaka2        Boolean               @default(false) // legacy compat
+  shippingName          String
+  shippingPhone         String
+  shippingEmail         String?
+  shippingAddress       String
+  shippingCity          String
+  shippingDistrict      String
+  shippingDivision      String
+  shippingPostal        String?
+  fraudScore            Int?
+  fraudFlags            String[]              @default([])
+  isCodRisk             Boolean               @default(false)
+  utmSource             String?
+  utmMedium             String?
+  utmCampaign           String?
+  utmContent            String?
+  utmTerm               String?
+  fbclid                String?
+  fbp                   String?
+  fbc                   String?
+  gclid                 String?
+  referrer              String?
+  trafficSource         String?
+  landingPage           String?
+  clientIp              String?
   /// First-party HttpOnly device cookie (server-minted) — admin fraud signal only.
-  deviceId          String?
+  deviceId              String?
   /// Browser UA at order time — admin fraud signal only; never public.
-  userAgent         String?
-  requireAdvancePayment Boolean          @default(false)
-  mergedFromIds     String[]             @default([])
-  splitShipments    SplitShipment[]
-  confirmedAt       DateTime?
-  processedAt       DateTime?
-  deliveredAt       DateTime?
-  cancelledAt       DateTime?
-  store             Store                @relation(fields: [storeId], references: [id])
-  customer          Customer?            @relation(fields: [customerId], references: [id])
-  address           Address?             @relation(fields: [addressId], references: [id])
-  coupon            Coupon?              @relation(fields: [couponId], references: [id])
-  items             OrderItem[]
-  payments          Payment[]
-  courier           CourierShipment?
-  invoice           Invoice?
-  printJobs         PrintJob[]
-  notifications     Notification[]
-  sheetSyncs        GoogleSheetSync[]
-  partnerTransactions PartnerTransaction[]
-  profitCalculation ProfitCalculation?
-  statusHistory     OrderStatusHistory[]
-  stockReservation  StockReservation?
-  couponRedemption  CouponRedemption?
-  commerceEvents    CommerceEventOutbox[]
-  rmas              RMA[]
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
+  userAgent             String?
+  requireAdvancePayment Boolean               @default(false)
+  mergedFromIds         String[]              @default([])
+  splitShipments        SplitShipment[]
+  confirmedAt           DateTime?
+  processedAt           DateTime?
+  deliveredAt           DateTime?
+  cancelledAt           DateTime?
+  store                 Store                 @relation(fields: [storeId], references: [id])
+  customer              Customer?             @relation(fields: [customerId], references: [id])
+  address               Address?              @relation(fields: [addressId], references: [id])
+  coupon                Coupon?               @relation(fields: [couponId], references: [id])
+  items                 OrderItem[]
+  payments              Payment[]
+  courier               CourierShipment?
+  invoice               Invoice?
+  printJobs             PrintJob[]
+  notifications         Notification[]
+  sheetSyncs            GoogleSheetSync[]
+  partnerTransactions   PartnerTransaction[]
+  profitCalculation     ProfitCalculation?
+  statusHistory         OrderStatusHistory[]
+  stockReservation      StockReservation?
+  couponRedemption      CouponRedemption?
+  commerceEvents        CommerceEventOutbox[]
+  rmas                  RMA[]
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
 
+  @@unique([storeId, idempotencyKey])
   @@index([storeId, status])
   @@index([storeId, createdAt])
   @@index([storeId, trafficSource])
@@ -1149,7 +1159,6 @@ model Order {
   @@index([storeId, deviceId])
   @@index([invoiceNumber])
   @@index([shippingPhone])
-  @@unique([storeId, idempotencyKey])
 }
 
 model OrderNote {
@@ -1165,13 +1174,13 @@ model OrderNote {
 }
 
 model SplitShipment {
-  id          String   @id @default(cuid())
-  orderId     String
-  itemIds     String[]
-  status      OrderStatus @default(PENDING)
-  courierRef  String?
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  id         String      @id @default(cuid())
+  orderId    String
+  itemIds    String[]
+  status     OrderStatus @default(PENDING)
+  courierRef String?
+  order      Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt  DateTime    @default(now())
 
   @@index([orderId])
 }
@@ -1243,16 +1252,16 @@ model Payment {
 }
 
 model StockReservation {
-  id        String                 @id @default(cuid())
-  orderId   String                 @unique
-  status    StockReservationStatus @default(ACTIVE)
-  expiresAt DateTime
+  id         String                 @id @default(cuid())
+  orderId    String                 @unique
+  status     StockReservationStatus @default(ACTIVE)
+  expiresAt  DateTime
   consumedAt DateTime?
   releasedAt DateTime?
-  order     Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  items     StockReservationItem[]
-  createdAt DateTime               @default(now())
-  updatedAt DateTime               @updatedAt
+  order      Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  items      StockReservationItem[]
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
 
   @@index([status, expiresAt])
 }
@@ -1294,29 +1303,29 @@ model CommerceEventOutbox {
 // ── COURIER SHIPMENT ──────────────────────────────────────────
 
 model CourierShipment {
-  id                String          @id @default(cuid())
-  orderId           String          @unique
+  id                String                @id @default(cuid())
+  orderId           String                @unique
   provider          CourierProvider
-  status            CourierStatus   @default(PENDING)
+  status            CourierStatus         @default(PENDING)
   consignmentId     String?
   trackingCode      String?
   trackingUrl       String?
-  deliveryCharge    Decimal         @db.Decimal(8, 2)
-  codAmount         Decimal?        @db.Decimal(12, 2)
-  weight            Decimal?        @db.Decimal(6, 3)
+  deliveryCharge    Decimal               @db.Decimal(8, 2)
+  codAmount         Decimal?              @db.Decimal(12, 2)
+  weight            Decimal?              @db.Decimal(6, 3)
   estimatedDelivery DateTime?
   bookedAt          DateTime?
   pickedUpAt        DateTime?
   deliveredAt       DateTime?
   returnedAt        DateTime?
   failureReason     String?
-  retryCount        Int             @default(0)
+  retryCount        Int                   @default(0)
   lastRetryAt       DateTime?
   apiResponse       Json?
   webhookEvents     CourierWebhookEvent[]
-  order             Order           @relation(fields: [orderId], references: [id])
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  order             Order                 @relation(fields: [orderId], references: [id])
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
 
   @@index([consignmentId])
   @@index([trackingCode])
@@ -1338,26 +1347,26 @@ model CourierWebhookEvent {
 // ── RMA (Returns & Exchanges) ─────────────────────────────────
 
 model RMA {
-  id           String    @id @default(cuid())
-  rmaNumber    String    @unique
-  storeId      String
-  orderId      String
-  customerId   String?
-  type         RMAType
-  status       RMAStatus @default(REQUESTED)
-  reason       String
-  description  String?
-  images       String[]  @default([])
-  adminNotes   String?
-  refundAmount Decimal?  @db.Decimal(10, 2)
-  resolvedAt   DateTime?
-  store        Store     @relation(fields: [storeId], references: [id])
-  order        Order     @relation(fields: [orderId], references: [id])
-  customer     Customer? @relation(fields: [customerId], references: [id])
-  items        RMAItem[]
+  id            String             @id @default(cuid())
+  rmaNumber     String             @unique
+  storeId       String
+  orderId       String
+  customerId    String?
+  type          RMAType
+  status        RMAStatus          @default(REQUESTED)
+  reason        String
+  description   String?
+  images        String[]           @default([])
+  adminNotes    String?
+  refundAmount  Decimal?           @db.Decimal(10, 2)
+  resolvedAt    DateTime?
+  store         Store              @relation(fields: [storeId], references: [id])
+  order         Order              @relation(fields: [orderId], references: [id])
+  customer      Customer?          @relation(fields: [customerId], references: [id])
+  items         RMAItem[]
   statusHistory RMAStatusHistory[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   @@index([storeId, status])
   @@index([orderId])
@@ -1390,19 +1399,19 @@ model RMAStatusHistory {
 // ── INVOICE ───────────────────────────────────────────────────
 
 model Invoice {
-  id             String     @id @default(cuid())
-  orderId        String     @unique
-  invoiceNumber  String     @unique
-  pdfUrl         String?
-  thermalUrl     String?
-  labelUrl       String?
-  emailedAt      DateTime?
-  printedAt      DateTime?
-  generatedAt    DateTime   @default(now())
-  order          Order      @relation(fields: [orderId], references: [id])
-  printJobs      PrintJob[]
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  id            String     @id @default(cuid())
+  orderId       String     @unique
+  invoiceNumber String     @unique
+  pdfUrl        String?
+  thermalUrl    String?
+  labelUrl      String?
+  emailedAt     DateTime?
+  printedAt     DateTime?
+  generatedAt   DateTime   @default(now())
+  order         Order      @relation(fields: [orderId], references: [id])
+  printJobs     PrintJob[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   @@index([invoiceNumber])
 }
@@ -1459,24 +1468,24 @@ model GoogleSheetSync {
 // ── COUPON ────────────────────────────────────────────────────
 
 model Coupon {
-  id                String     @id @default(cuid())
+  id                String             @id @default(cuid())
   storeId           String
   code              String
   type              CouponType
-  value             Decimal    @db.Decimal(10, 2)
-  minOrderAmount    Decimal?   @db.Decimal(10, 2)
-  maxDiscountAmount Decimal?   @db.Decimal(10, 2)
+  value             Decimal            @db.Decimal(10, 2)
+  minOrderAmount    Decimal?           @db.Decimal(10, 2)
+  maxDiscountAmount Decimal?           @db.Decimal(10, 2)
   usageLimit        Int?
-  usedCount         Int        @default(0)
+  usedCount         Int                @default(0)
   perCustomerLimit  Int?
-  isActive          Boolean    @default(true)
+  isActive          Boolean            @default(true)
   startsAt          DateTime?
   expiresAt         DateTime?
-  store             Store      @relation(fields: [storeId], references: [id])
+  store             Store              @relation(fields: [storeId], references: [id])
   orders            Order[]
   redemptions       CouponRedemption[]
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@unique([storeId, code])
   @@index([storeId, isActive])
@@ -1549,19 +1558,19 @@ model WishlistItem {
 // ── CART SESSION ─────────────────────────────────────────────
 
 model CartSession {
-  id         String     @id @default(cuid())
-  sessionId  String     @unique
-  customerId String?
-  storeId    String?
-  items      CartItem[]
-  expiresAt  DateTime
-  isAbandoned Boolean   @default(false)
+  id                  String     @id @default(cuid())
+  sessionId           String     @unique
+  customerId          String?
+  storeId             String?
+  items               CartItem[]
+  expiresAt           DateTime
+  isAbandoned         Boolean    @default(false)
   recoveryEmailSentAt DateTime?
-  recoverySmsSentAt DateTime?
-  recoveryWaSentAt DateTime?
-  customer   Customer?  @relation(fields: [customerId], references: [id])
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  recoverySmsSentAt   DateTime?
+  recoveryWaSentAt    DateTime?
+  customer            Customer?  @relation(fields: [customerId], references: [id])
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
   @@index([sessionId])
   @@index([customerId])
@@ -1569,15 +1578,15 @@ model CartSession {
 }
 
 model CartItem {
-  id         String          @id @default(cuid())
-  cartId     String
-  productId  String
-  variantId  String?
-  quantity   Int
-  cart       CartSession     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product    Product         @relation(fields: [productId], references: [id])
-  variant    ProductVariant? @relation(fields: [variantId], references: [id])
-  addedAt    DateTime        @default(now())
+  id        String          @id @default(cuid())
+  cartId    String
+  productId String
+  variantId String?
+  quantity  Int
+  cart      CartSession     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product         @relation(fields: [productId], references: [id])
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+  addedAt   DateTime        @default(now())
 
   @@unique([cartId, productId, variantId])
 }
@@ -1601,6 +1610,43 @@ model InventoryLog {
 
   @@index([productId])
   @@index([variantId])
+}
+
+/// "Tell me when it's back." One row per person per item, so the same shopper
+/// asking twice does not get told twice. Kept after notifying rather than
+/// deleted: how many people waited on a SKU is what tells the shop whether
+/// restocking it was worth it.
+model StockAlert {
+  id               String            @id @default(cuid())
+  storeId          String
+  productId        String
+  variantId        String?
+  channel          StockAlertChannel
+  /// Normalised email (lowercased) or BD phone (01XXXXXXXXX).
+  contact          String
+  customerId       String?
+  /// productId:variantId:channel:contact. A plain @@unique across those would
+  /// let duplicates through, since Postgres treats every NULL variantId as
+  /// distinct from every other.
+  dedupeKey        String
+  /// Opaque per-row secret behind the one-click unsubscribe link. Random rather
+  /// than derived, so it can be revoked without rotating a shared key.
+  unsubscribeToken String            @unique
+  notifiedAt       DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  store    Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product  Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant  ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  customer Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@unique([storeId, dedupeKey])
+  // The sweep's own query: everything still waiting, newest store first.
+  @@index([storeId, notifiedAt])
+  @@index([productId, notifiedAt])
+  @@index([variantId])
+  @@index([customerId])
 }
 
 // ── NOTIFICATION ──────────────────────────────────────────────
@@ -1630,16 +1676,16 @@ model Notification {
 }
 
 model WebPushToken {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   customerId String?
   storeId    String
-  endpoint   String   @unique
+  endpoint   String    @unique
   p256dh     String
   auth       String
   userAgent  String?
   customer   Customer? @relation(fields: [customerId], references: [id])
-  store      Store    @relation(fields: [storeId], references: [id])
-  createdAt  DateTime @default(now())
+  store      Store     @relation(fields: [storeId], references: [id])
+  createdAt  DateTime  @default(now())
 
   @@index([customerId])
 }
@@ -1647,9 +1693,9 @@ model WebPushToken {
 // ── AI JOB ────────────────────────────────────────────────────
 
 model AIJob {
-  id          String      @id @default(cuid())
+  id          String             @id @default(cuid())
   type        AIJobType
-  status      AIJobStatus @default(QUEUED)
+  status      AIJobStatus        @default(QUEUED)
   productId   String?
   orderId     String?
   storeId     String?
@@ -1658,14 +1704,14 @@ model AIJob {
   outputData  Json?
   model       String?
   tokensUsed  Int?
-  costUsd     Decimal?    @db.Decimal(10, 6)
+  costUsd     Decimal?           @db.Decimal(10, 6)
   errorMsg    String?
   startedAt   DateTime?
   completedAt DateTime?
-  product     Product?    @relation(fields: [productId], references: [id])
+  product     Product?           @relation(fields: [productId], references: [id])
   approval    AIContentApproval?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 
   @@index([type, status])
   @@index([storeId])
@@ -1674,7 +1720,7 @@ model AIJob {
 // ── BANNER ────────────────────────────────────────────────────
 
 model Banner {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   storeId     String
   title       String?
   subtitle    String?
@@ -1682,14 +1728,14 @@ model Banner {
   mobileImage String?
   linkUrl     String?
   linkText    String?
-  position    String   @default("hero")
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
+  position    String    @default("hero")
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
   startsAt    DateTime?
   expiresAt   DateTime?
-  store       Store    @relation(fields: [storeId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  store       Store     @relation(fields: [storeId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([storeId, isActive])
 }
@@ -1697,14 +1743,14 @@ model Banner {
 // Dedicated reusable media records. Product/category/banner references keep
 // portable /uploads/* paths; this table owns library metadata and file lifecycle.
 model MediaAsset {
-  id        String   @id @default(cuid())
-  storeId   String
-  name      String
-  path      String
-  altText   String?
-  folder    String   @default("media")
-  mimeType  String?
-  sizeBytes Int?
+  id          String    @id @default(cuid())
+  storeId     String
+  name        String
+  path        String
+  altText     String?
+  folder      String    @default("media")
+  mimeType    String?
+  sizeBytes   Int?
   width       Int?
   height      Int?
   contentHash String?
@@ -1788,7 +1834,7 @@ model Menu {
   id        String     @id @default(cuid())
   storeId   String
   name      String
-  handle    String     // header | footer | mobile | mega
+  handle    String // header | footer | mobile | mega
   isActive  Boolean    @default(true)
   store     Store      @relation(fields: [storeId], references: [id])
   items     MenuItem[]
@@ -1799,21 +1845,21 @@ model Menu {
 }
 
 model MenuItem {
-  id          String       @id @default(cuid())
-  menuId      String
-  parentId    String?
-  type        MenuItemType @default(LINK)
-  label       String
-  url         String?
-  resourceId  String?
-  sortOrder   Int          @default(0)
-  isActive    Boolean      @default(true)
+  id           String       @id @default(cuid())
+  menuId       String
+  parentId     String?
+  type         MenuItemType @default(LINK)
+  label        String
+  url          String?
+  resourceId   String?
+  sortOrder    Int          @default(0)
+  isActive     Boolean      @default(true)
   megaMenuData Json?
-  menu        Menu         @relation(fields: [menuId], references: [id], onDelete: Cascade)
-  parent      MenuItem?    @relation("MenuTree", fields: [parentId], references: [id])
-  children    MenuItem[]   @relation("MenuTree")
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  menu         Menu         @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  parent       MenuItem?    @relation("MenuTree", fields: [parentId], references: [id])
+  children     MenuItem[]   @relation("MenuTree")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   @@index([menuId, parentId])
 }
@@ -1821,28 +1867,28 @@ model MenuItem {
 // ── BLOG / CMS ────────────────────────────────────────────────
 
 model BlogPost {
-  id             String       @id @default(cuid())
-  storeId        String
-  categoryId     String?
-  authorId       String?
-  slug           String
-  title          String
-  excerpt        String?
-  content        String
-  featuredImage  String?
-  status         BlogStatus   @default(DRAFT)
-  publishAt      DateTime?
-  publishedAt    DateTime?
-  metaTitle      String?
-  metaDesc       String?
-  schemaMarkup   Json?
-  tags           String[]     @default([])
-  readTime       Int?
-  viewCount      Int          @default(0)
-  store          Store        @relation(fields: [storeId], references: [id])
-  category       BlogCategory? @relation(fields: [categoryId], references: [id])
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id            String        @id @default(cuid())
+  storeId       String
+  categoryId    String?
+  authorId      String?
+  slug          String
+  title         String
+  excerpt       String?
+  content       String
+  featuredImage String?
+  status        BlogStatus    @default(DRAFT)
+  publishAt     DateTime?
+  publishedAt   DateTime?
+  metaTitle     String?
+  metaDesc      String?
+  schemaMarkup  Json?
+  tags          String[]      @default([])
+  readTime      Int?
+  viewCount     Int           @default(0)
+  store         Store         @relation(fields: [storeId], references: [id])
+  category      BlogCategory? @relation(fields: [categoryId], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@unique([storeId, slug])
   @@index([storeId, status])
@@ -1863,29 +1909,29 @@ model BlogCategory {
 // ── SEO CONFIG ────────────────────────────────────────────────
 
 model SeoConfig {
-  id               String   @id @default(cuid())
-  storeId          String
-  resourceType     String   // product | collection | page | blog | category
-  resourceId       String?
-  metaTitle        String?
-  metaDesc         String?
-  canonicalUrl     String?
-  ogTitle          String?
-  ogDesc           String?
-  ogImage          String?
-  twitterTitle     String?
-  twitterDesc      String?
-  twitterImage     String?
-  noIndex          Boolean  @default(false)
-  noFollow         Boolean  @default(false)
-  schemaType       String?
-  schemaData       Json?
-  seoScore         Int?
-  lastAuditAt      DateTime?
-  issues           Json?
-  store            Store    @relation(fields: [storeId], references: [id])
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id           String    @id @default(cuid())
+  storeId      String
+  resourceType String // product | collection | page | blog | category
+  resourceId   String?
+  metaTitle    String?
+  metaDesc     String?
+  canonicalUrl String?
+  ogTitle      String?
+  ogDesc       String?
+  ogImage      String?
+  twitterTitle String?
+  twitterDesc  String?
+  twitterImage String?
+  noIndex      Boolean   @default(false)
+  noFollow     Boolean   @default(false)
+  schemaType   String?
+  schemaData   Json?
+  seoScore     Int?
+  lastAuditAt  DateTime?
+  issues       Json?
+  store        Store     @relation(fields: [storeId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@unique([storeId, resourceType, resourceId])
   @@index([storeId, resourceType])
@@ -1913,29 +1959,29 @@ model UrlRedirect {
 // ── SEARCH CONFIG ────────────────────────────────────────────
 
 model SearchConfig {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   storeId        String
-  provider       String   @default("meilisearch") // meilisearch | typesense
+  provider       String    @default("meilisearch") // meilisearch | typesense
   indexName      String
-  settings       Json     @default("{}")
+  settings       Json      @default("{}")
   lastIndexedAt  DateTime?
-  totalDocuments Int      @default(0)
-  store          Store    @relation(fields: [storeId], references: [id])
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  totalDocuments Int       @default(0)
+  store          Store     @relation(fields: [storeId], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@unique([storeId, indexName])
 }
 
 model SearchAnalytics {
-  id              String   @id @default(cuid())
-  storeId         String
-  query           String
-  resultsCount    Int
-  clicked         Boolean  @default(false)
+  id               String   @id @default(cuid())
+  storeId          String
+  query            String
+  resultsCount     Int
+  clicked          Boolean  @default(false)
   clickedProductId String?
-  sessionId       String?
-  createdAt       DateTime @default(now())
+  sessionId        String?
+  createdAt        DateTime @default(now())
 
   @@index([storeId, query])
   @@index([storeId, resultsCount])
@@ -1945,54 +1991,54 @@ model SearchAnalytics {
 // ── AUTOMATION RULES ─────────────────────────────────────────
 
 model AutomationRule {
-  id          String            @id @default(cuid())
+  id          String                 @id @default(cuid())
   storeId     String
   name        String
   description String?
-  isActive    Boolean           @default(true)
+  isActive    Boolean                @default(true)
   trigger     AutomationTrigger
   conditions  AutomationCondition[]
   actions     AutomationRuleAction[]
-  runCount    Int               @default(0)
+  runCount    Int                    @default(0)
   lastRunAt   DateTime?
-  store       Store             @relation(fields: [storeId], references: [id])
+  store       Store                  @relation(fields: [storeId], references: [id])
   logs        AutomationLog[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
 
   @@index([storeId, isActive])
   @@index([trigger])
 }
 
 model AutomationCondition {
-  id         String                @id @default(cuid())
-  ruleId     String
-  field      String
-  operator   RuleConditionOperator
-  value      String
-  rule       AutomationRule        @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  createdAt  DateTime              @default(now())
+  id        String                @id @default(cuid())
+  ruleId    String
+  field     String
+  operator  RuleConditionOperator
+  value     String
+  rule      AutomationRule        @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  createdAt DateTime              @default(now())
 }
 
 model AutomationRuleAction {
-  id         String           @id @default(cuid())
-  ruleId     String
-  action     AutomationAction
-  params     Json             @default("{}")
-  sortOrder  Int              @default(0)
-  rule       AutomationRule   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  createdAt  DateTime         @default(now())
+  id        String           @id @default(cuid())
+  ruleId    String
+  action    AutomationAction
+  params    Json             @default("{}")
+  sortOrder Int              @default(0)
+  rule      AutomationRule   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now())
 }
 
 model AutomationLog {
-  id         String   @id @default(cuid())
-  ruleId     String
+  id          String         @id @default(cuid())
+  ruleId      String
   triggeredBy String?
-  context    Json?
-  success    Boolean
-  errorMsg   String?
-  rule       AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  context     Json?
+  success     Boolean
+  errorMsg    String?
+  rule        AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
 
   @@index([ruleId])
   @@index([createdAt])
@@ -2001,43 +2047,43 @@ model AutomationLog {
 // ── LOYALTY ───────────────────────────────────────────────────
 
 model LoyaltyTierConfig {
-  id           String     @id @default(cuid())
+  id           String      @id @default(cuid())
   storeId      String
   tier         LoyaltyTier
   minPoints    Int
-  pointsPerBdt Decimal    @default(1) @db.Decimal(5, 2)
-  perksJson    Json       @default("{}")
-  store        Store      @relation(fields: [storeId], references: [id])
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  pointsPerBdt Decimal     @default(1) @db.Decimal(5, 2)
+  perksJson    Json        @default("{}")
+  store        Store       @relation(fields: [storeId], references: [id])
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   @@unique([storeId, tier])
 }
 
 model LoyaltyHistory {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   customerId String
   points     Int
-  type       String   // EARN | REDEEM | EXPIRE | ADJUST
+  type       String // EARN | REDEEM | EXPIRE | ADJUST
   reason     String?
   orderId    String?
   expireAt   DateTime?
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
 
   @@index([customerId])
 }
 
 model Referral {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   referrerId   String
   refereeId    String?
-  code         String   @unique
-  isConverted  Boolean  @default(false)
-  rewardPoints Int      @default(0)
+  code         String    @unique
+  isConverted  Boolean   @default(false)
+  rewardPoints Int       @default(0)
   convertedAt  DateTime?
-  referrer     Customer @relation(fields: [referrerId], references: [id])
-  createdAt    DateTime @default(now())
+  referrer     Customer  @relation(fields: [referrerId], references: [id])
+  createdAt    DateTime  @default(now())
 
   @@index([referrerId])
   @@index([code])
@@ -2046,25 +2092,25 @@ model Referral {
 // ── MARKETING CAMPAIGNS ───────────────────────────────────────
 
 model Campaign {
-  id            String              @id @default(cuid())
-  storeId       String
-  name          String
-  type          String              // EMAIL | SMS | WHATSAPP | PUSH
-  status        String              @default("DRAFT")
-  subject       String?
-  body          String
-  recipientType String              @default("ALL") // ALL | SEGMENT | TAG | MANUAL
-  recipientTags String[]            @default([])
-  scheduledAt   DateTime?
-  sentAt        DateTime?
-  totalSent     Int                 @default(0)
-  totalDelivered Int                @default(0)
-  totalOpened   Int                 @default(0)
-  totalClicked  Int                 @default(0)
-  store         Store               @relation(fields: [storeId], references: [id])
-  notifications Notification[]
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  id             String         @id @default(cuid())
+  storeId        String
+  name           String
+  type           String // EMAIL | SMS | WHATSAPP | PUSH
+  status         String         @default("DRAFT")
+  subject        String?
+  body           String
+  recipientType  String         @default("ALL") // ALL | SEGMENT | TAG | MANUAL
+  recipientTags  String[]       @default([])
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  totalSent      Int            @default(0)
+  totalDelivered Int            @default(0)
+  totalOpened    Int            @default(0)
+  totalClicked   Int            @default(0)
+  store          Store          @relation(fields: [storeId], references: [id])
+  notifications  Notification[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   @@index([storeId, status])
 }
@@ -2072,51 +2118,51 @@ model Campaign {
 // ── TELEGRAM CONFIG ───────────────────────────────────────────
 
 model TelegramConfig {
-  id          String   @id @default(cuid())
-  storeId     String   @unique
-  botToken    String
-  chatId      String
-  isActive    Boolean  @default(true)
-  notifyOrders Boolean @default(true)
-  notifyPayments Boolean @default(true)
-  notifyCourier Boolean @default(true)
-  notifyStock   Boolean @default(true)
-  notifyReviews Boolean @default(false)
-  notifyCustomers Boolean @default(true)
-  notifyRMA     Boolean @default(true)
-  reportDaily   Boolean @default(true)
-  reportWeekly  Boolean @default(true)
-  reportTime    String  @default("09:00")
-  store         Store   @relation(fields: [storeId], references: [id])
-  users         TelegramUser[]
-  logs          TelegramLog[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String         @id @default(cuid())
+  storeId         String         @unique
+  botToken        String
+  chatId          String
+  isActive        Boolean        @default(true)
+  notifyOrders    Boolean        @default(true)
+  notifyPayments  Boolean        @default(true)
+  notifyCourier   Boolean        @default(true)
+  notifyStock     Boolean        @default(true)
+  notifyReviews   Boolean        @default(false)
+  notifyCustomers Boolean        @default(true)
+  notifyRMA       Boolean        @default(true)
+  reportDaily     Boolean        @default(true)
+  reportWeekly    Boolean        @default(true)
+  reportTime      String         @default("09:00")
+  store           Store          @relation(fields: [storeId], references: [id])
+  users           TelegramUser[]
+  logs            TelegramLog[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 }
 
 model TelegramUser {
-  id         String       @id @default(cuid())
+  id         String         @id @default(cuid())
   configId   String
   telegramId String
   username   String?
-  role       TelegramRole @default(ORDER_STAFF)
-  isActive   Boolean      @default(true)
+  role       TelegramRole   @default(ORDER_STAFF)
+  isActive   Boolean        @default(true)
   config     TelegramConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
-  createdAt  DateTime     @default(now())
+  createdAt  DateTime       @default(now())
 
   @@unique([configId, telegramId])
 }
 
 model TelegramLog {
-  id        String   @id @default(cuid())
+  id        String         @id @default(cuid())
   configId  String
-  type      String   // COMMAND | NOTIFICATION | ERROR
+  type      String // COMMAND | NOTIFICATION | ERROR
   command   String?
   userId    String?
   message   String
-  success   Boolean  @default(true)
+  success   Boolean        @default(true)
   config    TelegramConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  createdAt DateTime       @default(now())
 
   @@index([configId])
   @@index([createdAt])
@@ -2165,47 +2211,47 @@ model Vendor {
 // ── SITE SETTINGS ─────────────────────────────────────────────
 
 model SiteSettings {
-  id                     String          @id @default(cuid())
-  storeId                String          @unique
-  dhakaDeliveryCharge    Decimal         @default(60) @db.Decimal(8, 2)
-  outsideDhakaCharge     Decimal         @default(120) @db.Decimal(8, 2)
-  sameDayCharge          Decimal         @default(100) @db.Decimal(8, 2)
-  freeDeliveryThreshold  Decimal         @default(3000) @db.Decimal(10, 2)
-  defaultCourier         CourierProvider @default(STEADFAST)
-  autoCourierBooking     Boolean         @default(true)
-  courierRuleEnabled     Boolean         @default(false)
-  autoPrintInvoice       Boolean         @default(true)
-  autoPrintLabel         Boolean         @default(true)
-  smsEnabled             Boolean         @default(true)
-  emailEnabled           Boolean         @default(true)
-  whatsappEnabled        Boolean         @default(false)
-  telegramEnabled        Boolean         @default(false)
-  codEnabled             Boolean         @default(true)
-  bkashEnabled           Boolean         @default(false)
-  nagadEnabled           Boolean         @default(false)
-  sslcommerzEnabled      Boolean         @default(false)
-  loyaltyEnabled         Boolean         @default(false)
-  referralEnabled        Boolean         @default(false)
-  searchProvider         String          @default("meilisearch")
-  metaTitle              String?
-  metaDescription        String?
-  metaKeywords           String[]        @default([])
-  googleAnalyticsId      String?
-  facebookPixelId        String?
-  googleSearchConsoleKey String?
-  defaultPackagingCostPerOrder Decimal @default(0) @db.Decimal(10, 2)
-  paymentFeePercent            Decimal @default(0) @db.Decimal(6, 3)
-  customHeadScripts      String?
-  customBodyScripts      String?
-  customCss              String?
-  instagramUrl           String?
-  facebookUrl            String?
-  tiktokUrl              String?
-  youtubeUrl             String?
-  whatsappNumber         String?
-  storefrontConfig       Json?
-  store                  Store           @relation(fields: [storeId], references: [id])
-  updatedAt              DateTime        @updatedAt
+  id                           String          @id @default(cuid())
+  storeId                      String          @unique
+  dhakaDeliveryCharge          Decimal         @default(60) @db.Decimal(8, 2)
+  outsideDhakaCharge           Decimal         @default(120) @db.Decimal(8, 2)
+  sameDayCharge                Decimal         @default(100) @db.Decimal(8, 2)
+  freeDeliveryThreshold        Decimal         @default(3000) @db.Decimal(10, 2)
+  defaultCourier               CourierProvider @default(STEADFAST)
+  autoCourierBooking           Boolean         @default(true)
+  courierRuleEnabled           Boolean         @default(false)
+  autoPrintInvoice             Boolean         @default(true)
+  autoPrintLabel               Boolean         @default(true)
+  smsEnabled                   Boolean         @default(true)
+  emailEnabled                 Boolean         @default(true)
+  whatsappEnabled              Boolean         @default(false)
+  telegramEnabled              Boolean         @default(false)
+  codEnabled                   Boolean         @default(true)
+  bkashEnabled                 Boolean         @default(false)
+  nagadEnabled                 Boolean         @default(false)
+  sslcommerzEnabled            Boolean         @default(false)
+  loyaltyEnabled               Boolean         @default(false)
+  referralEnabled              Boolean         @default(false)
+  searchProvider               String          @default("meilisearch")
+  metaTitle                    String?
+  metaDescription              String?
+  metaKeywords                 String[]        @default([])
+  googleAnalyticsId            String?
+  facebookPixelId              String?
+  googleSearchConsoleKey       String?
+  defaultPackagingCostPerOrder Decimal         @default(0) @db.Decimal(10, 2)
+  paymentFeePercent            Decimal         @default(0) @db.Decimal(6, 3)
+  customHeadScripts            String?
+  customBodyScripts            String?
+  customCss                    String?
+  instagramUrl                 String?
+  facebookUrl                  String?
+  tiktokUrl                    String?
+  youtubeUrl                   String?
+  whatsappNumber               String?
+  storefrontConfig             Json?
+  store                        Store           @relation(fields: [storeId], references: [id])
+  updatedAt                    DateTime        @updatedAt
 }
 
 model NewsletterSubscriber {
@@ -2292,7 +2338,7 @@ model AuditLog {
   newData    Json?
   ipAddress  String?
   userAgent  String?
-  source     String?  // WEB | TELEGRAM | API | CRON | SYSTEM
+  source     String? // WEB | TELEGRAM | API | CRON | SYSTEM
   user       User?    @relation(fields: [userId], references: [id])
   createdAt  DateTime @default(now())
 
@@ -2305,16 +2351,16 @@ model AuditLog {
 // ── CRON JOB MONITOR ─────────────────────────────────────────
 
 model CronJobLog {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   jobName     String
   schedule    String
   startedAt   DateTime
   completedAt DateTime?
   success     Boolean
   errorMsg    String?
-  duration    Int?     // ms
+  duration    Int? // ms
   result      Json?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   @@index([jobName])
   @@index([createdAt])
@@ -2323,34 +2369,34 @@ model CronJobLog {
 // ── PARTNER FINANCE ───────────────────────────────────────────
 
 model Partner {
-  id                     String               @id @default(cuid())
+  id                     String                @id @default(cuid())
   storeId                String
   name                   String
   slug                   String
   email                  String?
   phone                  String?
   avatarUrl              String?
-  sharePercent           Decimal              @db.Decimal(5, 2)
-  totalInvestment        Decimal              @default(0) @db.Decimal(14, 2)
-  totalWithdrawal        Decimal              @default(0) @db.Decimal(14, 2)
-  totalSalesContribution Decimal              @default(0) @db.Decimal(14, 2)
-  totalExpenseShare      Decimal              @default(0) @db.Decimal(14, 2)
-  totalProfitShare       Decimal              @default(0) @db.Decimal(14, 2)
-  currentBalance         Decimal              @default(0) @db.Decimal(14, 2)
-  isActive               Boolean              @default(true)
+  sharePercent           Decimal               @db.Decimal(5, 2)
+  totalInvestment        Decimal               @default(0) @db.Decimal(14, 2)
+  totalWithdrawal        Decimal               @default(0) @db.Decimal(14, 2)
+  totalSalesContribution Decimal               @default(0) @db.Decimal(14, 2)
+  totalExpenseShare      Decimal               @default(0) @db.Decimal(14, 2)
+  totalProfitShare       Decimal               @default(0) @db.Decimal(14, 2)
+  currentBalance         Decimal               @default(0) @db.Decimal(14, 2)
+  isActive               Boolean               @default(true)
   // ACTIVE = legacy; INVITED = email sent; CONFIRMED = accepted invite
-  inviteStatus           String               @default("ACTIVE")
-  inviteToken            String?              @unique
+  inviteStatus           String                @default("ACTIVE")
+  inviteToken            String?               @unique
   inviteSentAt           DateTime?
   inviteConfirmedAt      DateTime?
   notes                  String?
   createdBy              String?
-  store                  Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store                  Store                 @relation(fields: [storeId], references: [id], onDelete: Cascade)
   transactions           PartnerTransaction[]
   expenses               Expense[]
   shareSettings          PartnerShareSetting[]
-  createdAt              DateTime             @default(now())
-  updatedAt              DateTime             @updatedAt
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
 
   @@unique([storeId, slug])
   @@index([storeId, isActive])
@@ -2358,17 +2404,17 @@ model Partner {
 }
 
 model PartnerShareSetting {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   storeId       String
   partnerId     String
-  sharePercent  Decimal  @db.Decimal(5, 2)
-  effectiveFrom DateTime @default(now())
+  sharePercent  Decimal   @db.Decimal(5, 2)
+  effectiveFrom DateTime  @default(now())
   effectiveTo   DateTime?
   createdBy     String?
-  store         Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  partner       Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  store         Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  partner       Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([storeId, effectiveFrom])
   @@index([partnerId])
@@ -2401,25 +2447,25 @@ model PartnerTransaction {
 }
 
 model Expense {
-  id              String                   @id @default(cuid())
-  storeId         String
-  partnerId       String?
-  category        ExpenseCategory
-  amount          Decimal                  @db.Decimal(14, 2)
-  expenseDate     DateTime                 @default(now())
-  note            String?
-  attachmentUrl   String?
-  vendor          String?
-  paymentMethod   ExpensePaymentMethod?
-  recurring       Boolean                  @default(false)
-  status          FinanceTransactionStatus @default(PENDING)
-  createdBy       String?
-  approvedBy      String?
-  approvedAt      DateTime?
-  store           Store                    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  partner         Partner?                 @relation(fields: [partnerId], references: [id])
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
+  id            String                   @id @default(cuid())
+  storeId       String
+  partnerId     String?
+  category      ExpenseCategory
+  amount        Decimal                  @db.Decimal(14, 2)
+  expenseDate   DateTime                 @default(now())
+  note          String?
+  attachmentUrl String?
+  vendor        String?
+  paymentMethod ExpensePaymentMethod?
+  recurring     Boolean                  @default(false)
+  status        FinanceTransactionStatus @default(PENDING)
+  createdBy     String?
+  approvedBy    String?
+  approvedAt    DateTime?
+  store         Store                    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  partner       Partner?                 @relation(fields: [partnerId], references: [id])
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
 
   @@index([storeId, category])
   @@index([storeId, status])
@@ -2427,27 +2473,27 @@ model Expense {
 }
 
 model ProfitCalculation {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   storeId           String
-  orderId           String?  @unique
+  orderId           String?   @unique
   periodStart       DateTime?
   periodEnd         DateTime?
-  grossRevenue      Decimal  @db.Decimal(14, 2)
-  productCost       Decimal  @default(0) @db.Decimal(14, 2)
-  courierCost       Decimal  @default(0) @db.Decimal(14, 2)
-  packagingCost     Decimal  @default(0) @db.Decimal(14, 2)
-  paymentGatewayFee Decimal  @default(0) @db.Decimal(14, 2)
-  discount          Decimal  @default(0) @db.Decimal(14, 2)
-  returnLoss        Decimal  @default(0) @db.Decimal(14, 2)
-  allocatedAdCost   Decimal  @default(0) @db.Decimal(14, 2)
-  incompleteReasons String[] @default([])
-  netProfit         Decimal  @db.Decimal(14, 2)
+  grossRevenue      Decimal   @db.Decimal(14, 2)
+  productCost       Decimal   @default(0) @db.Decimal(14, 2)
+  courierCost       Decimal   @default(0) @db.Decimal(14, 2)
+  packagingCost     Decimal   @default(0) @db.Decimal(14, 2)
+  paymentGatewayFee Decimal   @default(0) @db.Decimal(14, 2)
+  discount          Decimal   @default(0) @db.Decimal(14, 2)
+  returnLoss        Decimal   @default(0) @db.Decimal(14, 2)
+  allocatedAdCost   Decimal   @default(0) @db.Decimal(14, 2)
+  incompleteReasons String[]  @default([])
+  netProfit         Decimal   @db.Decimal(14, 2)
   partnerShares     Json?
-  calculatedAt      DateTime @default(now())
-  store             Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  order             Order?   @relation(fields: [orderId], references: [id])
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  calculatedAt      DateTime  @default(now())
+  store             Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order             Order?    @relation(fields: [orderId], references: [id])
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([storeId, calculatedAt])
 }
@@ -2567,48 +2613,48 @@ model WarehouseZone {
 }
 
 model WarehouseRack {
-  id     String        @id @default(cuid())
-  zoneId String
-  label  String
-  zone   WarehouseZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
-  bins   WarehouseBin[]
-  createdAt DateTime @default(now())
+  id        String         @id @default(cuid())
+  zoneId    String
+  label     String
+  zone      WarehouseZone  @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  bins      WarehouseBin[]
+  createdAt DateTime       @default(now())
 
   @@index([zoneId])
 }
 
 model WarehouseBin {
-  id              String   @id @default(cuid())
-  rackId          String
-  label           String
-  barcode         String?
-  qrCode          String?
-  availableQty    Int      @default(0)
-  reservedQty     Int      @default(0)
-  damagedQty      Int      @default(0)
-  returnedQty     Int      @default(0)
-  rack            WarehouseRack @relation(fields: [rackId], references: [id], onDelete: Cascade)
-  movements       StockMovementLog[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           String             @id @default(cuid())
+  rackId       String
+  label        String
+  barcode      String?
+  qrCode       String?
+  availableQty Int                @default(0)
+  reservedQty  Int                @default(0)
+  damagedQty   Int                @default(0)
+  returnedQty  Int                @default(0)
+  rack         WarehouseRack      @relation(fields: [rackId], references: [id], onDelete: Cascade)
+  movements    StockMovementLog[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
   @@index([rackId])
   @@index([barcode])
 }
 
 model StockTransfer {
-  id              String    @id @default(cuid())
+  id              String              @id @default(cuid())
   storeId         String
   fromWarehouseId String
   toWarehouseId   String
-  status          String    @default("PENDING")
+  status          String              @default("PENDING")
   notes           String?
   createdBy       String?
-  fromWarehouse   Warehouse @relation("FromWarehouse", fields: [fromWarehouseId], references: [id])
-  toWarehouse     Warehouse @relation("ToWarehouse", fields: [toWarehouseId], references: [id])
+  fromWarehouse   Warehouse           @relation("FromWarehouse", fields: [fromWarehouseId], references: [id])
+  toWarehouse     Warehouse           @relation("ToWarehouse", fields: [toWarehouseId], references: [id])
   items           StockTransferItem[]
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
   @@index([storeId, status])
 }
@@ -2625,19 +2671,19 @@ model StockTransferItem {
 }
 
 model StockMovementLog {
-  id            String              @id @default(cuid())
-  storeId       String
-  binId         String?
-  variantId     String?
-  sku           String?
-  reason        StockMovementReason
+  id             String              @id @default(cuid())
+  storeId        String
+  binId          String?
+  variantId      String?
+  sku            String?
+  reason         StockMovementReason
   quantityBefore Int
   quantityAfter  Int
-  delta         Int
-  note          String?
-  changedBy     String?
-  bin           WarehouseBin?       @relation(fields: [binId], references: [id])
-  createdAt     DateTime            @default(now())
+  delta          Int
+  note           String?
+  changedBy      String?
+  bin            WarehouseBin?       @relation(fields: [binId], references: [id])
+  createdAt      DateTime            @default(now())
 
   @@index([storeId, createdAt])
   @@index([sku])
@@ -2692,31 +2738,31 @@ model SupplierMarket {
 }
 
 model Supplier {
-  id          String          @id @default(cuid())
-  storeId     String
+  id             String                @id @default(cuid())
+  storeId        String
   /// Human reference (SUP-0001). Nullable because rows created before this
   /// column existed have none, and backfilling them is not worth a lock.
-  code        String?
-  name        String
-  phone       String?
-  altPhone    String?
-  whatsapp    String?
-  email       String?
-  shopName    String?
-  address     String?
-  note        String?
-  marketId    String?
-  dueAmount   Decimal         @default(0) @db.Decimal(14, 2)
-  paidAmount  Decimal         @default(0) @db.Decimal(14, 2)
-  isActive    Boolean         @default(true)
-  store       Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  market      SupplierMarket? @relation(fields: [marketId], references: [id], onDelete: SetNull)
-  categories  SupplierCategory[]
+  code           String?
+  name           String
+  phone          String?
+  altPhone       String?
+  whatsapp       String?
+  email          String?
+  shopName       String?
+  address        String?
+  note           String?
+  marketId       String?
+  dueAmount      Decimal               @default(0) @db.Decimal(14, 2)
+  paidAmount     Decimal               @default(0) @db.Decimal(14, 2)
+  isActive       Boolean               @default(true)
+  store          Store                 @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  market         SupplierMarket?       @relation(fields: [marketId], references: [id], onDelete: SetNull)
+  categories     SupplierCategory[]
   purchaseOrders PurchaseOrder[]
-  payments    SupplierPayment[]
-  ledger      SupplierLedgerEntry[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  payments       SupplierPayment[]
+  ledger         SupplierLedgerEntry[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 
   @@unique([storeId, code])
   @@index([storeId, isActive])
@@ -2736,37 +2782,37 @@ model SupplierCategory {
 }
 
 model PurchaseOrder {
-  id          String              @id @default(cuid())
-  storeId     String
-  supplierId  String
+  id            String              @id @default(cuid())
+  storeId       String
+  supplierId    String
   /// Snapshot of where the goods came from. Copied from the supplier at entry
   /// so later moving a supplier to another market cannot rewrite history.
-  marketId    String?
-  poNumber    String
-  status      PurchaseOrderStatus @default(DRAFT)
-  purchasedAt DateTime            @default(now())
-  receivedAt  DateTime?
-  subtotal    Decimal             @default(0) @db.Decimal(14, 2)
-  discount    Decimal             @default(0) @db.Decimal(14, 2)
-  transportCost Decimal           @default(0) @db.Decimal(14, 2)
-  otherCost   Decimal             @default(0) @db.Decimal(14, 2)
-  total       Decimal             @default(0) @db.Decimal(14, 2)
-  paidAmount  Decimal             @default(0) @db.Decimal(14, 2)
-  dueAmount   Decimal             @default(0) @db.Decimal(14, 2)
+  marketId      String?
+  poNumber      String
+  status        PurchaseOrderStatus @default(DRAFT)
+  purchasedAt   DateTime            @default(now())
+  receivedAt    DateTime?
+  subtotal      Decimal             @default(0) @db.Decimal(14, 2)
+  discount      Decimal             @default(0) @db.Decimal(14, 2)
+  transportCost Decimal             @default(0) @db.Decimal(14, 2)
+  otherCost     Decimal             @default(0) @db.Decimal(14, 2)
+  total         Decimal             @default(0) @db.Decimal(14, 2)
+  paidAmount    Decimal             @default(0) @db.Decimal(14, 2)
+  dueAmount     Decimal             @default(0) @db.Decimal(14, 2)
   /// Set inside the receive transaction. The guard that makes stock-in
   /// idempotent — a retried or double-tapped receive can never add twice.
-  stockApplied Boolean            @default(false)
-  notes       String?
-  createdBy   String?
-  approvedBy  String?
-  store       Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  supplier    Supplier            @relation(fields: [supplierId], references: [id])
-  market      SupplierMarket?     @relation(fields: [marketId], references: [id], onDelete: SetNull)
-  grns        GoodsReceivedNote[]
-  items       PurchaseOrderItem[]
-  payments    SupplierPayment[]
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  stockApplied  Boolean             @default(false)
+  notes         String?
+  createdBy     String?
+  approvedBy    String?
+  store         Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  supplier      Supplier            @relation(fields: [supplierId], references: [id])
+  market        SupplierMarket?     @relation(fields: [marketId], references: [id], onDelete: SetNull)
+  grns          GoodsReceivedNote[]
+  items         PurchaseOrderItem[]
+  payments      SupplierPayment[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
 
   @@unique([storeId, poNumber])
   @@index([storeId, status])
@@ -2775,7 +2821,7 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderItem {
-  id              String        @id @default(cuid())
+  id              String          @id @default(cuid())
   purchaseOrderId String
   /// Both nullable: goods bought before the product exists in the catalog are
   /// recorded by name only. Stock can move only for a line that names a
@@ -2787,9 +2833,9 @@ model PurchaseOrderItem {
   productName     String
   sku             String?
   quantity        Int
-  unitCost        Decimal       @db.Decimal(10, 2)
-  lineTotal       Decimal       @default(0) @db.Decimal(14, 2)
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  unitCost        Decimal         @db.Decimal(10, 2)
+  lineTotal       Decimal         @default(0) @db.Decimal(14, 2)
+  purchaseOrder   PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   product         Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
   variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
 
@@ -2812,21 +2858,21 @@ model GoodsReceivedNote {
 }
 
 model SupplierPayment {
-  id              String   @id @default(cuid())
+  id              String         @id @default(cuid())
   storeId         String?
   supplierId      String
   /// Set when the payment settles one specific purchase; null for a general
   /// on-account payment against the supplier balance.
   purchaseOrderId String?
-  amount          Decimal  @db.Decimal(14, 2)
+  amount          Decimal        @db.Decimal(14, 2)
   method          String?
   reference       String?
   note            String?
   createdBy       String?
-  paidAt          DateTime @default(now())
-  supplier        Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  paidAt          DateTime       @default(now())
+  supplier        Supplier       @relation(fields: [supplierId], references: [id], onDelete: Cascade)
   purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
-  createdAt       DateTime @default(now())
+  createdAt       DateTime       @default(now())
 
   @@index([supplierId])
   @@index([storeId, paidAt])
@@ -2864,20 +2910,20 @@ model FabricInventory {
 }
 
 model ProductionOrder {
-  id            String           @id @default(cuid())
-  storeId       String
-  productName   String
-  quantity      Int
-  status        ProductionStatus @default(PENDING)
-  fabricUsage   Decimal?         @db.Decimal(10, 2)
-  productionCost Decimal?        @db.Decimal(12, 2)
-  laborCost     Decimal?         @db.Decimal(12, 2)
-  unitCost      Decimal?         @db.Decimal(10, 2)
-  tailorName    String?
-  notes         String?
-  store         Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  id             String           @id @default(cuid())
+  storeId        String
+  productName    String
+  quantity       Int
+  status         ProductionStatus @default(PENDING)
+  fabricUsage    Decimal?         @db.Decimal(10, 2)
+  productionCost Decimal?         @db.Decimal(12, 2)
+  laborCost      Decimal?         @db.Decimal(12, 2)
+  unitCost       Decimal?         @db.Decimal(10, 2)
+  tailorName     String?
+  notes          String?
+  store          Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   @@index([storeId, status])
 }
@@ -2885,18 +2931,18 @@ model ProductionOrder {
 // ── COMMERCE OS: HELPDESK ─────────────────────────────────────
 
 model SupportTicket {
-  id          String               @id @default(cuid())
-  storeId     String
-  customerId  String?
-  subject     String
-  status      SupportTicketStatus    @default(OPEN)
-  channel     SupportTicketChannel   @default(WHATSAPP)
-  priority    TaskPriority           @default(MEDIUM)
-  assignedTo  String?
-  store       Store                  @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  messages    SupportTicketMessage[]
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
+  id         String                 @id @default(cuid())
+  storeId    String
+  customerId String?
+  subject    String
+  status     SupportTicketStatus    @default(OPEN)
+  channel    SupportTicketChannel   @default(WHATSAPP)
+  priority   TaskPriority           @default(MEDIUM)
+  assignedTo String?
+  store      Store                  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  messages   SupportTicketMessage[]
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
 
   @@index([storeId, status])
 }
@@ -2916,17 +2962,17 @@ model SupportTicketMessage {
 // ── COMMERCE OS: DELIVERY ─────────────────────────────────────
 
 model DeliveryAgent {
-  id          String                @id @default(cuid())
+  id          String               @id @default(cuid())
   storeId     String
   name        String
   phone       String
   vehicleType String?
-  isActive    Boolean               @default(true)
-  totalEarned Decimal               @default(0) @db.Decimal(12, 2)
-  store       Store                 @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  isActive    Boolean              @default(true)
+  totalEarned Decimal              @default(0) @db.Decimal(12, 2)
+  store       Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
   assignments DeliveryAssignment[]
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
 
   @@index([storeId, isActive])
 }
@@ -2959,53 +3005,53 @@ model Department {
 }
 
 model Employee {
-  id           String         @id @default(cuid())
-  storeId      String
-  departmentId String?
-  employeeId   String
-  firstName    String
-  lastName     String
-  email        String?
-  phone        String?
-  position     String?
-  salary       Decimal        @default(0) @db.Decimal(12, 2)
-  joiningDate  DateTime?
-  status       EmployeeStatus @default(ACTIVE)
-  managerId    String?
-  performanceScore Int        @default(0)
-  store        Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  department   Department?    @relation(fields: [departmentId], references: [id])
-  attendance   AttendanceRecord[]
-  leaveRequests LeaveRequest[]
-  payrollItems PayrollItem[]
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id               String             @id @default(cuid())
+  storeId          String
+  departmentId     String?
+  employeeId       String
+  firstName        String
+  lastName         String
+  email            String?
+  phone            String?
+  position         String?
+  salary           Decimal            @default(0) @db.Decimal(12, 2)
+  joiningDate      DateTime?
+  status           EmployeeStatus     @default(ACTIVE)
+  managerId        String?
+  performanceScore Int                @default(0)
+  store            Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  department       Department?        @relation(fields: [departmentId], references: [id])
+  attendance       AttendanceRecord[]
+  leaveRequests    LeaveRequest[]
+  payrollItems     PayrollItem[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
   @@unique([storeId, employeeId])
   @@index([storeId, status])
 }
 
 model AttendanceRecord {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   employeeId String
-  date       DateTime @db.Date
+  date       DateTime  @db.Date
   checkIn    DateTime?
   checkOut   DateTime?
-  hours      Decimal? @db.Decimal(5, 2)
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  hours      Decimal?  @db.Decimal(5, 2)
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, date])
 }
 
 model LeaveRequest {
-  id         String               @id @default(cuid())
+  id         String                 @id @default(cuid())
   employeeId String
   fromDate   DateTime
   toDate     DateTime
   reason     String?
   status     WorkflowApprovalStatus @default(PENDING)
-  employee   Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  createdAt  DateTime             @default(now())
+  employee   Employee               @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime               @default(now())
 
   @@index([employeeId, status])
 }
@@ -3051,20 +3097,20 @@ model Project {
 }
 
 model Task {
-  id          String       @id @default(cuid())
+  id          String        @id @default(cuid())
   storeId     String
   projectId   String?
   title       String
   description String?
-  status      TaskStatus   @default(TODO)
-  priority    TaskPriority @default(MEDIUM)
+  status      TaskStatus    @default(TODO)
+  priority    TaskPriority  @default(MEDIUM)
   assigneeId  String?
   dueDate     DateTime?
-  store       Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  project     Project?     @relation(fields: [projectId], references: [id])
+  store       Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  project     Project?      @relation(fields: [projectId], references: [id])
   comments    TaskComment[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   @@index([storeId, status])
 }
@@ -3081,23 +3127,23 @@ model TaskComment {
 }
 
 model CompanyDocument {
-  id          String   @id @default(cuid())
-  storeId     String
-  title       String
-  category    String
-  fileUrl     String?
-  version     Int      @default(1)
-  status      WorkflowApprovalStatus @default(PENDING)
-  uploadedBy  String?
-  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String                 @id @default(cuid())
+  storeId    String
+  title      String
+  category   String
+  fileUrl    String?
+  version    Int                    @default(1)
+  status     WorkflowApprovalStatus @default(PENDING)
+  uploadedBy String?
+  store      Store                  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
 
   @@index([storeId, category])
 }
 
 model ApprovalRequest {
-  id          String               @id @default(cuid())
+  id          String                 @id @default(cuid())
   storeId     String
   type        String
   resource    String
@@ -3107,9 +3153,9 @@ model ApprovalRequest {
   approvedBy  String?
   levels      Json?
   note        String?
-  store       Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  store       Store                  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
 
   @@index([storeId, type, status])
 }
@@ -3117,15 +3163,15 @@ model ApprovalRequest {
 // ── COMMERCE OS: FINANCE ERP ──────────────────────────────────
 
 model ChartOfAccount {
-  id        String      @id @default(cuid())
+  id        String             @id @default(cuid())
   storeId   String
   code      String
   name      String
   type      AccountType
-  balance   Decimal     @default(0) @db.Decimal(14, 2)
-  store     Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  balance   Decimal            @default(0) @db.Decimal(14, 2)
+  store     Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
   entries   JournalEntryLine[]
-  createdAt DateTime    @default(now())
+  createdAt DateTime           @default(now())
 
   @@unique([storeId, code])
 }
@@ -3157,18 +3203,18 @@ model JournalEntryLine {
 }
 
 model AffiliateAccount {
-  id          String          @id @default(cuid())
-  storeId     String
-  name        String
-  email       String?
-  code        String
-  commissionRate Decimal      @default(10) @db.Decimal(5, 2)
-  totalEarned Decimal         @default(0) @db.Decimal(12, 2)
-  pendingPayout Decimal       @default(0) @db.Decimal(12, 2)
-  status      AffiliateStatus @default(PENDING)
-  store       Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id             String          @id @default(cuid())
+  storeId        String
+  name           String
+  email          String?
+  code           String
+  commissionRate Decimal         @default(10) @db.Decimal(5, 2)
+  totalEarned    Decimal         @default(0) @db.Decimal(12, 2)
+  pendingPayout  Decimal         @default(0) @db.Decimal(12, 2)
+  status         AffiliateStatus @default(PENDING)
+  store          Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
   @@unique([storeId, code])
 }
@@ -3189,19 +3235,19 @@ model ApiKey {
 }
 
 model NotificationDeliveryLog {
-  id        String             @id @default(cuid())
+  id        String              @id @default(cuid())
   storeId   String
   channel   NotificationChannel
   recipient String
   subject   String?
   body      String?
-  status    NotificationStatus @default(PENDING)
+  status    NotificationStatus  @default(PENDING)
   // Operator severity, independent of delivery status: info | warn | critical.
   // Drives the colour the admin notification tray paints the row.
-  level     String             @default("info")
+  level     String              @default("info")
   errorMsg  String?
-  store     Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  createdAt DateTime           @default(now())
+  store     Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt DateTime            @default(now())
 
   @@index([storeId, channel, status])
   @@index([storeId, createdAt])
@@ -3268,21 +3314,21 @@ model AgentPromptVersion {
 }
 
 model AgentRun {
-  id           String   @id @default(cuid())
-  storeId      String
-  sessionId    String
-  channel      String   @default("admin")
-  model        String
-  difficulty   String?
-  status       String   @default("running")
-  tokenInEst   Int      @default(0)
-  tokenOutEst  Int      @default(0)
-  costEstUsd   Decimal  @default(0) @db.Decimal(10, 6)
-  userMessage  String   @db.Text
-  startedAt    DateTime @default(now())
-  finishedAt   DateTime?
-  store        Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  toolCalls    AgentToolCall[]
+  id          String          @id @default(cuid())
+  storeId     String
+  sessionId   String
+  channel     String          @default("admin")
+  model       String
+  difficulty  String?
+  status      String          @default("running")
+  tokenInEst  Int             @default(0)
+  tokenOutEst Int             @default(0)
+  costEstUsd  Decimal         @default(0) @db.Decimal(10, 6)
+  userMessage String          @db.Text
+  startedAt   DateTime        @default(now())
+  finishedAt  DateTime?
+  store       Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  toolCalls   AgentToolCall[]
 
   @@index([storeId, startedAt])
   @@index([sessionId])
@@ -3375,12 +3421,12 @@ model SystemSetting {
 // ── SYSTEM HEALTH ─────────────────────────────────────────────
 
 model SystemHealthLog {
-  id          String   @id @default(cuid())
-  service     String   // api | web | admin | redis | db | courier | sheets | print
-  status      String   // UP | DOWN | DEGRADED
-  responseMs  Int?
-  errorMsg    String?
-  checkedAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  service    String // api | web | admin | redis | db | courier | sheets | print
+  status     String // UP | DOWN | DEGRADED
+  responseMs Int?
+  errorMsg   String?
+  checkedAt  DateTime @default(now())
 
   @@index([service, status])
   @@index([checkedAt])
@@ -3389,46 +3435,46 @@ model SystemHealthLog {
 // ── GOOGLE WORKSPACE ──────────────────────────────────────────
 
 model GoogleWorkspaceConnection {
-  id                    String    @id @default(cuid())
-  storeId               String    @unique
+  id                    String                 @id @default(cuid())
+  storeId               String                 @unique
   googleEmail           String?
   clientId              String?
-  clientSecretEncrypted String?   @db.Text
+  clientSecretEncrypted String?                @db.Text
   redirectUri           String?
   spreadsheetId         String?
   spreadsheetUrl        String?
   driveRootFolderId     String?
-  isConnected           Boolean   @default(false)
-  autoSyncEnabled       Boolean   @default(true)
-  contactsSyncEnabled   Boolean   @default(false)
+  isConnected           Boolean                @default(false)
+  autoSyncEnabled       Boolean                @default(true)
+  contactsSyncEnabled   Boolean                @default(false)
   lastSyncAt            DateTime?
-  lastError             String?   @db.Text
-  tokenHealth           String?   // healthy | expired | revoked | missing
-  scopes                String?   @db.Text
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  lastError             String?                @db.Text
+  tokenHealth           String? // healthy | expired | revoked | missing
+  scopes                String?                @db.Text
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
   createdBy             String?
   updatedBy             String?
-  store                 Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store                 Store                  @relation(fields: [storeId], references: [id], onDelete: Cascade)
   tokens                GoogleWorkspaceToken[]
 
   @@index([isConnected])
 }
 
 model GoogleWorkspaceToken {
-  id                    String   @id @default(cuid())
+  id                    String                    @id @default(cuid())
   connectionId          String
   storeId               String
-  serviceName           String   @default("oauth")
-  accessTokenEncrypted  String?  @db.Text
-  refreshTokenEncrypted String?  @db.Text
-  scope                 String?  @db.Text
+  serviceName           String                    @default("oauth")
+  accessTokenEncrypted  String?                   @db.Text
+  refreshTokenEncrypted String?                   @db.Text
+  scope                 String?                   @db.Text
   tokenExpiry           DateTime?
-  isConnected           Boolean  @default(false)
+  isConnected           Boolean                   @default(false)
   lastSyncAt            DateTime?
-  lastError             String?  @db.Text
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  lastError             String?                   @db.Text
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
   createdBy             String?
   updatedBy             String?
   connection            GoogleWorkspaceConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
@@ -3438,65 +3484,65 @@ model GoogleWorkspaceToken {
 }
 
 model GoogleSheetConfig {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   storeId       String
   sheetTab      String
   spreadsheetId String?
   columnMap     Json?
-  enabled       Boolean  @default(true)
+  enabled       Boolean   @default(true)
   lastRowNumber Int?
   lastSyncAt    DateTime?
-  lastError     String?  @db.Text
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  lastError     String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   createdBy     String?
   updatedBy     String?
-  store         Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store         Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@unique([storeId, sheetTab])
   @@index([storeId, enabled])
 }
 
 model GoogleSyncJob {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   storeId     String
   jobType     String
-  status      String   @default("queued") // queued | active | completed | failed
+  status      String    @default("queued") // queued | active | completed | failed
   payload     Json?
-  attempts    Int      @default(0)
-  maxAttempts Int      @default(3)
-  errorMsg    String?  @db.Text
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  errorMsg    String?   @db.Text
   bullJobId   String?
   startedAt   DateTime?
   completedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   createdBy   String?
-  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store       Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@index([storeId, status])
   @@index([jobType, createdAt])
 }
 
 model GoogleSyncLog {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   storeId      String
   jobType      String
   resourceType String?
   resourceId   String?
   sheetTab     String?
   rowNumber    Int?
-  status       String   @default("pending")
+  status       String    @default("pending")
   payload      Json?
-  errorMsg     String?  @db.Text
-  retryCount   Int      @default(0)
+  errorMsg     String?   @db.Text
+  retryCount   Int       @default(0)
   syncedAt     DateTime?
-  source       String?  @default("splaro")
+  source       String?   @default("splaro")
   notes        String?
   triggeredBy  String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  store        Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  store        Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@index([storeId, sheetTab, status])
   @@index([resourceType, resourceId])
@@ -3504,16 +3550,16 @@ model GoogleSyncLog {
 }
 
 model GoogleExportTemplate {
-  id          String   @id @default(cuid())
-  storeId     String
-  name        String
-  sheetTab    String
-  columns     Json
-  isDefault   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   String?
-  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  storeId   String
+  name      String
+  sheetTab  String
+  columns   Json
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@index([storeId, sheetTab])
 }

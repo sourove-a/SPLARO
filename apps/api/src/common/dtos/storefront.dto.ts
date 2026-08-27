@@ -499,3 +499,24 @@ export class StorefrontCreateReturnDto {
   @Type(() => StorefrontReturnItemDto)
   items!: StorefrontReturnItemDto[]
 }
+
+export class StorefrontStockAlertDto {
+  @IsString()
+  productId!: string
+
+  @IsOptional()
+  @IsString()
+  variantId?: string
+
+  /** One of email or phone. Which one is given picks the channel. */
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(200)
+  email?: string
+
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  @MaxLength(20)
+  phone?: string
+}
