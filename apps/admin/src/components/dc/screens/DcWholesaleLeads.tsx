@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { dcPageStatus } from '@/components/dc/page-status'
@@ -12,7 +12,7 @@ import { DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { toastApiSaved, toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
-import { verifyPersisted } from '@/lib/admin/mutation-verify'
+import { verifyPersisted, verifyStringEquals } from '@/lib/admin/mutation-verify'
 import { downloadCsv } from '@/lib/admin/admin-actions'
 import {
   deleteWholesaleInquiry,
@@ -24,6 +24,7 @@ import {
 } from '@/lib/api/wholesale'
 import { telHref, whatsappHref } from '@/lib/format/bd-phone'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
 import { resolveMediaUrl } from '@/lib/media-url'
 
 const card = {
@@ -84,18 +85,26 @@ function DcWholesaleLeadsBody() {
   const qc = useQueryClient()
   const [statusFilter, setStatusFilter] = useState<WholesaleStatus | 'ALL'>('ALL')
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [open, setOpen] = useState<ApiWholesaleInquiry | null>(null)
   const [deleting, setDeleting] = useState<ApiWholesaleInquiry | null>(null)
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
+  const debouncedSearch = useDebouncedValue(search, 300)
+  const pageSize = 25
+
+  useEffect(() => {
+    setPage(1)
+  }, [statusFilter, debouncedSearch])
 
   const leads = useQuery({
-    queryKey: ['wholesale-inquiries', statusFilter, search],
+    queryKey: ['wholesale-inquiries', statusFilter, debouncedSearch, page],
     queryFn: () =>
       fetchWholesaleInquiries({
         ...(statusFilter === 'ALL' ? {} : { status: statusFilter }),
-        ...(search.trim() ? { search: search.trim() } : {}),
-        limit: 100,
+        ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
+        page,
+        limit: pageSize,
       }),
     staleTime: 30_000,
   })
@@ -144,6 +153,7 @@ function DcWholesaleLeadsBody() {
     setBusy(true)
     try {
       const updated = await updateWholesaleInquiry(row.id, { adminNotes: notes })
+      if (!verifyStringEquals(updated.adminNotes ?? '', notes.trim(), 'Note')) return
       afterWrite()
       setOpen(updated)
       toastApiSaved('Note saved')
@@ -180,6 +190,10 @@ function DcWholesaleLeadsBody() {
       toastWarn('No wholesale leads to export')
       return
     }
+    const total = leads.data?.total ?? rows.length
+    if (total > rows.length) {
+      toastWarn(`Exporting this page only — ${rows.length} of ${total} matching the filter.`)
+    }
     const headers = [
       'Company',
       'Contact Name',
@@ -212,7 +226,11 @@ function DcWholesaleLeadsBody() {
       ]),
     ]
     downloadCsv(`splaro-wholesale-leads-${new Date().toISOString().slice(0, 10)}.csv`, csvRows)
-    toastOk(`Exported ${rows.length} wholesale lead${rows.length === 1 ? '' : 's'}.`)
+    toastOk(
+      `Exported ${rows.length} wholesale lead${rows.length === 1 ? '' : 's'}${
+        total > rows.length ? ' on this page' : ''
+      }.`,
+    )
   }
 
   return (
@@ -223,7 +241,9 @@ function DcWholesaleLeadsBody() {
         statusLabel={pageStatus.label}
         statusTone={pageStatus.tone}
         syncLabel={
-          leads.isFetching ? 'syncing…' : `${rows.length} enquir${rows.length === 1 ? 'y' : 'ies'}`
+          leads.isFetching
+            ? 'syncing…'
+            : `${leads.data?.total ?? rows.length} enquir${(leads.data?.total ?? rows.length) === 1 ? 'y' : 'ies'}`
         }
         syncing={leads.isFetching}
         onSync={() => void leads.refetch()}
@@ -277,14 +297,20 @@ function DcWholesaleLeadsBody() {
             <FilterChip
               label={`All (${leads.data?.total ?? 0})`}
               active={statusFilter === 'ALL'}
-              onClick={() => setStatusFilter('ALL')}
+              onClick={() => {
+                setStatusFilter('ALL')
+                setPage(1)
+              }}
             />
             {WHOLESALE_STATUSES.map((status) => (
               <FilterChip
                 key={status}
                 label={`${status.charAt(0)}${status.slice(1).toLowerCase()} (${counts?.[status] ?? 0})`}
                 active={statusFilter === status}
-                onClick={() => setStatusFilter(status)}
+                onClick={() => {
+                  setStatusFilter(status)
+                  setPage(1)
+                }}
               />
             ))}
             <input
@@ -311,6 +337,7 @@ function DcWholesaleLeadsBody() {
               body="Buyers reach this list from the storefront footer — Company → Wholesale & Export."
             />
           ) : (
+            <>
             <div
               style={{
                 display: 'grid',
@@ -331,6 +358,30 @@ function DcWholesaleLeadsBody() {
                 />
               ))}
             </div>
+            {(leads.data?.pages ?? 1) > 1 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  disabled={busy || page <= 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  style={chipButton}
+                >
+                  Previous
+                </button>
+                <span style={{ font: `400 12.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                  Page {leads.data?.page ?? page} of {leads.data?.pages ?? 1}
+                </span>
+                <button
+                  type="button"
+                  disabled={busy || page >= (leads.data?.pages ?? 1)}
+                  onClick={() => setPage((current) => current + 1)}
+                  style={chipButton}
+                >
+                  Next
+                </button>
+              </div>
+            ) : null}
+            </>
           )}
         </>
       )}
@@ -352,7 +403,14 @@ function DcWholesaleLeadsBody() {
             <DetailRow label="Business type" value={open.industry} />
             <DetailRow label="Country" value={open.country} />
             <DetailRow label="Phone" value={open.phone} mono />
-            {open.email ? <DetailRow label="Email" value={open.email} mono /> : null}
+            {open.email ? (
+              <DetailRow
+                label="Email"
+                value={open.email}
+                mono
+                href={`mailto:${open.email}`}
+              />
+            ) : null}
             {open.productInterest ? (
               <DetailRow label="Products" value={open.productInterest} />
             ) : null}
@@ -394,6 +452,9 @@ function DcWholesaleLeadsBody() {
               </div>
             ) : null}
             <DetailRow label="Received" value={`${waitedLabel(open.createdAt)} · ${open.sourcePath ?? '/wholesale'}`} />
+            {open.handledAt && open.status !== 'NEW' ? (
+              <DetailRow label="First handled" value={waitedLabel(open.handledAt)} />
+            ) : null}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
               <span style={capsLabel}>Internal note</span>
@@ -504,19 +565,38 @@ function FilterChip({
   )
 }
 
-function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function DetailRow({
+  label,
+  value,
+  mono,
+  href,
+}: {
+  label: string
+  value: string
+  mono?: boolean
+  href?: string
+}) {
+  const text = (
+    <span
+      style={{
+        font: mono ? `500 12.5px/1.5 ${MONO}` : `400 13px/1.55 ${FONT}`,
+        color: 'var(--ink)',
+        whiteSpace: 'pre-wrap',
+      }}
+    >
+      {value}
+    </span>
+  )
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <span style={capsLabel}>{label}</span>
-      <span
-        style={{
-          font: mono ? `500 12.5px/1.5 ${MONO}` : `400 13px/1.55 ${FONT}`,
-          color: 'var(--ink)',
-          whiteSpace: 'pre-wrap',
-        }}
-      >
-        {value}
-      </span>
+      {href ? (
+        <a href={href} style={{ color: 'inherit', textDecoration: 'underline' }}>
+          {text}
+        </a>
+      ) : (
+        text
+      )}
     </div>
   )
 }
@@ -595,6 +675,11 @@ function LeadCard({
         >
           WhatsApp
         </a>
+        {lead.email ? (
+          <a href={`mailto:${lead.email}`} style={{ ...chipButton, textDecoration: 'none' }}>
+            Email
+          </a>
+        ) : null}
         {lead.status === 'NEW' ? (
           <button
             type="button"

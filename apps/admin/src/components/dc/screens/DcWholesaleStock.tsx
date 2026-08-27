@@ -7,10 +7,12 @@ import { useRef, useState } from 'react'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
+import { DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, toneStyle } from '@/components/dc/tokens'
 import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
+import { verifyStringEquals } from '@/lib/admin/mutation-verify'
 import { uploadAdminImage } from '@/lib/api/upload'
 import {
   createWholesaleStockImage,
@@ -21,6 +23,7 @@ import {
 } from '@/lib/api/wholesale'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { resolveMediaUrl } from '@/lib/media-url'
+import { revalidateWebCache } from '@/lib/api/revalidate'
 
 const card = {
   border: '1px solid var(--line)',
@@ -45,6 +48,7 @@ function DcWholesaleStockBody() {
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState<ApiWholesaleStockImage | null>(null)
   const stock = useQuery({
     queryKey: ['wholesale-stock'],
     queryFn: fetchWholesaleStock,
@@ -54,9 +58,11 @@ function DcWholesaleStockBody() {
   const images = stock.data?.images ?? []
   const pageStatus = dcPageStatus([stock], api.pulse)
   const skeleton: DcBlock[] = [{ t: 'list', title: '', items: [] }]
+  const heroId = images.find((item) => item.isActive)?.id ?? null
 
   const afterWrite = () => {
     void qc.invalidateQueries({ queryKey: ['wholesale-stock'] })
+    void revalidateWebCache(['wholesale-stock'])
   }
 
   const onUpload = async (files: FileList | null) => {
@@ -101,6 +107,7 @@ function DcWholesaleStockBody() {
         updateWholesaleStockImage(swap.id, { sortOrder: row.sortOrder }),
       ])
       afterWrite()
+      toastApiSaved('Gallery order updated')
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Could not reorder')
     } finally {
@@ -108,12 +115,28 @@ function DcWholesaleStockBody() {
     }
   }
 
+  const saveTitle = async (row: ApiWholesaleStockImage, title: string) => {
+    const next = title.trim()
+    if ((row.title ?? '') === next) return
+    setBusy(true)
+    try {
+      const updated = await updateWholesaleStockImage(row.id, { title: next || null })
+      if (!verifyStringEquals(updated.title ?? '', next, 'Title')) return
+      afterWrite()
+      toastApiSaved('Title saved')
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not save title')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const remove = async (row: ApiWholesaleStockImage) => {
-    if (!window.confirm('Remove this wholesale stock image?')) return
     setBusy(true)
     try {
       await deleteWholesaleStockImage(row.id)
       afterWrite()
+      setDeleting(null)
       toastApiSaved('Image removed')
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Could not delete')
@@ -160,7 +183,7 @@ function DcWholesaleStockBody() {
                 Storefront gallery
               </div>
               <p style={{ margin: '4px 0 0', font: `400 12.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
-                These photos appear on /wholesale only. Main shop catalog is unchanged.
+                These photos appear on /wholesale only. The first visible image is the hero. Main shop catalog is unchanged.
               </p>
             </div>
             <button
@@ -236,9 +259,43 @@ function DcWholesaleStockBody() {
                         >
                           Hidden
                         </span>
+                      ) : row.id === heroId ? (
+                        <span
+                          style={{
+                            position: 'absolute',
+                            top: 8,
+                            left: 8,
+                            ...toneStyle('ok'),
+                            borderRadius: 999,
+                            padding: '3px 8px',
+                            font: `600 10px/1 ${FONT}`,
+                          }}
+                        >
+                          Hero
+                        </span>
                       ) : null}
                     </div>
                     <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <input
+                        key={`${row.id}:${row.title ?? ''}`}
+                        defaultValue={row.title ?? ''}
+                        placeholder="Alt / title for storefront"
+                        disabled={busy}
+                        onBlur={(event) => void saveTitle(row, event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.currentTarget.blur()
+                          }
+                        }}
+                        style={{
+                          border: '1px solid var(--line)',
+                          borderRadius: 8,
+                          background: 'var(--surface)',
+                          padding: '6px 8px',
+                          font: `400 12px/1.3 ${FONT}`,
+                          color: 'var(--ink)',
+                        }}
+                      />
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <MiniBtn disabled={busy || index === 0} onClick={() => void move(row, -1)}>
                           Up
@@ -252,7 +309,7 @@ function DcWholesaleStockBody() {
                         <MiniBtn disabled={busy} onClick={() => void toggleActive(row)}>
                           {row.isActive ? 'Hide' : 'Show'}
                         </MiniBtn>
-                        <MiniBtn disabled={busy} danger onClick={() => void remove(row)}>
+                        <MiniBtn disabled={busy} danger onClick={() => setDeleting(row)}>
                           Delete
                         </MiniBtn>
                       </div>
@@ -264,6 +321,24 @@ function DcWholesaleStockBody() {
           )}
         </div>
       )}
+
+      {deleting ? (
+        <DcModal
+          open
+          danger
+          title="Remove this stock photo?"
+          subtitle="The storefront gallery updates after this is deleted."
+          confirmLabel="Remove photo"
+          busy={busy}
+          busyLabel="Removing…"
+          onClose={() => setDeleting(null)}
+          onConfirm={() => void remove(deleting)}
+        >
+          <span style={{ font: `400 12.5px/1.6 ${FONT}`, color: 'var(--ink-2)' }}>
+            This image will leave /wholesale. Buyer enquiry photos are not affected.
+          </span>
+        </DcModal>
+      ) : null}
     </>
   )
 }

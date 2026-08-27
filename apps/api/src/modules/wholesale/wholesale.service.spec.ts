@@ -1,5 +1,10 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common'
 import { WholesaleService } from './wholesale.service'
+import { revalidateStorefrontWeb } from '../../common/revalidate-web'
+
+jest.mock('../../common/revalidate-web', () => ({
+  revalidateStorefrontWeb: jest.fn(),
+}))
 
 function buildService(opts: { recent?: unknown; existing?: unknown } = {}) {
   const prisma = {
@@ -17,6 +22,16 @@ function buildService(opts: { recent?: unknown; existing?: unknown } = {}) {
       findMany: jest.fn().mockResolvedValue([]),
       count: jest.fn().mockResolvedValue(0),
       groupBy: jest.fn().mockResolvedValue([{ status: 'NEW', _count: { _all: 2 } }]),
+    },
+    wholesaleStockImage: {
+      findFirst: jest.fn().mockResolvedValue(opts.existing ?? null),
+      create: jest.fn().mockResolvedValue({ id: 'stock-1', url: '/uploads/wholesale/look.webp' }),
+      update: jest.fn().mockImplementation(async ({ data }: { data: unknown }) => ({
+        id: 'stock-1',
+        ...(data as Record<string, unknown>),
+      })),
+      delete: jest.fn().mockResolvedValue({}),
+      findMany: jest.fn().mockResolvedValue([]),
     },
   }
   return { service: new WholesaleService(prisma as never), prisma }
@@ -73,6 +88,22 @@ describe('WholesaleService.submit', () => {
     ).rejects.toBeInstanceOf(BadRequestException)
   })
 
+  it('drops remote image URLs and keeps only same-origin wholesale uploads', async () => {
+    const { service, prisma } = buildService()
+
+    await service.submit('store-1', {
+      ...base,
+      imageUrls: [
+        'https://evil.example/x.webp',
+        '/uploads/wholesale/look.webp',
+        '/uploads/other/no.webp',
+      ],
+    })
+
+    const data = prisma.wholesaleInquiry.create.mock.calls[0]?.[0]?.data as Record<string, unknown>
+    expect(data['imageUrls']).toEqual(['/uploads/wholesale/look.webp'])
+  })
+
   it('drops blank optional fields instead of storing empty strings', async () => {
     const { service, prisma } = buildService()
 
@@ -110,6 +141,37 @@ describe('WholesaleService.update', () => {
     await expect(
       service.update('store-1', 'lead-other', { status: 'WON' }),
     ).rejects.toBeInstanceOf(NotFoundException)
+  })
+})
+
+describe('WholesaleService.stock', () => {
+  beforeEach(() => {
+    ;(revalidateStorefrontWeb as jest.Mock).mockClear()
+  })
+
+  it('rejects a stock URL that is not a wholesale or local image upload', async () => {
+    const { service, prisma } = buildService()
+
+    await expect(
+      service.createStockImage('store-1', { url: 'https://cdn.example/look.webp' }),
+    ).rejects.toBeInstanceOf(BadRequestException)
+    expect(prisma.wholesaleStockImage.create).not.toHaveBeenCalled()
+    expect(revalidateStorefrontWeb).not.toHaveBeenCalled()
+  })
+
+  it('revalidates the storefront gallery after a stock write', async () => {
+    const { service } = buildService({ existing: { id: 'stock-1' } })
+
+    await service.createStockImage('store-1', { url: '/uploads/wholesale/look.webp' })
+    expect(revalidateStorefrontWeb).toHaveBeenCalledWith(['wholesale-stock'])
+
+    ;(revalidateStorefrontWeb as jest.Mock).mockClear()
+    await service.updateStockImage('store-1', 'stock-1', { title: 'Look 01' })
+    expect(revalidateStorefrontWeb).toHaveBeenCalledWith(['wholesale-stock'])
+
+    ;(revalidateStorefrontWeb as jest.Mock).mockClear()
+    await service.removeStockImage('store-1', 'stock-1')
+    expect(revalidateStorefrontWeb).toHaveBeenCalledWith(['wholesale-stock'])
   })
 })
 

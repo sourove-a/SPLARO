@@ -23,6 +23,9 @@ export async function POST(request: Request) {
   revalidatePath('/shop')
   revalidatePath('/collections')
   revalidatePath('/products', 'layout')
+  if (tags.includes('wholesale-stock')) {
+    revalidatePath('/wholesale')
+  }
 
   return NextResponse.json({ ok: true, revalidated: tags })
 }

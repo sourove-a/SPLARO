@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import type { Prisma, WholesaleInquiryStatus } from '@prisma/client'
 import { normalizeBdPhone } from '../../common/bd-phone.util'
 import { PrismaService } from '../../common/prisma.service'
+import { revalidateStorefrontWeb } from '../../common/revalidate-web'
 
 export interface WholesaleInquiryInput {
   fullName: string
@@ -229,7 +230,7 @@ export class WholesaleService {
       select: { sortOrder: true },
     })
 
-    return this.prisma.wholesaleStockImage.create({
+    const row = await this.prisma.wholesaleStockImage.create({
       data: {
         storeId,
         url,
@@ -237,6 +238,8 @@ export class WholesaleService {
         ...(clean(input.title) ? { title: clean(input.title)! } : {}),
       },
     })
+    void revalidateStorefrontWeb(['wholesale-stock'])
+    return row
   }
 
   async updateStockImage(
@@ -250,7 +253,7 @@ export class WholesaleService {
     })
     if (!existing) throw new NotFoundException('Stock image not found')
 
-    return this.prisma.wholesaleStockImage.update({
+    const row = await this.prisma.wholesaleStockImage.update({
       where: { id },
       data: {
         ...(input.title !== undefined ? { title: clean(input.title) ?? null } : {}),
@@ -258,6 +261,8 @@ export class WholesaleService {
         ...(typeof input.isActive === 'boolean' ? { isActive: input.isActive } : {}),
       },
     })
+    void revalidateStorefrontWeb(['wholesale-stock'])
+    return row
   }
 
   async removeStockImage(storeId: string, id: string) {
@@ -267,6 +272,7 @@ export class WholesaleService {
     })
     if (!existing) throw new NotFoundException('Stock image not found')
     await this.prisma.wholesaleStockImage.delete({ where: { id } })
+    void revalidateStorefrontWeb(['wholesale-stock'])
     return { ok: true as const }
   }
 

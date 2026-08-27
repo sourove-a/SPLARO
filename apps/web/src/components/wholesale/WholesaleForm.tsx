@@ -2,6 +2,8 @@
 
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
 import { Check, ImagePlus, Loader2, X } from 'lucide-react'
+import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
+import { resolveWhatsAppNumber, whatsAppHref } from '@/lib/storefront/contact'
 
 /** Kept in one place so the admin list and the form speak the same language. */
 const INDUSTRIES = [
@@ -63,12 +65,17 @@ const EMPTY: FormState = {
 }
 
 export function WholesaleForm() {
+  const settings = useStorefrontSettings()
+  const whatsapp = whatsAppHref(
+    resolveWhatsAppNumber(settings),
+    'Hello SPLARO — I have a wholesale / export enquiry.',
+  )
   const [form, setForm] = useState<FormState>(EMPTY)
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [sent, setSent] = useState(false)
+  const [sent, setSent] = useState<'new' | 'duplicate' | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const set = (key: keyof FormState) => (value: string) =>
@@ -132,6 +139,7 @@ export function WholesaleForm() {
       const payload = (await response.json().catch(() => ({}))) as {
         ok?: boolean
         error?: string
+        duplicate?: boolean
       }
 
       if (!response.ok || !payload.ok) {
@@ -139,7 +147,7 @@ export function WholesaleForm() {
         return
       }
 
-      setSent(true)
+      setSent(payload.duplicate ? 'duplicate' : 'new')
       setForm(EMPTY)
       setImageUrls([])
     } catch {
@@ -150,17 +158,27 @@ export function WholesaleForm() {
   }
 
   if (sent) {
+    const duplicate = sent === 'duplicate'
     return (
       <div className="wholesale-form__done" role="status">
-        <span className="wholesale-form__done-icon" aria-hidden="true">
-          <Check className="h-5 w-5" strokeWidth={2.4} />
-        </span>
-        <h2 className="wholesale-form__done-title">Enquiry received</h2>
+        {duplicate ? null : (
+          <span className="wholesale-form__done-icon" aria-hidden="true">
+            <Check className="h-5 w-5" strokeWidth={2.4} />
+          </span>
+        )}
+        <h2 className="wholesale-form__done-title">
+          {duplicate ? 'Already received' : 'Enquiry received'}
+        </h2>
         <p className="wholesale-form__done-text">
-          Our wholesale team will contact you on the number you shared. For anything urgent,
-          message us on WhatsApp.
+          {duplicate
+            ? 'We already have a recent enquiry from this number, so we did not create a second one. Our wholesale team will still contact you. For anything urgent, '
+            : 'Our wholesale team will contact you on the number you shared. For anything urgent, '}
+          <a href={whatsapp} target="_blank" rel="noopener noreferrer">
+            message us on WhatsApp
+          </a>
+          .
         </p>
-        <button type="button" className="wholesale-form__reset" onClick={() => setSent(false)}>
+        <button type="button" className="wholesale-form__reset" onClick={() => setSent(null)}>
           Send another enquiry
         </button>
       </div>

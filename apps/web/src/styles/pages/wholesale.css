@@ -173,6 +173,9 @@
   border-radius: 999px;
   background: rgba(16, 17, 20, 0.06);
   color: var(--wholesale-ink);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .wholesale-point__title {
@@ -462,6 +465,13 @@
   font-size: 0.9rem;
   line-height: 1.6;
   color: var(--wholesale-muted);
+}
+
+.wholesale-form__done-text a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .wholesale-form__reset {

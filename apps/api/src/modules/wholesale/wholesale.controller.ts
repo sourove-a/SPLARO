@@ -44,12 +44,16 @@ export class WholesaleController {
         productInterest: body.productInterest,
         monthlyQuantity: body.monthlyQuantity,
         message: body.message,
+        photoCount: Array.isArray(body.imageUrls) ? body.imageUrls.length : 0,
       })
     }
 
     return {
       ok: true as const,
-      message: 'Thanks — our wholesale team will contact you shortly.',
+      duplicate: result.duplicate,
+      message: result.duplicate
+        ? 'We already have a recent enquiry from this number. Our wholesale team will still contact you.'
+        : 'Thanks — our wholesale team will contact you shortly.',
     }
   }
 

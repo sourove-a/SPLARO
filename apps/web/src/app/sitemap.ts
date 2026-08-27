@@ -68,6 +68,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/payment-policy',
     '/gift-card-policy',
     '/editorial',
+    '/wholesale',
     ...(isFeatureEnabled('loyalty') ? ['/loyalty'] : []),
   ].map((path) => ({
     url: `${base}${path}`,
