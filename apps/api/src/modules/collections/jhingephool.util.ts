@@ -29,53 +29,67 @@ export async function ensureJhingephoolCollection(prisma: PrismaService, storeId
   })
 }
 
-export async function ensureJhingephoolBrand(prisma: PrismaService, storeId: string) {
+interface HouseBrand {
+  slug: string
+  name: string
+  vendorLabel: string
+  /** Shipped default. Seeds a brand that has no mark; never replaces one. */
+  logo?: string
+}
+
+/**
+ * Keeps a house brand on the store without ever overwriting its logo.
+ *
+ * The name is ours to keep correct, so the upsert still repairs it. The logo is
+ * not: pinning it in `update` reverted every mark uploaded from the product
+ * form's "Add brand logo" button on the very next brand list. A brand that has
+ * no mark at all is still healed below, which is all the pin was needed for.
+ */
+async function ensureHouseBrand(prisma: PrismaService, storeId: string, brand: HouseBrand) {
   await prisma.brand.upsert({
-    where: { storeId_slug: { storeId, slug: JHINGEPHOOL_SLUG } },
+    where: { storeId_slug: { storeId, slug: brand.slug } },
     create: {
       storeId,
-      name: JHINGEPHOOL_NAME,
-      slug: JHINGEPHOOL_SLUG,
-      logo: JHINGEPHOOL_LOGO,
-      vendorLabel: 'ঝিঙেফুল by SPLARO',
+      name: brand.name,
+      slug: brand.slug,
+      logo: brand.logo,
+      vendorLabel: brand.vendorLabel,
       country: 'Bangladesh',
       isActive: true,
     },
-    update: { logo: JHINGEPHOOL_LOGO, name: JHINGEPHOOL_NAME },
+    update: { name: brand.name },
+  })
+
+  if (!brand.logo) return
+  await prisma.brand.updateMany({
+    where: { storeId, slug: brand.slug, OR: [{ logo: null }, { logo: '' }] },
+    data: { logo: brand.logo },
+  })
+}
+
+export async function ensureJhingephoolBrand(prisma: PrismaService, storeId: string) {
+  await ensureHouseBrand(prisma, storeId, {
+    slug: JHINGEPHOOL_SLUG,
+    name: JHINGEPHOOL_NAME,
+    vendorLabel: 'ঝিঙেফুল by SPLARO',
+    logo: JHINGEPHOOL_LOGO,
   })
 }
 
 export async function ensureSplaroBrand(prisma: PrismaService, storeId: string) {
-  await prisma.brand.upsert({
-    where: { storeId_slug: { storeId, slug: SPLARO_BRAND_SLUG } },
-    create: {
-      storeId,
-      name: SPLARO_BRAND_NAME,
-      slug: SPLARO_BRAND_SLUG,
-      logo: SPLARO_BRAND_LOGO,
-      vendorLabel: 'In-house',
-      country: 'Bangladesh',
-      isActive: true,
-    },
-    update: { logo: SPLARO_BRAND_LOGO, name: SPLARO_BRAND_NAME },
+  await ensureHouseBrand(prisma, storeId, {
+    slug: SPLARO_BRAND_SLUG,
+    name: SPLARO_BRAND_NAME,
+    vendorLabel: 'In-house',
+    logo: SPLARO_BRAND_LOGO,
   })
 }
 
 export async function ensureMyroxBrand(prisma: PrismaService, storeId: string) {
-  await prisma.brand.upsert({
-    where: { storeId_slug: { storeId, slug: MYROX_BRAND_SLUG } },
-    create: {
-      storeId,
-      name: MYROX_BRAND_NAME,
-      slug: MYROX_BRAND_SLUG,
-      vendorLabel: MYROX_BRAND_VENDOR,
-      country: 'Bangladesh',
-      isActive: true,
-    },
-    // No logo key here on purpose. MYROX's mark is uploaded from the product
-    // form's "Add brand logo" button, so pinning one would revert that upload
-    // on the next brand list — the way SPLARO and ঝিঙেফুল currently do.
-    update: { name: MYROX_BRAND_NAME },
+  await ensureHouseBrand(prisma, storeId, {
+    slug: MYROX_BRAND_SLUG,
+    name: MYROX_BRAND_NAME,
+    vendorLabel: MYROX_BRAND_VENDOR,
   })
 }
 
