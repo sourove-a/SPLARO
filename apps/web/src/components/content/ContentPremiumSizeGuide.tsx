@@ -200,7 +200,7 @@ export function ContentPremiumSizeGuide({
                 <table className="size-premium__table">
                   <thead>
                     <tr>
-                      <th>EU</th>
+                      <th className="size-premium__sticky">EU</th>
                       {liveChart.sizes.map((size) => (
                         <th key={size}>{size}</th>
                       ))}
@@ -208,7 +208,9 @@ export function ContentPremiumSizeGuide({
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="size-premium__size-cell">Foot ({unit.toUpperCase()})</td>
+                      <td className="size-premium__size-cell size-premium__sticky">
+                        Foot ({unit.toUpperCase()})
+                      </td>
                       {liveChart.footLengthCm.map((cm, index) => (
                         <td key={`${liveChart.sizes[index]}-${cm}`}>
                           {formatMeasure(cm, unit)}
@@ -221,7 +223,7 @@ export function ContentPremiumSizeGuide({
                 <table className="size-premium__table">
                   <thead>
                     <tr>
-                      <th>Measurement</th>
+                      <th className="size-premium__sticky">Measurement</th>
                       {liveChart.sizes.map((size) => (
                         <th key={size}>{size}</th>
                       ))}
@@ -230,7 +232,7 @@ export function ContentPremiumSizeGuide({
                   <tbody>
                     {liveChart.measurements.map((row) => (
                       <tr key={row.label}>
-                        <td className="size-premium__size-cell">
+                        <td className="size-premium__size-cell size-premium__sticky">
                           {row.label} ({unit.toUpperCase()})
                         </td>
                         {row.valuesCm.map((cm, index) => (
