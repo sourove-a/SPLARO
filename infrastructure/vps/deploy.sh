@@ -238,6 +238,24 @@ if [ -n "$DEPLOY_SHA" ]; then
   git cat-file -e "${DEPLOY_SHA}^{commit}" 2>/dev/null || die "CI-approved commit not found: $DEPLOY_SHA"
   git merge-base --is-ancestor "$DEPLOY_SHA" "origin/$BRANCH" \
     || die "Refusing deploy: $DEPLOY_SHA is not on origin/$BRANCH"
+
+  # Never move production backwards.
+  #
+  # Two commits landing on main within a minute start two CI runs, each of
+  # which triggers its own deploy pinned to its own SHA. The deploy concurrency
+  # group serialises them but does not order them, so the older run finishing
+  # last would `git reset --hard` the live server onto the older commit and
+  # silently un-ship whatever landed after it. HEAD here is the commit the last
+  # deploy pinned, i.e. what is actually live.
+  LIVE_SHA="$(git rev-parse --verify --quiet HEAD || true)"
+  TARGET_SHA="$(git rev-parse --verify "${DEPLOY_SHA}^{commit}")"
+  if [ -n "$LIVE_SHA" ] && [ "$LIVE_SHA" != "$TARGET_SHA" ] \
+     && git merge-base --is-ancestor "$TARGET_SHA" "$LIVE_SHA"; then
+    log "Superseded: $DEPLOY_SHA is behind the live commit $LIVE_SHA — nothing to do."
+    log "A newer commit is already deployed; its own run shipped it."
+    exit 0
+  fi
+
   git reset --hard "$DEPLOY_SHA"
   log "Pinned to CI-approved commit $DEPLOY_SHA"
 else
