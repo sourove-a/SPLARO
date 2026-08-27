@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Patch, Post, Param, Query } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId, slugify } from '../../common/store.util'
-import { ensureJhingephoolBrand, ensureSplaroBrand } from '../collections/jhingephool.util'
+import { ensureJhingephoolBrand, ensureMyroxBrand, ensureSplaroBrand } from '../collections/jhingephool.util'
 
 @Controller('admin/brands')
 export class BrandsController {
@@ -12,6 +12,7 @@ export class BrandsController {
     const sid = await resolveStoreId(this.prisma, storeId)
     await ensureJhingephoolBrand(this.prisma, sid)
     await ensureSplaroBrand(this.prisma, sid)
+    await ensureMyroxBrand(this.prisma, sid)
     let brands = await this.prisma.brand.findMany({
       where: { storeId: sid },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],

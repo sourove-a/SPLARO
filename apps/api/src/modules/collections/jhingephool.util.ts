@@ -9,6 +9,9 @@ const JHINGEPHOOL_LOGO = '/images/logo/jhingephool-logo-horizontal.png'
 const SPLARO_BRAND_SLUG = 'splaro'
 const SPLARO_BRAND_NAME = 'SPLARO'
 const SPLARO_BRAND_LOGO = '/images/logo/splaro-logo-black-premium.webp'
+const MYROX_BRAND_SLUG = 'myrox'
+const MYROX_BRAND_NAME = 'MYROX'
+const MYROX_BRAND_VENDOR = 'MYROX Lifestyle'
 
 export async function ensureJhingephoolCollection(prisma: PrismaService, storeId: string) {
   await prisma.collection.upsert({
@@ -55,6 +58,24 @@ export async function ensureSplaroBrand(prisma: PrismaService, storeId: string) 
       isActive: true,
     },
     update: { logo: SPLARO_BRAND_LOGO, name: SPLARO_BRAND_NAME },
+  })
+}
+
+export async function ensureMyroxBrand(prisma: PrismaService, storeId: string) {
+  await prisma.brand.upsert({
+    where: { storeId_slug: { storeId, slug: MYROX_BRAND_SLUG } },
+    create: {
+      storeId,
+      name: MYROX_BRAND_NAME,
+      slug: MYROX_BRAND_SLUG,
+      vendorLabel: MYROX_BRAND_VENDOR,
+      country: 'Bangladesh',
+      isActive: true,
+    },
+    // No logo key here on purpose. MYROX's mark is uploaded from the product
+    // form's "Add brand logo" button, so pinning one would revert that upload
+    // on the next brand list — the way SPLARO and ঝিঙেফুল currently do.
+    update: { name: MYROX_BRAND_NAME },
   })
 }
 
