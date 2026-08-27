@@ -5,9 +5,11 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  Optional,
 } from '@nestjs/common'
 import { STATUS_CODES } from 'node:http'
 import type { Request, Response } from 'express'
+import { ServerErrorAlertService } from '../../modules/notifications/server-error-alert.service'
 
 type ErrorBody = {
   statusCode: number
@@ -33,6 +35,8 @@ const GENERIC_5XX_MESSAGE = 'Internal server error'
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name)
+
+  constructor(@Optional() private readonly alerts?: ServerErrorAlertService) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp()
@@ -96,6 +100,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
         `[${requestId ?? 'no-id'}] ${request.method} ${request.url} → ${statusCode}`,
         exception instanceof Error ? exception.stack : String(exception),
       )
+      // A log line nobody is tailing is not an alert. Throttled downstream, so
+      // a broken route pages the shop once rather than once per request.
+      this.alerts?.report({
+        method: request.method,
+        url: request.url,
+        statusCode,
+        message: Array.isArray(message) ? message.join(', ') : message,
+        ...(exception instanceof Error && exception.stack ? { stack: exception.stack } : {}),
+        ...(requestId ? { requestId } : {}),
+      })
     } else if (statusCode >= 400) {
       this.logger.warn(
         `[${requestId ?? 'no-id'}] ${request.method} ${request.url} → ${statusCode}: ${Array.isArray(message) ? message.join(', ') : message}`,

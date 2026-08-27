@@ -51,6 +51,7 @@ import { StockReservationService } from './modules/payments/stock-reservation.se
 import { NotificationsService } from './modules/notifications/notifications.service'
 import { StockAlertsCron } from './modules/notifications/stock-alerts.cron'
 import { AdminTelegramHubService } from './modules/notifications/admin-telegram-hub.service'
+import { ServerErrorAlertService } from './modules/notifications/server-error-alert.service'
 import { OrderNotificationsService } from './modules/notifications/order-notifications.service'
 import { OrderEventsService } from './modules/orders/order-events.service'
 import { OrderStatusService } from './modules/orders/order-status.service'
@@ -374,6 +375,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     NotificationsService,
     StockAlertsCron,
     AdminTelegramHubService,
+    ServerErrorAlertService,
     OrderNotificationsService,
     OrderEventsService,
     OrderStatusService,
