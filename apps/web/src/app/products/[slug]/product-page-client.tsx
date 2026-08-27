@@ -27,6 +27,7 @@ import {
 import { subscribeScroll } from '@/hooks/useScrollY'
 import { snapDocumentScrollToTop } from '@/lib/navigation/snap-scroll-top'
 import { AddToBagIcon } from '@/components/product/AddToBagIcon'
+import { StockAlertForm } from '@/components/product/StockAlertForm'
 import { MotionAnchor, MotionPressable } from '@/components/ui/MotionPressable'
 import { MotionSwapLabel } from '@/components/ui/MotionSwapLabel/MotionSwapLabel'
 import {
@@ -1425,6 +1426,16 @@ export default function ProductPageClient({
                 </motion.p>
               ) : null}
             </AnimatePresence>
+
+            {/* An out-of-stock page is a visit the shop otherwise loses with
+                nothing to show for it. Capture the interest instead. */}
+            {!sellableProduct || !sellableSelection ? (
+              <StockAlertForm
+                key={activeVariant?.id ?? product.id}
+                productId={product.id}
+                {...(sellableProduct && activeVariant?.id ? { variantId: activeVariant.id } : {})}
+              />
+            ) : null}
 
             <ProductReveal>
             <div ref={optionsRef} className="pp-info__options">

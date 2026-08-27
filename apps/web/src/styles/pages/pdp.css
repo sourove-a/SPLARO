@@ -6743,3 +6743,92 @@ html[data-perf='lite'] .sg-modal__backdrop {
       0 12px 30px -8px rgba(0, 0, 0, 0.28);
   }
 }
+
+/* Back-in-stock capture — stands in for a dead Add to Bag */
+.pp-stockalert {
+  margin-top: 0.85rem;
+  padding: 0.9rem 1rem 0.95rem;
+  border: 1px solid rgba(16, 17, 20, 0.1);
+  border-radius: 14px;
+  background: rgba(16, 17, 20, 0.02);
+}
+
+.pp-stockalert__label {
+  display: block;
+  margin-bottom: 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(16, 17, 20, 0.62);
+}
+
+.pp-stockalert__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pp-stockalert__input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(16, 17, 20, 0.16);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 0.85rem;
+  color: #101114;
+}
+
+.pp-stockalert__input:focus-visible {
+  outline: 2px solid rgba(16, 17, 20, 0.55);
+  outline-offset: 1px;
+}
+
+.pp-stockalert__input[aria-invalid='true'] {
+  border-color: #b91c1c;
+}
+
+.pp-stockalert__button {
+  flex: 0 0 auto;
+  padding: 0.7rem 1.25rem;
+  border: 0;
+  border-radius: 10px;
+  background: #101114;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.pp-stockalert__button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.pp-stockalert__hint {
+  margin: 0.55rem 0 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: rgba(16, 17, 20, 0.48);
+}
+
+.pp-stockalert__error {
+  margin: 0.55rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #b91c1c;
+}
+
+.pp-stockalert__done {
+  margin-top: 0.85rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(21, 128, 61, 0.28);
+  border-radius: 14px;
+  background: rgba(21, 128, 61, 0.06);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #15803d;
+}

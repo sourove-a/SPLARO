@@ -13,6 +13,7 @@ import { SmsService } from './sms.service'
 import { findLowStockVariants } from './low-stock.util'
 import { LOW_STOCK_ALERT_LIMIT } from './stock-alerts.cron'
 import { isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
+import { StockAlertService } from './stock-alert.service'
 
 @Controller('admin/notifications')
 export class NotificationsController {
@@ -21,7 +22,23 @@ export class NotificationsController {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(EmailService) private readonly email: EmailService,
     @Inject(SmsService) private readonly sms: SmsService,
+    @Inject(StockAlertService) private readonly stockAlerts: StockAlertService,
   ) {}
+
+  /**
+   * Who is waiting on what, most-wanted first. This is the number that answers
+   * "is it worth reordering" — a SKU 40 people are waiting on is not the same
+   * decision as one nobody asked about.
+   */
+  @Get('stock-alerts/waiting')
+  async stockAlertsWaiting(@Query('storeId') storeId: string, @Query('limit') limit?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const products = await this.stockAlerts.waitingByProduct(sid, Number(limit) || 50)
+    return {
+      products,
+      totalWaiting: products.reduce((sum, row) => sum + row.waiting, 0),
+    }
+  }
 
   /** Admin notification log (Telegram messages sent to store) */
   @Get('log')

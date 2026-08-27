@@ -39,6 +39,7 @@ import {
   StorefrontSignupDto,
   StorefrontSubmitReviewDto,
   StorefrontCreateReturnDto,
+  StorefrontStockAlertDto,
 } from '../../common/dtos/storefront.dto'
 import { PrismaService } from '../../common/prisma.service'
 import { CATALOG_CACHE_TTL } from '../../common/catalog-cache.constants'
@@ -70,6 +71,7 @@ import { CustomersService } from '../customers/customers.service'
 import { StorefrontAuthService } from './storefront-auth.service'
 import { StorefrontWishlistService } from './storefront-wishlist.service'
 import { StorefrontReturnsService } from './storefront-returns.service'
+import { StockAlertService } from '../notifications/stock-alert.service'
 import { StorefrontOtpService, isStorefrontPhoneOtpEnabled } from './storefront-otp.service'
 import { InvoiceService } from '../invoices/invoice.service'
 import { LegalPagesService } from '../content/legal-pages.service'
@@ -145,6 +147,7 @@ export class StorefrontController {
     private readonly storefrontAuth: StorefrontAuthService,
     private readonly storefrontWishlist: StorefrontWishlistService,
     private readonly storefrontReturns: StorefrontReturnsService,
+    private readonly stockAlerts: StockAlertService,
     private readonly storefrontOtp: StorefrontOtpService,
     private readonly invoices: InvoiceService,
     private readonly legalPages: LegalPagesService,
@@ -1147,6 +1150,48 @@ export class StorefrontController {
     })
     if (!order) throw new NotFoundException('Order not found')
     return { order: serializePublicOrder(order) }
+  }
+
+  /**
+   * "Tell me when it's back." Deliberately open to guests — the shopper who
+   * hits an out-of-stock page and is not signed in is exactly the one whose
+   * visit is otherwise lost.
+   */
+  @Post('stock-alerts')
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
+  async subscribeStockAlert(
+    @Query('storeId') storeId: string,
+    @Body() body: StorefrontStockAlertDto,
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+
+    // Attach it to the customer when they happen to be signed in, so the shop
+    // can see who is waiting — but never require it.
+    let customerId: string | undefined
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    if (sessionToken) {
+      const user = await this.storefrontAuth.validateSession(sessionToken)
+      if (user) customerId = await this.storefrontAuth.ensureCustomerId(user, sid)
+    }
+
+    const subscription = await this.stockAlerts.subscribe(sid, {
+      productId: body.productId,
+      ...(body.variantId ? { variantId: body.variantId } : {}),
+      ...(body.email ? { email: body.email } : {}),
+      ...(body.phone ? { phone: body.phone } : {}),
+      ...(customerId ? { customerId } : {}),
+    })
+
+    return { alert: subscription }
+  }
+
+  /** One-click unsubscribe from the link in the alert — no sign-in, by design. */
+  @Post('stock-alerts/unsubscribe')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  async unsubscribeStockAlert(@Body() body: { token?: string }) {
+    return this.stockAlerts.unsubscribe(body.token ?? '')
   }
 
   @Post('newsletter/subscribe')
