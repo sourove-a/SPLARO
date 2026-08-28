@@ -233,6 +233,8 @@ export interface DcFieldProps {
   label: string
   value: string
   onChange: (v: string) => void
+  type?: 'text' | 'date' | undefined
+  min?: string | undefined
   placeholder?: string | undefined
   hint?: string | undefined
   mono?: boolean | undefined
@@ -243,6 +245,8 @@ export function DcField({
   label,
   value,
   onChange,
+  type = 'text',
+  min,
   placeholder,
   hint,
   mono,
@@ -281,7 +285,9 @@ export function DcField({
         />
       ) : (
         <input
+          type={type}
           value={value}
+          min={min}
           placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
           style={shared}

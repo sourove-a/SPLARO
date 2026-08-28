@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Put, Query } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId, slugify } from '../../common/store.util'
+import { CacheService } from '../../common/cache.service'
+import { revalidateStorefrontWeb } from '../../common/revalidate-web'
 import { ContentService } from './content.service'
 import { LegalPagesService } from './legal-pages.service'
 import { FootwearConfigService, type FootwearPageConfig } from './footwear-config.service'
@@ -13,7 +15,13 @@ export class ContentController {
     private readonly prisma: PrismaService,
     private readonly legalPages: LegalPagesService,
     private readonly footwearConfig: FootwearConfigService,
+    private readonly cache: CacheService,
   ) {}
+
+  private async bustLandingPageCache(storeId: string) {
+    await this.cache.invalidateStoreResource(storeId, 'landing-pages')
+    void revalidateStorefrontWeb(['storefront-landing-pages'])
+  }
 
   @Get('overview')
   overview(@Query('storeId') storeId: string) {
@@ -202,7 +210,7 @@ export class ContentController {
         },
       ],
     })
-    return this.prisma.sitePage.create({
+    const page = await this.prisma.sitePage.create({
       data: {
         storeId: sid,
         title: body.title,
@@ -214,6 +222,8 @@ export class ContentController {
         metaDesc: body.metaDesc,
       },
     })
+    await this.bustLandingPageCache(sid)
+    return page
   }
 
   @Patch('pages/:id')
@@ -228,7 +238,9 @@ export class ContentController {
     const data: Record<string, unknown> = { ...body }
     delete data['storeId']
     if (body.slug) data.slug = slugify(body.slug)
-    return this.prisma.sitePage.update({ where: { id }, data: data as never })
+    const page = await this.prisma.sitePage.update({ where: { id }, data: data as never })
+    await this.bustLandingPageCache(sid)
+    return page
   }
 
   @Delete('pages/:id')
@@ -238,6 +250,7 @@ export class ContentController {
     if (!existing) throw new NotFoundException('Page not found')
 
     await this.prisma.sitePage.delete({ where: { id } })
+    await this.bustLandingPageCache(sid)
     return { deleted: true }
   }
 

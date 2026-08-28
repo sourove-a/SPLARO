@@ -50,6 +50,12 @@ export function unitsForQuantityBand(label: string): number | undefined {
 }
 
 const MAX_IMAGES = 4
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function localDateInputValue(date = new Date()): string {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return localDate.toISOString().slice(0, 10)
+}
 
 interface FormState {
   fullName: string
@@ -146,6 +152,29 @@ export function WholesaleForm({ tiers = [] }: { tiers?: WholesaleFormTier[] }) {
     event.preventDefault()
     if (loading || uploading) return
 
+    const cleaned = {
+      ...form,
+      fullName: form.fullName.trim(),
+      companyName: form.companyName.trim(),
+      industry: form.industry.trim(),
+      country: form.country.trim(),
+      phone: form.phone.trim(),
+      email: form.email.trim(),
+      productInterest: form.productInterest.trim(),
+      monthlyQuantity: form.monthlyQuantity.trim(),
+      tierSlug: form.tierSlug.trim(),
+      targetLaunch: form.targetLaunch.trim(),
+      message: form.message.trim(),
+    }
+    if (!cleaned.fullName || !cleaned.industry || !cleaned.country || !cleaned.phone) {
+      setError('Please complete your name, business type, country and phone number.')
+      return
+    }
+    if (cleaned.email && !EMAIL_PATTERN.test(cleaned.email)) {
+      setError('Please enter a valid business email address or leave it blank.')
+      return
+    }
+
     setError('')
     setLoading(true)
     try {
@@ -153,10 +182,10 @@ export function WholesaleForm({ tiers = [] }: { tiers?: WholesaleFormTier[] }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...form,
+          ...cleaned,
           // The band the buyer picked, as a number the pipeline can total.
-          ...(unitsForQuantityBand(form.monthlyQuantity)
-            ? { monthlyUnits: unitsForQuantityBand(form.monthlyQuantity) }
+          ...(unitsForQuantityBand(cleaned.monthlyQuantity)
+            ? { monthlyUnits: unitsForQuantityBand(cleaned.monthlyQuantity) }
             : {}),
           imageUrls,
           sourcePath: typeof window !== 'undefined' ? window.location.pathname : '/wholesale',
@@ -220,7 +249,12 @@ export function WholesaleForm({ tiers = [] }: { tiers?: WholesaleFormTier[] }) {
   }
 
   return (
-    <form className="wholesale-form" onSubmit={handleSubmit} noValidate={false}>
+    <form
+      className="wholesale-form"
+      onSubmit={handleSubmit}
+      noValidate
+      aria-describedby={error ? 'wholesale-form-error' : undefined}
+    >
       <div className="wholesale-form__grid">
         <label className="wholesale-field">
           <span className="wholesale-field__label">
@@ -373,7 +407,7 @@ export function WholesaleForm({ tiers = [] }: { tiers?: WholesaleFormTier[] }) {
             value={form.targetLaunch}
             onChange={(event) => set('targetLaunch')(event.target.value)}
             className="wholesale-field__input"
-            min={new Date().toISOString().slice(0, 10)}
+            min={localDateInputValue()}
           />
           <span className="wholesale-field__hint">
             When you would want stock in hand. Helps us answer with real lead times.
@@ -443,7 +477,7 @@ export function WholesaleForm({ tiers = [] }: { tiers?: WholesaleFormTier[] }) {
       </label>
 
       {error ? (
-        <p className="wholesale-form__error" role="alert">
+        <p id="wholesale-form-error" className="wholesale-form__error" role="alert">
           {error}
         </p>
       ) : null}

@@ -274,7 +274,16 @@
 .wholesale-field__input:focus {
   outline: none;
   border-color: rgba(16, 17, 20, 0.55);
-  box-shadow: none;
+  box-shadow: 0 0 0 3px rgba(16, 17, 20, 0.08);
+}
+
+.wholesale-field__input:focus-visible,
+.wholesale-form__submit:focus-visible,
+.wholesale-photos__add:focus-visible,
+.wholesale-photos__remove:focus-visible,
+.wholesale-form__reset:focus-visible {
+  outline: 2px solid var(--wholesale-ink);
+  outline-offset: 3px;
 }
 
 .wholesale-field__select {
@@ -416,6 +425,10 @@
   cursor: not-allowed;
 }
 
+.wholesale-form__submit:active:not(:disabled) {
+  opacity: 0.82;
+}
+
 .wholesale-form__spinner {
   animation: wholesale-spin 900ms linear infinite;
 }
@@ -483,6 +496,24 @@
   text-decoration: underline;
   text-underline-offset: 4px;
   cursor: pointer;
+}
+
+@media (max-width: 719px) {
+  .wholesale-form-section__inner {
+    padding: 1.25rem;
+  }
+
+  .wholesale-form__actions {
+    align-items: stretch;
+  }
+
+  .wholesale-form__submit {
+    width: 100%;
+  }
+
+  .wholesale-form__note {
+    flex-basis: auto;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

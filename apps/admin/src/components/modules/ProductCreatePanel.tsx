@@ -390,30 +390,27 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
 
   const applyDescriptionDraft = useCallback(
     (silent = false) => {
-      if (!form.name.trim() && !form.descriptionNotes.trim()) {
-        if (!silent) toastFail('Product name বা short notes লিখুন — তারপর draft হবে।')
+      const name = form.name.trim()
+      const english = form.descriptionEn.trim()
+      const bangla = form.descriptionBn.trim()
+      const notes = form.descriptionNotes.trim()
+      const source = english || bangla || notes
+      if (!source) {
+        if (!silent) toastFail('Product description বা short brief লিখুন — তারপর draft হবে।')
         return
       }
-      const description = buildDescriptionDraft({
-        name: form.name,
-        notes: form.descriptionNotes,
-        fabric: form.fabricContent,
-        fit: form.fitType,
-        occasion: form.occasion,
-        category: categoryName,
-      })
-      const { en, bn } = splitBilingualDescription(description)
-      const seo = buildSeoDraft(form.name, description)
+      const notesDraft = name ? `${name} — ${notes}` : notes
+      const seo = buildSeoDraft(name, source)
       setForm((prev) => ({
         ...prev,
-        descriptionEn: en,
-        descriptionBn: bn,
+        descriptionEn: english || (bangla ? prev.descriptionEn : notesDraft),
+        descriptionBn: bangla || prev.descriptionBn,
         metaTitle: prev.metaTitle.trim() || seo.title,
         metaDescription: prev.metaDescription.trim() || seo.description,
       }))
       if (!silent) toastOk('Premium description + SEO draft ready', 'desc-draft')
     },
-    [form.name, form.descriptionNotes, form.fabricContent, form.fitType, form.occasion, categoryName],
+    [form.name, form.descriptionEn, form.descriptionBn, form.descriptionNotes],
   )
 
   const addColorRow = () => {
@@ -568,7 +565,13 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
           productName: form.name.trim() || 'SPLARO Luxury Product',
           // Operator's own copy is the brief — everything else is derived from
           // it rather than invented from the product name.
-          ...(form.descriptionEn.trim() ? { description: form.descriptionEn.trim() } : {}),
+          ...(form.descriptionEn.trim()
+            ? { description: form.descriptionEn.trim() }
+            : form.descriptionBn.trim()
+              ? { description: form.descriptionBn.trim() }
+              : form.descriptionNotes.trim()
+                ? { description: form.descriptionNotes.trim() }
+                : {}),
           ...(form.descriptionBn.trim() ? { descriptionBn: form.descriptionBn.trim() } : {}),
           ...(form.nameBn.trim() ? { nameBn: form.nameBn.trim() } : {}),
           fabric: form.fabricContent,
@@ -1240,7 +1243,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             id="np-ai"
             num="—"
             title="Quick start"
-            hint="Optional — generate copy from a brief. Nothing saves until you publish."
+            hint="Uses your product name, description, and brief. Nothing saves until you publish."
             badge={<DcPill>AI · review before save</DcPill>}
           >
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -1288,7 +1291,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                       font: `600 12.5px/1 ${FONT}`,
                     }}
                   >
-                    Draft copy
+                    Build from details
                   </button>
                 </div>
               </div>

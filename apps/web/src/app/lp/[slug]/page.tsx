@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { ContentPage } from '@/components/content/ContentPage'
+import { ContentCampaignLanding } from '@/components/content/ContentCampaignLanding'
 import { getLandingPage } from '@/lib/content/get-landing-page'
 import { tidyMetaDescription } from '@/lib/seo/meta-description'
 
@@ -22,5 +22,11 @@ export default async function LandingPageRoute({ params }: Props) {
   const { slug } = await params
   const page = await getLandingPage(slug)
   if (!page) notFound()
-  return <ContentPage title={page.title} description={page.description} sections={page.sections} />
+  return (
+    <ContentCampaignLanding
+      title={page.title}
+      description={page.description}
+      sections={page.sections}
+    />
+  )
 }

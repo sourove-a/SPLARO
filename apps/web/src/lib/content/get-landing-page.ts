@@ -54,7 +54,8 @@ export async function getLandingPage(slug: string): Promise<LegalPageContent | n
     const base = getServerApiBaseUrl()
     const res = await fetchWithTimeout(
       `${base}/storefront/landing-pages/${encodeURIComponent(slug)}?storeId=${encodeURIComponent(STORE_ID)}`,
-      { next: { revalidate: 120 } },
+      // Campaign pages must disappear immediately when an admin unpublishes them.
+      { cache: 'no-store' },
     )
     if (!res?.ok) return null
     const row = (await res.json()) as {

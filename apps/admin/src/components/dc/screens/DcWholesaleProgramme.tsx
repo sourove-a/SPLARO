@@ -10,7 +10,7 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import { DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
-import { FONT, MONO, toneStyle } from '@/components/dc/tokens'
+import { FONT, toneStyle } from '@/components/dc/tokens'
 import { toastApiSaved, toastFail, toastWarn } from '@/lib/admin/feedback'
 import {
   createWholesaleTier,
@@ -257,13 +257,8 @@ function DcWholesaleProgrammeBody() {
                 }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ font: `600 14px/1.3 ${FONT}`, color: 'var(--ink)' }}>
-                      {tier.name}
-                    </span>
-                    <span style={{ font: `500 10.5px/1 ${MONO}`, color: 'var(--ink-3)' }}>
-                      {tier.slug}
-                    </span>
+                  <span style={{ font: `600 14px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+                    {tier.name}
                   </span>
                   <span style={{ font: `400 12px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
                     {tier.minUnits > 0

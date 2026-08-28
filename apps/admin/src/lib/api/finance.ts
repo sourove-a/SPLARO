@@ -218,6 +218,10 @@ export interface InventoryItem {
   demandScore: number
 }
 
+function partnerPath(slug: string): string {
+  return `/partners/${encodeURIComponent(slug)}`
+}
+
 export function fetchPartnerHub() {
   return apiFetch<PartnerHubData>('/finance-reports/partner-hub')
 }
@@ -246,7 +250,7 @@ export function createPartner(body: {
 }
 
 export function resendPartnerInvite(slug: string) {
-  return apiFetch<CreatePartnerResult>(`/partners/${encodeURIComponent(slug)}/resend-invite`, {
+  return apiFetch<CreatePartnerResult>(`${partnerPath(slug)}/resend-invite`, {
     method: 'POST',
     body: JSON.stringify({}),
   })
@@ -338,7 +342,7 @@ export function updatePartnerProfile(
   slug: string,
   body: { name?: string; email?: string; phone?: string; avatarUrl?: string; notes?: string },
 ) {
-  return apiFetch<PartnerAccount>(`/partners/${slug}`, {
+  return apiFetch<PartnerAccount>(partnerPath(slug), {
     method: 'PATCH',
     body: JSON.stringify(body),
   })

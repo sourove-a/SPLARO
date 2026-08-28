@@ -162,30 +162,34 @@ export class PartnersService {
     const rawInviteToken = newInviteToken()
     const inviteSentAt = new Date()
 
-    const partner = await this.prisma.partner.create({
-      data: {
-        storeId,
-        name,
-        slug,
-        email,
-        phone: data.phone?.trim() || null,
-        sharePercent,
-        notes: data.notes?.trim() || null,
-        createdBy: data.createdBy,
-        inviteStatus: 'INVITED',
-        // Store hash only — raw token is emailed once and never persisted.
-        inviteToken: sha256(rawInviteToken),
-        inviteSentAt,
-      },
-    })
+    const partner = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.partner.create({
+        data: {
+          storeId,
+          name,
+          slug,
+          email,
+          phone: data.phone?.trim() || null,
+          sharePercent,
+          notes: data.notes?.trim() || null,
+          createdBy: data.createdBy,
+          inviteStatus: 'INVITED',
+          // Store hash only — raw token is emailed once and never persisted.
+          inviteToken: sha256(rawInviteToken),
+          inviteSentAt,
+        },
+      })
 
-    await this.prisma.partnerShareSetting.create({
-      data: {
-        storeId,
-        partnerId: partner.id,
-        sharePercent,
-        createdBy: data.createdBy,
-      },
+      await tx.partnerShareSetting.create({
+        data: {
+          storeId,
+          partnerId: created.id,
+          sharePercent,
+          createdBy: data.createdBy,
+        },
+      })
+
+      return created
     })
 
     const inviteEmailSent = await this.sendInviteEmail(partner, rawInviteToken)
@@ -364,59 +368,103 @@ export class PartnersService {
     })
     if (!partner) throw new NotFoundException(`Partner ${slug} not found`)
 
+    const name = data.name?.trim()
+    if (data.name !== undefined && (!name || name.length < 2)) {
+      throw new BadRequestException('Full name is required (min 2 characters)')
+    }
+    const email = data.email?.trim().toLowerCase()
+    if (data.email !== undefined && email && !isValidEmail(email)) {
+      throw new BadRequestException('A valid email is required')
+    }
+    if (email && email !== partner.email) {
+      const duplicate = await this.prisma.partner.findFirst({
+        where: { storeId, email, isActive: true, id: { not: partner.id } },
+        select: { id: true },
+      })
+      if (duplicate) throw new BadRequestException('A partner with this email already exists')
+    }
+
     const updated = await this.prisma.partner.update({
       where: { id: partner.id },
       data: {
-        ...(data.name !== undefined ? { name: data.name } : {}),
-        ...(data.email !== undefined ? { email: data.email || null } : {}),
-        ...(data.phone !== undefined ? { phone: data.phone || null } : {}),
-        ...(data.avatarUrl !== undefined ? { avatarUrl: data.avatarUrl || null } : {}),
-        ...(data.notes !== undefined ? { notes: data.notes || null } : {}),
+        ...(name !== undefined ? { name } : {}),
+        ...(data.email !== undefined ? { email: email || null } : {}),
+        ...(data.phone !== undefined ? { phone: data.phone.trim() || null } : {}),
+        ...(data.avatarUrl !== undefined ? { avatarUrl: data.avatarUrl.trim() || null } : {}),
+        ...(data.notes !== undefined ? { notes: data.notes.trim() || null } : {}),
       },
     })
 
+    const safeUpdated = stripInviteSecret(updated)
     await this.audit.log({
       storeId,
       action: 'UPDATE',
       resource: 'Partner',
       resourceId: partner.id,
-      after: updated,
+      after: safeUpdated,
       note: 'Updated partner profile',
     })
 
-    return updated
+    return safeUpdated
   }
 
   async updateSharePercentages(
-    storeId: string,
+    storeIdOrSlug: string,
     shares: { partnerId: string; sharePercent: number }[],
     createdBy?: string,
   ) {
-    const total = shares.reduce((s, x) => s + x.sharePercent, 0)
+    const storeId = await this.sid(storeIdOrSlug)
+    const normalizedShares = shares.map((share) => ({
+      partnerId: share.partnerId,
+      sharePercent: Number(share.sharePercent),
+    }))
+    const partnerIds = normalizedShares.map((share) => share.partnerId)
+    const hasDuplicatePartners = new Set(partnerIds).size !== partnerIds.length
+    const hasInvalidShare = normalizedShares.some(
+      (share) =>
+        !Number.isFinite(share.sharePercent) ||
+        share.sharePercent <= 0 ||
+        share.sharePercent > 100,
+    )
+    if (normalizedShares.length === 0 || hasDuplicatePartners || hasInvalidShare) {
+      throw new BadRequestException('Each active partner needs a unique share between 0 and 100%')
+    }
+
+    const ownedPartners = await this.prisma.partner.findMany({
+      where: { storeId, id: { in: partnerIds }, isActive: true },
+      select: { id: true },
+    })
+    if (ownedPartners.length !== normalizedShares.length) {
+      throw new BadRequestException('One or more partners do not belong to this store')
+    }
+
+    const total = normalizedShares.reduce((sum, share) => sum + share.sharePercent, 0)
     if (Math.abs(total - 100) > 0.01) {
       throw new BadRequestException('Partner share percentages must total 100%')
     }
 
-    for (const share of shares) {
-      await this.prisma.partner.update({
-        where: { id: share.partnerId },
-        data: { sharePercent: share.sharePercent },
-      })
-      await this.prisma.partnerShareSetting.create({
-        data: {
-          storeId,
-          partnerId: share.partnerId,
-          sharePercent: share.sharePercent,
-          createdBy,
-        },
-      })
-    }
+    await this.prisma.$transaction(async (tx) => {
+      for (const share of normalizedShares) {
+        await tx.partner.update({
+          where: { id: share.partnerId },
+          data: { sharePercent: share.sharePercent },
+        })
+        await tx.partnerShareSetting.create({
+          data: {
+            storeId,
+            partnerId: share.partnerId,
+            sharePercent: share.sharePercent,
+            createdBy,
+          },
+        })
+      }
+    })
 
     await this.audit.log({
       storeId,
       action: 'UPDATE',
       resource: 'PartnerShareSetting',
-      after: shares,
+      after: normalizedShares,
       userId: createdBy,
       note: 'Updated partner profit share percentages',
     })

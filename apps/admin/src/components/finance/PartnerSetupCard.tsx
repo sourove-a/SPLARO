@@ -7,6 +7,7 @@ import { toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
 import {
   createPartner,
   updatePartnerShares,
+  type CreatePartnerResult,
   type PartnerAccount,
 } from '@/lib/api/finance'
 import { useAdminSession, usePermission } from '@/lib/api/hooks'
@@ -19,8 +20,23 @@ import { cn } from '@/lib/utils/cn'
 
 interface PartnerSetupCardProps {
   partners: PartnerAccount[]
-  onUpdated: () => void
+  onUpdated: () => void | Promise<void>
   compact?: boolean
+}
+
+function matchesPersistedPartner(
+  result: CreatePartnerResult,
+  name: string,
+  email: string,
+  sharePercent: number,
+): boolean {
+  return (
+    result.partner.name.trim() === name &&
+    result.partner.email?.trim().toLowerCase() === email &&
+    Number(result.partner.sharePercent) === sharePercent &&
+    result.partner.inviteStatus?.toUpperCase() === 'INVITED' &&
+    Boolean(result.partner.inviteSentAt)
+  )
 }
 
 export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupCardProps) {
@@ -81,8 +97,8 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
         ...(notes.trim() ? { notes: notes.trim() } : {}),
         createdBy: 'admin',
       })
-      if (result.partner.name.trim() !== name) {
-        toastFail('Partner save did not persist on server')
+      if (!matchesPersistedPartner(result, name, mail, share)) {
+        toastFail('Partner or invite state did not persist on server')
         return
       }
       toastOk(`${name} added to partner roster`)
@@ -96,7 +112,7 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
       setPhone('')
       setSharePercent('')
       setNotes('')
-      onUpdated()
+      await onUpdated()
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Could not add partner')
     } finally {
@@ -132,7 +148,7 @@ export function PartnerSetupCard({ partners, onUpdated, compact }: PartnerSetupC
         return
       }
       toastOk('Equity shares saved')
-      onUpdated()
+      await onUpdated()
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Could not save shares')
     } finally {

@@ -84,6 +84,12 @@ type HubTab =
   | 'invest'
   | 'withdraw'
 
+type PartnerProfilePatch = {
+  name: string
+  email: string
+  phone: string
+}
+
 function tabFromHref(href: string): HubTab {
   if (href.includes('/expenses')) return 'expenses'
   if (href.includes('/investments')) return 'invest'
@@ -91,6 +97,10 @@ function tabFromHref(href: string): HubTab {
   if (href.includes('/profit-loss')) return 'profit'
   if (href.includes('/daily-closing')) return 'ledger'
   return 'overview'
+}
+
+function hasPersistedInvite(partner: PartnerAccount): boolean {
+  return partner.inviteStatus?.toUpperCase() === 'INVITED' && Boolean(partner.inviteSentAt)
 }
 
 function PartnerAvatar({
@@ -277,8 +287,8 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
       const url = uploaded.url
       const saved = await updatePartnerProfile(partner.slug, { avatarUrl: url })
       if (!verifyStringEquals(saved.avatarUrl, url, 'Partner photo')) return
-      toastApiSaved(`${partner.name} photo`)
-      loadAll()
+      toastOk(`${partner.name} photo updated`)
+      await loadAll()
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Upload failed')
     } finally {
@@ -286,21 +296,26 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
     }
   }
 
-  const handleSaveProfile = async (partner: PartnerAccount, patch: { name: string; email: string; phone: string }) => {
+  const handleSaveProfile = async (partner: PartnerAccount, patch: PartnerProfilePatch) => {
     if (!canEditFinance) {
       toastFail(PERMISSION_DENIED_TITLE)
       return
     }
     setSavingSlug(partner.slug)
     try {
-      const saved = await updatePartnerProfile(partner.slug, patch)
-      if (!verifyStringEquals(saved.name, patch.name, 'Partner name')) return
-      if (!verifyStringEquals(saved.email ?? '', patch.email, 'Partner email')) return
-      if (!verifyStringEquals(saved.phone ?? '', patch.phone, 'Partner phone')) return
-      toastApiSaved(`${partner.name} profile`)
-      loadAll()
-    } catch {
-      toastFail('Could not save profile')
+      const normalizedPatch: PartnerProfilePatch = {
+        name: patch.name.trim(),
+        email: patch.email.trim().toLowerCase(),
+        phone: patch.phone.trim(),
+      }
+      const saved = await updatePartnerProfile(partner.slug, normalizedPatch)
+      if (!verifyStringEquals(saved.name, normalizedPatch.name, 'Partner name')) return
+      if (!verifyStringEquals(saved.email ?? '', normalizedPatch.email, 'Partner email')) return
+      if (!verifyStringEquals(saved.phone ?? '', normalizedPatch.phone, 'Partner phone')) return
+      toastOk(`${partner.name} profile updated`)
+      await loadAll()
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not save profile')
     } finally {
       setSavingSlug(null)
     }
@@ -314,12 +329,16 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
     setSavingSlug(partner.slug)
     try {
       const result = await resendPartnerInvite(partner.slug)
+      if (!hasPersistedInvite(result.partner)) {
+        toastFail('Invite state did not persist on server')
+        return
+      }
       if (result.inviteEmailSent) {
         toastOk(`Invite resent to ${partner.email ?? 'partner'}`)
       } else {
         toastWarn('Invite regenerated but email was not sent — check SMTP in Settings')
       }
-      loadAll()
+      await loadAll()
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Could not resend invite')
     } finally {
@@ -1099,7 +1118,7 @@ function PartnerProfileCard({
   canEdit: boolean
   canResendInvite: boolean
   onUpload: (file: File) => void
-  onSave: (patch: { name: string; email: string; phone: string }) => void
+  onSave: (patch: PartnerProfilePatch) => void
   onResendInvite: () => void
 }) {
   const [name, setName] = useState(partner.name)
@@ -1202,7 +1221,7 @@ function PartnerProfileCard({
               <AdminButton
                 variant="accent"
                 disabled={saving}
-                onClick={() => onSave({ name: name.trim(), email: email.trim(), phone: phone.trim() })}
+                onClick={() => onSave({ name, email, phone })}
               >
                 {saving ? 'Saving…' : 'Save profile'}
               </AdminButton>

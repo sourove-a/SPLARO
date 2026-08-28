@@ -168,10 +168,10 @@ function DcCourierBody() {
       page,
       limit: pageSize,
     }
-    if (statusTab === 'QUEUED') p.status = 'PENDING'
+    if (statusTab === 'QUEUED') p.status = 'PENDING,QUEUED'
     else if (statusTab === 'IN_TRANSIT') p.status = 'IN_TRANSIT'
     else if (statusTab === 'DELIVERED') p.status = 'DELIVERED'
-    else if (statusTab === 'FAILED') p.status = 'FAILED'
+    else if (statusTab === 'FAILED') p.status = 'FAILED,CANCELLED,RETURNED'
 
     if (providerFilter) p.provider = providerFilter
     if (searchQuery.trim()) p.search = searchQuery.trim()
@@ -388,12 +388,12 @@ function DcCourierBody() {
             onClick: exportCsv,
           },
           {
-            label: 'Sync statuses',
+            label: 'Refresh shipments',
             icon: 'icon-refresh-cw',
             onClick: () => {
               void shipments.refetch()
               void stats.refetch()
-              toast('info', 'Refreshing shipments', 'Pulls latest rows from courier API cache.')
+              toast('info', 'Refreshing shipments', 'Reloading the latest saved shipment records.')
             },
           },
         ]}
@@ -885,22 +885,27 @@ function DcCourierBody() {
                       <DcIcon name="icon-truck" size={14} />
                     </span>
                     <span style={{ flex: 1, font: `600 13px/1 ${FONT}`, color: 'var(--ink)' }}>
-                      Connected Couriers
+                      Configured Couriers
                     </span>
                   </div>
-                  {(stats.data?.byProvider ?? []).length === 0 ? (
+                  {providersQuery.isLoading ? (
                     <span style={{ font: `400 12px/1.5 ${FONT}`, color: 'var(--ink-3)' }}>
-                      No provider has handled a parcel in the last 30 days.
+                      Checking courier credentials…
+                    </span>
+                  ) : providersQuery.isError ? (
+                    <span style={{ font: `400 12px/1.5 ${FONT}`, color: 'var(--bad)' }}>
+                      Courier configuration could not be checked.
+                    </span>
+                  ) : bookingProviders.filter((p) => p.configured).length === 0 ? (
+                    <span style={{ font: `400 12px/1.5 ${FONT}`, color: 'var(--ink-3)' }}>
+                      No courier credentials saved. Configure a provider in Settings → Infrastructure.
                     </span>
                   ) : (
-                    (stats.data?.byProvider ?? []).map((p) => (
-                      <div key={p.provider} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                    bookingProviders.filter((p) => p.configured).map((p) => (
+                      <div key={p.value} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                         <span style={{ width: 7, height: 7, borderRadius: 99, background: 'var(--ok)' }} />
                         <span style={{ flex: 1, font: `500 12.5px/1 ${FONT}`, color: 'var(--ink-2)' }}>
-                          {p.provider}
-                        </span>
-                        <span style={{ font: `600 12px/1 ${MONO}`, color: 'var(--ink)' }}>
-                          {p._count}
+                          {p.label}
                         </span>
                       </div>
                     ))

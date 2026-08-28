@@ -21,16 +21,20 @@ import { PartnersService, PartnerTransactionsService } from './partners.service'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
-function assertPartnerRoster(req: AdminRequest) {
+function assertPartnerRoster(req: AdminRequest): void {
   if (!canManagePartnerRoster(req.adminUser?.role)) {
     throw new ForbiddenException('Only Owner or Admin can manage the partner roster')
   }
 }
 
-function assertPartnerEquity(req: AdminRequest) {
+function assertPartnerEquity(req: AdminRequest): void {
   if (!canManagePartnerEquity(req.adminUser?.role)) {
     throw new ForbiddenException('Only Owner can change equity share percentages')
   }
+}
+
+function resolveAdminStoreId(req: AdminRequest, storeId: string): string {
+  return req.adminUser?.storeId ?? storeId
 }
 
 @Controller('partners')
@@ -58,7 +62,10 @@ export class PartnersController {
     },
   ) {
     assertPartnerRoster(req)
-    return this.partners.create(storeId, body)
+    return this.partners.create(resolveAdminStoreId(req, storeId), {
+      ...body,
+      createdBy: req.adminUser?.userId,
+    })
   }
 
   /** @deprecated Use POST /partners — partners are added manually in admin */
@@ -75,7 +82,7 @@ export class PartnersController {
     @Param('slug') slug: string,
   ) {
     assertPartnerRoster(req)
-    return this.partners.resendInvite(storeId, slug)
+    return this.partners.resendInvite(resolveAdminStoreId(req, storeId), slug)
   }
 
   @Get(':slug')
@@ -102,11 +109,16 @@ export class PartnersController {
     @Body() body: { shares: { partnerId: string; sharePercent: number }[]; createdBy?: string },
   ) {
     assertPartnerEquity(req)
-    return this.partners.updateSharePercentages(storeId, body.shares, body.createdBy)
+    return this.partners.updateSharePercentages(
+      resolveAdminStoreId(req, storeId),
+      body.shares,
+      req.adminUser?.userId,
+    )
   }
 
   @Patch(':slug')
   updateProfile(
+    @Req() req: AdminRequest,
     @Query('storeId') storeId: string,
     @Param('slug') slug: string,
     @Body()
@@ -118,7 +130,8 @@ export class PartnersController {
       notes?: string
     },
   ) {
-    return this.partners.updateProfile(storeId, slug, body)
+    assertPartnerRoster(req)
+    return this.partners.updateProfile(resolveAdminStoreId(req, storeId), slug, body)
   }
 }
 

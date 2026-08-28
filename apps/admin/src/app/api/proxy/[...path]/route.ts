@@ -49,6 +49,13 @@ async function proxyToApi(request: NextRequest, context: RouteContext): Promise<
     Accept: request.headers.get('accept') ?? 'application/json',
   }
 
+  // Preserve the address Nginx received. Without these, the Nest API sees
+  // the BFF's loopback connection and records 127.0.0.1 for admin logins.
+  const forwardedFor = request.headers.get('x-forwarded-for')
+  const realIp = request.headers.get('x-real-ip')
+  if (forwardedFor) headers['X-Forwarded-For'] = forwardedFor
+  if (realIp) headers['X-Real-IP'] = realIp
+
   const authHeader = request.headers.get('authorization')
   if (authHeader) {
     headers.Authorization = authHeader

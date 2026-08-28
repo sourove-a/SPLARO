@@ -50,6 +50,11 @@ const TYPE_LABEL: Record<ApiCoupon['type'], string> = {
 
 const DAY = 86_400_000
 
+function localDateInputValue(date = new Date()): string {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return localDate.toISOString().slice(0, 10)
+}
+
 function couponValue(c: ApiCoupon): string {
   const v = Number(c.value || 0)
   if (c.type === 'PERCENTAGE') return `${v}%`
@@ -95,6 +100,7 @@ function DcCouponsBody() {
   const { toast } = useDcScreen()
   const qc = useQueryClient()
   const { api } = useAdminConnection(25_000)
+  const minExpiryDate = localDateInputValue()
 
   const coupons = useQuery({
     queryKey: ['coupons'],
@@ -769,9 +775,10 @@ function DcCouponsBody() {
           label="Expires on"
           value={form.expiresAt}
           onChange={(v) => setForm((f) => ({ ...f, expiresAt: v }))}
-          placeholder="2026-08-31"
+          type="date"
+          min={minExpiryDate}
           mono
-          hint="Blank means it never expires — you have to switch it off by hand."
+          hint="Choose a date from the calendar. Leave blank for no expiry."
         />
       </DcModal>
 

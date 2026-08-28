@@ -28,6 +28,26 @@ const COURIER_TO_ORDER_STATUS: Partial<Record<CourierStatus, OrderStatus>> = {
   CANCELLED: 'CANCELLED',
 }
 
+const COURIER_STATUS_VALUES: readonly CourierStatus[] = [
+  'PENDING',
+  'BOOKED',
+  'PICKED_UP',
+  'IN_TRANSIT',
+  'DELIVERED',
+  'RETURNED',
+  'FAILED',
+  'CANCELLED',
+]
+
+function parseCourierStatuses(value?: string): CourierStatus[] {
+  return (value ?? '')
+    .split(',')
+    .map((item) => item.trim().toUpperCase())
+    .filter((item): item is CourierStatus =>
+      COURIER_STATUS_VALUES.includes(item as CourierStatus),
+    )
+}
+
 @Controller('admin/courier')
 export class CourierController {
   constructor(
@@ -55,7 +75,7 @@ export class CourierController {
   @Get()
   async list(
     @Query('storeId') storeId: string,
-    @Query('status') status?: CourierStatus,
+    @Query('status') status?: string,
     @Query('provider') provider?: CourierProvider,
     @Query('search') search?: string,
     @Query('page') page?: string,
@@ -64,10 +84,12 @@ export class CourierController {
     const sid = await resolveStoreId(this.prisma, storeId)
     const take = Math.min(Number(limit) || 30, 100)
     const skip = (Math.max(Number(page) || 1, 1) - 1) * take
+    const statuses = parseCourierStatuses(status)
 
     const where = {
       order: { storeId: sid },
-      ...(status ? { status } : {}),
+      ...(statuses.length === 1 ? { status: statuses[0] } : {}),
+      ...(statuses.length > 1 ? { status: { in: statuses } } : {}),
       ...(provider ? { provider } : {}),
       ...(search
         ? {

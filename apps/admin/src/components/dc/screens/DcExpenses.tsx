@@ -83,6 +83,11 @@ const RECEIPT_TYPES = new Set([
 const DEFAULT_CATEGORIES = Object.keys(CATEGORY_LABELS)
 const DEFAULT_METHODS = Object.keys(PAYMENT_LABELS)
 
+function localDateInputValue(date = new Date()): string {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return localDate.toISOString().slice(0, 10)
+}
+
 type Draft = {
   category: string
   amount: string
@@ -97,7 +102,7 @@ type Draft = {
 const emptyDraft = (): Draft => ({
   category: 'MISC',
   amount: '',
-  expenseDate: new Date().toISOString().slice(0, 10),
+  expenseDate: localDateInputValue(),
   vendor: '',
   paymentMethod: 'CASH',
   note: '',
@@ -295,7 +300,7 @@ function DcExpensesBody() {
         r.recurring ? 'Yes' : 'No',
       ]),
     ]
-    downloadCsv(`splaro-expenses-${new Date().toISOString().slice(0, 10)}.csv`, csvRows)
+    downloadCsv(`splaro-expenses-${localDateInputValue()}.csv`, csvRows)
     toastOk(`Exported ${rows.length} expense records`)
   }
 
