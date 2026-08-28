@@ -1,7 +1,10 @@
 # SPLARO — Luxury Fashion & Lifestyle Platform
 
 <div align="center">
-  <img src="docs/assets/splaro-logo.png" alt="SPLARO Logo" width="200" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/images/logo/splaro-logo-white-premium.webp" />
+    <img src="apps/web/public/images/logo/splaro-logo-black-premium.webp" alt="SPLARO Logo" width="200" />
+  </picture>
   
   **The definitive luxury fashion eCommerce platform with SaaS-ready architecture for Bangladesh and international markets.**
   
