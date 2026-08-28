@@ -13,6 +13,12 @@ export interface SendEmailInput {
   text?: string
   /** Order receipts etc. — tries Gmail / env SMTP even when emailEnabled is off. */
   transactional?: boolean
+  /**
+   * Severity carried onto the delivery log row, which is what the admin
+   * Notification Center paints. A failed purchase order needs chasing; a failed
+   * marketing blast does not.
+   */
+  level?: 'info' | 'warn' | 'critical'
 }
 
 @Injectable()
@@ -40,13 +46,21 @@ export class EmailService {
     const smtpAccounts = this.resolveSmtpAccounts(store.settings?.storefrontConfig)
     for (const smtp of smtpAccounts) {
       const sent = await this.sendViaSmtp(smtp, store.name, input)
-      if (sent) return true
+      if (sent) {
+        // Only paperwork is logged on success. A campaign to 500 addresses
+        // would otherwise write 500 rows and push every other notice out of
+        // the 60-row window Notification Center reads.
+        if (transactional) await this.recordDelivery(input, 'SENT', null)
+        return true
+      }
     }
 
     if (this.gmail) {
       try {
         const cfg = await this.gmail.getConfig(input.storeId)
         if (cfg.connected && cfg.senderEmail) {
+          // GoogleGmailService writes its own delivery-log row on success, so
+          // recording here again would double every Gmail-sent message.
           await this.gmail.sendEmail(
             input.storeId,
             { to, subject: input.subject, html: input.html, template: 'transactional' },
@@ -60,12 +74,50 @@ export class EmailService {
       }
     }
 
+    const reason = smtpAccounts.length
+      ? 'Every configured SMTP account rejected the send'
+      : 'No SMTP account or Gmail connection is configured'
     this.logger.warn(
       transactional
         ? `Transactional email to ${to} failed — no SMTP/Gmail for store ${input.storeId}`
         : `SMTP not configured for store ${input.storeId}`,
     )
+    await this.recordDelivery(input, 'FAILED', reason)
     return false
+  }
+
+  /**
+   * Leave a row so an operator can answer "did the supplier actually get it?"
+   * without reading server logs.
+   *
+   * Written for every failure, and for transactional successes only — see the
+   * call sites for why a successful campaign send is deliberately not logged.
+   *
+   * Deliberately swallows its own errors: a delivery log that cannot be written
+   * must never turn a mail that did go out into a thrown request.
+   */
+  private async recordDelivery(
+    input: SendEmailInput,
+    status: 'SENT' | 'FAILED',
+    errorMsg: string | null,
+  ): Promise<void> {
+    try {
+      await this.prisma.notificationDeliveryLog.create({
+        data: {
+          storeId: input.storeId,
+          channel: 'EMAIL',
+          recipient: input.to.trim(),
+          subject: input.subject,
+          status,
+          level: input.level ?? (status === 'FAILED' ? 'warn' : 'info'),
+          ...(errorMsg ? { errorMsg } : {}),
+        },
+      })
+    } catch (err) {
+      this.logger.warn(
+        `Could not record email delivery for ${input.to}: ${err instanceof Error ? err.message : err}`,
+      )
+    }
   }
 
   private async sendViaSmtp(

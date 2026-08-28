@@ -138,6 +138,7 @@ import {
 } from './modules/commerce-os/commerce-os.controller'
 import { AdminHubController } from './modules/admin-hub/admin-hub.controller'
 import { AdminHubService } from './modules/admin-hub/admin-hub.service'
+import { ProcurementMailerService } from './modules/admin-hub/procurement-mailer.service'
 import { AnalyticsController, AnalyticsService } from './modules/analytics'
 import { AiProductAgentController, AiService } from './modules/ai'
 import { ManusController, ManusService } from './modules/manus'
@@ -430,6 +431,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     CustomersService,
     WholesaleService,
     AdminHubService,
+    ProcurementMailerService,
     AgentService,
     AgentToolsService,
     AgentLoopService,

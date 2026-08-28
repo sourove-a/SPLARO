@@ -118,6 +118,7 @@ import {
   createPurchaseOrder,
   updatePurchaseOrderEta,
   deletePurchaseOrder,
+  emailPurchaseOrder,
   receiveGoodsGrn,
   createSupportTicket,
   fetchNotificationsOverview,
@@ -1037,6 +1038,16 @@ export function useDeletePurchaseOrder() {
       void qc.invalidateQueries({ queryKey: ['inventory-alerts'] })
       void qc.invalidateQueries({ queryKey: ['wms-overview'] })
     },
+  })
+}
+
+export function useEmailPurchaseOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: emailPurchaseOrder,
+    // The delivery log the send writes is what Notification Center reads, so a
+    // resend has to refresh it or the operator sees a stale "not sent".
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['notifications-overview'] }),
   })
 }
 

@@ -178,6 +178,30 @@ export class OrderEventsService {
       newStatus,
       note,
     )
+
+    // Email the customer. Resolved at call time for the same reason the
+    // placement fan-out is: the Telegram → OrderStatus → OrderEvents chain
+    // leaves a constructor-injected Optional undefined.
+    await this.emailCustomerStatusChange(storeId, orderId, newStatus, note, order.invoiceNumber)
+  }
+
+  private async emailCustomerStatusChange(
+    storeId: string,
+    orderId: string,
+    newStatus: OrderStatus,
+    note: string | undefined,
+    invoiceNumber: string,
+  ): Promise<void> {
+    try {
+      const fanout = this.moduleRef.get(OrderNotificationsService, { strict: false })
+      await fanout?.onOrderStatusChangedEmail(storeId, orderId, newStatus, note)
+    } catch (err: unknown) {
+      // A status change is the important write; failing to announce it must not
+      // roll the status back.
+      this.logger.error(
+        `Status email failed for ${invoiceNumber}: ${err instanceof Error ? err.message : err}`,
+      )
+    }
   }
 
   async onPaymentReceived(storeId: string, orderId: string, amount: number, method: string): Promise<void> {
