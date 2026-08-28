@@ -139,6 +139,20 @@ export function createAffiliate(data: { name: string; email?: string; code: stri
   return apiFetch('/admin/hub/marketing/affiliates', { method: 'POST', body: JSON.stringify(data) })
 }
 
+/**
+ * Whether a procurement write reached the supplier's inbox.
+ *
+ * `detail` is written by the API to be shown as-is: "no address on file" and
+ * "SMTP rejected it" need different actions from the operator, and a boolean
+ * cannot tell them apart.
+ */
+export interface SupplierMailResult {
+  emailed: boolean
+  reason: 'sent' | 'no-address' | 'skipped' | 'failed'
+  detail: string
+  to?: string
+}
+
 export function createSupplier(data: {
   name: string
   phone?: string
@@ -161,12 +175,21 @@ export function createPurchaseOrder(data: {
   supplierId: string
   notes?: string
   expectedAt?: string | null
+  emailSupplier?: boolean
   items: { productName: string; sku?: string; quantity: number; unitCost: number }[]
 }) {
-  return apiFetch<{ id: string; poNumber: string }>('/admin/hub/procurement/purchase-orders', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
+  return apiFetch<{ id: string; poNumber: string; supplierEmail: SupplierMailResult }>(
+    '/admin/hub/procurement/purchase-orders',
+    { method: 'POST', body: JSON.stringify(data) },
+  )
+}
+
+/** Resend the order to the supplier — after adding their address, typically. */
+export function emailPurchaseOrder(data: { id: string }) {
+  return apiFetch<{ poNumber: string; supplierEmail: SupplierMailResult }>(
+    `/admin/hub/procurement/purchase-orders/${encodeURIComponent(data.id)}/email`,
+    { method: 'POST', body: JSON.stringify({}) },
+  )
 }
 
 /** Move the expected delivery date. `null` clears it. */
@@ -195,13 +218,21 @@ export function deletePurchaseOrder(data: { id: string }) {
     unreturnedUnits: number
     deletedPayments: number
     deletedGrns: number
+    supplierEmail: SupplierMailResult
   }>(`/admin/hub/procurement/purchase-orders/${encodeURIComponent(data.id)}`, { method: 'DELETE' })
 }
 
-export function receiveGoodsGrn(data: { purchaseOrderId: string; notes?: string }) {
+export function receiveGoodsGrn(data: {
+  purchaseOrderId: string
+  notes?: string
+  emailSupplier?: boolean
+}) {
   return apiFetch<{
-    grn: GoodsReceivedNoteRow
+    /** Absent when the PO was already received — the API files no second GRN. */
+    grn?: GoodsReceivedNoteRow
+    alreadyReceived?: boolean
     purchaseOrder: { id: string; poNumber: string; status: string }
+    supplierEmail: SupplierMailResult
   }>('/admin/hub/procurement/goods-received', {
     method: 'POST',
     body: JSON.stringify(data),

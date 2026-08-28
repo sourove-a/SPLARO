@@ -1,5 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
+import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
+import {
+  ProcurementMailerService,
+  toEmailLineItems,
+  type SupplierMailResult,
+} from './procurement-mailer.service'
 import { resolveStoreId } from '../../common/store.util'
 import { GoogleSearchConsoleService } from '../google-workspace/google-search-console.service'
 import {
@@ -41,7 +46,20 @@ export class AdminHubService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly searchConsole: GoogleSearchConsoleService,
+    @Optional() private readonly supplierMail?: ProcurementMailerService,
   ) {}
+
+  /**
+   * Uniform answer when procurement is asked to email a supplier but the mailer
+   * is not wired in — so a caller never has to branch on the service existing.
+   */
+  private mailUnavailable(): SupplierMailResult {
+    return {
+      emailed: false,
+      reason: 'failed',
+      detail: 'The supplier mailer is not available on this deployment.',
+    }
+  }
 
   private sid(storeIdOrSlug: string) {
     return resolveStoreId(this.prisma, storeIdOrSlug)
@@ -852,6 +870,8 @@ export class AdminHubService {
       marketId?: string
       purchasedAt?: string
       expectedAt?: string | null
+      /** Send the supplier their copy of the order. Defaults to on. */
+      emailSupplier?: boolean
       notes?: string
       discount?: number
       transportCost?: number
@@ -932,8 +952,8 @@ export class AdminHubService {
       existingNumbers.map((row) => row.poNumber),
     )
 
-    return this.prisma.$transaction(async (tx) => {
-      const created = await tx.purchaseOrder.create({
+    const created = await this.prisma.$transaction(async (tx) => {
+      const order = await tx.purchaseOrder.create({
         data: {
           storeId,
           supplierId: supplier.id,
@@ -1000,7 +1020,7 @@ export class AdminHubService {
           data: {
             storeId,
             supplierId: supplier.id,
-            purchaseOrderId: created.id,
+            purchaseOrderId: order.id,
             amount: totals.paidAmount,
             method: body.paymentMethod?.trim() || null,
             note: `Paid at entry · ${poNumber}`,
@@ -1009,19 +1029,66 @@ export class AdminHubService {
         })
       }
 
-      return created
+      return order
     })
+
+    // Sent after the transaction commits, never inside it: an email cannot be
+    // unsent, and a rollback would leave the supplier holding an order the
+    // shop has no record of.
+    const supplierEmail =
+      body.emailSupplier === false
+        ? (this.supplierMail?.skipped() ?? this.mailUnavailable())
+        : ((await this.supplierMail?.send(storeId, {
+            kind: 'purchase-order',
+            supplier: { name: supplier.name, email: supplier.email },
+            poNumber,
+            purchasedAt,
+            expectedAt,
+            items: toEmailLineItems(created.items),
+            totals,
+            notes: created.notes,
+          })) ?? this.mailUnavailable())
+
+    return { ...created, supplierEmail }
+  }
+
+  /**
+   * Send the supplier their copy of an order again.
+   *
+   * Its own endpoint because the first attempt fails for reasons an operator
+   * fixes afterwards — no address on the supplier, SMTP not yet configured —
+   * and re-raising the purchase order to trigger another send would double the
+   * money.
+   */
+  async emailPurchaseOrderToSupplier(storeIdOrSlug: string, purchaseOrderId: string) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const po = await this.prisma.purchaseOrder.findFirst({
+      where: { id: purchaseOrderId, storeId },
+      select: { id: true, poNumber: true },
+    })
+    if (!po) throw new NotFoundException('Purchase order not found')
+
+    const supplierEmail =
+      (await this.supplierMail?.sendForPurchaseOrder(storeId, po.id, 'purchase-order')) ??
+      this.mailUnavailable()
+    return { poNumber: po.poNumber, supplierEmail }
   }
 
   async receiveGoodsGrn(
     storeIdOrSlug: string,
-    body: { purchaseOrderId?: string; notes?: string; receivedBy?: string },
+    body: {
+      purchaseOrderId?: string
+      notes?: string
+      receivedBy?: string
+      /** Confirm the counted quantities back to the supplier. Defaults to on. */
+      emailSupplier?: boolean
+    },
   ) {
     const storeId = await this.sid(storeIdOrSlug)
     const purchaseOrderId = body.purchaseOrderId?.trim()
     if (!purchaseOrderId) throw new BadRequestException('purchaseOrderId is required')
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const po = await tx.purchaseOrder.findFirst({
         where: { id: purchaseOrderId, storeId },
         include: { items: true },
@@ -1125,6 +1192,20 @@ export class AdminHubService {
         skippedLines: skipped.length + (stockable.length - stockedLines),
       }
     })
+
+    // A second receive of the same PO claims no rows and files no GRN, so it
+    // must not tell the supplier their goods were counted in twice.
+    if (result.alreadyReceived || body.emailSupplier === false) {
+      return { ...result, supplierEmail: this.supplierMail?.skipped() ?? this.mailUnavailable() }
+    }
+
+    const supplierEmail =
+      (await this.supplierMail?.sendForPurchaseOrder(storeId, purchaseOrderId, 'goods-received', {
+        grnNumber: result.grn?.grnNumber ?? null,
+        receivedAt: result.grn?.receivedAt ?? new Date(),
+      })) ?? this.mailUnavailable()
+
+    return { ...result, supplierEmail }
   }
 
   /**
@@ -1180,11 +1261,11 @@ export class AdminHubService {
   async deletePurchaseOrder(
     storeIdOrSlug: string,
     purchaseOrderId: string,
-    options: { deletedBy?: string } = {},
+    options: { deletedBy?: string; emailSupplier?: boolean } = {},
   ) {
     const storeId = await this.sid(storeIdOrSlug)
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const po = await tx.purchaseOrder.findFirst({
         where: { id: purchaseOrderId, storeId },
         include: { items: true, supplier: true, grns: { select: { grnNumber: true } } },
@@ -1291,8 +1372,45 @@ export class AdminHubService {
         unreturnedUnits,
         deletedPayments: payments.count,
         deletedGrns: po.grns.length,
+        // Captured inside the transaction because the row is gone by the time
+        // the cancellation notice goes out.
+        cancelledCopy: {
+          supplierEmailAddress: po.supplier.email,
+          purchasedAt: po.purchasedAt,
+          expectedAt: po.expectedAt,
+          notes: po.notes,
+          items: toEmailLineItems(po.items),
+          totals: {
+            subtotal: Number(po.subtotal),
+            discount: Number(po.discount),
+            transportCost: Number(po.transportCost),
+            otherCost: Number(po.otherCost),
+            total: Number(po.total),
+            paidAmount: Number(po.paidAmount),
+            dueAmount: Number(po.dueAmount),
+          },
+        },
       }
     })
+
+    const { cancelledCopy, ...deleted } = result
+    // A supplier who was told to supply has to be told to stop. Skipping this
+    // is how goods arrive against an order the shop has already erased.
+    const supplierEmail =
+      options.emailSupplier === false
+        ? (this.supplierMail?.skipped() ?? this.mailUnavailable())
+        : ((await this.supplierMail?.send(storeId, {
+            kind: 'purchase-cancelled',
+            supplier: { name: deleted.supplier.name, email: cancelledCopy.supplierEmailAddress },
+            poNumber: deleted.poNumber,
+            purchasedAt: cancelledCopy.purchasedAt,
+            expectedAt: cancelledCopy.expectedAt,
+            items: cancelledCopy.items,
+            totals: cancelledCopy.totals,
+            notes: cancelledCopy.notes,
+          })) ?? this.mailUnavailable())
+
+    return { ...deleted, supplierEmail }
   }
 
   /**
@@ -1335,6 +1453,8 @@ export class AdminHubService {
       note?: string
       paidAt?: string
       createdBy?: string
+      /** Send the supplier a receipt. Defaults to on. */
+      emailSupplier?: boolean
     },
   ) {
     const storeId = await this.sid(storeIdOrSlug)
@@ -1359,7 +1479,7 @@ export class AdminHubService {
       if (!po) throw new NotFoundException('Purchase order not found for this supplier')
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const balance = applyPaymentToBalance(
         { dueAmount: Number(supplier.dueAmount), paidAmount: Number(supplier.paidAmount) },
         amount,
@@ -1410,6 +1530,27 @@ export class AdminHubService {
 
       return { payment, balance }
     })
+
+    // A payment receipt is only meaningful against a specific order; a general
+    // on-account payment has no PO paperwork to attach it to.
+    if (body.emailSupplier === false || !purchaseOrderId) {
+      return { ...result, supplierEmail: this.supplierMail?.skipped() ?? this.mailUnavailable() }
+    }
+
+    const supplierEmail =
+      (await this.supplierMail?.sendForPurchaseOrder(storeId, purchaseOrderId, 'payment-receipt', {
+        payment: {
+          amount,
+          method: body.method?.trim() || null,
+          reference: body.reference?.trim() || null,
+          paidAt,
+          // The supplier cares what they are owed in total, not what is left on
+          // this one order.
+          balanceDue: result.balance.dueAmount,
+        },
+      })) ?? this.mailUnavailable()
+
+    return { ...result, supplierEmail }
   }
 
   async procurementSummary(storeIdOrSlug: string) {

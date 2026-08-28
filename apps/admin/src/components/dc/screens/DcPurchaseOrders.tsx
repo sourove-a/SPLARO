@@ -12,11 +12,13 @@ import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
 import type { ProcurementOrder, ProcurementSupplier } from '@/lib/api/commerce-os'
+import type { SupplierMailResult } from '@/lib/api/admin-hub'
 import {
   useCreatePurchaseOrder,
   useCreateSupplier,
   useDeletePurchaseOrder,
   useDeleteSupplier,
+  useEmailPurchaseOrder,
   useProcurementOverview,
   useReceiveGoodsGrn,
   useUpdatePurchaseOrderEta,
@@ -120,6 +122,19 @@ function toDateInput(value?: string | null): string {
   return `${d.getFullYear()}-${month}-${day}`
 }
 
+/**
+ * One clause describing what happened to the supplier's copy.
+ *
+ * Appended to the toast of whatever write triggered it, so "PO raised" never
+ * implies the supplier was told when nothing left the building.
+ */
+function mailClause(mail?: SupplierMailResult): string {
+  if (!mail) return ''
+  if (mail.emailed) return ` Supplier emailed at ${mail.to ?? 'their address on file'}.`
+  if (mail.reason === 'skipped') return ' No email was sent.'
+  return ` ${mail.detail}`
+}
+
 function shortDate(value?: string | null): string {
   const d = parseDate(value)
   if (!d) return '—'
@@ -150,6 +165,7 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
   const receiveGrn = useReceiveGoodsGrn()
   const updateEta = useUpdatePurchaseOrderEta()
   const deletePo = useDeletePurchaseOrder()
+  const emailPo = useEmailPurchaseOrder()
   const removeSupplier = useDeleteSupplier()
   const { api } = useAdminConnection(25_000)
 
@@ -172,11 +188,13 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
     supplierId: string
     notes: string
     expectedAt: string
+    emailSupplier: boolean
     lines: PoLine[]
   }>({
     supplierId: '',
     notes: '',
     expectedAt: '',
+    emailSupplier: true,
     lines: [{ ...EMPTY_LINE }],
   })
 
@@ -222,10 +240,18 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
   )
 
   const resetPo = () =>
-    setPoForm({ supplierId: '', notes: '', expectedAt: '', lines: [{ ...EMPTY_LINE }] })
+    setPoForm({
+      supplierId: '',
+      notes: '',
+      expectedAt: '',
+      emailSupplier: true,
+      lines: [{ ...EMPTY_LINE }],
+    })
 
+  const selectedSupplier = suppliers.find((s) => s.id === poForm.supplierId)
   /** The supplier's stored lead time, used to explain what an empty ETA will become. */
-  const leadTimeOfSelected = suppliers.find((s) => s.id === poForm.supplierId)?.leadTimeDays ?? null
+  const leadTimeOfSelected = selectedSupplier?.leadTimeDays ?? null
+  const selectedSupplierEmail = selectedSupplier?.email?.trim() || ''
 
   const runCreatePo = () => {
     const items = poForm.lines
@@ -252,15 +278,19 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
         items,
         ...(poForm.expectedAt ? { expectedAt: poForm.expectedAt } : {}),
         ...(poForm.notes.trim() ? { notes: poForm.notes.trim() } : {}),
+        emailSupplier: poForm.emailSupplier,
       },
       {
         onSuccess: (res) => {
           setPoOpen(false)
           resetPo()
+          const mail = res.supplierEmail
+          // The PO is real either way, so this stays green — but it must not
+          // read as though the supplier has it when the send failed.
           toast(
-            'ok',
+            mail && !mail.emailed && mail.reason !== 'skipped' ? 'warn' : 'ok',
             `${res.poNumber} raised`,
-            'Cash is committed. File the goods-received note when stock lands.',
+            `Cash is committed. File the goods-received note when stock lands.${mailClause(mail)}`,
           )
         },
         onError: (err) =>
@@ -332,10 +362,13 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
           if (res.unreturnedUnits > 0) {
             parts.push(`${res.unreturnedUnits} unit(s) could not be reversed — already gone`)
           }
+          const mail = res.supplierEmail
           toast(
-            res.unreturnedUnits > 0 ? 'warn' : 'ok',
+            res.unreturnedUnits > 0 || (mail && !mail.emailed && mail.reason !== 'skipped')
+              ? 'warn'
+              : 'ok',
             `${res.poNumber} deleted`,
-            `${parts.join(' · ')}.`,
+            `${parts.join(' · ')}.${mailClause(mail)}`,
           )
         },
         onError: (err) => {
@@ -348,6 +381,30 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
               : 'DELETE /admin/hub/procurement/purchase-orders/:id failed',
           )
         },
+      },
+    )
+  }
+
+  const runEmailPo = (o: ProcurementOrder) => {
+    emailPo.mutate(
+      { id: o.id },
+      {
+        onSuccess: (res) => {
+          const mail = res.supplierEmail
+          toast(
+            mail.emailed ? 'ok' : 'warn',
+            mail.emailed ? `${res.poNumber} sent` : `${res.poNumber} not sent`,
+            mail.detail,
+          )
+        },
+        onError: (err) =>
+          toast(
+            'bad',
+            'Could not email the supplier',
+            err instanceof Error
+              ? err.message
+              : 'POST /admin/hub/procurement/purchase-orders/:id/email failed',
+          ),
       },
     )
   }
@@ -897,6 +954,12 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                                 onClick={() => openEta(o)}
                               />
                               <RowButton
+                                icon="icon-mail"
+                                label={`Email ${o.poNumber} to the supplier`}
+                                disabled={emailPo.isPending}
+                                onClick={() => runEmailPo(o)}
+                              />
+                              <RowButton
                                 icon="icon-trash-2"
                                 label={`Delete ${o.poNumber}`}
                                 danger
@@ -941,8 +1004,28 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                         const spend = Number(s.paidAmount || 0) + Number(s.dueAmount || 0)
                         return (
                         <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                          <td style={{ padding: '10px 15px', font: `500 13px/1 ${FONT}`, color: 'var(--ink)' }}>
-                            {s.name}
+                          <td style={{ padding: '10px 15px' }}>
+                            <span
+                              style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 3,
+                                font: `500 13px/1.3 ${FONT}`,
+                                color: 'var(--ink)',
+                              }}
+                            >
+                              {s.name}
+                              {/* Whether paperwork can reach them at all, said
+                                  where the operator is already looking. */}
+                              <span
+                                style={{
+                                  font: `400 11px/1.3 ${MONO}`,
+                                  color: s.email ? 'var(--ink-3)' : 'var(--warn)',
+                                }}
+                              >
+                                {s.email || 'no email — cannot be sent paperwork'}
+                              </span>
+                            </span>
                           </td>
                           <td style={{ padding: '10px 15px' }}>
                             {s.phone ? (
@@ -1481,13 +1564,48 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
           onChange={(v) => setPoForm((f) => ({ ...f, notes: v }))}
           area
         />
+
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+            padding: '12px 13px',
+            border: '1px solid var(--line)',
+            borderRadius: 10,
+            background: 'var(--surface-2)',
+            cursor: selectedSupplierEmail ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={poForm.emailSupplier && Boolean(selectedSupplierEmail)}
+            disabled={!selectedSupplierEmail}
+            onChange={(e) => setPoForm((f) => ({ ...f, emailSupplier: e.target.checked }))}
+            style={{ width: 15, height: 15, marginTop: 2, accentColor: 'var(--violet-solid)' }}
+          />
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ font: `600 12.5px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+              Email this order to the supplier
+            </span>
+            <span
+              style={{ font: `400 11.5px/1.5 ${FONT}`, color: 'var(--ink-3)', textWrap: 'pretty' }}
+            >
+              {selectedSupplierEmail
+                ? `Sends the full order — lines, rates, totals and the ETA — to ${selectedSupplierEmail}.`
+                : poForm.supplierId
+                  ? 'This supplier has no email address on file. Add one on the supplier to send them paperwork.'
+                  : 'Pick a supplier first — whether this can be sent depends on their address.'}
+            </span>
+          </span>
+        </label>
       </DcModal>
 
       {/* ── file GRN ─────────────────────────────────────────────── */}
       <DcModal
         open={confirmGrn !== null}
         title={confirmGrn ? `File GRN for ${confirmGrn.poNumber}?` : 'File goods received'}
-        subtitle="This records the stock as received and adds it to the ledger. It cannot be undone here."
+        subtitle="Records the stock as received, adds it to the ledger, and emails the supplier the counted quantities. It cannot be undone here."
         confirmLabel="File GRN"
         busy={receiveGrn.isPending}
         onClose={() => setConfirmGrn(null)}
@@ -1498,10 +1616,21 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
             {
               onSuccess: (res) => {
                 setConfirmGrn(null)
+                const mail = res.supplierEmail
+                // A double-tapped receive files no second GRN, so the response
+                // carries no grn to name — saying so beats crashing on it.
+                if (res.alreadyReceived || !res.grn) {
+                  toast(
+                    'warn',
+                    `${confirmGrn.poNumber} was already received`,
+                    'No second goods-received note was filed and stock was not added again.',
+                  )
+                  return
+                }
                 toast(
-                  'ok',
+                  mail && !mail.emailed && mail.reason !== 'skipped' ? 'warn' : 'ok',
                   `${res.grn.grnNumber} filed`,
-                  `${confirmGrn.poNumber} is now ${res.purchaseOrder.status.toLowerCase()}.`,
+                  `${confirmGrn.poNumber} is now ${res.purchaseOrder.status.toLowerCase()}.${mailClause(mail)}`,
                 )
               },
               onError: (err) => {
@@ -1588,6 +1717,10 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
             comes back off {confirmDeletePo?.supplier.name}&rsquo;s balance, and any payment recorded
             against this PO is removed with it.
           </span>
+          <span>
+            The supplier is emailed a cancellation telling them not to dispatch — worth knowing
+            before you delete an order they may already be packing.
+          </span>
           {confirmDeletePo && confirmDeletePo.status.toUpperCase() === 'RECEIVED' ? (
             <span style={{ color: 'var(--warn)' }}>
               This PO was received, so the stock it added is taken back out and logged as an
@@ -1620,11 +1753,13 @@ function RowButton({
   icon,
   label,
   danger,
+  disabled,
   onClick,
 }: {
   icon: string
   label: string
   danger?: boolean
+  disabled?: boolean
   onClick: () => void
 }) {
   return (
@@ -1632,6 +1767,7 @@ function RowButton({
       type="button"
       aria-label={label}
       title={label}
+      disabled={disabled}
       onClick={onClick}
       style={{
         display: 'grid',
@@ -1643,7 +1779,8 @@ function RowButton({
         border: `1px solid ${danger ? 'var(--bad-bd)' : 'var(--line-2)'}`,
         background: danger ? 'var(--bad-soft)' : 'transparent',
         color: danger ? 'var(--bad)' : 'var(--ink-2)',
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.55 : 1,
       }}
     >
       <DcIcon name={icon} size={13} />

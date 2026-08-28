@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common'
 import type { Prisma, RMAStatus, RMAType } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
+import { OrderNotificationsService } from '../notifications/order-notifications.service'
 import { resolveStoreId } from '../../common/store.util'
 import { backfillPaymentCodes } from '../../common/payment-code.util'
 import type {
@@ -23,7 +24,12 @@ import {
 
 @Injectable()
 export class CommerceFinanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(CommerceFinanceService.name)
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly orderNotifications?: OrderNotificationsService,
+  ) {}
 
   private async sid(raw?: string): Promise<string> {
     return resolveStoreId(this.prisma, raw)
@@ -303,6 +309,19 @@ export class CommerceFinanceService {
       },
     })
 
-    return { id: row.id, rmaNumber: row.rmaNumber, status: mapRmaStatus(row.status) }
+    // The customer is the one waiting on a decision about their return, and
+    // until now the status only ever moved on the admin's screen.
+    let emailed = false
+    try {
+      emailed =
+        (await this.orderNotifications?.onRmaStatusChangedEmail(storeId, row.id, body.status)) ??
+        false
+    } catch (err) {
+      this.logger.error(
+        `Return status email failed for ${row.rmaNumber}: ${err instanceof Error ? err.message : err}`,
+      )
+    }
+
+    return { id: row.id, rmaNumber: row.rmaNumber, status: mapRmaStatus(row.status), emailed }
   }
 }

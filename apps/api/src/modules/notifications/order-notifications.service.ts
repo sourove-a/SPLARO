@@ -11,6 +11,11 @@ import {
 import {
   buildInvoiceAccessToken,
 } from '@splaro/config/invoice-access'
+import {
+  generateOrderUpdateEmail,
+  ORDER_STATUS_EMAILS,
+  RMA_STATUS_EMAILS,
+} from '../email/order-update-email.template'
 import { TelegramService } from '../telegram/telegram.service'
 import { CourierService } from '../courier/courier.service'
 import { NotificationsService } from './notifications.service'
@@ -175,6 +180,137 @@ export class OrderNotificationsService {
         `Order confirmation email not sent for ${order.invoiceNumber} → ${emailTo} (SMTP/Gmail unavailable)`,
       )
     }
+  }
+
+  /**
+   * Tell the customer their order moved.
+   *
+   * Every status change already reached the shop's own Telegram; the person
+   * waiting for the parcel was the one party never told. Statuses not in the
+   * copy table are internal bookkeeping and send nothing.
+   */
+  async onOrderStatusChangedEmail(
+    storeId: string,
+    orderId: string,
+    status: string,
+    note?: string,
+  ): Promise<boolean> {
+    const copy = ORDER_STATUS_EMAILS[status.toUpperCase()]
+    if (!copy) return false
+
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, storeId },
+      include: { courier: true },
+    })
+    if (!order) return false
+
+    // Placement already sends the full invoice with the same words, so a
+    // CONFIRMED mail moments later would be the second copy of one event.
+    if (status.toUpperCase() === 'CONFIRMED') {
+      const invoice = await this.prisma.invoice.findUnique({
+        where: { orderId: order.id },
+        select: { emailedAt: true },
+      })
+      if (invoice?.emailedAt) return false
+    }
+
+    const emailTo = await this.resolveOrderEmail(order.shippingEmail, order.shippingPhone, storeId)
+    if (!emailTo) return false
+
+    const store = await this.prisma.store.findUnique({ where: { id: storeId } })
+    const siteUrl = resolveCustomerFacingSiteUrl()
+    const site = siteUrl.replace(/\/$/, '')
+    const accessKey = buildInvoiceAccessToken(order.invoiceNumber)
+    const built = generateOrderUpdateEmail({
+      copy,
+      customerName: order.shippingName,
+      reference: order.invoiceNumber,
+      total: Number(order.total),
+      trackUrl: `${site}/order-confirmation/${encodeURIComponent(order.invoiceNumber)}?key=${encodeURIComponent(accessKey)}`,
+      // The shipment row names its provider as an enum (STEADFAST); the
+      // customer should read a courier name, not a database constant.
+      courierName: order.courier?.provider
+        ? order.courier.provider.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase())
+        : null,
+      trackingNumber: order.courier?.trackingCode ?? order.courier?.consignmentId ?? null,
+      note: note ?? null,
+      storeName: store?.name ?? 'SPLARO',
+      siteUrl,
+    })
+
+    const sent = await this.email.sendForStore({
+      storeId,
+      to: emailTo,
+      subject: built.subject,
+      html: built.html,
+      text: built.text,
+      transactional: true,
+    })
+    if (!sent) {
+      this.logger.warn(
+        `Status email (${status}) not sent for ${order.invoiceNumber} → ${emailTo} (SMTP/Gmail unavailable)`,
+      )
+    }
+    return sent
+  }
+
+  /** Tell the customer where their return stands. */
+  async onRmaStatusChangedEmail(storeId: string, rmaId: string, status: string): Promise<boolean> {
+    const copy = RMA_STATUS_EMAILS[status.toUpperCase()]
+    if (!copy) return false
+
+    const rma = await this.prisma.rMA.findFirst({
+      where: { id: rmaId, storeId },
+      include: {
+        order: { select: { shippingEmail: true, shippingPhone: true, shippingName: true } },
+        customer: { select: { email: true, firstName: true } },
+      },
+    })
+    if (!rma) return false
+
+    const emailTo = await this.resolveOrderEmail(
+      rma.customer?.email ?? rma.order?.shippingEmail ?? null,
+      rma.order?.shippingPhone ?? '',
+      storeId,
+    )
+    if (!emailTo) return false
+
+    const store = await this.prisma.store.findUnique({ where: { id: storeId } })
+    const built = generateOrderUpdateEmail({
+      copy,
+      customerName: rma.customer?.firstName || rma.order?.shippingName || 'there',
+      reference: rma.rmaNumber,
+      note: rma.adminNotes,
+      storeName: store?.name ?? 'SPLARO',
+      siteUrl: resolveCustomerFacingSiteUrl(),
+    })
+
+    return this.email.sendForStore({
+      storeId,
+      to: emailTo,
+      subject: built.subject,
+      html: built.html,
+      text: built.text,
+      transactional: true,
+    })
+  }
+
+  /**
+   * The address to write to, or null.
+   *
+   * `@splaro.local` is what checkout stores for a phone-only customer — it is a
+   * placeholder, not a mailbox, and sending to it bounces every time.
+   */
+  private async resolveOrderEmail(
+    given: string | null | undefined,
+    phone: string,
+    storeId: string,
+  ): Promise<string | null> {
+    const direct = given?.trim()
+    if (direct && direct.includes('@') && !direct.endsWith('@splaro.local')) return direct
+    const fallback = phone ? await this.resolveCustomerEmail(phone, storeId) : null
+    if (fallback && fallback.includes('@') && !fallback.endsWith('@splaro.local')) return fallback
+    return null
   }
 
   async onPaymentRedirect(

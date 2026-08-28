@@ -163,6 +163,7 @@ export class AdminHubController {
       marketId?: string
       purchasedAt?: string
       expectedAt?: string | null
+      emailSupplier?: boolean
       notes?: string
       discount?: number
       transportCost?: number
@@ -201,16 +202,32 @@ export class AdminHubController {
     @Query('storeId') storeId: string,
     @Param('id') id: string,
     @Query('deletedBy') deletedBy?: string,
+    @Query('emailSupplier') emailSupplier?: string,
   ) {
-    return this.hub.deletePurchaseOrder(storeId, id, { ...(deletedBy ? { deletedBy } : {}) })
+    return this.hub.deletePurchaseOrder(storeId, id, {
+      ...(deletedBy ? { deletedBy } : {}),
+      ...(emailSupplier === 'false' ? { emailSupplier: false } : {}),
+    })
   }
 
   @Post('procurement/goods-received')
   receiveGoodsGrn(
     @Query('storeId') storeId: string,
-    @Body() body: { purchaseOrderId?: string; notes?: string; receivedBy?: string },
+    @Body()
+    body: {
+      purchaseOrderId?: string
+      notes?: string
+      receivedBy?: string
+      emailSupplier?: boolean
+    },
   ) {
     return this.hub.receiveGoodsGrn(storeId, body)
+  }
+
+  /** Resend a supplier their copy of an order — after an address is added, say. */
+  @Post('procurement/purchase-orders/:id/email')
+  emailPurchaseOrder(@Query('storeId') storeId: string, @Param('id') id: string) {
+    return this.hub.emailPurchaseOrderToSupplier(storeId, id)
   }
 
   @Post('procurement/supplier-payments')
@@ -226,6 +243,7 @@ export class AdminHubController {
       note?: string
       paidAt?: string
       createdBy?: string
+      emailSupplier?: boolean
     },
   ) {
     return this.hub.recordSupplierPayment(storeId, body)

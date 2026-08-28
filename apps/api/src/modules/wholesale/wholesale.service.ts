@@ -1,7 +1,10 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common'
 import type { Prisma, WholesaleInquiryStatus } from '@prisma/client'
 import { normalizeBdPhone } from '../../common/bd-phone.util'
 import { PrismaService } from '../../common/prisma.service'
+import { EmailService } from '../email/email.service'
+import { generateWholesaleEnquiryEmail } from '../email/wholesale-enquiry-email.template'
+import { resolveCustomerFacingSiteUrl } from '@splaro/config'
 import { revalidateStorefrontWeb } from '../../common/revalidate-web'
 import { isWholesaleReference, reserveWholesaleReference } from './wholesale-reference'
 
@@ -96,7 +99,10 @@ function sanitizeImageUrls(urls?: string[]): string[] {
 export class WholesaleService {
   private readonly logger = new Logger(WholesaleService.name)
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly email?: EmailService,
+  ) {}
 
   /**
    * Bangladesh numbers are stored in the same 01… form the rest of the app uses,
@@ -189,6 +195,27 @@ export class WholesaleService {
       `Wholesale enquiry ${created.referenceCode} from ${country} (${industry})` +
         (monthlyUnits ? ` — ${monthlyUnits} units/mo` : ''),
     )
+
+    // Acknowledge to the buyer. Never allowed to fail the submission — the lead
+    // is captured either way, and a buyer seeing an error would submit again.
+    if (email && created.referenceCode) {
+      void this.sendEnquiryAcknowledgement(storeId, {
+        to: email,
+        buyerName: fullName,
+        referenceCode: created.referenceCode,
+        companyName: clean(input.companyName) ?? null,
+        country,
+        tierName: tier?.name ?? null,
+        monthlyUnits: monthlyUnits ?? null,
+        productInterest: clean(input.productInterest) ?? null,
+        message: clean(input.message) ?? null,
+      }).catch((err: unknown) =>
+        this.logger.warn(
+          `Wholesale acknowledgement for ${created.referenceCode} failed: ${err instanceof Error ? err.message : err}`,
+        ),
+      )
+    }
+
     return {
       id: created.id,
       referenceCode: created.referenceCode,
@@ -196,6 +223,49 @@ export class WholesaleService {
       tierName: tier?.name ?? null,
       duplicate: false as const,
     }
+  }
+
+  private async sendEnquiryAcknowledgement(
+    storeId: string,
+    input: {
+      to: string
+      buyerName: string
+      referenceCode: string
+      companyName: string | null
+      country: string | null
+      tierName: string | null
+      monthlyUnits: number | null
+      productInterest: string | null
+      message: string | null
+    },
+  ): Promise<void> {
+    if (!this.email) return
+    const store = await this.prisma.store.findUnique({
+      where: { id: storeId },
+      select: { name: true, email: true, phone: true },
+    })
+    const built = generateWholesaleEnquiryEmail({
+      buyerName: input.buyerName,
+      referenceCode: input.referenceCode,
+      companyName: input.companyName,
+      country: input.country,
+      tierName: input.tierName,
+      monthlyUnits: input.monthlyUnits,
+      productInterest: input.productInterest,
+      message: input.message,
+      storeName: store?.name ?? 'SPLARO',
+      storeEmail: store?.email ?? null,
+      storePhone: store?.phone ?? null,
+      siteUrl: resolveCustomerFacingSiteUrl(),
+    })
+    await this.email.sendForStore({
+      storeId,
+      to: input.to,
+      subject: built.subject,
+      html: built.html,
+      text: built.text,
+      transactional: true,
+    })
   }
 
   async list(
