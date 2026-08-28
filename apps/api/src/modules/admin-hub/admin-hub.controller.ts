@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common'
 import { AdminHubService } from './admin-hub.service'
 import type { SupportTicketChannel, TaskPriority } from '@prisma/client'
 
@@ -115,6 +115,7 @@ export class AdminHubController {
       address?: string
       note?: string
       marketId?: string
+      leadTimeDays?: number | null
       categoryIds?: string[]
     },
   ) {
@@ -136,11 +137,21 @@ export class AdminHubController {
       address?: string
       note?: string
       marketId?: string | null
+      leadTimeDays?: number | null
       categoryIds?: string[]
       isActive?: boolean
     },
   ) {
     return this.hub.updateSupplier(storeId, id, body)
+  }
+
+  /**
+   * Only for a supplier added by mistake — the service refuses one that already
+   * carries purchase orders or payments.
+   */
+  @Delete('procurement/suppliers/:id')
+  deleteSupplier(@Query('storeId') storeId: string, @Param('id') id: string) {
+    return this.hub.deleteSupplier(storeId, id)
   }
 
   @Post('procurement/purchase-orders')
@@ -151,6 +162,7 @@ export class AdminHubController {
       supplierId: string
       marketId?: string
       purchasedAt?: string
+      expectedAt?: string | null
       notes?: string
       discount?: number
       transportCost?: number
@@ -168,6 +180,29 @@ export class AdminHubController {
     },
   ) {
     return this.hub.createPurchaseOrder(storeId, body)
+  }
+
+  /** Move the expected delivery date. Null or empty clears it. */
+  @Patch('procurement/purchase-orders/:id/eta')
+  updatePurchaseOrderEta(
+    @Query('storeId') storeId: string,
+    @Param('id') id: string,
+    @Body() body: { expectedAt?: string | null },
+  ) {
+    return this.hub.updatePurchaseOrderEta(storeId, id, body)
+  }
+
+  /**
+   * Delete a purchase order raised by mistake. The service reverses the stock
+   * it added, the payments booked against it, and the supplier balance.
+   */
+  @Delete('procurement/purchase-orders/:id')
+  deletePurchaseOrder(
+    @Query('storeId') storeId: string,
+    @Param('id') id: string,
+    @Query('deletedBy') deletedBy?: string,
+  ) {
+    return this.hub.deletePurchaseOrder(storeId, id, { ...(deletedBy ? { deletedBy } : {}) })
   }
 
   @Post('procurement/goods-received')

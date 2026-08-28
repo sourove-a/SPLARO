@@ -114,7 +114,10 @@ import {
   updateSocialChannels,
   createAffiliate,
   createSupplier,
+  deleteSupplier,
   createPurchaseOrder,
+  updatePurchaseOrderEta,
+  deletePurchaseOrder,
   receiveGoodsGrn,
   createSupportTicket,
   fetchNotificationsOverview,
@@ -1009,6 +1012,38 @@ export function useCreatePurchaseOrder() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: createPurchaseOrder,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['procurement-overview'] }),
+  })
+}
+
+export function useUpdatePurchaseOrderEta() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: updatePurchaseOrderEta,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['procurement-overview'] }),
+  })
+}
+
+export function useDeletePurchaseOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: deletePurchaseOrder,
+    onSuccess: () => {
+      // A deletion reverses stock as well as the supplier balance, so the
+      // inventory views have to refetch too or they keep showing the units the
+      // mistaken PO added.
+      void qc.invalidateQueries({ queryKey: ['procurement-overview'] })
+      void qc.invalidateQueries({ queryKey: ['products'] })
+      void qc.invalidateQueries({ queryKey: ['inventory-alerts'] })
+      void qc.invalidateQueries({ queryKey: ['wms-overview'] })
+    },
+  })
+}
+
+export function useDeleteSupplier() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: deleteSupplier,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['procurement-overview'] }),
   })
 }

@@ -11,12 +11,15 @@ import { DcField, DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
-import type { ProcurementOrder } from '@/lib/api/commerce-os'
+import type { ProcurementOrder, ProcurementSupplier } from '@/lib/api/commerce-os'
 import {
   useCreatePurchaseOrder,
   useCreateSupplier,
+  useDeletePurchaseOrder,
+  useDeleteSupplier,
   useProcurementOverview,
   useReceiveGoodsGrn,
+  useUpdatePurchaseOrderEta,
 } from '@/lib/api/hooks'
 import { formatBdPhone, telHref } from '@/lib/format/bd-phone'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
@@ -67,6 +70,62 @@ interface PoLine {
 
 const EMPTY_LINE: PoLine = { productName: '', sku: '', quantity: '', unitCost: '' }
 
+type EtaState = 'none' | 'due' | 'today' | 'late'
+
+const ETA_TONE: Record<EtaState, DcTone> = {
+  none: 'mute',
+  due: 'info',
+  today: 'warn',
+  late: 'bad',
+}
+
+/**
+ * How an ETA reads against today, in whole days.
+ *
+ * Both sides floor to midnight first: comparing raw timestamps makes a PO
+ * raised at 6pm for tomorrow report zero days left, which reads as "due today"
+ * and has the operator chasing the supplier a day early.
+ */
+function etaInfo(expectedAt?: string | null): { state: EtaState; days: number; label: string } {
+  const target = parseDate(expectedAt)
+  if (!target) return { state: 'none', days: 0, label: 'not set' }
+  const midnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const days = Math.round((midnight(target) - midnight(new Date())) / 86_400_000)
+  if (days === 0) return { state: 'today', days: 0, label: 'today' }
+  if (days < 0) return { state: 'late', days: -days, label: `${-days}d late` }
+  return { state: 'due', days, label: `in ${days}d` }
+}
+
+/**
+ * Parse either an API timestamp or the `yyyy-mm-dd` a date input holds.
+ *
+ * The bare form is split by hand because `new Date('2026-09-05')` is UTC
+ * midnight, which renders as the day before in any timezone behind UTC.
+ */
+function parseDate(value?: string | null): Date | null {
+  if (!value) return null
+  const bare = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  const d = bare
+    ? new Date(Number(bare[1]), Number(bare[2]) - 1, Number(bare[3]))
+    : new Date(value)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+/** `yyyy-mm-dd` for a date input, read in the operator's timezone, not UTC. */
+function toDateInput(value?: string | null): string {
+  const d = parseDate(value)
+  if (!d) return ''
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${month}-${day}`
+}
+
+function shortDate(value?: string | null): string {
+  const d = parseDate(value)
+  if (!d) return '—'
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+}
+
 /**
  * One procurement surface. The nav lists Procurement Hub / Suppliers /
  * Purchase Orders / Goods Received separately, but they all read the single
@@ -89,15 +148,35 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
   const createPo = useCreatePurchaseOrder()
   const createSupplier = useCreateSupplier()
   const receiveGrn = useReceiveGoodsGrn()
+  const updateEta = useUpdatePurchaseOrderEta()
+  const deletePo = useDeletePurchaseOrder()
+  const removeSupplier = useDeleteSupplier()
   const { api } = useAdminConnection(25_000)
 
   const [poOpen, setPoOpen] = useState(false)
   const [supplierOpen, setSupplierOpen] = useState(false)
   const [confirmGrn, setConfirmGrn] = useState<ProcurementOrder | null>(null)
-  const [supplierForm, setSupplierForm] = useState({ name: '', phone: '', email: '' })
-  const [poForm, setPoForm] = useState<{ supplierId: string; notes: string; lines: PoLine[] }>({
+  const [etaTarget, setEtaTarget] = useState<ProcurementOrder | null>(null)
+  const [etaValue, setEtaValue] = useState('')
+  const [confirmDeletePo, setConfirmDeletePo] = useState<ProcurementOrder | null>(null)
+  const [confirmDeleteSupplier, setConfirmDeleteSupplier] = useState<ProcurementSupplier | null>(
+    null,
+  )
+  const [supplierForm, setSupplierForm] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    leadTimeDays: '',
+  })
+  const [poForm, setPoForm] = useState<{
+    supplierId: string
+    notes: string
+    expectedAt: string
+    lines: PoLine[]
+  }>({
     supplierId: '',
     notes: '',
+    expectedAt: '',
     lines: [{ ...EMPTY_LINE }],
   })
 
@@ -143,7 +222,10 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
   )
 
   const resetPo = () =>
-    setPoForm({ supplierId: '', notes: '', lines: [{ ...EMPTY_LINE }] })
+    setPoForm({ supplierId: '', notes: '', expectedAt: '', lines: [{ ...EMPTY_LINE }] })
+
+  /** The supplier's stored lead time, used to explain what an empty ETA will become. */
+  const leadTimeOfSelected = suppliers.find((s) => s.id === poForm.supplierId)?.leadTimeDays ?? null
 
   const runCreatePo = () => {
     const items = poForm.lines
@@ -168,6 +250,7 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
       {
         supplierId: poForm.supplierId,
         items,
+        ...(poForm.expectedAt ? { expectedAt: poForm.expectedAt } : {}),
         ...(poForm.notes.trim() ? { notes: poForm.notes.trim() } : {}),
       },
       {
@@ -192,6 +275,105 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
     )
   }
 
+  const openEta = (o: ProcurementOrder) => {
+    setEtaTarget(o)
+    setEtaValue(toDateInput(o.expectedAt))
+  }
+
+  const runUpdateEta = () => {
+    if (!etaTarget) return
+    updateEta.mutate(
+      { id: etaTarget.id, expectedAt: etaValue || null },
+      {
+        onSuccess: (res) => {
+          const po = res.purchaseOrder
+          setEtaTarget(null)
+          const reading =
+            res.eta.state === 'today'
+              ? 'today'
+              : res.eta.state === 'late'
+                ? `${res.eta.days} day(s) late already`
+                : `in ${res.eta.days} day(s)`
+          toast(
+            'ok',
+            `${po.poNumber} ETA updated`,
+            po.expectedAt
+              ? `Stock is now expected ${shortDate(po.expectedAt)} — ${reading}.`
+              : 'The expected date is cleared — this PO no longer shows an ETA.',
+          )
+        },
+        onError: (err) =>
+          toast(
+            'bad',
+            'Could not update the ETA',
+            err instanceof Error
+              ? err.message
+              : 'PATCH /admin/hub/procurement/purchase-orders/:id/eta failed',
+          ),
+      },
+    )
+  }
+
+  const runDeletePo = () => {
+    if (!confirmDeletePo) return
+    const target = confirmDeletePo
+    deletePo.mutate(
+      { id: target.id },
+      {
+        onSuccess: (res) => {
+          setConfirmDeletePo(null)
+          // Says what actually moved, not just "deleted" — stock already sold
+          // cannot be taken back off the shelf and the operator has to know.
+          const parts = [`Supplier balance reversed to ${formatTaka(res.supplier.dueAmount)} due`]
+          if (res.reversedStockLines > 0) {
+            parts.push(`${res.reversedStockLines} stock line(s) taken back out`)
+          }
+          if (res.deletedPayments > 0) parts.push(`${res.deletedPayments} payment(s) removed`)
+          if (res.unreturnedUnits > 0) {
+            parts.push(`${res.unreturnedUnits} unit(s) could not be reversed — already gone`)
+          }
+          toast(
+            res.unreturnedUnits > 0 ? 'warn' : 'ok',
+            `${res.poNumber} deleted`,
+            `${parts.join(' · ')}.`,
+          )
+        },
+        onError: (err) => {
+          setConfirmDeletePo(null)
+          toast(
+            'bad',
+            'Could not delete the PO',
+            err instanceof Error
+              ? err.message
+              : 'DELETE /admin/hub/procurement/purchase-orders/:id failed',
+          )
+        },
+      },
+    )
+  }
+
+  const runDeleteSupplier = () => {
+    if (!confirmDeleteSupplier) return
+    removeSupplier.mutate(confirmDeleteSupplier.id, {
+      onSuccess: (res) => {
+        setConfirmDeleteSupplier(null)
+        toast('ok', `${res.name} deleted`, 'The supplier is off the list entirely.')
+      },
+      onError: (err) => {
+        setConfirmDeleteSupplier(null)
+        // The API refuses a supplier that still carries purchase history and
+        // says so — surface that sentence rather than a generic failure.
+        toast(
+          'bad',
+          'Could not delete the supplier',
+          err instanceof Error
+            ? err.message
+            : 'DELETE /admin/hub/procurement/suppliers/:id failed',
+        )
+      },
+    })
+  }
+
   const skeleton: DcBlock[] = [
     { t: 'kpis' } as DcBlock,
     { t: 'decide', title: '', items: [] } as DcBlock,
@@ -211,6 +393,7 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
       'Total Amount (BDT)',
       'Status',
       'Created Date',
+      'Expected Date (ETA)',
     ]
     const csvRows = [
       headers,
@@ -221,6 +404,7 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
         String(o.total ?? 0),
         o.status,
         new Date(o.createdAt).toISOString().slice(0, 10),
+        o.expectedAt ? new Date(o.expectedAt).toISOString().slice(0, 10) : '',
       ]),
       [],
       ['GRN Number', 'PO Number', 'Supplier', 'Received Date', 'Notes'],
@@ -232,13 +416,14 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
         g.notes || '',
       ]),
       [],
-      ['Supplier Name', 'Phone', 'Email', 'Due Amount (BDT)', 'Paid Amount (BDT)'],
+      ['Supplier Name', 'Phone', 'Email', 'Due Amount (BDT)', 'Paid Amount (BDT)', 'Lead Time (days)'],
       ...suppliers.map((s) => [
         s.name,
         s.phone || '—',
         s.email || '—',
         String(s.dueAmount ?? 0),
         String(s.paidAmount ?? 0),
+        s.leadTimeDays ? String(s.leadTimeDays) : '',
       ]),
     ]
     downloadCsv(
@@ -267,7 +452,7 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
             label: 'New supplier',
             icon: 'icon-users',
             onClick: () => {
-              setSupplierForm({ name: '', phone: '', email: '' })
+              setSupplierForm({ name: '', phone: '', email: '', leadTimeDays: '' })
               setSupplierOpen(true)
             },
           },
@@ -321,7 +506,7 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
           body="A purchase order commits cash against a supplier and, once received, adds the stock. Start by adding the supplier you buy from."
           cta="Add supplier"
           onCta={() => {
-            setSupplierForm({ name: '', phone: '', email: '' })
+            setSupplierForm({ name: '', phone: '', email: '', leadTimeDays: '' })
             setSupplierOpen(true)
           }}
         />
@@ -396,6 +581,8 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                     Math.floor((Date.now() - new Date(o.createdAt).getTime()) / 86_400_000),
                   )
                   const phone = phoneByName.get(o.supplier.name.trim().toLowerCase())
+                  const eta = etaInfo(o.expectedAt)
+                  const etaTone = toneStyle(ETA_TONE[eta.state])
                   return (
                     <div
                       key={o.id}
@@ -483,10 +670,12 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                         }}
                       >
                         {[
-                          ['Lines', `${lines}`],
-                          ['Value', formatTaka(Number(o.total || 0))],
-                          ['Age', `${age}d`],
-                        ].map(([k, v]) => (
+                          { k: 'Lines', v: `${lines}` },
+                          // ETA sits where the value used to: the total is
+                          // already stated in full directly above this strip.
+                          { k: 'ETA', v: eta.label, color: etaTone.fg },
+                          { k: 'Age', v: `${age}d` },
+                        ].map(({ k, v, color }) => (
                           <span
                             key={k}
                             style={{
@@ -507,7 +696,9 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                             >
                               {k}
                             </span>
-                            <span style={{ font: `600 12px/1.2 ${MONO}`, color: 'var(--ink)' }}>
+                            <span
+                              style={{ font: `600 12px/1.2 ${MONO}`, color: color ?? 'var(--ink)' }}
+                            >
                               {v}
                             </span>
                           </span>
@@ -520,8 +711,11 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                           textWrap: 'pretty',
                         }}
                       >
-                        File the goods-received note the moment stock lands, or the ledger and the
-                        shelf disagree.
+                        {eta.state === 'late'
+                          ? `Expected ${shortDate(o.expectedAt)} — ${eta.days} day${eta.days === 1 ? '' : 's'} past that. Call the supplier or move the ETA.`
+                          : eta.state === 'none'
+                            ? 'No ETA on this PO. Set one, or nothing here tells you when it is overdue.'
+                            : `Expected ${shortDate(o.expectedAt)}. File the goods-received note the moment stock lands, or the ledger and the shelf disagree.`}
                       </span>
                       <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', paddingTop: 2 }}>
                         <button
@@ -540,6 +734,48 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                           }}
                         >
                           File GRN
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEta(o)}
+                          className="dc-hover-violet"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            height: 30,
+                            padding: '0 11px',
+                            borderRadius: 8,
+                            border: '1px solid var(--line-2)',
+                            background: 'transparent',
+                            color: 'var(--ink-2)',
+                            cursor: 'pointer',
+                            font: `600 11.5px/1 ${FONT}`,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <DcIcon name="icon-calendar-clock" size={12} />
+                          <span>{o.expectedAt ? 'Change ETA' : 'Set ETA'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Delete ${o.poNumber}`}
+                          title={`Delete ${o.poNumber}`}
+                          onClick={() => setConfirmDeletePo(o)}
+                          style={{
+                            display: 'grid',
+                            placeItems: 'center',
+                            width: 30,
+                            height: 30,
+                            flex: 'none',
+                            borderRadius: 8,
+                            border: '1px solid var(--bad-bd)',
+                            background: 'var(--bad-soft)',
+                            color: 'var(--bad)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <DcIcon name="icon-trash-2" size={13} />
                         </button>
                         {phone ? (
                           <a
@@ -594,7 +830,7 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                   <Note text="No purchase orders raised yet." />
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse' }}>
+                    <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
                         <th style={th}>PO</th>
@@ -602,11 +838,16 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                         <th style={{ ...th, textAlign: 'right' }}>Lines</th>
                         <th style={{ ...th, textAlign: 'right' }}>Total</th>
                         <th style={th}>Raised</th>
+                        <th style={th}>ETA</th>
                         <th style={th}>Status</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Fix</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {orders.map((o) => (
+                      {orders.map((o) => {
+                        const eta = etaInfo(o.expectedAt)
+                        const etaTone = toneStyle(ETA_TONE[eta.state])
+                        return (
                         <tr key={o.id} style={{ borderBottom: '1px solid var(--line)' }}>
                           <td style={{ padding: '10px 15px', font: `600 12.5px/1 ${MONO}`, color: 'var(--ink)' }}>
                             {o.poNumber}
@@ -626,14 +867,46 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                               month: 'short',
                             })}
                           </td>
+                          <td style={{ padding: '10px 15px', whiteSpace: 'nowrap' }}>
+                            {o.expectedAt ? (
+                              <span
+                                style={{ font: `500 12px/1.35 ${MONO}`, color: 'var(--ink-2)' }}
+                              >
+                                {shortDate(o.expectedAt)}{' '}
+                                <span style={{ color: etaTone.fg }}>· {eta.label}</span>
+                              </span>
+                            ) : (
+                              <span style={{ font: `400 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                                not set
+                              </span>
+                            )}
+                          </td>
                           <td style={{ padding: '10px 15px' }}>
                             <Chip
                               tone={toneStyle(PO_TONE[o.status.toUpperCase()] ?? 'mute')}
                               label={o.status}
                             />
                           </td>
+                          <td style={{ padding: '10px 15px' }}>
+                            <div
+                              style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}
+                            >
+                              <RowButton
+                                icon="icon-calendar-clock"
+                                label={`${o.expectedAt ? 'Change' : 'Set'} ETA for ${o.poNumber}`}
+                                onClick={() => openEta(o)}
+                              />
+                              <RowButton
+                                icon="icon-trash-2"
+                                label={`Delete ${o.poNumber}`}
+                                danger
+                                onClick={() => setConfirmDeletePo(o)}
+                              />
+                            </div>
+                          </td>
                         </tr>
-                      ))}
+                        )
+                      })}
                     </tbody>
                     </table>
                   </div>
@@ -643,21 +916,23 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
               <div style={{ ...card, overflow: 'auto' }}>
                 <SectionHead
                   title="Suppliers"
-                  meta="lead time is not stored yet — Inventory reorder maths uses a flat assumption"
+                  meta="lead time fills the ETA on every PO raised against that supplier"
                 />
                 {suppliers.length === 0 ? (
                   <Note text="No suppliers on file." />
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse' }}>
+                    <table style={{ width: '100%', minWidth: 880, borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
                         <th style={th}>Supplier</th>
                         <th style={th}>Phone</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Lead time</th>
                         <th style={{ ...th, textAlign: 'right' }}>Open POs</th>
                         <th style={{ ...th, textAlign: 'right' }}>Spend</th>
                         <th style={{ ...th, textAlign: 'right' }}>Due</th>
                         <th style={th}>State</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Fix</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -692,6 +967,16 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                               padding: '10px 15px',
                               textAlign: 'right',
                               font: `600 13px/1 ${MONO}`,
+                              color: s.leadTimeDays ? 'var(--ink)' : 'var(--ink-3)',
+                            }}
+                          >
+                            {s.leadTimeDays ? `${s.leadTimeDays}d` : '—'}
+                          </td>
+                          <td
+                            style={{
+                              padding: '10px 15px',
+                              textAlign: 'right',
+                              font: `600 13px/1 ${MONO}`,
                               color: openCount > 0 ? 'var(--ink)' : 'var(--ink-3)',
                             }}
                           >
@@ -715,6 +1000,16 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
                               tone={toneStyle(s.isActive ? 'ok' : 'mute')}
                               label={s.isActive ? 'Active' : 'Archived'}
                             />
+                          </td>
+                          <td style={{ padding: '10px 15px' }}>
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                              <RowButton
+                                icon="icon-trash-2"
+                                label={`Delete ${s.name}`}
+                                danger
+                                onClick={() => setConfirmDeleteSupplier(s)}
+                              />
+                            </div>
                           </td>
                         </tr>
                         )
@@ -921,6 +1216,9 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
               name: supplierForm.name.trim(),
               ...(supplierForm.phone.trim() ? { phone: supplierForm.phone.trim() } : {}),
               ...(supplierForm.email.trim() ? { email: supplierForm.email.trim() } : {}),
+              ...(Number(supplierForm.leadTimeDays) > 0
+                ? { leadTimeDays: Math.floor(Number(supplierForm.leadTimeDays)) }
+                : {}),
             },
             {
               onSuccess: () => {
@@ -956,6 +1254,14 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
           label="Email"
           value={supplierForm.email}
           onChange={(v) => setSupplierForm((f) => ({ ...f, email: v }))}
+          mono
+        />
+        <DcField
+          label="Lead time (days)"
+          value={supplierForm.leadTimeDays}
+          onChange={(v) => setSupplierForm((f) => ({ ...f, leadTimeDays: v }))}
+          placeholder="6"
+          hint="How long this supplier usually takes. Every PO raised against them gets an ETA this far out. Leave blank if you have not measured it."
           mono
         />
       </DcModal>
@@ -1002,6 +1308,32 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
               </option>
             ))}
           </select>
+        </label>
+
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span
+            style={{
+              font: `600 11px/1 ${FONT}`,
+              letterSpacing: '.07em',
+              textTransform: 'uppercase',
+              color: 'var(--ink-3)',
+            }}
+          >
+            Expected delivery (ETA)
+          </span>
+          <input
+            type="date"
+            value={poForm.expectedAt}
+            onChange={(e) => setPoForm((f) => ({ ...f, expectedAt: e.target.value }))}
+            style={{ ...inputStyle, height: 40, fontFamily: 'var(--mono)' }}
+          />
+          <span
+            style={{ font: `400 11.5px/1.45 ${FONT}`, color: 'var(--ink-3)', textWrap: 'pretty' }}
+          >
+            {leadTimeOfSelected
+              ? `Leave blank and this supplier's ${leadTimeOfSelected}-day lead time sets it.`
+              : 'Optional. Without one — and without a lead time on the supplier — this PO shows no ETA and never reads as overdue.'}
+          </span>
         </label>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1186,7 +1518,136 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
           )
         }
       />
+
+      {/* ── move the ETA ─────────────────────────────────────────── */}
+      <DcModal
+        open={etaTarget !== null}
+        title={etaTarget ? `Expected delivery for ${etaTarget.poNumber}` : 'Expected delivery'}
+        subtitle="Only the expected date moves. Quantities, costs and the supplier balance are untouched."
+        confirmLabel={etaValue ? 'Save ETA' : 'Clear ETA'}
+        busy={updateEta.isPending}
+        onClose={() => setEtaTarget(null)}
+        onConfirm={runUpdateEta}
+      >
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span
+            style={{
+              font: `600 11px/1 ${FONT}`,
+              letterSpacing: '.07em',
+              textTransform: 'uppercase',
+              color: 'var(--ink-3)',
+            }}
+          >
+            Expected delivery
+          </span>
+          <input
+            type="date"
+            value={etaValue}
+            onChange={(e) => setEtaValue(e.target.value)}
+            style={{ ...inputStyle, height: 40, fontFamily: 'var(--mono)' }}
+          />
+          <span
+            style={{ font: `400 11.5px/1.45 ${FONT}`, color: 'var(--ink-3)', textWrap: 'pretty' }}
+          >
+            {etaValue
+              ? `Reads as ${etaInfo(etaValue).label} on this screen.`
+              : 'Empty clears the ETA — the PO stops reporting as due or late.'}
+          </span>
+        </label>
+      </DcModal>
+
+      {/* ── delete a PO raised by mistake ────────────────────────── */}
+      <DcModal
+        open={confirmDeletePo !== null}
+        title={confirmDeletePo ? `Delete ${confirmDeletePo.poNumber}?` : 'Delete purchase order'}
+        subtitle="For a PO entered by mistake. Everything it did is reversed — it is not archived, the row is gone."
+        confirmLabel="Delete and reverse"
+        danger
+        busy={deletePo.isPending}
+        busyLabel="Reversing…"
+        onClose={() => setConfirmDeletePo(null)}
+        onConfirm={runDeletePo}
+      >
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 7,
+            padding: '11px 12px',
+            border: '1px solid var(--line)',
+            borderRadius: 10,
+            background: 'var(--surface-2)',
+            font: `400 12px/1.5 ${FONT}`,
+            color: 'var(--ink-2)',
+          }}
+        >
+          <span>
+            <strong style={{ color: 'var(--ink)' }}>
+              {formatTaka(Number(confirmDeletePo?.total || 0))}
+            </strong>{' '}
+            comes back off {confirmDeletePo?.supplier.name}&rsquo;s balance, and any payment recorded
+            against this PO is removed with it.
+          </span>
+          {confirmDeletePo && confirmDeletePo.status.toUpperCase() === 'RECEIVED' ? (
+            <span style={{ color: 'var(--warn)' }}>
+              This PO was received, so the stock it added is taken back out and logged as an
+              adjustment. Units already sold cannot be reversed — the toast will say how many.
+            </span>
+          ) : null}
+        </div>
+      </DcModal>
+
+      {/* ── delete a supplier added by mistake ───────────────────── */}
+      <DcModal
+        open={confirmDeleteSupplier !== null}
+        title={
+          confirmDeleteSupplier ? `Delete ${confirmDeleteSupplier.name}?` : 'Delete supplier'
+        }
+        subtitle="Only works while nothing hangs off it. A supplier with purchase history is refused — delete those POs first, or archive instead."
+        confirmLabel="Delete supplier"
+        danger
+        busy={removeSupplier.isPending}
+        busyLabel="Deleting…"
+        onClose={() => setConfirmDeleteSupplier(null)}
+        onConfirm={runDeleteSupplier}
+      />
     </>
+  )
+}
+
+/** Small square action in a table row — the only two are "set ETA" and "delete". */
+function RowButton({
+  icon,
+  label,
+  danger,
+  onClick,
+}: {
+  icon: string
+  label: string
+  danger?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      style={{
+        display: 'grid',
+        placeItems: 'center',
+        width: 28,
+        height: 28,
+        flex: 'none',
+        borderRadius: 8,
+        border: `1px solid ${danger ? 'var(--bad-bd)' : 'var(--line-2)'}`,
+        background: danger ? 'var(--bad-soft)' : 'transparent',
+        color: danger ? 'var(--bad)' : 'var(--ink-2)',
+        cursor: 'pointer',
+      }}
+    >
+      <DcIcon name={icon} size={13} />
+    </button>
   )
 }
 
