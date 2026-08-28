@@ -92,14 +92,24 @@ Total: <b>${formatBDT(Number(order.total))}</b>${note ? `\nNote: ${note}` : ''}
       monthlyQuantity?: string
       message?: string
       photoCount?: number
+      referenceCode?: string | null
+      monthlyUnits?: number | null
+      tierName?: string | null
     },
   ): Promise<void> {
     const who = input.companyName ? `${input.fullName} · ${input.companyName}` : input.fullName
+    // Volume is the first thing worth knowing about a wholesale lead, so the
+    // structured number wins over whatever free text the buyer typed.
+    const volume = input.monthlyUnits
+      ? `${input.monthlyUnits.toLocaleString('en-US')}/mo`
+      : input.monthlyQuantity
 
     await this.notifications.notifyInApp({
       storeId,
-      subject: `Wholesale enquiry · ${who}`,
-      body: [input.industry, input.country, input.phone, input.monthlyQuantity]
+      subject: input.referenceCode
+        ? `Wholesale ${input.referenceCode} · ${who}`
+        : `Wholesale enquiry · ${who}`,
+      body: [input.industry, input.country, input.phone, volume, input.tierName]
         .filter(Boolean)
         .join(' · '),
       href: '/dashboard/wholesale-leads',
@@ -108,6 +118,9 @@ Total: <b>${formatBDT(Number(order.total))}</b>${note ? `\nNote: ${note}` : ''}
     const lines = [
       '🏭 <b>New Wholesale / Export Enquiry</b>',
       '',
+      ...(input.referenceCode
+        ? [`Ref: <code>${escapeTelegramHtml(input.referenceCode)}</code>`]
+        : []),
       `Name: ${escapeTelegramHtml(input.fullName)}`,
       ...(input.companyName ? [`Company: ${escapeTelegramHtml(input.companyName)}`] : []),
       `Industry: ${escapeTelegramHtml(input.industry)}`,
@@ -117,9 +130,8 @@ Total: <b>${formatBDT(Number(order.total))}</b>${note ? `\nNote: ${note}` : ''}
       ...(input.productInterest
         ? [`Interest: ${escapeTelegramHtml(input.productInterest)}`]
         : []),
-      ...(input.monthlyQuantity
-        ? [`Monthly qty: ${escapeTelegramHtml(input.monthlyQuantity)}`]
-        : []),
+      ...(volume ? [`Monthly qty: ${escapeTelegramHtml(volume)}`] : []),
+      ...(input.tierName ? [`Tier: ${escapeTelegramHtml(input.tierName)}`] : []),
       ...(input.photoCount && input.photoCount > 0 ? [`Photos: ${input.photoCount}`] : []),
       ...(input.message ? ['', escapeTelegramHtml(input.message.slice(0, 500))] : []),
       '',

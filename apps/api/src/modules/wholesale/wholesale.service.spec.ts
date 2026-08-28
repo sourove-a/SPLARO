@@ -21,7 +21,16 @@ function buildService(opts: { recent?: unknown; existing?: unknown } = {}) {
       delete: jest.fn().mockResolvedValue({}),
       findMany: jest.fn().mockResolvedValue([]),
       count: jest.fn().mockResolvedValue(0),
-      groupBy: jest.fn().mockResolvedValue([{ status: 'NEW', _count: { _all: 2 } }]),
+      aggregate: jest.fn().mockResolvedValue({ _sum: { monthlyUnits: null } }),
+      groupBy: jest
+        .fn()
+        .mockResolvedValue([
+          { status: 'NEW', _count: { _all: 2 }, _sum: { monthlyUnits: null } },
+        ]),
+    },
+    wholesaleTier: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
     },
     wholesaleStockImage: {
       findFirst: jest.fn().mockResolvedValue(opts.existing ?? null),
@@ -33,6 +42,15 @@ function buildService(opts: { recent?: unknown; existing?: unknown } = {}) {
       delete: jest.fn().mockResolvedValue({}),
       findMany: jest.fn().mockResolvedValue([]),
     },
+    // The submit path reserves a reference inside a transaction; the tx client
+    // shares these mocks so the assertions below still read the same calls.
+    $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({
+        ...prisma,
+        $executeRaw: jest.fn().mockResolvedValue(1),
+        $queryRaw: jest.fn().mockResolvedValue([{ nextValue: 2n }]),
+      }),
+    ),
   }
   return { service: new WholesaleService(prisma as never), prisma }
 }
@@ -76,7 +94,7 @@ describe('WholesaleService.submit', () => {
 
     const result = await service.submit('store-1', base)
 
-    expect(result).toEqual({ id: 'lead-existing', duplicate: true })
+    expect(result).toMatchObject({ id: 'lead-existing', duplicate: true })
     expect(prisma.wholesaleInquiry.create).not.toHaveBeenCalled()
   })
 

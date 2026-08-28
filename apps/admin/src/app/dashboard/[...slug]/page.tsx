@@ -4,6 +4,7 @@ import { DcOrders } from '@/components/orders/DcOrders'
 import { DcProducts } from '@/components/products/DcProducts'
 import { DcCustomers } from '@/components/customers/DcCustomers'
 import { DcWholesaleLeads } from '@/components/dc/screens/DcWholesaleLeads'
+import { DcWholesaleProgramme } from '@/components/dc/screens/DcWholesaleProgramme'
 import { DcWholesaleStock } from '@/components/dc/screens/DcWholesaleStock'
 import { DcCustomer360 } from '@/components/dc/screens/DcCustomer360'
 import { DcProductEdit } from '@/components/dc/screens/DcProductEdit'
@@ -77,6 +78,7 @@ const DC_BESPOKE: Record<string, () => React.ReactElement> = {
   '/dashboard/products': () => <DcProducts />,
   '/dashboard/customers': () => <DcCustomers />,
   '/dashboard/wholesale-leads': () => <DcWholesaleLeads />,
+  '/dashboard/wholesale-programme': () => <DcWholesaleProgramme />,
   '/dashboard/wholesale-stock': () => <DcWholesaleStock />,
   '/dashboard/packing-station': () => <DcPackingStation />,
   '/dashboard/courier-hub': () => <DcCourierHub />,

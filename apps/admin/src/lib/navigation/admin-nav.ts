@@ -109,6 +109,12 @@ export const adminNavGroups: AdminNavGroup[] = [
     items: [
       item('Wholesale Leads', 'wholesale-leads', 'Factory', 'Buyer enquiries from /wholesale'),
       item(
+        'Wholesale Programme',
+        'wholesale-programme',
+        'Layers',
+        'Volume tiers published on /wholesale',
+      ),
+      item(
         'Wholesale Stock',
         'wholesale-stock',
         'Image',

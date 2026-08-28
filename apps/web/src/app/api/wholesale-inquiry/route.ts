@@ -13,6 +13,9 @@ interface WholesaleBody {
   email?: string
   productInterest?: string
   monthlyQuantity?: string
+  monthlyUnits?: number
+  tierSlug?: string
+  targetLaunch?: string
   message?: string
   sourcePath?: string
   imageUrls?: string[]
@@ -65,6 +68,7 @@ export async function POST(request: Request) {
       message?: string
       error?: string
       duplicate?: boolean
+      referenceCode?: string | null
     }
     if (!res.ok) {
       return NextResponse.json(
@@ -77,6 +81,8 @@ export async function POST(request: Request) {
       ok: true,
       message: data.message,
       duplicate: Boolean(data.duplicate),
+      // Passed straight through so the buyer sees a handle they can quote back.
+      referenceCode: data.referenceCode ?? null,
     })
   } catch (error) {
     if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {

@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEmail,
   IsInt,
   IsNumber,
@@ -324,6 +325,25 @@ export class WholesaleInquiryDto {
   @MaxLength(80)
   monthlyQuantity?: string
 
+  /** Volume as a number — what the pipeline totals on. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(10_000_000)
+  monthlyUnits?: number
+
+  /** Slug of a published tier; resolved against this store, never trusted as an id. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  @Matches(/^[a-z0-9-]+$/, { message: 'tierSlug must be a lowercase slug' })
+  tierSlug?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  targetLaunch?: string
+
   @IsOptional()
   @IsString()
   @MaxLength(2000)
@@ -519,4 +539,62 @@ export class StorefrontStockAlertDto {
   @MinLength(6)
   @MaxLength(20)
   phone?: string
+}
+
+export class WholesaleTierDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(60)
+  name?: string
+
+  /** Only honoured on create — renaming a tier must not orphan filed leads. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  slug?: string
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(10_000_000)
+  minUnits?: number
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(3650)
+  leadTimeDays?: number | null
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(400)
+  summary?: string
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @IsString({ each: true })
+  @MaxLength(120, { each: true })
+  perks?: string[]
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(999)
+  sortOrder?: number
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean
+}
+
+/** POST needs a name; PATCH reuses WholesaleTierDto, where everything is optional. */
+export class WholesaleTierCreateDto extends WholesaleTierDto {
+  // Re-declared as required. `declare` keeps the base property's runtime
+  // decorators from being shadowed by an emitted field initialiser.
+  @IsString()
+  @MinLength(2)
+  @MaxLength(60)
+  declare name: string
 }

@@ -11,6 +11,7 @@ export const REGISTERED_MODULE_HREFS: string[] = [
   '/dashboard/products',
   '/dashboard/customers',
   '/dashboard/wholesale-leads',
+  '/dashboard/wholesale-programme',
   '/dashboard/wholesale-stock',
   '/dashboard/packing-station',
   '/dashboard/courier-hub',

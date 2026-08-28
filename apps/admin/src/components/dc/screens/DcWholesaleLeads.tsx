@@ -27,6 +27,32 @@ import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
 import { resolveMediaUrl } from '@/lib/media-url'
 
+/** 12,500 reads as 12.5k in a tile — the exact figure lives in the row. */
+function compactUnits(units: number): string {
+  if (!Number.isFinite(units) || units <= 0) return '0'
+  if (units >= 1_000_000) return `${(units / 1_000_000).toFixed(units >= 10_000_000 ? 0 : 1)}M`
+  if (units >= 1_000) return `${(units / 1_000).toFixed(units >= 10_000 ? 0 : 1)}k`
+  return String(units)
+}
+
+/** A live lead past its reminder date. Decided leads have no reminder left. */
+function isOverdue(lead: ApiWholesaleInquiry): boolean {
+  if (!lead.nextFollowUpAt) return false
+  if (lead.status === 'WON' || lead.status === 'LOST') return false
+  return new Date(lead.nextFollowUpAt).getTime() < Date.now()
+}
+
+function followUpLabel(lead: ApiWholesaleInquiry): string | null {
+  if (!lead.nextFollowUpAt) return null
+  if (lead.status === 'WON' || lead.status === 'LOST') return null
+  const due = new Date(lead.nextFollowUpAt)
+  if (Number.isNaN(due.getTime())) return null
+  const days = Math.round((due.getTime() - Date.now()) / 86_400_000)
+  if (days < 0) return `Overdue ${Math.abs(days)}d`
+  if (days === 0) return 'Follow up today'
+  return `Follow up in ${days}d`
+}
+
 const card = {
   border: '1px solid var(--line)',
   borderRadius: 14,
@@ -89,20 +115,23 @@ function DcWholesaleLeadsBody() {
   const [open, setOpen] = useState<ApiWholesaleInquiry | null>(null)
   const [deleting, setDeleting] = useState<ApiWholesaleInquiry | null>(null)
   const [notes, setNotes] = useState('')
+  const [followUp, setFollowUp] = useState('')
+  const [sort, setSort] = useState<'recent' | 'volume' | 'followup'>('recent')
   const [busy, setBusy] = useState(false)
   const debouncedSearch = useDebouncedValue(search, 300)
   const pageSize = 25
 
   useEffect(() => {
     setPage(1)
-  }, [statusFilter, debouncedSearch])
+  }, [statusFilter, debouncedSearch, sort])
 
   const leads = useQuery({
-    queryKey: ['wholesale-inquiries', statusFilter, debouncedSearch, page],
+    queryKey: ['wholesale-inquiries', statusFilter, debouncedSearch, page, sort],
     queryFn: () =>
       fetchWholesaleInquiries({
         ...(statusFilter === 'ALL' ? {} : { status: statusFilter }),
         ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
+        ...(sort !== 'recent' ? { sort } : {}),
         page,
         limit: pageSize,
       }),
@@ -152,11 +181,15 @@ function DcWholesaleLeadsBody() {
   const saveNotes = async (row: ApiWholesaleInquiry) => {
     setBusy(true)
     try {
-      const updated = await updateWholesaleInquiry(row.id, { adminNotes: notes })
+      const updated = await updateWholesaleInquiry(row.id, {
+        adminNotes: notes,
+        nextFollowUpAt: followUp ? new Date(followUp).toISOString() : null,
+      })
       if (!verifyStringEquals(updated.adminNotes ?? '', notes.trim(), 'Note')) return
       afterWrite()
       setOpen(updated)
-      toastApiSaved('Note saved')
+      setFollowUp(updated.nextFollowUpAt ? updated.nextFollowUpAt.slice(0, 10) : '')
+      toastApiSaved(followUp ? 'Note and follow-up saved' : 'Note saved')
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Could not save the note')
     } finally {
@@ -183,6 +216,7 @@ function DcWholesaleLeadsBody() {
     { t: 'kpis' } as DcBlock,
     { t: 'list', title: '', items: [] } as DcBlock,
   ]
+  const funnel = leads.data?.funnel
   const pageStatus = dcPageStatus([leads], api.pulse)
 
   const exportCsv = () => {
@@ -195,6 +229,7 @@ function DcWholesaleLeadsBody() {
       toastWarn(`Exporting this page only — ${rows.length} of ${total} matching the filter.`)
     }
     const headers = [
+      'Reference',
       'Company',
       'Contact Name',
       'Industry',
@@ -203,6 +238,9 @@ function DcWholesaleLeadsBody() {
       'Country',
       'Product Interest',
       'Monthly Quantity',
+      'Monthly Units',
+      'Programme',
+      'Follow Up',
       'Message',
       'Status',
       'Created Date',
@@ -211,6 +249,7 @@ function DcWholesaleLeadsBody() {
     const csvRows = [
       headers,
       ...rows.map((row) => [
+        row.referenceCode || '—',
         row.companyName || '—',
         row.fullName,
         row.industry || '—',
@@ -219,6 +258,9 @@ function DcWholesaleLeadsBody() {
         row.country,
         row.productInterest || '—',
         row.monthlyQuantity || '—',
+        row.monthlyUnits ? String(row.monthlyUnits) : '',
+        row.tier?.name || '—',
+        row.nextFollowUpAt ? row.nextFollowUpAt.slice(0, 10) : '',
         row.message || '',
         row.status,
         new Date(row.createdAt).toISOString().slice(0, 10),
@@ -283,11 +325,29 @@ function DcWholesaleLeadsBody() {
               }
               color={newCount > 0 ? 'var(--warn)' : 'var(--ink)'}
             />
-            <Kpi label="In conversation" value={String(counts?.CONTACTED ?? 0)} sub="contacted, awaiting reply" />
+            <Kpi
+              label="Overdue follow-ups"
+              value={String(funnel?.overdueFollowUps ?? 0)}
+              sub={
+                (funnel?.overdueFollowUps ?? 0) > 0
+                  ? 'past their reminder date'
+                  : 'nothing overdue'
+              }
+              color={(funnel?.overdueFollowUps ?? 0) > 0 ? 'var(--bad)' : 'var(--ink)'}
+            />
+            <Kpi
+              label="Pipeline"
+              value={compactUnits(funnel?.pipelineUnits ?? 0)}
+              sub={`pcs/mo still winnable · ${counts?.CONTACTED ?? 0} in conversation`}
+            />
             <Kpi
               label="Won"
               value={String(counts?.WON ?? 0)}
-              sub={`${counts?.QUALIFIED ?? 0} qualified in pipeline`}
+              sub={
+                funnel?.winRate == null
+                  ? `${counts?.QUALIFIED ?? 0} qualified · nothing decided yet`
+                  : `${funnel.winRate}% of decided · ${compactUnits(funnel.wonUnits)} pcs/mo`
+              }
               color={(counts?.WON ?? 0) > 0 ? 'var(--ok)' : 'var(--ink)'}
             />
             <Kpi label="Export countries" value={String(exportCountries)} sub="outside Bangladesh" />
@@ -313,10 +373,31 @@ function DcWholesaleLeadsBody() {
                 }}
               />
             ))}
+            <select
+              value={sort}
+              onChange={(event) =>
+                setSort(event.target.value as 'recent' | 'volume' | 'followup')
+              }
+              aria-label="Sort leads"
+              style={{
+                height: 32,
+                padding: '0 9px',
+                borderRadius: 8,
+                border: '1px solid var(--line)',
+                background: 'var(--surface-2)',
+                color: 'var(--ink-2)',
+                font: `600 12px/1 ${FONT}`,
+                cursor: 'pointer',
+              }}
+            >
+              <option value="recent">Newest first</option>
+              <option value="volume">Biggest volume</option>
+              <option value="followup">Follow-up due</option>
+            </select>
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search name, company, phone, country"
+              placeholder="Search reference, name, company, phone"
               style={{
                 marginLeft: 'auto',
                 minWidth: 240,
@@ -353,6 +434,7 @@ function DcWholesaleLeadsBody() {
                   onOpen={() => {
                     setOpen(row)
                     setNotes(row.adminNotes ?? '')
+                    setFollowUp(row.nextFollowUpAt ? row.nextFollowUpAt.slice(0, 10) : '')
                   }}
                   onStatus={(next) => void setStatus(row, next)}
                 />
@@ -398,6 +480,9 @@ function DcWholesaleLeadsBody() {
           onConfirm={() => void saveNotes(open)}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {open.referenceCode ? (
+              <DetailRow label="Reference" value={open.referenceCode} mono />
+            ) : null}
             <DetailRow label="Contact" value={open.fullName} />
             {open.companyName ? <DetailRow label="Company" value={open.companyName} /> : null}
             <DetailRow label="Business type" value={open.industry} />
@@ -414,9 +499,54 @@ function DcWholesaleLeadsBody() {
             {open.productInterest ? (
               <DetailRow label="Products" value={open.productInterest} />
             ) : null}
-            {open.monthlyQuantity ? (
-              <DetailRow label="Monthly quantity" value={open.monthlyQuantity} />
+            {open.tier ? <DetailRow label="Programme" value={open.tier.name} /> : null}
+            {open.monthlyQuantity || open.monthlyUnits ? (
+              <DetailRow
+                label="Monthly quantity"
+                value={
+                  open.monthlyUnits
+                    ? `${open.monthlyUnits.toLocaleString('en-US')} pcs/mo${
+                        open.monthlyQuantity ? ` · picked "${open.monthlyQuantity}"` : ''
+                      }`
+                    : open.monthlyQuantity!
+                }
+              />
             ) : null}
+            {open.targetLaunch ? (
+              <DetailRow
+                label="Target launch"
+                value={new Date(open.targetLaunch).toLocaleDateString('en-GB', {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              />
+            ) : null}
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={capsLabel}>Follow up on</span>
+              <input
+                type="date"
+                value={followUp}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={(event) => setFollowUp(event.target.value)}
+                disabled={open.status === 'WON' || open.status === 'LOST'}
+                style={{
+                  height: 34,
+                  padding: '0 10px',
+                  borderRadius: 8,
+                  border: '1px solid var(--line)',
+                  background: 'var(--surface-2)',
+                  color: 'var(--ink)',
+                  font: `500 12.5px/1 ${FONT}`,
+                }}
+              />
+              <span style={{ font: `400 11.5px/1.5 ${FONT}`, color: 'var(--ink-3)' }}>
+                {open.status === 'WON' || open.status === 'LOST'
+                  ? 'Decided leads carry no reminder.'
+                  : 'Saved with the note. Overdue leads are counted at the top of this page.'}
+              </span>
+            </label>
             {open.message ? <DetailRow label="Message" value={open.message} /> : null}
             {(open.imageUrls?.length ?? 0) > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -637,12 +767,20 @@ function LeadCard({
   return (
     <div style={{ ...card, padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ font: `600 14px/1.3 ${FONT}`, color: 'var(--ink)' }}>
-            {lead.companyName || lead.fullName}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+            <span style={{ font: `600 14px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+              {lead.companyName || lead.fullName}
+            </span>
+            {lead.referenceCode ? (
+              <span style={{ font: `600 10.5px/1 ${MONO}`, color: 'var(--ink-3)' }}>
+                {lead.referenceCode}
+              </span>
+            ) : null}
           </span>
           <span style={{ font: `400 12px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
             {lead.industry} · {lead.country}
+            {lead.tier ? ` · ${lead.tier.name}` : ''}
           </span>
         </div>
         <span style={{ ...toneStyle(STATUS_TONE[lead.status]), whiteSpace: 'nowrap' }}>
@@ -653,9 +791,26 @@ function LeadCard({
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
         <span style={{ font: `500 12.5px/1 ${MONO}`, color: 'var(--ink-2)' }}>{lead.phone}</span>
-        {lead.monthlyQuantity ? (
+        {lead.monthlyUnits ? (
+          <span
+            title={lead.monthlyQuantity ?? undefined}
+            style={{ font: `600 12px/1 ${FONT}`, color: 'var(--ink-2)' }}
+          >
+            {lead.monthlyUnits.toLocaleString('en-US')} pcs/mo
+          </span>
+        ) : lead.monthlyQuantity ? (
           <span style={{ font: `400 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>
             {lead.monthlyQuantity}
+          </span>
+        ) : null}
+        {followUpLabel(lead) ? (
+          <span
+            style={{
+              font: `600 12px/1 ${FONT}`,
+              color: isOverdue(lead) ? 'var(--bad)' : 'var(--ink-3)',
+            }}
+          >
+            {followUpLabel(lead)}
           </span>
         ) : null}
         <span style={{ font: `400 12px/1 ${FONT}`, color: 'var(--ink-3)', marginLeft: 'auto' }}>
