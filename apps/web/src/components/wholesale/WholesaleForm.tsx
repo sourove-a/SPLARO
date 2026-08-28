@@ -28,15 +28,26 @@ const CATEGORIES = [
   'Mixed / custom selection',
 ] as const
 
-/** Order volume bands — clearer than vague “monthly” for wholesale quoting. */
+/**
+ * Order volume bands — clearer than a vague “monthly” for wholesale quoting.
+ *
+ * Each band carries the number the pipeline totals on. That number is the band's
+ * *lower* bound on purpose: a forecast built from a range should under-promise,
+ * and "500 – 2,000" counted as 2,000 would inflate the whole pipeline. The label
+ * is still what the buyer picked and is stored verbatim beside it.
+ */
 const QUANTITIES = [
-  'Sample / trial (under 50 pcs)',
-  '50 – 200 pcs per order',
-  '200 – 500 pcs per order',
-  '500 – 2,000 pcs per order',
-  '2,000 – 10,000 pcs per order',
-  '10,000+ pcs per order',
+  { label: 'Sample / trial (under 50 pcs)', units: 25 },
+  { label: '50 – 200 pcs per order', units: 50 },
+  { label: '200 – 500 pcs per order', units: 200 },
+  { label: '500 – 2,000 pcs per order', units: 500 },
+  { label: '2,000 – 10,000 pcs per order', units: 2000 },
+  { label: '10,000+ pcs per order', units: 10000 },
 ] as const
+
+export function unitsForQuantityBand(label: string): number | undefined {
+  return QUANTITIES.find((band) => band.label === label)?.units
+}
 
 const MAX_IMAGES = 4
 
@@ -49,6 +60,8 @@ interface FormState {
   email: string
   productInterest: string
   monthlyQuantity: string
+  tierSlug: string
+  targetLaunch: string
   message: string
 }
 
@@ -61,10 +74,18 @@ const EMPTY: FormState = {
   email: '',
   productInterest: '',
   monthlyQuantity: '',
+  tierSlug: '',
+  targetLaunch: '',
   message: '',
 }
 
-export function WholesaleForm() {
+export interface WholesaleFormTier {
+  slug: string
+  name: string
+  minUnits: number
+}
+
+export function WholesaleForm({ tiers = [] }: { tiers?: WholesaleFormTier[] }) {
   const settings = useStorefrontSettings()
   const whatsapp = whatsAppHref(
     resolveWhatsAppNumber(settings),
@@ -76,6 +97,7 @@ export function WholesaleForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [sent, setSent] = useState<'new' | 'duplicate' | null>(null)
+  const [reference, setReference] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const set = (key: keyof FormState) => (value: string) =>
@@ -132,6 +154,10 @@ export function WholesaleForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          // The band the buyer picked, as a number the pipeline can total.
+          ...(unitsForQuantityBand(form.monthlyQuantity)
+            ? { monthlyUnits: unitsForQuantityBand(form.monthlyQuantity) }
+            : {}),
           imageUrls,
           sourcePath: typeof window !== 'undefined' ? window.location.pathname : '/wholesale',
         }),
@@ -140,6 +166,7 @@ export function WholesaleForm() {
         ok?: boolean
         error?: string
         duplicate?: boolean
+        referenceCode?: string | null
       }
 
       if (!response.ok || !payload.ok) {
@@ -147,6 +174,7 @@ export function WholesaleForm() {
         return
       }
 
+      setReference(payload.referenceCode ?? null)
       setSent(payload.duplicate ? 'duplicate' : 'new')
       setForm(EMPTY)
       setImageUrls([])
@@ -169,6 +197,12 @@ export function WholesaleForm() {
         <h2 className="wholesale-form__done-title">
           {duplicate ? 'Already received' : 'Enquiry received'}
         </h2>
+        {reference ? (
+          <p className="wholesale-form__done-ref">
+            <span className="wholesale-form__done-ref-label">Your reference</span>
+            <span className="wholesale-form__done-ref-code">{reference}</span>
+          </p>
+        ) : null}
         <p className="wholesale-form__done-text">
           {duplicate
             ? 'We already have a recent enquiry from this number, so we did not create a second one. Our wholesale team will still contact you. For anything urgent, '
@@ -306,11 +340,44 @@ export function WholesaleForm() {
           >
             <option value="">Select volume</option>
             {QUANTITIES.map((option) => (
-              <option key={option} value={option}>
-                {option}
+              <option key={option.label} value={option.label}>
+                {option.label}
               </option>
             ))}
           </select>
+        </label>
+
+        {tiers.length > 0 ? (
+          <label className="wholesale-field">
+            <span className="wholesale-field__label">Programme</span>
+            <select
+              value={form.tierSlug}
+              onChange={(event) => set('tierSlug')(event.target.value)}
+              className="wholesale-field__input wholesale-field__select"
+            >
+              <option value="">Not sure yet — advise me</option>
+              {tiers.map((tier) => (
+                <option key={tier.slug} value={tier.slug}>
+                  {tier.name}
+                  {tier.minUnits > 0 ? ` · from ${tier.minUnits.toLocaleString('en-US')} pcs` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
+        <label className="wholesale-field">
+          <span className="wholesale-field__label">Target launch</span>
+          <input
+            type="date"
+            value={form.targetLaunch}
+            onChange={(event) => set('targetLaunch')(event.target.value)}
+            className="wholesale-field__input"
+            min={new Date().toISOString().slice(0, 10)}
+          />
+          <span className="wholesale-field__hint">
+            When you would want stock in hand. Helps us answer with real lead times.
+          </span>
         </label>
       </div>
 

@@ -4,7 +4,11 @@ import { Throttle } from '@nestjs/throttler'
 import type { Request } from 'express'
 import { Public } from '../../common/auth/public.decorator'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
-import { WholesaleInquiryDto } from '../../common/dtos/storefront.dto'
+import {
+  WholesaleInquiryDto,
+  WholesaleTierCreateDto,
+  WholesaleTierDto,
+} from '../../common/dtos/storefront.dto'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { AdminTelegramHubService } from '../notifications/admin-telegram-hub.service'
@@ -45,12 +49,18 @@ export class WholesaleController {
         monthlyQuantity: body.monthlyQuantity,
         message: body.message,
         photoCount: Array.isArray(body.imageUrls) ? body.imageUrls.length : 0,
+        referenceCode: result.referenceCode,
+        monthlyUnits: result.monthlyUnits,
+        tierName: result.tierName,
       })
     }
 
     return {
       ok: true as const,
       duplicate: result.duplicate,
+      // The buyer gets something to quote back, on a repeat submit too — the
+      // same reference, so it never looks like the first one was lost.
+      referenceCode: result.referenceCode ?? null,
       message: result.duplicate
         ? 'We already have a recent enquiry from this number. Our wholesale team will still contact you.'
         : 'Thanks — our wholesale team will contact you shortly.',
@@ -64,6 +74,7 @@ export class WholesaleController {
     @Query('search') search?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('sort') sort?: string,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
     return this.wholesale.list(sid, {
@@ -71,6 +82,7 @@ export class WholesaleController {
       ...(search ? { search } : {}),
       ...(page ? { page: Number(page) } : {}),
       ...(limit ? { limit: Number(limit) } : {}),
+      ...(sort === 'volume' || sort === 'followup' ? { sort } : {}),
     })
   }
 
@@ -78,13 +90,21 @@ export class WholesaleController {
   async update(
     @Param('id') id: string,
     @Query('storeId') storeId: string,
-    @Body() body: { status?: string; adminNotes?: string },
+    @Body()
+    body: {
+      status?: string
+      adminNotes?: string
+      nextFollowUpAt?: string | null
+      monthlyUnits?: number | null
+    },
     @Req() req: AdminRequest,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
     return this.wholesale.update(sid, id, {
       ...(body.status ? { status: body.status } : {}),
       ...(body.adminNotes !== undefined ? { adminNotes: body.adminNotes } : {}),
+      ...(body.nextFollowUpAt !== undefined ? { nextFollowUpAt: body.nextFollowUpAt } : {}),
+      ...(body.monthlyUnits !== undefined ? { monthlyUnits: body.monthlyUnits } : {}),
       ...(req.adminUser?.userId ? { handledById: req.adminUser.userId } : {}),
     })
   }
@@ -93,6 +113,43 @@ export class WholesaleController {
   async remove(@Param('id') id: string, @Query('storeId') storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
     return this.wholesale.remove(sid, id)
+  }
+
+  /** Published programme tiers. Empty array keeps /wholesale enquiry-only. */
+  @Public()
+  @Get('storefront/wholesale-tiers')
+  async publicTiers(@Query('storeId') storeId: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const tiers = await this.wholesale.listPublicTiers(sid)
+    return { tiers }
+  }
+
+  @Get('admin/wholesale-tiers')
+  async adminTiers(@Query('storeId') storeId: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.wholesale.listTiers(sid)
+  }
+
+  @Post('admin/wholesale-tiers')
+  async createTier(@Query('storeId') storeId: string, @Body() body: WholesaleTierCreateDto) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.wholesale.createTier(sid, body)
+  }
+
+  @Patch('admin/wholesale-tiers/:id')
+  async updateTier(
+    @Param('id') id: string,
+    @Query('storeId') storeId: string,
+    @Body() body: WholesaleTierDto,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.wholesale.updateTier(sid, id, body)
+  }
+
+  @Delete('admin/wholesale-tiers/:id')
+  async removeTier(@Param('id') id: string, @Query('storeId') storeId: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.wholesale.removeTier(sid, id)
   }
 
   @Public()

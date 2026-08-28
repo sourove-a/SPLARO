@@ -495,3 +495,214 @@
     transform: none;
   }
 }
+
+/* ── Programme tiers ─────────────────────────────────────────
+   Only rendered when the shop publishes tiers, so nothing here
+   applies to the enquiry-only page. */
+
+.wholesale-tiers {
+  padding: clamp(3rem, 7vw, 5.5rem) 0 clamp(1rem, 3vw, 2rem);
+}
+
+.wholesale-tiers__head {
+  max-width: 46rem;
+  margin-bottom: clamp(1.75rem, 4vw, 2.75rem);
+}
+
+.wholesale-tiers__eyebrow {
+  margin: 0 0 0.7rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--wholesale-muted);
+}
+
+.wholesale-tiers__title {
+  margin: 0 0 0.85rem;
+  font-family: var(--font-serif, Georgia, 'Times New Roman', serif);
+  font-size: clamp(1.9rem, 4vw, 2.9rem);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--wholesale-ink);
+}
+
+.wholesale-tiers__lede {
+  margin: 0;
+  max-width: 38rem;
+  font-size: clamp(0.92rem, 1.6vw, 1rem);
+  line-height: 1.7;
+  color: var(--wholesale-muted);
+}
+
+.wholesale-tiers__grid {
+  display: grid;
+  gap: clamp(0.9rem, 2vw, 1.35rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+}
+
+.wholesale-tier {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: clamp(1.5rem, 3vw, 2rem);
+  border: 1px solid var(--wholesale-line);
+  border-radius: 2px;
+  background: var(--wholesale-surface);
+  /* The hairline top rule is the whole ornament — a card that leans on shadow
+     reads as software, not as a lookbook. */
+  box-shadow: inset 0 1px 0 rgba(16, 17, 20, 0.06);
+  transition:
+    border-color 0.4s ease,
+    transform 0.4s ease;
+}
+
+@media (hover: hover) {
+  .wholesale-tier:hover {
+    border-color: rgba(16, 17, 20, 0.28);
+    transform: translateY(-2px);
+  }
+}
+
+.wholesale-tier__index {
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: 0.78rem;
+  letter-spacing: 0.22em;
+  color: rgba(16, 17, 20, 0.32);
+}
+
+.wholesale-tier__name {
+  margin: 0;
+  font-family: var(--font-serif, Georgia, 'Times New Roman', serif);
+  font-size: clamp(1.25rem, 2.4vw, 1.6rem);
+  font-weight: 400;
+  line-height: 1.15;
+  color: var(--wholesale-ink);
+}
+
+.wholesale-tier__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.4rem;
+  margin: 0.1rem 0 0;
+  padding: 0.85rem 0 0;
+  border-top: 1px solid var(--wholesale-line);
+}
+
+.wholesale-tier__fact dt {
+  margin: 0 0 0.28rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--wholesale-muted);
+}
+
+.wholesale-tier__fact dd {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--wholesale-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.wholesale-tier__summary {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: var(--wholesale-muted);
+}
+
+.wholesale-tier__perks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.42rem;
+}
+
+.wholesale-tier__perks li {
+  position: relative;
+  padding-left: 1rem;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: rgba(16, 17, 20, 0.7);
+}
+
+.wholesale-tier__perks li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.6em;
+  width: 0.4rem;
+  height: 1px;
+  background: rgba(16, 17, 20, 0.42);
+}
+
+.wholesale-tier__cta {
+  margin-top: auto;
+  padding-top: 0.9rem;
+  align-self: flex-start;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--wholesale-ink);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(16, 17, 20, 0.28);
+  padding-bottom: 0.2rem;
+  transition: border-color 0.3s ease;
+}
+
+.wholesale-tier__cta:hover,
+.wholesale-tier__cta:focus-visible {
+  border-color: var(--wholesale-ink);
+}
+
+/* ── Reference on the confirmation ───────────────────────────── */
+
+.wholesale-form__done-ref {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.32rem;
+  margin: 0 0 1.1rem;
+  padding: 0.7rem 1.1rem;
+  border: 1px solid var(--wholesale-line);
+  border-radius: 2px;
+  background: rgba(16, 17, 20, 0.03);
+}
+
+.wholesale-form__done-ref-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--wholesale-muted);
+}
+
+.wholesale-form__done-ref-code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--wholesale-ink);
+}
+
+.wholesale-field__hint {
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--wholesale-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wholesale-tier {
+    transition: none;
+  }
+  .wholesale-tier:hover {
+    transform: none;
+  }
+}

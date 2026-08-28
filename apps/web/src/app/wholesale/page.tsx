@@ -14,6 +14,36 @@ const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
 type StockImage = { id: string; url: string; title?: string | null }
 
+type Tier = {
+  id: string
+  slug: string
+  name: string
+  minUnits: number
+  leadTimeDays?: number | null
+  summary?: string | null
+  perks?: string[]
+}
+
+/**
+ * Published programme steps. The shop decides whether to publish indicative
+ * MOQs at all — with no active tiers this returns empty and the page stays the
+ * enquiry-only piece it has always been, rather than showing hollow cards.
+ */
+async function loadWholesaleTiers(): Promise<Tier[]> {
+  try {
+    const base = getServerApiBaseUrl()
+    const res = await fetchWithTimeout(
+      `${base}/storefront/wholesale-tiers?storeId=${encodeURIComponent(STORE_ID)}`,
+      { next: { revalidate: 60, tags: ['wholesale-tiers'] } },
+    )
+    if (!res?.ok) return []
+    const data = (await res.json()) as { tiers?: Tier[] }
+    return (data.tiers ?? []).filter((tier) => tier.slug?.trim() && tier.name?.trim())
+  } catch {
+    return []
+  }
+}
+
 async function loadWholesaleStock(): Promise<StockImage[]> {
   try {
     const base = getServerApiBaseUrl()
@@ -30,7 +60,7 @@ async function loadWholesaleStock(): Promise<StockImage[]> {
 }
 
 export default async function WholesalePage() {
-  const stock = await loadWholesaleStock()
+  const [stock, tiers] = await Promise.all([loadWholesaleStock(), loadWholesaleTiers()])
   const heroImage = stock.length > 0 ? stock[0]?.url?.trim() : null
   const gallery = stock.length > 1 ? stock.slice(1) : []
 
@@ -111,6 +141,63 @@ export default async function WholesalePage() {
         </div>
       </section>
 
+      {tiers.length > 0 ? (
+        <section className="wholesale-tiers" aria-label="Wholesale programme">
+          <div className="container-luxury">
+            <header className="wholesale-tiers__head">
+              <p className="wholesale-tiers__eyebrow">Programme</p>
+              <h2 className="wholesale-tiers__title">Where you fit</h2>
+              <p className="wholesale-tiers__lede">
+                Indicative volumes and lead times. Final terms are quoted against your
+                assortment — tell us where you sit and we will reply with real numbers.
+              </p>
+            </header>
+
+            <div className="wholesale-tiers__grid">
+              {tiers.map((tier, index) => (
+                <article key={tier.id} className="wholesale-tier">
+                  <span className="wholesale-tier__index" aria-hidden="true">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <h3 className="wholesale-tier__name">{tier.name}</h3>
+
+                  <dl className="wholesale-tier__facts">
+                    {tier.minUnits > 0 ? (
+                      <div className="wholesale-tier__fact">
+                        <dt>From</dt>
+                        <dd>{tier.minUnits.toLocaleString('en-US')} pcs</dd>
+                      </div>
+                    ) : null}
+                    {tier.leadTimeDays ? (
+                      <div className="wholesale-tier__fact">
+                        <dt>Lead time</dt>
+                        <dd>{tier.leadTimeDays} days</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+
+                  {tier.summary ? (
+                    <p className="wholesale-tier__summary">{tier.summary}</p>
+                  ) : null}
+
+                  {tier.perks?.length ? (
+                    <ul className="wholesale-tier__perks">
+                      {tier.perks.map((perk) => (
+                        <li key={perk}>{perk}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+
+                  <a href="#wholesale-enquiry" className="wholesale-tier__cta">
+                    Enquire as {tier.name}
+                  </a>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {gallery.length > 0 ? (
         <section className="wholesale-stock" aria-label="Wholesale stock">
           <div className="container-luxury wholesale-stock__grid">
@@ -133,7 +220,13 @@ export default async function WholesalePage() {
           <div className="wholesale-form-section__intro">
             <h2 className="wholesale-form-section__title">Enquiry</h2>
           </div>
-          <WholesaleForm />
+          <WholesaleForm
+            tiers={tiers.map((tier) => ({
+              slug: tier.slug,
+              name: tier.name,
+              minUnits: tier.minUnits,
+            }))}
+          />
         </div>
       </section>
     </main>

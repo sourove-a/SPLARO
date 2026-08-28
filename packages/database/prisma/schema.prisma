@@ -601,6 +601,7 @@ model Store {
   googleExportTemplates GoogleExportTemplate[]
   googleAuditLogs    GoogleAuditLog[]
   stockAlerts        StockAlert[]
+  wholesaleTiers     WholesaleTier[]
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
@@ -2295,21 +2296,63 @@ model WholesaleInquiry {
   message         String?
   /// Reference photos of products the buyer wants (storefront uploads).
   imageUrls       String[]               @default([])
+  /// Buyer-facing handle (WS-000001). Given back on submit so the buyer has
+  /// something to quote, and searchable from the admin list.
+  referenceCode   String?                @unique
+  /// Monthly volume as a number. `monthlyQuantity` keeps whatever the buyer
+  /// actually typed; this is what the pipeline totals and sorts on, which a
+  /// free-text field could never do.
+  monthlyUnits    Int?
+  targetLaunch    DateTime?
+  tierId          String?
+  /// When to chase this lead. A lead with no next step is how they die quietly.
+  nextFollowUpAt  DateTime?
   status          WholesaleInquiryStatus @default(NEW)
   adminNotes      String?
   handledById     String?
   handledAt       DateTime?
   sourcePath      String?
   store           Store                  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  tier            WholesaleTier?         @relation(fields: [tierId], references: [id], onDelete: SetNull)
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
 
   @@index([storeId, status])
   @@index([storeId, createdAt])
+  @@index([storeId, nextFollowUpAt])
+  @@index([storeId, monthlyUnits])
+  @@index([tierId])
   @@index([phone])
 }
 
 /// Admin-curated stock photos shown on /wholesale (not buyer enquiry uploads).
+/// A published wholesale programme step — "Stockist", "Distributor",
+/// "Export". Kept as data rather than page copy so the shop decides whether
+/// to publish indicative MOQs at all: with no active rows the storefront
+/// stays enquiry-only, exactly as it read before.
+model WholesaleTier {
+  id           String   @id @default(cuid())
+  storeId      String
+  name         String
+  /// Stable key the enquiry form submits, so renaming a tier never orphans
+  /// the leads already filed against it.
+  slug         String
+  /// Indicative minimum order, in units. 0 means "no published minimum".
+  minUnits     Int      @default(0)
+  leadTimeDays Int?
+  summary      String?
+  perks        String[] @default([])
+  sortOrder    Int      @default(0)
+  isActive     Boolean  @default(true)
+  store        Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  inquiries    WholesaleInquiry[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([storeId, slug])
+  @@index([storeId, isActive, sortOrder])
+}
+
 model WholesaleStockImage {
   id        String   @id @default(cuid())
   storeId   String
