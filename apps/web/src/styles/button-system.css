@@ -274,3 +274,136 @@ html[data-perf='lite'] .btn-luxury-outline {
   border-color: rgba(255, 255, 255, 0.92);
   box-shadow: var(--btn-shadow-glass-hover);
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Shimmer — a light that travels around the button perimeter.
+   Ported from Magic UI "Shimmer Button" (magicui.design) as pure
+   CSS so it layers onto the existing button system.
+
+   Opt-in, per button: add `.btn--shimmer` (or `shimmer` on the
+   <Button> component). Nothing shimmers by default.
+
+   Meant for the dark, opaque surfaces — primary / .btn-luxury /
+   .btn-gold / .account-btn--primary / .checkout-btn--primary.
+   On the translucent glass variants (secondary, ghost) the spark
+   would read through the button face instead of staying on the rim.
+
+   Geometry is untouched: same height, padding, radius, shadow and
+   type. Two pseudo-elements do all of it.
+
+   Layers (the button becomes its own stacking context):
+     button background     → the existing Black Pearl gradient
+     ::before  z-index -2   → blurred conic-gradient spark, spins
+                              while sliding left ⇄ right
+     ::after   z-index -1   → backdrop inset by --btn-shimmer-cut,
+                              repaints the surface and leaves only
+                              a hairline rim of the spark showing
+     children               → label, on top of everything
+   ────────────────────────────────────────────────────────────── */
+
+:root {
+  --btn-shimmer-color: rgba(255, 255, 255, 0.92);
+  --btn-shimmer-speed: 3s;
+  --btn-shimmer-spread: 90deg;
+  --btn-shimmer-cut: 1px;
+  --btn-shimmer-blur: 2px;
+}
+
+.btn--shimmer {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Spark — a conic wedge of light, spinning as it drifts across */
+.btn--shimmer::before {
+  content: '';
+  position: absolute;
+  z-index: -2;
+  top: -100%;
+  left: 0;
+  height: 300%;
+  aspect-ratio: 1;
+  translate: -50% 0;
+  pointer-events: none;
+  background: conic-gradient(
+    from calc(270deg - (var(--btn-shimmer-spread) * 0.5)),
+    transparent 0,
+    var(--btn-shimmer-color) var(--btn-shimmer-spread),
+    transparent var(--btn-shimmer-spread)
+  );
+  filter: blur(var(--btn-shimmer-blur));
+  animation:
+    splaro-btn-shimmer-slide var(--btn-shimmer-speed) var(--btn-ease) infinite alternate,
+    splaro-btn-shimmer-spin calc(var(--btn-shimmer-speed) * 2) linear infinite;
+}
+
+/* Backdrop — hides the spark everywhere but the rim */
+.btn--shimmer::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: var(--btn-shimmer-cut);
+  border-radius: inherit;
+  background: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 -8px 10px rgba(255, 255, 255, 0.12);
+  transition: box-shadow var(--btn-duration) var(--btn-ease);
+}
+
+.btn--shimmer:hover:not(:disabled)::after {
+  box-shadow: inset 0 -6px 10px rgba(255, 255, 255, 0.2);
+}
+
+.btn--shimmer:active:not(:disabled)::after {
+  box-shadow: inset 0 -10px 10px rgba(255, 255, 255, 0.2);
+}
+
+/* Idle surfaces don't sparkle */
+.btn--shimmer:disabled::before,
+.btn--shimmer[aria-disabled='true']::before {
+  animation: none;
+  opacity: 0;
+}
+
+@keyframes splaro-btn-shimmer-slide {
+  from {
+    left: 0;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+@keyframes splaro-btn-shimmer-spin {
+  0% {
+    rotate: 0deg;
+  }
+  15%,
+  35% {
+    rotate: 90deg;
+  }
+  65%,
+  85% {
+    rotate: 270deg;
+  }
+  100% {
+    rotate: 360deg;
+  }
+}
+
+/* Motion budget. Reduced motion switches the shimmer off outright.
+   Perf-lite (mobile / save-data / low-core) keeps it — the owner asked
+   for it on this button — but drops the blur, the same trade this file
+   already makes for backdrop-filter above. Change `filter: none` to
+   `animation: none; opacity: 0` to shut it off on lite devices too. */
+@media (prefers-reduced-motion: reduce) {
+  .btn--shimmer::before {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+html[data-perf='lite'] .btn--shimmer::before {
+  filter: none;
+}

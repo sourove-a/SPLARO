@@ -8,6 +8,8 @@ type SharedProps = {
   variant?: ButtonVariant
   fullWidth?: boolean
   compact?: boolean
+  /** Perimeter shimmer — opt-in, and only for the dark surfaces. */
+  shimmer?: boolean
   className?: string
   children: ReactNode
 }
@@ -28,6 +30,7 @@ function buttonClassName(
   variant: ButtonVariant,
   fullWidth: boolean,
   compact: boolean,
+  shimmer: boolean,
   className?: string,
 ) {
   return cn(
@@ -35,6 +38,7 @@ function buttonClassName(
     `btn--${variant}`,
     fullWidth && 'btn--full',
     compact && 'btn--compact',
+    shimmer && 'btn--shimmer',
     className,
   )
 }
@@ -47,7 +51,8 @@ export function Button(props: ButtonProps) {
   const variant = props.variant ?? 'primary'
   const fullWidth = Boolean(props.fullWidth)
   const compact = Boolean(props.compact)
-  const classes = buttonClassName(variant, fullWidth, compact, props.className)
+  const shimmer = Boolean(props.shimmer)
+  const classes = buttonClassName(variant, fullWidth, compact, shimmer, props.className)
 
   if ('href' in props && props.href) {
     const { href, children } = props
@@ -67,9 +72,11 @@ export function Button(props: ButtonProps) {
 
   const buttonProps = props as ButtonAsButton
   const { type = 'button', disabled, children, ...rest } = buttonProps
+  const domProps = { ...rest }
+  delete domProps.shimmer
 
   return (
-    <button type={type} disabled={disabled} className={classes} {...rest}>
+    <button type={type} disabled={disabled} className={classes} {...domProps}>
       {children}
     </button>
   )
