@@ -2795,6 +2795,10 @@ model Supplier {
   address     String?
   note        String?
   marketId    String?
+  /// Days this supplier usually takes between a PO being raised and goods
+  /// landing. Nullable: unknown until an operator has measured it, and a
+  /// guessed number would silently drive a wrong ETA on every PO.
+  leadTimeDays Int?
   dueAmount   Decimal         @default(0) @db.Decimal(14, 2)
   paidAmount  Decimal         @default(0) @db.Decimal(14, 2)
   isActive    Boolean         @default(true)
@@ -2834,6 +2838,10 @@ model PurchaseOrder {
   poNumber    String
   status      PurchaseOrderStatus @default(DRAFT)
   purchasedAt DateTime            @default(now())
+  /// Expected delivery date (ETA). Typed at entry, or derived from the
+  /// supplier's lead time; editable afterwards because a supplier moving the
+  /// date is the normal case, not an exception.
+  expectedAt  DateTime?
   receivedAt  DateTime?
   subtotal    Decimal             @default(0) @db.Decimal(14, 2)
   discount    Decimal             @default(0) @db.Decimal(14, 2)
@@ -2861,6 +2869,7 @@ model PurchaseOrder {
   @@index([storeId, status])
   @@index([storeId, supplierId])
   @@index([storeId, purchasedAt])
+  @@index([storeId, expectedAt])
 }
 
 model PurchaseOrderItem {

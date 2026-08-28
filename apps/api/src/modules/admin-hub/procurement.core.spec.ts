@@ -2,9 +2,13 @@ import {
   applyPaymentToBalance,
   applyPurchaseToBalance,
   computePurchaseTotals,
+  describeEta,
   nextSequenceCode,
   normalizePhone,
   normalizePurchaseItems,
+  resolveExpectedAt,
+  reversePurchaseFromBalance,
+  reverseStockDelta,
   splitStockableItems,
 } from './procurement.core'
 
@@ -165,5 +169,71 @@ describe('splitStockableItems', () => {
     ])
     expect(stockable).toHaveLength(2)
     expect(skipped).toHaveLength(1)
+  })
+})
+
+describe('resolveExpectedAt', () => {
+  const purchasedAt = new Date('2026-08-28T10:00:00.000Z')
+
+  it('takes the typed date over the supplier lead time', () => {
+    const eta = resolveExpectedAt({ expectedAt: '2026-09-05', purchasedAt, leadTimeDays: 3 })
+    expect(eta?.toISOString().slice(0, 10)).toBe('2026-09-05')
+  })
+
+  it('derives one from the supplier lead time when none is typed', () => {
+    const eta = resolveExpectedAt({ purchasedAt, leadTimeDays: 6 })
+    expect(eta?.toISOString().slice(0, 10)).toBe('2026-09-03')
+  })
+
+  it('returns null rather than inventing a date', () => {
+    expect(resolveExpectedAt({ purchasedAt })).toBeNull()
+    expect(resolveExpectedAt({ purchasedAt, leadTimeDays: 0 })).toBeNull()
+    expect(resolveExpectedAt({ expectedAt: 'not-a-date', purchasedAt, leadTimeDays: 6 })).toBeNull()
+  })
+})
+
+describe('describeEta', () => {
+  const now = new Date('2026-08-28T18:30:00.000Z')
+
+  it('counts whole days, not hours, so an evening entry is not a day early', () => {
+    expect(describeEta('2026-08-29T02:00:00.000Z', now)).toEqual({ state: 'due', days: 1 })
+  })
+
+  it('reads today as today and a passed date as late', () => {
+    expect(describeEta('2026-08-28T06:00:00.000Z', now)).toEqual({ state: 'today', days: 0 })
+    expect(describeEta('2026-08-24T06:00:00.000Z', now)).toEqual({ state: 'late', days: 4 })
+  })
+
+  it('reports no state when the ETA was never captured', () => {
+    expect(describeEta(null, now)).toEqual({ state: 'none', days: 0 })
+    expect(describeEta('rubbish', now)).toEqual({ state: 'none', days: 0 })
+  })
+})
+
+describe('reversePurchaseFromBalance', () => {
+  it('removes exactly what the purchase still contributes', () => {
+    const balance = reversePurchaseFromBalance(
+      { dueAmount: 12_000, paidAmount: 8_000 },
+      { dueAmount: 3_500, paidAmount: 1_500 },
+    )
+    expect(balance).toEqual({ dueAmount: 8_500, paidAmount: 6_500 })
+  })
+
+  it('never drives a balance negative', () => {
+    const balance = reversePurchaseFromBalance(
+      { dueAmount: 100, paidAmount: 0 },
+      { dueAmount: 900, paidAmount: 400 },
+    )
+    expect(balance).toEqual({ dueAmount: 0, paidAmount: 0 })
+  })
+})
+
+describe('reverseStockDelta', () => {
+  it('takes the whole quantity back when it is still on the shelf', () => {
+    expect(reverseStockDelta(30, 12)).toEqual({ quantityAfter: 18, removed: 12 })
+  })
+
+  it('removes only what is there when some was already sold', () => {
+    expect(reverseStockDelta(4, 12)).toEqual({ quantityAfter: 0, removed: 4 })
   })
 })

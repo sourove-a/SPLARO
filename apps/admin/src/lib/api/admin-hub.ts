@@ -139,19 +139,63 @@ export function createAffiliate(data: { name: string; email?: string; code: stri
   return apiFetch('/admin/hub/marketing/affiliates', { method: 'POST', body: JSON.stringify(data) })
 }
 
-export function createSupplier(data: { name: string; phone?: string; email?: string; address?: string }) {
+export function createSupplier(data: {
+  name: string
+  phone?: string
+  email?: string
+  address?: string
+  leadTimeDays?: number | null
+}) {
   return apiFetch('/admin/hub/procurement/suppliers', { method: 'POST', body: JSON.stringify(data) })
+}
+
+/** Only succeeds for a supplier with no purchase orders and no payments. */
+export function deleteSupplier(id: string) {
+  return apiFetch<{ deleted: true; id: string; name: string }>(
+    `/admin/hub/procurement/suppliers/${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+  )
 }
 
 export function createPurchaseOrder(data: {
   supplierId: string
   notes?: string
+  expectedAt?: string | null
   items: { productName: string; sku?: string; quantity: number; unitCost: number }[]
 }) {
   return apiFetch<{ id: string; poNumber: string }>('/admin/hub/procurement/purchase-orders', {
     method: 'POST',
     body: JSON.stringify(data),
   })
+}
+
+/** Move the expected delivery date. `null` clears it. */
+export function updatePurchaseOrderEta(data: { id: string; expectedAt: string | null }) {
+  return apiFetch<{
+    purchaseOrder: { id: string; poNumber: string; status: string; expectedAt: string | null }
+    previousExpectedAt: string | null
+    eta: { state: 'none' | 'due' | 'today' | 'late'; days: number }
+  }>(`/admin/hub/procurement/purchase-orders/${encodeURIComponent(data.id)}/eta`, {
+    method: 'PATCH',
+    body: JSON.stringify({ expectedAt: data.expectedAt }),
+  })
+}
+
+/**
+ * Delete a PO raised by mistake. The API reverses the stock it added, the
+ * payments booked against it, and the supplier balance — the counts come back
+ * so the toast can state what actually moved.
+ */
+export function deletePurchaseOrder(data: { id: string }) {
+  return apiFetch<{
+    deleted: true
+    poNumber: string
+    supplier: { id: string; name: string; dueAmount: number; paidAmount: number }
+    reversedStockLines: number
+    unreturnedUnits: number
+    deletedPayments: number
+    deletedGrns: number
+  }>(`/admin/hub/procurement/purchase-orders/${encodeURIComponent(data.id)}`, { method: 'DELETE' })
 }
 
 export function receiveGoodsGrn(data: { purchaseOrderId: string; notes?: string }) {

@@ -56,6 +56,8 @@ export interface ProcurementSupplier {
   email: string | null
   dueAmount: string | number
   paidAmount: string | number
+  /** Measured days between raising a PO and stock landing. Null until captured. */
+  leadTimeDays?: number | null
   isActive: boolean
 }
 
@@ -65,6 +67,8 @@ export interface ProcurementOrder {
   status: string
   total: string | number
   createdAt: string
+  /** Expected delivery date. Null when neither typed nor derivable from a lead time. */
+  expectedAt?: string | null
   supplier: { name: string }
   items?: { id: string }[]
 }

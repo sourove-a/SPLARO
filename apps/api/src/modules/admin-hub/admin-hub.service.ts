@@ -12,10 +12,15 @@ import {
   applyPaymentToBalance,
   applyPurchaseToBalance,
   computePurchaseTotals,
+  describeEta,
   fromPaisa,
   nextSequenceCode,
   normalizePhone,
+  normalizeLeadTimeDays,
   normalizePurchaseItems,
+  resolveExpectedAt,
+  reversePurchaseFromBalance,
+  reverseStockDelta,
   splitStockableItems,
   type PurchaseItemInput,
 } from './procurement.core'
@@ -694,6 +699,7 @@ export class AdminHubService {
       address?: string
       note?: string
       marketId?: string
+      leadTimeDays?: number | null
       categoryIds?: string[]
     },
   ) {
@@ -745,6 +751,7 @@ export class AdminHubService {
         address: body.address?.trim() || null,
         note: body.note?.trim() || null,
         marketId: body.marketId?.trim() || null,
+        leadTimeDays: normalizeLeadTimeDays(body.leadTimeDays),
         categories: categoryIds.length
           ? { create: categoryIds.map((categoryId) => ({ categoryId })) }
           : undefined,
@@ -769,6 +776,7 @@ export class AdminHubService {
       address?: string
       note?: string
       marketId?: string | null
+      leadTimeDays?: number | null
       categoryIds?: string[]
       isActive?: boolean
     },
@@ -825,6 +833,8 @@ export class AdminHubService {
           address: body.address?.trim() ?? undefined,
           note: body.note?.trim() ?? undefined,
           marketId: body.marketId === undefined ? undefined : body.marketId || null,
+          leadTimeDays:
+            body.leadTimeDays === undefined ? undefined : normalizeLeadTimeDays(body.leadTimeDays),
           isActive: body.isActive ?? undefined,
         },
         include: {
@@ -841,6 +851,7 @@ export class AdminHubService {
       supplierId: string
       marketId?: string
       purchasedAt?: string
+      expectedAt?: string | null
       notes?: string
       discount?: number
       transportCost?: number
@@ -901,6 +912,17 @@ export class AdminHubService {
       throw new BadRequestException('purchasedAt is not a valid date')
     }
 
+    if (body.expectedAt && Number.isNaN(new Date(body.expectedAt).getTime())) {
+      throw new BadRequestException('expectedAt is not a valid date')
+    }
+    // Falls back to the supplier's lead time, so a shop that has measured one
+    // gets an ETA on every PO without typing it.
+    const expectedAt = resolveExpectedAt({
+      ...(body.expectedAt === undefined ? {} : { expectedAt: body.expectedAt }),
+      purchasedAt,
+      leadTimeDays: supplier.leadTimeDays,
+    })
+
     const existingNumbers = await this.prisma.purchaseOrder.findMany({
       where: { storeId },
       select: { poNumber: true },
@@ -919,6 +941,7 @@ export class AdminHubService {
           poNumber,
           status: 'DRAFT',
           purchasedAt,
+          expectedAt,
           subtotal: totals.subtotal,
           discount: totals.discount,
           transportCost: totals.transportCost,
@@ -1102,6 +1125,203 @@ export class AdminHubService {
         skippedLines: skipped.length + (stockable.length - stockedLines),
       }
     })
+  }
+
+  /**
+   * Move a purchase order's ETA.
+   *
+   * Its own endpoint rather than a general PO patch: the supplier ringing to
+   * say "two days late" is the one edit an operator makes to a raised PO, and
+   * it must not carry the risk of rewriting money fields.
+   */
+  async updatePurchaseOrderEta(
+    storeIdOrSlug: string,
+    purchaseOrderId: string,
+    body: { expectedAt?: string | null },
+  ) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const po = await this.prisma.purchaseOrder.findFirst({
+      where: { id: purchaseOrderId, storeId },
+      select: { id: true, poNumber: true, expectedAt: true, status: true },
+    })
+    if (!po) throw new NotFoundException('Purchase order not found')
+
+    const raw = body.expectedAt
+    // An empty string is the date input cleared, which means "no ETA known" —
+    // not "today", which is what `new Date('')` would otherwise produce.
+    const expectedAt = raw === null || raw === undefined || raw === '' ? null : new Date(raw)
+    if (expectedAt && Number.isNaN(expectedAt.getTime())) {
+      throw new BadRequestException('expectedAt is not a valid date')
+    }
+
+    const updated = await this.prisma.purchaseOrder.update({
+      where: { id: po.id },
+      data: { expectedAt },
+      select: { id: true, poNumber: true, status: true, expectedAt: true },
+    })
+    // The caller gets the same "in 3 days / 2 days late" reading the screen
+    // shows, rather than each consumer re-deriving it from the raw timestamp.
+    return {
+      purchaseOrder: updated,
+      previousExpectedAt: po.expectedAt,
+      eta: describeEta(updated.expectedAt),
+    }
+  }
+
+  /**
+   * Delete a purchase order raised by mistake, unwinding everything it did.
+   *
+   * A PO is not an inert row: raising one moved the supplier balance and wrote
+   * a ledger entry, and receiving it added stock. Deleting the row alone would
+   * leave a supplier owed money for a purchase that no longer exists, so the
+   * whole chain is reversed inside one transaction — stock first, then the
+   * payments booked against it, then the balance.
+   */
+  async deletePurchaseOrder(
+    storeIdOrSlug: string,
+    purchaseOrderId: string,
+    options: { deletedBy?: string } = {},
+  ) {
+    const storeId = await this.sid(storeIdOrSlug)
+
+    return this.prisma.$transaction(async (tx) => {
+      const po = await tx.purchaseOrder.findFirst({
+        where: { id: purchaseOrderId, storeId },
+        include: { items: true, supplier: true, grns: { select: { grnNumber: true } } },
+      })
+      if (!po) throw new NotFoundException('Purchase order not found')
+
+      const deletedBy = options.deletedBy?.trim() || null
+      const note = `PO ${po.poNumber} deleted${deletedBy ? ` by ${deletedBy}` : ''}`
+      let reversedLines = 0
+      let unreturnedUnits = 0
+
+      if (po.stockApplied) {
+        // Same variant resolution the receive used, so exactly the lines that
+        // added stock are the lines that give it back.
+        const { stockable } = splitStockableItems(po.items)
+        for (const item of stockable) {
+          const variant = item.variantId
+            ? await tx.productVariant.findFirst({
+                where: { id: item.variantId, product: { storeId } },
+                select: { id: true, sku: true, stock: true, productId: true },
+              })
+            : await tx.productVariant.findFirst({
+                where: { sku: item.sku ?? undefined, product: { storeId } },
+                select: { id: true, sku: true, stock: true, productId: true },
+              })
+          if (!variant) continue
+
+          const quantityBefore = variant.stock
+          const { quantityAfter, removed } = reverseStockDelta(quantityBefore, item.quantity)
+          unreturnedUnits += item.quantity - removed
+          if (removed === 0) continue
+
+          await tx.productVariant.update({
+            where: { id: variant.id },
+            data: { stock: quantityAfter },
+          })
+          await tx.stockMovementLog.create({
+            data: {
+              storeId,
+              variantId: variant.id,
+              sku: variant.sku,
+              // ADJUSTMENT, not PURCHASE: this is a correction of a mistaken
+              // entry, and reporting must not read it as buying goods back.
+              reason: 'ADJUSTMENT',
+              quantityBefore,
+              quantityAfter,
+              delta: -removed,
+              note,
+              changedBy: deletedBy,
+            },
+          })
+          await tx.inventoryLog.create({
+            data: {
+              productId: variant.productId,
+              variantId: variant.id,
+              action: 'ADJUSTMENT',
+              quantity: -removed,
+              stockBefore: quantityBefore,
+              stockAfter: quantityAfter,
+              note,
+              createdBy: deletedBy,
+            },
+          })
+          reversedLines += 1
+        }
+      }
+
+      const payments = await tx.supplierPayment.deleteMany({
+        where: { purchaseOrderId: po.id },
+      })
+
+      const balance = reversePurchaseFromBalance(
+        { dueAmount: Number(po.supplier.dueAmount), paidAmount: Number(po.supplier.paidAmount) },
+        { dueAmount: Number(po.dueAmount), paidAmount: Number(po.paidAmount) },
+      )
+      await tx.supplier.update({
+        where: { id: po.supplierId },
+        data: { dueAmount: balance.dueAmount, paidAmount: balance.paidAmount },
+      })
+      // The ledger keeps the reversal rather than dropping the PURCHASE row:
+      // the supplier's history has to explain why the balance moved back.
+      await tx.supplierLedgerEntry.create({
+        data: {
+          supplierId: po.supplierId,
+          type: 'REVERSAL',
+          amount: Number(po.total),
+          balance: balance.dueAmount,
+          // Spells out both halves: the earlier PURCHASE and PAYMENT rows stay
+          // in the ledger, so without this the balance appears to jump.
+          note: `${note} · reversed ${Number(po.dueAmount)} due and ${Number(po.paidAmount)} paid`,
+        },
+      })
+
+      // Items and GRNs cascade on the PO row.
+      await tx.purchaseOrder.delete({ where: { id: po.id } })
+
+      return {
+        deleted: true as const,
+        poNumber: po.poNumber,
+        supplier: { id: po.supplierId, name: po.supplier.name, ...balance },
+        reversedStockLines: reversedLines,
+        // Sold before the mistake was spotted, so the shelf cannot give it
+        // back. Surfaced instead of silently clamped.
+        unreturnedUnits,
+        deletedPayments: payments.count,
+        deletedGrns: po.grns.length,
+      }
+    })
+  }
+
+  /**
+   * Delete a supplier added by mistake.
+   *
+   * Only while nothing hangs off it. A supplier with purchase history is not a
+   * typo — deleting it would orphan the money already recorded against it — so
+   * that case is refused with the counts, and the caller archives instead.
+   */
+  async deleteSupplier(storeIdOrSlug: string, supplierId: string) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const supplier = await this.prisma.supplier.findFirst({
+      where: { id: supplierId, storeId },
+      select: { id: true, name: true },
+    })
+    if (!supplier) throw new NotFoundException('Supplier not found')
+
+    const [purchaseOrders, payments] = await Promise.all([
+      this.prisma.purchaseOrder.count({ where: { storeId, supplierId: supplier.id } }),
+      this.prisma.supplierPayment.count({ where: { supplierId: supplier.id } }),
+    ])
+    if (purchaseOrders > 0 || payments > 0) {
+      throw new BadRequestException(
+        `"${supplier.name}" has ${purchaseOrders} purchase order(s) and ${payments} payment(s) on file. Delete those first, or archive the supplier instead.`,
+      )
+    }
+
+    await this.prisma.supplier.delete({ where: { id: supplier.id } })
+    return { deleted: true as const, id: supplier.id, name: supplier.name }
   }
 
   async recordSupplierPayment(
