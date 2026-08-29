@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 
@@ -25,11 +25,11 @@ import { categoryTreeRoots } from '@/lib/admin/category-tree-roots'
 import {
   createCategory,
   deleteCategory,
-  fetchCategoryTree,
   reorderCategories,
   updateCategory,
   type CategoryTreeNode,
 } from '@/lib/api/categories'
+import { CATEGORY_WEB_TAGS, useCategoryTree } from '@/lib/api/hooks'
 import { revalidateWebCache } from '@/lib/api/revalidate'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 
@@ -67,11 +67,9 @@ function DcCategoriesBody() {
   const [form, setForm] = useState({ name: '', description: '', parentId: '' })
   const [busy, setBusy] = useState<'create' | 'toggle' | 'delete' | 'reorder' | null>(null)
 
-  const tree = useQuery({
-    queryKey: ['category-tree'],
-    queryFn: fetchCategoryTree,
-    staleTime: 30_000,
-  })
+  // Same query key the product form reads (`useCategoryTree`) — a separate key
+  // here meant a category created on this screen never reached "Add product".
+  const tree = useCategoryTree()
   const { api } = useAdminConnection(25_000)
 
   const roots = useMemo(() => categoryTreeRoots(tree.data), [tree.data])
@@ -86,9 +84,11 @@ function DcCategoriesBody() {
   const emptyCats = rows.filter((r) => (r.node._count?.products ?? 0) === 0).length
   const totalProducts = rows.reduce((sum, r) => sum + (r.node._count?.products ?? 0), 0)
 
+  // `['categories']` is the prefix of both the flat list and the tree, so one
+  // call refreshes every screen that reads categories, this one included.
   const afterCatalogWrite = () => {
-    void qc.invalidateQueries({ queryKey: ['category-tree'] })
-    void revalidateWebCache(['storefront-products', 'storefront-settings'])
+    void qc.invalidateQueries({ queryKey: ['categories'] })
+    void revalidateWebCache(CATEGORY_WEB_TAGS)
   }
 
   const runToggle = async (id: string, isActive: boolean) => {
@@ -513,7 +513,11 @@ function DcCategoriesBody() {
         title={removing ? `Delete ${removing.name}?` : 'Delete category'}
         subtitle={
           removing
-            ? `${removing._count?.products ?? 0} product(s) will be left uncategorised. This cannot be undone.`
+            ? (removing._count?.products ?? 0) > 0
+              ? `${removing._count?.products} product(s) still sit here — move them to another category first, or the server will refuse the delete.`
+              : (removing.children?.length ?? 0) > 0
+                ? `Its ${removing.children?.length} subcategor${(removing.children?.length ?? 0) === 1 ? 'y' : 'ies'} become top-level categories. This cannot be undone.`
+                : 'This cannot be undone.'
             : undefined
         }
         confirmLabel="Delete category"

@@ -1641,6 +1641,19 @@ export function useCategoryTree() {
   })
 }
 
+/**
+ * A category write moves the storefront menu, the category tiles and the
+ * product listings — busting only the product cache left the menu showing
+ * yesterday's tree.
+ */
+export const CATEGORY_WEB_TAGS = [
+  'storefront-categories',
+  'storefront-menu-header',
+  'storefront-nav',
+  'storefront-products',
+  'storefront-settings',
+]
+
 export function useSeedDefaultCategories() {
   const qc = useQueryClient()
   return useMutation({
@@ -1648,7 +1661,7 @@ export function useSeedDefaultCategories() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['categories'] })
       void qc.invalidateQueries({ queryKey: ['categories', 'tree'] })
-      void revalidateWebCache(['storefront-products', 'storefront-settings'])
+      void revalidateWebCache(CATEGORY_WEB_TAGS)
     },
   })
 }
@@ -1661,7 +1674,7 @@ export function useCreateCategory() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['categories'] })
       void qc.invalidateQueries({ queryKey: ['categories', 'tree'] })
-      void revalidateWebCache(['storefront-products', 'storefront-settings'])
+      void revalidateWebCache(CATEGORY_WEB_TAGS)
     },
   })
 }
@@ -1673,7 +1686,7 @@ export function useReorderCategories() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['categories'] })
       void qc.invalidateQueries({ queryKey: ['categories', 'tree'] })
-      void revalidateWebCache(['storefront-products', 'storefront-settings'])
+      void revalidateWebCache(CATEGORY_WEB_TAGS)
     },
   })
 }
@@ -1694,7 +1707,7 @@ export function useUpdateCategory() {
       void qc.invalidateQueries({ queryKey: ['categories'] })
       void qc.invalidateQueries({ queryKey: ['categories', 'tree'] })
       void qc.invalidateQueries({ queryKey: ['platform-media'] })
-      void revalidateWebCache(['storefront-products', 'storefront-settings'])
+      void revalidateWebCache(CATEGORY_WEB_TAGS)
     },
   })
 }
@@ -1706,7 +1719,7 @@ export function useDeleteCategory() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['categories'] })
       void qc.invalidateQueries({ queryKey: ['categories', 'tree'] })
-      void revalidateWebCache(['storefront-products', 'storefront-settings'])
+      void revalidateWebCache(CATEGORY_WEB_TAGS)
     },
   })
 }

@@ -29,6 +29,39 @@ export class CategoriesController {
     })
   }
 
+  /** A parent must be a live category on this store, never a foreign id. */
+  private async assertParent(storeId: string, parentId: string): Promise<void> {
+    const parent = await this.prisma.category.findFirst({
+      where: { id: parentId, storeId },
+      select: { id: true },
+    })
+    if (!parent) {
+      throw new BadRequestException('Parent category not found on this store.')
+    }
+  }
+
+  /**
+   * Re-parenting a category under its own descendant would make a cycle: the
+   * loop has no root, so every category in it disappears from the tree — and
+   * from the product form with it.
+   */
+  private async assertNotDescendant(storeId: string, id: string, parentId: string): Promise<void> {
+    const rows = await this.prisma.category.findMany({
+      where: { storeId },
+      select: { id: true, parentId: true },
+    })
+    const parentOf = new Map(rows.map((row) => [row.id, row.parentId]))
+    const seen = new Set<string>()
+    let current: string | null = parentId
+    while (current && !seen.has(current)) {
+      if (current === id) {
+        throw new BadRequestException('Category cannot move under one of its own subcategories.')
+      }
+      seen.add(current)
+      current = parentOf.get(current) ?? null
+    }
+  }
+
   @Get('tree')
   async tree(@Query('storeId') storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
@@ -57,15 +90,19 @@ export class CategoriesController {
     @Body() body: { name: string; description?: string; parentId?: string; sortOrder?: number; image?: string },
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
-    let slug = slugify(body.name)
+    const name = body.name?.trim() ?? ''
+    if (!name) throw new BadRequestException('Category name is required.')
+    const parentId = body.parentId?.trim() || null
+    if (parentId) await this.assertParent(sid, parentId)
+    let slug = slugify(name)
     const existing = await this.prisma.category.findUnique({
       where: { storeId_slug: { storeId: sid, slug } },
     })
     if (existing) slug = `${slug}-${Date.now().toString(36)}`
 
-    const maxSort = body.parentId
+    const maxSort = parentId
       ? await this.prisma.category.aggregate({
-          where: { storeId: sid, parentId: body.parentId },
+          where: { storeId: sid, parentId },
           _max: { sortOrder: true },
         })
       : await this.prisma.category.aggregate({
@@ -73,9 +110,9 @@ export class CategoriesController {
           _max: { sortOrder: true },
         })
 
-    const parentLabels = body.parentId
+    const parentLabels = parentId
       ? await this.prisma.category
-          .findUnique({ where: { id: body.parentId }, select: { name: true, slug: true } })
+          .findUnique({ where: { id: parentId }, select: { name: true, slug: true } })
           .then((row) => [row?.name, row?.slug])
       : []
 
@@ -85,17 +122,17 @@ export class CategoriesController {
     const category = await this.prisma.$transaction(async (tx) => {
       const code = await issueCategoryCode(tx, {
         storeId: sid,
-        labels: [body.name, slug],
+        labels: [name, slug],
         department: parentLabels,
       })
       const created = await tx.category.create({
         data: {
           storeId: sid,
-          name: body.name,
+          name,
           slug,
           code,
           description: body.description,
-          parentId: body.parentId,
+          parentId,
           image: body.image,
           sortOrder: body.sortOrder ?? (maxSort._max.sortOrder ?? 0) + 1,
         },
@@ -130,6 +167,11 @@ export class CategoriesController {
     if (body.parentId === id) {
       throw new BadRequestException('Category cannot be its own parent.')
     }
+    const nextParentId = body.parentId === undefined ? undefined : body.parentId?.trim() || null
+    if (nextParentId) {
+      await this.assertParent(sid, nextParentId)
+      await this.assertNotDescendant(sid, id, nextParentId)
+    }
 
     const updated = await this.prisma.category.update({
       where: { id },
@@ -138,7 +180,7 @@ export class CategoriesController {
         ...(body.description !== undefined ? { description: body.description } : {}),
         ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
         ...(body.image !== undefined ? { image: body.image } : {}),
-        ...(body.parentId !== undefined ? { parentId: body.parentId } : {}),
+        ...(nextParentId !== undefined ? { parentId: nextParentId } : {}),
         ...(body.sortOrder !== undefined ? { sortOrder: body.sortOrder } : {}),
       },
       include: { _count: { select: { products: true } } },

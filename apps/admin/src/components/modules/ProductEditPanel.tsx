@@ -423,8 +423,10 @@ export function ProductEditPanel({
     }
     const children = categoryPicker.childrenOf(categoryId)
     if (children.length > 0) {
+      // Open the next level but keep this one selected — clearing it left the
+      // product with no category at all if the operator stopped here.
       setSubDepartmentId(categoryId)
-      set('categoryId', '')
+      selectCategory(categoryId)
       return
     }
     setSubDepartmentId('')
@@ -1151,21 +1153,48 @@ export function ProductEditPanel({
                 </span>
               ) : (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {(subDepartments.length > 0 ? subDepartments : subcategories).map((c) => (
+                  {subcategories.map((c) => (
                     <DcChip
                       key={c.id}
                       on={form.categoryId === c.id || subDepartmentId === c.id}
-                      onClick={() =>
-                        subDepartments.length > 0
-                          ? handleSubTypeChange(c.id)
-                          : handleSubcategoryChange(c.id)
-                      }
+                      onClick={() => handleSubcategoryChange(c.id)}
                     >
                       {c.name}
                     </DcChip>
                   ))}
+                  {subcategories.length === 0 ? (
+                    <span style={{ font: `500 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                      No categories under this menu yet.
+                    </span>
+                  ) : null}
                 </div>
               )}
+              {subDepartments.length > 0 ? (
+                <>
+                  <span
+                    style={{
+                      font: `600 10.5px/1 ${FONT}`,
+                      letterSpacing: '.09em',
+                      textTransform: 'uppercase',
+                      color: 'var(--ink-3)',
+                      paddingTop: 4,
+                    }}
+                  >
+                    Step 3 · Type in {categories.find((c) => c.id === subDepartmentId)?.name ?? ''}
+                  </span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {subDepartments.map((c) => (
+                      <DcChip
+                        key={c.id}
+                        on={form.categoryId === c.id}
+                        onClick={() => handleSubTypeChange(c.id)}
+                      >
+                        {c.name}
+                      </DcChip>
+                    ))}
+                  </div>
+                </>
+              ) : null}
             </div>
           </DcSectionCard>
 

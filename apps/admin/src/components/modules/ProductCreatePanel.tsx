@@ -519,9 +519,11 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     }
     const children = categoryPicker.childrenOf(categoryId)
     if (children.length > 0) {
-      // Has its own children (e.g. Kids → Girls Wear) — drill one more level, don't finalize yet.
+      // Has its own children (e.g. Kids → Girls Wear) — open the next level but
+      // keep this one selected, so the product is filed even if the operator
+      // never picks a narrower type.
       setSubDepartmentId(categoryId)
-      set('categoryId', '')
+      selectCategory(categoryId)
       return
     }
     setSubDepartmentId('')
@@ -1210,26 +1212,48 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                 </span>
               ) : (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {(subDepartments.length > 0 ? subDepartments : subcategories).map((c) => (
+                  {subcategories.map((c) => (
                     <DcChip
                       key={c.id}
                       on={form.categoryId === c.id || subDepartmentId === c.id}
-                      onClick={() =>
-                        subDepartments.length > 0
-                          ? handleSubTypeChange(c.id)
-                          : handleSubcategoryChange(c.id)
-                      }
+                      onClick={() => handleSubcategoryChange(c.id)}
                     >
                       {c.name}
                     </DcChip>
                   ))}
-                  {departmentId && subcategories.length === 0 && !catsLoading ? (
+                  {subcategories.length === 0 && !catsLoading ? (
                     <span style={{ font: `500 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>
                       No categories under this menu yet.
                     </span>
                   ) : null}
                 </div>
               )}
+              {subDepartments.length > 0 ? (
+                <>
+                  <span
+                    style={{
+                      font: `600 10.5px/1 ${FONT}`,
+                      letterSpacing: '.09em',
+                      textTransform: 'uppercase',
+                      color: 'var(--ink-3)',
+                      paddingTop: 4,
+                    }}
+                  >
+                    Step 3 · Type in {categories.find((c) => c.id === subDepartmentId)?.name ?? ''}
+                  </span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {subDepartments.map((c) => (
+                      <DcChip
+                        key={c.id}
+                        on={form.categoryId === c.id}
+                        onClick={() => handleSubTypeChange(c.id)}
+                      >
+                        {c.name}
+                      </DcChip>
+                    ))}
+                  </div>
+                </>
+              ) : null}
               {departmentId && sizeList.length > 0 ? (
                 <span style={{ font: `400 11.5px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
                   Suggested sizes: {sizeList.slice(0, 6).join(', ')}
