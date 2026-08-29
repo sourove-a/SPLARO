@@ -9,7 +9,15 @@ export async function assertStoreCategoryId(
   prisma: PrismaService,
   storeId: string,
   categoryId: string | null | undefined,
-  options?: { required?: boolean },
+  options?: {
+    required?: boolean
+    /**
+     * The category the record already carries. Hiding a category must not brick
+     * every product already filed under it — an edit that leaves the category
+     * untouched is allowed through, only a *move* into a hidden category is not.
+     */
+    keepId?: string | null
+  },
 ): Promise<string | null> {
   const trimmed = categoryId?.trim() || ''
   if (!trimmed) {
@@ -28,7 +36,7 @@ export async function assertStoreCategoryId(
       'Invalid category — choose an existing category for this store. No fallback is applied.',
     )
   }
-  if (!category.isActive) {
+  if (!category.isActive && category.id !== (options?.keepId?.trim() || '')) {
     throw new BadRequestException(
       `Category "${category.slug}" is inactive — pick an active category. No fallback is applied.`,
     )

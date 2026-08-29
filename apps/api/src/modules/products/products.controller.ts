@@ -989,7 +989,9 @@ export class ProductsController {
 
     const nextCategoryId =
       body.categoryId !== undefined
-        ? await assertStoreCategoryId(this.prisma, existing.storeId, body.categoryId)
+        ? await assertStoreCategoryId(this.prisma, existing.storeId, body.categoryId, {
+            keepId: existing.categoryId,
+          })
         : undefined
 
     // `null` clears the brand; omitting the key leaves it untouched.

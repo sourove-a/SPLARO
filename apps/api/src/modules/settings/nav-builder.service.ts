@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common'
 import { DEPARTMENT_SLUGS, departmentHref, LOCAL_EDITORIAL } from '@splaro/config'
-import { buildCategoryTree, type CategoryTreeNode } from '../../common/category-tree.util'
+import {
+  buildCategoryTree,
+  visibleCategoryRows,
+  type CategoryTreeNode,
+} from '../../common/category-tree.util'
 import { PrismaService } from '../../common/prisma.service'
 import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
 import type {
@@ -175,8 +179,8 @@ export class NavBuilderService {
     const overrides = config.menuOverrides ?? { autoSync: true, hideEmptyCategories: true }
     const hideEmpty = overrides.hideEmptyCategories !== false
 
-    const flat = await this.prisma.category.findMany({
-      where: { storeId, isActive: true },
+    const rows = await this.prisma.category.findMany({
+      where: { storeId },
       include: {
         _count: {
           select: {
@@ -187,6 +191,9 @@ export class NavBuilderService {
       orderBy: { sortOrder: 'asc' },
     })
 
+    // One visibility rule with the storefront category tree: a hidden parent
+    // takes its branch with it instead of orphaning it into a root.
+    const flat = visibleCategoryRows(rows)
     const tree = buildCategoryTree(flat)
     const deptBySlug = new Map(tree.filter((n) => !n.parentId).map((n) => [n.slug, n]))
     const accessoriesCount = deptBySlug.get('accessories')
