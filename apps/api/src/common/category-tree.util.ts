@@ -66,3 +66,37 @@ export function pruneEmptyCategoryNodes<
   }
   return kept
 }
+
+/**
+ * Keep only the categories whose whole ancestor chain is visible.
+ *
+ * Hiding a department has to hide what sits under it. Filtering the rows by
+ * `isActive` in the query instead does the opposite: the children lose their
+ * parent, `buildCategoryTree` cannot nest them, and they surface on the
+ * storefront as top-level categories — the one place the hidden branch was
+ * supposed to disappear from.
+ */
+export function visibleCategoryRows<
+  T extends { id: string; parentId: string | null; isActive?: boolean },
+>(flat: T[]): T[] {
+  const byId = new Map(flat.map((row) => [row.id, row]))
+  const visible = new Map<string, boolean>()
+
+  const isVisible = (row: T): boolean => {
+    const cached = visible.get(row.id)
+    if (cached !== undefined) return cached
+    // Set before recursing so a cycle in the data cannot hang the request.
+    visible.set(row.id, false)
+    let ok = row.isActive !== false
+    if (ok && row.parentId) {
+      const parent = byId.get(row.parentId)
+      // A parent that is not in the set at all (deleted mid-request) leaves the
+      // row as a root rather than hiding it.
+      ok = parent ? isVisible(parent) : true
+    }
+    visible.set(row.id, ok)
+    return ok
+  }
+
+  return flat.filter((row) => isVisible(row))
+}

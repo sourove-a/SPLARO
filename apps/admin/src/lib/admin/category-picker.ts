@@ -166,22 +166,26 @@ interface CategoryIndex {
 function indexCategories(
   categories: CategoryPickerRow[],
   treeRoots?: CategoryPickerRow[],
+  keepIds?: Set<string>,
 ): CategoryIndex {
   const rows = new Map<string, CategoryPickerRow>()
   const parentOf = new Map<string, string | null>()
+  const include = (row: CategoryPickerRow) => row.isActive !== false || keepIds?.has(row.id) === true
 
   const visit = (nodes: CategoryPickerRow[] | undefined, parentId: string | null) => {
     for (const node of nodes ?? []) {
-      if (node.isActive === false) continue
+      // A hidden branch is walked anyway: a product already filed inside it
+      // must still show its own category, or the form silently reassigns it.
+      visit(node.children, node.id)
+      if (!include(node)) continue
       rows.set(node.id, node)
       parentOf.set(node.id, parentId)
-      visit(node.children, node.id)
     }
   }
   visit(treeRoots, null)
 
   for (const row of categories) {
-    if (row.isActive === false) continue
+    if (!include(row)) continue
     if (!rows.has(row.id)) rows.set(row.id, row)
     if (!parentOf.has(row.id)) parentOf.set(row.id, row.parentId ?? null)
   }
@@ -205,8 +209,16 @@ function indexCategories(
   return { rows, parentOf, childrenOf, roots }
 }
 
-export function buildCategoryPicker(categories: CategoryPickerRow[], treeRoots?: CategoryPickerRow[]) {
-  const index = indexCategories(categories, treeRoots)
+export function buildCategoryPicker(
+  categories: CategoryPickerRow[],
+  treeRoots?: CategoryPickerRow[],
+  options?: {
+    /** Categories to keep even when hidden — the one a product already carries. */
+    keepIds?: (string | null | undefined)[]
+  },
+) {
+  const keepIds = new Set((options?.keepIds ?? []).filter(Boolean) as string[])
+  const index = indexCategories(categories, treeRoots, keepIds)
   const { rows, parentOf, childrenOf, roots } = index
 
   const knownDeptRoots = roots.filter(isMenuDepartment)

@@ -19,7 +19,7 @@ const TREE = [
   { id: 'single', parentId: 'kameez', storeId: STORE.id },
 ]
 
-function buildController(rows = TREE) {
+function buildController(rows = TREE, productCount = 0, childCount = 0) {
   const created = jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
     id: 'new',
     ...data,
@@ -33,17 +33,30 @@ function buildController(rows = TREE) {
     store: { findFirst: jest.fn().mockResolvedValue(STORE) },
     category: {
       findMany: jest.fn().mockResolvedValue(rows),
-      findFirst: jest.fn(({ where }: { where: { id: string; storeId: string } }) =>
-        Promise.resolve(
-          rows.find((row) => row.id === where.id && row.storeId === where.storeId) ?? null,
-        ),
-      ),
+      findFirst: jest.fn(({ where }: { where: { id: string; storeId: string } }) => {
+        const row = rows.find((r) => r.id === where.id && r.storeId === where.storeId)
+        if (!row) return Promise.resolve(null)
+        return Promise.resolve({
+          ...row,
+          name: row.id,
+          _count: { products: productCount, children: childCount },
+        })
+      }),
       findUnique: jest.fn().mockResolvedValue(null),
       aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: 3 } }),
       update,
+      updateMany: jest.fn().mockResolvedValue({ count: childCount }),
+      delete: jest.fn().mockResolvedValue({ id: 'kameez' }),
     },
-    $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-      fn({ category: { create: created }, $executeRaw: jest.fn() }),
+    product: { groupBy: jest.fn().mockResolvedValue([]) },
+    $executeRaw: jest.fn().mockResolvedValue(1),
+    $transaction: jest.fn(async (arg: unknown) =>
+      typeof arg === 'function'
+        ? (arg as (tx: unknown) => Promise<unknown>)({
+            category: { create: created },
+            $executeRaw: jest.fn(),
+          })
+        : Promise.all(arg as Promise<unknown>[]),
     ),
   } as unknown as PrismaService
 
@@ -117,5 +130,58 @@ describe('CategoriesController', () => {
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ parentId: null }) }),
     )
+  })
+
+  it('numbers a duplicate slug instead of stamping it with a timestamp', async () => {
+    const { controller, created } = buildController()
+    // "saree" is taken, "saree-2" is not.
+    ;(controller as unknown as {
+      prisma: { category: { findMany: jest.Mock } }
+    }).prisma.category.findMany.mockResolvedValueOnce([{ slug: 'saree' }])
+
+    const row = (await controller.create('splaro', { name: 'Saree' })) as { slug: string }
+
+    expect(row.slug).toBe('saree-2')
+    expect(created).toHaveBeenCalledTimes(1)
+  })
+
+  it('refuses a delete while any product is still filed in the category', async () => {
+    const { controller } = buildController(TREE, 3)
+
+    await expect(controller.remove('kameez', 'splaro')).rejects.toThrow(/3 product/)
+  })
+
+  it('detaches children before deleting so the branch is never cascaded away', async () => {
+    const { controller } = buildController(TREE, 0, 2)
+    const prisma = (controller as unknown as {
+      prisma: { category: { updateMany: jest.Mock; delete: jest.Mock } }
+    }).prisma
+
+    await controller.remove('kameez', 'splaro')
+
+    expect(prisma.category.updateMany).toHaveBeenCalledWith({
+      where: { parentId: 'kameez' },
+      data: { parentId: null },
+    })
+    expect(prisma.category.delete).toHaveBeenCalledWith({ where: { id: 'kameez' } })
+    // Detach and delete go out together, so a failed delete cannot orphan them.
+    expect(
+      (controller as unknown as { prisma: { $transaction: jest.Mock } }).prisma.$transaction,
+    ).toHaveBeenCalledWith([expect.anything(), expect.anything()])
+  })
+
+  it('refuses a reorder that names a category from another store', async () => {
+    const { controller } = buildController()
+    const prisma = (controller as unknown as {
+      prisma: { category: { findMany: jest.Mock } }
+    }).prisma
+    prisma.category.findMany.mockResolvedValueOnce([{ id: 'women' }])
+
+    await expect(
+      controller.reorder('splaro', [
+        { id: 'women', sortOrder: 0 },
+        { id: 'foreign', sortOrder: 1 },
+      ]),
+    ).rejects.toThrow(BadRequestException)
   })
 })

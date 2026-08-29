@@ -9,7 +9,10 @@ export interface CategoryRow {
   sortOrder?: number
   isActive?: boolean
   description?: string | null
+  /** Live products only — this is what the storefront shows. */
   _count?: { products: number }
+  /** Every product filed here, draft and archived included. Blocks a delete. */
+  totalProducts?: number
 }
 
 export interface CategoryTreeNode extends CategoryRow {

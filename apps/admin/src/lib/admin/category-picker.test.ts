@@ -130,4 +130,45 @@ describe('buildCategoryPicker', () => {
       ['women', 'men', 'gift'],
     )
   })
+
+  it('hides an inactive category', () => {
+    const rows: CategoryPickerRow[] = [
+      WOMEN,
+      { id: 'kameez', name: 'Kameez', slug: 'kameez', parentId: 'women' },
+      { id: 'retired', name: 'Retired', slug: 'retired', parentId: 'women', isActive: false },
+    ]
+    const picker = buildCategoryPicker(rows, tree(rows))
+
+    assert.deepEqual(
+      picker.subcategoriesForDepartment('women').map((c) => c.id),
+      ['kameez'],
+    )
+  })
+
+  it('keeps a hidden category the product is already filed under', () => {
+    const rows: CategoryPickerRow[] = [
+      WOMEN,
+      { id: 'kameez', name: 'Kameez', slug: 'kameez', parentId: 'women' },
+      { id: 'retired', name: 'Retired', slug: 'retired', parentId: 'women', isActive: false },
+    ]
+    const picker = buildCategoryPicker(rows, tree(rows), { keepIds: ['retired'] })
+
+    assert.deepEqual(
+      picker.subcategoriesForDepartment('women').map((c) => c.id).sort(),
+      ['kameez', 'retired'],
+    )
+    assert.equal(picker.departmentForCategory('retired'), 'women')
+  })
+
+  it('keeps a product filed deep inside a hidden branch reachable', () => {
+    const rows: CategoryPickerRow[] = [
+      WOMEN,
+      { id: 'archive', name: 'Archive', slug: 'archive', parentId: 'women', isActive: false },
+      { id: 'vintage', name: 'Vintage', slug: 'vintage', parentId: 'archive' },
+    ]
+    const picker = buildCategoryPicker(rows, tree(rows), { keepIds: ['vintage'] })
+
+    // Its hidden parent is gone, so it stands on its own rather than vanishing.
+    assert.ok(picker.departments.some((d) => d.id === 'vintage'))
+  })
 })

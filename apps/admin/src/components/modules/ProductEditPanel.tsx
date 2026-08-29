@@ -180,9 +180,11 @@ export function ProductEditPanel({
     publishAt: '',
   })
 
+  // The product's own category is kept in the picker even when it is hidden,
+  // so an edit does not quietly drop the category it was filed under.
   const categoryPicker = useMemo(
-    () => buildCategoryPicker(categories, categoryTreeData?.tree),
-    [categories, categoryTreeData?.tree],
+    () => buildCategoryPicker(categories, categoryTreeData?.tree, { keepIds: [form.categoryId] }),
+    [categories, categoryTreeData?.tree, form.categoryId],
   )
 
   const subcategories = useMemo(

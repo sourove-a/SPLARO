@@ -47,6 +47,7 @@ import {
   buildCategoryTree,
   collectDescendantIds,
   pruneEmptyCategoryNodes,
+  visibleCategoryRows,
 } from '../../common/category-tree.util'
 import { CacheService } from '../../common/cache.service'
 import {
@@ -1363,8 +1364,8 @@ export class StorefrontController {
   async listCategories(@Query('storeId') storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
     return this.cache.getOrSet(this.cache.storeKey(sid, 'categories'), CATALOG_CACHE_TTL.categories, async () => {
-      const categories = await this.prisma.category.findMany({
-        where: { storeId: sid, isActive: true },
+      const rows = await this.prisma.category.findMany({
+        where: { storeId: sid },
         include: {
           _count: {
             select: { products: { where: storefrontVisibleProductWhere() } },
@@ -1372,6 +1373,9 @@ export class StorefrontController {
         },
         orderBy: { sortOrder: 'asc' },
       })
+      // Hiding a parent hides the branch: filtering `isActive` in the query
+      // would instead orphan its children into top-level categories.
+      const categories = visibleCategoryRows(rows)
       const tree = pruneEmptyCategoryNodes(buildCategoryTree(categories))
       const keep = new Set<string>()
       const walk = (nodes: typeof tree) => {

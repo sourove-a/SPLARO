@@ -21,6 +21,12 @@ import {
   confirmCategoryUpdated,
 } from '@/lib/admin/catalog-save'
 import { downloadCsv } from '@/lib/admin/admin-actions'
+import {
+  categoryParentOptions,
+  flattenCategoryTree,
+  MAX_CATEGORY_DEPTH,
+  type FlatCategoryNode,
+} from '@/lib/admin/category-parent-options'
 import { categoryTreeRoots } from '@/lib/admin/category-tree-roots'
 import {
   createCategory,
@@ -32,23 +38,6 @@ import {
 import { CATEGORY_WEB_TAGS, useCategoryTree } from '@/lib/api/hooks'
 import { revalidateWebCache } from '@/lib/api/revalidate'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
-
-interface FlatNode {
-  node: CategoryTreeNode
-  depth: number
-  path: string
-}
-
-/** Depth-first walk so children render directly under their parent, indented. */
-function flatten(nodes: CategoryTreeNode[], depth = 0, prefix = ''): FlatNode[] {
-  return nodes.flatMap((node) => {
-    const path = `${prefix}/${node.slug}`
-    return [
-      { node, depth, path },
-      ...flatten(node.children ?? [], depth + 1, path),
-    ]
-  })
-}
 
 export function DcCategories() {
   const router = useRouter()
@@ -63,9 +52,11 @@ function DcCategoriesBody() {
   const { toast } = useDcScreen()
   const qc = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
+  const [editing, setEditing] = useState<CategoryTreeNode | null>(null)
   const [removing, setRemoving] = useState<CategoryTreeNode | null>(null)
   const [form, setForm] = useState({ name: '', description: '', parentId: '' })
-  const [busy, setBusy] = useState<'create' | 'toggle' | 'delete' | 'reorder' | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', description: '', parentId: '' })
+  const [busy, setBusy] = useState<'create' | 'edit' | 'toggle' | 'delete' | 'reorder' | null>(null)
 
   // Same query key the product form reads (`useCategoryTree`) — a separate key
   // here meant a category created on this screen never reached "Add product".
@@ -74,7 +65,7 @@ function DcCategoriesBody() {
 
   const roots = useMemo(() => categoryTreeRoots(tree.data), [tree.data])
 
-  const rows = useMemo(() => flatten(roots), [roots])
+  const rows = useMemo(() => flattenCategoryTree(roots), [roots])
 
   const maxDepth = useMemo(
     () => rows.reduce((deep, r) => Math.max(deep, r.depth + 1), 0),
@@ -82,7 +73,10 @@ function DcCategoriesBody() {
   )
   const hidden = rows.filter((r) => r.node.isActive === false).length
   const emptyCats = rows.filter((r) => (r.node._count?.products ?? 0) === 0).length
-  const totalProducts = rows.reduce((sum, r) => sum + (r.node._count?.products ?? 0), 0)
+  const totalProducts = rows.reduce(
+    (sum, r) => sum + (r.node.totalProducts ?? r.node._count?.products ?? 0),
+    0,
+  )
 
   // `['categories']` is the prefix of both the flat list and the tree, so one
   // call refreshes every screen that reads categories, this one included.
@@ -127,6 +121,46 @@ function DcCategoriesBody() {
       if (id) {
         setCreateOpen(false)
         setForm({ name: '', description: '', parentId: '' })
+        afterCatalogWrite()
+      }
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const openEdit = (node: CategoryTreeNode) => {
+    setEditForm({
+      name: node.name,
+      description: node.description ?? '',
+      parentId: node.parentId ?? '',
+    })
+    setEditing(node)
+  }
+
+  const runEdit = async () => {
+    if (!editing) return
+    const name = editForm.name.trim()
+    if (!name) {
+      toast('warn', 'Name is required', 'A category needs a name before it can be saved.')
+      return
+    }
+    // The slug is the public URL and stays as it was — renaming a category must
+    // not break links, ads or anything already indexed.
+    const patch = {
+      name,
+      description: editForm.description.trim(),
+      parentId: editForm.parentId || null,
+    }
+    setBusy('edit')
+    try {
+      const ok = await confirmCategoryUpdated(
+        editing.id,
+        { name },
+        () => updateCategory(editing.id, patch),
+        'Category updated',
+      )
+      if (ok) {
+        setEditing(null)
         afterCatalogWrite()
       }
     } finally {
@@ -191,21 +225,26 @@ function DcCategoriesBody() {
       'Slug',
       'Level Depth',
       'URL Path',
-      'Products Count',
+      'Products Total',
+      'Products Live',
       'Storefront Visibility',
       'Description',
     ]
     const csvRows = [
       headers,
-      ...rows.map(({ node, depth, path }) => [
-        node.name,
-        node.slug,
-        String(depth + 1),
-        path,
-        String(node._count?.products ?? 0),
-        node.isActive !== false ? 'Visible' : 'Hidden',
-        node.description || '',
-      ]),
+      ...rows.map(({ node, depth, path }) => {
+        const live = node._count?.products ?? 0
+        return [
+          node.name,
+          node.slug,
+          String(depth + 1),
+          path,
+          String(node.totalProducts ?? live),
+          String(live),
+          node.isActive !== false ? 'Visible' : 'Hidden',
+          node.description || '',
+        ]
+      }),
     ]
     downloadCsv(`splaro-categories-${new Date().toISOString().slice(0, 10)}.csv`, csvRows)
     toast('ok', 'Categories exported', `Exported ${rows.length} categories to CSV.`)
@@ -282,7 +321,11 @@ function DcCategoriesBody() {
                 <tbody>
                   {rows.map(({ node, depth, path }) => {
                     const visible = node.isActive !== false
-                    const empty = (node._count?.products ?? 0) === 0
+                    const live = node._count?.products ?? 0
+                    // Drafts and archived products still block a delete, so the
+                    // column shows the real total, not just what the site shows.
+                    const total = node.totalProducts ?? live
+                    const empty = live === 0
                     const tone = toneStyle(!visible ? 'mute' : empty ? 'warn' : 'ok')
                     return (
                       <tr key={node.id}>
@@ -322,11 +365,10 @@ function DcCategoriesBody() {
                         </td>
                         <td
                           className="is-num"
-                          style={{
-                            color: (node._count?.products ?? 0) === 0 ? 'var(--ink-3)' : 'var(--ink)',
-                          }}
+                          style={{ color: total === 0 ? 'var(--ink-3)' : 'var(--ink)' }}
+                          title={total !== live ? `${live} live · ${total - live} draft or archived` : undefined}
                         >
-                          {node._count?.products ?? 0}
+                          {total}
                         </td>
                         <td>
                           <span
@@ -392,10 +434,20 @@ function DcCategoriesBody() {
                               {visible ? 'Hide' : 'Show'}
                             </button>
                             <IconBtn
-                              icon="icon-trash-2"
-                              title="Delete category"
-                              danger
+                              icon="icon-pencil"
+                              title="Edit category"
                               disabled={busy !== null}
+                              onClick={() => openEdit(node)}
+                            />
+                            <IconBtn
+                              icon="icon-trash-2"
+                              title={
+                                total > 0
+                                  ? `${total} product(s) are still here — move them first`
+                                  : 'Delete category'
+                              }
+                              danger
+                              disabled={busy !== null || total > 0}
                               onClick={() => setRemoving(node)}
                             />
                           </span>
@@ -469,43 +521,40 @@ function DcCategoriesBody() {
           placeholder="Signature and everyday abaya"
           area
         />
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span
-            style={{
-              font: `600 11px/1 ${FONT}`,
-              letterSpacing: '.07em',
-              textTransform: 'uppercase',
-              color: 'var(--ink-3)',
-            }}
-          >
-            Parent
-          </span>
-          <select
-            value={form.parentId}
-            onChange={(e) => setForm((f) => ({ ...f, parentId: e.target.value }))}
-            style={{
-              height: 40,
-              padding: '0 10px',
-              borderRadius: 9,
-              border: '1px solid var(--line)',
-              background: 'var(--surface-2)',
-              color: 'var(--ink)',
-              font: `400 12.5px/1 ${FONT}`,
-              outline: 'none',
-            }}
-          >
-            <option value="">Top level</option>
-            {roots.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-          <span style={{ font: `400 11.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
-            Only top-level categories are offered as parents — the storefront menu renders two
-            levels.
-          </span>
-        </label>
+        <ParentSelect
+          value={form.parentId}
+          options={categoryParentOptions(rows, null)}
+          onChange={(parentId) => setForm((f) => ({ ...f, parentId }))}
+        />
+      </DcModal>
+
+      <DcModal
+        open={editing !== null}
+        title={editing ? `Edit ${editing.name}` : 'Edit category'}
+        subtitle="The URL path stays as it is — renaming never breaks a link that is already live."
+        confirmLabel="Save category"
+        busy={busy === 'edit'}
+        onClose={() => setEditing(null)}
+        onConfirm={() => void runEdit()}
+      >
+        <DcField
+          label="Name"
+          value={editForm.name}
+          onChange={(v) => setEditForm((f) => ({ ...f, name: v }))}
+          placeholder="Abaya"
+        />
+        <DcField
+          label="Description"
+          value={editForm.description}
+          onChange={(v) => setEditForm((f) => ({ ...f, description: v }))}
+          placeholder="Signature and everyday abaya"
+          area
+        />
+        <ParentSelect
+          value={editForm.parentId}
+          options={categoryParentOptions(rows, editing)}
+          onChange={(parentId) => setEditForm((f) => ({ ...f, parentId }))}
+        />
       </DcModal>
 
       <DcModal
@@ -513,8 +562,8 @@ function DcCategoriesBody() {
         title={removing ? `Delete ${removing.name}?` : 'Delete category'}
         subtitle={
           removing
-            ? (removing._count?.products ?? 0) > 0
-              ? `${removing._count?.products} product(s) still sit here — move them to another category first, or the server will refuse the delete.`
+            ? (removing.totalProducts ?? removing._count?.products ?? 0) > 0
+              ? `${removing.totalProducts ?? removing._count?.products} product(s) still sit here — move them to another category first.`
               : (removing.children?.length ?? 0) > 0
                 ? `Its ${removing.children?.length} subcategor${(removing.children?.length ?? 0) === 1 ? 'y' : 'ies'} become top-level categories. This cannot be undone.`
                 : 'This cannot be undone.'
@@ -527,6 +576,56 @@ function DcCategoriesBody() {
         onConfirm={() => removing && void runDelete(removing.id)}
       />
     </>
+  )
+}
+
+function ParentSelect({
+  value,
+  options,
+  onChange,
+}: {
+  value: string
+  options: FlatCategoryNode[]
+  onChange: (parentId: string) => void
+}) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span
+        style={{
+          font: `600 11px/1 ${FONT}`,
+          letterSpacing: '.07em',
+          textTransform: 'uppercase',
+          color: 'var(--ink-3)',
+        }}
+      >
+        Parent
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          height: 40,
+          padding: '0 10px',
+          borderRadius: 9,
+          border: '1px solid var(--line)',
+          background: 'var(--surface-2)',
+          color: 'var(--ink)',
+          font: `400 12.5px/1 ${FONT}`,
+          outline: 'none',
+        }}
+      >
+        <option value="">Top level</option>
+        {options.map(({ node, depth }) => (
+          <option key={node.id} value={node.id}>
+            {`${'— '.repeat(depth)}${node.name}`}
+          </option>
+        ))}
+      </select>
+      <span style={{ font: `400 11.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
+        The storefront menu renders {MAX_CATEGORY_DEPTH} levels, so a category that would push the branch
+        deeper is not offered here — nor is the category itself or anything under it.
+      </span>
+    </label>
   )
 }
 
