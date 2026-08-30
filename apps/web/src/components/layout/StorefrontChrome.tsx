@@ -177,13 +177,23 @@ function StorefrontChromeInner({ children }: { children: ReactNode }) {
       <LeaveHomeChromeSnap />
       <Header />
       {selfMain ? (
-        <div id="main-content" className="main-with-mobile-nav" tabIndex={-1}>
+        <div
+          id="main-content"
+          className={
+            hideFooter ? 'main-with-mobile-nav' : 'main-with-mobile-nav main-with-footer'
+          }
+          tabIndex={-1}
+        >
           {children}
         </div>
       ) : (
         <main
           id="main-content"
-          className={hideFooter ? 'main-with-mobile-nav main-utility-page' : 'main-with-mobile-nav'}
+          className={
+            hideFooter
+              ? 'main-with-mobile-nav main-utility-page'
+              : 'main-with-mobile-nav main-with-footer'
+          }
           tabIndex={-1}
         >
           {children}

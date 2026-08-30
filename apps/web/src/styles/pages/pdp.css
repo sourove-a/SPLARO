@@ -889,8 +889,15 @@
 }
 
 .pp-info__desc {
-  margin-top: 0;
-  margin-bottom: 0;
+  /*
+   * The block owns its outer spacing instead of inheriting it from a child's
+   * collapsing margin. Clamping turns this into a block formatting context,
+   * which traps those margins inside and made the box 16px taller the moment
+   * it was clamped — so the spacing is pinned here and zeroed on the children,
+   * leaving the box the same height clamped or not.
+   */
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
   font-family: var(--font-inter), Inter, system-ui, sans-serif;
   font-size: 1rem; /* 16px minimum font size for mobile readability */
   font-weight: 400;
@@ -903,6 +910,14 @@
  * Visual clamp only — full description stays in the DOM for crawlers / SEO.
  * Nested bullet lists break -webkit-line-clamp, so use max-height overflow instead.
  */
+.pp-info__desc > :first-child {
+  margin-top: 0;
+}
+
+.pp-info__desc > :last-child {
+  margin-bottom: 0;
+}
+
 .pp-info__desc--clamped {
   position: relative;
   display: block;
@@ -910,7 +925,21 @@
   overflow: hidden;
 }
 
-.pp-info__desc--clamped::after {
+/*
+ * Bangla sets line-height 1.9 on its bullets and paragraphs, so the Latin
+ * clamp height lands 3.8 lines in and slices a line in half. Measured on a
+ * phone: an English bullet line is 27.2px, a Bangla one 30.4px.
+ */
+.pp-info__desc--bn.pp-info__desc--clamped {
+  max-height: 7.6rem; /* 4 lines at 1rem / 1.9 */
+}
+
+/*
+ * The fade is separate from the clamp: the clamp is harmless on copy that
+ * fits (max-height never stretches anything), but a gradient over the last
+ * line of a complete description reads as text that has been cut off.
+ */
+.pp-info__desc--faded::after {
   content: '';
   position: absolute;
   left: 0;
@@ -5031,7 +5060,10 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: cover;
+  /* A fullscreen preview exists to inspect the product, so the whole frame has
+     to be visible. `cover` cropped a square photo down to a tall slice of
+     itself on a phone — the shoe the shopper opened was half off-screen. */
+  object-fit: contain;
   object-position: center;
 }
 
@@ -5287,6 +5319,22 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 .pp-lightbox__stage {
   overflow: hidden;
   cursor: zoom-in;
+  /* The overlay locks page scroll, so every gesture here belongs to the viewer:
+     swipe between photos and pinch to zoom are both handled in JS. Leaving this
+     at `auto` let the browser claim a horizontal drag and fire pointercancel,
+     which discarded the swipe before it could be measured. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.pp-lightbox__stage[data-zoomed='true'] {
+  cursor: grab;
+}
+
+.pp-lightbox__stage img {
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
 }
 
 .pp-lightbox__stage--deep {
@@ -5718,7 +5766,9 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   height: 100% !important;
   max-width: none !important;
   max-height: none !important;
-  object-fit: cover !important;
+  /* Same rule as .pp-lightbox__media — the pinch wrapper is the viewport, the
+     photo is fitted inside it. Zoom is how you get closer, not the default. */
+  object-fit: contain !important;
   object-position: center center !important;
 }
 
