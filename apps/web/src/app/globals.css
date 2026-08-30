@@ -2577,6 +2577,18 @@ html[data-os='windows'] .mobile-bottom-nav__capsule {
     text-align: center;
   }
 
+  /*
+   * 0.54rem is 8.6px on a phone, and the 0.18em tracking spreads it
+   * further — "Follow SPLARO" and the store label read as a grey smudge
+   * rather than as words. 0.64rem (10.2px) keeps them quiet and subordinate
+   * to everything around them while still being readable. Phones only.
+   */
+  .footer-lux__micro-label,
+  .footer-lux__store-label {
+    font-size: 0.64rem;
+    letter-spacing: 0.16em;
+  }
+
   .footer-lux__micro-label {
     text-align: center;
   }

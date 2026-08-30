@@ -1635,19 +1635,24 @@ html[data-os='windows'] .home-dept-tile:hover .home-dept-tile__img {
     padding: 0.28rem;
   }
 
+  /*
+   * The row used to shrink to 2.55rem (40.8px) here. It is back at the
+   * full 44 because the button label is hidden just below, so the space
+   * that shrink bought was never the constraint — width was, and hiding
+   * the label already solved it.
+   */
   .ed-newsletter__field,
   .ed-newsletter__input {
-    min-height: 2.55rem;
-    height: 2.55rem;
+    min-height: 2.75rem;
+    height: 2.75rem;
   }
 
   .ed-newsletter__input {
-    font-size: 0.75rem;
     padding-left: 0.9rem;
   }
 
   .ed-newsletter__btn {
-    height: 2.55rem;
+    height: 2.75rem;
     padding: 0 0.82rem;
     font-size: 0.625rem;
     letter-spacing: 0.06em;
@@ -1655,6 +1660,38 @@ html[data-os='windows'] .home-dept-tile:hover .home-dept-tile__img {
 
   .ed-newsletter__btn-text {
     display: none;
+  }
+}
+
+/*
+ * 16px on a touch screen, and never smaller. iOS Safari zooms the whole
+ * page in when it focuses a text field under 16px, and it does not zoom
+ * back out on blur — the visitor is left on a sideways-shifted page with
+ * no way back but a pinch. This field was 0.8125rem, dropping to 0.75rem
+ * on a narrow phone, so it fired every time.
+ *
+ * The breakpoint is deliberately the whole touch range and not the
+ * 420px one above: a 430px iPhone sits outside that query and would
+ * otherwise still have been zoomed at 13px. This is a legibility floor,
+ * not a type choice — the desktop value is untouched.
+ */
+@media (pointer: coarse), (max-width: 768px) {
+  .ed-newsletter__input {
+    font-size: 1rem;
+  }
+}
+
+/*
+ * The newsletter eyebrow is 0.52rem — 8.3px on screen, with 0.22em of
+ * tracking pulling the letters apart on top of that. At arm's length on a
+ * phone it reads as texture rather than as the words "Stay connected".
+ * 0.62rem (9.9px) is still a quiet eyebrow and is legible. Phones only;
+ * the desktop size is unchanged.
+ */
+@media (max-width: 768px) {
+  .ed-newsletter__eyebrow {
+    font-size: 0.62rem;
+    letter-spacing: 0.2em;
   }
 }
 
