@@ -954,6 +954,23 @@
   overflow-x: clip;
 }
 
+/*
+ * …but not when a hero already fills a screen above it. The floor is there so
+ * a thin page cannot leave the footer stranded mid-viewport; with a hero above
+ * it the page clears that on its own, and the floor only pads the bottom out
+ * with white.
+ *
+ * It shows up exactly when a shop is small: measured on a catalogue of one
+ * published product — which is what splaro.co is serving today — everything
+ * under the hero came to 799px against an 844px floor, and the difference was
+ * 45px of empty white between the newsletter and the footer. A full catalogue
+ * clears the floor and never sees it, which is why it reads as a gap that
+ * comes and goes.
+ */
+#main-content:has(> .home-hero-slider) > .ed-root {
+  min-height: 0;
+}
+
 #main-content:has(> .home-hero-slider) {
   padding-top: 0;
   overflow-x: clip;

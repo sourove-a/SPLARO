@@ -60,10 +60,10 @@
      styles/pages/pdp.css next to their own ::after rule so cascade order
      (pdp.css loads after this file) doesn't get fought. */
 
-  /* Hero dots are 26px and only ~8px apart. Padding both to a full 44
-     would overlap; 40 clears the gap while still being a real target. */
-  .hero-dot::after,
-  .hero-dot::before {
+  /* Hero dots are 26px and only ~8px apart. Padding to a full 44 would
+     overlap; 40 clears the gap while still being a real target.
+     Only `::after` — see the note on the `::before` pad below. */
+  .hero-dot::after {
     min-width: 40px;
     min-height: 40px;
   }
@@ -160,9 +160,17 @@
    * i.e. another rule owns that pseudo-element and the pad never took. The
    * same pad on `::before`, which nothing else claims, does take.
    */
+  /*
+   * `.hero-dot` is deliberately not in this list. On every other control here
+   * `::before` is a spare pseudo-element, but on the hero dot it *is* the dot
+   * — home.css draws it at 9px, and 28px wide when active. Padding it to 44
+   * inflated the dot itself, so the slider indicator rendered on phones as
+   * three 44px discs instead of the pills the desktop shows. Its `::after` pad
+   * above measures 40px live and takes fine, so nothing is lost by leaving it
+   * out.
+   */
   .pp-qty__btn::before,
   .pp-view .pp-share__btn::before,
-  .hero-dot::before,
   .home-dept-row__explore::before,
   .pp-view .pp-gallery__zoom::before,
   .pp-view .pp-gallery__nav::before {
@@ -257,5 +265,63 @@
   /* Sticky purchase bar buttons were 2.65rem (42.4px). */
   .pp-mobile-sticky-bar__btn {
     min-height: 44px;
+  }
+}
+
+/* ── Third pass: two controls the earlier sweeps never covered ────────
+   Both were measured on a 390px viewport with the same probe as above —
+   the box size and the resolved `::after` pad, so a control that already
+   had a pad elsewhere would not be counted twice. These two had none.
+
+   Same rule as the rest of this file: the drawn size never changes, only
+   the area a thumb can land on. */
+
+@media (pointer: coarse), (max-width: 768px) {
+  /*
+   * The related-products carousel arrows. Drawn at 2.35rem (37.6px) on a
+   * phone, and `::after` is unclaimed on them — nothing in
+   * premium-swiper.css defines it — so the pad takes cleanly. The two sit
+   * at opposite edges of the carousel, so a full 44 on each cannot
+   * overlap the other.
+   */
+  .premium-swiper__nav {
+    position: absolute; /* already absolute; stated so the pad has an anchor */
+  }
+
+  .premium-swiper__nav::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-width: 44px;
+    min-height: 44px;
+    width: 100%;
+    height: 100%;
+    transform: translate(-50%, -50%);
+    background: transparent;
+    pointer-events: auto;
+  }
+
+  /*
+   * The two links under the Collections masthead are standalone actions,
+   * not words inside a sentence — "Shop all products" and "Home". They
+   * are 24px tall, and their row has a 1.15rem gap, so a pad that grows
+   * to 44 vertically clears both neighbours.
+   */
+  .collections-page__text-link {
+    position: relative;
+  }
+
+  .collections-page__text-link::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-height: 44px;
+    width: 100%;
+    height: 100%;
+    transform: translate(-50%, -50%);
+    background: transparent;
+    pointer-events: auto;
   }
 }

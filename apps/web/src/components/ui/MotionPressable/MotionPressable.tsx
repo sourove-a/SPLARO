@@ -3,34 +3,44 @@
 import Link from 'next/link'
 import { motion, useReducedMotion, type HTMLMotionProps } from '@/lib/motion/react'
 import { forwardRef, type ComponentProps } from 'react'
-import { PRESS_DOWN } from '@/lib/motion/config'
+import { PRESS_DOWN, SETTLE } from '@/lib/motion/config'
 
 export type MotionPressableVariant = 'cta' | 'icon' | 'chip' | 'nav' | 'subtle'
 
-/** Soft press only — quiet opacity, no scale jump. */
+/**
+ * Soft press only — quiet opacity, no scale jump.
+ *
+ * Hover and press are not the same gesture and must not share a duration.
+ * A press is an answer and has to be instantaneous (`PRESS_DOWN`, 0.08s); a
+ * hover is the surface noticing you and should arrive softly — which is what
+ * `SETTLE` ("soft UI settle (nav, soft hover)") is for. Both transitions were
+ * already defined in `motion/config`; this component ran hover at press speed,
+ * so a cursor crossing a row of icons set off a rattle of 80ms flickers
+ * instead of one calm shift.
+ */
 const VARIANT_MOTION: Record<
   MotionPressableVariant,
   Pick<HTMLMotionProps<'button'>, 'whileHover' | 'whileTap'>
 > = {
   cta: {
-    whileHover: { opacity: 0.94 },
-    whileTap: { opacity: 0.9 },
+    whileHover: { opacity: 0.94, transition: SETTLE },
+    whileTap: { opacity: 0.9, transition: PRESS_DOWN },
   },
   icon: {
-    whileHover: { opacity: 0.88 },
-    whileTap: { opacity: 0.82 },
+    whileHover: { opacity: 0.88, transition: SETTLE },
+    whileTap: { opacity: 0.82, transition: PRESS_DOWN },
   },
   chip: {
-    whileHover: { opacity: 0.94 },
-    whileTap: { opacity: 0.9 },
+    whileHover: { opacity: 0.94, transition: SETTLE },
+    whileTap: { opacity: 0.9, transition: PRESS_DOWN },
   },
   nav: {
-    whileHover: { opacity: 0.88 },
-    whileTap: { opacity: 0.82 },
+    whileHover: { opacity: 0.88, transition: SETTLE },
+    whileTap: { opacity: 0.82, transition: PRESS_DOWN },
   },
   subtle: {
-    whileHover: { opacity: 0.92 },
-    whileTap: { opacity: 0.88 },
+    whileHover: { opacity: 0.92, transition: SETTLE },
+    whileTap: { opacity: 0.88, transition: PRESS_DOWN },
   },
 }
 

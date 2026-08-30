@@ -56,6 +56,12 @@ infrastructure/pm2/logs/
 Thumbs.db
 desktop.ini
 
+# Redis snapshot from a local dev instance
+dump.rdb
+
+# Visual-diff runs from scripts/shot-web.mjs — local review only, never committed
+.screenshots/
+
 # Dev screenshots accidentally saved in repo root / app trees
 /*.png
 /*.jpeg
