@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,10 +9,28 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common'
+import type { Request } from 'express'
+import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { MarketingService } from './marketing.service'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import {
+  CAMPAIGN_STATUSES,
+  CAMPAIGN_TYPES,
+  CreateCampaignDto,
+  UpdateCampaignDto,
+} from './marketing.dto'
+
+type AdminRequest = Request & { adminUser?: AdminSessionPayload }
+
+function isCampaignValue<T extends string>(
+  values: readonly T[],
+  value: string,
+): value is T {
+  return values.includes(value as T)
+}
 
 @Controller('marketing')
 export class MarketingController {
@@ -20,24 +39,47 @@ export class MarketingController {
     @Inject(PrismaService) private readonly prisma: PrismaService,
   ) {}
 
+  private scopedStoreId(req: AdminRequest, requested?: string): Promise<string> {
+    return resolveStoreId(this.prisma, req.adminUser?.storeId ?? requested)
+  }
+
   /* ─── Campaigns ────────────────────────────────────────────── */
 
   @Get('campaigns')
   async getCampaigns(
     @Query('storeId') storeId: string,
+    @Req() req: AdminRequest,
     @Query('status') status?: string,
     @Query('type') type?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    const sid = await resolveStoreId(this.prisma, storeId)
-    const take = Math.min(Number(limit) || 20, 100)
-    const skip = (Math.max(Number(page) || 1, 1) - 1) * take
+    const sid = await this.scopedStoreId(req, storeId)
+    const normalizedStatus = status?.toUpperCase()
+    const normalizedType = type?.toUpperCase()
+    if (normalizedStatus && !isCampaignValue(CAMPAIGN_STATUSES, normalizedStatus)) {
+      throw new BadRequestException(`Unsupported campaign status: ${status}`)
+    }
+    if (normalizedType && !isCampaignValue(CAMPAIGN_TYPES, normalizedType)) {
+      throw new BadRequestException(`Unsupported campaign type: ${type}`)
+    }
+    const parsedPage = page === undefined ? 1 : Number(page)
+    const parsedLimit = limit === undefined ? 20 : Number(limit)
+    if (
+      !Number.isInteger(parsedPage) ||
+      parsedPage < 1 ||
+      !Number.isInteger(parsedLimit) ||
+      parsedLimit < 1
+    ) {
+      throw new BadRequestException('page and limit must be positive integers.')
+    }
+    const take = Math.min(parsedLimit, 100)
+    const skip = (parsedPage - 1) * take
 
     const where = {
       storeId: sid,
-      ...(status ? { status } : {}),
-      ...(type ? { type } : {}),
+      ...(normalizedStatus ? { status: normalizedStatus } : {}),
+      ...(normalizedType ? { type: normalizedType } : {}),
     }
 
     const [items, total] = await Promise.all([
@@ -50,12 +92,12 @@ export class MarketingController {
       this.prisma.campaign.count({ where }),
     ])
 
-    return { items, total, page: Number(page) || 1, limit: take }
+    return { items, total, page: parsedPage, limit: take }
   }
 
   @Get('campaigns/stats')
-  async campaignStats(@Query('storeId') storeId: string) {
-    const sid = await resolveStoreId(this.prisma, storeId)
+  async campaignStats(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
+    const sid = await this.scopedStoreId(req, storeId)
     const [byStatus, byType, totals] = await Promise.all([
       this.prisma.campaign.groupBy({
         by: ['status'],
@@ -89,61 +131,60 @@ export class MarketingController {
   }
 
   @Get('campaigns/:id')
-  async getCampaign(@Param('id') id: string) {
-    return this.prisma.campaign.findUnique({ where: { id } })
+  async getCampaign(@Param('id') id: string, @Req() req: AdminRequest) {
+    return this.marketingService.getCampaign(id, await this.scopedStoreId(req))
   }
 
   @Post('campaigns')
   async createCampaign(
     @Query('storeId') storeId: string,
-    @Body() body: Omit<Parameters<MarketingService['createCampaign']>[0], 'storeId'> & { storeId?: string },
+    @Body() body: CreateCampaignDto,
+    @Req() req: AdminRequest,
   ) {
-    const sid = await resolveStoreId(this.prisma, body.storeId ?? storeId)
-    return this.marketingService.createCampaign({ ...body, storeId: sid })
+    const sid = await this.scopedStoreId(req, body.storeId ?? storeId)
+    return this.marketingService.createCampaign({
+      ...body,
+      storeId: sid,
+      targetAudience: body.targetAudience ?? 'ALL',
+      scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : undefined,
+    })
   }
 
   @Patch('campaigns/:id')
   async updateCampaign(
     @Param('id') id: string,
-    @Body()
-    body: {
-      name?: string
-      subject?: string
-      body?: string
-      scheduledAt?: string
-      status?: string
-    },
+    @Body() body: UpdateCampaignDto,
+    @Query('storeId') storeId: string,
+    @Req() req: AdminRequest,
   ) {
-    return this.prisma.campaign.update({
-      where: { id },
-      data: {
-        ...(body.name !== undefined ? { name: body.name } : {}),
-        ...(body.subject !== undefined ? { subject: body.subject } : {}),
-        ...(body.body !== undefined ? { body: body.body } : {}),
-        ...(body.scheduledAt ? { scheduledAt: new Date(body.scheduledAt) } : {}),
-        ...(body.status !== undefined ? { status: body.status } : {}),
-      },
-    })
+    return this.marketingService.updateCampaign(id, body, await this.scopedStoreId(req, storeId))
   }
 
   @Delete('campaigns/:id')
-  async deleteCampaign(@Param('id') id: string) {
-    await this.prisma.campaign.delete({ where: { id } })
-    return { deleted: id }
+  async deleteCampaign(
+    @Param('id') id: string,
+    @Query('storeId') storeId: string,
+    @Req() req: AdminRequest,
+  ) {
+    return this.marketingService.deleteCampaign(id, await this.scopedStoreId(req, storeId))
   }
 
   @Post('campaigns/:id/send')
-  sendCampaign(@Param('id') id: string) {
-    return this.marketingService.sendCampaignNow(id)
+  async sendCampaign(
+    @Param('id') id: string,
+    @Query('storeId') storeId: string,
+    @Req() req: AdminRequest,
+  ) {
+    return this.marketingService.sendCampaignNow(id, await this.scopedStoreId(req, storeId))
   }
 
   @Post('campaigns/:id/duplicate')
-  async duplicateCampaign(@Param('id') id: string) {
-    const original = await this.prisma.campaign.findUniqueOrThrow({ where: { id } })
-    const { id: _, sentAt, totalSent, totalDelivered, totalOpened, totalClicked, createdAt, updatedAt, ...rest } = original
-    return this.prisma.campaign.create({
-      data: { ...rest, name: `${original.name} (copy)`, status: 'DRAFT', scheduledAt: null },
-    })
+  async duplicateCampaign(
+    @Param('id') id: string,
+    @Query('storeId') storeId: string,
+    @Req() req: AdminRequest,
+  ) {
+    return this.marketingService.duplicateCampaign(id, await this.scopedStoreId(req, storeId))
   }
 
   /* ─── Newsletter subscribers ───────────────────────────────── */
@@ -181,7 +222,10 @@ export class MarketingController {
 
   @Delete('subscribers/:id')
   async unsubscribe(@Param('id') id: string) {
-    await this.prisma.newsletterSubscriber.update({ where: { id }, data: { status: 'unsubscribed' } })
+    await this.prisma.newsletterSubscriber.update({
+      where: { id },
+      data: { status: 'unsubscribed' },
+    })
     return { ok: true }
   }
 

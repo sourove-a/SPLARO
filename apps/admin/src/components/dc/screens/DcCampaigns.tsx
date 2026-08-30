@@ -15,6 +15,8 @@ import {
   formatCampaignType,
   mapCampaignStatus,
   type ApiCampaign,
+  type CampaignAudience,
+  type CampaignType,
 } from '@/lib/api/marketing'
 import { downloadCsv } from '@/lib/admin/admin-actions'
 import { toastOk, toastWarn } from '@/lib/admin/feedback'
@@ -25,6 +27,7 @@ import {
   useDeleteCampaign,
   useDuplicateCampaign,
   useSendCampaign,
+  useUpdateCampaign,
 } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 
@@ -55,17 +58,15 @@ const th = {
 
 const td = { padding: '10px 15px', font: `400 12.5px/1.4 ${FONT}`, color: 'var(--ink-2)' } as const
 
-const STATE_TONE: Record<'draft' | 'scheduled' | 'live' | 'ended', DcTone> = {
+const STATE_TONE: Record<'draft' | 'scheduled' | 'live' | 'ended' | 'failed', DcTone> = {
   draft: 'mute',
   scheduled: 'info',
   live: 'ok',
   ended: 'mute',
+  failed: 'bad',
 }
 
-type CampaignType = 'EMAIL' | 'SMS' | 'PUSH' | 'WHATSAPP'
-type Audience = 'ALL' | 'LOYAL' | 'INACTIVE' | 'HIGH_SPENDERS' | 'TAG'
-
-const AUDIENCE_LABEL: Record<Audience, string> = {
+const AUDIENCE_LABEL: Record<CampaignAudience, string> = {
   ALL: 'Everyone on file',
   LOYAL: 'Repeat buyers',
   INACTIVE: 'Gone quiet',
@@ -78,7 +79,7 @@ interface CampaignForm {
   subject: string
   body: string
   type: CampaignType
-  targetAudience: Audience
+  targetAudience: CampaignAudience
   targetTag: string
 }
 
@@ -105,12 +106,14 @@ function DcCampaignsBody() {
   const campaigns = useCampaigns()
   const stats = useCampaignStats()
   const create = useCreateCampaign()
+  const update = useUpdateCampaign()
   const send = useSendCampaign()
   const duplicate = useDuplicateCampaign()
   const remove = useDeleteCampaign()
   const { api } = useAdminConnection(25_000)
 
   const [newOpen, setNewOpen] = useState(false)
+  const [editing, setEditing] = useState<ApiCampaign | null>(null)
   const [form, setForm] = useState<CampaignForm>(EMPTY_FORM)
   const [confirmSend, setConfirmSend] = useState<ApiCampaign | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<ApiCampaign | null>(null)
@@ -160,7 +163,10 @@ function DcCampaignsBody() {
             key: 'drafts',
             title: 'Drafts that never went out',
             headline: String(drafts.length),
-            detail: drafts.map((c) => c.name).slice(0, 2).join(' · '),
+            detail: drafts
+              .map((c) => c.name)
+              .slice(0, 2)
+              .join(' · '),
             why: 'A draft costs nothing and earns nothing. Send it or delete it so the list means something.',
             tone: 'warn' as DcTone,
           },
@@ -187,7 +193,10 @@ function DcCampaignsBody() {
             key: 'unopened',
             title: 'Sent but nobody opened it',
             headline: String(deadOnArrival.length),
-            detail: deadOnArrival.map((c) => c.name).slice(0, 2).join(' · '),
+            detail: deadOnArrival
+              .map((c) => c.name)
+              .slice(0, 2)
+              .join(' · '),
             why: 'Either the subject line failed or the send never reached inboxes. Check delivery before writing another.',
             tone: 'bad' as DcTone,
           },
@@ -218,32 +227,84 @@ function DcCampaignsBody() {
     void stats.refetch()
   }
 
-  const runCreate = () => {
-    if (!form.name.trim()) {
+  const openNewCampaign = () => {
+    setEditing(null)
+    setForm(EMPTY_FORM)
+    setNewOpen(true)
+  }
+
+  const runSave = () => {
+    const name = form.name.trim()
+    const subject = form.subject.trim()
+    const body = form.body.trim()
+    const targetTag = form.targetTag.trim()
+
+    if (!name) {
       toast('warn', 'Name required', 'This is what you will look for in the list later.')
       return
     }
-    if (!form.subject.trim()) {
+    if (!subject) {
       toast('warn', 'Subject required', 'The subject line decides whether anyone opens it.')
       return
     }
-    if (!form.body.trim()) {
+    if (!body) {
       toast('warn', 'Message required', 'There is nothing to send yet.')
       return
     }
-    if (form.targetAudience === 'TAG' && !form.targetTag.trim()) {
+    if (form.targetAudience === 'TAG' && !targetTag) {
       toast('warn', 'Tag required', 'You picked a tag audience but did not say which tag.')
+      return
+    }
+
+    if (editing) {
+      update.mutate(
+        {
+          id: editing.id,
+          name,
+          subject,
+          body,
+        },
+        {
+          onSuccess: (res) => {
+            const persisted =
+              res.id === editing.id &&
+              res.name.trim() === name &&
+              String(res.subject ?? '').trim() === subject &&
+              String(res.body ?? '').trim() === body
+            if (!persisted) {
+              toast(
+                'bad',
+                'Campaign could not be verified',
+                'Server response did not match the edited campaign.',
+              )
+              refetchAll()
+              return
+            }
+            setEditing(null)
+            setForm(EMPTY_FORM)
+            toast('ok', `${res.name} updated`, 'The server confirmed the campaign changes.')
+          },
+          onError: (err) =>
+            toast(
+              'bad',
+              'Could not update the campaign',
+              err instanceof Error
+                ? err.message
+                : `PATCH /marketing/campaigns/${editing.id} failed`,
+            ),
+        },
+      )
       return
     }
 
     create.mutate(
       {
-        name: form.name.trim(),
-        subject: form.subject.trim(),
-        body: form.body.trim(),
+        name,
+        subject,
+        body,
         type: form.type,
         targetAudience: form.targetAudience,
-        ...(form.targetAudience === 'TAG' ? { targetTag: form.targetTag.trim() } : {}),
+        ...(form.targetAudience === 'TAG' ? { targetTag } : {}),
       },
       {
         onSuccess: (res) => {
@@ -253,7 +314,11 @@ function DcCampaignsBody() {
             String(res.subject ?? '').trim() === form.subject.trim() &&
             mapCampaignStatus(res.status) === 'draft'
           if (!persisted) {
-            toast('bad', 'Draft could not be verified', 'Server response did not match the campaign form.')
+            toast(
+              'bad',
+              'Draft could not be verified',
+              'Server response did not match the campaign form.',
+            )
             refetchAll()
             return
           }
@@ -337,10 +402,7 @@ function DcCampaignsBody() {
             label: 'New campaign',
             icon: 'icon-plus',
             variant: 'primary',
-            onClick: () => {
-              setForm(EMPTY_FORM)
-              setNewOpen(true)
-            },
+            onClick: openNewCampaign,
           },
           {
             label: 'Export CSV',
@@ -362,9 +424,9 @@ function DcCampaignsBody() {
         <DcEmptyState
           icon="icon-megaphone"
           title="No campaigns yet"
-          body="A campaign is one message to one audience — email, SMS, push, or WhatsApp. It stays a draft until you send it."
+          body="A campaign is one message to one audience — email or SMS. It stays a draft until you send it."
           cta="Write the first one"
-          onCta={() => setNewOpen(true)}
+          onCta={openNewCampaign}
         />
       ) : (
         <>
@@ -375,17 +437,29 @@ function DcCampaignsBody() {
               gap: 12,
             }}
           >
-            <Kpi label="Messages sent" value={totalSent.toLocaleString('en-IN')} sub={`${rows.length} campaigns total`} />
+            <Kpi
+              label="Messages sent"
+              value={totalSent.toLocaleString('en-IN')}
+              sub={`${rows.length} campaigns total`}
+            />
             <Kpi
               label="Open rate"
               value={stats.error ? '—' : `${openRate.toFixed(1)}%`}
-              sub={stats.error ? 'GET /marketing/campaigns/stats failed' : `${(s?.totalOpened ?? 0).toLocaleString('en-IN')} opens`}
+              sub={
+                stats.error
+                  ? 'GET /marketing/campaigns/stats failed'
+                  : `${(s?.totalOpened ?? 0).toLocaleString('en-IN')} opens`
+              }
               color={!stats.error && openRate < 10 && totalSent > 0 ? 'var(--warn)' : undefined}
             />
             <Kpi
               label="Click rate"
               value={stats.error ? '—' : `${clickRate.toFixed(1)}%`}
-              sub={stats.error ? 'stats feed unavailable' : `${(s?.totalClicked ?? 0).toLocaleString('en-IN')} clicks`}
+              sub={
+                stats.error
+                  ? 'stats feed unavailable'
+                  : `${(s?.totalClicked ?? 0).toLocaleString('en-IN')} clicks`
+              }
             />
             <Kpi
               label="Waiting to send"
@@ -503,7 +577,7 @@ function DcCampaignsBody() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                {['ALL', 'EMAIL', 'SMS', 'WHATSAPP', 'PUSH'].map((ch) => {
+                {['ALL', 'EMAIL', 'SMS'].map((ch) => {
                   const active = channelFilter === ch
                   return (
                     <button
@@ -527,7 +601,7 @@ function DcCampaignsBody() {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                {['ALL', 'DRAFT', 'SCHEDULED', 'LIVE', 'ENDED'].map((st) => {
+                {['ALL', 'DRAFT', 'SCHEDULED', 'LIVE', 'FAILED', 'ENDED'].map((st) => {
                   const active = stateFilter === st
                   return (
                     <button
@@ -548,194 +622,245 @@ function DcCampaignsBody() {
                     </button>
                   )
                 })}
-                <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)', marginLeft: 6 }}>
+                <span
+                  style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)', marginLeft: 6 }}
+                >
                   {filteredRows.length} record{filteredRows.length === 1 ? '' : 's'}
                 </span>
               </div>
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={th}>Campaign</th>
-                  <th style={th}>Channel</th>
-                  <th style={th}>Audience</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Sent</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Delivered</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Opened</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Clicked</th>
-                  <th style={th}>State</th>
-                  <th style={th} aria-label="Actions" />
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((c) => {
-                  const state = mapCampaignStatus(c.status)
-                  const tone = toneStyle(STATE_TONE[state])
-                  const sent = Number(c.totalSent || 0)
-                  const opened = Number(c.totalOpened || 0)
-                  const canSend = state === 'draft' || state === 'scheduled'
-                  return (
-                    <tr key={c.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                      <td style={{ ...td, color: 'var(--ink)' }}>
-                        <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                          <span style={{ font: `600 13px/1.3 ${FONT}`, color: 'var(--ink)' }}>
-                            {c.name}
+                <thead>
+                  <tr>
+                    <th style={th}>Campaign</th>
+                    <th style={th}>Channel</th>
+                    <th style={th}>Audience</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Sent</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Delivered</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Opened</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Clicked</th>
+                    <th style={th}>State</th>
+                    <th style={th} aria-label="Actions" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRows.map((c) => {
+                    const state = mapCampaignStatus(c.status)
+                    const tone = toneStyle(STATE_TONE[state])
+                    const sent = Number(c.totalSent || 0)
+                    const opened = Number(c.totalOpened || 0)
+                    const canSend = state === 'draft' || state === 'scheduled' || state === 'failed'
+                    const canEdit = state === 'draft' || state === 'scheduled' || state === 'failed'
+                    return (
+                      <tr key={c.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                        <td style={{ ...td, color: 'var(--ink)' }}>
+                          <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                            <span style={{ font: `600 13px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+                              {c.name}
+                            </span>
+                            <span
+                              style={{ font: `400 11.5px/1.35 ${FONT}`, color: 'var(--ink-3)' }}
+                            >
+                              {c.subject ?? 'no subject line'}
+                            </span>
                           </span>
-                          <span style={{ font: `400 11.5px/1.35 ${FONT}`, color: 'var(--ink-3)' }}>
-                            {c.subject ?? 'no subject line'}
-                          </span>
-                        </span>
-                      </td>
-                      <td style={td}>{formatCampaignType(c.type)}</td>
-                      <td style={{ ...td, color: c.recipientType ? 'var(--ink-2)' : 'var(--ink-3)' }}>
-                        {c.recipientType ? formatCampaignType(c.recipientType) : 'not recorded'}
-                      </td>
-                      <td style={{ ...td, textAlign: 'right', font: `600 12.5px/1 ${MONO}` }}>
-                        {sent.toLocaleString('en-IN')}
-                      </td>
-                      <td style={{ ...td, textAlign: 'right', font: `500 12.5px/1 ${MONO}` }}>
-                        {Number(c.totalDelivered || 0).toLocaleString('en-IN')}
-                      </td>
-                      <td
-                        style={{
-                          ...td,
-                          textAlign: 'right',
-                          font: `500 12.5px/1 ${MONO}`,
-                          color: sent > 20 && opened === 0 ? 'var(--bad)' : 'var(--ink-2)',
-                        }}
-                      >
-                        {sent > 0 ? `${((opened / sent) * 100).toFixed(1)}%` : '—'}
-                      </td>
-                      <td style={{ ...td, textAlign: 'right', font: `500 12.5px/1 ${MONO}` }}>
-                        {sent > 0
-                          ? `${((Number(c.totalClicked || 0) / sent) * 100).toFixed(1)}%`
-                          : '—'}
-                      </td>
-                      <td style={{ padding: '10px 15px' }}>
-                        <span
+                        </td>
+                        <td style={td}>{formatCampaignType(c.type)}</td>
+                        <td
                           style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            padding: '3px 8px',
-                            borderRadius: 6,
-                            border: `1px solid ${tone.bd}`,
-                            background: tone.bg,
-                            color: tone.fg,
-                            font: `600 11px/1 ${FONT}`,
-                            whiteSpace: 'nowrap',
+                            ...td,
+                            color: c.recipientType ? 'var(--ink-2)' : 'var(--ink-3)',
                           }}
                         >
+                          {c.recipientType ? formatCampaignType(c.recipientType) : 'not recorded'}
+                        </td>
+                        <td style={{ ...td, textAlign: 'right', font: `600 12.5px/1 ${MONO}` }}>
+                          {sent.toLocaleString('en-IN')}
+                        </td>
+                        <td style={{ ...td, textAlign: 'right', font: `500 12.5px/1 ${MONO}` }}>
+                          {Number(c.totalDelivered || 0).toLocaleString('en-IN')}
+                        </td>
+                        <td
+                          style={{
+                            ...td,
+                            textAlign: 'right',
+                            font: `500 12.5px/1 ${MONO}`,
+                            color: sent > 20 && opened === 0 ? 'var(--bad)' : 'var(--ink-2)',
+                          }}
+                        >
+                          {sent > 0 ? `${((opened / sent) * 100).toFixed(1)}%` : '—'}
+                        </td>
+                        <td style={{ ...td, textAlign: 'right', font: `500 12.5px/1 ${MONO}` }}>
+                          {sent > 0
+                            ? `${((Number(c.totalClicked || 0) / sent) * 100).toFixed(1)}%`
+                            : '—'}
+                        </td>
+                        <td style={{ padding: '10px 15px' }}>
                           <span
                             style={{
-                              width: 5,
-                              height: 5,
-                              borderRadius: 99,
-                              background: 'currentColor',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                              border: `1px solid ${tone.bd}`,
+                              background: tone.bg,
+                              color: tone.fg,
+                              font: `600 11px/1 ${FONT}`,
+                              whiteSpace: 'nowrap',
                             }}
-                          />
-                          {state === 'draft'
-                            ? 'Draft — not sent'
-                            : state === 'scheduled'
-                              ? c.scheduledAt
-                                ? `Sends ${fmtDateTime(c.scheduledAt)}`
-                                : 'Scheduled'
-                              : state === 'live'
-                                ? c.sentAt
-                                  ? `Sent ${fmtDateTime(c.sentAt)}`
-                                  : 'Sending'
-                                : 'Ended'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '10px 15px' }}>
-                        <span style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          {canSend ? (
+                          >
+                            <span
+                              style={{
+                                width: 5,
+                                height: 5,
+                                borderRadius: 99,
+                                background: 'currentColor',
+                              }}
+                            />
+                            {state === 'draft'
+                              ? 'Draft — not sent'
+                              : state === 'scheduled'
+                                ? c.scheduledAt
+                                  ? `Sends ${fmtDateTime(c.scheduledAt)}`
+                                  : 'Scheduled'
+                                : state === 'live'
+                                  ? c.sentAt
+                                    ? `Sent ${fmtDateTime(c.sentAt)}`
+                                    : 'Sending'
+                                  : state === 'failed'
+                                    ? 'Failed — retry available'
+                                    : 'Ended'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 15px' }}>
+                          <span style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                            {canEdit ? (
+                              <button
+                                type="button"
+                                disabled={update.isPending}
+                                onClick={() => {
+                                  const audience = (
+                                    Object.keys(AUDIENCE_LABEL) as CampaignAudience[]
+                                  ).includes(c.recipientType as CampaignAudience)
+                                    ? (c.recipientType as CampaignAudience)
+                                    : 'ALL'
+                                  setEditing(c)
+                                  setForm({
+                                    name: c.name,
+                                    subject: c.subject ?? '',
+                                    body: c.body ?? '',
+                                    type: c.type === 'SMS' ? 'SMS' : 'EMAIL',
+                                    targetAudience: audience,
+                                    targetTag: c.recipientTags?.[0] ?? '',
+                                  })
+                                }}
+                                style={{
+                                  height: 28,
+                                  padding: '0 11px',
+                                  borderRadius: 8,
+                                  border: '1px solid var(--line-2)',
+                                  background: 'transparent',
+                                  color: 'var(--ink-2)',
+                                  cursor: update.isPending ? 'not-allowed' : 'pointer',
+                                  font: `600 11.5px/1 ${FONT}`,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                Edit
+                              </button>
+                            ) : null}
+                            {canSend ? (
+                              <button
+                                type="button"
+                                disabled={send.isPending}
+                                onClick={() => setConfirmSend(c)}
+                                style={{
+                                  height: 28,
+                                  padding: '0 11px',
+                                  borderRadius: 8,
+                                  border: '1px solid var(--violet-solid)',
+                                  background: 'var(--violet-solid)',
+                                  color: 'var(--on-violet)',
+                                  cursor: send.isPending ? 'not-allowed' : 'pointer',
+                                  font: `600 11.5px/1 ${FONT}`,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {state === 'failed' ? 'Retry send' : 'Send now'}
+                              </button>
+                            ) : null}
                             <button
                               type="button"
-                              disabled={send.isPending}
-                              onClick={() => setConfirmSend(c)}
+                              disabled={duplicate.isPending}
+                              onClick={() =>
+                                duplicate.mutate(c.id, {
+                                  onSuccess: (res) => {
+                                    if (!res.id || mapCampaignStatus(res.status) !== 'draft') {
+                                      toast(
+                                        'bad',
+                                        'Copy could not be verified',
+                                        'Server did not return a saved draft.',
+                                      )
+                                      refetchAll()
+                                      return
+                                    }
+                                    toast(
+                                      'ok',
+                                      `Copied to “${res.name}”`,
+                                      'The copy is a draft — nothing was sent.',
+                                    )
+                                  },
+                                  onError: (err) =>
+                                    toast(
+                                      'bad',
+                                      'Could not duplicate',
+                                      err instanceof Error
+                                        ? err.message
+                                        : `POST /marketing/campaigns/${c.id}/duplicate failed`,
+                                    ),
+                                })
+                              }
                               style={{
                                 height: 28,
                                 padding: '0 11px',
                                 borderRadius: 8,
-                                border: '1px solid var(--violet-solid)',
-                                background: 'var(--violet-solid)',
-                                color: 'var(--on-violet)',
-                                cursor: send.isPending ? 'not-allowed' : 'pointer',
+                                border: '1px solid var(--line-2)',
+                                background: 'transparent',
+                                color: 'var(--ink-2)',
+                                cursor: duplicate.isPending ? 'not-allowed' : 'pointer',
                                 font: `600 11.5px/1 ${FONT}`,
                                 whiteSpace: 'nowrap',
                               }}
                             >
-                              Send now
+                              Duplicate
                             </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            disabled={duplicate.isPending}
-                            onClick={() =>
-                              duplicate.mutate(c.id, {
-                                onSuccess: (res) => {
-                                  if (!res.id || mapCampaignStatus(res.status) !== 'draft') {
-                                    toast('bad', 'Copy could not be verified', 'Server did not return a saved draft.')
-                                    refetchAll()
-                                    return
-                                  }
-                                  toast(
-                                    'ok',
-                                    `Copied to “${res.name}”`,
-                                    'The copy is a draft — nothing was sent.',
-                                  )
-                                },
-                                onError: (err) =>
-                                  toast(
-                                    'bad',
-                                    'Could not duplicate',
-                                    err instanceof Error
-                                      ? err.message
-                                      : `POST /marketing/campaigns/${c.id}/duplicate failed`,
-                                  ),
-                              })
-                            }
-                            style={{
-                              height: 28,
-                              padding: '0 11px',
-                              borderRadius: 8,
-                              border: '1px solid var(--line-2)',
-                              background: 'transparent',
-                              color: 'var(--ink-2)',
-                              cursor: duplicate.isPending ? 'not-allowed' : 'pointer',
-                              font: `600 11.5px/1 ${FONT}`,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            Duplicate
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Delete ${c.name}`}
-                            title={`Delete ${c.name}`}
-                            onClick={() => setConfirmDelete(c)}
-                            style={{
-                              display: 'grid',
-                              placeItems: 'center',
-                              width: 28,
-                              height: 28,
-                              borderRadius: 8,
-                              border: '1px solid var(--bad-bd)',
-                              background: 'var(--bad-soft)',
-                              color: 'var(--bad)',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <DcIcon name="icon-trash-2" size={12} />
-                          </button>
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
+                            <button
+                              type="button"
+                              aria-label={`Delete ${c.name}`}
+                              title={`Delete ${c.name}`}
+                              onClick={() => setConfirmDelete(c)}
+                              style={{
+                                display: 'grid',
+                                placeItems: 'center',
+                                width: 28,
+                                height: 28,
+                                borderRadius: 8,
+                                border: '1px solid var(--bad-bd)',
+                                background: 'var(--bad-soft)',
+                                color: 'var(--bad)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <DcIcon name="icon-trash-2" size={12} />
+                            </button>
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
               </table>
             </div>
           </div>
@@ -744,13 +869,20 @@ function DcCampaignsBody() {
 
       {/* ── create ───────────────────────────────────────────────── */}
       <DcModal
-        open={newOpen}
-        title="New campaign"
-        subtitle="Saved as a draft. Nothing reaches a customer until you press Send."
-        confirmLabel="Save draft"
-        busy={create.isPending}
-        onClose={() => setNewOpen(false)}
-        onConfirm={runCreate}
+        open={newOpen || editing !== null}
+        title={editing ? 'Edit campaign' : 'New campaign'}
+        subtitle={
+          editing
+            ? 'Changes apply to this campaign. Nothing is sent while you edit.'
+            : 'Saved as a draft. Nothing reaches a customer until you press Send.'
+        }
+        confirmLabel={editing ? 'Save changes' : 'Save draft'}
+        busy={create.isPending || update.isPending}
+        onClose={() => {
+          setNewOpen(false)
+          setEditing(null)
+        }}
+        onConfirm={runSave}
       >
         <DcField
           label="Internal name"
@@ -760,60 +892,67 @@ function DcCampaignsBody() {
           hint="Only you see this. Customers see the subject line."
         />
 
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span
-            style={{
-              font: `600 11px/1 ${FONT}`,
-              letterSpacing: '.07em',
-              textTransform: 'uppercase',
-              color: 'var(--ink-3)',
-            }}
-          >
-            Channel
-          </span>
-          <select
-            value={form.type}
-            onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as CampaignType }))}
-            style={selectStyle}
-          >
-            <option value="EMAIL">Email</option>
-            <option value="SMS">SMS</option>
-            <option value="PUSH">Push notification</option>
-            <option value="WHATSAPP">WhatsApp</option>
-          </select>
-        </label>
+        {!editing ? (
+          <>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span
+                style={{
+                  font: `600 11px/1 ${FONT}`,
+                  letterSpacing: '.07em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ink-3)',
+                }}
+              >
+                Channel
+              </span>
+              <select
+                value={form.type}
+                onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as CampaignType }))}
+                style={selectStyle}
+              >
+                <option value="EMAIL">Email</option>
+                <option value="SMS">SMS</option>
+              </select>
+            </label>
 
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span
-            style={{
-              font: `600 11px/1 ${FONT}`,
-              letterSpacing: '.07em',
-              textTransform: 'uppercase',
-              color: 'var(--ink-3)',
-            }}
-          >
-            Audience
-          </span>
-          <select
-            value={form.targetAudience}
-            onChange={(e) => setForm((f) => ({ ...f, targetAudience: e.target.value as Audience }))}
-            style={selectStyle}
-          >
-            {(Object.keys(AUDIENCE_LABEL) as Audience[]).map((a) => (
-              <option key={a} value={a}>
-                {AUDIENCE_LABEL[a]}
-              </option>
-            ))}
-          </select>
-        </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span
+                style={{
+                  font: `600 11px/1 ${FONT}`,
+                  letterSpacing: '.07em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ink-3)',
+                }}
+              >
+                Audience
+              </span>
+              <select
+                value={form.targetAudience}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    targetAudience: e.target.value as CampaignAudience,
+                  }))
+                }
+                style={selectStyle}
+              >
+                {(Object.keys(AUDIENCE_LABEL) as CampaignAudience[]).map((a) => (
+                  <option key={a} value={a}>
+                    {AUDIENCE_LABEL[a]}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-        {form.targetAudience === 'TAG' ? (
-          <DcField
-            label="Tag"
-            value={form.targetTag}
-            onChange={(v) => setForm((f) => ({ ...f, targetTag: v }))}
-            mono
-          />
+            {form.targetAudience === 'TAG' ? (
+              <DcField
+                label="Tag"
+                value={form.targetTag}
+                onChange={(v) => setForm((f) => ({ ...f, targetTag: v }))}
+                mono
+              />
+            ) : null}
+          </>
         ) : null}
 
         <DcField
@@ -849,9 +988,17 @@ function DcCampaignsBody() {
               const name = confirmSend.name
               setConfirmSend(null)
               if (!Number.isFinite(res.sent) || res.sent < 0) {
-                toast('bad', 'Send result could not be verified', 'Server returned an invalid recipient count.')
+                toast(
+                  'bad',
+                  'Send result could not be verified',
+                  'Server returned an invalid recipient count.',
+                )
               } else if (res.sent === 0) {
-                toast('warn', `${name} reached nobody`, 'Server reported 0 recipients. Check audience and channel setup.')
+                toast(
+                  'warn',
+                  `${name} reached nobody`,
+                  'Server reported 0 recipients. Check audience and channel setup.',
+                )
               } else {
                 toast(
                   'ok',
@@ -894,7 +1041,11 @@ function DcCampaignsBody() {
           remove.mutate(confirmDelete.id, {
             onSuccess: (res) => {
               if (res.deleted !== confirmDelete.id) {
-                toast('bad', 'Delete could not be verified', 'Server did not confirm the campaign ID.')
+                toast(
+                  'bad',
+                  'Delete could not be verified',
+                  'Server did not confirm the campaign ID.',
+                )
                 refetchAll()
                 return
               }
@@ -954,11 +1105,21 @@ function Kpi({
 }) {
   return (
     <div
-      style={{ ...card, padding: '14px 15px 13px', display: 'flex', flexDirection: 'column', gap: 8 }}
+      style={{
+        ...card,
+        padding: '14px 15px 13px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}
     >
       <span style={capsLabel}>{label}</span>
       <span
-        style={{ font: `700 25px/1 ${FONT}`, letterSpacing: '-.025em', color: color ?? 'var(--ink)' }}
+        style={{
+          font: `700 25px/1 ${FONT}`,
+          letterSpacing: '-.025em',
+          color: color ?? 'var(--ink)',
+        }}
       >
         {value}
       </span>

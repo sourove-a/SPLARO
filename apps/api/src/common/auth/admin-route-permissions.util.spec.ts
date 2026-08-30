@@ -28,6 +28,14 @@ describe('resolveRoutePermission unmapped writes', () => {
     })
   })
 
+  it('maps Campaigns onto the settings permission matrix', () => {
+    expect(resolveRoutePermission('marketing/campaigns', 'POST')).toEqual({
+      moduleSlug: 'settings',
+      action: 'create',
+    })
+    expect(canRoleAccessAdminPath('STAFF', '/api/v1/marketing/campaigns')).toBe(false)
+  })
+
   it('maps Export Center history and log onto orders:view', () => {
     expect(resolveRoutePermission('admin/exports/history', 'GET')).toEqual({
       moduleSlug: 'orders',
@@ -46,9 +54,7 @@ describe('resolveRoutePermission unmapped writes', () => {
   it('forbids STAFF from POST /automation/trigger', () => {
     const route = resolveRoutePermission('automation/trigger', 'POST')
     expect(route).not.toBeNull()
-    expect(
-      staffHasPermission('STAFF', undefined, route!.moduleSlug, route!.action),
-    ).toBe(false)
+    expect(staffHasPermission('STAFF', undefined, route!.moduleSlug, route!.action)).toBe(false)
   })
 
   it('blocks STAFF and MANAGER from role-hidden admin sections', () => {

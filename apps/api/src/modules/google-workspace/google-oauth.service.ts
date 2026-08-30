@@ -8,6 +8,7 @@ import { resolveStoreId } from '../../common/store.util'
 import { EncryptionService } from '../integrations/encryption.service'
 import { GOOGLE_OAUTH_SCOPES } from './google.constants'
 import { GoogleAuditService } from './google-audit.service'
+import { readEncryptedRefreshToken } from './google-sheets-auth.util'
 
 function b64url(input: string) {
   return Buffer.from(input).toString('base64url')
@@ -181,8 +182,22 @@ export class GoogleOAuthService {
     const { storeId, userId } = this.verifyState(state)
     const oauth2 = await this.getOAuthClient(storeId)
     const { tokens } = await oauth2.getToken(code)
-    if (!tokens.refresh_token) {
-      throw new BadRequestException('Google did not return a refresh token. Revoke app access and reconnect with consent.')
+    const incomingRefreshToken = tokens.refresh_token?.trim() || null
+    const conn = await this.ensureConnection(storeId)
+    const existingToken = await this.prisma.googleWorkspaceToken.findUnique({
+      where: { connectionId_serviceName: { connectionId: conn.id, serviceName: 'oauth' } },
+    })
+    const existingRefreshResult = readEncryptedRefreshToken(
+      existingToken?.refreshTokenEncrypted,
+      (value) => this.crypto.decrypt(value),
+    )
+    const refreshToken =
+      incomingRefreshToken ?? (existingRefreshResult.ok ? existingRefreshResult.token : null)
+    if (!refreshToken) {
+      const reason = existingRefreshResult.ok
+        ? 'Google did not return a usable refresh token.'
+        : existingRefreshResult.reason
+      throw new BadRequestException(reason)
     }
 
     oauth2.setCredentials(tokens)
@@ -191,43 +206,56 @@ export class GoogleOAuthService {
       throw new BadRequestException('Could not read Google account email. Reconnect and allow email permission.')
     }
 
-    const conn = await this.ensureConnection(storeId)
-    const connection = await this.prisma.googleWorkspaceConnection.update({
-      where: { id: conn.id },
-      data: {
-        googleEmail,
-        isConnected: true,
-        tokenHealth: 'healthy',
-        autoSyncEnabled: true,
-        scopes: tokens.scope ?? GOOGLE_OAUTH_SCOPES.join(' '),
-        lastError: null,
-        updatedBy: userId ?? null,
-      },
-    })
+    const connection = await this.prisma.$transaction(async (tx) => {
+      const updatedConnection = await tx.googleWorkspaceConnection.update({
+        where: { id: conn.id },
+        data: {
+          googleEmail,
+          isConnected: true,
+          tokenHealth: 'healthy',
+          autoSyncEnabled: true,
+          scopes: tokens.scope ?? GOOGLE_OAUTH_SCOPES.join(' '),
+          lastError: null,
+          updatedBy: userId ?? null,
+        },
+      })
 
-    await this.prisma.googleWorkspaceToken.upsert({
-      where: { connectionId_serviceName: { connectionId: connection.id, serviceName: 'oauth' } },
-      create: {
-        connectionId: connection.id,
-        storeId,
-        serviceName: 'oauth',
-        accessTokenEncrypted: tokens.access_token ? this.crypto.encrypt(tokens.access_token) : null,
-        refreshTokenEncrypted: this.crypto.encrypt(tokens.refresh_token),
-        scope: tokens.scope ?? null,
-        tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-        isConnected: true,
-        createdBy: userId ?? null,
-        updatedBy: userId ?? null,
-      },
-      update: {
-        accessTokenEncrypted: tokens.access_token ? this.crypto.encrypt(tokens.access_token) : null,
-        refreshTokenEncrypted: this.crypto.encrypt(tokens.refresh_token),
-        scope: tokens.scope ?? null,
-        tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-        isConnected: true,
-        lastError: null,
-        updatedBy: userId ?? null,
-      },
+      await tx.googleWorkspaceToken.upsert({
+        where: {
+          connectionId_serviceName: { connectionId: updatedConnection.id, serviceName: 'oauth' },
+        },
+        create: {
+          connectionId: updatedConnection.id,
+          storeId,
+          serviceName: 'oauth',
+          accessTokenEncrypted: tokens.access_token
+            ? this.crypto.encrypt(tokens.access_token)
+            : null,
+          refreshTokenEncrypted: incomingRefreshToken
+            ? this.crypto.encrypt(incomingRefreshToken)
+            : (existingToken?.refreshTokenEncrypted ?? this.crypto.encrypt(refreshToken)),
+          scope: tokens.scope ?? null,
+          tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+          isConnected: true,
+          createdBy: userId ?? null,
+          updatedBy: userId ?? null,
+        },
+        update: {
+          ...(tokens.access_token
+            ? { accessTokenEncrypted: this.crypto.encrypt(tokens.access_token) }
+            : {}),
+          ...(incomingRefreshToken
+            ? { refreshTokenEncrypted: this.crypto.encrypt(incomingRefreshToken) }
+            : {}),
+          scope: tokens.scope ?? null,
+          tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+          isConnected: true,
+          lastError: null,
+          updatedBy: userId ?? null,
+        },
+      })
+
+      return updatedConnection
     })
 
     await this.audit.log({

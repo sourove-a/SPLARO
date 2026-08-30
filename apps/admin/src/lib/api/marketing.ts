@@ -1,5 +1,23 @@
 import { apiFetch, getStoreId } from './client'
 
+export type CampaignType = 'EMAIL' | 'SMS'
+export type CampaignAudience = 'ALL' | 'LOYAL' | 'INACTIVE' | 'HIGH_SPENDERS' | 'TAG'
+
+export interface CreateCampaignInput {
+  name: string
+  subject: string
+  body: string
+  type: CampaignType
+  targetAudience?: CampaignAudience
+  targetTag?: string
+}
+
+export interface UpdateCampaignInput {
+  name?: string
+  subject?: string
+  body?: string
+}
+
 export interface ApiCampaign {
   id: string
   name: string
@@ -8,6 +26,7 @@ export interface ApiCampaign {
   subject: string | null
   body?: string
   recipientType?: string
+  recipientTags?: string[]
   totalSent: number
   totalDelivered: number
   totalOpened: number
@@ -47,14 +66,7 @@ export function fetchCampaign(id: string) {
   return apiFetch<ApiCampaign>(`/marketing/campaigns/${encodeURIComponent(id)}`)
 }
 
-export function createCampaign(data: {
-  name: string
-  subject: string
-  body: string
-  type: 'EMAIL' | 'SMS' | 'PUSH' | 'WHATSAPP'
-  targetAudience?: 'ALL' | 'LOYAL' | 'INACTIVE' | 'HIGH_SPENDERS' | 'TAG'
-  targetTag?: string
-}) {
+export function createCampaign(data: CreateCampaignInput) {
   return apiFetch<ApiCampaign>('/marketing/campaigns', {
     method: 'POST',
     body: JSON.stringify({
@@ -69,16 +81,7 @@ export function createCampaign(data: {
   })
 }
 
-export function updateCampaign(
-  id: string,
-  data: {
-    name?: string
-    subject?: string
-    body?: string
-    scheduledAt?: string
-    status?: string
-  },
-) {
+export function updateCampaign(id: string, data: UpdateCampaignInput) {
   return apiFetch<ApiCampaign>(`/marketing/campaigns/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
@@ -103,14 +106,20 @@ export function sendCampaign(id: string) {
   })
 }
 
-export function mapCampaignStatus(status: string): 'draft' | 'scheduled' | 'live' | 'ended' {
+export function mapCampaignStatus(
+  status: string,
+): 'draft' | 'scheduled' | 'live' | 'ended' | 'failed' {
   const normalized = status.toUpperCase()
   if (normalized === 'DRAFT') return 'draft'
   if (normalized === 'SCHEDULED') return 'scheduled'
   if (normalized === 'SENDING' || normalized === 'SENT') return 'live'
+  if (normalized === 'FAILED') return 'failed'
   return 'ended'
 }
 
 export function formatCampaignType(type: string): string {
-  return type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+  return type
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
 }

@@ -34,14 +34,18 @@ export class GoogleWorkspaceController {
     return req.adminUser!.userId
   }
 
+  private scopedStoreId(req: AdminRequest, storeId: string) {
+    return req.adminUser?.storeId ?? storeId
+  }
+
   @Get('status')
-  status(@Query('storeId') storeId: string) {
-    return this.google.getStatus(storeId)
+  status(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
+    return this.google.getStatus(this.scopedStoreId(req, storeId))
   }
 
   @Get('oauth-url')
   oauthUrl(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
-    return this.google.oauthService().buildOAuthUrl(storeId, req.adminUser?.userId)
+    return this.google.oauthService().buildOAuthUrl(this.scopedStoreId(req, storeId), req.adminUser?.userId)
   }
 
   @Public()
@@ -83,12 +87,16 @@ export class GoogleWorkspaceController {
   @Post('revoke')
   revoke(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
     const userId = this.assertWrite(req)
-    return this.google.oauthService().revoke(storeId, userId)
+    return this.google.oauthService().revoke(this.scopedStoreId(req, storeId), userId)
   }
 
   @Post('test')
-  test(@Query('storeId') storeId: string, @Query('mode') mode?: 'gmail' | 'sheets' | 'auto') {
-    return this.google.testConnection(storeId, mode)
+  test(
+    @Query('storeId') storeId: string,
+    @Query('mode') mode: 'gmail' | 'sheets' | 'auto' | undefined,
+    @Req() req: AdminRequest,
+  ) {
+    return this.google.testConnection(this.scopedStoreId(req, storeId), mode)
   }
 
   @Put('oauth-settings')
@@ -98,19 +106,19 @@ export class GoogleWorkspaceController {
     @Req() req: AdminRequest,
   ) {
     const userId = this.assertWrite(req)
-    return this.google.oauthService().updateOAuthSettings(storeId, body, userId)
+    return this.google.oauthService().updateOAuthSettings(this.scopedStoreId(req, storeId), body, userId)
   }
 
   @RequireFeature('googleSheets')
   @Get('sheets/config')
-  sheetsConfig(@Query('storeId') storeId: string) {
-    return this.google.sheetsService().getSheetConfigs(storeId)
+  sheetsConfig(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
+    return this.google.sheetsService().getSheetConfigs(this.scopedStoreId(req, storeId))
   }
 
   @Post('service-account/activate')
   activateServiceAccount(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
     const userId = this.assertWrite(req)
-    return this.google.serviceAccountService().activateStore(storeId, userId)
+    return this.google.serviceAccountService().activateStore(this.scopedStoreId(req, storeId), userId)
   }
 
   @RequireFeature('googleSheets')
@@ -124,14 +132,14 @@ export class GoogleWorkspaceController {
     const raw = body.spreadsheetId?.trim() || body.spreadsheetUrl?.trim() || ''
     const match = raw.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)
     const spreadsheetId = match?.[1] ?? raw
-    return this.google.sheetsService().linkExistingSpreadsheet(storeId, spreadsheetId, userId)
+    return this.google.sheetsService().linkExistingSpreadsheet(this.scopedStoreId(req, storeId), spreadsheetId, userId)
   }
 
   @RequireFeature('googleSheets')
   @Post('sheets/create-default')
   createSpreadsheet(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
     const userId = this.assertWrite(req)
-    return this.google.sheetsService().createDefaultSpreadsheet(storeId, userId)
+    return this.google.sheetsService().createDefaultSpreadsheet(this.scopedStoreId(req, storeId), userId)
   }
 
   @RequireFeature('googleSheets')
@@ -142,7 +150,7 @@ export class GoogleWorkspaceController {
     @Req() req: AdminRequest,
   ) {
     const userId = this.assertWrite(req)
-    return this.google.sheetsService().toggleAutoSync(storeId, body.enabled, userId)
+    return this.google.sheetsService().toggleAutoSync(this.scopedStoreId(req, storeId), body.enabled, userId)
   }
 
   @RequireFeature('googleSheets')
@@ -153,11 +161,12 @@ export class GoogleWorkspaceController {
     @Req() req: AdminRequest,
   ) {
     const userId = this.assertWrite(req)
+    const scopedStoreId = this.scopedStoreId(req, storeId)
     if (body.jobType === GOOGLE_SYNC_JOB_TYPES.FULL_BACKUP || !body.jobType) {
-      return this.syncQueue.manualFullSync(storeId, userId)
+      return this.syncQueue.manualFullSync(scopedStoreId, userId)
     }
     return this.syncQueue.enqueue({
-      storeId,
+      storeId: scopedStoreId,
       jobType: body.jobType,
       resourceId: body.resourceId,
       triggeredBy: userId,
@@ -168,31 +177,41 @@ export class GoogleWorkspaceController {
   @Post('sheets/retry-failed')
   retryFailed(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
     const userId = this.assertWrite(req)
-    return this.google.retryFailed(storeId, userId)
+    return this.google.retryFailed(this.scopedStoreId(req, storeId), userId)
   }
 
   @RequireFeature('googleSheets')
   @Get('sync-logs')
   syncLogs(
     @Query('storeId') storeId: string,
+    @Req() req: AdminRequest,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.google.getSyncLogs(storeId, Number(page) || 1, Number(limit) || 30)
+    return this.google.getSyncLogs(
+      this.scopedStoreId(req, storeId),
+      Number(page) || 1,
+      Number(limit) || 30,
+    )
   }
 
   @Get('audit-logs')
   auditLogs(
     @Query('storeId') storeId: string,
+    @Req() req: AdminRequest,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.google.getAuditLogs(storeId, Number(page) || 1, Number(limit) || 30)
+    return this.google.getAuditLogs(
+      this.scopedStoreId(req, storeId),
+      Number(page) || 1,
+      Number(limit) || 30,
+    )
   }
 
   @Get('gmail/config')
-  gmailConfig(@Query('storeId') storeId: string) {
-    return this.google.gmailService().getConfig(storeId)
+  gmailConfig(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
+    return this.google.gmailService().getConfig(this.scopedStoreId(req, storeId))
   }
 
   @Put('gmail/config')
@@ -202,7 +221,7 @@ export class GoogleWorkspaceController {
     @Req() req: AdminRequest,
   ) {
     const userId = this.assertWrite(req)
-    return this.google.gmailService().updateConfig(storeId, body, userId)
+    return this.google.gmailService().updateConfig(this.scopedStoreId(req, storeId), body, userId)
   }
 
   @Post('gmail/test')
@@ -212,7 +231,7 @@ export class GoogleWorkspaceController {
     @Req() req: AdminRequest,
   ) {
     const userId = this.assertWrite(req)
-    return this.google.gmailService().testEmail(storeId, body.to, userId)
+    return this.google.gmailService().testEmail(this.scopedStoreId(req, storeId), body.to, userId)
   }
 
   @Post('gmail/send')
@@ -222,13 +241,13 @@ export class GoogleWorkspaceController {
     @Req() req: AdminRequest,
   ) {
     const userId = this.assertWrite(req)
-    return this.google.gmailService().sendEmail(storeId, body, userId)
+    return this.google.gmailService().sendEmail(this.scopedStoreId(req, storeId), body, userId)
   }
 
   @Post('drive/folders')
   driveFolders(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
     const userId = this.assertWrite(req)
-    return this.google.driveService().ensureFolderStructure(storeId, userId)
+    return this.google.driveService().ensureFolderStructure(this.scopedStoreId(req, storeId), userId)
   }
 
   @Post('drive/upload')
@@ -238,6 +257,6 @@ export class GoogleWorkspaceController {
     @Req() req: AdminRequest,
   ) {
     const userId = this.assertWrite(req)
-    return this.google.driveService().uploadFile(storeId, body, userId)
+    return this.google.driveService().uploadFile(this.scopedStoreId(req, storeId), body, userId)
   }
 }

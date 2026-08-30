@@ -2,7 +2,12 @@ import type { PermissionAction } from '../../modules/security/security-permissio
 type AdminRoleKey = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'STAFF'
 
 function normalizePath(path: string): string {
-  return path.replace(/^\/api\/v1\//, '').replace(/^\//, '').split('?')[0] ?? ''
+  return (
+    path
+      .replace(/^\/api\/v1\//, '')
+      .replace(/^\//, '')
+      .split('?')[0] ?? ''
+  )
 }
 
 /** Any authenticated admin may link their own Telegram — not gated by admin-users matrix. */
@@ -70,6 +75,7 @@ const ROLE_DENIED_API_PREFIXES: Record<Exclude<AdminRoleKey, 'SUPER_ADMIN'>, str
     'admin/analytics',
     'admin/executive/',
     'admin/campaigns',
+    'marketing',
     'admin/coupons',
     'admin/integrations',
     'admin/telegram',
@@ -115,7 +121,8 @@ export function canRoleAccessAdminPath(role: string | undefined, path: string): 
   if (normalized.startsWith('admin/auth')) return true
   if (isStaffSelfTelegramPath(normalized)) return true
   return !ROLE_DENIED_API_PREFIXES[roleKey].some(
-    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`) || normalized.startsWith(prefix),
+    (prefix) =>
+      normalized === prefix || normalized.startsWith(`${prefix}/`) || normalized.startsWith(prefix),
   )
 }
 
@@ -198,10 +205,17 @@ export function resolveRoutePermission(
   if (normalized.startsWith('automation/') || normalized === 'automation') {
     return { moduleSlug: 'orders', action: methodToAction(method) }
   }
-  if (normalized === 'telegram/confirm-order' || normalized === 'telegram/test' || normalized.startsWith('telegram/')) {
+  if (
+    normalized === 'telegram/confirm-order' ||
+    normalized === 'telegram/test' ||
+    normalized.startsWith('telegram/')
+  ) {
     return { moduleSlug: 'orders', action: methodToAction(method) }
   }
   if (normalized.startsWith('google-sheets/') || normalized === 'google-sheets') {
+    return { moduleSlug: 'settings', action: methodToAction(method) }
+  }
+  if (normalized.startsWith('marketing/') || normalized === 'marketing') {
     return { moduleSlug: 'settings', action: methodToAction(method) }
   }
   if (normalized.startsWith('ai-product-agent/') || normalized === 'ai-product-agent') {

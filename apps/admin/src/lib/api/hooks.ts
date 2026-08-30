@@ -12,9 +12,36 @@ import {
   periodFromLabel,
   saveDailyGoal,
 } from './dashboard'
-import { fetchOrders, fetchOrder, fetchOrderStats, updateOrderStatus, updateOrderPaymentStatus, deleteOrder, bookOrderCourier, bookOrdersCourierBulk, createOrder, bulkUpdateOrderStatus, setOrderCodRisk, addOrderNote, type OrderPaymentStatus } from './orders'
+import {
+  fetchOrders,
+  fetchOrder,
+  fetchOrderStats,
+  updateOrderStatus,
+  updateOrderPaymentStatus,
+  deleteOrder,
+  bookOrderCourier,
+  bookOrdersCourierBulk,
+  createOrder,
+  bulkUpdateOrderStatus,
+  setOrderCodRisk,
+  addOrderNote,
+  type OrderPaymentStatus,
+} from './orders'
 import { fetchFulfillmentTodayStats } from './fulfillment'
-import { fetchProducts, fetchProductStats, createProduct, updateProduct, deleteProduct, fetchProduct, updateProductVariant, fetchProductVersions, restoreProductVersion, createProductVariant, archiveProductVariant, type ProductListStatus } from './products'
+import {
+  fetchProducts,
+  fetchProductStats,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  fetchProduct,
+  updateProductVariant,
+  fetchProductVersions,
+  restoreProductVersion,
+  createProductVariant,
+  archiveProductVariant,
+  type ProductListStatus,
+} from './products'
 import {
   fetchCategories,
   fetchCategoryTree,
@@ -41,8 +68,18 @@ import {
   type GscRange,
   type GscSort,
 } from './search-console'
-import { EMPTY_HELPDESK_OVERVIEW, EMPTY_SEO_OVERVIEW, isNetworkOrServerError } from './offline-defaults'
-import { fetchCustomers, fetchCustomer, deleteCustomer, blockCustomer, fetchCustomerPresence } from './customers'
+import {
+  EMPTY_HELPDESK_OVERVIEW,
+  EMPTY_SEO_OVERVIEW,
+  isNetworkOrServerError,
+} from './offline-defaults'
+import {
+  fetchCustomers,
+  fetchCustomer,
+  deleteCustomer,
+  blockCustomer,
+  fetchCustomerPresence,
+} from './customers'
 import { fetchLoyaltySummary, fetchReferralStats, fetchReferrals } from './loyalty'
 import { fetchAutomationRules } from './automation'
 import {
@@ -53,10 +90,28 @@ import {
   deleteCampaign,
   duplicateCampaign,
   sendCampaign,
+  type UpdateCampaignInput,
 } from './marketing'
 import { fetchCourierShipments, fetchCourierStats, fetchCourierProviders } from './courier'
-import { fetchInvoices, fetchInvoiceHealth, fetchInvoiceStats, fetchTransactions, fetchTransactionHealth, fetchTransaction, fetchReturns, updateReturnStatus, createReturn, type RmaApiStatus } from './commerce-finance'
-import { fetchSettings, updateSettings, fetchNewsletterSubscribers, fetchCatalogChannelStats, type AdminSettingsData } from './settings'
+import {
+  fetchInvoices,
+  fetchInvoiceHealth,
+  fetchInvoiceStats,
+  fetchTransactions,
+  fetchTransactionHealth,
+  fetchTransaction,
+  fetchReturns,
+  updateReturnStatus,
+  createReturn,
+  type RmaApiStatus,
+} from './commerce-finance'
+import {
+  fetchSettings,
+  updateSettings,
+  fetchNewsletterSubscribers,
+  fetchCatalogChannelStats,
+  type AdminSettingsData,
+} from './settings'
 import { revalidateWebCache } from './revalidate'
 import { fetchMediaFolders, fetchMediaOrphans, fetchMediaStorage } from './media'
 import { hasPermission, type PermissionAction, type PermissionModule } from '@/lib/auth/permissions'
@@ -124,14 +179,19 @@ import {
   fetchNotificationsOverview,
   fetchCommerceSubscriptions,
 } from './admin-hub'
-import {
-  createSitePage,
-  deleteSitePage,
-  fetchSitePages,
-  updateSitePage,
-} from './content-pages'
+import { createSitePage, deleteSitePage, fetchSitePages, updateSitePage } from './content-pages'
 import type { PermissionRow } from './security'
-import { fetchRolePermissions, fetchSecuritySessions, fetchStaffTelegramLinkToken, inviteAdmin, removeStaff, resetStaffTelegram, revokeSecuritySession, saveRolePermissions, updateStaffRole } from './security'
+import {
+  fetchRolePermissions,
+  fetchSecuritySessions,
+  fetchStaffTelegramLinkToken,
+  inviteAdmin,
+  removeStaff,
+  resetStaffTelegram,
+  revokeSecuritySession,
+  saveRolePermissions,
+  updateStaffRole,
+} from './security'
 import { fetchLegalPage, fetchLegalPages, saveLegalPage } from './legal-pages'
 import { fetchFootwearConfig } from './footwear-config'
 import type { LegalPageContent, LegalPageSlug } from '@splaro/types'
@@ -258,9 +318,7 @@ export function useSetOrderCodRisk() {
     }) =>
       setOrderCodRisk(
         id,
-        requireAdvancePayment === undefined
-          ? { isCodRisk }
-          : { isCodRisk, requireAdvancePayment },
+        requireAdvancePayment === undefined ? { isCodRisk } : { isCodRisk, requireAdvancePayment },
       ),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ['orders'] })
@@ -296,8 +354,13 @@ export function useDeleteOrder() {
 export function useBookCourier() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, provider }: { id: string; provider?: Parameters<typeof bookOrderCourier>[1] }) =>
-      bookOrderCourier(id, provider),
+    mutationFn: ({
+      id,
+      provider,
+    }: {
+      id: string
+      provider?: Parameters<typeof bookOrderCourier>[1]
+    }) => bookOrderCourier(id, provider),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['orders'] })
       void qc.invalidateQueries({ queryKey: ['order'] })
@@ -310,8 +373,13 @@ export function useBookCourier() {
 export function useBookCourierBulk() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ orderIds, provider }: { orderIds: string[]; provider?: Parameters<typeof bookOrdersCourierBulk>[1] }) =>
-      bookOrdersCourierBulk(orderIds, provider),
+    mutationFn: ({
+      orderIds,
+      provider,
+    }: {
+      orderIds: string[]
+      provider?: Parameters<typeof bookOrdersCourierBulk>[1]
+    }) => bookOrdersCourierBulk(orderIds, provider),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['orders'] })
       void qc.invalidateQueries({ queryKey: ['courier-shipments'] })
@@ -368,8 +436,15 @@ export function useCreateOrder() {
 export function useBulkUpdateOrderStatus() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ orderIds, status, note }: { orderIds: string[]; status: string; note?: string }) =>
-      bulkUpdateOrderStatus(orderIds, status, note),
+    mutationFn: ({
+      orderIds,
+      status,
+      note,
+    }: {
+      orderIds: string[]
+      status: string
+      note?: string
+    }) => bulkUpdateOrderStatus(orderIds, status, note),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['orders'] })
       // The stage strip counts the same rows that just moved, so it has to be
@@ -471,8 +546,15 @@ export function useCreateDeliveryAgent() {
 export function useUpdateDeliveryAgent() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...input }: { id: string; isActive?: boolean; name?: string; vehicleType?: string }) =>
-      updateDeliveryAgent(id, input),
+    mutationFn: ({
+      id,
+      ...input
+    }: {
+      id: string
+      isActive?: boolean
+      name?: string
+      vehicleType?: string
+    }) => updateDeliveryAgent(id, input),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['delivery-overview'] }),
   })
 }
@@ -544,7 +626,8 @@ export function useCreateCompanyTask() {
 export function useUpdateCompanyTaskStatus() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) => updateCompanyTaskStatus(id, status),
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      updateCompanyTaskStatus(id, status),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['company-overview'] }),
   })
 }
@@ -594,7 +677,8 @@ export function useCreateProductionBatch() {
 export function useUpdateProductionBatchStatus() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) => updateProductionBatchStatus(id, status),
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      updateProductionBatchStatus(id, status),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['production-overview'] }),
   })
 }
@@ -709,7 +793,8 @@ export function useLegalPage(slug: LegalPageSlug) {
 export function useSaveLegalPage() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ slug, body }: { slug: LegalPageSlug; body: LegalPageContent }) => saveLegalPage(slug, body),
+    mutationFn: ({ slug, body }: { slug: LegalPageSlug; body: LegalPageContent }) =>
+      saveLegalPage(slug, body),
     onSuccess: (_data, variables) => {
       void qc.invalidateQueries({ queryKey: ['legal-pages'] })
       void qc.invalidateQueries({ queryKey: ['legal-page', variables.slug] })
@@ -948,8 +1033,17 @@ export function useCreateRedirect() {
 export function useUpdateRedirect() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; fromPath?: string; toPath?: string; type?: string; isActive?: boolean; note?: string | null }) =>
-      updateRedirect(id, data),
+    mutationFn: ({
+      id,
+      ...data
+    }: {
+      id: string
+      fromPath?: string
+      toPath?: string
+      type?: string
+      isActive?: boolean
+      note?: string | null
+    }) => updateRedirect(id, data),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['url-redirects'] })
       void qc.invalidateQueries({ queryKey: ['seo-overview'] })
@@ -1097,10 +1191,15 @@ export function useCommerceSubscriptions() {
   })
 }
 
-export function useCustomers(params?: { search?: string; limit?: number; staff?: 'hide' | 'include' | 'only' }) {
+export function useCustomers(params?: {
+  search?: string
+  limit?: number
+  staff?: 'hide' | 'include' | 'only'
+}) {
   return useQuery({
     queryKey: ['customers', params],
-    queryFn: () => fetchCustomers({ ...params, limit: params?.limit ?? 100, staff: params?.staff ?? 'hide' }),
+    queryFn: () =>
+      fetchCustomers({ ...params, limit: params?.limit ?? 100, staff: params?.staff ?? 'hide' }),
     staleTime: 30_000,
   })
 }
@@ -1211,7 +1310,7 @@ export function useCreateCampaign() {
 export function useUpdateCampaign() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name?: string; subject?: string; body?: string; scheduledAt?: string; status?: string }) =>
+    mutationFn: ({ id, ...data }: { id: string } & UpdateCampaignInput) =>
       updateCampaign(id, data),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['campaigns'] })
@@ -1385,7 +1484,8 @@ export function useProducts(params?: {
 }) {
   return useQuery({
     queryKey: ['products', params],
-    queryFn: () => fetchProducts({ ...params, page: params?.page ?? 1, limit: params?.limit ?? 50 }),
+    queryFn: () =>
+      fetchProducts({ ...params, page: params?.page ?? 1, limit: params?.limit ?? 50 }),
     staleTime: 30_000,
   })
 }
@@ -1484,8 +1584,15 @@ export function useProductVersions(id: string) {
 export function useRestoreProductVersion() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ productId, versionId, restoredBy }: { productId: string; versionId: string; restoredBy: string }) =>
-      restoreProductVersion(productId, versionId, restoredBy),
+    mutationFn: ({
+      productId,
+      versionId,
+      restoredBy,
+    }: {
+      productId: string
+      versionId: string
+      restoredBy: string
+    }) => restoreProductVersion(productId, versionId, restoredBy),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ['product', vars.productId] })
       void qc.invalidateQueries({ queryKey: ['product-versions', vars.productId] })
@@ -1584,7 +1691,10 @@ export function useUpdateProductVariant() {
 export function useCreateProductVariant() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ productId, ...data }: { productId: string } & Parameters<typeof createProductVariant>[1]) =>
+    mutationFn: ({
+      productId,
+      ...data
+    }: { productId: string } & Parameters<typeof createProductVariant>[1]) =>
       createProductVariant(productId, data),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ['products'] })
@@ -1694,7 +1804,10 @@ export function useReorderCategories() {
 export function useUpdateCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: {
+    mutationFn: ({
+      id,
+      ...data
+    }: {
       id: string
       name?: string
       description?: string
@@ -1729,7 +1842,12 @@ export function useSaaS() {
 }
 
 export function useSecurity() {
-  return useQuery({ queryKey: ['platform-security'], queryFn: fetchSecurity, staleTime: 30_000, retry: 1 })
+  return useQuery({
+    queryKey: ['platform-security'],
+    queryFn: fetchSecurity,
+    staleTime: 30_000,
+    retry: 1,
+  })
 }
 
 export function useRolePermissions() {
@@ -1785,9 +1903,11 @@ export function useSecuritySessions(enabled = true) {
 export function useMedia(query: Omit<MediaQuery, 'cursor'> = {}) {
   return useInfiniteQuery({
     queryKey: ['platform-media', query],
-    queryFn: ({ pageParam }) => fetchMedia({ ...query, ...(pageParam ? { cursor: pageParam } : {}) }),
+    queryFn: ({ pageParam }) =>
+      fetchMedia({ ...query, ...(pageParam ? { cursor: pageParam } : {}) }),
     initialPageParam: '',
-    getNextPageParam: (lastPage) => lastPage.pageInfo?.hasMore ? lastPage.pageInfo.nextCursor ?? undefined : undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.pageInfo?.hasMore ? (lastPage.pageInfo.nextCursor ?? undefined) : undefined,
     staleTime: 30_000,
     retry: 1,
   })
@@ -1829,11 +1949,21 @@ export function useMediaOrphans(enabled = true) {
 }
 
 export function useMarketplace() {
-  return useQuery({ queryKey: ['platform-marketplace'], queryFn: fetchMarketplace, staleTime: 60_000, retry: 1 })
+  return useQuery({
+    queryKey: ['platform-marketplace'],
+    queryFn: fetchMarketplace,
+    staleTime: 60_000,
+    retry: 1,
+  })
 }
 
 export function useDeveloper() {
-  return useQuery({ queryKey: ['platform-developer'], queryFn: fetchDeveloper, staleTime: 60_000, retry: 1 })
+  return useQuery({
+    queryKey: ['platform-developer'],
+    queryFn: fetchDeveloper,
+    staleTime: 60_000,
+    retry: 1,
+  })
 }
 
 export function useCreateApiKey() {
@@ -1857,16 +1987,37 @@ export function useRevokeApiKey() {
 }
 
 export function useObservability() {
-  return useQuery({ queryKey: ['platform-observability'], queryFn: fetchObservability, staleTime: 30_000, retry: 1 })
+  return useQuery({
+    queryKey: ['platform-observability'],
+    queryFn: fetchObservability,
+    staleTime: 30_000,
+    retry: 1,
+  })
 }
 
 export function useIntegrations() {
-  return useQuery({ queryKey: ['platform-integrations'], queryFn: fetchIntegrations, staleTime: 30_000, retry: 1 })
+  return useQuery({
+    queryKey: ['platform-integrations'],
+    queryFn: fetchIntegrations,
+    staleTime: 30_000,
+    retry: 1,
+  })
 }
 
-export function useSystemLogs(params?: { page?: number; limit?: number; q?: string; level?: string }) {
+export function useSystemLogs(params?: {
+  page?: number
+  limit?: number
+  q?: string
+  level?: string
+}) {
   return useQuery({
-    queryKey: ['platform-system-logs', params?.page ?? 1, params?.limit ?? 50, params?.q ?? '', params?.level ?? 'all'],
+    queryKey: [
+      'platform-system-logs',
+      params?.page ?? 1,
+      params?.limit ?? 50,
+      params?.q ?? '',
+      params?.level ?? 'all',
+    ],
     queryFn: () => fetchSystemLogs(params),
     staleTime: 15_000,
     retry: 1,
@@ -1874,7 +2025,12 @@ export function useSystemLogs(params?: { page?: number; limit?: number; q?: stri
 }
 
 export function useTelegramLogs() {
-  return useQuery({ queryKey: ['platform-telegram-logs'], queryFn: () => fetchTelegramLogs(), staleTime: 15_000, retry: 1 })
+  return useQuery({
+    queryKey: ['platform-telegram-logs'],
+    queryFn: () => fetchTelegramLogs(),
+    staleTime: 15_000,
+    retry: 1,
+  })
 }
 
 export function useCollections() {
@@ -1902,8 +2058,15 @@ export function useCreateCollection() {
 export function useUpdateCollection() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; isActive?: boolean }) =>
-      updateCollection(id, data),
+    mutationFn: ({
+      id,
+      ...data
+    }: {
+      id: string
+      name?: string
+      description?: string
+      isActive?: boolean
+    }) => updateCollection(id, data),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['collections'] })
       void revalidateWebCache(['storefront-products'])
@@ -1978,8 +2141,18 @@ export function useCreateBanner() {
 export function useUpdateBanner() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; title?: string; subtitle?: string; linkUrl?: string; isActive?: boolean; sortOrder?: number; image?: string }) =>
-      updateBanner(id, data),
+    mutationFn: ({
+      id,
+      ...data
+    }: {
+      id: string
+      title?: string
+      subtitle?: string
+      linkUrl?: string
+      isActive?: boolean
+      sortOrder?: number
+      image?: string
+    }) => updateBanner(id, data),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['platform-media'] })
       void qc.invalidateQueries({ queryKey: ['banners'] })
@@ -2109,8 +2282,12 @@ export function useWebhookStats(days?: number) {
 export function useCreateWebhook() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { url: string; secret?: string; events: WebhookEventType[]; isActive?: boolean }) =>
-      createWebhook(data),
+    mutationFn: (data: {
+      url: string
+      secret?: string
+      events: WebhookEventType[]
+      isActive?: boolean
+    }) => createWebhook(data),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['webhooks'] })
       void qc.invalidateQueries({ queryKey: ['platform-developer'] })
@@ -2171,4 +2348,3 @@ export function useDispatchWebhook() {
     },
   })
 }
-

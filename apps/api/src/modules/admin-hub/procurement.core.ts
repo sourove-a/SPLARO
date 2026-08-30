@@ -132,7 +132,10 @@ export function computePurchaseTotals(
  * reuses a number as soon as a row is deleted, and the unique index then
  * rejects the next insert.
  */
-export function nextSequenceCode(prefix: string, existing: Array<string | null | undefined>): string {
+export function nextSequenceCode(
+  prefix: string,
+  existing: Array<string | null | undefined>,
+): string {
   const pattern = new RegExp(`^${prefix}-(\\d+)$`, 'i')
   let highest = 0
   for (const code of existing) {
@@ -249,7 +252,10 @@ export type EtaState = 'none' | 'due' | 'today' | 'late'
  * PO raised at 6pm for "tomorrow" report 0 days left, which an operator reads
  * as "due today" and acts on a day early.
  */
-export function describeEta(expectedAt: Date | string | null | undefined, now: Date = new Date()): {
+export function describeEta(
+  expectedAt: Date | string | null | undefined,
+  now: Date = new Date(),
+): {
   state: EtaState
   days: number
 } {
@@ -257,7 +263,7 @@ export function describeEta(expectedAt: Date | string | null | undefined, now: D
   const target = expectedAt instanceof Date ? expectedAt : new Date(expectedAt)
   if (Number.isNaN(target.getTime())) return { state: 'none', days: 0 }
 
-  const midnight = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+  const midnight = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
   const days = Math.round((midnight(target) - midnight(now)) / 86_400_000)
   if (days === 0) return { state: 'today', days: 0 }
   if (days < 0) return { state: 'late', days: Math.abs(days) }
