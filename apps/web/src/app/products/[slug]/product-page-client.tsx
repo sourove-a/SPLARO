@@ -194,6 +194,7 @@ export default function ProductPageClient({
   const optionsRef = useRef<HTMLDivElement>(null)
   const ctaRef = useRef<HTMLDivElement>(null)
   const galleryStageRef = useRef<HTMLDivElement>(null)
+  const descRef = useRef<HTMLDivElement>(null)
   const [showFloatingCta, setShowFloatingCta] = useState(false)
   const { shipping } = useStorefrontSettings()
 
@@ -217,8 +218,6 @@ export default function ProductPageClient({
   const shortDesc =
     product.shortDescription?.trim() ||
     (fullDescription.length > 160 ? fullDescription : fullDescription)
-  /** Clamp visually when copy is long; full text always stays in the DOM for crawlers. */
-  const showReadMore = fullDescription.length > 160
 
   /**
    * Admin-written Bangla wins. Without it, Bangla is generated from the
@@ -269,6 +268,36 @@ export default function ProductPageClient({
   }
 
   const showBangla = descLang === 'bn' && descriptionBn.length > 0
+
+  /** Whatever is on screen right now — the clamp follows the reader's language. */
+  const activeDescription = showBangla ? descriptionBn : fullDescription || shortDesc
+
+  /**
+   * Whether the copy is actually taller than the clamp, measured rather than
+   * guessed from its length. A character count cannot answer this: the same
+   * sentence is 27.2px per line in English and 30.4px in Bangla, and the copy
+   * renders as bullets or a paragraph depending on its punctuation. The seed
+   * keeps long copy clamped on the server so the first paint does not flash the
+   * whole description before the measurement lands.
+   */
+  const [descOverflows, setDescOverflows] = useState(() => activeDescription.length > 160)
+
+  useEffect(() => {
+    const el = descRef.current
+    // While expanded the box is its full height, so there is nothing to compare
+    // — the value measured on the way in still holds.
+    if (!el || descExpanded) return
+    const measure = () => {
+      setDescOverflows(el.scrollHeight - el.clientHeight > 4)
+    }
+    measure()
+    // Re-measure on rotation, font swap and viewport changes.
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [activeDescription, descExpanded])
+
+  const showReadMore = descOverflows || descExpanded
 
   const colorOptions = useMemo(() => {
     const map = new Map<string, { hex: string; name: string; image: string }>()
@@ -1751,12 +1780,18 @@ export default function ProductPageClient({
                       )}
                     </div>
                     <div
+                      ref={descRef}
                       id="pp-product-description"
                       lang={showBangla ? 'bn' : 'en'}
                       className={cn(
                         'pp-info__desc',
                         showBangla && 'pp-info__desc--bn',
-                        showReadMore && !descExpanded && !showBangla && 'pp-info__desc--clamped',
+                        // Clamped whenever collapsed, in either language. Gating
+                        // this on the overflow flag would make the measurement
+                        // self-defeating: an unclamped box never overflows, so
+                        // it could never discover that it should be clamped.
+                        !descExpanded && 'pp-info__desc--clamped',
+                        !descExpanded && descOverflows && 'pp-info__desc--faded',
                         descExpanded && 'pp-info__desc--expanded',
                       )}
                     >
@@ -1764,7 +1799,7 @@ export default function ProductPageClient({
                         ? renderFormattedDescription(descriptionBn)
                         : renderFormattedDescription(fullDescription || shortDesc)}
                     </div>
-                    {showReadMore && !showBangla && (
+                    {showReadMore && (
                       <MotionPressable
                         type="button"
                         className="pp-info__read-more"
@@ -1772,8 +1807,17 @@ export default function ProductPageClient({
                         aria-expanded={descExpanded}
                         aria-controls="pp-product-description"
                         variant="subtle"
+                        lang={showBangla ? 'bn' : 'en'}
                       >
-                        <span>{descExpanded ? 'Read less' : 'Read more'}</span>
+                        <span>
+                          {showBangla
+                            ? descExpanded
+                              ? 'কম দেখুন'
+                              : 'আরও পড়ুন'
+                            : descExpanded
+                              ? 'Read less'
+                              : 'Read more'}
+                        </span>
                         <ChevronDown
                           className={cn(
                             'pp-info__read-more-icon',
