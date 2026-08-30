@@ -2,7 +2,14 @@
 
 import '@/styles/pages/pdp.css'
 
-import { useCallback, useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type TouchEvent as ReactTouchEvent,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { TransformComponent, TransformWrapper, type ReactZoomPanPinchRef } from 'react-zoom-pan-pinch'
 import { AnimatePresence, motion } from '@/lib/motion/react'
@@ -11,6 +18,14 @@ import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import { MotionPressable } from '@/components/ui/MotionPressable'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { videoEmbedSrc } from '@/lib/media/product-video'
+import {
+  beginSwipe as beginSwipeState,
+  resolveSwipe,
+  trackSwipe as trackSwipeState,
+  SWIPE_ZOOM_EPSILON,
+  type SwipeState,
+} from '@/lib/media/lightbox-swipe'
+import { useMobileViewport } from '@/lib/hooks/use-mobile-viewport'
 import { EASE_EXPO_OUT } from '@/lib/motion/config'
 import { cn } from '@/lib/utils/cn'
 import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap'
@@ -42,7 +57,11 @@ export function ProductLightbox({
   const closeRef = useRef<HTMLButtonElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
   const pinchRef = useRef<ReactZoomPanPinchRef | null>(null)
-  const swipeRef = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+  const swipeRef = useRef<SwipeState | null>(null)
+  /** Live zoom level — a drag on a zoomed photo pans it instead of changing slide. */
+  const scaleRef = useRef(1)
+  const isMobile = useMobileViewport()
+  const [zoomed, setZoomed] = useState(false)
   const active = media[activeIndex]
   useDialogFocusTrap(isOpen, dialogRef, onClose)
   useOverlayScrollLock(isOpen)
@@ -67,34 +86,113 @@ export function ProductLightbox({
   useEffect(() => {
     // Soft reset when changing slides — hard 0ms reset felt like a jump
     pinchRef.current?.resetTransform(220)
+    scaleRef.current = 1
+    setZoomed(false)
+    swipeRef.current = null
   }, [activeIndex, isOpen])
 
-  const onPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (media.length < 2) return
-    swipeRef.current = { x: event.clientX, y: event.clientY, moved: false }
-  }, [media.length])
+  const beginSwipe = useCallback(
+    (x: number, y: number) => {
+      swipeRef.current = beginSwipeState(x, y, {
+        mediaCount: media.length,
+        scale: scaleRef.current,
+      })
+    },
+    [media.length],
+  )
 
-  const onPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+  const trackSwipe = useCallback((x: number, y: number) => {
     const start = swipeRef.current
     if (!start) return
-    const dx = event.clientX - start.x
-    const dy = event.clientY - start.y
-    if (Math.abs(dx) > 12 || Math.abs(dy) > 12) start.moved = true
+    swipeRef.current = trackSwipeState(start, x, y)
   }, [])
+
+  const endSwipe = useCallback(
+    (x: number, y: number) => {
+      const start = swipeRef.current
+      swipeRef.current = null
+      if (!start) return
+      const move = resolveSwipe(start, x, y)
+      if (move === 'next') onNext()
+      else if (move === 'prev') onPrev()
+    },
+    [onNext, onPrev],
+  )
+
+  /**
+   * Touch is served by the touch handlers below, never here. Both streams fire
+   * for one finger, and letting them share the swipe state meant a
+   * `pointercancel` — which a mobile browser emits the moment it claims a
+   * gesture — wiped the swipe that `touchend` was about to complete. Mouse and
+   * pen keep the pointer path; touch keeps the one that cannot be cancelled out
+   * from under it.
+   */
+  const onPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (event.pointerType === 'touch') return
+      if (event.pointerType === 'mouse' && event.button !== 0) return
+      beginSwipe(event.clientX, event.clientY)
+    },
+    [beginSwipe],
+  )
+
+  const onPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (event.pointerType === 'touch') return
+      trackSwipe(event.clientX, event.clientY)
+    },
+    [trackSwipe],
+  )
 
   const onPointerUp = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      const start = swipeRef.current
-      if (!start) return
-      const dx = event.clientX - start.x
-      const dy = event.clientY - start.y
-      const swiped = start.moved && Math.abs(dx) >= 48 && Math.abs(dx) > Math.abs(dy) * 1.2
-      swipeRef.current = null
-      if (!swiped) return
-      if (dx < 0) onNext()
-      else onPrev()
+      if (event.pointerType === 'touch') return
+      endSwipe(event.clientX, event.clientY)
     },
-    [onNext, onPrev],
+    [endSwipe],
+  )
+
+  const onPointerCancel = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'touch') return
+    swipeRef.current = null
+  }, [])
+
+  const onTouchStart = useCallback(
+    (event: ReactTouchEvent<HTMLDivElement>) => {
+      const touch = event.touches[0]
+      // Two fingers down is a pinch, which the zoom wrapper owns.
+      if (!touch || event.touches.length > 1) {
+        swipeRef.current = null
+        return
+      }
+      beginSwipe(touch.clientX, touch.clientY)
+    },
+    [beginSwipe],
+  )
+
+  const onTouchMove = useCallback(
+    (event: ReactTouchEvent<HTMLDivElement>) => {
+      if (event.touches.length > 1) {
+        swipeRef.current = null
+        return
+      }
+      const touch = event.touches[0]
+      if (!touch) return
+      trackSwipe(touch.clientX, touch.clientY)
+    },
+    [trackSwipe],
+  )
+
+  const onTouchEnd = useCallback(
+    (event: ReactTouchEvent<HTMLDivElement>) => {
+      const touch = event.changedTouches[0]
+      if (!touch) {
+        swipeRef.current = null
+        return
+      }
+      endSwipe(touch.clientX, touch.clientY)
+    },
+    [endSwipe],
   )
 
   if (!media.length || typeof document === 'undefined') return null
@@ -147,6 +245,7 @@ export function ProductLightbox({
 
           <motion.div
             className="pp-lightbox__stage"
+            data-zoomed={zoomed ? 'true' : 'false'}
             initial={showMotion ? { opacity: 0, scale: 0.985 } : false}
             animate={{ opacity: 1, scale: 1 }}
             {...(showMotion ? { exit: { opacity: 0, scale: 0.99 } } : {})}
@@ -155,7 +254,11 @@ export function ProductLightbox({
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
-            onPointerCancel={() => {
+            onPointerCancel={onPointerCancel}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onTouchCancel={() => {
               swipeRef.current = null
             }}
           >
@@ -201,6 +304,11 @@ export function ProductLightbox({
                 }}
                 velocityAnimation={{ disabled: true }}
                 zoomAnimation={{ animationTime: 220, animationType: 'easeOut' }}
+                onTransformed={(_ref, state) => {
+                  scaleRef.current = state.scale
+                  const next = state.scale > SWIPE_ZOOM_EPSILON
+                  setZoomed((current) => (current === next ? current : next))
+                }}
               >
                 <TransformComponent
                   wrapperClass="pp-lightbox__pinch-wrap"
@@ -211,7 +319,7 @@ export function ProductLightbox({
                     alt={productName}
                     profile="lightbox"
                     fill
-                    fit="cover"
+                    fit="contain"
                     sizes="100vw"
                     className={cn('pp-lightbox__media', 'pp-lightbox__media--pinch')}
                     draggable={false}
@@ -222,7 +330,10 @@ export function ProductLightbox({
           </motion.div>
 
           {active?.type !== 'video' ? (
-            <p className="pp-lightbox__hint">Pinch or double-click to zoom · Swipe to change image</p>
+            <p className="pp-lightbox__hint">
+              {isMobile ? 'Pinch or double-tap to zoom' : 'Scroll or double-click to zoom'}
+              {media.length > 1 ? ' · Swipe to change image' : ''}
+            </p>
           ) : null}
 
           {media.length > 1 ? (
