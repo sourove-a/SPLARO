@@ -2013,13 +2013,34 @@ html[data-os='windows'] .home-hero-slider .hero-bg-embed iframe {
   inset: 0;
   z-index: 1;
   pointer-events: none;
+  /*
+   * The copy is centred at roughly 50% 42%, and the scrim used to be at its
+   * thinnest (0.04) in exactly that spot — brightest photo, weakest cover.
+   * Measured against the shipped hero art, the brightest pixel behind the
+   * title gave white text 3.79:1, under the 4.5:1 floor. The centre is now
+   * carried rather than cleared, while the corners stay open so the
+   * photograph is still a photograph.
+   */
   background:
-    radial-gradient(circle at 50% 42%, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.4)),
+    radial-gradient(circle at 50% 42%, rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0.42) 62%, rgba(0, 0, 0, 0.3) 100%),
     linear-gradient(180deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0.52));
 }
 
 .home-hero-slider .hero-slide[data-hero-copy='none'] .hero-overlay {
   background: transparent;
+}
+
+/*
+ * The banner photograph is merchant-supplied, so no scrim tuned against
+ * today's art can be trusted against tomorrow's upload. A soft shadow rides
+ * under the copy as the floor: invisible over a dark frame, and the reason
+ * the words still read when someone uploads a white studio shot.
+ */
+.home-hero-slider .hero-content > .hero-eyebrow,
+.home-hero-slider .hero-content > h1,
+.home-hero-slider .hero-content > .hero-title,
+.home-hero-slider .hero-content > .hero-subtitle {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.32), 0 2px 12px rgba(0, 0, 0, 0.28);
 }
 
 .home-hero-slider .hero-content {
@@ -2659,11 +2680,24 @@ html[data-home-hero='top'] .home-hero-slider .hero-content {
   }
 
   .home-hero-slider .hero-overlay {
+    /*
+     * The copy is bottom-anchored, but measured against the live layout the
+     * title occupies 55–69% of the card, not the last fifth — the old ramp
+     * reached 0.55 only at the final pixel, below the words, and a blown-out
+     * patch behind the title measured 2.35:1 against white.
+     *
+     * White text needs its plate at or under 118/255 to clear 4.5:1, which
+     * over a pure-white photo means 0.53 of cover. The ramp therefore reaches
+     * that by 54% and holds it through the copy, while the top half is left
+     * nearly clear so the photograph still opens the page.
+     */
     background: linear-gradient(
       180deg,
-      rgba(0, 0, 0, 0.08) 0%,
-      rgba(0, 0, 0, 0.18) 45%,
-      rgba(0, 0, 0, 0.55) 100%
+      rgba(0, 0, 0, 0.06) 0%,
+      rgba(0, 0, 0, 0.1) 28%,
+      rgba(0, 0, 0, 0.3) 44%,
+      rgba(0, 0, 0, 0.56) 54%,
+      rgba(0, 0, 0, 0.7) 100%
     );
   }
 
@@ -2671,8 +2705,24 @@ html[data-home-hero='top'] .home-hero-slider .hero-content {
     justify-content: flex-end;
     align-items: flex-start;
     text-align: left;
-    padding: 0.85rem 0.95rem 1.65rem;
+    /*
+     * Bottom padding clears the dot row, which sits at 0.7rem and stands
+     * 26px tall in this corner. At 1.65rem the subtitle and the dots
+     * overlapped by a few pixels — small, but it is the kind of collision the
+     * eye reads as carelessness.
+     */
+    padding: 0.85rem 0.95rem 2.75rem;
     max-width: 100%;
+  }
+
+  /*
+   * The base rule centres the subtitle with `margin: 22px auto 0`, which is
+   * right for the centred desktop hero and wrong here, where the title is hard
+   * left. Left unreset it indented the subtitle 77px past the title — one line
+   * left-aligned, the next centred, under the same heading.
+   */
+  .home-hero-slider .hero-content > .hero-subtitle {
+    margin-inline: 0;
   }
 
   .home-hero-slider .hero-content h1,

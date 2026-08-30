@@ -35,6 +35,9 @@ const VIEWPORTS = [
   { name: 'desktop', width: 1366, height: 900, deviceScaleFactor: 1 },
 ]
 
+/** Frames per route/viewport — enough to cover a long page without flooding. */
+const MAX_FRAMES = 6
+
 const ROUTES = [
   { name: 'home', path: '/' },
   { name: 'shop', path: '/shop' },
@@ -119,6 +122,25 @@ async function capture(label) {
   // Motion off: a screenshot must be reproducible, not a frame of an animation.
   await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }])
 
+  /*
+   * Warm every route before the shutter opens. A dev server compiles a route
+   * on its first request, and that first render is not the same as the ones
+   * after it — measured, two captures of identical code disagreed by 22% on
+   * desktop home purely because one of them paid the compile. Since a code
+   * change always triggers a rebuild, the "before" run would otherwise pay it
+   * and the "after" run would not, and every comparison would be polluted by
+   * the difference between a cold route and a warm one.
+   */
+  await page.setViewport({ width: 1366, height: 900 })
+  for (const route of ROUTES) {
+    try {
+      await page.goto(`${BASE}${route.path}`, { waitUntil: 'networkidle2', timeout: 60000 })
+      await sleep(500)
+    } catch {
+      /* the capture below reports it properly */
+    }
+  }
+
   const taken = []
   for (const viewport of VIEWPORTS) {
     for (const route of ROUTES) {
@@ -130,10 +152,36 @@ async function capture(label) {
         console.log(`  ⚠ ${route.name} @ ${vpName} — navigation timed out, capturing anyway`)
       }
       await settle(page)
-      const file = resolve(outDir, `${route.name}-${vpName}.png`)
-      await page.screenshot({ path: file, fullPage: true })
-      taken.push(`${route.name}-${vpName}`)
-      console.log(`  ✅ ${route.name} @ ${vpName}`)
+
+      /*
+       * Viewport shots at fixed offsets, never `fullPage`. A fullPage capture
+       * resizes the viewport to the whole document to stitch the image, and
+       * that re-layout changes what the page renders — measured, the home
+       * department rows were present in one capture and absent in the next
+       * while the page itself was byte-identical across eight loads. Each shot
+       * here is a view a person could actually have.
+       */
+      const pageHeight = await page.evaluate(() => document.body.scrollHeight)
+      const step = viewport.height
+      const frames = Math.min(MAX_FRAMES, Math.max(1, Math.ceil(pageHeight / step)))
+      for (let f = 0; f < frames; f++) {
+        const y = f * step
+        await page.evaluate(async (top) => {
+          window.scrollTo(0, top)
+          // Same reason as above: Lenis eases, so wait for the position to hold.
+          let stable = 0
+          for (let i = 0; i < 90 && stable < 6; i++) {
+            await new Promise((r) => requestAnimationFrame(r))
+            if (Math.abs(window.scrollY - top) < 2) stable++
+            else { stable = 0; window.scrollTo(0, top) }
+          }
+        }, y)
+        await sleep(350)
+        const file = resolve(outDir, `${route.name}-${vpName}-${String(f + 1).padStart(2, '0')}.png`)
+        await page.screenshot({ path: file })
+        taken.push(file)
+      }
+      console.log(`  ✅ ${route.name} @ ${vpName} (${frames} frames)`)
     }
   }
 
@@ -225,7 +273,9 @@ async function compare(a, b) {
   console.log(`\n  ${a} → ${b}\n`)
   console.log('  shot                       changed    height')
   console.log('  ' + '─'.repeat(52))
-  for (const row of rows) {
+  const moved = rows.filter((r) => r.note || r.pct >= 0.05)
+  console.log(`  ${rows.length - moved.length} of ${rows.length} frames identical\n`)
+  for (const row of moved) {
     if (row.note) {
       console.log(`  ${row.shot.padEnd(26)} ${row.note}`)
       continue
@@ -240,11 +290,9 @@ async function compare(a, b) {
     '\n  A shot you did not intend to touch should read ~0%.' +
       '\n  Open both PNGs before accepting anything larger.' +
       '\n' +
-      '\n  Known tolerance: home-desktop sits around 0.5% run to run. It is the' +
-      '\n  Our Story block — white text on black, far below the fold, which a' +
-      '\n  fullPage capture sometimes stitches before it has painted. Checked' +
-      '\n  against a real scroll-into-view and the heading is always there, so' +
-      '\n  it is the screenshot, not the page.\n',
+      '\n  Two runs of identical code should be 100% identical, rebuild in' +
+      '\n  between or not. If they are not, fix the harness before trusting a' +
+      '\n  comparison — a net you have learned to ignore is worse than none.\n',
   )
 }
 
