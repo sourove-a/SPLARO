@@ -1295,6 +1295,17 @@ html[data-os='windows'] .cart-drawer__backdrop {
   .main-with-mobile-nav {
     padding-bottom: var(--mobile-nav-total);
   }
+
+  /*
+   * The bottom nav is fixed to the viewport, so the page only has to reserve
+   * room for it once, at its true end. On a page that has a footer that is the
+   * footer's job (.site-footer carries the same padding) — reserving it here as
+   * well printed a second 76px band in the main element's white, which read as
+   * a gap torn between the last section and the footer.
+   */
+  .main-with-mobile-nav.main-with-footer {
+    padding-bottom: 0;
+  }
 }
 
 @media (hover: none) and (pointer: coarse) {
