@@ -15,6 +15,7 @@ import {
   loadUpscalePreview,
   uploadRoot,
 } from '@/lib/upload/product-ai-upscale'
+import { MAX_DIMENSION as CLIENT_UPLOAD_MAX_DIMENSION } from '@/lib/media/compress-before-upload'
 import { withProductPipelineSlot } from '@/lib/upload/product-pipeline-queue'
 import { deleteProductPipelineFiles } from '@/lib/upload/product-pipeline-cleanup'
 
@@ -231,6 +232,13 @@ async function writeArchivedOriginal(
   // Already small, and no wider than the master would be: re-encoding it would
   // spend CPU and lose a generation of quality for nothing.
   if (rawBytes <= ARCHIVE_MIN_BYTES && sourceWidth > 0 && sourceWidth <= maxWidth) {
+    return copyRaw()
+  }
+  // The browser already did this job on the way here — `compressImageForUpload`
+  // caps at `CLIENT_UPLOAD_MAX_DIMENSION` and encodes WebP. Squeezing its
+  // output again would buy a little disk for a second generation of loss on the
+  // one copy kept to rebuild from, which is a bad trade at any size.
+  if (ext === 'webp' && sourceWidth > 0 && sourceWidth <= CLIENT_UPLOAD_MAX_DIMENSION) {
     return copyRaw()
   }
 
