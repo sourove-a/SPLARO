@@ -12,6 +12,7 @@ import { OrderEventsService } from './order-events.service'
 import { OrderStatusService } from './order-status.service'
 import { AdminTelegramHubService } from '../notifications/admin-telegram-hub.service'
 import { FinanceAuditService } from '../../common/finance-audit.service'
+import { deleteOrderWithRelations } from '../../common/order-cleanup'
 import { resolveStoreId } from '../../common/store.util'
 import { createdAtRange } from '../../common/created-at-range.util'
 import { resolveAdminPagination } from '../../common/admin-pagination.util'
@@ -20,6 +21,7 @@ import {
   BookCourierDto,
   BulkBookCourierDto,
   BulkUpdateOrderStatusDto,
+  PurgeOrdersDto,
   InvoiceEmailDto,
   AddOrderNoteDto,
   SetCodRiskDto,
@@ -679,6 +681,117 @@ export class OrdersController {
       trackingCode: result.trackingCode,
       trackingUrl: result.trackingUrl,
     }
+  }
+
+  /**
+   * Destroy cancelled orders and everything hanging off them.
+   *
+   * `remove` below is the "delete" an operator reaches for, and it deliberately
+   * only cancels — a real order that was refunded or returned still has to be
+   * answerable months later. A fake order has nothing to answer for, and the
+   * clutter is its entire cost, so removing it for good is a second, separate
+   * step rather than a stronger version of the first.
+   *
+   * Requiring CANCELLED is what makes that two-step worth having: nothing live,
+   * paid for or in a courier's hands can be destroyed by one request, and a
+   * mis-click on the ordinary button is still only a cancellation. Cancelling
+   * already restored the stock and `deleteOrderWithRelations` never touches
+   * inventory, so the two steps together restock exactly once.
+   *
+   * The order row is the only record that the order existed, so the audit entry
+   * carrying a snapshot of it is written inside the same transaction — losing
+   * the order and the evidence of who removed it is a worse outcome than the
+   * clutter this exists to clear. Ids that do not resolve, belong to another
+   * store, or are not cancelled come back in `skipped` rather than failing the
+   * batch: one bad id in a selection of twenty should not strand the other
+   * nineteen.
+   */
+  @Delete('purge')
+  async purge(@Body() body: PurgeOrdersDto, @Req() req: AdminRequest) {
+    const requested = [...new Set(body.orderIds.map((id) => id.trim()).filter(Boolean))]
+    if (requested.length === 0) throw new BadRequestException('No orders selected')
+
+    const storeId = req.adminUser?.storeId
+      ? await resolveStoreId(this.prisma, req.adminUser.storeId)
+      : undefined
+    const found = await this.prisma.order.findMany({
+      where: { id: { in: requested }, ...(storeId ? { storeId } : {}) },
+      select: {
+        id: true,
+        storeId: true,
+        status: true,
+        invoiceNumber: true,
+        total: true,
+        shippingName: true,
+        shippingPhone: true,
+        paymentMethod: true,
+        createdAt: true,
+      },
+    })
+    const byId = new Map(found.map((order) => [order.id, order]))
+
+    const skipped: Array<{ id: string; invoiceNumber?: string; reason: string }> = []
+    const eligible: typeof found = []
+    for (const id of requested) {
+      const order = byId.get(id)
+      // A missing row and another store's row are the same answer on purpose —
+      // telling one from the other would confirm the id exists elsewhere.
+      if (!order) {
+        skipped.push({ id, reason: 'Order not found' })
+      } else if (order.status !== 'CANCELLED') {
+        skipped.push({
+          id,
+          invoiceNumber: order.invoiceNumber,
+          reason: `Cancel ${order.invoiceNumber} first — only cancelled orders can be deleted permanently`,
+        })
+      } else {
+        eligible.push(order)
+      }
+    }
+
+    const deleted: Array<{ id: string; invoiceNumber: string }> = []
+    for (const order of eligible) {
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          const removed = await deleteOrderWithRelations(tx, order.id)
+          if (!removed) throw new Error('Order disappeared before it could be deleted')
+          await tx.auditLog.create({
+            data: {
+              storeId: order.storeId,
+              // The bootstrap admin has no User row to point at, and an audit
+              // entry that cannot be written would take the purge down with it.
+              userId:
+                req.adminUser?.userId && req.adminUser.userId !== 'admin_env_user'
+                  ? req.adminUser.userId
+                  : undefined,
+              action: 'delete',
+              module: 'orders',
+              resource: 'order',
+              resourceId: order.id,
+              oldData: {
+                invoiceNumber: order.invoiceNumber,
+                status: order.status,
+                total: order.total,
+                shippingName: order.shippingName,
+                shippingPhone: order.shippingPhone,
+                paymentMethod: order.paymentMethod,
+                placedAt: order.createdAt.toISOString(),
+              } as never,
+              ipAddress: req.ip ?? req.socket?.remoteAddress ?? undefined,
+              userAgent: req.headers['user-agent']?.toString(),
+              source: 'WEB',
+            },
+          })
+        })
+        deleted.push({ id: order.id, invoiceNumber: order.invoiceNumber })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Delete failed'
+        this.logger.error(`Purge failed for ${order.invoiceNumber}: ${message}`)
+        skipped.push({ id: order.id, invoiceNumber: order.invoiceNumber, reason: message })
+      }
+    }
+
+    return { success: deleted.length > 0, deleted, skipped }
   }
 
   @Delete(':id')

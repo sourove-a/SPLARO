@@ -9,7 +9,6 @@ import {
   toastApiSaved,
 } from '@/lib/admin/feedback'
 import {
-  verifyDeleteSuccess,
   verifyOrderStatus,
   verifyPaymentStatus,
   verifyCodRisk,
@@ -30,9 +29,9 @@ import { InvoiceActionsBar } from '@/components/modules/InvoiceActionsBar'
 import {
   useOrder,
   useUpdateOrderStatus,
-  useDeleteOrder,
   useBookCourier,
   usePermission,
+  usePurgeOrders,
   useSetOrderCodRisk,
   useAddOrderNote,
   useUpdateOrderPayment,
@@ -119,7 +118,7 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
   const { data: order, isLoading, isError, refetch } = useOrder(recordId)
   const { data: steadfast } = useInfrastructureConfig('steadfast')
   const updateStatus = useUpdateOrderStatus()
-  const deleteOrderMutation = useDeleteOrder()
+  const purge = usePurgeOrders()
   const setCodRisk = useSetOrderCodRisk()
   const addNote = useAddOrderNote()
   const updatePayment = useUpdateOrderPayment()
@@ -187,21 +186,35 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
     }
   }
 
+  /**
+   * Destroy a cancelled order for good.
+   *
+   * This button used to call the cancel endpoint, which is why a fake order
+   * could be "deleted" over and over and never leave the list. Cancelling is
+   * the Cancel button above; this is only offered once the order is already
+   * cancelled, and it does not come back.
+   */
   const handleDeleteOrder = async () => {
-    if (
-      !window.confirm(
-        `Cancel ${order.invoiceNumber}? It stays on file as CANCELLED and the number will not be reused.`,
-      )
-    ) {
+    const typed = window.prompt(
+      `Permanently delete ${order.invoiceNumber}? This erases the order, its items, payments, invoice and courier record, and cannot be undone.\n\nType ${order.invoiceNumber} to confirm.`,
+    )
+    if (typed === null) return
+    if (typed.trim() !== order.invoiceNumber) {
+      toastFail('Confirmation did not match — nothing was deleted.')
       return
     }
     try {
-      const result = await deleteOrderMutation.mutateAsync(order.id)
-      if (!verifyDeleteSuccess(result)) return
-      toastOk(`${order.invoiceNumber} cancelled — number retired`)
-      void refetch()
+      const result = await purge.mutateAsync([order.id])
+      // The server refuses with a reason and a 200, so an empty `deleted` is
+      // the failure case rather than a thrown error.
+      if (result.deleted.length === 0) {
+        toastFail(result.skipped[0]?.reason ?? 'The order was not deleted.')
+        return
+      }
+      toastOk(`${order.invoiceNumber} deleted permanently`)
+      navigate(moduleHref)
     } catch (err) {
-      toastFail(err instanceof Error ? err.message : 'Could not cancel order.')
+      toastFail(err instanceof Error ? err.message : 'Could not delete order.')
     }
   }
 
@@ -385,9 +398,9 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
                   <XCircle style={{ width: 16, height: 16 }} /> Cancel
                 </AdminButton>
               ) : null}
-              {canDeleteOrders && (
-                <AdminButton variant="danger" loading={deleteOrderMutation.isPending} onClick={() => void handleDeleteOrder()}>
-                  <Trash2 style={{ width: 16, height: 16 }} /> Delete
+              {canDeleteOrders && order.status === 'CANCELLED' && (
+                <AdminButton variant="danger" loading={purge.isPending} onClick={() => void handleDeleteOrder()}>
+                  <Trash2 style={{ width: 16, height: 16 }} /> Delete permanently
                 </AdminButton>
               )}
             </div>

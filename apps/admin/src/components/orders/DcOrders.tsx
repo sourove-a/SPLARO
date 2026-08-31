@@ -17,7 +17,14 @@ import { FONT, MONO, formatTaka, statusToneStyle } from '@/components/dc/tokens'
 import { downloadCsv } from '@/lib/admin/admin-actions'
 import { isDevCourierConsignment, isLiveCourierConsignment } from '@/lib/admin/courier-save'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
-import { useBulkUpdateOrderStatus, useOrders, useOrderStats } from '@/lib/api/hooks'
+import { DcModal } from '@/components/dc/DcModal'
+import {
+  useBulkUpdateOrderStatus,
+  useOrders,
+  useOrderStats,
+  usePermission,
+  usePurgeOrders,
+} from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { useListQueryState } from '@/lib/hooks/use-list-query-state'
 import { formatBdPhone } from '@/lib/format/bd-phone'
@@ -132,6 +139,10 @@ function DcOrdersBody() {
   const rows = useMemo(() => orders.data?.orders ?? [], [orders.data])
   const total = orders.data?.total ?? 0
   const bulkStatus = useBulkUpdateOrderStatus()
+  const purge = usePurgeOrders()
+  const canDeleteOrders = usePermission('orders', 'delete')
+  const [confirmPurge, setConfirmPurge] = useState(false)
+  const [purgeConfirmation, setPurgeConfirmation] = useState('')
 
   /** Store-wide tallies, keyed by the strip's own labels. */
   const stageCounts = useMemo(() => {
@@ -189,6 +200,48 @@ function DcOrdersBody() {
           toastFail(err instanceof Error ? err.message : 'Could not update those orders.'),
       },
     )
+  }
+
+  /**
+   * How many of the selected rows the server will actually accept.
+   *
+   * Counted from the rows on screen, so a selection carried across pages can
+   * undercount — the server is the authority either way and names every id it
+   * refused. This is here to keep the operator from opening a confirmation for
+   * a selection that has nothing to delete in it.
+   */
+  const purgeableSelected = useMemo(
+    () => rows.filter((o) => selected.has(o.id) && o.status === 'CANCELLED').length,
+    [rows, selected],
+  )
+
+  const runBulkPurge = () => {
+    const ids = [...selected]
+    if (ids.length === 0) return
+    purge.mutate(ids, {
+      onSuccess: (res) => {
+        setConfirmPurge(false)
+        setPurgeConfirmation('')
+        setSelected(new Set())
+        const gone = res.deleted.length
+        if (gone > 0) {
+          toastOk(`${gone} order${gone === 1 ? '' : 's'} deleted permanently.`)
+        }
+        // Every refusal carries its own reason, and "cancel it first" is the
+        // one an operator will hit most — worth showing rather than a count.
+        if (res.skipped.length > 0) {
+          toastFail(
+            gone > 0
+              ? `${res.skipped.length} kept: ${res.skipped[0]?.reason ?? 'refused'}`
+              : (res.skipped[0]?.reason ?? 'Nothing was deleted.'),
+          )
+        }
+      },
+      onError: (err) => {
+        setConfirmPurge(false)
+        toastFail(err instanceof Error ? err.message : 'Could not delete those orders.')
+      },
+    })
   }
 
   /**
@@ -327,6 +380,22 @@ function DcOrdersBody() {
                     Move to {target}
                   </button>
                 ))}
+                {canDeleteOrders ? (
+                  <button
+                    type="button"
+                    className="dc-toolbar__tool"
+                    style={{ color: 'var(--bad)', borderColor: 'var(--bad-bd)' }}
+                    disabled={purge.isPending || purgeableSelected === 0}
+                    title={
+                      purgeableSelected === 0
+                        ? 'Only cancelled orders can be deleted permanently — cancel them first'
+                        : `Permanently delete ${purgeableSelected} cancelled order${purgeableSelected === 1 ? '' : 's'}`
+                    }
+                    onClick={() => setConfirmPurge(true)}
+                  >
+                    Delete permanently
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="dc-toolbar__tool"
@@ -586,6 +655,50 @@ function DcOrdersBody() {
         </>
       )}
       <DcOrderDrawer orderId={openOrder} onClose={() => setOpenOrder(null)} />
+      <DcModal
+        open={confirmPurge}
+        title={`Delete ${purgeableSelected} order${purgeableSelected === 1 ? '' : 's'} permanently?`}
+        subtitle="This erases the orders and everything attached to them — items, payments, invoices and courier records. It cannot be undone. Anything in the selection that is not cancelled is left alone."
+        confirmLabel="Delete permanently"
+        danger
+        busy={purge.isPending}
+        busyLabel="Deleting…"
+        onClose={() => {
+          if (purge.isPending) return
+          setConfirmPurge(false)
+          setPurgeConfirmation('')
+        }}
+        onConfirm={() => {
+          if (purgeConfirmation.trim().toUpperCase() !== 'DELETE') {
+            toastFail('Type DELETE to confirm.')
+            return
+          }
+          runBulkPurge()
+        }}
+      >
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <span style={{ font: `600 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+            Type DELETE to confirm
+          </span>
+          <input
+            value={purgeConfirmation}
+            onChange={(event) => setPurgeConfirmation(event.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            style={{
+              width: '100%',
+              height: 38,
+              padding: '0 11px',
+              borderRadius: 9,
+              border: '1px solid var(--bad-bd)',
+              background: 'var(--surface-2)',
+              color: 'var(--ink)',
+              outline: 'none',
+              font: `600 13px/1 ${MONO}`,
+            }}
+          />
+        </label>
+      </DcModal>
     </>
   )
 }

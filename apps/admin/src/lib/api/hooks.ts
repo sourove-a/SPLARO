@@ -19,6 +19,7 @@ import {
   updateOrderStatus,
   updateOrderPaymentStatus,
   deleteOrder,
+  purgeOrders,
   bookOrderCourier,
   bookOrdersCourierBulk,
   createOrder,
@@ -347,6 +348,26 @@ export function useDeleteOrder() {
       void qc.invalidateQueries({ queryKey: ['order', id] })
       void qc.invalidateQueries({ queryKey: ['dashboard-stats'] })
       void qc.invalidateQueries({ queryKey: ['customers'] })
+    },
+  })
+}
+
+/**
+ * Permanent removal, as opposed to `useDeleteOrder`, which only cancels.
+ *
+ * Invalidates the same surfaces plus the audit trail, which gains the row that
+ * now stands in for the order everywhere else has just lost.
+ */
+export function usePurgeOrders() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (orderIds: string[]) => purgeOrders(orderIds),
+    onSuccess: (_data, orderIds) => {
+      void qc.invalidateQueries({ queryKey: ['orders'] })
+      for (const id of orderIds) void qc.invalidateQueries({ queryKey: ['order', id] })
+      void qc.invalidateQueries({ queryKey: ['dashboard-stats'] })
+      void qc.invalidateQueries({ queryKey: ['customers'] })
+      void qc.invalidateQueries({ queryKey: ['audit-logs'] })
     },
   })
 }

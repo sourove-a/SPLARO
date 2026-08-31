@@ -1,5 +1,6 @@
 import { CourierProvider, OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client'
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsBoolean,
@@ -34,6 +35,19 @@ export class BulkUpdateOrderStatusDto {
   @IsOptional()
   @IsString()
   note?: string
+}
+
+/**
+ * Ids to destroy permanently. `ArrayMaxSize` is the batch ceiling rather than a
+ * page size: every id in one call shares a single transaction, and a list long
+ * enough to hold that transaction open is a list that should arrive in pieces.
+ */
+export class PurgeOrdersDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  orderIds!: string[]
 }
 
 export class SetCodRiskDto {
