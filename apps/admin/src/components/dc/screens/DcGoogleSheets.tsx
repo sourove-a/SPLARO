@@ -316,7 +316,14 @@ function DcGoogleSheetsBody() {
               ? `${stats.configured} of ${stats.total} tabs set up${
                   recentTotal > 0
                     ? ` · ${recentSucceeded}/${recentTotal} last jobs succeeded`
-                    : ' · no sync run in the last 7 days'
+                    : // Job rows and per-tab rows are two different tables, and
+                      // the tabs below are pushed without always writing a job
+                      // row. Reading only the job table put "no sync run in the
+                      // last 7 days" directly above twelve tabs stamped minutes
+                      // ago, so the tab's own timestamp answers when it can.
+                      conn?.lastSyncAt
+                      ? ` · last synced ${relativeAge(conn.lastSyncAt)}`
+                      : ' · no sync run in the last 7 days'
                 }`
               : 'no tabs reported'
         }
