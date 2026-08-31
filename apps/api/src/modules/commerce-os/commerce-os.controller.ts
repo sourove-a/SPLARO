@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UnauthorizedException } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UnauthorizedException } from '@nestjs/common'
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 import { Throttle } from '@nestjs/throttler'
 import { Public } from '../../common/auth/public.decorator'
@@ -105,6 +105,11 @@ export class CommerceOsController {
     },
   ) {
     return this.commerce.recordStockMovement(storeId, body)
+  }
+
+  @Delete('wms/movements/:id')
+  deleteStockMovement(@Query('storeId') storeId: string, @Param('id') id: string) {
+    return this.commerce.deleteStockMovement(storeId, id)
   }
 
   @Post('wms/opening-stock')

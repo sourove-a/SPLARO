@@ -12,8 +12,9 @@ import { DcField, DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
-import type { WmsTransfer, WmsWarehouse } from '@/lib/api/commerce-os'
+import { OPENING_STOCK_NOTE, type WmsMovement, type WmsTransfer, type WmsWarehouse } from '@/lib/api/commerce-os'
 import {
+  useDeleteStockMovement,
   useReceiveStockTransfer,
   useRecordOpeningStock,
   useRecordStockMovement,
@@ -126,6 +127,7 @@ function DcWarehouseStockBody() {
   const { toast } = useDcScreen()
   const wms = useWmsOverview()
   const record = useRecordStockMovement()
+  const removeMovement = useDeleteStockMovement()
   const opening = useRecordOpeningStock()
   const ship = useShipStockTransfer()
   const receive = useReceiveStockTransfer()
@@ -133,6 +135,7 @@ function DcWarehouseStockBody() {
 
   const [form, setForm] = useState({ sku: '', delta: '', reason: 'ADJUSTMENT', note: '' })
   const [confirmMove, setConfirmMove] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState<WmsMovement | null>(null)
   const [confirmOpening, setConfirmOpening] = useState(false)
   const [confirmShip, setConfirmShip] = useState<WmsTransfer | null>(null)
   const [confirmReceive, setConfirmReceive] = useState<WmsTransfer | null>(null)
@@ -583,6 +586,7 @@ function DcWarehouseStockBody() {
                         <th style={th}>Before → After</th>
                         <th style={{ ...th, textAlign: 'right' }}>Delta</th>
                         <th style={th}>Note</th>
+                        <th style={{ ...th, textAlign: 'right' }}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -619,6 +623,29 @@ function DcWarehouseStockBody() {
                             </td>
                             <td style={{ padding: '10px 15px', font: `400 12px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
                               {m.note ?? '—'}
+                            </td>
+                            <td style={{ padding: '10px 15px', textAlign: 'right' }}>
+                              <button
+                                type="button"
+                                aria-label={`Remove ledger row for ${m.sku ?? 'this movement'}`}
+                                title="Remove this ledger row"
+                                disabled={removeMovement.isPending}
+                                onClick={() => setConfirmRemove(m)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: 28,
+                                  height: 28,
+                                  borderRadius: 8,
+                                  border: '1px solid var(--line)',
+                                  background: 'transparent',
+                                  color: 'var(--ink-3)',
+                                  cursor: removeMovement.isPending ? 'not-allowed' : 'pointer',
+                                }}
+                              >
+                                <DcIcon name="icon-trash-2" size={13} color="currentColor" />
+                              </button>
                             </td>
                           </tr>
                         )
@@ -764,6 +791,50 @@ function DcWarehouseStockBody() {
         </>
       )}
 
+      <DcModal
+        open={confirmRemove !== null}
+        title={confirmRemove ? `Remove this ${confirmRemove.reason?.toLowerCase() ?? ''} row?` : 'Remove ledger row?'}
+        subtitle={
+          confirmRemove?.note === OPENING_STOCK_NOTE
+            ? 'An opening-stock row only describes stock the product already held — it never moved anything, so removing it changes no quantity. The audit trail loses the row.'
+            : confirmRemove
+              ? `This row moved ${confirmRemove.delta > 0 ? `+${confirmRemove.delta}` : confirmRemove.delta}, so removing it puts that back: ${confirmRemove.sku ?? 'the variant'} returns to ${confirmRemove.quantityBefore}. It cannot be undone.`
+              : ''
+        }
+        confirmLabel="Remove row"
+        danger
+        busy={removeMovement.isPending}
+        busyLabel="Removing…"
+        onClose={() => {
+          if (removeMovement.isPending) return
+          setConfirmRemove(null)
+        }}
+        onConfirm={() => {
+          const target = confirmRemove
+          if (!target) return
+          void removeMovement
+            .mutateAsync(target.id)
+            .then((res) => {
+              setConfirmRemove(null)
+              toast(
+                'ok',
+                'Ledger row removed',
+                res.stockRestored
+                  ? `${res.sku ?? 'Variant'} is back to ${res.stock}.`
+                  : 'No quantity changed — the row described stock rather than moving it.',
+              )
+            })
+            .catch((err: unknown) => {
+              toast(
+                'bad',
+                'Could not remove the row',
+                err instanceof Error
+                  ? err.message
+                  : `DELETE /commerce-os/wms/movements/${target.id} failed`,
+              )
+            })
+        }}
+      />
       <DcModal
         open={confirmOpening}
         title="Record opening stock from product inventory?"
