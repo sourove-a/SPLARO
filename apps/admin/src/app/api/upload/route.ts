@@ -15,7 +15,12 @@ import {
   loadUpscalePreview,
   uploadRoot,
 } from '@/lib/upload/product-ai-upscale'
-import { MAX_DIMENSION as CLIENT_UPLOAD_MAX_DIMENSION } from '@/lib/media/compress-before-upload'
+import {
+  ARCHIVE_QUALITY,
+  archiveMaxWidth,
+  archivePlan,
+  envKeepRawOriginal,
+} from '@/lib/upload/archive-original'
 import { withProductPipelineSlot } from '@/lib/upload/product-pipeline-queue'
 import { deleteProductPipelineFiles } from '@/lib/upload/product-pipeline-cleanup'
 
@@ -65,31 +70,6 @@ const PRODUCT_VARIANT_WIDTHS = [160, 480, 828, 1200, 1600] as const
 const DISPLAY_WIDTH = 1200
 const QUALITY_WARN_BELOW = 1200
 
-/**
- * What the kept-forever copy of a product photo is allowed to cost.
- *
- * Every product upload used to leave its raw file on disk untouched, so a 5MB
- * phone photo billed 5MB of the volume for the rest of its life while the five
- * WebP and five AVIF sizes the storefront actually serves came to well under
- * one. The archive, not the ladder, is what fills the disk.
- *
- * `ARCHIVE_MAX_WIDTH` sits at 2560 because the widest thing the site ever
- * serves is 1600 — a master at this size still holds a full re-crop of
- * headroom, and no pixel a customer sees is built from more than it. At quality
- * 90 WebP that turns a 3MB 6000x4000 original into roughly 700KB with nothing
- * visible to separate the two at any size in `PRODUCT_VARIANT_WIDTHS`.
- *
- * It is a re-encode, so it is not bit-identical to what was uploaded. Stores
- * that need the camera file itself — print, licensing, a future model that
- * wants the raw grain — set `PRODUCT_KEEP_RAW_ORIGINAL=1` and pay the bytes.
- */
-const ARCHIVE_MAX_WIDTH = 2560
-const ARCHIVE_QUALITY = 90
-/**
- * Under this the raw file is already cheap, and a re-encode costs a second of
- * CPU to save a few dozen KB — below the noise of one page view.
- */
-const ARCHIVE_MIN_BYTES = 512 * 1024
 
 /** Mild sharpen after downscale only — never applied to the original file. */
 function sharpenForWidth(width: number): { sigma: number; m1: number; m2: number } {
@@ -184,19 +164,6 @@ function envPipelineEnabled(): boolean {
   return raw !== '0' && raw !== 'false' && raw !== 'off' && raw !== 'no'
 }
 
-/** Opt back in to storing the untouched camera file. Default OFF — see `ARCHIVE_MAX_WIDTH`. */
-function envKeepRawOriginal(): boolean {
-  const raw = (process.env.PRODUCT_KEEP_RAW_ORIGINAL ?? '').trim().toLowerCase()
-  return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes'
-}
-
-/** Per-store override for how much headroom the master keeps. */
-function archiveMaxWidth(): number {
-  const requested = Number(process.env.PRODUCT_ORIGINAL_MAX_WIDTH ?? '')
-  if (!Number.isFinite(requested) || requested < MIN_PRODUCT_WIDTH) return ARCHIVE_MAX_WIDTH
-  return Math.round(requested)
-}
-
 /**
  * Write the copy of the upload that outlives the request.
  *
@@ -229,16 +196,7 @@ async function writeArchivedOriginal(
   } catch {
     return copyRaw()
   }
-  // Already small, and no wider than the master would be: re-encoding it would
-  // spend CPU and lose a generation of quality for nothing.
-  if (rawBytes <= ARCHIVE_MIN_BYTES && sourceWidth > 0 && sourceWidth <= maxWidth) {
-    return copyRaw()
-  }
-  // The browser already did this job on the way here — `compressImageForUpload`
-  // caps at `CLIENT_UPLOAD_MAX_DIMENSION` and encodes WebP. Squeezing its
-  // output again would buy a little disk for a second generation of loss on the
-  // one copy kept to rebuild from, which is a bad trade at any size.
-  if (ext === 'webp' && sourceWidth > 0 && sourceWidth <= CLIENT_UPLOAD_MAX_DIMENSION) {
+  if (archivePlan({ ext, rawBytes, sourceWidth, maxWidth }).strategy === 'raw') {
     return copyRaw()
   }
 

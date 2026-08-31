@@ -50,6 +50,7 @@
     "db:studio": "node scripts/db-run.mjs studio",
     "db:reset": "node scripts/db-run.mjs migrate reset",
     "db:backup": "bash infrastructure/scripts/backup-db.sh",
+    "media:shrink-originals": "node scripts/tsx-run.mjs apps/admin scripts/shrink-upload-originals.ts",
     "infra:up": "docker compose up -d postgres redis",
     "infra:redis": "node scripts/infra-redis.mjs",
     "infra:down": "docker compose down",

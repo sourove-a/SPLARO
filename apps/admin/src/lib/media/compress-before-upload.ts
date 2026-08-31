@@ -40,6 +40,13 @@ export const QUALITY = 0.9
  * generation of quality to save time nobody was waiting on.
  */
 export const MIN_BYTES = 1.5 * 1024 * 1024
+/**
+ * The largest this encoder is expected to produce, measured with headroom: the
+ * grain-heavy 13.4MB worst case comes back at 1165KB and a clean studio photo
+ * at 814KB. The server uses it to tell a file this made from a WebP an operator
+ * exported by hand, which has had no pixels taken off it and still should.
+ */
+export const EXPECTED_MAX_BYTES = 2.5 * 1024 * 1024
 
 /**
  * JPEG only, deliberately.
