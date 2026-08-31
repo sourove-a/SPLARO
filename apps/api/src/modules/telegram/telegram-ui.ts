@@ -43,6 +43,7 @@ export const TG_CALLBACK = {
   INVENTORY_LOOKUP_HELP: 'act:inventory_lookup_help',
   CUSTOMER_LOOKUP_HELP: 'act:customer_lookup_help',
   TOP_CUSTOMERS: 'act:top_customers',
+  CUSTOMERS_LIST: 'act:customers_list',
   ORDER_SEARCH_HELP: 'act:order_search_help',
   DELIVERY_DIAGNOSTICS: 'act:delivery_diagnostics',
   LINKED_ADMINS: 'act:linked_admins',
@@ -66,16 +67,45 @@ export const TG_CALLBACK = {
   GROUP_INFO: 'act:group_info',
 } as const
 
-export type TelegramListKind = 'orders' | 'pending'
+export type TelegramListKind = 'orders' | 'pending' | 'customers'
 
 export function listCallback(kind: TelegramListKind, page: number): string {
   return `list:${kind}:${page}`
 }
 
 export function parseListCallback(data: string): { kind: TelegramListKind; page: number } | null {
-  const m = /^list:(orders|pending):(\d+)$/.exec(data)
+  const m = /^list:(orders|pending|customers):(\d+)$/.exec(data)
   if (!m) return null
   return { kind: m[1] as TelegramListKind, page: Number(m[2] ?? '0') || 0 }
+}
+
+export const CUSTOMER_ACTIONS = ['open', 'orders'] as const
+export type TelegramCustomerAction = (typeof CUSTOMER_ACTIONS)[number]
+
+/**
+ * Keyed by phone rather than customer id, because the two things a card is
+ * built from are keyed differently — an `Order` carries a phone, a `Customer`
+ * row may exist without a single order — and a phone identifies the person in
+ * both. It also keeps the payload far inside Telegram's 64-byte callback limit.
+ */
+export function customerCallback(
+  action: TelegramCustomerAction,
+  phone: string,
+  page = 0,
+): string {
+  return `cust:${action}:${phone.replace(/\D/g, '').slice(-14)}:${page}`
+}
+
+export function parseCustomerCallback(
+  data: string,
+): { action: TelegramCustomerAction; phone: string; page: number } | null {
+  const m = new RegExp(`^cust:(${CUSTOMER_ACTIONS.join('|')}):(\\d{1,14}):(\\d+)$`).exec(data)
+  if (!m) return null
+  return {
+    action: m[1] as TelegramCustomerAction,
+    phone: m[2]!,
+    page: Number(m[3] ?? '0') || 0,
+  }
 }
 
 export const ORDER_ACTIONS = [
@@ -230,9 +260,10 @@ export function inlineCustomersMenu(): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
       [
+        { text: 'All Customers', callback_data: TG_CALLBACK.CUSTOMERS_LIST },
         { text: 'Top Customers', callback_data: TG_CALLBACK.TOP_CUSTOMERS },
-        { text: 'Phone Lookup', callback_data: TG_CALLBACK.CUSTOMER_LOOKUP_HELP },
       ],
+      [{ text: 'Search Customer', callback_data: TG_CALLBACK.CUSTOMER_LOOKUP_HELP }],
       [
         { text: 'COD Risk Brief', callback_data: TG_CALLBACK.AI_PROMPT_RISK },
         { text: 'Find Order', callback_data: TG_CALLBACK.ORDER_SEARCH_HELP },
@@ -525,7 +556,8 @@ export const BOT_COMMANDS: BotCommand[] = [
   { command: 'status', description: 'API & order summary' },
   { command: 'orders', description: 'Latest orders' },
   { command: 'order', description: 'Order details by invoice' },
-  { command: 'find', description: 'Find customer & orders by phone' },
+  { command: 'find', description: 'Find a customer by phone, name, email or code' },
+  { command: 'customers', description: 'Browse every customer' },
   { command: 'check', description: 'Check customer number & fraud score' },
   { command: 'invoice', description: 'View & share invoice' },
   { command: 'confirm', description: 'Confirm order' },

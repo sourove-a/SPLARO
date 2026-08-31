@@ -9,6 +9,10 @@ import {
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { ModuleRef } from '@nestjs/core'
+import {
+  classifyCustomerQuery,
+  looksLikeCustomerLookup,
+} from './telegram-customer-search'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { InvoiceService } from '../invoices/invoice.service'
@@ -50,8 +54,11 @@ import {
   TELEGRAM_AI_HINT,
   TELEGRAM_AI_UNAVAILABLE,
   TG_CALLBACK,
+  customerCallback,
   customerCopyKeyboard,
   inlineCustomersMenu,
+  listCallback,
+  parseCustomerCallback,
   type TelegramOrderAction,
   aiPromptForAction,
   aiPromptLabel,
@@ -1139,6 +1146,15 @@ Customer was charged AFTER this order was ${input.orderStatus}.
       await this.executeCustomerLookup(ctx, query)
     })
 
+    this.bot.onText(/\/customers(?:@\w+)?(?:\s+(\d+)|$)/i, async (msg, match) => {
+      const ctx = await this.resolveContext(msg)
+      if (!ctx) return
+      // `/customers 3` opens page three, so a long book is reachable without
+      // tapping Next from the first page every time.
+      const page = Math.max(0, (Number(match?.[1] ?? '1') || 1) - 1)
+      await this.executeCustomerList(ctx, page)
+    })
+
     this.bot.onText(/\/check(?:@\w+)?(?:\s+(.+)|$)/i, async (msg, match) => {
       const ctx = await this.resolveContext(msg)
       if (!ctx) return
@@ -1285,11 +1301,24 @@ Customer was charged AFTER this order was ${input.orderStatus}.
         return
       }
 
+      const customerAction = parseCustomerCallback(data)
+      if (customerAction) {
+        await this.bot?.answerCallbackQuery(query.id)
+        if (customerAction.action === 'orders') {
+          await this.executeCustomerOrders(ctx, customerAction.phone.slice(-10), customerAction.page)
+        } else {
+          await this.executeCustomerCard(ctx, customerAction.phone.slice(-10))
+        }
+        return
+      }
+
       const listAction = parseListCallback(data)
       if (listAction) {
         await this.bot?.answerCallbackQuery(query.id)
         if (listAction.kind === 'pending') {
           await this.executePendingOrders(ctx, listAction.page)
+        } else if (listAction.kind === 'customers') {
+          await this.executeCustomerList(ctx, listAction.page)
         } else {
           await this.executeOrdersList(ctx, listAction.page)
         }
@@ -1352,10 +1381,13 @@ Customer was charged AFTER this order was ${input.orderStatus}.
         return
       }
 
-      // A bare BD mobile number is the fastest customer lookup an operator has.
-      const digitsOnly = text.replace(/[\s-]/g, '')
-      if (/^(?:\+?88)?01\d{9}$/.test(digitsOnly)) {
-        await this.executeCustomerLookup(ctx, digitsOnly)
+      // A run of digits is the fastest customer lookup an operator has, and it
+      // no longer has to be a whole mobile number — the last four they remember
+      // now finds the person too. Anything with words in it is left to the AI
+      // assistant, which is the only thing standing between one input serving
+      // both and neither working.
+      if (looksLikeCustomerLookup(text)) {
+        await this.executeCustomerLookup(ctx, text)
         return
       }
 
@@ -1561,6 +1593,9 @@ Customer was charged AFTER this order was ${input.orderStatus}.
         if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
         await this.bot?.sendMessage(ctx.chatId, `Running ${aiPromptLabel(action)}…`)
         await this.replyAgentChat(ctx.chatId, aiPromptForAction(action) ?? '', ctx.userId)
+        break
+      case TG_CALLBACK.CUSTOMERS_LIST:
+        await this.executeCustomerList(ctx)
         break
       case TG_CALLBACK.API_HEALTH:
         await this.executeApiHealth(ctx)
@@ -1859,20 +1894,189 @@ Customer was charged AFTER this order was ${input.orderStatus}.
   }
 
   /** Customer card — history, COD risk, and one-tap copy of phone + address. */
+  /** One page of people, small enough to read on a phone. */
+  private static readonly CUSTOMER_PAGE = 8
+
+  /**
+   * Everyone in this store who matches what the operator typed.
+   *
+   * Both tables have to be asked. `Order` is where a walk-in buyer exists —
+   * they have a shipping name and phone and no account at all — and `Customer`
+   * is where a registered shopper exists even before their first order, along
+   * with the lifetime figures no order row carries. Searching only one of them
+   * is why a real person could be reported as "not found".
+   *
+   * Matches are folded by the last ten digits of the phone, which is the one
+   * form that survives 0 / 88 / +88 being written differently in the two
+   * tables, so the same person cannot come back twice.
+   */
+  private async findCustomerMatches(
+    storeId: string,
+    raw: string,
+  ): Promise<Array<{ digits10: string; phone: string; name: string; registered: boolean }>> {
+    const query = classifyCustomerQuery(raw)
+    if (query.kind === 'tooShort') return []
+
+    const customerWhere =
+      query.kind === 'phone'
+        ? { phone: { contains: query.digits10! } }
+        : query.kind === 'email'
+          ? { email: { equals: query.term, mode: 'insensitive' as const } }
+          : query.kind === 'code'
+            ? { customerCode: { equals: query.term, mode: 'insensitive' as const } }
+            : {
+                OR: [
+                  { firstName: { contains: query.term, mode: 'insensitive' as const } },
+                  { lastName: { contains: query.term, mode: 'insensitive' as const } },
+                ],
+              }
+
+    // An email or a customer code belongs to an account, so there is no order
+    // field to match them against — only a name or a phone appears on both.
+    const orderWhere =
+      query.kind === 'phone'
+        ? { shippingPhone: { contains: query.digits10! } }
+        : query.kind === 'name'
+          ? { shippingName: { contains: query.term, mode: 'insensitive' as const } }
+          : null
+
+    const [customers, orders] = await Promise.all([
+      this.prisma.customer.findMany({
+        where: { storeId, ...customerWhere },
+        orderBy: { lastOrderDate: 'desc' },
+        take: 20,
+        select: { phone: true, firstName: true, lastName: true },
+      }),
+      orderWhere
+        ? this.prisma.order.findMany({
+            where: { storeId, ...orderWhere },
+            orderBy: { createdAt: 'desc' },
+            distinct: ['shippingPhone'],
+            take: 20,
+            select: { shippingPhone: true, shippingName: true },
+          })
+        : Promise.resolve([]),
+    ])
+
+    const byDigits = new Map<string, { digits10: string; phone: string; name: string; registered: boolean }>()
+    for (const c of customers) {
+      const digits10 = c.phone.replace(/\D/g, '').slice(-10)
+      if (!digits10) continue
+      byDigits.set(digits10, {
+        digits10,
+        phone: c.phone,
+        name: `${c.firstName} ${c.lastName}`.trim() || 'Customer',
+        registered: true,
+      })
+    }
+    for (const o of orders) {
+      const digits10 = o.shippingPhone.replace(/\D/g, '').slice(-10)
+      if (!digits10 || byDigits.has(digits10)) continue
+      byDigits.set(digits10, {
+        digits10,
+        phone: o.shippingPhone,
+        name: o.shippingName || 'Customer',
+        registered: false,
+      })
+    }
+    return [...byDigits.values()]
+  }
+
+  /**
+   * Phone, name, email or customer code in — one card, or a list to pick from.
+   */
   private async executeCustomerLookup(ctx: TelegramCtx, queryRaw: string): Promise<void> {
     if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
-    const digits = queryRaw.replace(/\D/g, '')
-    if (digits.length < 6) {
+    const query = classifyCustomerQuery(queryRaw)
+    if (query.kind === 'tooShort') {
       await this.executeCustomerLookupHelp(ctx)
       return
     }
-    const digits10 = digits.slice(-10)
 
-    const [orders, sfReport] = await Promise.all([
+    const matches = await this.findCustomerMatches(ctx.storeId, queryRaw)
+    if (matches.length === 0) {
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        tgJoin(
+          tgHeader('🔍', 'No customer found', `Nothing in this store for ${escapeTelegramHtml(query.term)}`),
+          'Try a name, an email, a customer code, or part of the number.',
+        ),
+        { parse_mode: 'HTML', reply_markup: inlineCustomersMenu() },
+      )
+      await this.logCommand(ctx.chatId, `/find ${query.term}`, ctx.userId)
+      return
+    }
+
+    if (matches.length === 1) {
+      await this.executeCustomerCard(ctx, matches[0]!.digits10)
+      return
+    }
+
+    const rows = matches
+      .slice(0, 10)
+      .map(
+        (m, i) =>
+          `${i + 1}. <b>${escapeTelegramHtml(m.name)}</b> · <code>${escapeTelegramHtml(m.phone)}</code>${m.registered ? '' : ' · <i>guest</i>'}`,
+      )
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      tgJoin(
+        tgHeader('🔍', `${matches.length} matches`, `for "${escapeTelegramHtml(query.term)}"`),
+        tgCard(rows),
+        matches.length > 10 ? '<i>Showing the first 10 — narrow the search to see the rest.</i>' : '',
+      ),
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            ...matches.slice(0, 10).map((m) => [
+              { text: `${m.name} · ${m.phone}`.slice(0, 60), callback_data: customerCallback('open', m.digits10) },
+            ]),
+            [{ text: '← Customers', callback_data: TG_CALLBACK.MENU_CUSTOMERS }],
+          ],
+        },
+      },
+    )
+    await this.logCommand(ctx.chatId, `/find ${query.term}`, ctx.userId)
+  }
+
+  /**
+   * Everything the shop knows about one person.
+   *
+   * The card used to be built from orders alone, which meant the lifetime
+   * figures the `Customer` row already keeps — spend, order count, loyalty,
+   * the risk scores — never reached Telegram, and a registered shopper with no
+   * order yet had no card at all. Order totals still do the work when there is
+   * no account, so a guest buyer reads the same way.
+   */
+  private async executeCustomerCard(ctx: TelegramCtx, digits10: string): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+
+    const [customer, orders, orderCount, sfReport] = await Promise.all([
+      this.prisma.customer.findFirst({
+        where: { storeId: ctx.storeId, phone: { contains: digits10 } },
+        select: {
+          customerCode: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          totalOrders: true,
+          totalSpent: true,
+          avgOrderValue: true,
+          loyaltyPoints: true,
+          loyaltyTier: true,
+          vipScore: true,
+          codRiskScore: true,
+          tags: true,
+          firstOrderDate: true,
+          lastOrderDate: true,
+        },
+      }),
       this.prisma.order.findMany({
         where: { storeId: ctx.storeId, shippingPhone: { contains: digits10 } },
         orderBy: { createdAt: 'desc' },
-        take: 6,
+        take: 5,
         select: {
           invoiceNumber: true,
           status: true,
@@ -1885,34 +2089,87 @@ Customer was charged AFTER this order was ${input.orderStatus}.
           createdAt: true,
         },
       }),
+      this.prisma.order.count({
+        where: { storeId: ctx.storeId, shippingPhone: { contains: digits10 } },
+      }),
       this.courier?.checkCustomerFraud(ctx.storeId, digits10).catch(() => null) ?? null,
     ])
 
-    if (orders.length === 0) {
+    if (!customer && orders.length === 0) {
       await this.bot?.sendMessage(
         ctx.chatId,
-        tgJoin(
-          tgHeader('🔍', 'No customer found', `Nothing in this store for ${digits10}`),
-          'Try the full number, or send an invoice like <code>SPL-1001</code>.',
-        ),
+        tgJoin(tgHeader('🔍', 'No customer found', `Nothing in this store for ${digits10}`)),
         { parse_mode: 'HTML', reply_markup: inlineCustomersMenu() },
       )
       return
     }
 
-    const latest = orders[0]!
-    const delivered = orders.filter((o) => o.status === 'DELIVERED').length
-    const failed = orders.filter((o) => o.status === 'RETURNED' || o.status === 'CANCELLED').length
-    const spend = orders
-      .filter((o) => o.status !== 'CANCELLED')
-      .reduce((sum, o) => sum + Number(o.total), 0)
-    const address = formatCleanAddress(
-      latest.shippingAddress,
-      latest.shippingCity,
-      latest.shippingDistrict,
-    )
+    const latest = orders[0]
+    const name = customer
+      ? `${customer.firstName} ${customer.lastName}`.trim() || 'Customer'
+      : (latest?.shippingName ?? 'Customer')
+    const phone = customer?.phone ?? latest?.shippingPhone ?? digits10
+    const address = latest
+      ? formatCleanAddress(latest.shippingAddress, latest.shippingCity, latest.shippingDistrict) ||
+        latest.shippingAddress
+      : ''
+
+    // Counted over every order, not the five on screen — a page is not a total.
+    const [delivered, failed, spendAgg] = await Promise.all([
+      this.prisma.order.count({
+        where: { storeId: ctx.storeId, shippingPhone: { contains: digits10 }, status: 'DELIVERED' },
+      }),
+      this.prisma.order.count({
+        where: {
+          storeId: ctx.storeId,
+          shippingPhone: { contains: digits10 },
+          status: { in: ['RETURNED', 'CANCELLED'] },
+        },
+      }),
+      this.prisma.order.aggregate({
+        where: {
+          storeId: ctx.storeId,
+          shippingPhone: { contains: digits10 },
+          status: { not: 'CANCELLED' },
+        },
+        _sum: { total: true },
+      }),
+    ])
+    const spend = customer ? Number(customer.totalSpent) : Number(spendAgg._sum.total ?? 0)
+    const orderTotal = customer?.totalOrders || orderCount
+    const avg = customer
+      ? Number(customer.avgOrderValue)
+      : orderCount > 0
+        ? Math.round(Number(spendAgg._sum.total ?? 0) / orderCount)
+        : 0
+
+    const identity: string[] = [`📞 <code>${escapeTelegramHtml(phone)}</code>`]
+    if (address) identity.push(`📍 <code>${escapeTelegramHtml(address)}</code>`)
+    if (customer?.email) identity.push(`✉️ <code>${escapeTelegramHtml(customer.email)}</code>`)
+    if (customer?.customerCode) identity.push(`🆔 <code>${escapeTelegramHtml(customer.customerCode)}</code>`)
+
+    const value: string[] = [
+      `Orders — <b>${orderTotal}</b>`,
+      `Lifetime value — <b>${escapeTelegramHtml(formatBDT(spend))}</b>`,
+      `Average order — ${escapeTelegramHtml(formatBDT(Math.round(avg)))}`,
+      `Delivered — <b>${delivered}</b> · Returned / cancelled — <b>${failed}</b>`,
+    ]
+    if (customer) {
+      value.push(`🏅 ${escapeTelegramHtml(customer.loyaltyTier)} · <b>${customer.loyaltyPoints}</b> pts`)
+      if (customer.firstOrderDate) {
+        value.push(`First order — ${escapeTelegramHtml(tgDhakaTime(customer.firstOrderDate))}`)
+      }
+      if (customer.lastOrderDate) {
+        value.push(`Last order — ${escapeTelegramHtml(tgDhakaTime(customer.lastOrderDate))}`)
+      }
+    }
 
     const riskRows: string[] = []
+    if (customer && customer.codRiskScore > 0) {
+      const icon = customer.codRiskScore >= 70 ? '🔴' : customer.codRiskScore >= 40 ? '🟡' : '🟢'
+      riskRows.push(`${icon} COD risk — <b>${customer.codRiskScore}</b>/100`)
+    }
+    if (customer && customer.vipScore > 0) riskRows.push(`⭐ VIP score — <b>${customer.vipScore}</b>`)
     if (sfReport && sfReport.totalParcels > 0) {
       const icon = sfReport.successRate >= 70 ? '🟢' : sfReport.successRate >= 50 ? '🟡' : '🔴'
       riskRows.push(
@@ -1921,49 +2178,193 @@ Customer was charged AFTER this order was ${input.orderStatus}.
     } else {
       riskRows.push('⚪️ Steadfast — no network history')
     }
+    if (customer?.tags?.length) {
+      riskRows.push(`🏷 ${escapeTelegramHtml(customer.tags.slice(0, 6).join(', '))}`)
+    }
 
     const orderRows = orders.map(
       (o) =>
         `${tgStatusEmoji(o.status)} <code>${escapeTelegramHtml(o.invoiceNumber)}</code> · ${escapeTelegramHtml(tgPrettyStatus(o.status))} · <b>${escapeTelegramHtml(formatBDT(Number(o.total)))}</b> · ${escapeTelegramHtml(tgDhakaTime(o.createdAt))}`,
     )
 
+    const copy = customerCopyKeyboard({
+      phone,
+      address: address || undefined,
+      invoice: latest?.invoiceNumber,
+    })
+    const keyboard = {
+      inline_keyboard: [
+        ...(orderCount > orders.length
+          ? [[{ text: `📜 All ${orderCount} orders`, callback_data: customerCallback('orders', digits10) }]]
+          : []),
+        ...(copy.inline_keyboard ?? []),
+      ],
+    }
+
     await this.bot?.sendMessage(
       ctx.chatId,
       tgJoin(
-        tgHeader('🔍', latest.shippingName, `${orders.length} order${orders.length === 1 ? '' : 's'} in this store`),
-        tgCard([
-          `📞 <code>${escapeTelegramHtml(latest.shippingPhone)}</code>`,
-          `📍 <code>${escapeTelegramHtml(address || latest.shippingAddress)}</code>`,
-        ]),
-        tgCard([
-          `Delivered — <b>${delivered}</b>`,
-          `Returned / cancelled — <b>${failed}</b>`,
-          `Lifetime value — <b>${escapeTelegramHtml(formatBDT(spend))}</b>`,
-        ]),
+        tgHeader(
+          '🔍',
+          name,
+          customer ? 'Registered customer' : 'Guest buyer — no account',
+        ),
+        tgCard(identity),
+        tgCard(value),
         tgCard(riskRows),
-        `<b>Orders</b>\n${tgCard(orderRows)}`,
+        orderRows.length ? `<b>Recent orders</b>\n${tgCard(orderRows)}` : '<i>No orders yet</i>',
+      ),
+      { parse_mode: 'HTML', link_preview_options: { is_disabled: true }, reply_markup: keyboard },
+    )
+    await this.logCommand(ctx.chatId, `/find ${digits10}`, ctx.userId)
+  }
+
+  /** Every order this person has placed, a page at a time. */
+  private async executeCustomerOrders(
+    ctx: TelegramCtx,
+    digits10: string,
+    page = 0,
+  ): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+    const size = TelegramService.CUSTOMER_PAGE
+    const where = { storeId: ctx.storeId, shippingPhone: { contains: digits10 } }
+    const [count, orders] = await Promise.all([
+      this.prisma.order.count({ where }),
+      this.prisma.order.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: Math.max(0, page) * size,
+        take: size,
+        select: {
+          invoiceNumber: true,
+          status: true,
+          total: true,
+          shippingName: true,
+          createdAt: true,
+        },
+      }),
+    ])
+
+    if (orders.length === 0) {
+      await this.executeCustomerCard(ctx, digits10)
+      return
+    }
+
+    const pages = Math.max(1, Math.ceil(count / size))
+    const rows = orders.map(
+      (o) =>
+        `${tgStatusEmoji(o.status)} <code>${escapeTelegramHtml(o.invoiceNumber)}</code> · ${escapeTelegramHtml(tgPrettyStatus(o.status))} · <b>${escapeTelegramHtml(formatBDT(Number(o.total)))}</b>\n   ${escapeTelegramHtml(tgDhakaTime(o.createdAt))}`,
+    )
+
+    const nav: Array<{ text: string; callback_data: string }> = []
+    if (page > 0) nav.push({ text: '← Prev', callback_data: customerCallback('orders', digits10, page - 1) })
+    if (page + 1 < pages) nav.push({ text: 'Next →', callback_data: customerCallback('orders', digits10, page + 1) })
+
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      tgJoin(
+        tgHeader('📜', orders[0]!.shippingName || 'Order history', `${count} order${count === 1 ? '' : 's'} · page ${page + 1} of ${pages}`),
+        tgCard(rows),
       ),
       {
         parse_mode: 'HTML',
-        link_preview_options: { is_disabled: true },
-        reply_markup: customerCopyKeyboard({
-          phone: latest.shippingPhone,
-          address: address || latest.shippingAddress,
-          invoice: latest.invoiceNumber,
-        }),
+        reply_markup: {
+          inline_keyboard: [
+            ...(nav.length ? [nav] : []),
+            [{ text: '👤 Customer card', callback_data: customerCallback('open', digits10) }],
+            [{ text: '← Customers', callback_data: TG_CALLBACK.MENU_CUSTOMERS }],
+          ],
+        },
       },
     )
-    await this.logCommand(ctx.chatId, `/find ${digits10}`, ctx.userId)
+  }
+
+  /**
+   * The whole customer book, newest buyer first.
+   *
+   * Top Customers answers "who is worth the most"; this answers "who is there",
+   * which is the question an operator asks when they are looking for someone
+   * whose name they half remember.
+   */
+  private async executeCustomerList(ctx: TelegramCtx, page = 0): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+    const size = TelegramService.CUSTOMER_PAGE
+    const [count, customers] = await Promise.all([
+      this.prisma.customer.count({ where: { storeId: ctx.storeId } }),
+      this.prisma.customer.findMany({
+        where: { storeId: ctx.storeId },
+        orderBy: [{ lastOrderDate: 'desc' }, { createdAt: 'desc' }],
+        skip: Math.max(0, page) * size,
+        take: size,
+        select: {
+          firstName: true,
+          lastName: true,
+          phone: true,
+          totalOrders: true,
+          totalSpent: true,
+          loyaltyTier: true,
+        },
+      }),
+    ])
+
+    if (count === 0) {
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        tgJoin(
+          tgHeader('👥', 'No customers yet', 'Nobody has registered in this store'),
+          'Guest buyers still show up — search any order phone number.',
+        ),
+        { parse_mode: 'HTML', reply_markup: inlineCustomersMenu() },
+      )
+      return
+    }
+
+    const pages = Math.max(1, Math.ceil(count / size))
+    const rows = customers.map((c) => {
+      const name = `${c.firstName} ${c.lastName}`.trim() || 'Customer'
+      return `<b>${escapeTelegramHtml(name)}</b> · <code>${escapeTelegramHtml(c.phone)}</code>\n   ${c.totalOrders} order${c.totalOrders === 1 ? '' : 's'} · <b>${escapeTelegramHtml(formatBDT(Number(c.totalSpent)))}</b> · ${escapeTelegramHtml(c.loyaltyTier)}`
+    })
+
+    const nav: Array<{ text: string; callback_data: string }> = []
+    if (page > 0) nav.push({ text: '← Prev', callback_data: listCallback('customers', page - 1) })
+    if (page + 1 < pages) nav.push({ text: 'Next →', callback_data: listCallback('customers', page + 1) })
+
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      tgJoin(
+        tgHeader('👥', 'All Customers', `${count} registered · page ${page + 1} of ${pages}`),
+        tgCard(rows),
+      ),
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            ...customers.map((c) => [
+              {
+                text: `${`${c.firstName} ${c.lastName}`.trim() || 'Customer'} · ${c.phone}`.slice(0, 60),
+                callback_data: customerCallback('open', c.phone),
+              },
+            ]),
+            ...(nav.length ? [nav] : []),
+            [{ text: '← Customers', callback_data: TG_CALLBACK.MENU_CUSTOMERS }],
+          ],
+        },
+      },
+    )
+    await this.logCommand(ctx.chatId, '/customers', ctx.userId)
   }
 
   private async executeCustomerLookupHelp(ctx: TelegramCtx): Promise<void> {
     await this.bot?.sendMessage(
       ctx.chatId,
       tgJoin(
-        tgHeader('🔍', 'Customer Lookup', 'Phone number in, full history out.'),
+        tgHeader('🔍', 'Customer Search', 'Phone, name, email or code — all work.'),
         tgCard([
-          'Send <code>01712345678</code> — customer card with copy buttons',
-          '<code>/find 01712345678</code> — same from a command',
+          'Send <code>01712345678</code> — the customer card',
+          'Send <code>5678</code> — the last digits you remember',
+          '<code>/find Rahim</code> — search by name',
+          '<code>/find rahim@example.com</code> — by email',
+          '<code>/find CUS-00123</code> — by customer code',
           '<code>/check 01712345678</code> — courier fraud score only',
         ]),
       ),
