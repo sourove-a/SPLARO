@@ -64,6 +64,32 @@ const PRODUCT_VARIANT_WIDTHS = [160, 480, 828, 1200, 1600] as const
 const DISPLAY_WIDTH = 1200
 const QUALITY_WARN_BELOW = 1200
 
+/**
+ * What the kept-forever copy of a product photo is allowed to cost.
+ *
+ * Every product upload used to leave its raw file on disk untouched, so a 5MB
+ * phone photo billed 5MB of the volume for the rest of its life while the five
+ * WebP and five AVIF sizes the storefront actually serves came to well under
+ * one. The archive, not the ladder, is what fills the disk.
+ *
+ * `ARCHIVE_MAX_WIDTH` sits at 2560 because the widest thing the site ever
+ * serves is 1600 — a master at this size still holds a full re-crop of
+ * headroom, and no pixel a customer sees is built from more than it. At quality
+ * 90 WebP that turns a 3MB 6000x4000 original into roughly 700KB with nothing
+ * visible to separate the two at any size in `PRODUCT_VARIANT_WIDTHS`.
+ *
+ * It is a re-encode, so it is not bit-identical to what was uploaded. Stores
+ * that need the camera file itself — print, licensing, a future model that
+ * wants the raw grain — set `PRODUCT_KEEP_RAW_ORIGINAL=1` and pay the bytes.
+ */
+const ARCHIVE_MAX_WIDTH = 2560
+const ARCHIVE_QUALITY = 90
+/**
+ * Under this the raw file is already cheap, and a re-encode costs a second of
+ * CPU to save a few dozen KB — below the noise of one page view.
+ */
+const ARCHIVE_MIN_BYTES = 512 * 1024
+
 /** Mild sharpen after downscale only — never applied to the original file. */
 function sharpenForWidth(width: number): { sigma: number; m1: number; m2: number } {
   if (width <= 480) return { sigma: 0.7, m1: 0.5, m2: 0.4 }
@@ -155,6 +181,85 @@ async function watermarkOverlay(width: number): Promise<Buffer> {
 function envPipelineEnabled(): boolean {
   const raw = (process.env.PRODUCT_IMAGE_PIPELINE ?? 'true').trim().toLowerCase()
   return raw !== '0' && raw !== 'false' && raw !== 'off' && raw !== 'no'
+}
+
+/** Opt back in to storing the untouched camera file. Default OFF — see `ARCHIVE_MAX_WIDTH`. */
+function envKeepRawOriginal(): boolean {
+  const raw = (process.env.PRODUCT_KEEP_RAW_ORIGINAL ?? '').trim().toLowerCase()
+  return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes'
+}
+
+/** Per-store override for how much headroom the master keeps. */
+function archiveMaxWidth(): number {
+  const requested = Number(process.env.PRODUCT_ORIGINAL_MAX_WIDTH ?? '')
+  if (!Number.isFinite(requested) || requested < MIN_PRODUCT_WIDTH) return ARCHIVE_MAX_WIDTH
+  return Math.round(requested)
+}
+
+/**
+ * Write the copy of the upload that outlives the request.
+ *
+ * Squeezing it is the whole saving, so the one thing this must never do is
+ * fail the upload to get it: a sharp that cannot read the file, a master that
+ * comes out no smaller than the raw bytes, a photo already small enough to be
+ * cheap — every one of those falls back to copying what was uploaded, which is
+ * exactly the behaviour this replaced.
+ *
+ * Returns the file name written into `dir`.
+ */
+async function writeArchivedOriginal(
+  srcPath: string,
+  dir: string,
+  id: string,
+  ext: string,
+  sourceWidth: number,
+): Promise<string> {
+  const rawName = `${id}.original.${ext}`
+  const copyRaw = async () => {
+    await copyFile(srcPath, path.join(dir, rawName))
+    return rawName
+  }
+  if (envKeepRawOriginal()) return copyRaw()
+
+  const maxWidth = archiveMaxWidth()
+  let rawBytes = 0
+  try {
+    rawBytes = (await stat(srcPath)).size
+  } catch {
+    return copyRaw()
+  }
+  // Already small, and no wider than the master would be: re-encoding it would
+  // spend CPU and lose a generation of quality for nothing.
+  if (rawBytes <= ARCHIVE_MIN_BYTES && sourceWidth > 0 && sourceWidth <= maxWidth) {
+    return copyRaw()
+  }
+
+  const masterName = `${id}.original.webp`
+  // Named `.original.tmp` rather than `.original.tmp.webp` so that a crash
+  // between encode and rename leaves something both `deleteProductPipelineFiles`
+  // and the storage sweep recognise as a derivative. sharp writes WebP here
+  // because `.webp()` is set explicitly, not because of the extension.
+  const masterTmp = path.join(dir, `${id}.original.tmp`)
+  try {
+    const sharp = await loadSharp()
+    await sharp(srcPath, SHARP_READ)
+      .rotate()
+      .resize(maxWidth, maxWidth, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: ARCHIVE_QUALITY, effort: 5 })
+      .toFile(masterTmp)
+    const masterBytes = (await stat(masterTmp)).size
+    // A small PNG logo or an already-tuned WebP can encode larger than it
+    // arrived. Keeping the bigger file would be the opposite of the point.
+    if (masterBytes >= rawBytes) {
+      await removeQuiet(masterTmp)
+      return copyRaw()
+    }
+    await rename(masterTmp, path.join(dir, masterName))
+    return masterName
+  } catch {
+    await removeQuiet(masterTmp)
+    return copyRaw()
+  }
 }
 
 /**
@@ -261,9 +366,7 @@ async function runProductPipeline(
     )
   }
 
-  const originalName = `${id}.original.${ext}`
-  const originalPath = path.join(dir, originalName)
-  await copyFile(srcPath, originalPath)
+  const originalName = await writeArchivedOriginal(srcPath, dir, id, ext, width)
   const originalUrl = `${urlBase}/${originalName}`
 
   const qualityNote =
