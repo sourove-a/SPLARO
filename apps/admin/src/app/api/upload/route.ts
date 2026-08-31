@@ -15,6 +15,12 @@ import {
   loadUpscalePreview,
   uploadRoot,
 } from '@/lib/upload/product-ai-upscale'
+import {
+  ARCHIVE_QUALITY,
+  archiveMaxWidth,
+  archivePlan,
+  envKeepRawOriginal,
+} from '@/lib/upload/archive-original'
 import { withProductPipelineSlot } from '@/lib/upload/product-pipeline-queue'
 import { deleteProductPipelineFiles } from '@/lib/upload/product-pipeline-cleanup'
 
@@ -63,6 +69,7 @@ function isProductFolder(folder: string): boolean {
 const PRODUCT_VARIANT_WIDTHS = [160, 480, 828, 1200, 1600] as const
 const DISPLAY_WIDTH = 1200
 const QUALITY_WARN_BELOW = 1200
+
 
 /** Mild sharpen after downscale only — never applied to the original file. */
 function sharpenForWidth(width: number): { sigma: number; m1: number; m2: number } {
@@ -155,6 +162,70 @@ async function watermarkOverlay(width: number): Promise<Buffer> {
 function envPipelineEnabled(): boolean {
   const raw = (process.env.PRODUCT_IMAGE_PIPELINE ?? 'true').trim().toLowerCase()
   return raw !== '0' && raw !== 'false' && raw !== 'off' && raw !== 'no'
+}
+
+/**
+ * Write the copy of the upload that outlives the request.
+ *
+ * Squeezing it is the whole saving, so the one thing this must never do is
+ * fail the upload to get it: a sharp that cannot read the file, a master that
+ * comes out no smaller than the raw bytes, a photo already small enough to be
+ * cheap — every one of those falls back to copying what was uploaded, which is
+ * exactly the behaviour this replaced.
+ *
+ * Returns the file name written into `dir`.
+ */
+async function writeArchivedOriginal(
+  srcPath: string,
+  dir: string,
+  id: string,
+  ext: string,
+  sourceWidth: number,
+): Promise<string> {
+  const rawName = `${id}.original.${ext}`
+  const copyRaw = async () => {
+    await copyFile(srcPath, path.join(dir, rawName))
+    return rawName
+  }
+  if (envKeepRawOriginal()) return copyRaw()
+
+  const maxWidth = archiveMaxWidth()
+  let rawBytes = 0
+  try {
+    rawBytes = (await stat(srcPath)).size
+  } catch {
+    return copyRaw()
+  }
+  if (archivePlan({ ext, rawBytes, sourceWidth, maxWidth }).strategy === 'raw') {
+    return copyRaw()
+  }
+
+  const masterName = `${id}.original.webp`
+  // Named `.original.tmp` rather than `.original.tmp.webp` so that a crash
+  // between encode and rename leaves something both `deleteProductPipelineFiles`
+  // and the storage sweep recognise as a derivative. sharp writes WebP here
+  // because `.webp()` is set explicitly, not because of the extension.
+  const masterTmp = path.join(dir, `${id}.original.tmp`)
+  try {
+    const sharp = await loadSharp()
+    await sharp(srcPath, SHARP_READ)
+      .rotate()
+      .resize(maxWidth, maxWidth, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: ARCHIVE_QUALITY, effort: 5 })
+      .toFile(masterTmp)
+    const masterBytes = (await stat(masterTmp)).size
+    // A small PNG logo or an already-tuned WebP can encode larger than it
+    // arrived. Keeping the bigger file would be the opposite of the point.
+    if (masterBytes >= rawBytes) {
+      await removeQuiet(masterTmp)
+      return copyRaw()
+    }
+    await rename(masterTmp, path.join(dir, masterName))
+    return masterName
+  } catch {
+    await removeQuiet(masterTmp)
+    return copyRaw()
+  }
 }
 
 /**
@@ -261,9 +332,7 @@ async function runProductPipeline(
     )
   }
 
-  const originalName = `${id}.original.${ext}`
-  const originalPath = path.join(dir, originalName)
-  await copyFile(srcPath, originalPath)
+  const originalName = await writeArchivedOriginal(srcPath, dir, id, ext, width)
   const originalUrl = `${urlBase}/${originalName}`
 
   const qualityNote =

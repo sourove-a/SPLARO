@@ -161,8 +161,27 @@ export function updateOrderPaymentStatus(
   })
 }
 
+/** Despite the name this cancels — see `purgeOrders` for actual removal. */
 export function deleteOrder(id: string) {
   return apiFetch<{ success: boolean }>(`/admin/orders/${id}`, { method: 'DELETE' })
+}
+
+export interface PurgeOrdersResult {
+  success: boolean
+  deleted: Array<{ id: string; invoiceNumber: string }>
+  /** Ids the server refused, each with the reason to show the operator. */
+  skipped: Array<{ id: string; invoiceNumber?: string; reason: string }>
+}
+
+/**
+ * Destroy cancelled orders for good. Only orders already CANCELLED qualify, so
+ * this is always the second step after `deleteOrder`.
+ */
+export function purgeOrders(orderIds: string[]) {
+  return apiFetch<PurgeOrdersResult>('/admin/orders/purge', {
+    method: 'DELETE',
+    body: JSON.stringify({ orderIds }),
+  })
 }
 
 export interface CreateOrderInput {

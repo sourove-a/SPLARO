@@ -1,4 +1,5 @@
 import { uploadTimeoutMs } from '@/lib/media/upload-rules'
+import { compressImageForUpload } from '@/lib/media/compress-before-upload'
 
 export type UploadAdminImageOptions = {
   /** Product pipeline ON/OFF. Only applied when folder is `products`. Default true. */
@@ -15,6 +16,11 @@ export type UploadAdminImageOptions = {
   watermark?: boolean
   /** Requested unique upload ID to track pending processing marker. */
   uploadId?: string
+  /**
+   * Shrink a large JPEG in the browser first. Default true — see
+   * `compress-before-upload.ts` for what it costs and what it saves.
+   */
+  compress?: boolean
 }
 
 export type UploadAdminImageResult = {
@@ -107,11 +113,19 @@ export async function uploadAdminImage(
   folder = 'products',
   options: UploadAdminImageOptions = {},
 ): Promise<UploadAdminImageResult> {
+  // Before anything measures or sends it: a 13MB camera JPEG becomes roughly
+  // 1.2MB here, which is the difference between a minutes-long upload and a
+  // short one. Declines to touch anything it cannot improve, so `upload` is the
+  // original file whenever compression was skipped or came out no smaller.
+  const { file: upload } = options.compress === false
+    ? { file }
+    : await compressImageForUpload(file)
+
   const params = new URLSearchParams({
     raw: '1',
     folder,
     optimize: options.optimize === false ? '0' : '1',
-    filename: file.name,
+    filename: upload.name,
   })
   if (options.watermark) params.set('watermark', '1')
   if (options.uploadId) params.set('uploadId', options.uploadId)
@@ -120,11 +134,11 @@ export async function uploadAdminImage(
     if (options.upscalePreviewId) params.set('upscalePreviewId', options.upscalePreviewId)
   }
   const url = `/api/upload?${params.toString()}`
-  const contentType = file.type || 'application/octet-stream'
-  const timeoutMs = uploadTimeoutMs(file.size)
+  const contentType = upload.type || 'application/octet-stream'
+  const timeoutMs = uploadTimeoutMs(upload.size)
 
   if (typeof XMLHttpRequest !== 'undefined') {
-    return uploadWithProgress(url, file, contentType, timeoutMs, options.onProgress, options.signal)
+    return uploadWithProgress(url, upload, contentType, timeoutMs, options.onProgress, options.signal)
   }
 
   const controller = new AbortController()
@@ -134,7 +148,7 @@ export async function uploadAdminImage(
   try {
     const res = await fetch(url, {
       method: 'POST',
-      body: file,
+      body: upload,
       headers: { 'Content-Type': contentType },
       signal: controller.signal,
     })

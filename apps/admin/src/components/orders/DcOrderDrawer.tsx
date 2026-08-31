@@ -12,7 +12,7 @@ import { downloadInvoice } from '@/lib/admin/admin-actions'
 import { formatBdPhone, operatorOf, telHref } from '@/lib/format/bd-phone'
 import { formatCleanAddress, displaySizeLabel } from '@splaro/config'
 import { verifyDeleteSuccess } from '@/lib/admin/mutation-verify'
-import { useDeleteOrder, useOrder, usePermission, useUpdateOrderStatus } from '@/lib/api/hooks'
+import { useDeleteOrder, useOrder, usePermission, usePurgeOrders, useUpdateOrderStatus } from '@/lib/api/hooks'
 import type { ApiOrder } from '@/lib/api/orders'
 
 /** The fulfilment ladder, in the order the floor works it. */
@@ -76,6 +76,9 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
   const [confirmAdvance, setConfirmAdvance] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const purge = usePurgeOrders()
+  const [confirmPurge, setConfirmPurge] = useState(false)
+  const [purgeConfirmation, setPurgeConfirmation] = useState('')
 
   useEffect(() => {
     if (!orderId) return
@@ -669,17 +672,36 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
             disabled={!d}
             onClick={() => d && window.open(telHref(d.shippingPhone), '_self')}
           />
+          {/*
+            One button, two different acts, decided by where the order already
+            is. "Delete" used to sit here and only cancel, which is why a fake
+            order could never actually be got rid of. A live order can only be
+            cancelled; a cancelled one is the only thing that can be destroyed.
+          */}
           {canDeleteOrders ? (
-            <FooterBtn
-              icon="icon-trash-2"
-              label="Delete"
-              danger
-              disabled={!d || deleteOrder.isPending}
-              onClick={() => {
-                setDeleteConfirmation('')
-                setConfirmDelete(true)
-              }}
-            />
+            d?.status === 'CANCELLED' ? (
+              <FooterBtn
+                icon="icon-trash-2"
+                label="Delete"
+                danger
+                disabled={purge.isPending}
+                onClick={() => {
+                  setPurgeConfirmation('')
+                  setConfirmPurge(true)
+                }}
+              />
+            ) : (
+              <FooterBtn
+                icon="icon-x"
+                label="Cancel"
+                danger
+                disabled={!d || deleteOrder.isPending}
+                onClick={() => {
+                  setDeleteConfirmation('')
+                  setConfirmDelete(true)
+                }}
+              />
+            )
           ) : null}
           <div style={{ flex: 1 }} />
           <button
@@ -754,6 +776,71 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
           )
         }}
       />
+      <DcModal
+        open={confirmPurge}
+        title={d ? `Delete ${d.invoiceNumber} permanently?` : 'Delete order permanently?'}
+        subtitle="This erases the order and everything attached to it — items, payments, invoice and courier record. Stock was already restored when it was cancelled. It cannot be undone."
+        confirmLabel="Delete permanently"
+        danger
+        busy={purge.isPending}
+        busyLabel="Deleting…"
+        onClose={() => {
+          if (purge.isPending) return
+          setConfirmPurge(false)
+          setPurgeConfirmation('')
+        }}
+        onConfirm={() => {
+          if (!d) return
+          if (purgeConfirmation.trim() !== d.invoiceNumber) {
+            toast('bad', 'Confirmation does not match', `Type ${d.invoiceNumber} exactly.`)
+            return
+          }
+          void purge
+            .mutateAsync([d.id])
+            .then((res) => {
+              // A refusal comes back 200 with a reason rather than as an error,
+              // so success is the order actually being gone, not the call.
+              if (res.deleted.length === 0) {
+                toast('bad', 'Not deleted', res.skipped[0]?.reason ?? 'The order was not deleted.')
+                return
+              }
+              toast('ok', `${d.invoiceNumber} deleted`, 'The order and its records are gone.')
+              setConfirmPurge(false)
+              setPurgeConfirmation('')
+              onClose()
+            })
+            .catch((err: unknown) => {
+              toast(
+                'bad',
+                'Could not delete order',
+                err instanceof Error ? err.message : 'DELETE /admin/orders/purge failed',
+              )
+            })
+        }}
+      >
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <span style={{ font: `600 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+            Type {d?.invoiceNumber ?? 'order number'} to confirm
+          </span>
+          <input
+            value={purgeConfirmation}
+            onChange={(event) => setPurgeConfirmation(event.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            style={{
+              width: '100%',
+              height: 38,
+              padding: '0 11px',
+              borderRadius: 9,
+              border: '1px solid var(--bad-bd)',
+              background: 'var(--surface-2)',
+              color: 'var(--ink)',
+              outline: 'none',
+              font: `600 13px/1 ${MONO}`,
+            }}
+          />
+        </label>
+      </DcModal>
       <DcModal
         open={confirmDelete}
         title={d ? `Cancel ${d.invoiceNumber}?` : 'Cancel order?'}

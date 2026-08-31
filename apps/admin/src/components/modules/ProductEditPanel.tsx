@@ -16,6 +16,10 @@ import {
 import { DcProductMediaSlots } from '@/components/dc/product/DcProductMediaSlots'
 import { mediaFolderForDept } from '@/lib/admin/size-presets'
 import { FONT, MONO, formatTaka } from '@/components/dc/tokens'
+import {
+  departmentSelectionFor,
+  needsDepartmentHydration,
+} from '@/lib/admin/category-hydrate'
 import { buildCategoryPicker, menuIconFor } from '@/lib/admin/category-picker'
 import {
   buildDescriptionDraft,
@@ -300,17 +304,29 @@ export function ProductEditPanel({
     })
     setSlugEdited(false)
     setDirty(false)
-    if (categoryId && categories.length) {
-      const dept = categoryPicker.departmentForCategory(categoryId)
-      setDepartmentId(dept)
-      const selected = categories.find((c) => c.id === categoryId)
-      if (selected?.parentId && selected.parentId !== dept) {
-        setSubDepartmentId(selected.parentId)
-      } else {
-        setSubDepartmentId('')
-      }
-    }
-  }, [product, categories.length, categoryPicker, categories])
+    // Cleared so the effect below works them out for whichever product this is
+    // now showing. Deriving them here instead would need the category picker,
+    // and the picker is rebuilt whenever `form.categoryId` changes — which made
+    // this effect re-run on every category the operator chose and reset the form
+    // straight back to the saved one. The category could not be changed at all.
+    setDepartmentId('')
+    setSubDepartmentId('')
+  }, [product])
+
+  // Open the selects on the saved category, once the category list has arrived.
+  // Guarded on an empty department so it fills them in and then leaves them to
+  // the operator: re-deriving after they have chosen would close the level they
+  // just opened.
+  useEffect(() => {
+    if (!needsDepartmentHydration(form.categoryId, categories.length, departmentId)) return
+    const selection = departmentSelectionFor(
+      form.categoryId,
+      categories,
+      categoryPicker.departmentForCategory,
+    )
+    setDepartmentId(selection.departmentId)
+    setSubDepartmentId(selection.subDepartmentId)
+  }, [form.categoryId, categories, categories.length, categoryPicker, departmentId])
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }))

@@ -156,6 +156,7 @@ export class GoogleClientService {
 
     try {
       await oauth2.getAccessToken()
+      await this.clearUnhealthyToken(conn.id, conn.tokenHealth)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       if (isSheetsAuthFailure(msg) || /invalid_grant|invalid credentials/i.test(msg)) {
@@ -167,6 +168,40 @@ export class GoogleClientService {
     }
 
     return oauth2
+  }
+
+  /**
+   * Take the reconnect flag back off once the credentials demonstrably work.
+   *
+   * The `tokens` handler above already does this, but only when Google actually
+   * mints a new token — so a store whose cached access token was still valid
+   * stayed flagged through sync after successful sync, and the dashboard kept
+   * telling the operator to reconnect an account that was working. Nothing else
+   * clears it either: the reconnect callback, `resumeLiveSync` and linking a
+   * spreadsheet all do, but an ordinary sync never did.
+   *
+   * Reaching here is the same proof that handler waits for. `getOAuthClient`
+   * refuses to build a client at all without a decryptable refresh token, and
+   * `getAccessToken` has just been accepted by Google — which is exactly the
+   * pair of facts `needs_reconnect` asserts are false.
+   *
+   * `autoSyncEnabled` is deliberately left alone: `markTokenUnhealthy` turns it
+   * off to stop the cron hammering a broken account, and turning it back on is
+   * the operator's call, not a side effect of one manual sync.
+   */
+  private async clearUnhealthyToken(
+    connectionId: string,
+    currentHealth: string | null,
+  ): Promise<void> {
+    if (!currentHealth || currentHealth === 'healthy') return
+    try {
+      await this.prisma.googleWorkspaceConnection.update({
+        where: { id: connectionId },
+        data: { tokenHealth: 'healthy', lastError: null },
+      })
+    } catch {
+      // Bookkeeping only — a sync that works must not fail on the status write.
+    }
   }
 
   private async markTokenUnhealthy(storeId: string, reason: string): Promise<void> {
