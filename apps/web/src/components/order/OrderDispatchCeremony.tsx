@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowRight, Check, Package } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 import { displayOrderCode } from '@splaro/config'
@@ -47,7 +47,7 @@ const STAGE_COPY: Record<DispatchStage, { eyebrow: string; title: string; subtit
   confirm: {
     eyebrow: 'Confirmed',
     title: 'Order confirmed',
-    subtitle: 'You’re all set — continue to shipping details.',
+    subtitle: 'You’re all set — view order details & confirm via WhatsApp.',
   },
 }
 
@@ -122,12 +122,12 @@ export function OrderDispatchCeremony({
   const activeRank = stageRank(stage)
   const progress = ((activeRank + (isConfirm ? 1 : 0.45)) / STAGES.length) * 100
 
-  const finish = () => {
+  const finish = useCallback(() => {
     if (finishedRef.current) return
     finishedRef.current = true
     markDispatchSeen(orderId)
     onComplete()
-  }
+  }, [onComplete, orderId])
 
   useEffect(() => {
     if (reducedMotion) {
@@ -145,7 +145,7 @@ export function OrderDispatchCeremony({
     return () => {
       timers.forEach((id) => window.clearTimeout(id))
     }
-  }, [orderId, reducedMotion])
+  }, [finish, orderId, reducedMotion])
 
   return (
     <div
@@ -309,7 +309,7 @@ export function OrderDispatchCeremony({
             </h2>
             <p className="order-dispatch__subtitle">
               {isConfirm
-                ? `Order ${orderCode} is confirmed. Continue for shipping & tracking.`
+                ? `Order ${orderCode} is confirmed. Continue to confirm via WhatsApp.`
                 : copy.subtitle}
             </p>
           </motion.div>
@@ -330,11 +330,11 @@ export function OrderDispatchCeremony({
           </div>
           <p className="order-dispatch__popup-note">
             {isConfirm
-              ? 'Shipping details, invoice, and tracking are ready on the next screen.'
+              ? 'Order summary, invoice, and WhatsApp confirmation are ready on the next screen.'
               : 'Order placed — you can continue anytime. Animation finishes in a moment.'}
           </p>
           <button type="button" className="order-dispatch__cta" onClick={finish}>
-            <span>Continue to shipping</span>
+            <span>Continue to WhatsApp</span>
             <ArrowRight className="h-4 w-4" strokeWidth={2.4} aria-hidden />
           </button>
         </motion.div>

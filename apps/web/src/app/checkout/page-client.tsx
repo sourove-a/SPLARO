@@ -220,6 +220,7 @@ export default function CheckoutPageClient() {
   const [couponApplied, setCouponApplied] = useState(false)
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null)
   const [dispatchCeremony, setDispatchCeremony] = useState<DispatchCeremonyState | null>(null)
+  const orderCompletedRef = useRef(false)
   const formRef = useRef<HTMLFormElement>(null)
   const draftApplied = useRef(false)
   const profileAppliedFor = useRef<string | null>(null)
@@ -305,7 +306,7 @@ export default function CheckoutPageClient() {
   }
 
   useEffect(() => {
-    if (!cartHydrated || items.length > 0 || dispatchCeremony) return
+    if (!cartHydrated || items.length > 0 || dispatchCeremony || orderCompletedRef.current || submitting) return
     const staged = consumeStagedCheckoutItems()
     if (staged?.length) {
       replaceItems(staged)
@@ -319,7 +320,7 @@ export default function CheckoutPageClient() {
       }
     }
     safeClientNavigate(router, '/cart', 'replace')
-  }, [cartHydrated, dispatchCeremony, items.length, replaceItems, router])
+  }, [cartHydrated, dispatchCeremony, items.length, replaceItems, router, submitting])
 
   useEffect(() => {
     // Defer promo probe — place-order path does not need it; keep first paint free.
@@ -792,6 +793,7 @@ export default function CheckoutPageClient() {
       }
 
       const confirmHref = buildOrderConfirmationPath(saved)
+      orderCompletedRef.current = true
       setDispatchCeremony({
         orderId: saved.id,
         invoiceNumber: saved.invoiceNumber ?? null,
@@ -824,7 +826,7 @@ export default function CheckoutPageClient() {
             customerName={dispatchCeremony.customerName}
             onComplete={() => {
               const { href } = dispatchCeremony
-              setDispatchCeremony(null)
+              orderCompletedRef.current = true
               safeClientNavigate(router, href, 'replace')
             }}
           />

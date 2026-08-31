@@ -20,7 +20,12 @@ export function resolveSupportPhone(settings: Pick<StorefrontSettings, 'store'>)
 }
 
 export function whatsAppHref(number: string, message = 'Hello SPLARO! I need assistance.'): string {
-  const digits = number.replace(/[^0-9]/g, '')
+  const rawDigits = number.replace(/[^0-9]/g, '')
+  const digits = rawDigits.startsWith('00')
+    ? rawDigits.slice(2)
+    : rawDigits.startsWith('0')
+      ? `88${rawDigits}`
+      : rawDigits
   if (!digits) return '#'
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
 }

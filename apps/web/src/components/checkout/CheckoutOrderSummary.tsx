@@ -122,8 +122,8 @@ export function CheckoutOrderSummary({
       ) : (
         <>
           <div className="checkout-items">
-            {items.map((item) => (
-              <div key={`${item.productId}-${item.variantId ?? ''}-${item.size ?? ''}`} className="checkout-item">
+            {items.map((item, index) => (
+              <div key={`${item.productId}-${item.variantId ?? ''}-${item.size ?? ''}-${index}`} className="checkout-item">
                 <div className="checkout-item__thumb">
                   <Image
                     src={item.image}
