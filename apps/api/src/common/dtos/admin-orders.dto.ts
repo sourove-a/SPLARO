@@ -11,6 +11,7 @@ import {
   IsString,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator'
 import { Type } from 'class-transformer'
 
@@ -84,6 +85,69 @@ export class UpdateOrderPaymentDto {
   @IsOptional()
   @IsEnum(PaymentMethod)
   method?: PaymentMethod
+
+  @IsOptional()
+  @IsString()
+  note?: string
+}
+
+export class EditOrderItemDto {
+  @IsString()
+  variantId!: string
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  quantity!: number
+}
+
+export class EditOrderShippingDto {
+  @IsOptional()
+  @IsString()
+  name?: string
+
+  @IsOptional()
+  @IsString()
+  phone?: string
+
+  @IsOptional()
+  @IsString()
+  email?: string
+
+  @IsOptional()
+  @IsString()
+  address?: string
+
+  @IsOptional()
+  @IsString()
+  city?: string
+
+  @IsOptional()
+  @IsString()
+  district?: string
+
+  @IsOptional()
+  @IsString()
+  division?: string
+
+  @IsOptional()
+  @IsString()
+  postal?: string
+}
+
+export class EditOrderDto {
+  /** Omit to leave the lines untouched; sending an empty array is rejected. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => EditOrderItemDto)
+  items?: EditOrderItemDto[]
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EditOrderShippingDto)
+  shipping?: EditOrderShippingDto
 
   @IsOptional()
   @IsString()

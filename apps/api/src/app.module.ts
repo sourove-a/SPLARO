@@ -57,6 +57,7 @@ import { BackInStockCron } from './modules/notifications/back-in-stock.cron'
 import { OrderNotificationsService } from './modules/notifications/order-notifications.service'
 import { OrderEventsService } from './modules/orders/order-events.service'
 import { OrderStatusService } from './modules/orders/order-status.service'
+import { OrderEditService } from './modules/orders/order-edit.service'
 import { OrderSideEffectsQueueService } from './modules/orders/order-side-effects-queue.service'
 import { CommerceEventOutboxService } from './modules/orders/commerce-event-outbox.service'
 import { SmsService } from './modules/notifications/sms.service'
@@ -384,6 +385,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     OrderNotificationsService,
     OrderEventsService,
     OrderStatusService,
+    OrderEditService,
     FulfillmentService,
     OrderSideEffectsQueueService,
     CommerceEventOutboxService,

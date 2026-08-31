@@ -61,6 +61,11 @@ export class MediaController {
     return this.media.usageForPath(storeId, path ?? '')
   }
 
+  @Get('product-usage')
+  productUsage(@Query('storeId') storeId: string, @Query('exceptProductId') exceptProductId?: string) {
+    return this.media.productUsagePaths(storeId, exceptProductId)
+  }
+
   @Post('folders')
   createFolder(
     @Query('storeId') storeId: string,

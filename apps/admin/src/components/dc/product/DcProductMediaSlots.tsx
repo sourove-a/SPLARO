@@ -48,6 +48,7 @@ export function DcProductMediaSlots({
   disabled,
   uploadFolder = 'products',
   excludeUrls = imageUrls,
+  productId,
   categoryId,
   categoryName,
   categoryImage,
@@ -65,6 +66,8 @@ export function DcProductMediaSlots({
   uploadFolder?: string
   /** Image URLs already assigned to this product, hidden from the picker. */
   excludeUrls?: string[]
+  /** Saved product being edited — its own photos stay pickable while editing. */
+  productId?: string
   categoryId?: string
   categoryName?: string
   categoryImage?: string | null
@@ -577,6 +580,7 @@ export function DcProductMediaSlots({
         open={librarySlot != null}
         preferredFolder={uploadFolder}
         excludeUrls={excludeUrls}
+        {...(productId ? { productId } : {})}
         onClose={() => setLibrarySlot(null)}
         onPick={(picked) => {
           if (librarySlot != null) writeSlot(librarySlot, picked)

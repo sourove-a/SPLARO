@@ -2,6 +2,8 @@ import { apiFetch } from './client'
 
 export interface ApiOrderItem {
   id: string
+  productId?: string
+  variantId?: string | null
   quantity: number
   price?: number | string
   subtotal?: number | string
@@ -20,11 +22,15 @@ export interface ApiOrder {
   invoiceNumber: string
   shippingName: string
   shippingPhone: string
+  shippingEmail?: string | null
   shippingCity: string
   shippingAddress?: string
   shippingDistrict?: string
+  shippingDivision?: string
+  shippingPostal?: string | null
   subtotal?: number | string
   deliveryCharge?: number | string
+  discount?: number | string
   total: number | string
   status: string
   paymentMethod: string
@@ -100,6 +106,41 @@ export function fetchOrderStats(params?: { search?: string }) {
 
 export function fetchOrder(id: string) {
   return apiFetch<ApiOrder & { notes?: { body: string }[]; customer?: unknown }>(`/admin/orders/${id}`)
+}
+
+export interface EditOrderInput {
+  items?: Array<{ variantId: string; quantity: number }>
+  shipping?: {
+    name?: string
+    phone?: string
+    email?: string | null
+    address?: string
+    city?: string
+    district?: string
+    division?: string
+    postal?: string | null
+  }
+  note?: string
+}
+
+export interface EditOrderResult {
+  order: {
+    id: string
+    invoiceNumber: string
+    subtotal: number
+    deliveryCharge: number
+    discount: number
+    total: number
+  }
+  emailSent: boolean
+  changes: string[]
+}
+
+export function editOrder(id: string, input: EditOrderInput) {
+  return apiFetch<EditOrderResult>(`/admin/orders/${id}/edit`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
 }
 
 export function updateOrderStatus(id: string, status: string, note?: string) {

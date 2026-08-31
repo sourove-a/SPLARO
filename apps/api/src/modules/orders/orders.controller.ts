@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Header, Logger, NotFoundException, BadRequestException, Patch, Param, Query, Body, Post, Inject, Req, StreamableFile } from '@nestjs/common'
+import { Controller, Delete, Get, Header, Logger, NotFoundException, BadRequestException, Patch, Param, Query, Body, Post, Inject, Optional, Req, StreamableFile } from '@nestjs/common'
 import type { Request } from 'express'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { PrismaService } from '../../common/prisma.service'
@@ -10,6 +10,7 @@ import { CourierService } from '../courier/courier.service'
 import { InvoiceService } from '../invoices/invoice.service'
 import { OrderEventsService } from './order-events.service'
 import { OrderStatusService } from './order-status.service'
+import { OrderEditService } from './order-edit.service'
 import { AdminTelegramHubService } from '../notifications/admin-telegram-hub.service'
 import { FinanceAuditService } from '../../common/finance-audit.service'
 import { deleteOrderWithRelations } from '../../common/order-cleanup'
@@ -24,6 +25,7 @@ import {
   PurgeOrdersDto,
   InvoiceEmailDto,
   AddOrderNoteDto,
+  EditOrderDto,
   SetCodRiskDto,
   UpdateOrderPaymentDto,
   UpdateOrderStatusDto,
@@ -98,6 +100,7 @@ export class OrdersController {
     private readonly orderEvents: OrderEventsService,
     private readonly telegramHub: AdminTelegramHubService,
     private readonly financeAudit: FinanceAuditService,
+    @Optional() private readonly orderEdit?: OrderEditService,
   ) {}
 
   /** Resolve an order by id/invoiceNumber, scoped to the caller's store — prevents cross-store IDOR. */
@@ -321,6 +324,17 @@ export class OrdersController {
     })
     if (!order) throw new NotFoundException('Order not found')
     return order
+  }
+
+  @Patch(':id/edit')
+  async editOrder(
+    @Param('id') id: string,
+    @Body() body: EditOrderDto,
+    @Req() req: AdminRequest,
+  ) {
+    const orderId = await this.ownedOrderId(id, req)
+    if (!this.orderEdit) throw new BadRequestException('Order editing is unavailable')
+    return this.orderEdit.edit(orderId, body, req.adminUser?.userId)
   }
 
   @Patch(':id/status')

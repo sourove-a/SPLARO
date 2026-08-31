@@ -86,6 +86,52 @@ export const ORDER_STATUS_EMAILS: Record<string, OrderStatusCopy> = {
   },
 }
 
+/**
+ * A staff correction is not a status move, so it lives outside the status table:
+ * the customer agreed to one order and is now being shown a different one, and
+ * that has to arrive as its own document rather than as a "confirmed" repeat.
+ */
+export const ORDER_EDITED_EMAIL: OrderStatusCopy = {
+  eyebrow: 'Order updated',
+  heading: 'We have corrected your order',
+  intro: 'Your order has been updated. The corrected details are below — this replaces what we sent you earlier.',
+  callout: 'If any of this is still not what you wanted, reply to this email or call us before it ships.',
+  subject: (n) => `Order ${n} updated`,
+}
+
+export interface OrderEditedEmailInput {
+  customerName: string
+  invoiceNumber: string
+  items: EmailLineItem[]
+  total: number
+  /** Plain-language list of what staff changed. */
+  changes: string[]
+  note?: string | null
+  trackUrl?: string | null
+  storeName?: string
+  siteUrl?: string
+}
+
+export function generateOrderEditedEmail(input: OrderEditedEmailInput): {
+  subject: string
+  html: string
+  text: string
+} {
+  const changeLine = input.changes.length ? `What changed: ${input.changes.join(', ')}.` : ''
+  const note = [changeLine, input.note?.trim()].filter(Boolean).join(' ')
+  return generateOrderUpdateEmail({
+    copy: ORDER_EDITED_EMAIL,
+    customerName: input.customerName,
+    reference: input.invoiceNumber,
+    items: input.items,
+    total: input.total,
+    note: note || null,
+    trackUrl: input.trackUrl ?? null,
+    ...(input.storeName ? { storeName: input.storeName } : {}),
+    ...(input.siteUrl ? { siteUrl: input.siteUrl } : {}),
+  })
+}
+
 /** Return statuses worth a mail — the ones that change what the customer does. */
 export const RMA_STATUS_EMAILS: Record<string, OrderStatusCopy> = {
   REQUESTED: {

@@ -367,3 +367,15 @@ export async function verifyVariantCreated(
 ): Promise<boolean> {
   return verifyVariantPersisted(productId, variantId, expected)
 }
+
+/** A deleted variant is only gone once a fresh product read stops returning it. */
+export async function verifyVariantGone(productId: string, variantId: string): Promise<boolean> {
+  try {
+    const product = await fetchProduct(productId)
+    const stillThere = Boolean(product.variants?.some((v) => v.id === variantId))
+    return verifyPersisted(!stillThere, 'Variant is still on the server')
+  } catch {
+    toastFail('Could not verify variant on server')
+    return false
+  }
+}

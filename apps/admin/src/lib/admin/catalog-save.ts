@@ -20,6 +20,7 @@ import {
   verifyProductResponse,
   verifyProductRestored,
   verifyVariantCreated,
+  verifyVariantGone,
   verifyVariantPersisted,
   verifyVariantResponse,
   type ProductVerifyFields,
@@ -409,6 +410,28 @@ export async function confirmVariantCreated(
   } catch (err) {
     toastFail(err instanceof Error ? err.message : 'Could not add variant.')
     return null
+  }
+}
+
+/**
+ * A size typed in by mistake, erased. Green only once the server confirms the
+ * delete and a fresh read of the product no longer carries the row.
+ */
+export async function confirmVariantDeleted(
+  productId: string,
+  variantId: string,
+  label: string,
+  save: () => Promise<unknown>,
+): Promise<boolean> {
+  try {
+    const saved = await save()
+    if (!verifyDeleteSuccess(saved)) return false
+    if (!(await verifyVariantGone(productId, variantId))) return false
+    toastApiSaved(`${label} removed`)
+    return true
+  } catch (err) {
+    toastFail(err instanceof Error ? err.message : 'Could not remove variant.')
+    return false
   }
 }
 

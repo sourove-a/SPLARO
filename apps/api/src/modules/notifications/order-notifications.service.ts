@@ -12,6 +12,7 @@ import {
   buildInvoiceAccessToken,
 } from '@splaro/config/invoice-access'
 import {
+  generateOrderEditedEmail,
   generateOrderUpdateEmail,
   ORDER_STATUS_EMAILS,
   RMA_STATUS_EMAILS,
@@ -249,6 +250,66 @@ export class OrderNotificationsService {
     if (!sent) {
       this.logger.warn(
         `Status email (${status}) not sent for ${order.invoiceNumber} → ${emailTo} (SMTP/Gmail unavailable)`,
+      )
+    }
+    return sent
+  }
+
+  /**
+   * Tell the customer their order was corrected by staff.
+   *
+   * Sent transactional so the marketing toggle cannot suppress it — someone who
+   * agreed to one order is being shown a different one and has to see it.
+   * Returns whether the mail actually left, so the admin can say so honestly.
+   */
+  async onOrderEdited(
+    storeId: string,
+    orderId: string,
+    change: { changes: string[]; note?: string },
+  ): Promise<boolean> {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, storeId },
+      include: { items: true },
+    })
+    if (!order) return false
+
+    const emailTo = await this.resolveOrderEmail(order.shippingEmail, order.shippingPhone, storeId)
+    if (!emailTo) return false
+
+    const store = await this.prisma.store.findUnique({ where: { id: storeId } })
+    const siteUrl = resolveCustomerFacingSiteUrl()
+    const site = siteUrl.replace(/\/$/, '')
+    const accessKey = buildInvoiceAccessToken(order.invoiceNumber)
+
+    const built = generateOrderEditedEmail({
+      customerName: order.shippingName,
+      invoiceNumber: order.invoiceNumber,
+      items: order.items.map((item) => ({
+        name: item.productName,
+        detail: item.variantName ?? item.sku,
+        quantity: item.quantity,
+        unitCost: Number(item.price),
+        lineTotal: Number(item.subtotal),
+      })),
+      total: Number(order.total),
+      changes: change.changes,
+      note: change.note ?? null,
+      trackUrl: `${site}/order-confirmation/${encodeURIComponent(order.invoiceNumber)}?key=${encodeURIComponent(accessKey)}`,
+      storeName: store?.name ?? 'SPLARO',
+      siteUrl,
+    })
+
+    const sent = await this.email.sendForStore({
+      storeId,
+      to: emailTo,
+      subject: built.subject,
+      html: built.html,
+      text: built.text,
+      transactional: true,
+    })
+    if (!sent) {
+      this.logger.warn(
+        `Order edited email not sent for ${order.invoiceNumber} → ${emailTo} (SMTP/Gmail unavailable)`,
       )
     }
     return sent

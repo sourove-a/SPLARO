@@ -291,6 +291,14 @@ export function archiveProductVariant(productId: string, variantId: string) {
   })
 }
 
+/** Removes a size added by mistake. The API refuses once it is on an order. */
+export function deleteProductVariant(productId: string, variantId: string) {
+  return apiFetch<{ success: boolean; deleted: string }>(
+    `/admin/products/${productId}/variants/${variantId}`,
+    { method: 'DELETE' },
+  )
+}
+
 export function deleteProductImage(productId: string, imageId: string) {
   return apiFetch<{ deleted: boolean }>(`/admin/products/${productId}/images/${imageId}`, { method: 'DELETE' })
 }

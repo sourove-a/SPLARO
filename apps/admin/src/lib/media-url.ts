@@ -21,3 +21,26 @@ export function mediaIdentity(value: string): string {
     return trimmed.split(/[?#]/, 1)[0]?.replace(/\/+$/, '') || ''
   }
 }
+
+/**
+ * Photos a media picker must not offer: the ones already in this product's
+ * slots, plus — unless the operator asked to see used photos — every photo the
+ * rest of the catalogue points at. Unlinking a photo drops it from both lists,
+ * so it becomes selectable again.
+ */
+export function hiddenMediaKeys(
+  ownUrls: readonly string[],
+  usedUrls: readonly string[],
+  showUsed: boolean,
+): Set<string> {
+  const keys = new Set<string>()
+  const add = (value: string) => {
+    const key = mediaIdentity(value)
+    if (key) keys.add(key)
+  }
+  for (const url of ownUrls) add(url)
+  if (!showUsed) {
+    for (const url of usedUrls) add(url)
+  }
+  return keys
+}

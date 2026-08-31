@@ -292,6 +292,15 @@ export function fetchMediaUsage(id: string) {
   return apiFetch<{ id: string; path: string; usage: MediaUsage[] }>(`/admin/media/${id}/usage`)
 }
 
+/**
+ * Every image URL the rest of the catalogue points at, for pickers that hide
+ * them. `exceptProductId` leaves the product being edited out of the answer.
+ */
+export function fetchProductUsagePaths(exceptProductId?: string) {
+  const suffix = exceptProductId ? `?exceptProductId=${encodeURIComponent(exceptProductId)}` : ''
+  return apiFetch<{ paths: string[] }>(`/admin/media/product-usage${suffix}`)
+}
+
 export function fetchMediaUsageByPath(path: string) {
   return apiFetch<{ path: string; usage: MediaUsage[] }>(`/admin/media/usage?path=${encodeURIComponent(path)}`)
 }

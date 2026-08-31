@@ -7,8 +7,8 @@ import { DcModal } from '@/components/dc/DcModal'
 import { FONT } from '@/components/dc/tokens'
 import { heroMediaPreviewSrc } from '@splaro/config'
 import { MEDIA_DEPT_FOLDERS } from '@/lib/admin/size-presets'
-import { useMedia } from '@/lib/api/hooks'
-import { mediaIdentity, resolveMediaUrl } from '@/lib/media-url'
+import { useMedia, useProductUsagePaths } from '@/lib/api/hooks'
+import { hiddenMediaKeys, mediaIdentity, resolveMediaUrl } from '@/lib/media-url'
 import { DcIcon } from '@/components/dc/DcIcon'
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
 
@@ -20,6 +20,9 @@ const PICKER_FOLDERS = [
     label: folder.label,
   })),
 ] as const
+
+/** How many 60-photo pages the picker will skip through on its own. */
+const AUTO_PAGE_LIMIT = 5
 
 interface MediaAsset {
   id: string
@@ -36,34 +39,41 @@ export function DcMediaPickModal({
   onPick,
   preferredFolder,
   excludeUrls = [],
+  productId,
 }: {
   open: boolean
   onClose: () => void
   onPick: (url: string) => void
   preferredFolder?: string
   excludeUrls?: string[]
+  /** Saved product being edited — its own photos are not counted as used. */
+  productId?: string
 }) {
   const preferredKey = preferredFolder === 'media'
     ? 'media'
     : MEDIA_DEPT_FOLDERS.find((folder) => folder.folder === preferredFolder)?.key ?? 'all'
   const [folderKey, setFolderKey] = useState(preferredKey)
   const [query, setQuery] = useState('')
+  const [showUsed, setShowUsed] = useState(false)
   const deferredQuery = useDebouncedValue(query)
   const media = useMedia({
     limit: 60,
     q: deferredQuery,
     folder: folderKey as 'all' | 'media' | 'men' | 'women' | 'kids' | 'footwear' | 'accessories',
   })
+  const productUsage = useProductUsagePaths(open, productId)
 
   useEffect(() => {
     if (!open) return
     setFolderKey(preferredKey)
     setQuery('')
+    setShowUsed(false)
   }, [open, preferredKey])
 
+  const usedPaths = productUsage.data?.paths
   const excludedKeys = useMemo(
-    () => new Set(excludeUrls.map(mediaIdentity).filter(Boolean)),
-    [excludeUrls],
+    () => hiddenMediaKeys(excludeUrls, usedPaths ?? [], showUsed),
+    [excludeUrls, showUsed, usedPaths],
   )
   const fetchedAssets = useMemo(
     () => (media.data?.pages.flatMap((page) => page.assets) ?? []).filter((a) => Boolean(a.url)) as MediaAsset[],
@@ -75,20 +85,34 @@ export function DcMediaPickModal({
   )
   const folderLabel = PICKER_FOLDERS.find((f) => f.key === folderKey)?.label ?? 'All media'
   const hasFetchedAssets = fetchedAssets.length > 0
-  // A page whose photos are all on this product already filters down to
-  // nothing. Keep paging so the unused photos further down stay reachable
-  // instead of the modal reporting the folder as exhausted.
+  // A page whose photos are all used filters down to nothing. Keep paging so
+  // the unused photos further down stay reachable instead of the modal
+  // reporting the folder as exhausted — but stop after a few pages rather than
+  // walking a whole library of used photos behind a skeleton.
+  const pagesLoaded = media.data?.pages.length ?? 0
   const fetchingHiddenPage =
-    assets.length === 0 && media.hasNextPage && !media.isLoading && !media.isFetchNextPageError
+    assets.length === 0 &&
+    pagesLoaded > 0 &&
+    pagesLoaded < AUTO_PAGE_LIMIT &&
+    media.hasNextPage &&
+    !media.isLoading &&
+    !media.isFetchNextPageError
 
   let emptyTitle = `${folderLabel} has no photos yet`
   let emptyBody = 'Upload from Media Library, or drop a file straight onto the product slot.'
-  if (query) {
+  if (media.isError || productUsage.isError) {
+    emptyTitle = 'Media library did not load'
+    emptyBody = 'The API did not answer, so nothing can be listed here. Try again in a moment.'
+  } else if (query) {
     emptyTitle = 'No unused photo matches that search'
     emptyBody = 'Clear the search, or switch to another folder tab.'
   } else if (hasFetchedAssets) {
     emptyTitle = `All ${folderLabel.toLowerCase()} photos are already used`
-    emptyBody = 'Choose another folder or upload a new photo.'
+    emptyBody = showUsed
+      ? 'Choose another folder or upload a new photo.'
+      : media.hasNextPage
+        ? 'Search for the photo you want, choose another folder, or turn on Show used.'
+        : 'Choose another folder, upload a new photo, or turn on Show used.'
   }
 
   const { fetchNextPage, isFetchingNextPage } = media
@@ -135,6 +159,27 @@ export function DcMediaPickModal({
               </button>
             )
           })}
+          <button
+            type="button"
+            onClick={() => setShowUsed((on) => !on)}
+            aria-pressed={showUsed}
+            title="Photos already on another product are hidden by default"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 7,
+              height: 30,
+              padding: '0 12px',
+              borderRadius: 999,
+              border: `1px solid ${showUsed ? 'var(--violet-bd)' : 'var(--line)'}`,
+              background: showUsed ? 'var(--violet-soft)' : 'var(--surface-2)',
+              color: showUsed ? 'var(--violet)' : 'var(--ink-2)',
+              font: `600 11.5px/1 ${FONT}`,
+              cursor: 'pointer',
+            }}
+          >
+            <span>Show used</span>
+          </button>
         </div>
 
         <label style={{ position: 'relative', display: 'block' }}>
@@ -196,7 +241,7 @@ export function DcMediaPickModal({
           ) : null}
         </label>
 
-        {media.isLoading || fetchingHiddenPage ? (
+        {media.isLoading || productUsage.isLoading || fetchingHiddenPage ? (
           <div className="dc-media-pick__grid" aria-busy="true">
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="dc-skeleton dc-media-pick__skeleton" />
@@ -243,6 +288,26 @@ export function DcMediaPickModal({
             >
               {emptyBody}
             </span>
+            {media.hasNextPage && !media.isError ? (
+              <button
+                type="button"
+                disabled={media.isFetchingNextPage}
+                onClick={() => void media.fetchNextPage()}
+                className="dc-hover-line"
+                style={{
+                  height: 32,
+                  padding: '0 14px',
+                  borderRadius: 9,
+                  border: '1px solid var(--line-2)',
+                  background: 'var(--surface)',
+                  color: 'var(--ink-2)',
+                  cursor: media.isFetchingNextPage ? 'wait' : 'pointer',
+                  font: `600 12px/1 ${FONT}`,
+                }}
+              >
+                {media.isFetchingNextPage ? 'Loading…' : 'Keep looking'}
+              </button>
+            ) : null}
           </div>
         ) : (
           <>

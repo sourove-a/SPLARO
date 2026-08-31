@@ -477,4 +477,40 @@ describe('MediaService', () => {
     const listed = await service.list('splaro', undefined, undefined, { duplicates: true })
     expect(listed.assets.map((row) => row.id)).toEqual(['a', 'b'])
   })
+
+  it('collects catalogue image URLs once, from images and variants alike', async () => {
+    const { service, prisma } = buildService()
+    prisma.productImage.findMany.mockResolvedValue([
+      { url: '/uploads/products-men/shirt.webp' },
+      { url: '/uploads/products-men/shared.webp' },
+      { url: '  ' },
+    ])
+    prisma.productVariant.findMany.mockResolvedValue([
+      { image: '/uploads/products-men/shared.webp' },
+      { image: '/uploads/products-men/blue.webp' },
+      { image: null },
+    ])
+
+    const { paths } = await service.productUsagePaths('splaro')
+
+    expect(paths).toEqual([
+      '/uploads/products-men/shirt.webp',
+      '/uploads/products-men/shared.webp',
+      '/uploads/products-men/blue.webp',
+    ])
+  })
+
+  it('leaves the product being edited out of its own usage set', async () => {
+    const { service, prisma } = buildService()
+
+    await service.productUsagePaths('splaro', 'product-1')
+
+    const scope = { storeId: 'store-1', id: { not: 'product-1' } }
+    expect(prisma.productImage.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { product: scope } }),
+    )
+    expect(prisma.productVariant.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { product: scope, image: { not: null } } }),
+    )
+  })
 })

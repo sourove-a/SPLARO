@@ -786,6 +786,44 @@ export class MediaService {
     return { path: mediaPath, usage: await this.usage(storeId, mediaPath) }
   }
 
+  /**
+   * Every image URL the catalogue currently points at, draft products included.
+   * `usage()` answers "who uses this one file"; a picker needs the inverse in a
+   * single round trip, so it can grey out photos that already belong somewhere.
+   * URLs are returned exactly as stored — absolute and root-relative forms are
+   * reconciled by the caller, which compares pathnames.
+   */
+  async productUsagePaths(storeIdOrSlug: string, exceptProductId?: string) {
+    const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
+    // The product being edited is left out: its own photos are handled by the
+    // form, which knows about slots the operator has emptied but not yet saved.
+    const scope = exceptProductId?.trim()
+      ? { storeId, id: { not: exceptProductId.trim() } }
+      : { storeId }
+    const [images, variants] = await Promise.all([
+      this.prisma.productImage.findMany({
+        where: { product: scope },
+        select: { url: true },
+        distinct: ['url'],
+      }),
+      this.prisma.productVariant.findMany({
+        where: { product: scope, image: { not: null } },
+        select: { image: true },
+        distinct: ['image'],
+      }),
+    ])
+    const paths = new Set<string>()
+    for (const row of images) {
+      const url = row.url?.trim()
+      if (url) paths.add(url)
+    }
+    for (const row of variants) {
+      const url = row.image?.trim()
+      if (url) paths.add(url)
+    }
+    return { paths: [...paths] }
+  }
+
   async renameFolder(storeIdOrSlug: string, rawSlug: string, rawLabel: string) {
     const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
     const slug = normalizeMediaFolder(rawSlug)

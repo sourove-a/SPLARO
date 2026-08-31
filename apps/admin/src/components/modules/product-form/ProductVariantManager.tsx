@@ -5,13 +5,19 @@ import Image from 'next/image'
 import { DcIcon } from '@/components/dc/DcIcon'
 import { DcField, DcInput } from '@/components/dc/product/DcProductFormPrimitives'
 import { FONT, MONO } from '@/components/dc/tokens'
-import { useCreateProductVariant, useUpdateProductVariant, useArchiveProductVariant } from '@/lib/api/hooks'
+import {
+  useArchiveProductVariant,
+  useCreateProductVariant,
+  useDeleteProductVariant,
+  useUpdateProductVariant,
+} from '@/lib/api/hooks'
 import { toastFail, toastApiSaved, toastOk, toastWarn } from '@/lib/admin/feedback'
 import { printVariantStickers } from '@/lib/admin/variant-stickers'
 import { displaySizeLabel } from '@splaro/config'
 import {
   confirmVariantArchived,
   confirmVariantCreated,
+  confirmVariantDeleted,
   confirmVariantSaved,
 } from '@/lib/admin/catalog-save'
 import {
@@ -253,13 +259,11 @@ const EMPTY_DRAFT: RowDraft = {
 }
 
 function pendingVariantId(
-  updatePending: boolean,
-  updateVars: { variantId?: string } | undefined,
-  archivePending: boolean,
-  archiveVars: { variantId?: string } | undefined,
+  ...mutations: Array<[boolean, { variantId?: string } | undefined]>
 ): string | null {
-  if (updatePending && updateVars?.variantId) return updateVars.variantId
-  if (archivePending && archiveVars?.variantId) return archiveVars.variantId
+  for (const [pending, vars] of mutations) {
+    if (pending && vars?.variantId) return vars.variantId
+  }
   return null
 }
 
@@ -420,6 +424,7 @@ export function ProductVariantManager({
   const updateVariant = useUpdateProductVariant()
   const createVariant = useCreateProductVariant()
   const archiveVariant = useArchiveProductVariant()
+  const deleteVariant = useDeleteProductVariant()
 
   const sizeChips = useMemo(() => {
     const dept = sizeDeptFromSlugOrName(departmentHint)
@@ -451,10 +456,9 @@ export function ProductVariantManager({
   const [historyLoading, setHistoryLoading] = useState(false)
 
   const busyId = pendingVariantId(
-    updateVariant.isPending,
-    updateVariant.variables as { variantId?: string } | undefined,
-    archiveVariant.isPending,
-    archiveVariant.variables as { variantId?: string } | undefined,
+    [updateVariant.isPending, updateVariant.variables as { variantId?: string } | undefined],
+    [archiveVariant.isPending, archiveVariant.variables as { variantId?: string } | undefined],
+    [deleteVariant.isPending, deleteVariant.variables as { variantId?: string } | undefined],
   )
 
   useEffect(() => {
@@ -1096,6 +1100,21 @@ export function ProductVariantManager({
       () => archiveVariant.mutateAsync({ productId, variantId: v.id! }),
     )
     if (ok) syncDraftFromServer(v.id, { ...v, isActive: false })
+  }
+
+  const deleteRow = async (v: Variant) => {
+    if (!v.id) return
+    const label = `${displaySizeLabel(v.size) || '—'} / ${v.colorName ?? v.color ?? '—'}`
+    if (!window.confirm(
+      `Remove ${label} for good?\n\nUse this for a size that was added by mistake. ` +
+        'A size that has already sold cannot be removed — archive it instead.',
+    )) return
+    await confirmVariantDeleted(
+      productId,
+      v.id,
+      label,
+      () => deleteVariant.mutateAsync({ productId, variantId: v.id! }),
+    )
   }
 
   const submitAdd = async () => {
@@ -1893,6 +1912,22 @@ export function ProductVariantManager({
                             }}
                           >
                             <DcIcon name="icon-archive" size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            title="Remove this size — only if it never sold"
+                            disabled={busy}
+                            onClick={() => void deleteRow(v)}
+                            style={{
+                              ...btnGhost,
+                              height: 32,
+                              width: 32,
+                              padding: 0,
+                              color: 'var(--bad)',
+                              opacity: busy ? 0.4 : 1,
+                            }}
+                          >
+                            <DcIcon name="icon-trash" size={14} />
                           </button>
                         </div>
                       </td>

@@ -15,6 +15,7 @@ import {
 import {
   fetchOrders,
   fetchOrder,
+  editOrder,
   fetchOrderStats,
   updateOrderStatus,
   updateOrderPaymentStatus,
@@ -41,6 +42,7 @@ import {
   restoreProductVersion,
   createProductVariant,
   archiveProductVariant,
+  deleteProductVariant,
   type ProductListStatus,
 } from './products'
 import {
@@ -114,7 +116,7 @@ import {
   type AdminSettingsData,
 } from './settings'
 import { revalidateWebCache } from './revalidate'
-import { fetchMediaFolders, fetchMediaOrphans, fetchMediaStorage } from './media'
+import { fetchMediaFolders, fetchMediaOrphans, fetchMediaStorage, fetchProductUsagePaths } from './media'
 import { hasPermission, type PermissionAction, type PermissionModule } from '@/lib/auth/permissions'
 import { setAdminApiToken } from '@/lib/auth/api-token'
 import {
@@ -300,6 +302,20 @@ export function useUpdateOrderStatus() {
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ['orders'] })
       void qc.invalidateQueries({ queryKey: ['order', vars.id] })
+      void qc.invalidateQueries({ queryKey: ['dashboard-stats'] })
+    },
+  })
+}
+
+export function useEditOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof editOrder>[1] }) =>
+      editOrder(id, input),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['orders'] })
+      void qc.invalidateQueries({ queryKey: ['order', vars.id] })
+      void qc.invalidateQueries({ queryKey: ['inventory-alerts'] })
       void qc.invalidateQueries({ queryKey: ['dashboard-stats'] })
     },
   })
@@ -1671,6 +1687,7 @@ export function useCreateProduct() {
     mutationFn: createProduct,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['products'] })
+      void qc.invalidateQueries({ queryKey: ['media-product-usage'] })
       void revalidateWebCache(['storefront-products'])
     },
   })
@@ -1685,6 +1702,7 @@ export function useUpdateProduct() {
       void qc.invalidateQueries({ queryKey: ['products'] })
       void qc.invalidateQueries({ queryKey: ['product', vars.id] })
       void qc.invalidateQueries({ queryKey: ['product-versions', vars.id] })
+      void qc.invalidateQueries({ queryKey: ['media-product-usage'] })
       void revalidateWebCache(['storefront-products'])
     },
   })
@@ -1704,6 +1722,7 @@ export function useUpdateProductVariant() {
       void qc.invalidateQueries({ queryKey: ['product', vars.productId] })
       void qc.invalidateQueries({ queryKey: ['inventory-alerts'] })
       void qc.invalidateQueries({ queryKey: ['products', 'published-count'] })
+      void qc.invalidateQueries({ queryKey: ['media-product-usage'] })
       void revalidateWebCache(['storefront-products'])
     },
   })
@@ -1721,6 +1740,7 @@ export function useCreateProductVariant() {
       void qc.invalidateQueries({ queryKey: ['products'] })
       void qc.invalidateQueries({ queryKey: ['product', vars.productId] })
       void qc.invalidateQueries({ queryKey: ['inventory-alerts'] })
+      void qc.invalidateQueries({ queryKey: ['media-product-usage'] })
       void revalidateWebCache(['storefront-products'])
     },
   })
@@ -1734,6 +1754,22 @@ export function useArchiveProductVariant() {
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ['products'] })
       void qc.invalidateQueries({ queryKey: ['product', vars.productId] })
+      void qc.invalidateQueries({ queryKey: ['media-product-usage'] })
+      void revalidateWebCache(['storefront-products'])
+    },
+  })
+}
+
+export function useDeleteProductVariant() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ productId, variantId }: { productId: string; variantId: string }) =>
+      deleteProductVariant(productId, variantId),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['products'] })
+      void qc.invalidateQueries({ queryKey: ['product', vars.productId] })
+      void qc.invalidateQueries({ queryKey: ['inventory-alerts'] })
+      void qc.invalidateQueries({ queryKey: ['media-product-usage'] })
       void revalidateWebCache(['storefront-products'])
     },
   })
@@ -1930,6 +1966,21 @@ export function useMedia(query: Omit<MediaQuery, 'cursor'> = {}) {
     getNextPageParam: (lastPage) =>
       lastPage.pageInfo?.hasMore ? (lastPage.pageInfo.nextCursor ?? undefined) : undefined,
     staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+/**
+ * Image URLs the rest of the catalogue uses. Fetched only while a picker is
+ * open, and invalidated by every product and variant write, so a photo unlinked
+ * elsewhere becomes selectable again.
+ */
+export function useProductUsagePaths(enabled = true, exceptProductId?: string) {
+  return useQuery({
+    queryKey: ['media-product-usage', exceptProductId ?? ''],
+    queryFn: () => fetchProductUsagePaths(exceptProductId),
+    enabled,
+    staleTime: 15_000,
     retry: 1,
   })
 }

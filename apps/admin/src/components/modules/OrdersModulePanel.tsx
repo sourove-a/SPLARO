@@ -25,6 +25,7 @@ import {
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { AdminStatusBadge, type AdminBadgeTone } from '@/components/ui/AdminStatusBadge'
 import { OrderFulfillmentStepper } from '@/components/orders/OrderFulfillmentStepper'
+import { OrderEditModal } from '@/components/orders/OrderEditModal'
 import { InvoiceActionsBar } from '@/components/modules/InvoiceActionsBar'
 import {
   useOrder,
@@ -127,11 +128,17 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
   const canEditOrders = usePermission('orders', 'edit')
   const bookCourier = useBookCourier()
   const openAgentChat = useAdminUiStore((s) => s.openAgentChat)
+  const [showEditOrder, setShowEditOrder] = useState(false)
   const courierReady = Boolean(steadfast?.configured)
   const [noteDraft, setNoteDraft] = useState('')
   const [returnReason, setReturnReason] = useState('')
   const [showReturnForm, setShowReturnForm] = useState(false)
   const [requireAdvance, setRequireAdvance] = useState(false)
+
+  const canEditOrder =
+    canEditOrders &&
+    ['PENDING', 'CONFIRMED', 'PROCESSING', 'PACKED'].includes(order?.status ?? '') &&
+    !order?.courier?.consignmentId
 
   useEffect(() => {
     setRequireAdvance(Boolean(order?.requireAdvancePayment))
@@ -365,6 +372,11 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
                   onClick={() => void handleAdvanceStatus('CONFIRMED', 'Confirmed from order detail')}
                 >
                   Confirm order
+                </AdminButton>
+              ) : null}
+              {canEditOrder ? (
+                <AdminButton variant="ghost" onClick={() => setShowEditOrder(true)}>
+                  Edit order
                 </AdminButton>
               ) : null}
               {canEditOrders && !order.courier?.consignmentId && order.status !== 'CANCELLED' ? (
@@ -689,6 +701,12 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
           ) : null}
         </div>
       </div>
+      <OrderEditModal
+        open={showEditOrder}
+        order={order}
+        onClose={() => setShowEditOrder(false)}
+        onSaved={() => void refetch()}
+      />
       <style>{`
         @media (max-width: 900px) {
           .dc-order-detail-grid { grid-template-columns: 1fr !important; }

@@ -1375,6 +1375,81 @@ export class ProductsController {
     return updated
   }
 
+  /**
+   * Erase one size for good — the row that was typed in by mistake and never
+   * existed in the stockroom. Refused once the size appears on an order, where
+   * deleting it would rewrite what a customer was actually shipped; archiving
+   * hides it from the storefront and keeps the books true. Deleting the row is
+   * what frees the (product, size, colour) pair so the size can be added again.
+   */
+  @Delete(':id/variants/:variantId')
+  async destroyVariant(
+    @Param('id') productId: string,
+    @Param('variantId') variantId: string,
+    @Req() req: AdminRequest,
+  ) {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true, storeId: true },
+    })
+    if (!product) throw new NotFoundException('Product not found')
+    if (req.adminUser?.storeId && product.storeId !== req.adminUser.storeId) {
+      throw new NotFoundException('Product not found')
+    }
+
+    const variant = await this.prisma.productVariant.findFirst({
+      where: { id: variantId, productId },
+      select: { id: true, size: true, colorName: true, color: true },
+    })
+    if (!variant) throw new NotFoundException('Variant not found')
+
+    const label = [variant.size, variant.colorName ?? variant.color]
+      .filter(Boolean)
+      .join(' / ') || 'This size'
+    // Three commitments outlive a typo: a customer order, a supplier line, and
+    // stock a live checkout is holding. Each one means the size existed for
+    // someone outside this form, so it is archived rather than erased.
+    const [soldCount, purchasedCount, reservedCount] = await Promise.all([
+      this.prisma.orderItem.count({ where: { variantId } }),
+      this.prisma.purchaseOrderItem.count({ where: { variantId } }),
+      this.prisma.stockReservationItem.count({
+        where: { variantId, reservation: { status: 'ACTIVE' } },
+      }),
+    ])
+    if (soldCount > 0) {
+      throw new BadRequestException(
+        `${label} appears on ${soldCount} order item${soldCount === 1 ? '' : 's'}. ` +
+          'Archive it instead — deleting it would rewrite what those orders shipped.',
+      )
+    }
+    if (purchasedCount > 0) {
+      throw new BadRequestException(
+        `${label} is on ${purchasedCount} purchase order line${purchasedCount === 1 ? '' : 's'}. ` +
+          'Archive it instead, so the supplier record keeps pointing at a real size.',
+      )
+    }
+    if (reservedCount > 0) {
+      throw new BadRequestException(
+        `${label} is reserved for a checkout in progress. Try again once that order settles, or archive it.`,
+      )
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Only StockReservationItem restricts the delete, and the live ones are
+      // refused above — what is left here is spent or released. A cart line
+      // would survive with a null variant, which is worse than dropping it;
+      // InventoryLog is left alone on purpose, so the stock ledger keeps its
+      // rows against the product with the variant column nulled by the FK.
+      await tx.stockReservationItem.deleteMany({ where: { variantId } })
+      await tx.cartItem.deleteMany({ where: { variantId } })
+      await tx.productVariant.delete({ where: { id: variantId } })
+    })
+
+    if (this.search) fireAndForget(this.search.indexProducts(product.storeId), 'search.indexProducts')
+    await this.bustProductCache(product.storeId)
+    return { success: true, deleted: variantId }
+  }
+
   @Delete(':id')
   async archive(@Param('id') id: string, @Req() req: AdminRequest) {
     const existing = await this.prisma.product.findUnique({ where: { id }, select: { storeId: true } })

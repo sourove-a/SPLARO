@@ -1239,6 +1239,7 @@ export function ProductEditPanel({
               disabled={!canEditProducts}
               uploadFolder={mediaUploadFolder}
               excludeUrls={form.imageUrls}
+              productId={productId}
               {...(form.categoryId ? { categoryId: form.categoryId } : {})}
               {...(selectedCategory?.name ? { categoryName: selectedCategory.name } : {})}
               {...(selectedCategory?.image !== undefined

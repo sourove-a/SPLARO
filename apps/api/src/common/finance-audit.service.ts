@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../common/prisma.service'
-import type { FinanceAuditAction } from '@prisma/client'
+import type { FinanceAuditAction, Prisma } from '@prisma/client'
 
 @Injectable()
 export class FinanceAuditService {
@@ -16,8 +16,9 @@ export class FinanceAuditService {
     note?: string
     userId?: string
     ipAddress?: string
-  }): Promise<void> {
-    await this.prisma.financeAuditLog.create({
+  }, tx?: Prisma.TransactionClient): Promise<void> {
+    const client = tx ?? this.prisma
+    await client.financeAuditLog.create({
       data: {
         storeId: params.storeId,
         action: params.action,
