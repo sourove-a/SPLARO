@@ -39,6 +39,7 @@ import {
   restoreMediaAsset,
   BUILT_IN_MEDIA_FOLDERS,
   folderChipLabel,
+  mediaFolderFromSelection,
   mediaFolderLabel,
   normalizeMediaFolder,
   updateMediaAsset,
@@ -163,12 +164,14 @@ function FolderSelect({
   folders,
   selectStyle,
   inputStyle,
+  disabled = false,
 }: {
   value: MediaFolder
   onChange: (next: MediaFolder) => void
   folders: MediaFolderSummary[]
   selectStyle: CSSProperties
   inputStyle: CSSProperties
+  disabled?: boolean
 }) {
   const [creating, setCreating] = useState(false)
   const [draft, setDraft] = useState('')
@@ -187,6 +190,7 @@ function FolderSelect({
         <input
           autoFocus
           value={draft}
+          disabled={disabled}
           onChange={(event) => {
             setDraft(event.target.value)
             onChange(normalizeMediaFolder(event.target.value))
@@ -201,6 +205,7 @@ function FolderSelect({
           </span>
           <button
             type="button"
+            disabled={disabled}
             onClick={() => {
               setCreating(false)
               setDraft('')
@@ -225,6 +230,7 @@ function FolderSelect({
   return (
     <select
       value={value}
+      disabled={disabled}
       onChange={(event) => {
         if (event.target.value === NEW_FOLDER_OPTION) {
           setCreating(true)
@@ -321,6 +327,7 @@ function DcMediaLibraryBody() {
   const [createParent, setCreateParent] = useState<string | null>(null)
   /** Files picked in one go — a batch skips the single-file modal for a queue. */
   const [queueFiles, setQueueFiles] = useState<File[]>([])
+  const [queueFolder, setQueueFolder] = useState<MediaFolder>('media')
   const [queueBusy, setQueueBusy] = useState(false)
   const [renameFolderOpen, setRenameFolderOpen] = useState(false)
   const [renameFolderLabel, setRenameFolderLabel] = useState('')
@@ -480,6 +487,13 @@ function DcMediaLibraryBody() {
       await selectUploadFile(files[0])
       return
     }
+    const targetFolder = mediaFolderFromSelection(mediaFolder)
+    if (!targetFolder) {
+      toast('bad', 'Choose a folder first', 'Select a Media Library folder before starting a bulk upload.')
+      return
+    }
+    setUploadFolder(targetFolder)
+    setQueueFolder(targetFolder)
     setQueueFiles(files)
   }
 
@@ -500,9 +514,7 @@ function DcMediaLibraryBody() {
         if (dimensions.width < 1 || dimensions.height < 1) throw new Error('Invalid image dimensions')
       }
       setAttachProductId('')
-      const logicalFolder = deptFolder === 'all'
-        ? 'media'
-        : (deptFolder.replace(/^products-?/, '') || 'media') as MediaFolder
+      const logicalFolder = mediaFolderFromSelection(mediaFolder)
       setUploadFolder(logicalFolder)
       setUploadName(file.name.replace(/\.[^.]+$/, '') || '')
       setUploadAlt(file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ') || '')
@@ -1100,7 +1112,9 @@ function DcMediaLibraryBody() {
           suggestions={folderSuggestions}
           busy={folderQuery.isFetching || moveMut.isPending}
           onSelect={(slug) => {
+            const targetFolder = mediaFolderFromSelection(slug)
             setDeptFolder(slug)
+            setUploadFolder(targetFolder)
             setSelectedIds(new Set())
           }}
           onCreate={(parentSlug) => {
@@ -1732,7 +1746,7 @@ function DcMediaLibraryBody() {
       <DcModal
         open={queueFiles.length > 0}
         title={`Upload ${queueFiles.length} files`}
-        subtitle={`Saving to ${mediaFolderLabel(uploadFolder)} — each file keeps its own name and alt text.`}
+        subtitle={`Saving to ${mediaFolderLabel(queueFolder)} — each file keeps its own name and alt text.`}
         confirmLabel="Done"
         busy={queueBusy}
         busyLabel="Uploading…"
@@ -1749,11 +1763,12 @@ function DcMediaLibraryBody() {
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={capsLabel}>Folder for this batch</span>
             <FolderSelect
-              value={uploadFolder}
-              onChange={setUploadFolder}
+              value={queueFolder}
+              onChange={setQueueFolder}
               folders={libraryFolders}
               selectStyle={modalInput}
               inputStyle={modalInput}
+              disabled={queueBusy}
             />
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, font: `500 12px/1 ${FONT}`, color: 'var(--ink-2)' }}>
@@ -1768,18 +1783,18 @@ function DcMediaLibraryBody() {
           {queueFiles.length > 0 ? (
             <DcUploadQueue
               files={queueFiles}
-              folder={uploadFolder}
+              folder={queueFolder}
               watermark={watermarkUpload}
               onProgressChange={setQueueBusy}
               onFinished={({ saved, failed, duplicates }) => {
                 invalidate()
-                if (saved > 0) setDeptFolder(uploadFolder)
+                if (saved > 0) setDeptFolder(queueFolder)
                 if (failed > 0) {
                   toast('warn', `${saved} saved · ${failed} failed`, 'Retry the failed rows, or remove them and try a smaller file.')
                 } else if (duplicates > 0) {
                   toast('ok', `${saved} saved`, `${duplicates} already existed in the library — check the Dupes pane.`)
                 } else {
-                  toast('ok', `${saved} file${saved === 1 ? '' : 's'} saved`, mediaFolderLabel(uploadFolder))
+                  toast('ok', `${saved} file${saved === 1 ? '' : 's'} saved`, mediaFolderLabel(queueFolder))
                 }
               }}
             />

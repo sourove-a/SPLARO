@@ -1496,6 +1496,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
               onAltChange={setAltText}
               disabled={aiLoading}
               uploadFolder={mediaUploadFolder}
+              excludeUrls={form.imageUrls}
               {...(form.categoryId ? { categoryId: form.categoryId } : {})}
               {...(selectedCategory?.name ? { categoryName: selectedCategory.name } : {})}
               {...(selectedCategory?.image !== undefined

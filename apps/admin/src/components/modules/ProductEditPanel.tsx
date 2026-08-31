@@ -1238,6 +1238,7 @@ export function ProductEditPanel({
               onAltChange={setMediaAlt}
               disabled={!canEditProducts}
               uploadFolder={mediaUploadFolder}
+              excludeUrls={form.imageUrls}
               {...(form.categoryId ? { categoryId: form.categoryId } : {})}
               {...(selectedCategory?.name ? { categoryName: selectedCategory.name } : {})}
               {...(selectedCategory?.image !== undefined

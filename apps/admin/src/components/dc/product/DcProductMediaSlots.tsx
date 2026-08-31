@@ -47,6 +47,7 @@ export function DcProductMediaSlots({
   onAltChange,
   disabled,
   uploadFolder = 'products',
+  excludeUrls = imageUrls,
   categoryId,
   categoryName,
   categoryImage,
@@ -62,6 +63,8 @@ export function DcProductMediaSlots({
   disabled?: boolean
   /** Department folder e.g. products-men — keeps library organised. */
   uploadFolder?: string
+  /** Image URLs already assigned to this product, hidden from the picker. */
+  excludeUrls?: string[]
   categoryId?: string
   categoryName?: string
   categoryImage?: string | null
@@ -573,6 +576,7 @@ export function DcProductMediaSlots({
       <DcMediaPickModal
         open={librarySlot != null}
         preferredFolder={uploadFolder}
+        excludeUrls={excludeUrls}
         onClose={() => setLibrarySlot(null)}
         onPick={(picked) => {
           if (librarySlot != null) writeSlot(librarySlot, picked)

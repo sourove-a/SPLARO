@@ -52,6 +52,13 @@ export function normalizeMediaFolder(value: string): string {
   return parts.join('/')
 }
 
+export function mediaFolderFromSelection(value: string): MediaFolder {
+  if (value === 'all') return 'media'
+  if (value.startsWith('products-')) return value.slice('products-'.length) || 'media'
+  if (value === 'products') return 'media'
+  return value
+}
+
 export function mediaFolderLabel(name: string): string {
   const builtIn = BUILT_IN_MEDIA_FOLDERS.find((folder) => folder.value === name)
   if (builtIn) return builtIn.label

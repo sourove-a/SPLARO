@@ -71,6 +71,7 @@ export interface DcUploadQueueProps {
 export function DcUploadQueue({ files, folder, watermark, onFinished, onProgressChange }: DcUploadQueueProps) {
   const [items, setItems] = useState<QueueItem[]>([])
   const [running, setRunning] = useState(false)
+  const folderRef = useRef(folder)
   const abortRef = useRef(new Map<string, AbortController>())
   const startedRef = useRef(false)
   /**
@@ -80,6 +81,12 @@ export function DcUploadQueue({ files, folder, watermark, onFinished, onProgress
    * render-time mirror would still be reporting the files as in flight.
    */
   const itemsRef = useRef<QueueItem[]>([])
+
+  // A retry runs after the operator may have picked a different folder, so the
+  // ref has to track the prop rather than keep its seeded value.
+  useEffect(() => {
+    folderRef.current = folder
+  }, [folder])
 
   const commit = useCallback((updater: (prev: QueueItem[]) => QueueItem[]) => {
     const next = updater(itemsRef.current)
@@ -147,7 +154,7 @@ export function DcUploadQueue({ files, folder, watermark, onFinished, onProgress
           name: item.name.trim() || baseName(item.file.name),
           path: uploaded.url,
           altText: item.altText.trim() || item.name.trim() || baseName(item.file.name),
-          folder,
+          folder: folderRef.current,
           ...(uploaded.mimeType ? { mimeType: uploaded.mimeType } : {}),
           ...(uploaded.sizeBytes !== undefined ? { sizeBytes: uploaded.sizeBytes } : {}),
           ...(uploaded.width !== undefined ? { width: uploaded.width } : {}),
@@ -174,7 +181,7 @@ export function DcUploadQueue({ files, folder, watermark, onFinished, onProgress
         abortRef.current.delete(item.id)
       }
     },
-    [folder, patch, watermark],
+    [patch, watermark],
   )
 
   const run = useCallback(async () => {

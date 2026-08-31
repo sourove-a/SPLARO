@@ -8,7 +8,7 @@ import { FONT } from '@/components/dc/tokens'
 import { heroMediaPreviewSrc } from '@splaro/config'
 import { MEDIA_DEPT_FOLDERS } from '@/lib/admin/size-presets'
 import { useMedia } from '@/lib/api/hooks'
-import { resolveMediaUrl } from '@/lib/media-url'
+import { mediaIdentity, resolveMediaUrl } from '@/lib/media-url'
 import { DcIcon } from '@/components/dc/DcIcon'
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
 
@@ -35,11 +35,13 @@ export function DcMediaPickModal({
   onClose,
   onPick,
   preferredFolder,
+  excludeUrls = [],
 }: {
   open: boolean
   onClose: () => void
   onPick: (url: string) => void
   preferredFolder?: string
+  excludeUrls?: string[]
 }) {
   const preferredKey = preferredFolder === 'media'
     ? 'media'
@@ -59,11 +61,41 @@ export function DcMediaPickModal({
     setQuery('')
   }, [open, preferredKey])
 
-  const assets = useMemo(
+  const excludedKeys = useMemo(
+    () => new Set(excludeUrls.map(mediaIdentity).filter(Boolean)),
+    [excludeUrls],
+  )
+  const fetchedAssets = useMemo(
     () => (media.data?.pages.flatMap((page) => page.assets) ?? []).filter((a) => Boolean(a.url)) as MediaAsset[],
     [media.data],
   )
+  const assets = useMemo(
+    () => fetchedAssets.filter((asset) => !excludedKeys.has(mediaIdentity(asset.url))),
+    [excludedKeys, fetchedAssets],
+  )
   const folderLabel = PICKER_FOLDERS.find((f) => f.key === folderKey)?.label ?? 'All media'
+  const hasFetchedAssets = fetchedAssets.length > 0
+  // A page whose photos are all on this product already filters down to
+  // nothing. Keep paging so the unused photos further down stay reachable
+  // instead of the modal reporting the folder as exhausted.
+  const fetchingHiddenPage =
+    assets.length === 0 && media.hasNextPage && !media.isLoading && !media.isFetchNextPageError
+
+  let emptyTitle = `${folderLabel} has no photos yet`
+  let emptyBody = 'Upload from Media Library, or drop a file straight onto the product slot.'
+  if (query) {
+    emptyTitle = 'No unused photo matches that search'
+    emptyBody = 'Clear the search, or switch to another folder tab.'
+  } else if (hasFetchedAssets) {
+    emptyTitle = `All ${folderLabel.toLowerCase()} photos are already used`
+    emptyBody = 'Choose another folder or upload a new photo.'
+  }
+
+  const { fetchNextPage, isFetchingNextPage } = media
+  useEffect(() => {
+    if (!open || !fetchingHiddenPage || isFetchingNextPage) return
+    void fetchNextPage()
+  }, [fetchNextPage, fetchingHiddenPage, isFetchingNextPage, open])
 
   return (
     <DcModal
@@ -164,7 +196,7 @@ export function DcMediaPickModal({
           ) : null}
         </label>
 
-        {media.isLoading ? (
+        {media.isLoading || fetchingHiddenPage ? (
           <div className="dc-media-pick__grid" aria-busy="true">
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="dc-skeleton dc-media-pick__skeleton" />
@@ -199,7 +231,7 @@ export function DcMediaPickModal({
               <DcIcon name={query ? 'icon-search-x' : 'icon-image-off'} size={19} />
             </span>
             <span style={{ font: `600 13px/1.3 ${FONT}`, color: 'var(--ink)' }}>
-              {query ? 'No photo matches that search' : `${folderLabel} has no photos yet`}
+              {emptyTitle}
             </span>
             <span
               style={{
@@ -209,9 +241,7 @@ export function DcMediaPickModal({
                 textWrap: 'pretty',
               }}
             >
-              {query
-                ? 'Clear the search, or switch to another folder tab.'
-                : 'Upload from Media Library, or drop a file straight onto the product slot.'}
+              {emptyBody}
             </span>
           </div>
         ) : (

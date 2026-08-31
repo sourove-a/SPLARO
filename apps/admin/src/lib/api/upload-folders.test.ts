@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { mediaFolderFromSelection } from './media'
+
 const SRC = join(process.cwd(), 'src')
 const ROUTE = join(SRC, 'app/api/upload/route.ts')
 
@@ -52,4 +54,10 @@ test('every folder the admin uploads to is accepted by the upload route', () => 
 
 test('the brand logo folder stays allowed', () => {
   assert.ok(allowedFolders().has('brands'))
+})
+
+test('bulk uploads map the active library selection to its logical folder', () => {
+  assert.equal(mediaFolderFromSelection('all'), 'media')
+  assert.equal(mediaFolderFromSelection('products-men'), 'men')
+  assert.equal(mediaFolderFromSelection('campaign/eid'), 'campaign/eid')
 })

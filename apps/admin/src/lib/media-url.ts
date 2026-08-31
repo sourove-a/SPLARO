@@ -11,3 +11,13 @@ export function resolveMediaUrl(url: string): string {
   }
   return url
 }
+
+export function mediaIdentity(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  try {
+    return new URL(trimmed, 'https://media.local').pathname.replace(/\/+$/, '') || '/'
+  } catch {
+    return trimmed.split(/[?#]/, 1)[0]?.replace(/\/+$/, '') || ''
+  }
+}
