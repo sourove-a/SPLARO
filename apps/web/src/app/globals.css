@@ -147,29 +147,19 @@
   --dur-fast: var(--duration-fast);
   --dur-base: var(--duration-base);
 
-  /*
-   * Visual haptics — a press should read like a cushion taking weight, not a
-   * switch clicking. Asymmetric on purpose: the finger-down is quick (the
-   * surface answers instantly) and the release settles slowly, the way damped
-   * foam returns. A symmetric 300ms press-in just feels like lag.
-   * translate-y stays 0 — depth comes from scale + opacity, never layout.
-   * Windows / perf-lite reset --press-scale to 1 in performance.css.
-   */
-  --press-release-duration: 320ms;
-  --press-release-ease: cubic-bezier(0.25, 1, 0.5, 1);
-  --press-down-duration: 130ms;
-  --press-down-ease: cubic-bezier(0.32, 0.72, 0, 1);
-  --press-scale: 0.985;
-  --press-opacity: 0.92;
+  /* Soft press — opacity-only elsewhere; CSS scale token must stay 1 (no jump). */
+  --press-release-duration: var(--duration-press);
+  --press-release-ease: var(--ease-luxury);
+  --press-down-duration: var(--duration-press);
+  --press-down-ease: var(--ease-luxury);
+  --press-scale: 1;
   --press-translate-y: 0px;
 
   /* Luxury micro-interactions — aliases onto the shared scale */
   --lux-hover-duration: var(--duration-luxury);
   --lux-hover-ease: var(--ease-luxury);
-  /* Cinematic media zoom — slow enough to read as a camera push, not a hover. */
-  --lux-img-scale: 1.045;
+  --lux-img-scale: 1.02;
   --lux-img-duration: var(--duration-media);
-  --lux-img-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --lux-lift: -2px;
   --lux-icon-opacity: 0.72;
 }

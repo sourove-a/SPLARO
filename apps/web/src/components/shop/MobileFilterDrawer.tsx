@@ -8,20 +8,15 @@ import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 import { Check, ChevronDown, X } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { pluralize } from '@/lib/utils/pluralize'
+import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import { formatMobileBdt, isMobilePriceRangeActive } from '@/lib/shop/mobile-filter'
-import {
-  catalogSortFromMobile,
-  getEnabledMobilePriceChips,
-  getMobileSortOptions,
-  mobileSortFromCatalog,
-} from '@/lib/shop/filter-config'
-import { type CatalogSortOption, type MobileSortOption } from '@/lib/shop/mobile-filter'
+import { getEnabledMobilePriceChips } from '@/lib/shop/filter-config'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { getShopSizeSectionMeta, type Category } from '@/data/storefront'
 import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
-import { SETTLE } from '@/lib/motion/config'
+import { MICRO, SETTLE } from '@/lib/motion/config'
 
-type FilterSectionId = 'sort' | 'color' | 'size' | 'price'
+type FilterSectionId = 'color' | 'size' | 'price'
 
 const COLOR_SWATCH: Record<string, string> = {
   White: '#f5f5f3',
@@ -52,64 +47,79 @@ interface MobileFilterDrawerProps {
   priceBounds: PriceBounds
   priceMin: number | null
   priceMax: number | null
-  /** Sort lives in the same sheet — one place to refine, like the rest of the market. */
-  sortBy?: CatalogSortOption
-  onSortChange?: (value: CatalogSortOption) => void
   onColorChange: (value: string) => void
   onSizeChange: (value: string) => void
   onPriceRangeChange: (min: number | null, max: number | null) => void
   onClear: () => void
 }
 
-function FilterRow({
+function AccordionSection({
   id,
   title,
-  summary,
   hint,
+  summary,
+  hasSelection,
   expanded,
   onToggle,
   children,
 }: {
   id: FilterSectionId
   title: string
-  summary?: string | undefined
   hint?: string | undefined
+  summary?: string | undefined
+  hasSelection?: boolean | undefined
   expanded: boolean
   onToggle: (id: FilterSectionId) => void
   children: ReactNode
 }) {
   return (
-    <section className={cn('mfs__row', expanded && 'mfs__row--open')}>
+    <section
+      className={cn(
+        'mobile-filter-drawer__accordion',
+        expanded && 'mobile-filter-drawer__accordion--open',
+        hasSelection && 'mobile-filter-drawer__accordion--selected',
+      )}
+    >
       <button
         type="button"
-        className="mfs__row-trigger"
+        className="mobile-filter-drawer__accordion-trigger"
         aria-expanded={expanded}
         onClick={() => onToggle(id)}
       >
-        <span className="mfs__row-copy">
-          <span className="mfs__row-title">{title}</span>
-          {summary ? <span className="mfs__row-summary">{summary}</span> : null}
-          {!summary && hint ? <span className="mfs__row-summary">{hint}</span> : null}
+        <span className="mobile-filter-drawer__accordion-copy">
+          <span className="mobile-filter-drawer__section-title-row">
+            <span className="mobile-filter-drawer__section-title">{title}</span>
+            {hasSelection ? <span className="mobile-filter-drawer__section-dot" aria-hidden /> : null}
+          </span>
+          {hint && !summary ? (
+            <span className="mobile-filter-drawer__section-hint">{hint}</span>
+          ) : null}
+          {summary ? <span className="mobile-filter-drawer__accordion-summary">{summary}</span> : null}
         </span>
-        <ChevronDown
-          className={cn('mfs__row-chevron', expanded && 'mfs__row-chevron--open')}
-          strokeWidth={2}
-        />
+        <span className="mobile-filter-drawer__accordion-chevron-wrap">
+          <ChevronDown
+            className={cn(
+              'mobile-filter-drawer__accordion-chevron',
+              expanded && 'mobile-filter-drawer__accordion-chevron--open',
+            )}
+            strokeWidth={2.1}
+          />
+        </span>
       </button>
-      {/*
-        Open/close is CSS (grid-template-rows 0fr → 1fr), not a height tween.
-        Animating `height: auto` in JS re-measures and re-lays-out the sheet on
-        every frame — on a phone that is exactly where the stutter came from.
-        The grid track interpolates on the compositor's schedule instead, and
-        the content stays mounted so a selection inside never remounts.
-      */}
-      <div className="mfs__row-body" aria-hidden={!expanded}>
-        {/* Clip layer carries no padding of its own — a padded grid item has a
-            minimum height, and the row would never close past it. */}
-        <div className="mfs__row-clip">
-          <div className="mfs__row-inner">{children}</div>
-        </div>
-      </div>
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            key={id}
+            className="mobile-filter-drawer__accordion-body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={MICRO}
+          >
+            <div className="mobile-filter-drawer__accordion-inner">{children}</div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </section>
   )
 }
@@ -191,8 +201,6 @@ export function MobileFilterDrawer({
   priceBounds,
   priceMin,
   priceMax,
-  sortBy,
-  onSortChange,
   onColorChange,
   onSizeChange,
   onPriceRangeChange,
@@ -203,14 +211,10 @@ export function MobileFilterDrawer({
   const mobilePriceQuickChips = getEnabledMobilePriceChips(shopFilters)
   const reduceMotion = useReducedMotion()
   const drawerRef = useRef<HTMLElement>(null)
-  const wasOpenRef = useRef(false)
   useOverlayScrollLock(open)
   const sizeMeta = useMemo(() => getShopSizeSectionMeta(activeCategory), [activeCategory])
-  const sortOptions = useMemo(() => getMobileSortOptions(shopFilters), [shopFilters])
-  const showSort = Boolean(shopFilters.showSortFilter && sortBy && onSortChange)
-  const selectedSort = sortBy ? mobileSortFromCatalog(sortBy, shopFilters) : sortOptions[0]
   const [expandedSections, setExpandedSections] = useState<Set<FilterSectionId>>(
-    () => new Set(['sort']),
+    () => new Set(['color']),
   )
 
   const drawerMin = priceMin ?? priceBounds.min
@@ -225,16 +229,44 @@ export function MobileFilterDrawer({
     return count
   }, [priceRangeActive, selectedColor, selectedSize])
 
+  const activeChips = useMemo(() => {
+    const chips: { key: string; label: string; onClear: () => void }[] = []
+    if (selectedColor !== 'All') {
+      chips.push({ key: 'color', label: selectedColor, onClear: () => onColorChange('All') })
+    }
+    if (selectedSize !== 'All') {
+      chips.push({ key: 'size', label: `Size ${selectedSize}`, onClear: () => onSizeChange('All') })
+    }
+    if (priceRangeActive) {
+      chips.push({
+        key: 'price',
+        label: `${formatMobileBdt(drawerMin)} – ${formatMobileBdt(drawerMax)}`,
+        onClear: () => onPriceRangeChange(null, null),
+      })
+    }
+    return chips
+  }, [
+    drawerMax,
+    drawerMin,
+    onColorChange,
+    onPriceRangeChange,
+    onSizeChange,
+    priceRangeActive,
+    selectedColor,
+    selectedSize,
+  ])
+
   useEffect(() => {
     if (!open) return
     const restoreTarget =
       document.activeElement instanceof HTMLElement ? document.activeElement : null
     document.body.dataset.filterOpen = 'true'
 
-    // Focus the dialog itself, not its first button — a programmatic focus on the
-    // close button paints a ring the shopper never asked for.
     const raf = requestAnimationFrame(() => {
-      drawerRef.current?.focus({ preventScroll: true })
+      const focusable = drawerRef.current?.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      )
+      focusable?.focus()
     })
 
     const onKey = (event: KeyboardEvent) => {
@@ -265,23 +297,14 @@ export function MobileFilterDrawer({
     }
   }, [open, onClose])
 
-  /** Reopen on the section the shopper already touched; sort stays the default entry.
-      Only on the open transition — re-running it on every selection slammed the
-      section shut the moment the shopper picked something inside it. */
   useEffect(() => {
-    if (!open) {
-      wasOpenRef.current = false
-      return
-    }
-    if (wasOpenRef.current) return
-    wasOpenRef.current = true
+    if (!open) return
     const next = new Set<FilterSectionId>()
     if (selectedColor !== 'All') next.add('color')
     else if (selectedSize !== 'All') next.add('size')
     else if (priceRangeActive) next.add('price')
     if (!next.size) {
-      if (shopFilters.showSortFilter) next.add('sort')
-      else if (shopFilters.showColorFilter) next.add('color')
+      if (shopFilters.showColorFilter) next.add('color')
       else if (shopFilters.showSizeFilter) next.add('size')
       else if (shopFilters.showPriceFilter) next.add('price')
     }
@@ -298,20 +321,22 @@ export function MobileFilterDrawer({
     })
   }
 
-  /** Merchant labels are singular ("Colour") — the empty state reads as a plural. */
-  const colorLabel = shopFilters.labels.color.toLowerCase()
-  const colorSummary =
-    selectedColor === 'All' ? `All ${colorLabel.endsWith('s') ? colorLabel : `${colorLabel}s`}` : selectedColor
-  const sizeSummary = selectedSize === 'All' ? 'All sizes' : selectedSize
-  const priceSummary = priceRangeActive
-    ? `${formatMobileBdt(drawerMin)} – ${formatMobileBdt(drawerMax)}`
-    : 'Any price'
+  const sectionSummary = (id: FilterSectionId) => {
+    if (id === 'color' && selectedColor !== 'All') return selectedColor
+    if (id === 'size' && selectedSize !== 'All') return selectedSize
+    if (id === 'price' && priceRangeActive) {
+      return `${formatMobileBdt(drawerMin)} – ${formatMobileBdt(drawerMax)}`
+    }
+    return undefined
+  }
 
-  const sheetTransition = reduceMotion
+  const drawerTransition = reduceMotion
     ? { duration: 0 }
     : { type: 'spring' as const, stiffness: 380, damping: 36, mass: 0.78 }
 
-  const fadeTransition = reduceMotion ? { duration: 0 } : SETTLE
+  const fadeTransition = reduceMotion
+    ? { duration: 0 }
+    : SETTLE
 
   const applyLabel =
     resultCount === 0 ? 'No matching items' : `Show ${pluralize(resultCount, 'result')}`
@@ -322,7 +347,7 @@ export function MobileFilterDrawer({
         <>
           <motion.button
             type="button"
-            className="mfs__backdrop"
+            className="mobile-filter-drawer__backdrop"
             aria-label="Close filters"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -333,220 +358,228 @@ export function MobileFilterDrawer({
 
           <motion.aside
             ref={drawerRef}
-            className="mfs"
+            className="mobile-filter-drawer"
             role="dialog"
             aria-modal="true"
             aria-label="Filter products"
-            tabIndex={-1}
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={sheetTransition}
+            initial={{ x: '-105%', opacity: 0.72 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '-105%', opacity: 0.72 }}
+            transition={drawerTransition}
           >
-            <div className="mfs__sheet">
-              <header className="mfs__head">
-                <button
-                  type="button"
-                  className="mfs__close"
-                  onClick={onClose}
-                  aria-label="Close filters"
-                >
-                  <X className="h-4 w-4" strokeWidth={2} />
-                </button>
-                <h2 className="mfs__title">Filters</h2>
-                <button
-                  type="button"
-                  className="mfs__reset"
-                  onClick={onClear}
-                  disabled={activeCount === 0}
-                >
-                  Reset
-                </button>
+            <div className="mobile-filter-drawer__surface">
+              <div className="mobile-filter-drawer__edge" aria-hidden />
+              <div className="mobile-filter-drawer__sheen" aria-hidden />
+              <header className="mobile-filter-drawer__header">
+                <div className="mobile-filter-drawer__header-main">
+                  <div className="mobile-filter-drawer__header-copy">
+                    <p className="mobile-filter-drawer__eyebrow">Collection filters</p>
+                    <div className="mobile-filter-drawer__title-row">
+                      <h2 className="mobile-filter-drawer__title">Refine your edit</h2>
+                      {activeCount > 0 ? (
+                        <span className="mobile-filter-drawer__count-badge">{activeCount}</span>
+                      ) : null}
+                    </div>
+                    <p className="mobile-filter-drawer__meta">
+                      {activeCount > 0
+                        ? `${activeCount} active · ${pluralize(resultCount, 'piece')}`
+                        : `${activeCategory} · ${pluralize(resultCount, 'piece')}`}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="mobile-filter-drawer__close"
+                    onClick={onClose}
+                    aria-label="Close filters"
+                  >
+                    <X className="h-4 w-4" strokeWidth={2.2} />
+                  </button>
+                </div>
+
+                {activeChips.length > 0 ? (
+                  <HorizontalScrollRail
+                    className="mobile-filter-drawer__chips-rail"
+                    trackClassName="mobile-filter-drawer__active-chips"
+                    variant="pill"
+                    ariaLabel="Active filters"
+                  >
+                    {activeChips.map((chip) => (
+                      <button
+                        key={chip.key}
+                        type="button"
+                        className="mobile-filter-drawer__active-chip"
+                        onClick={chip.onClear}
+                      >
+                        <span>{chip.label}</span>
+                        <X className="h-3 w-3" strokeWidth={2.4} />
+                      </button>
+                    ))}
+                  </HorizontalScrollRail>
+                ) : null}
               </header>
 
-              <div className="mfs__body" data-lenis-prevent>
-                {showSort ? (
-                  <FilterRow
-                    id="sort"
-                    title="Sort by"
-                    summary={expandedSections.has('sort') ? undefined : selectedSort}
-                    expanded={expandedSections.has('sort')}
-                    onToggle={toggleSection}
-                  >
-                    <div className="mfs__radios" role="radiogroup" aria-label="Sort options">
-                      {sortOptions.map((option) => {
-                        const isSelected = selectedSort === option
-                        return (
-                          <button
-                            key={option}
-                            type="button"
-                            role="radio"
-                            aria-checked={isSelected}
-                            className="mfs__radio-row"
-                            onClick={() =>
-                              onSortChange?.(
-                                catalogSortFromMobile(option as MobileSortOption, shopFilters),
-                              )
-                            }
-                          >
-                            <span className="mfs__radio-label">{option}</span>
-                            <span
-                              className={cn('mfs__radio', isSelected && 'mfs__radio--on')}
-                              aria-hidden
-                            />
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </FilterRow>
-                ) : null}
-
+              <div className="mobile-filter-drawer__body" data-lenis-prevent>
                 {shopFilters.showColorFilter ? (
-                  <FilterRow
-                    id="color"
-                    title={shopFilters.labels.color}
-                    summary={colorSummary}
-                    expanded={expandedSections.has('color')}
-                    onToggle={toggleSection}
-                  >
-                    <div className="mobile-filter-drawer__color-grid">
-                      {colorOptions.map((option) => {
-                        const selected = selectedColor === option
-                        const swatch = option !== 'All' ? COLOR_SWATCH[option] : undefined
-                        return (
-                          <button
-                            key={option}
-                            type="button"
-                            className={cn(
-                              'mobile-filter-drawer__color-chip',
-                              selected && 'mobile-filter-drawer__color-chip--active',
-                            )}
-                            onClick={() => onColorChange(option)}
-                            aria-pressed={selected}
-                          >
-                            {swatch ? (
-                              <span className="mobile-filter-drawer__color-swatch-wrap">
-                                <span
-                                  className="mobile-filter-drawer__color-swatch"
-                                  style={{ backgroundColor: swatch }}
-                                  aria-hidden
-                                />
-                                {selected ? (
-                                  <span
-                                    className="mobile-filter-drawer__color-swatch-check"
-                                    aria-hidden
-                                  >
-                                    <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                                  </span>
-                                ) : null}
-                              </span>
-                            ) : (
-                              <span className="mobile-filter-drawer__color-swatch mobile-filter-drawer__color-swatch--all" />
-                            )}
-                            <span>{option}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </FilterRow>
+                <AccordionSection
+                  id="color"
+                  title={shopFilters.labels.color}
+                  summary={sectionSummary('color')}
+                  hasSelection={selectedColor !== 'All'}
+                  expanded={expandedSections.has('color')}
+                  onToggle={toggleSection}
+                >
+                  <div className="mobile-filter-drawer__color-grid">
+                    {colorOptions.map((option) => {
+                      const selected = selectedColor === option
+                      const swatch = option !== 'All' ? COLOR_SWATCH[option] : undefined
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          className={cn(
+                            'mobile-filter-drawer__color-chip',
+                            selected && 'mobile-filter-drawer__color-chip--active',
+                          )}
+                          onClick={() => onColorChange(option)}
+                          aria-pressed={selected}
+                        >
+                          {swatch ? (
+                            <span className="mobile-filter-drawer__color-swatch-wrap">
+                              <span
+                                className="mobile-filter-drawer__color-swatch"
+                                style={{ backgroundColor: swatch }}
+                                aria-hidden
+                              />
+                              {selected ? (
+                                <span className="mobile-filter-drawer__color-swatch-check" aria-hidden>
+                                  <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                                </span>
+                              ) : null}
+                            </span>
+                          ) : (
+                            <span className="mobile-filter-drawer__color-swatch mobile-filter-drawer__color-swatch--all" />
+                          )}
+                          <span>{option}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </AccordionSection>
                 ) : null}
 
                 {shopFilters.showSizeFilter ? (
-                  <FilterRow
-                    id="size"
-                    title={shopFilters.labels.size}
-                    summary={sizeMeta.enabled ? sizeSummary : undefined}
-                    hint={sizeMeta.enabled ? undefined : 'Pick a category first'}
-                    expanded={expandedSections.has('size')}
-                    onToggle={toggleSection}
-                  >
-                    {sizeMeta.enabled ? (
-                      <div
-                        className={cn(
-                          'mobile-filter-drawer__size-grid',
-                          sizeMeta.hint.includes('Shoe') &&
-                            'mobile-filter-drawer__size-grid--footwear',
-                          sizeMeta.hint.includes('Age') && 'mobile-filter-drawer__size-grid--kids',
-                        )}
-                      >
-                        {sizeOptions.map((option) => {
-                          const selected = selectedSize === option
-                          return (
-                            <button
-                              key={option}
-                              type="button"
-                              className={cn(
-                                'mobile-filter-drawer__size',
-                                selected && 'mobile-filter-drawer__size--active',
-                              )}
-                              onClick={() => onSizeChange(option)}
-                              aria-pressed={selected}
-                            >
-                              {option}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <p className="mobile-filter-drawer__empty-note">
-                        Select a category first to see the right sizes.
-                      </p>
-                    )}
-                  </FilterRow>
-                ) : null}
-
-                {shopFilters.showPriceFilter ? (
-                  <FilterRow
-                    id="price"
-                    title={shopFilters.labels.price}
-                    summary={priceSummary}
-                    expanded={expandedSections.has('price')}
-                    onToggle={toggleSection}
-                  >
-                    <PriceRangeSlider
-                      bounds={priceBounds}
-                      valueMin={drawerMin}
-                      valueMax={drawerMax}
-                      onChange={(min, max) => onPriceRangeChange(min, max)}
-                    />
-                    <div className="mobile-filter-drawer__price-chips">
-                      <button
-                        type="button"
-                        className={cn(
-                          'mobile-filter-drawer__chip',
-                          !priceRangeActive && 'mobile-filter-drawer__chip--active',
-                        )}
-                        onClick={() => onPriceRangeChange(null, null)}
-                      >
-                        All prices
-                      </button>
-                      {mobilePriceQuickChips.map((chip) => {
-                        const chipMax = chip.max ?? priceBounds.max
-                        const selected =
-                          priceRangeActive && drawerMin === chip.min && drawerMax === chipMax
+                <AccordionSection
+                  id="size"
+                  title={shopFilters.labels.size}
+                  hint={
+                    sizeMeta.enabled
+                      ? sizeMeta.hint
+                      : 'Select a category first to see the right sizes.'
+                  }
+                  summary={sectionSummary('size')}
+                  hasSelection={selectedSize !== 'All'}
+                  expanded={expandedSections.has('size')}
+                  onToggle={toggleSection}
+                >
+                  {sizeMeta.enabled ? (
+                    <div
+                      className={cn(
+                        'mobile-filter-drawer__size-grid',
+                        sizeMeta.hint.includes('Shoe') && 'mobile-filter-drawer__size-grid--footwear',
+                        sizeMeta.hint.includes('Age') && 'mobile-filter-drawer__size-grid--kids',
+                      )}
+                    >
+                      {sizeOptions.map((option) => {
+                        const selected = selectedSize === option
                         return (
                           <button
-                            key={chip.id}
+                            key={option}
                             type="button"
                             className={cn(
-                              'mobile-filter-drawer__chip',
-                              selected && 'mobile-filter-drawer__chip--active',
+                              'mobile-filter-drawer__size',
+                              selected && 'mobile-filter-drawer__size--active',
                             )}
-                            onClick={() => onPriceRangeChange(chip.min, chipMax)}
+                            onClick={() => onSizeChange(option)}
+                            aria-pressed={selected}
                           >
-                            {chip.label}
+                            {option}
                           </button>
                         )
                       })}
                     </div>
-                  </FilterRow>
+                  ) : (
+                    <p className="mobile-filter-drawer__empty-note">
+                      Select a category first to see the right sizes.
+                    </p>
+                  )}
+                </AccordionSection>
                 ) : null}
+
+                {shopFilters.showPriceFilter ? (
+                <AccordionSection
+                  id="price"
+                  title={shopFilters.labels.price}
+                  summary={sectionSummary('price')}
+                  hasSelection={priceRangeActive}
+                  expanded={expandedSections.has('price')}
+                  onToggle={toggleSection}
+                >
+                  <PriceRangeSlider
+                    bounds={priceBounds}
+                    valueMin={drawerMin}
+                    valueMax={drawerMax}
+                    onChange={(min, max) => onPriceRangeChange(min, max)}
+                  />
+                  <div className="mobile-filter-drawer__price-chips">
+                    <button
+                      type="button"
+                      className={cn(
+                        'mobile-filter-drawer__chip',
+                        !priceRangeActive && 'mobile-filter-drawer__chip--active',
+                      )}
+                      onClick={() => onPriceRangeChange(null, null)}
+                    >
+                      All prices
+                    </button>
+                    {mobilePriceQuickChips.map((chip) => {
+                      const chipMax = chip.max ?? priceBounds.max
+                      const selected =
+                        priceRangeActive && drawerMin === chip.min && drawerMax === chipMax
+                      return (
+                        <button
+                          key={chip.id}
+                          type="button"
+                          className={cn(
+                            'mobile-filter-drawer__chip',
+                            selected && 'mobile-filter-drawer__chip--active',
+                          )}
+                          onClick={() => onPriceRangeChange(chip.min, chipMax)}
+                        >
+                          {chip.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </AccordionSection>
+                ) : null}
+
               </div>
 
-              <footer className="mfs__foot">
+              <footer className="mobile-filter-drawer__footer">
                 <button
                   type="button"
-                  className={cn('mfs__apply', resultCount === 0 && 'mfs__apply--empty')}
+                  className="mobile-filter-drawer__clear"
+                  onClick={onClear}
+                  disabled={activeCount === 0}
+                >
+                  Clear all
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    'mobile-filter-drawer__apply',
+                    resultCount === 0 && 'mobile-filter-drawer__apply--empty',
+                  )}
                   onClick={onClose}
                 >
                   {applyLabel}

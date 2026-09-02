@@ -339,13 +339,13 @@ export function ShopFilterBar({
         priceBounds={priceBounds}
         priceMin={priceMin}
         priceMax={priceMax}
-        sortBy={sortBy}
-        onSortChange={onSortChange}
         onColorChange={onColorChange}
         onSizeChange={onSizeChange}
         onPriceRangeChange={onPriceRangeChange}
-        /* Reset clears in place — the sheet stays open so the shopper can pick again. */
-        onClear={onClearFilters}
+        onClear={() => {
+          onClearFilters()
+          setDrawerOpen(false)
+        }}
       />
 
       <MobileSortSheet

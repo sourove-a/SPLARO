@@ -16,9 +16,8 @@
   --btn-font-size: 0.625rem;
   --btn-font-weight: 700;
   --btn-tracking: 0.18em;
-  /* Release is the slow half of the haptic — the press-down overrides it. */
-  --btn-duration: var(--press-release-duration, 320ms);
-  --btn-ease: var(--press-release-ease, cubic-bezier(0.25, 1, 0.5, 1));
+  --btn-duration: var(--duration-press, 80ms);
+  --btn-ease: var(--motion-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 
   /* Shared shadow language */
   --btn-shadow: 0 10px 28px rgba(16, 22, 36, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.16);
@@ -114,11 +113,8 @@
 .btn--primary:active:not(:disabled),
 .btn-luxury:active:not(:disabled),
 .btn-gold:active:not(:disabled) {
-  /* Cushioned press — depression, not a click-jump. */
-  transform: scale(var(--press-scale, 0.985));
-  opacity: var(--press-opacity, 0.92);
-  transition-duration: var(--press-down-duration, 130ms);
-  transition-timing-function: var(--press-down-ease, cubic-bezier(0.32, 0.72, 0, 1));
+  transform: none;
+  transition-duration: var(--duration-press, 110ms);
 }
 
 /* ── Secondary — White Glass ── */
@@ -141,11 +137,8 @@
 
 .btn--secondary:active:not(:disabled),
 .btn-glass:active:not(:disabled) {
-  /* Cushioned press — depression, not a click-jump. */
-  transform: scale(var(--press-scale, 0.985));
-  opacity: var(--press-opacity, 0.92);
-  transition-duration: var(--press-down-duration, 130ms);
-  transition-timing-function: var(--press-down-ease, cubic-bezier(0.32, 0.72, 0, 1));
+  transform: none;
+  transition-duration: var(--duration-press, 110ms);
 }
 
 /* ── Ghost — Transparent Glass ── */
@@ -169,11 +162,8 @@
 
 .btn--ghost:active:not(:disabled),
 .btn-luxury-outline:active:not(:disabled) {
-  /* Cushioned press — depression, not a click-jump. */
-  transform: scale(var(--press-scale, 0.985));
-  opacity: var(--press-opacity, 0.92);
-  transition-duration: var(--press-down-duration, 130ms);
-  transition-timing-function: var(--press-down-ease, cubic-bezier(0.32, 0.72, 0, 1));
+  transform: none;
+  transition-duration: var(--duration-press, 110ms);
 }
 
 /* ── Danger — Graphite ── */
@@ -195,11 +185,8 @@
 }
 
 .btn--danger:active:not(:disabled) {
-  /* Cushioned press — depression, not a click-jump. */
-  transform: scale(var(--press-scale, 0.985));
-  opacity: var(--press-opacity, 0.92);
-  transition-duration: var(--press-down-duration, 130ms);
-  transition-timing-function: var(--press-down-ease, cubic-bezier(0.32, 0.72, 0, 1));
+  transform: none;
+  transition-duration: var(--duration-press, 110ms);
 }
 
 /* Full width utility */
