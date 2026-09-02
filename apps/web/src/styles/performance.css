@@ -476,9 +476,19 @@ html[data-perf='lite'] .product-card-quickview {
  */
 html[data-os='windows'],
 html[data-perf='lite'] {
-  --press-scale: 1;
   --press-translate-y: 0px;
   --glass-blur: none;
+}
+
+/*
+ * The press cushion stays on for lite. Every touch UI is tagged lite (coarse
+ * pointer or < 1024px), and that is exactly where the tactile feedback earns
+ * its keep — one composited transform on one element for 130ms costs nothing
+ * next to the blurs and shadows this profile actually exists to cut. Windows
+ * keeps the flat press: there the software renderer makes transforms real work.
+ */
+html[data-os='windows'] {
+  --press-scale: 1;
 }
 
 html[data-os='windows'] .home-hero-slider .hero-slide-arrows .splaro-nav-btn,

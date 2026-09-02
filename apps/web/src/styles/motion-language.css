@@ -109,3 +109,192 @@ html[data-perf='lite'] .account-glass {
   transition: none !important;
   transform: none !important;
 }
+
+/* ── VISUAL HAPTICS ────────────────────────────────────────────────
+   Press physics live in the --press-* tokens (globals.css) so every
+   :active rule already in the codebase inherits the cushion. What is
+   left here is the hover half of the language. */
+
+/* Plain text links (topbar, no pill) — underline draws left → right.
+   The main header nav keeps its glass pill; an underline there would
+   double the affordance. */
+.site-topbar__link {
+  position: relative;
+}
+
+.site-topbar__link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: auto;
+  bottom: -4px;
+  width: 0;
+  height: 1.5px;
+  background: currentColor;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  html:not([data-perf='lite']) .site-topbar__link::after {
+    transition: width var(--duration-luxury, 320ms) var(--press-release-ease, cubic-bezier(0.25, 1, 0.5, 1));
+  }
+
+  html:not([data-perf='lite']) .site-topbar__link:hover::after {
+    width: 100%;
+  }
+
+  /* Header action glyphs — soft swell, no travel (the row must not shift). */
+  html:not([data-perf='lite']) .site-header-glass__icon-btn svg {
+    transition:
+      transform var(--duration-luxury, 320ms) var(--press-release-ease, cubic-bezier(0.25, 1, 0.5, 1)),
+      opacity var(--duration-luxury, 320ms) var(--ease-smooth, cubic-bezier(0.4, 0, 0.2, 1));
+  }
+
+  html:not([data-perf='lite']) .site-header-glass__icon-btn:hover svg {
+    transform: scale(1.06);
+  }
+}
+
+/* Pressed glyph follows the same cushion as every other control. */
+.site-header-glass__icon-btn:active svg {
+  transform: scale(var(--press-scale, 0.985));
+  transition-duration: var(--press-down-duration, 130ms);
+  transition-timing-function: var(--press-down-ease, cubic-bezier(0.32, 0.72, 0, 1));
+}
+
+/* Reduced motion — keep the state change, drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --press-scale: 1;
+    --press-opacity: 1;
+    --lux-img-scale: 1;
+  }
+
+  .site-topbar__link::after {
+    display: none;
+  }
+}
+
+
+/*
+ * Baseline press — `:where()` keeps this at zero specificity on purpose, so any
+ * component that defines its own transition still wins. It animates the `scale`
+ * property rather than `transform`: scale composes with an element's existing
+ * transform (centring translates, hover lifts) instead of wiping it out.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-os='windows'])
+    :where(button, a, summary, [role='button'], [role='option'], [role='radio'], [role='tab']):not(
+      :disabled
+    ):not([aria-disabled='true']):not([data-no-press]) {
+    transition:
+      scale var(--press-release-duration, 320ms) var(--press-release-ease, cubic-bezier(0.25, 1, 0.5, 1)),
+      opacity var(--press-release-duration, 320ms) var(--press-release-ease, cubic-bezier(0.25, 1, 0.5, 1));
+  }
+
+  /* The press itself sets only `scale` + `opacity` — never the transition
+     shorthand of the component — so nothing a component animates is lost. */
+  html:not([data-os='windows'])
+    :where(button, a, summary, [role='button'], [role='option'], [role='radio'], [role='tab']):not(
+      :disabled
+    ):not([aria-disabled='true']):not([data-no-press]):active {
+    scale: var(--press-scale, 0.985);
+    opacity: var(--press-opacity, 0.92);
+  }
+
+  /*
+   * Storefront controls that carry their own transition shorthand: name the
+   * scale/opacity legs explicitly so the cushion survives the override. Kept to
+   * the surfaces a shopper actually taps all day.
+   */
+  html:not([data-os='windows']) :is(
+    .shop-mobile-toolbar__filter,
+    .shop-mobile-toolbar__sort,
+    .shop-mobile-toolbar__density-btn,
+    .mfs__row-trigger,
+    .mfs__radio-row,
+    .mfs__apply,
+    .mfs__reset,
+    .mfs__close,
+    .site-header-glass__icon-btn,
+    .mobile-filter-drawer__chip,
+    .mobile-filter-drawer__size,
+    .mobile-filter-drawer__color-chip
+  ) {
+    transition:
+      scale var(--press-release-duration, 320ms) var(--press-release-ease, cubic-bezier(0.25, 1, 0.5, 1)),
+      opacity var(--press-release-duration, 320ms) var(--press-release-ease, cubic-bezier(0.25, 1, 0.5, 1)),
+      background-color var(--press-release-duration, 320ms) var(--press-release-ease, cubic-bezier(0.25, 1, 0.5, 1)),
+      border-color var(--press-release-duration, 320ms) var(--press-release-ease, cubic-bezier(0.25, 1, 0.5, 1)),
+      color var(--press-release-duration, 320ms) var(--press-release-ease, cubic-bezier(0.25, 1, 0.5, 1));
+  }
+
+  html:not([data-os='windows']) :is(
+    .shop-mobile-toolbar__filter,
+    .shop-mobile-toolbar__sort,
+    .shop-mobile-toolbar__density-btn,
+    .mfs__row-trigger,
+    .mfs__radio-row,
+    .mfs__apply,
+    .mfs__reset,
+    .mfs__close,
+    .site-header-glass__icon-btn,
+    .mobile-filter-drawer__chip,
+    .mobile-filter-drawer__size,
+    .mobile-filter-drawer__color-chip
+  ):active {
+    scale: var(--press-scale, 0.985);
+    opacity: var(--press-opacity, 0.92);
+    transition-duration: var(--press-down-duration, 130ms);
+    transition-timing-function: var(--press-down-ease, cubic-bezier(0.32, 0.72, 0, 1));
+  }
+}
+
+/* ── ROUTE ENTER ───────────────────────────────────────────────────
+   The new page settles in instead of snapping. Opacity starts high
+   (0.62, never 0) so the arrival never flashes through white, and the
+   8px rise is small enough that fixed/sticky children inside the page
+   are not visibly re-anchored while the transform is live. */
+
+@keyframes route-enter {
+  from {
+    opacity: 0.62;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+#main-content[data-route-enter='on'] {
+  animation: route-enter var(--route-enter-duration, 420ms)
+    var(--route-enter-ease, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+
+/* Touch profiles get a shorter settle — a phone tap expects a faster answer. */
+html[data-scroll-profile='mobile'] #main-content[data-route-enter='on'] {
+  --route-enter-duration: 340ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #main-content[data-route-enter='on'] {
+    animation: none;
+  }
+}
+
+/* Outgoing page — a small acknowledgement while the next route loads.
+   Opacity only: no transform, so nothing inside the page is re-anchored
+   and no scroll position is disturbed. */
+#main-content[data-route-leaving='on'] {
+  opacity: 0.9;
+  transition: opacity 160ms var(--press-release-ease, cubic-bezier(0.25, 1, 0.5, 1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #main-content[data-route-leaving='on'] {
+    opacity: 1;
+    transition: none;
+  }
+}
