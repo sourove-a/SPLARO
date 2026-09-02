@@ -15,6 +15,13 @@ export interface WmsWarehouse {
   }[]
 }
 
+/**
+ * Mirrors OPENING_STOCK_NOTE in the API's wms-stock-summary. A row carrying it
+ * described stock the product already held and moved nothing, which is what
+ * decides whether removing it gives any quantity back.
+ */
+export const OPENING_STOCK_NOTE = 'Opening stock — recorded from product inventory'
+
 export interface WmsMovement {
   id: string
   sku: string | null
@@ -253,6 +260,22 @@ export function recordStockMovement(input: {
     method: 'POST',
     body: JSON.stringify(input),
   })
+}
+
+/**
+ * Remove one ledger row.
+ *
+ * A row that moved stock gives it back; an opening-stock row, which only ever
+ * described what the product already held, moves nothing. `stockRestored` says
+ * which happened so the operator is told the truth either way.
+ */
+export function deleteStockMovement(id: string) {
+  return apiFetch<{
+    deleted: boolean
+    sku: string | null
+    stockRestored: boolean
+    stock: number | null
+  }>(`/commerce-os/wms/movements/${id}`, { method: 'DELETE' })
 }
 
 export function recordOpeningStock() {

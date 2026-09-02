@@ -142,6 +142,7 @@ import {
   fetchDeliveryOverview,
   fetchExecutiveDashboard,
   createWarehouse,
+  deleteStockMovement,
   recordStockMovement,
   recordOpeningStock,
   createStockTransfer,
@@ -528,6 +529,22 @@ export function useRecordStockMovement() {
     mutationFn: recordStockMovement,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['wms-overview'] })
+    },
+  })
+}
+
+/**
+ * Remove a ledger row. Also invalidates products and inventory, because a row
+ * that moved stock gives it back and the qty on the product changes with it.
+ */
+export function useDeleteStockMovement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteStockMovement(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['wms-overview'] })
+      void qc.invalidateQueries({ queryKey: ['products'] })
+      void qc.invalidateQueries({ queryKey: ['inventory'] })
     },
   })
 }

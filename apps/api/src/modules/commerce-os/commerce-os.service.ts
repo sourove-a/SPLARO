@@ -9,7 +9,11 @@ import type {
 } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
-import { openingStockLedgerRows, resolveWmsStockSummary } from './wms-stock-summary'
+import {
+  OPENING_STOCK_NOTE,
+  openingStockLedgerRows,
+  resolveWmsStockSummary,
+} from './wms-stock-summary'
 
 @Injectable()
 export class CommerceOsService {
@@ -477,6 +481,67 @@ export class CommerceOsService {
 
     await this.prisma.stockMovementLog.createMany({ data: rows })
     return { seeded: rows.length, skipped: variants.length - rows.length }
+  }
+
+  /**
+   * Remove a ledger row, putting back whatever stock it moved.
+   *
+   * The ledger holds two kinds of row that look identical in the table and are
+   * not alike at all. `recordStockMovement` writes its row and changes
+   * `ProductVariant.stock` in the same transaction, so the row is a record of
+   * something that happened. `recordOpeningStock` only describes stock the
+   * product already held and deliberately changes nothing.
+   *
+   * Deleting has to respect that difference or it corrupts the count. Removing
+   * a real movement takes its `delta` back off the variant — the row claimed
+   * stock went 50 to 48, so without that claim it is 50 again. Removing an
+   * opening-stock row moves nothing, because the row moved nothing; treating it
+   * like a real movement would wipe out the very stock it was describing.
+   *
+   * Deleting the middle of a run leaves the before/after readings on the rows
+   * after it describing a history that no longer matches — unavoidable when
+   * removing from a ledger, and the reason this exists for clearing out test
+   * rows rather than as a way to rewrite a real one. A genuine correction is a
+   * compensating movement, which the same screen already records.
+   */
+  async deleteStockMovement(storeIdOrSlug: string, movementId: string) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const row = await this.prisma.stockMovementLog.findFirst({
+      where: { id: movementId, storeId },
+      select: { id: true, variantId: true, sku: true, delta: true, note: true },
+    })
+    if (!row) throw new NotFoundException('Stock movement not found')
+
+    const describedOnly = row.note === OPENING_STOCK_NOTE
+    const variant = row.variantId
+      ? await this.prisma.productVariant.findFirst({
+          where: { id: row.variantId, product: { storeId } },
+          select: { id: true, stock: true },
+        })
+      : null
+
+    // Nothing to give back: an opening-stock row, a row with no variant, or a
+    // variant that has since been deleted. The row goes, the counts stand.
+    if (describedOnly || !variant) {
+      await this.prisma.stockMovementLog.delete({ where: { id: row.id } })
+      return { deleted: true, sku: row.sku, stockRestored: false, stock: variant?.stock ?? null }
+    }
+
+    const restored = variant.stock - row.delta
+    if (restored < 0) {
+      throw new BadRequestException(
+        `Removing this movement would take ${row.sku ?? 'the variant'} to ${restored}. Record a compensating movement instead.`,
+      )
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.productVariant.update({
+        where: { id: variant.id },
+        data: { stock: restored },
+      }),
+      this.prisma.stockMovementLog.delete({ where: { id: row.id } }),
+    ])
+    return { deleted: true, sku: row.sku, stockRestored: true, stock: restored }
   }
 
   async createStockTransfer(

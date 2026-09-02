@@ -13,6 +13,8 @@ import {
   parseOrderCallback,
   welcomeMessage,
   controlCenterSections,
+  customerCallback,
+  parseCustomerCallback,
 } from './telegram-ui'
 import { tgEmoji } from './telegram-ui-config'
 import { formatNewOrderTelegramMessage } from './telegram-order-message'
@@ -186,7 +188,11 @@ describe('Customer desk', () => {
   it('exposes lookup and top-customer entries', () => {
     const labels = buttonLabels(inlineCustomersMenu().inline_keyboard)
     expect(labels).toContain('Top Customers')
-    expect(labels).toContain('Phone Lookup')
+    // Was "Phone Lookup" while a whole mobile number was the only thing it took.
+    // The same entry now searches names, emails and customer codes as well, and
+    // the label has to stop promising less than the screen does.
+    expect(labels).toContain('Search Customer')
+    expect(labels).toContain('All Customers')
     expect(buttonLabels(inlineMainMenu().inline_keyboard)).toContain('◐ Customer Desk')
     expect(TG_CALLBACK.MENU_CUSTOMERS).toBe('menu:customers')
   })
@@ -216,5 +222,44 @@ describe('Custom emoji entities never reach Telegram unusable', () => {
 
   it('returns the bare glyph when the fallback is not an emoji', () => {
     expect(tgEmoji('orders', '▣')).toBe('▣')
+  })
+})
+
+describe('customer callbacks', () => {
+  it('round-trips an action, phone and page', () => {
+    expect(parseCustomerCallback(customerCallback('orders', '01712345678', 2))).toEqual({
+      action: 'orders',
+      phone: '01712345678',
+      page: 2,
+    })
+    expect(parseCustomerCallback(customerCallback('open', '01712345678'))).toEqual({
+      action: 'open',
+      phone: '01712345678',
+      page: 0,
+    })
+  })
+
+  it('strips a written number down to digits so the payload stays inside 64 bytes', () => {
+    const data = customerCallback('open', '+880 1712-345678')
+    expect(data).toBe('cust:open:8801712345678:0')
+    expect(Buffer.byteLength(data, 'utf8')).toBeLessThanOrEqual(64)
+    expect(parseCustomerCallback(data)?.phone).toBe('8801712345678')
+  })
+
+  it('refuses anything that is not a customer callback', () => {
+    expect(parseCustomerCallback('cust:delete:01712345678:0')).toBeNull()
+    expect(parseCustomerCallback('order:confirm:SPL-1001')).toBeNull()
+    expect(parseCustomerCallback('cust:open::0')).toBeNull()
+    expect(parseCustomerCallback('cust:open:abc:0')).toBeNull()
+  })
+})
+
+describe('customer list paging', () => {
+  it('is carried by the same list callback as orders', () => {
+    expect(parseListCallback(listCallback('customers', 3))).toEqual({ kind: 'customers', page: 3 })
+  })
+
+  it('still refuses an unknown list kind', () => {
+    expect(parseListCallback('list:invoices:0')).toBeNull()
   })
 })
