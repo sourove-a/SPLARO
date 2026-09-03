@@ -21,7 +21,7 @@ import {
   archivePlan,
   envKeepRawOriginal,
 } from '@/lib/upload/archive-original'
-import { withProductPipelineSlot } from '@/lib/upload/product-pipeline-queue'
+import { withImagePipelineSlot } from '@/lib/upload/product-pipeline-queue'
 import { deleteProductPipelineFiles } from '@/lib/upload/product-pipeline-cleanup'
 
 /**
@@ -697,7 +697,7 @@ export async function POST(request: Request) {
 
     if (useProductPipeline) {
       try {
-        const result = await withProductPipelineSlot(async () => {
+        const result = await withImagePipelineSlot(async () => {
           let variantSource: Buffer | undefined
           if (upscalePreviewId) {
             const preview = await loadUpscalePreview(upscalePreviewId)
@@ -768,7 +768,11 @@ export async function POST(request: Request) {
     // Library path — banners / partners / media / pipeline OFF / gif / files.
     // Anything sharp has no work to do on is published by renaming the staged
     // file, so a 100MB video is written to disk exactly once.
-    const processed = raster ? await writeProcessedRaster(tmpPath, dir, id, ext, { optimize, watermark }) : null
+    const processed = raster
+      ? await withImagePipelineSlot(() =>
+          writeProcessedRaster(tmpPath, dir, id, ext, { optimize, watermark }),
+        )
+      : null
     let safeName: string
     let watermarked = false
     if (processed) {
@@ -794,7 +798,7 @@ export async function POST(request: Request) {
      */
     let publishedName = safeName
     if (folder === 'media' && (ext === 'webp' || ext === 'jpg' || ext === 'jpeg')) {
-      const display = await writeLibraryVariants(outputFile, dir, id)
+      const display = await withImagePipelineSlot(() => writeLibraryVariants(outputFile, dir, id))
       if (display) publishedName = display
     }
     const url = `/uploads/${folder}/${publishedName}`

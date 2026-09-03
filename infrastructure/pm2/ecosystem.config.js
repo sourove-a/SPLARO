@@ -52,7 +52,16 @@ module.exports = {
       instances: 1,
       exec_mode: 'fork',
       watch: false,
-      max_memory_restart: '512M',
+      /*
+       * Headroom for /api/upload: sharp decodes a full-resolution photo per
+       * job, and the queue allows two at once, so an image drop peaks well past
+       * the 512M this used to sit at. PM2 answers that ceiling with SIGKILL —
+       * mid-upload, which nginx logged as "upstream prematurely closed
+       * connection" and the browser showed as a failed upload.
+       */
+      max_memory_restart: '1536M',
+      /* Let an in-flight upload finish before a restart takes the process. */
+      kill_timeout: 30000,
       error_file: `${LOG_DIR}/admin-error.log`,
       out_file: `${LOG_DIR}/admin-out.log`,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',

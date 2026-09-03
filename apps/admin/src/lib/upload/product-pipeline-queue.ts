@@ -1,6 +1,12 @@
 /**
- * In-process limit for product Sharp pipelines.
- * Prevents Contabo CPU spikes when multiple admin tabs / bulk uploads hit /api/upload.
+ * In-process limit for every Sharp pipeline /api/upload runs — the product
+ * pipeline and the media-library encodes alike.
+ *
+ * Prevents Contabo CPU spikes when multiple admin tabs / bulk uploads hit
+ * /api/upload, and keeps RSS under the PM2 `max_memory_restart` ceiling: a
+ * bulk drop used to start one full-resolution decode per file at once, and PM2
+ * SIGKILLed the admin mid-request, which the browser saw as a failed upload.
+ *
  * Default max 2 concurrent jobs; others wait in FIFO queue.
  */
 
@@ -31,7 +37,7 @@ async function acquireSlot(): Promise<void> {
   })
 }
 
-export async function withProductPipelineSlot<T>(fn: () => Promise<T>): Promise<T> {
+export async function withImagePipelineSlot<T>(fn: () => Promise<T>): Promise<T> {
   await acquireSlot()
   try {
     return await fn()
@@ -40,6 +46,6 @@ export async function withProductPipelineSlot<T>(fn: () => Promise<T>): Promise<
   }
 }
 
-export function productPipelineQueueStats() {
+export function imagePipelineQueueStats() {
   return { active, waiting: waiters.length, max: MAX_CONCURRENT }
 }
