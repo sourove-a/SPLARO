@@ -1,8 +1,8 @@
-import { resolvePublicSiteUrl } from '@splaro/config'
+import { getStorefrontOrigin } from '@/lib/storefront-origin'
 
 export function productStorefrontUrl(slug: string): string {
   const clean = slug.trim().replace(/^\/+/, '')
-  return `${resolvePublicSiteUrl()}/products/${clean}`
+  return `${getStorefrontOrigin()}/products/${clean}`
 }
 
 export async function copyProductStorefrontUrl(slug: string): Promise<boolean> {

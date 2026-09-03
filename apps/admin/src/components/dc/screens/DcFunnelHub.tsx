@@ -7,6 +7,7 @@ import { apiFetch } from '@/lib/api/client'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
 import { DcHubFrame, hubCard } from './DcHubKit'
 import { DcIcon } from '@/components/dc/DcIcon'
+import { funnelStorefrontUrl } from '@/lib/admin/funnel-storefront-url'
 
 interface FunnelUniverseSummary {
   id: string
@@ -593,7 +594,7 @@ export function DcFunnelHub() {
      RENDER FULL-WINDOW EDITOR VIEW
      ────────────────────────────────────────────────────────────────────────── */
   if (viewMode === 'EDITOR') {
-    const livePreviewUrl = `http://127.0.0.1:3000/funnel/drop?drop=${slug || 'lifestyle'}`
+    const livePreviewUrl = funnelStorefrontUrl(slug || 'lifestyle')
 
     return (
       <DcHubFrame
@@ -2298,7 +2299,7 @@ export function DcFunnelHub() {
                   <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>
                     URL:{' '}
                     <code>
-                      {domain ? `https://${domain}` : subdomain ? `https://${subdomain}.splaro.co` : `https://${slug || 'drop'}.splaro.co`}
+                      {domain && domain.includes('.') ? `https://${domain}` : subdomain ? `https://${subdomain}.splaro.co` : `https://${slug || 'drop'}.splaro.co`}
                     </code>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 8 }}>
@@ -2479,8 +2480,13 @@ export function DcFunnelHub() {
         ) : (
           <div className="dc-funnel-cards-grid">
             {funnels.map((f) => {
-              const liveStorefrontUrl = `http://127.0.0.1:3000/funnel/drop?drop=${f.slug}`
-              const publicDomain = f.domain || (f.subdomain ? `${f.subdomain}.splaro.co` : `${f.slug}.splaro.co`)
+              const liveStorefrontUrl = funnelStorefrontUrl(f.slug)
+              const hasCustomDomain = Boolean(f.domain && f.domain.includes('.'))
+              const publicDomain = hasCustomDomain
+                ? f.domain!
+                : f.subdomain
+                  ? `${f.subdomain}.splaro.co`
+                  : `${f.slug}.splaro.co`
               const linkedProduct = products.find((p) => p.id === f.activeProductId)
 
               return (
