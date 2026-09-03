@@ -156,19 +156,30 @@ function youtubeCommand(win: Window | null, func: string, args: unknown[] = []) 
   win.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
 }
 
-/** Muted looping backdrop — YouTube chrome is cropped + the player is forced to stay playing. */
+/**
+ * Ambient YouTube backdrop.
+ *
+ * `controls=0` hides the control bar but not the paused overlay — YouTube draws
+ * its own prev / play / next buttons in the middle of the player the moment the
+ * video is not playing, and the middle is exactly what the hero shows. Overscan
+ * cannot push centred chrome out of frame, so the embed is revealed only while
+ * frames are actually painting: on pause, end, or an autoplay refusal it is
+ * hidden again and the poster takes over while playback is retried.
+ */
 function YouTubeAmbientEmbed({
   videoId,
   src,
   ready,
   active,
   onReady,
+  onStall,
 }: {
   videoId: string
   src: string
   ready: boolean
   active: boolean
   onReady: () => void
+  onStall: () => void
 }) {
   const frameRef = useRef<HTMLIFrameElement>(null)
 
@@ -202,14 +213,17 @@ function YouTubeAmbientEmbed({
       if (state === 1) {
         onReady()
       }
-      // 0 ended · 2 paused · -1 unstarted — force playback so controls never pop up
+      // 0 ended · 2 paused · -1 unstarted — YouTube is drawing its overlay over
+      // the hero right now. Hide the embed behind the poster first, then ask it
+      // to resume; the reveal comes back on the next state 1.
       if (state === 0 || state === 2 || state === -1) {
+        onStall()
         keepPlaying()
       }
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [active, keepPlaying, onReady])
+  }, [active, keepPlaying, onReady, onStall])
 
   useEffect(() => {
     if (!active) return
@@ -527,6 +541,11 @@ function HeroBackground({
     setVideoReady(true)
   }, [])
 
+  /** Paused / ended embed — fall back to the poster rather than show its chrome. */
+  const markVideoStalled = useCallback(() => {
+    setVideoReady(false)
+  }, [])
+
   const tryPlay = useCallback(() => {
     const video = videoRef.current
     if (!video || !playbackActive || !mountVideo) return
@@ -621,6 +640,7 @@ function HeroBackground({
           ready={videoReady && isActive}
           active={isActive}
           onReady={markVideoReady}
+          onStall={markVideoStalled}
         />
       ) : mountEmbed && embedSrc ? (
         <div
