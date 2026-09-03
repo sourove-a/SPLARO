@@ -38,7 +38,6 @@ export function MobileSortSheet({ open, sortBy, onClose, onSortChange }: MobileS
     if (!open) return
     const restoreTarget =
       document.activeElement instanceof HTMLElement ? document.activeElement : null
-    document.body.dataset.filterOpen = 'true'
 
     const raf = requestAnimationFrame(() => {
       sheetRef.current
@@ -53,7 +52,6 @@ export function MobileSortSheet({ open, sortBy, onClose, onSortChange }: MobileS
 
     return () => {
       cancelAnimationFrame(raf)
-      delete document.body.dataset.filterOpen
       document.removeEventListener('keydown', onKey)
       restoreTarget?.focus({ preventScroll: true })
     }

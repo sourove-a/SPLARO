@@ -93,6 +93,9 @@ export function ShopFilterBar({
   const sortDisplay = isDefaultSort(sortBy, shopFilters) ? defaultSortLabel : sortBy
   const mobilePriceRangeActive = isMobilePriceRangeActive(priceMin, priceMax, priceBounds)
 
+  /* Sole owner of body[data-filter-open]. The drawer and the sort sheet used to
+     set it too, so whichever unmounted first stripped it while the other was
+     still open and the bottom dock popped back in. */
   useEffect(() => {
     const filterOpen = drawerOpen || sortSheetOpen || openFilter !== null
     if (filterOpen) document.body.setAttribute('data-filter-open', 'true')

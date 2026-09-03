@@ -229,7 +229,6 @@ export function MobileFilterDrawer({
     if (!open) return
     const restoreTarget =
       document.activeElement instanceof HTMLElement ? document.activeElement : null
-    document.body.dataset.filterOpen = 'true'
 
     // Focus the dialog itself, not its first button — a programmatic focus on the
     // close button paints a ring the shopper never asked for.
@@ -259,7 +258,6 @@ export function MobileFilterDrawer({
 
     return () => {
       cancelAnimationFrame(raf)
-      delete document.body.dataset.filterOpen
       document.removeEventListener('keydown', onKey)
       restoreTarget?.focus({ preventScroll: true })
     }

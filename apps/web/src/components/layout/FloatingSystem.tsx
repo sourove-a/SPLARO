@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useState } from 'react'
+import { useId } from 'react'
 import { usePathname } from 'next/navigation'
 import { useScrollPastViewport, useScrollToTop } from '@/hooks/useScrollY'
 import { motion, AnimatePresence } from '@/lib/motion/react'
@@ -120,16 +120,7 @@ export function FloatingSystem() {
   const scrollToTop = useScrollToTop()
   const isMobileMenuOpen = useUiStore((s) => s.isMobileMenuOpen)
   const settings = useStorefrontSettings()
-  const [filterOpen, setFilterOpen] = useState(false)
   const glowId = useId().replace(/:/g, '')
-
-  useEffect(() => {
-    const sync = () => setFilterOpen(document.body.hasAttribute('data-filter-open'))
-    sync()
-    const observer = new MutationObserver(sync)
-    observer.observe(document.body, { attributes: true, attributeFilter: ['data-filter-open'] })
-    return () => observer.disconnect()
-  }, [])
 
   const whatsappUrl = whatsAppHref(resolveWhatsAppNumber(settings))
   const hasWhatsApp = whatsappUrl !== '#'
@@ -145,8 +136,10 @@ export function FloatingSystem() {
     !window.location.host.startsWith('192.168.')
   )
 
-  /* Checkout sticky bar and D2C Funnel Universe own the page — hide floating chrome. */
-  if (isCheckout || isFunnelRoute || isFunnelHost || isMobileMenuOpen || filterOpen) return null
+  /* Checkout sticky bar and D2C Funnel Universe own the page — hide floating chrome.
+     The filter sheet is not in this list on purpose: unmounting popped the bubble
+     out from under the sheet mid-animation, so globals.css fades it instead. */
+  if (isCheckout || isFunnelRoute || isFunnelHost || isMobileMenuOpen) return null
 
   return (
     <div data-floating-system className="support-floating-system z-floating-actions">

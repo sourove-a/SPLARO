@@ -4521,9 +4521,33 @@ body.product-lightbox-open [data-floating-system] {
   display: none !important;
 }
 
+/* The filter sheet slides over this chrome, so `display: none` made the dock
+   vanish instantly on open and snap back under the still-exiting sheet on
+   close — read as a flash at the bottom edge. Fade it on the same beat. */
+[data-mobile-bottom-nav],
+[data-floating-system] {
+  transition:
+    opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 0s;
+}
+
 body[data-filter-open='true'] [data-mobile-bottom-nav],
 body[data-filter-open='true'] [data-floating-system] {
-  display: none !important;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none !important;
+  transition:
+    opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 0.22s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-mobile-bottom-nav],
+  [data-floating-system],
+  body[data-filter-open='true'] [data-mobile-bottom-nav],
+  body[data-filter-open='true'] [data-floating-system] {
+    transition: none;
+  }
 }
 
 /* ─── SPLARO polish pass: white liquid glass, mobile density, solid neutrals ─── */

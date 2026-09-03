@@ -4085,7 +4085,7 @@ button.splaro-card__details-btn {
   z-index: 130;
   width: 100%;
   height: auto;
-  max-height: min(92dvh, 720px);
+  max-height: min(92svh, 720px);
   overflow: hidden;
   padding: 0;
 }
@@ -4093,7 +4093,7 @@ button.splaro-card__details-btn {
 .shop-filter-panel__surface {
   display: flex;
   flex-direction: column;
-  max-height: min(92dvh, 720px);
+  max-height: min(92svh, 720px);
   min-height: 0;
   overflow: hidden;
   border-radius: 28px 28px 0 0;
@@ -5322,7 +5322,7 @@ button.splaro-card__details-btn {
 /* Mobile Sort sheet — options only (not filters) */
 .shop-mobile-sort-sheet {
   z-index: 135;
-  max-height: min(70dvh, 420px);
+  max-height: min(70svh, 420px);
   padding-bottom: calc(0.85rem + env(safe-area-inset-bottom));
 }
 
@@ -6843,7 +6843,10 @@ del.pc-info__compare {
   flex-direction: column;
   width: 100%;
   max-width: 34rem;
-  max-height: 92dvh;
+  /* svh, not dvh — the sheet is pinned to the bottom edge, and dvh tracks the
+     mobile URL bar. Locking scroll brings that bar back, so a dvh cap resized
+     the sheet mid-slide and the top edge visibly jumped. svh never moves. */
+  max-height: 92svh;
   overflow: hidden;
   border-radius: 1.1rem 1.1rem 0 0;
   background: #ffffff;
