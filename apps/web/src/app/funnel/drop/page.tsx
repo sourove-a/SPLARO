@@ -964,9 +964,12 @@ export default function FunnelDropPage() {
                   </span>
                 )}
               </div>
-              <h2 style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.25rem)', fontWeight: 800, margin: '8px 0 10px', color: 'var(--funnel-text-primary)' }}>
+              {/* The product name is what this page is about — h1, not h2. The
+                  only other h1 lives in the unconfigured branch below, which
+                  never renders alongside this one. */}
+              <h1 style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.25rem)', fontWeight: 800, margin: '8px 0 10px', color: 'var(--funnel-text-primary)' }}>
                 {funnel.product?.title}
-              </h2>
+              </h1>
               {funnel.reviewRatingText && (
                 <div
                   style={{
