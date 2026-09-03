@@ -173,6 +173,10 @@ export async function middleware(request: NextRequest) {
     const rewrite = request.nextUrl.clone()
     rewrite.pathname = '/funnel/drop'
     rewrite.searchParams.set('host', host!)
+    // Behind nginx, prefer http on loopback so standalone rewrite does not TLS-fail
+    if (rewrite.hostname === 'localhost' || rewrite.hostname === '127.0.0.1') {
+      rewrite.protocol = 'http:'
+    }
     return NextResponse.rewrite(rewrite)
   }
 
