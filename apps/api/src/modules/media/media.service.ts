@@ -104,7 +104,8 @@ function publicUrl(storedPath: string): string {
   return `${resolvePublicSiteUrl()}${storedPath}`
 }
 
-function uploadRoot(): string {
+/** Shared with the platform media listing, which enriches derived rows from disk. */
+export function uploadRoot(): string {
   if (process.env.UPLOAD_DIR?.trim()) return path.resolve(process.env.UPLOAD_DIR.trim())
   if (process.env.NODE_ENV === 'production') return '/var/www/splaro-shared/uploads'
   return path.resolve(process.cwd(), '..', 'web', 'public', 'uploads')

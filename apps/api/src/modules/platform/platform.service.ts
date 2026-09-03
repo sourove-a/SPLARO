@@ -1,5 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import { createHash, randomBytes } from 'crypto'
+import { stat } from 'node:fs/promises'
+import * as nodePath from 'node:path'
+import { uploadRoot } from '../media/media.service'
 import { resolvePublicSiteUrl } from '@splaro/config'
 import { isMediaDeptFolder, resolveMediaFolderFilter } from '../../common/media-folder.util'
 import { PrismaService } from '../../common/prisma.service'
@@ -52,6 +55,24 @@ const ROLE_LABELS: Record<string, string> = {
 function roleLabel(role: string, email?: string | null): string {
   if (email?.toLowerCase() === CEO_EMAIL) return 'CEO'
   return ROLE_LABELS[role] ?? role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+/** Content type from the stored extension — enough for a library row's badge. */
+function mimeFromPath(storedPath: string): string | null {
+  const ext = storedPath.split('.').pop()?.toLowerCase() ?? ''
+  const map: Record<string, string> = {
+    webp: 'image/webp',
+    avif: 'image/avif',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    svg: 'image/svg+xml',
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    pdf: 'application/pdf',
+  }
+  return map[ext] ?? null
 }
 
 @Injectable()
@@ -254,6 +275,84 @@ export class PlatformService {
     }
   }
 
+  /**
+   * Fill in the file facts for rows that are not library assets.
+   *
+   * A product photo, a banner and a category image are listed straight from
+   * their owner record, which stores a URL and nothing else — so the library
+   * showed them with an em dash for size, type and dimensions while a media
+   * asset beside them showed everything. Two cheap sources close that gap:
+   * a media asset that already points at the same path (most uploads have one,
+   * and it carries dimensions too), and failing that the file on disk, which
+   * can at least answer how many bytes it costs.
+   *
+   * Runs on the page being returned, not the whole candidate set, so the work
+   * is bounded by the page size. Anything unreadable is left as it was.
+   */
+  private async withFileFacts<T extends { url: string; sizeBytes?: number | null }>(
+    storeId: string,
+    rows: T[],
+  ): Promise<T[]> {
+    const needsFacts = rows.filter((row) => row.sizeBytes === undefined || row.sizeBytes === null)
+    if (!needsFacts.length) return rows
+
+    const paths = [...new Set(needsFacts.map((row) => row.url).filter(Boolean))]
+    if (!paths.length) return rows
+
+    const known = await this.prisma.mediaAsset.findMany({
+      where: { storeId, path: { in: paths } },
+      select: {
+        path: true,
+        folder: true,
+        mimeType: true,
+        sizeBytes: true,
+        width: true,
+        height: true,
+        contentHash: true,
+        kind: true,
+      },
+    })
+    const byPath = new Map(known.map((asset) => [asset.path, asset]))
+
+    const root = uploadRoot()
+    const sizes = new Map<string, number>()
+    await Promise.all(
+      paths
+        .filter((storedPath) => !byPath.has(storedPath))
+        .map(async (storedPath) => {
+          const relative = storedPath.replace(/^\/uploads\//, '')
+          // Never follow a stored URL outside the uploads tree.
+          const absolute = nodePath.resolve(root, relative)
+          if (!absolute.startsWith(nodePath.resolve(root))) return
+          try {
+            const info = await stat(absolute)
+            if (info.isFile()) sizes.set(storedPath, info.size)
+          } catch {
+            /* file is gone or unreadable — the em dash is the honest answer */
+          }
+        }),
+    )
+
+    return rows.map((row) => {
+      const asset = byPath.get(row.url)
+      if (asset) {
+        return {
+          ...row,
+          folder: asset.folder,
+          mimeType: asset.mimeType,
+          sizeBytes: asset.sizeBytes,
+          width: asset.width,
+          height: asset.height,
+          contentHash: asset.contentHash,
+          kind: asset.kind,
+        }
+      }
+      const size = sizes.get(row.url)
+      if (size === undefined) return row
+      return { ...row, sizeBytes: size, mimeType: mimeFromPath(row.url) }
+    })
+  }
+
   async getMedia(
     storeIdOrSlug: string,
     options: { cursor?: string; limit?: number; q?: string; type?: string; folder?: string } = {},
@@ -445,7 +544,7 @@ export class PlatformService {
       const timeDiff = b.sortAt.getTime() - a.sortAt.getTime()
       return timeDiff || b.id.localeCompare(a.id)
     })
-    const page = candidates.slice(0, limit)
+    const page = await this.withFileFacts(storeId, candidates.slice(0, limit))
     const last = page.at(-1)
     const hasMore = candidates.length > limit || mediaAssets.length > limit || images.length > limit || banners.length > limit || categories.length > limit
     const assets = page.map(({ sortAt: _sortAt, ...asset }) => asset)
