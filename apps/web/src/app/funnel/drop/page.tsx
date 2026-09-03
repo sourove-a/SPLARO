@@ -13,6 +13,68 @@ import '@/styles/funnel-engine.css'
  * line is stored as "⚡ ঢাকা সিটিতে…", the guarantee as "🛡️ ১০০%…". Rendering
  * our own icon beside it printed the same symbol twice. Ask the string first.
  */
+/**
+ * A custom theme used to set six of the fifteen variables the presets define,
+ * so a merchant who picked their own colours got a page with no borders, no
+ * glass tint, and — measured on a live drop — white button text on a mid-green
+ * fill at roughly 2.3:1. The rest are derived here from the same two colours.
+ */
+function hexToRgb(hex: string): [number, number, number] | null {
+  const value = hex.trim().replace('#', '')
+  const full =
+    value.length === 3
+      ? value
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : value
+  if (full.length !== 6 || !/^[0-9a-f]{6}$/i.test(full)) return null
+  return [
+    parseInt(full.slice(0, 2), 16),
+    parseInt(full.slice(2, 4), 16),
+    parseInt(full.slice(4, 6), 16),
+  ]
+}
+
+function rgba(hex: string, alpha: number): string | null {
+  const rgb = hexToRgb(hex)
+  return rgb ? `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})` : null
+}
+
+/** WCAG relative luminance — the input to the contrast ratio below. */
+function luminance(hex: string): number | null {
+  const rgb = hexToRgb(hex)
+  if (!rgb) return null
+  const [r, g, b] = rgb.map((channel) => {
+    const c = channel / 255
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  }) as [number, number, number]
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/**
+ * Black or white on this fill, whichever is actually more readable.
+ *
+ * A luminance threshold was not enough: the live drop's #5cc12b sits at 0.40,
+ * under any sensible cut-off, and still carries white text at about 2.3:1.
+ * Comparing both ratios picks the dark text that scores 8:1 instead.
+ */
+function readableInkOn(hex: string): string {
+  const lum = luminance(hex)
+  if (lum === null) return '#ffffff'
+  const withWhite = 1.05 / (lum + 0.05)
+  const withInk = (lum + 0.05) / (luminance('#0b0c0e')! + 0.05)
+  return withInk >= withWhite ? '#0b0c0e' : '#ffffff'
+}
+
+/** Move a colour toward white by `amount` (0–1) — the preset hover pattern. */
+function lighten(hex: string, amount: number): string | null {
+  const rgb = hexToRgb(hex)
+  if (!rgb) return null
+  const mixed = rgb.map((channel) => Math.round(channel + (255 - channel) * amount))
+  return `#${mixed.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
+}
+
 const LEADING_EMOJI_RE = /^\s*\p{Extended_Pictographic}/u
 
 function hasLeadingEmoji(text?: string | null): boolean {
@@ -198,19 +260,35 @@ export default function FunnelDropPage() {
 
   const dynamicThemeStyle = useMemo(() => {
     const st: Record<string, string> = {}
-    if (funnel?.themePreset === 'custom') {
-      const col = funnel.customColors?.accent || funnel.customColors?.primary
-      if (col && typeof col === 'string' && col.startsWith('#') && col.length >= 4) {
-        st['--funnel-accent'] = col
-        st['--funnel-accent-glow'] = `${col}40`
-        st['--funnel-grid-line'] = `${col}25`
-        st['--funnel-btn-bg'] = col
-        st['--funnel-spotlight'] = `radial-gradient(ellipse at 50% -10%, ${col}35 0%, rgba(0, 0, 0, 0) 75%)`
-      }
-      if (funnel.customColors?.bg && typeof funnel.customColors.bg === 'string' && funnel.customColors.bg.startsWith('#') && funnel.customColors.bg.length >= 4) {
-        st['--funnel-bg'] = funnel.customColors.bg
-      }
+    if (funnel?.themePreset !== 'custom') return st as React.CSSProperties
+
+    const col = funnel.customColors?.accent || funnel.customColors?.primary
+    if (col && typeof col === 'string' && hexToRgb(col)) {
+      st['--funnel-accent'] = col
+      st['--funnel-accent-hover'] = lighten(col, 0.18) ?? col
+      st['--funnel-accent-glow'] = rgba(col, 0.42) ?? `${col}40`
+      st['--funnel-grid-line'] = rgba(col, 0.16) ?? `${col}25`
+      st['--funnel-border'] = rgba(col, 0.28) ?? `${col}45`
+      st['--funnel-border-hover'] = rgba(col, 0.62) ?? col
+      st['--funnel-glass-highlight'] = rgba(col, 0.34) ?? 'rgba(255, 255, 255, 0.4)'
+      st['--funnel-btn-bg'] = col
+      st['--funnel-spotlight'] = `radial-gradient(ellipse at 50% -10%, ${rgba(col, 0.32) ?? `${col}35`} 0%, rgba(0, 0, 0, 0) 75%)`
+
+      // The presets hard-code this pair; a custom colour has to work it out, or
+      // a green button ships white text at 2.3:1.
+      st['--funnel-btn-text'] = readableInkOn(col)
+      st['--funnel-text-muted'] = rgba(col, 0.72) ?? 'rgba(255, 255, 255, 0.72)'
     }
+
+    const bg = funnel.customColors?.bg
+    if (bg && typeof bg === 'string' && hexToRgb(bg)) {
+      st['--funnel-bg'] = bg
+      // Surfaces sit just above the page, the way every preset builds them.
+      st['--funnel-surface'] = lighten(bg, 0.06) ?? bg
+      st['--funnel-surface-glass'] = rgba(lighten(bg, 0.04) ?? bg, 0.82) ?? bg
+      st['--funnel-text-primary'] = readableInkOn(bg)
+    }
+
     return st as React.CSSProperties
   }, [funnel?.customColors, funnel?.themePreset])
 
