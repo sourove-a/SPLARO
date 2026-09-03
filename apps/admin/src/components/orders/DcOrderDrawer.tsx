@@ -258,6 +258,27 @@ export function DcOrderDrawer({ orderId, onClose }: DcOrderDrawerProps) {
                 <span>
                   {d.items?.length ?? 0} item{(d.items?.length ?? 0) === 1 ? '' : 's'}
                 </span>
+                {d.trafficSource === 'D2C_FUNNEL' && (
+                  <>
+                    <Dot />
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '2px 8px',
+                        borderRadius: 4,
+                        background: 'rgba(212, 175, 55, 0.15)',
+                        border: '1px solid rgba(212, 175, 55, 0.4)',
+                        color: 'var(--ink-1)',
+                        fontWeight: 700,
+                        fontSize: 11,
+                      }}
+                    >
+                      ⚡ {d.landingPage || 'D2C Funnel Drop'}
+                    </span>
+                  </>
+                )}
               </div>
 
               {/* ── fulfilment ladder ───────────────────────────── */}

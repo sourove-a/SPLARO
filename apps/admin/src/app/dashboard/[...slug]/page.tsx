@@ -66,6 +66,7 @@ import { DcSystemLogs } from '@/components/dc/screens/DcSystemLogs'
 import { DcPlatformDev } from '@/components/dc/screens/DcPlatformDev'
 import { DcNotificationCenter } from '@/components/dc/screens/DcNotificationCenter'
 import { DcPosCounter } from '@/components/dc/screens/DcPosCounter'
+import { DcFunnelHub, DcFunnelOrders } from '@/components/dc/screens'
 import { resolveAliasRedirect } from '@/lib/navigation/alias-redirects'
 import { resolveNavRoute, getRecordIdFromSubPath } from '@/lib/navigation/admin-nav'
 
@@ -129,6 +130,8 @@ const DC_BESPOKE: Record<string, () => React.ReactElement> = {
   '/dashboard/blog': () => <DcBlog />,
   '/dashboard/cms': () => <DcCmsPages />,
   '/dashboard/landing-pages': () => <DcLandingPages />,
+  '/dashboard/funnels': () => <DcFunnelHub />,
+  '/dashboard/funnels/orders': () => <DcFunnelOrders />,
   // Thin API hubs (all-nav-live)
   '/dashboard/pos': () => <DcPosCounter />,
   '/dashboard/invoices': () => <DcCommerceExtras tab="invoices" />,

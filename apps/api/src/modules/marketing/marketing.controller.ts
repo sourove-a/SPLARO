@@ -17,6 +17,7 @@ import { MarketingService } from './marketing.service'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import {
+  AudienceEstimateQueryDto,
   CAMPAIGN_STATUSES,
   CAMPAIGN_TYPES,
   CreateCampaignDto,
@@ -128,6 +129,26 @@ export class MarketingController {
       openRate: sent > 0 ? Math.round((opened / sent) * 100) : 0,
       clickRate: sent > 0 ? Math.round((clicked / sent) * 100) : 0,
     }
+  }
+
+  @Get('campaigns/audience-estimate')
+  async audienceEstimate(
+    @Query('storeId') storeId: string,
+    @Query() query: AudienceEstimateQueryDto,
+    @Req() req: AdminRequest,
+  ) {
+    const sid = await this.scopedStoreId(req, storeId)
+    return this.marketingService.getAudienceEstimate(sid, query)
+  }
+
+  @Get('campaigns/:id/recipients')
+  async getCampaignRecipients(
+    @Param('id') id: string,
+    @Query('storeId') storeId: string,
+    @Req() req: AdminRequest,
+  ) {
+    const sid = await this.scopedStoreId(req, storeId)
+    return this.marketingService.getCampaignRecipients(id, sid)
   }
 
   @Get('campaigns/:id')

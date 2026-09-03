@@ -71,3 +71,83 @@ export type BdDistrict = (typeof BD_DISTRICTS)[number]
 export function isBdDistrict(value: string): value is BdDistrict {
   return (BD_DISTRICTS as readonly string[]).includes(value)
 }
+
+export interface BdDistrictInfo {
+  en: string
+  bn: string
+}
+
+/** All 64 districts with English key (for Admin/Courier/API) and Bengali label (for customer UI) */
+export const BD_DISTRICT_LIST: BdDistrictInfo[] = [
+  { en: 'Dhaka', bn: 'ঢাকা' },
+  { en: 'Gazipur', bn: 'গাজীপুর' },
+  { en: 'Narayanganj', bn: 'নারায়ণগঞ্জ' },
+  { en: 'Chattogram', bn: 'চট্টগ্রাম' },
+  { en: 'Sylhet', bn: 'সিলেট' },
+  { en: 'Rajshahi', bn: 'রাজশাহী' },
+  { en: 'Khulna', bn: 'খুলনা' },
+  { en: 'Barishal', bn: 'বরিশাল' },
+  { en: 'Rangpur', bn: 'রংপুর' },
+  { en: 'Mymensingh', bn: 'ময়মনসিংহ' },
+  { en: 'Bagerhat', bn: 'বাগেরহাট' },
+  { en: 'Bandarban', bn: 'বান্দরবান' },
+  { en: 'Barguna', bn: 'বরগুনা' },
+  { en: 'Bhola', bn: 'ভোলা' },
+  { en: 'Bogura', bn: 'বগুড়া' },
+  { en: 'Brahmanbaria', bn: 'ব্রাহ্মণবাড়িয়া' },
+  { en: 'Chandpur', bn: 'চাঁদপুর' },
+  { en: 'Chapai Nawabganj', bn: 'চাঁপাইনবাবগঞ্জ' },
+  { en: 'Chuadanga', bn: 'চুয়াডাঙ্গা' },
+  { en: "Cox's Bazar", bn: 'কক্সবাজার' },
+  { en: 'Cumilla', bn: 'কুমিল্লা' },
+  { en: 'Dinajpur', bn: 'দিনাজপুর' },
+  { en: 'Faridpur', bn: 'ফরিদপুর' },
+  { en: 'Feni', bn: 'ফেনী' },
+  { en: 'Gaibandha', bn: 'গাইবান্ধা' },
+  { en: 'Gopalganj', bn: 'গোপালগঞ্জ' },
+  { en: 'Habiganj', bn: 'হবিগঞ্জ' },
+  { en: 'Jamalpur', bn: 'জামালপুর' },
+  { en: 'Jashore', bn: 'যশোর' },
+  { en: 'Jhalokathi', bn: 'ঝালকাঠি' },
+  { en: 'Jhenaidah', bn: 'ঝিনাইদহ' },
+  { en: 'Joypurhat', bn: 'জয়পুরহাট' },
+  { en: 'Khagrachhari', bn: 'খাগড়াছড়ি' },
+  { en: 'Kishoreganj', bn: 'কিশোরগঞ্জ' },
+  { en: 'Kurigram', bn: 'কুড়িগ্রাম' },
+  { en: 'Kushtia', bn: 'কুষ্টিয়া' },
+  { en: 'Lakshmipur', bn: 'লক্ষ্মীপুর' },
+  { en: 'Lalmonirhat', bn: 'লালমনিরহাট' },
+  { en: 'Madaripur', bn: 'মাদারীপুর' },
+  { en: 'Magura', bn: 'মাগুরা' },
+  { en: 'Manikganj', bn: 'মানিকগঞ্জ' },
+  { en: 'Meherpur', bn: 'মেহেরপুর' },
+  { en: 'Moulvibazar', bn: 'মৌলভীবাজার' },
+  { en: 'Munshiganj', bn: 'মুন্সীগঞ্জ' },
+  { en: 'Naogaon', bn: 'নওগাঁ' },
+  { en: 'Narail', bn: 'নড়াইল' },
+  { en: 'Narsingdi', bn: 'নরসিংদী' },
+  { en: 'Natore', bn: 'নাটোর' },
+  { en: 'Netrokona', bn: 'নেত্রকোণা' },
+  { en: 'Nilphamari', bn: 'নীলফামারী' },
+  { en: 'Noakhali', bn: 'নোয়াখালী' },
+  { en: 'Pabna', bn: 'পাবনা' },
+  { en: 'Panchagarh', bn: 'পঞ্চগড়' },
+  { en: 'Patuakhali', bn: 'পটুয়াখালী' },
+  { en: 'Pirojpur', bn: 'পিরোজপুর' },
+  { en: 'Rajbari', bn: 'রাজবাড়ী' },
+  { en: 'Rangamati', bn: 'রাঙ্গামাটি' },
+  { en: 'Satkhira', bn: 'সাতক্ষীরা' },
+  { en: 'Shariatpur', bn: 'শরীয়তপুর' },
+  { en: 'Sherpur', bn: 'শেরপুর' },
+  { en: 'Sirajganj', bn: 'সিরাজগঞ্জ' },
+  { en: 'Sunamganj', bn: 'সুনামগঞ্জ' },
+  { en: 'Tangail', bn: 'টাঙ্গাইল' },
+  { en: 'Thakurgaon', bn: 'ঠাকুরগাঁও' },
+]
+
+export function getDistrictBanglaName(en: string): string {
+  const found = BD_DISTRICT_LIST.find(
+    (d) => d.en.toLowerCase() === en.toLowerCase() || d.bn === en,
+  )
+  return found ? found.bn : en
+}

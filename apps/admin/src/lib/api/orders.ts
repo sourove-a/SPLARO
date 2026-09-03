@@ -37,6 +37,9 @@ export interface ApiOrder {
   paymentStatus: string
   isCodRisk: boolean
   requireAdvancePayment?: boolean
+  trafficSource?: string | null
+  landingPage?: string | null
+  notes?: string | null
   createdAt: string
   updatedAt: string
   items: ApiOrderItem[]

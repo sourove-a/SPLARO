@@ -168,6 +168,7 @@ import { DatabaseConnectionService, SecurityController, SecurityService } from '
 import { McpController } from './modules/mcp/mcp.controller'
 import { McpTokenService } from './modules/mcp/mcp-token.service'
 import { WebhooksController, WebhooksService } from './modules/webhooks'
+import { FunnelController, FunnelService } from './modules/funnel'
 import { PrintController, PrintService } from './modules/print'
 import {
   AgentController,
@@ -330,6 +331,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     RealtimeController,
     PosController,
     FulfillmentController,
+    FunnelController,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AppThrottlerGuard },
@@ -348,6 +350,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     AdminSessionResolver,
     McpTokenService,
     MetaCapiService,
+    FunnelService,
     DashboardService,
     CommerceFinanceService,
     TelegramService,

@@ -59,6 +59,7 @@ const config: NextConfig = {
       { protocol: 'https', hostname: 'vumbnail.com' },
       { protocol: 'https', hostname: 'media.aarong.com', pathname: '/media/catalog/product/**' },
       { protocol: 'https', hostname: 'placehold.co' },
+      { protocol: 'https', hostname: '**.oraclecloud.com' },
       { protocol: 'http', hostname: 'localhost', port: '3000', pathname: '/uploads/**' },
     ],
   },

@@ -35,6 +35,10 @@ export const HANDOFF_SIDEBAR_GROUPS: ReadonlyArray<{ group: string; hrefs: reado
     hrefs: ['/dashboard/returns-rma'],
   },
   {
+    group: 'D2C Funnels',
+    hrefs: ['/dashboard/funnels', '/dashboard/funnels/orders'],
+  },
+  {
     group: 'Catalog',
     hrefs: [
       '/dashboard/product-reviews',

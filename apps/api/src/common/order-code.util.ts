@@ -26,23 +26,22 @@ function asFiniteNumber(value: unknown): number | null {
   return null
 }
 
-function orderSequenceKey(storeId: string): string {
-  return `order:${storeId}`
+function orderSequenceKey(_storeId: string): string {
+  return 'order:global'
 }
 
 /**
- * Highest SPL-#### for a store — O(1) Postgres MAX, not a full table pull.
+ * Highest SPL-#### across the platform — O(1) Postgres MAX, not a full table pull.
  * Used only to seed / catch up CodeSequence; the counter never decrements.
  */
-async function findHighestSplNumber(db: Db, storeId: string): Promise<number> {
+async function findHighestSplNumber(db: Db, _storeId: string): Promise<number> {
   try {
     const rows = await db.$queryRaw<Array<{ max: number | bigint | null }>>`
       SELECT MAX(
         CAST(NULLIF(regexp_replace("invoiceNumber", '[^0-9]', '', 'g'), '') AS INTEGER)
       ) AS max
       FROM "Order"
-      WHERE "storeId" = ${storeId}
-        AND "invoiceNumber" ILIKE 'SPL-%'
+      WHERE "invoiceNumber" ILIKE 'SPL-%'
     `
     const max = asFiniteNumber(rows[0]?.max)
     if (max !== null) return max
@@ -52,7 +51,6 @@ async function findHighestSplNumber(db: Db, storeId: string): Promise<number> {
 
   const recent = await db.order.findMany({
     where: {
-      storeId,
       invoiceNumber: { startsWith: 'SPL-', mode: 'insensitive' },
     },
     select: { invoiceNumber: true },
@@ -95,6 +93,53 @@ export async function generateOrderCode(db: Db, storeId: string): Promise<string
     throw new Error(`Order counter ${key} is missing`)
   }
   return formatSplOrderCode(Number(after - 1n))
+}
+
+/**
+ * Highest DROP-#### across funnel orders
+ */
+async function findHighestDropNumber(db: Db): Promise<number> {
+  try {
+    const rows = await db.$queryRaw<Array<{ max: number | bigint | null }>>`
+      SELECT MAX(
+        CAST(NULLIF(regexp_replace("invoiceNumber", '[^0-9]', '', 'g'), '') AS INTEGER)
+      ) AS max
+      FROM "Order"
+      WHERE "invoiceNumber" ILIKE 'DROP-%'
+    `
+    const max = asFiniteNumber(rows[0]?.max)
+    if (max !== null) return max
+  } catch {
+    // Transaction edge
+  }
+  return 1000
+}
+
+/**
+ * Next DROP-#### from a dedicated CodeSequence row (`order:funnel`).
+ */
+export async function generateFunnelOrderCode(db: Db, prefix = 'DROP'): Promise<string> {
+  const highest = await findHighestDropNumber(db)
+  const seed = BigInt(Math.max(1001, highest + 1))
+  const key = 'order:funnel'
+
+  await db.$executeRaw`
+    INSERT INTO "CodeSequence" ("key", "nextValue", "updatedAt")
+    VALUES (${key}, ${seed}, NOW())
+    ON CONFLICT ("key") DO NOTHING
+  `
+
+  const rows = await db.$queryRaw<{ nextValue: bigint }[]>`
+    UPDATE "CodeSequence"
+    SET "nextValue" = GREATEST("nextValue", ${seed}) + 1, "updatedAt" = NOW()
+    WHERE "key" = ${key}
+    RETURNING "nextValue"
+  `
+  const after = rows[0]?.nextValue
+  if (after === undefined) {
+    throw new Error(`Order counter ${key} is missing`)
+  }
+  return `${prefix}-${Number(after - 1n)}`
 }
 
 async function withTx(db: Db, work: (tx: Prisma.TransactionClient) => Promise<void>): Promise<void> {

@@ -105,7 +105,12 @@ export class OrdersController {
 
   /** Resolve an order by id/invoiceNumber, scoped to the caller's store — prevents cross-store IDOR. */
   private async ownedOrderId(idOrInvoice: string, req: AdminRequest): Promise<string> {
-    const storeId = req.adminUser?.storeId
+    const isGlobalAdmin =
+      req.adminUser?.role === 'OWNER' ||
+      req.adminUser?.role === 'SUPER_ADMIN' ||
+      !req.adminUser?.storeId ||
+      req.adminUser?.storeId === 'splaro'
+    const storeId = (!isGlobalAdmin && req.adminUser?.storeId)
       ? await resolveStoreId(this.prisma, req.adminUser.storeId)
       : undefined
     const order = await this.prisma.order.findFirst({
@@ -293,10 +298,15 @@ export class OrdersController {
 
   @Get(':id')
   async findOne(@Param('id') id: string, @Req() req: AdminRequest) {
+    const isGlobalAdmin =
+      req.adminUser?.role === 'OWNER' ||
+      req.adminUser?.role === 'SUPER_ADMIN' ||
+      !req.adminUser?.storeId ||
+      req.adminUser?.storeId === 'splaro'
     const order = await this.prisma.order.findFirst({
       where: {
         OR: [{ id }, { invoiceNumber: id }],
-        ...(req.adminUser?.storeId ? { storeId: req.adminUser.storeId } : {}),
+        ...(!isGlobalAdmin && req.adminUser?.storeId ? { storeId: req.adminUser.storeId } : {}),
       },
       include: {
         items: {
@@ -725,7 +735,12 @@ export class OrdersController {
     const requested = [...new Set(body.orderIds.map((id) => id.trim()).filter(Boolean))]
     if (requested.length === 0) throw new BadRequestException('No orders selected')
 
-    const storeId = req.adminUser?.storeId
+    const isGlobalAdmin =
+      req.adminUser?.role === 'OWNER' ||
+      req.adminUser?.role === 'SUPER_ADMIN' ||
+      !req.adminUser?.storeId ||
+      req.adminUser?.storeId === 'splaro'
+    const storeId = (!isGlobalAdmin && req.adminUser?.storeId)
       ? await resolveStoreId(this.prisma, req.adminUser.storeId)
       : undefined
     const found = await this.prisma.order.findMany({
@@ -822,7 +837,12 @@ export class OrdersController {
       },
     })
     if (!existing) throw new NotFoundException('Order not found')
-    if (req.adminUser?.storeId && existing.storeId !== req.adminUser.storeId) {
+    const isGlobalAdmin =
+      req.adminUser?.role === 'OWNER' ||
+      req.adminUser?.role === 'SUPER_ADMIN' ||
+      !req.adminUser?.storeId ||
+      req.adminUser?.storeId === 'splaro'
+    if (!isGlobalAdmin && req.adminUser?.storeId && existing.storeId !== req.adminUser.storeId) {
       throw new NotFoundException('Order not found')
     }
 

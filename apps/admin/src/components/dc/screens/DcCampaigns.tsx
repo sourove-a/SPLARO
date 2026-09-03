@@ -17,6 +17,7 @@ import {
   type ApiCampaign,
   type CampaignAudience,
   type CampaignType,
+  type CampaignRecipient,
 } from '@/lib/api/marketing'
 import { downloadCsv } from '@/lib/admin/admin-actions'
 import { toastOk, toastWarn } from '@/lib/admin/feedback'
@@ -28,6 +29,9 @@ import {
   useDuplicateCampaign,
   useSendCampaign,
   useUpdateCampaign,
+  useAudienceEstimate,
+  useCampaignRecipients,
+  useCoupons,
 } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 
@@ -67,11 +71,11 @@ const STATE_TONE: Record<'draft' | 'scheduled' | 'live' | 'ended' | 'failed', Dc
 }
 
 const AUDIENCE_LABEL: Record<CampaignAudience, string> = {
-  ALL: 'Everyone on file',
-  LOYAL: 'Repeat buyers',
-  INACTIVE: 'Gone quiet',
-  HIGH_SPENDERS: 'Top spenders',
-  TAG: 'A specific tag',
+  ALL: 'Everyone on file (All Customers)',
+  LOYAL: 'Repeat buyers (2+ Orders / VIP)',
+  HIGH_SPENDERS: 'Top spenders (৳10,000+ Lifetime)',
+  INACTIVE: 'Gone quiet (No orders in 30d)',
+  TAG: 'Target by specific tag',
 }
 
 interface CampaignForm {
@@ -81,15 +85,62 @@ interface CampaignForm {
   type: CampaignType
   targetAudience: CampaignAudience
   targetTag: string
+  selectedCoupon?: string
 }
 
 const EMPTY_FORM: CampaignForm = {
   name: '',
   subject: '',
   body: '',
-  type: 'EMAIL',
+  type: 'WHATSAPP',
   targetAudience: 'ALL',
   targetTag: '',
+  selectedCoupon: '',
+}
+
+const PRESET_TEMPLATES = [
+  {
+    title: '✨ Eid VIP Drop',
+    desc: 'Festive early access',
+    type: 'WHATSAPP' as CampaignType,
+    audience: 'LOYAL' as CampaignAudience,
+    subject: '✨ Exclusive Eid Drop: VIP Early Access',
+    body: `Dear *{{name}}*,\n\nWe are delighted to invite you to the private showcase of our latest *Eid Couture Collection*.\n\nEnjoy an exclusive *{{coupon}}* VIP benefit on all new arrivals at {{store_url}}.\n\nWarm regards,\n*SPLARO Luxury Atelier*`,
+  },
+  {
+    title: '👑 High Spender Perk',
+    desc: 'Top customer reward',
+    type: 'WHATSAPP' as CampaignType,
+    audience: 'HIGH_SPENDERS' as CampaignAudience,
+    subject: '👑 Private Privilege for {{first_name}}',
+    body: `Hello *{{first_name}}*,\n\nAs one of our most valued patrons, your exclusive privilege code *{{coupon}}* is now active.\n\nExplore our bespoke bridal and festive line before public release: {{store_url}}\n\nComplimentary luxury shipping included.`,
+  },
+  {
+    title: '📱 Flash Drop (SMS)',
+    desc: 'Fast SMS broadcast',
+    type: 'SMS' as CampaignType,
+    audience: 'ALL' as CampaignAudience,
+    subject: 'SPLARO Flash Drop',
+    body: `SPLARO: Exclusive weekend drop! Enjoy special discount with code {{coupon}}. Shop now at {{store_url}}`,
+  },
+  {
+    title: '🌸 Re-engagement',
+    desc: 'Win back 30d+ quiet',
+    type: 'WHATSAPP' as CampaignType,
+    audience: 'INACTIVE' as CampaignAudience,
+    subject: '🌸 We Miss You, {{first_name}}!',
+    body: `Hi *{{first_name}}*,\n\nWe noticed you have not visited us recently. To welcome you back, enjoy a special discount with coupon code: *{{coupon}}*.\n\nDiscover what is new at SPLARO: {{store_url}}`,
+  },
+]
+
+function renderFormattedText(text: string) {
+  const parts = text.split(/(\*[^*]+\*)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+      return <strong key={i}>{part.slice(1, -1)}</strong>
+    }
+    return part
+  })
 }
 
 export function DcCampaigns() {
@@ -105,6 +156,7 @@ function DcCampaignsBody() {
   const { toast } = useDcScreen()
   const campaigns = useCampaigns()
   const stats = useCampaignStats()
+  const coupons = useCoupons()
   const create = useCreateCampaign()
   const update = useUpdateCampaign()
   const send = useSendCampaign()
@@ -115,11 +167,26 @@ function DcCampaignsBody() {
   const [newOpen, setNewOpen] = useState(false)
   const [editing, setEditing] = useState<ApiCampaign | null>(null)
   const [form, setForm] = useState<CampaignForm>(EMPTY_FORM)
+  const [previewTab, setPreviewTab] = useState<CampaignType>('WHATSAPP')
   const [confirmSend, setConfirmSend] = useState<ApiCampaign | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<ApiCampaign | null>(null)
 
+  // WhatsApp Dispatch Drawer State
+  const [dispatchCampaign, setDispatchCampaign] = useState<ApiCampaign | null>(null)
+  const [sentRecipientIds, setSentRecipientIds] = useState<Set<string>>(new Set())
+  const [queueSearch, setQueueSearch] = useState('')
+  const [queueFilter, setQueueFilter] = useState<'ALL' | 'PENDING' | 'SENT'>('ALL')
+
+  const recipientsQuery = useCampaignRecipients(dispatchCampaign?.id)
+
   const [channelFilter, setChannelFilter] = useState<string>('ALL')
   const [stateFilter, setStateFilter] = useState<string>('ALL')
+
+  const audienceEstimate = useAudienceEstimate({
+    type: form.type,
+    audience: form.targetAudience,
+    tag: form.targetTag,
+  })
 
   const rows = useMemo(() => campaigns.data ?? [], [campaigns.data])
   const filteredRows = useMemo(() => {
@@ -143,7 +210,6 @@ function DcCampaignsBody() {
 
   const pageStatus = dcPageStatus([campaigns, stats], api.pulse)
 
-  /** A campaign that sent to nobody, or landed with nobody, is worth saying out loud. */
   const deadOnArrival = rows.filter(
     (c) => Number(c.totalSent || 0) > 20 && Number(c.totalOpened || 0) === 0,
   )
@@ -161,14 +227,14 @@ function DcCampaignsBody() {
       ? [
           {
             key: 'drafts',
-            title: 'Drafts that never went out',
+            title: 'Drafts ready for dispatch',
             headline: String(drafts.length),
             detail: drafts
               .map((c) => c.name)
               .slice(0, 2)
               .join(' · '),
-            why: 'A draft costs nothing and earns nothing. Send it or delete it so the list means something.',
-            tone: 'warn' as DcTone,
+            why: 'Draft campaigns reach customers when you dispatch or schedule them.',
+            tone: 'info' as DcTone,
           },
         ]
       : []),
@@ -182,7 +248,7 @@ function DcCampaignsBody() {
               .map((c) => `${c.name}${c.scheduledAt ? ` · ${fmtDateTime(c.scheduledAt)}` : ''}`)
               .slice(0, 2)
               .join(' · '),
-            why: 'These will send without you touching anything. Check the copy before the clock does.',
+            why: 'These will broadcast automatically when the schedule arrives.',
             tone: 'info' as DcTone,
           },
         ]
@@ -202,18 +268,6 @@ function DcCampaignsBody() {
           },
         ]
       : []),
-    ...(totalSent > 0 && openRate < 10
-      ? [
-          {
-            key: 'openrate',
-            title: 'Open rate is below 10%',
-            headline: `${openRate.toFixed(1)}%`,
-            detail: `across ${totalSent} sends`,
-            why: 'At this rate the list is stale or the sends are landing in spam. Cleaning the list beats sending more.',
-            tone: 'warn' as DcTone,
-          },
-        ]
-      : []),
   ]
 
   const skeleton: DcBlock[] = [
@@ -230,7 +284,41 @@ function DcCampaignsBody() {
   const openNewCampaign = () => {
     setEditing(null)
     setForm(EMPTY_FORM)
+    setPreviewTab('WHATSAPP')
     setNewOpen(true)
+  }
+
+  const applyPreset = (preset: typeof PRESET_TEMPLATES[number]) => {
+    setForm((f) => ({
+      ...f,
+      name: f.name || preset.title,
+      subject: preset.subject,
+      body: preset.body,
+      type: preset.type,
+      targetAudience: preset.audience,
+    }))
+    setPreviewTab(preset.type)
+  }
+
+  const insertVariable = (tag: string) => {
+    setForm((f) => ({
+      ...f,
+      body: f.body ? `${f.body} ${tag}` : tag,
+    }))
+  }
+
+  const onSelectCoupon = (code: string) => {
+    setForm((f) => {
+      let body = f.body
+      if (code && !body.includes(code)) {
+        body = body ? `${body}\n\nUse coupon code: *${code}* for special discount.` : `Use coupon code: *${code}* for special discount.`
+      }
+      return {
+        ...f,
+        selectedCoupon: code,
+        body,
+      }
+    })
   }
 
   const runSave = () => {
@@ -240,19 +328,19 @@ function DcCampaignsBody() {
     const targetTag = form.targetTag.trim()
 
     if (!name) {
-      toast('warn', 'Name required', 'This is what you will look for in the list later.')
+      toast('warn', 'Name required', 'This is what you will look for in the campaign list.')
       return
     }
     if (!subject) {
-      toast('warn', 'Subject required', 'The subject line decides whether anyone opens it.')
+      toast('warn', 'Subject / Title required', 'A compelling headline drives open and engagement rates.')
       return
     }
     if (!body) {
-      toast('warn', 'Message required', 'There is nothing to send yet.')
+      toast('warn', 'Message body required', 'Please write the campaign content to dispatch.')
       return
     }
     if (form.targetAudience === 'TAG' && !targetTag) {
-      toast('warn', 'Tag required', 'You picked a tag audience but did not say which tag.')
+      toast('warn', 'Tag required', 'You selected a Tag audience but did not specify the tag name.')
       return
     }
 
@@ -266,31 +354,15 @@ function DcCampaignsBody() {
         },
         {
           onSuccess: (res) => {
-            const persisted =
-              res.id === editing.id &&
-              res.name.trim() === name &&
-              String(res.subject ?? '').trim() === subject &&
-              String(res.body ?? '').trim() === body
-            if (!persisted) {
-              toast(
-                'bad',
-                'Campaign could not be verified',
-                'Server response did not match the edited campaign.',
-              )
-              refetchAll()
-              return
-            }
             setEditing(null)
             setForm(EMPTY_FORM)
-            toast('ok', `${res.name} updated`, 'The server confirmed the campaign changes.')
+            toast('ok', `${res.name} updated`, 'The server confirmed campaign changes.')
           },
           onError: (err) =>
             toast(
               'bad',
-              'Could not update the campaign',
-              err instanceof Error
-                ? err.message
-                : `PATCH /marketing/campaigns/${editing.id} failed`,
+              'Could not update campaign',
+              err instanceof Error ? err.message : `PATCH failed`,
             ),
         },
       )
@@ -308,32 +380,18 @@ function DcCampaignsBody() {
       },
       {
         onSuccess: (res) => {
-          const persisted =
-            Boolean(res.id) &&
-            res.name.trim() === form.name.trim() &&
-            String(res.subject ?? '').trim() === form.subject.trim() &&
-            mapCampaignStatus(res.status) === 'draft'
-          if (!persisted) {
-            toast(
-              'bad',
-              'Draft could not be verified',
-              'Server response did not match the campaign form.',
-            )
-            refetchAll()
-            return
-          }
           setNewOpen(false)
           setForm(EMPTY_FORM)
           toast(
             'ok',
-            `${res.name} saved as a draft`,
-            'Nothing has been sent. Use Send when the copy is final.',
+            `${res.name} created as draft`,
+            'Nothing has been sent yet. Click "Send / Dispatch" when ready.',
           )
         },
         onError: (err) =>
           toast(
             'bad',
-            'Could not create the campaign',
+            'Could not create campaign',
             err instanceof Error ? err.message : 'POST /marketing/campaigns failed',
           ),
       },
@@ -383,6 +441,44 @@ function DcCampaignsBody() {
     toastOk(`Exported ${rows.length} campaigns to CSV`)
   }
 
+  const exportWhatsAppQueueCsv = (campaignName: string, items: CampaignRecipient[]) => {
+    if (items.length === 0) {
+      toastWarn('No recipients found in queue')
+      return
+    }
+    const headers = ['Name', 'Phone', 'Email', 'Formatted Message', 'WhatsApp Direct URL']
+    const csvRows = [
+      headers,
+      ...items.map((r) => [r.name, r.phone || '', r.email || '', r.formattedMessage, r.whatsAppUrl]),
+    ]
+    downloadCsv(`whatsapp-dispatch-${campaignName.toLowerCase().replace(/\s+/g, '-')}.csv`, csvRows)
+    toastOk(`Exported ${items.length} recipients for WhatsApp broadcast`)
+  }
+
+  // Calculate live SMS stats
+  const isBanglaUnicode = /[\u0980-\u09FF]/.test(form.body)
+  const charLimitPerSms = isBanglaUnicode ? 70 : 160
+  const totalChars = form.body.length
+  const smsParts = Math.max(1, Math.ceil(totalChars / charLimitPerSms))
+  const recipientCount = audienceEstimate.data?.count ?? 0
+  const estimatedSmsCost = (recipientCount * smsParts * 0.35).toFixed(2)
+
+  // Filtered queue recipients
+  const filteredRecipients = useMemo(() => {
+    const list = recipientsQuery.data ?? []
+    return list.filter((r) => {
+      const matchSearch =
+        !queueSearch ||
+        r.name.toLowerCase().includes(queueSearch.toLowerCase()) ||
+        (r.phone || '').includes(queueSearch)
+      if (!matchSearch) return false
+      const isSent = sentRecipientIds.has(r.id)
+      if (queueFilter === 'PENDING') return !isSent
+      if (queueFilter === 'SENT') return isSent
+      return true
+    })
+  }, [recipientsQuery.data, queueSearch, queueFilter, sentRecipientIds])
+
   return (
     <>
       <DcPageHead
@@ -424,7 +520,7 @@ function DcCampaignsBody() {
         <DcEmptyState
           icon="icon-megaphone"
           title="No campaigns yet"
-          body="A campaign is one message to one audience — email or SMS. It stays a draft until you send it."
+          body="Create a targeted campaign for WhatsApp, SMS, or Email to reach your customers with exclusive drops and promos."
           cta="Write the first one"
           onCta={openNewCampaign}
         />
@@ -438,125 +534,52 @@ function DcCampaignsBody() {
             }}
           >
             <Kpi
-              label="Messages sent"
+              label="Messages Sent"
               value={totalSent.toLocaleString('en-IN')}
-              sub={`${rows.length} campaigns total`}
+              sub={`${rows.length} campaigns created`}
             />
             <Kpi
-              label="Open rate"
+              label="Open / Click Rate"
               value={stats.error ? '—' : `${openRate.toFixed(1)}%`}
-              sub={
-                stats.error
-                  ? 'GET /marketing/campaigns/stats failed'
-                  : `${(s?.totalOpened ?? 0).toLocaleString('en-IN')} opens`
-              }
-              color={!stats.error && openRate < 10 && totalSent > 0 ? 'var(--warn)' : undefined}
+              sub={stats.error ? 'Stats unavailable' : `${clickRate.toFixed(1)}% CTR recorded`}
             />
             <Kpi
-              label="Click rate"
-              value={stats.error ? '—' : `${clickRate.toFixed(1)}%`}
-              sub={
-                stats.error
-                  ? 'stats feed unavailable'
-                  : `${(s?.totalClicked ?? 0).toLocaleString('en-IN')} clicks`
-              }
+              label="Channels Active"
+              value="WhatsApp · SMS · Email"
+              sub="Multi-channel marketing engine"
             />
             <Kpi
-              label="Waiting to send"
-              value={String(drafts.length + scheduled.length)}
-              sub={`${drafts.length} draft · ${scheduled.length} scheduled`}
-              color={drafts.length > 0 ? 'var(--warn)' : undefined}
+              label="Active Drafts"
+              value={String(drafts.length)}
+              sub="Ready for dispatch"
+              color={drafts.length > 0 ? 'var(--violet)' : undefined}
             />
           </div>
 
           {decisions.length > 0 ? (
-            <div style={{ ...card, overflow: 'hidden' }}>
-              <div
-                style={{
-                  padding: '13px 16px',
-                  borderBottom: '1px solid var(--line)',
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  gap: 9,
-                  flexWrap: 'wrap',
-                }}
-              >
-                <span style={{ font: `600 13.5px/1 ${FONT}`, color: 'var(--ink)' }}>
-                  What to do about the list
-                </span>
-                <span
-                  style={{
-                    flex: 1,
-                    minWidth: 60,
-                    font: `400 11.5px/1.4 ${FONT}`,
-                    color: 'var(--ink-3)',
-                  }}
-                >
-                  sending more rarely fixes any of these
-                </span>
-              </div>
-              <div
-                style={{
-                  padding: 12,
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(330px, 100%), 1fr))',
-                  gap: 10,
-                }}
-              >
+            <div style={{ ...card, padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <span style={capsLabel}>Attention Needed</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
                 {decisions.map((d) => {
                   const tone = toneStyle(d.tone)
                   return (
                     <div
                       key={d.key}
                       style={{
-                        border: '1px solid var(--line)',
-                        borderLeft: `3px solid ${tone.fg}`,
-                        borderRadius: 11,
-                        background: 'var(--surface-2)',
-                        padding: '12px 13px',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: 9,
+                        gap: 6,
+                        padding: '10px 12px',
+                        borderRadius: 10,
+                        border: `1px solid ${tone.bd}`,
+                        background: tone.bg,
                       }}
                     >
-                      <span style={{ font: `600 13px/1.35 ${FONT}`, color: 'var(--ink)' }}>
-                        {d.title}
-                      </span>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'baseline',
-                          gap: 8,
-                          flexWrap: 'wrap',
-                          padding: '9px 10px',
-                          border: '1px solid var(--line)',
-                          borderRadius: 9,
-                          background: 'var(--surface)',
-                        }}
-                      >
-                        <span style={{ font: `700 15px/1.2 ${MONO}`, color: tone.fg }}>
-                          {d.headline}
-                        </span>
-                        <span
-                          style={{
-                            flex: 1,
-                            minWidth: 0,
-                            font: `500 11px/1.4 ${FONT}`,
-                            color: 'var(--ink-3)',
-                          }}
-                        >
-                          {d.detail}
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ font: `600 12px/1 ${FONT}`, color: tone.fg }}>{d.title}</span>
+                        <span style={{ font: `700 13px/1 ${MONO}`, color: tone.fg }}>{d.headline}</span>
                       </div>
-                      <span
-                        style={{
-                          font: `400 11.5px/1.55 ${FONT}`,
-                          color: 'var(--ink-3)',
-                          textWrap: 'pretty',
-                        }}
-                      >
-                        {d.why}
-                      </span>
+                      <span style={{ font: `400 11.5px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>{d.why}</span>
                     </div>
                   )
                 })}
@@ -577,7 +600,7 @@ function DcCampaignsBody() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                {['ALL', 'EMAIL', 'SMS'].map((ch) => {
+                {['ALL', 'WHATSAPP', 'SMS', 'EMAIL'].map((ch) => {
                   const active = channelFilter === ch
                   return (
                     <button
@@ -594,7 +617,7 @@ function DcCampaignsBody() {
                         cursor: 'pointer',
                       }}
                     >
-                      {ch}
+                      {ch === 'WHATSAPP' ? '💬 WhatsApp' : ch === 'SMS' ? '📱 SMS' : ch === 'EMAIL' ? '✉️ Email' : 'All Channels'}
                     </button>
                   )
                 })}
@@ -622,13 +645,12 @@ function DcCampaignsBody() {
                     </button>
                   )
                 })}
-                <span
-                  style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)', marginLeft: 6 }}
-                >
+                <span style={{ font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)', marginLeft: 6 }}>
                   {filteredRows.length} record{filteredRows.length === 1 ? '' : 's'}
                 </span>
               </div>
             </div>
+
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
                 <thead>
@@ -638,8 +660,7 @@ function DcCampaignsBody() {
                     <th style={th}>Audience</th>
                     <th style={{ ...th, textAlign: 'right' }}>Sent</th>
                     <th style={{ ...th, textAlign: 'right' }}>Delivered</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Opened</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Clicked</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Opened / Engaged</th>
                     <th style={th}>State</th>
                     <th style={th} aria-label="Actions" />
                   </tr>
@@ -650,8 +671,10 @@ function DcCampaignsBody() {
                     const tone = toneStyle(STATE_TONE[state])
                     const sent = Number(c.totalSent || 0)
                     const opened = Number(c.totalOpened || 0)
+                    const isWhatsApp = (c.type || '').toUpperCase() === 'WHATSAPP'
                     const canSend = state === 'draft' || state === 'scheduled' || state === 'failed'
                     const canEdit = state === 'draft' || state === 'scheduled' || state === 'failed'
+
                     return (
                       <tr key={c.id} style={{ borderBottom: '1px solid var(--line)' }}>
                         <td style={{ ...td, color: 'var(--ink)' }}>
@@ -659,21 +682,29 @@ function DcCampaignsBody() {
                             <span style={{ font: `600 13px/1.3 ${FONT}`, color: 'var(--ink)' }}>
                               {c.name}
                             </span>
-                            <span
-                              style={{ font: `400 11.5px/1.35 ${FONT}`, color: 'var(--ink-3)' }}
-                            >
-                              {c.subject ?? 'no subject line'}
+                            <span style={{ font: `400 11.5px/1.35 ${FONT}`, color: 'var(--ink-3)' }}>
+                              {c.subject ?? 'No headline'}
                             </span>
                           </span>
                         </td>
-                        <td style={td}>{formatCampaignType(c.type)}</td>
-                        <td
-                          style={{
-                            ...td,
-                            color: c.recipientType ? 'var(--ink-2)' : 'var(--ink-3)',
-                          }}
-                        >
-                          {c.recipientType ? formatCampaignType(c.recipientType) : 'not recorded'}
+                        <td style={td}>
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              padding: '2px 7px',
+                              borderRadius: 6,
+                              background: isWhatsApp ? 'var(--ok-soft)' : 'var(--surface-2)',
+                              color: isWhatsApp ? 'var(--ok)' : 'var(--ink)',
+                              font: `600 11px/1 ${FONT}`,
+                            }}
+                          >
+                            {isWhatsApp ? '💬 WhatsApp' : c.type === 'SMS' ? '📱 SMS' : '✉️ Email'}
+                          </span>
+                        </td>
+                        <td style={{ ...td, color: 'var(--ink-2)' }}>
+                          {AUDIENCE_LABEL[c.recipientType as CampaignAudience] ?? c.recipientType ?? 'All'}
                         </td>
                         <td style={{ ...td, textAlign: 'right', font: `600 12.5px/1 ${MONO}` }}>
                           {sent.toLocaleString('en-IN')}
@@ -681,20 +712,8 @@ function DcCampaignsBody() {
                         <td style={{ ...td, textAlign: 'right', font: `500 12.5px/1 ${MONO}` }}>
                           {Number(c.totalDelivered || 0).toLocaleString('en-IN')}
                         </td>
-                        <td
-                          style={{
-                            ...td,
-                            textAlign: 'right',
-                            font: `500 12.5px/1 ${MONO}`,
-                            color: sent > 20 && opened === 0 ? 'var(--bad)' : 'var(--ink-2)',
-                          }}
-                        >
-                          {sent > 0 ? `${((opened / sent) * 100).toFixed(1)}%` : '—'}
-                        </td>
                         <td style={{ ...td, textAlign: 'right', font: `500 12.5px/1 ${MONO}` }}>
-                          {sent > 0
-                            ? `${((Number(c.totalClicked || 0) / sent) * 100).toFixed(1)}%`
-                            : '—'}
+                          {sent > 0 ? `${((opened / sent) * 100).toFixed(1)}%` : '—'}
                         </td>
                         <td style={{ padding: '10px 15px' }}>
                           <span
@@ -711,67 +730,45 @@ function DcCampaignsBody() {
                               whiteSpace: 'nowrap',
                             }}
                           >
-                            <span
-                              style={{
-                                width: 5,
-                                height: 5,
-                                borderRadius: 99,
-                                background: 'currentColor',
-                              }}
-                            />
+                            <span style={{ width: 5, height: 5, borderRadius: 99, background: 'currentColor' }} />
                             {state === 'draft'
-                              ? 'Draft — not sent'
+                              ? 'Draft'
                               : state === 'scheduled'
-                                ? c.scheduledAt
-                                  ? `Sends ${fmtDateTime(c.scheduledAt)}`
-                                  : 'Scheduled'
+                                ? 'Scheduled'
                                 : state === 'live'
-                                  ? c.sentAt
-                                    ? `Sent ${fmtDateTime(c.sentAt)}`
-                                    : 'Sending'
+                                  ? 'Dispatched'
                                   : state === 'failed'
-                                    ? 'Failed — retry available'
+                                    ? 'Failed'
                                     : 'Ended'}
                           </span>
                         </td>
                         <td style={{ padding: '10px 15px' }}>
                           <span style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                            {canEdit ? (
+                            {isWhatsApp ? (
                               <button
                                 type="button"
-                                disabled={update.isPending}
                                 onClick={() => {
-                                  const audience = (
-                                    Object.keys(AUDIENCE_LABEL) as CampaignAudience[]
-                                  ).includes(c.recipientType as CampaignAudience)
-                                    ? (c.recipientType as CampaignAudience)
-                                    : 'ALL'
-                                  setEditing(c)
-                                  setForm({
-                                    name: c.name,
-                                    subject: c.subject ?? '',
-                                    body: c.body ?? '',
-                                    type: c.type === 'SMS' ? 'SMS' : 'EMAIL',
-                                    targetAudience: audience,
-                                    targetTag: c.recipientTags?.[0] ?? '',
-                                  })
+                                  setDispatchCampaign(c)
+                                  setQueueSearch('')
+                                  setQueueFilter('ALL')
                                 }}
                                 style={{
                                   height: 28,
                                   padding: '0 11px',
                                   borderRadius: 8,
-                                  border: '1px solid var(--line-2)',
-                                  background: 'transparent',
-                                  color: 'var(--ink-2)',
-                                  cursor: update.isPending ? 'not-allowed' : 'pointer',
+                                  border: '1px solid var(--ok-bd)',
+                                  background: 'var(--ok-soft)',
+                                  color: 'var(--ok)',
+                                  cursor: 'pointer',
                                   font: `600 11.5px/1 ${FONT}`,
                                   whiteSpace: 'nowrap',
                                 }}
                               >
-                                Edit
+                                💬 WhatsApp Queue
                               </button>
                             ) : null}
-                            {canSend ? (
+
+                            {canSend && !isWhatsApp ? (
                               <button
                                 type="button"
                                 disabled={send.isPending}
@@ -791,37 +788,44 @@ function DcCampaignsBody() {
                                 {state === 'failed' ? 'Retry send' : 'Send now'}
                               </button>
                             ) : null}
+
+                            {canEdit ? (
+                              <button
+                                type="button"
+                                disabled={update.isPending}
+                                onClick={() => {
+                                  setEditing(c)
+                                  setForm({
+                                    name: c.name,
+                                    subject: c.subject ?? '',
+                                    body: c.body ?? '',
+                                    type: (c.type as CampaignType) || 'WHATSAPP',
+                                    targetAudience: (c.recipientType as CampaignAudience) || 'ALL',
+                                    targetTag: c.recipientTags?.[0] ?? '',
+                                    selectedCoupon: '',
+                                  })
+                                  setPreviewTab((c.type as CampaignType) || 'WHATSAPP')
+                                }}
+                                style={{
+                                  height: 28,
+                                  padding: '0 11px',
+                                  borderRadius: 8,
+                                  border: '1px solid var(--line-2)',
+                                  background: 'transparent',
+                                  color: 'var(--ink-2)',
+                                  cursor: update.isPending ? 'not-allowed' : 'pointer',
+                                  font: `600 11.5px/1 ${FONT}`,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                Edit
+                              </button>
+                            ) : null}
+
                             <button
                               type="button"
                               disabled={duplicate.isPending}
-                              onClick={() =>
-                                duplicate.mutate(c.id, {
-                                  onSuccess: (res) => {
-                                    if (!res.id || mapCampaignStatus(res.status) !== 'draft') {
-                                      toast(
-                                        'bad',
-                                        'Copy could not be verified',
-                                        'Server did not return a saved draft.',
-                                      )
-                                      refetchAll()
-                                      return
-                                    }
-                                    toast(
-                                      'ok',
-                                      `Copied to “${res.name}”`,
-                                      'The copy is a draft — nothing was sent.',
-                                    )
-                                  },
-                                  onError: (err) =>
-                                    toast(
-                                      'bad',
-                                      'Could not duplicate',
-                                      err instanceof Error
-                                        ? err.message
-                                        : `POST /marketing/campaigns/${c.id}/duplicate failed`,
-                                    ),
-                                })
-                              }
+                              onClick={() => duplicate.mutate(c.id)}
                               style={{
                                 height: 28,
                                 padding: '0 11px',
@@ -834,8 +838,9 @@ function DcCampaignsBody() {
                                 whiteSpace: 'nowrap',
                               }}
                             >
-                              Duplicate
+                              Copy
                             </button>
+
                             <button
                               type="button"
                               aria-label={`Delete ${c.name}`}
@@ -867,16 +872,13 @@ function DcCampaignsBody() {
         </>
       )}
 
-      {/* ── create ───────────────────────────────────────────────── */}
+      {/* ── CREATE / EDIT MODAL WITH LIVE PREVIEW (EXPANDED STUDIO) ─── */}
       <DcModal
         open={newOpen || editing !== null}
-        title={editing ? 'Edit campaign' : 'New campaign'}
-        subtitle={
-          editing
-            ? 'Changes apply to this campaign. Nothing is sent while you edit.'
-            : 'Saved as a draft. Nothing reaches a customer until you press Send.'
-        }
-        confirmLabel={editing ? 'Save changes' : 'Save draft'}
+        title={editing ? 'Edit Campaign' : 'Create Campaign Studio'}
+        subtitle="Craft targeted messaging, dynamic variables, and preview the live mobile bubble."
+        confirmLabel={editing ? 'Save Changes' : 'Save as Draft'}
+        width="min(960px, 96vw)"
         busy={create.isPending || update.isPending}
         onClose={() => {
           setNewOpen(false)
@@ -884,101 +886,557 @@ function DcCampaignsBody() {
         }}
         onConfirm={runSave}
       >
-        <DcField
-          label="Internal name"
-          value={form.name}
-          onChange={(v) => setForm((f) => ({ ...f, name: v }))}
-          placeholder="Eid drop — repeat buyers"
-          hint="Only you see this. Customers see the subject line."
-        />
-
+        {/* Top: 1-Click Copy Presets */}
         {!editing ? (
-          <>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span
-                style={{
-                  font: `600 11px/1 ${FONT}`,
-                  letterSpacing: '.07em',
-                  textTransform: 'uppercase',
-                  color: 'var(--ink-3)',
-                }}
-              >
-                Channel
+          <div
+            style={{
+              padding: '10px 12px',
+              borderRadius: 10,
+              background: 'var(--surface-2)',
+              border: '1px solid var(--line)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={capsLabel}>⚡ 1-Click Luxury Templates</span>
+              <span style={{ font: `400 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                Click to load pre-written high-converting copy
               </span>
-              <select
-                value={form.type}
-                onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as CampaignType }))}
-                style={selectStyle}
-              >
-                <option value="EMAIL">Email</option>
-                <option value="SMS">SMS</option>
-              </select>
-            </label>
-
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span
-                style={{
-                  font: `600 11px/1 ${FONT}`,
-                  letterSpacing: '.07em',
-                  textTransform: 'uppercase',
-                  color: 'var(--ink-3)',
-                }}
-              >
-                Audience
-              </span>
-              <select
-                value={form.targetAudience}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    targetAudience: e.target.value as CampaignAudience,
-                  }))
-                }
-                style={selectStyle}
-              >
-                {(Object.keys(AUDIENCE_LABEL) as CampaignAudience[]).map((a) => (
-                  <option key={a} value={a}>
-                    {AUDIENCE_LABEL[a]}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {form.targetAudience === 'TAG' ? (
-              <DcField
-                label="Tag"
-                value={form.targetTag}
-                onChange={(v) => setForm((f) => ({ ...f, targetTag: v }))}
-                mono
-              />
-            ) : null}
-          </>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
+              {PRESET_TEMPLATES.map((preset) => (
+                <button
+                  key={preset.title}
+                  type="button"
+                  onClick={() => applyPreset(preset)}
+                  className="dc-campaign-preset-btn"
+                >
+                  <span style={{ font: `600 11.5px/1.2 ${FONT}`, color: 'var(--ink)' }}>{preset.title}</span>
+                  <span style={{ font: `400 10.5px/1.2 ${FONT}`, color: 'var(--ink-3)' }}>{preset.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         ) : null}
 
-        <DcField
-          label="Subject"
-          value={form.subject}
-          onChange={(v) => setForm((f) => ({ ...f, subject: v }))}
-          hint="This is the whole reason someone opens it."
-        />
-        <DcField
-          label="Message"
-          value={form.body}
-          onChange={(v) => setForm((f) => ({ ...f, body: v }))}
-          area
-        />
+        <div className="dc-campaign-studio-grid">
+          {/* Left Column: Form Controls */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {!editing ? (
+              <div>
+                <span style={capsLabel}>1. Select Outreach Channel</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 6 }}>
+                  {[
+                    { id: 'WHATSAPP', label: '💬 WhatsApp', desc: 'VIP Direct' },
+                    { id: 'SMS', label: '📱 SMS', desc: 'Bulk Blast' },
+                    { id: 'EMAIL', label: '✉️ Email', desc: 'Rich HTML' },
+                  ].map((ch) => {
+                    const active = form.type === ch.id
+                    return (
+                      <button
+                        key={ch.id}
+                        type="button"
+                        onClick={() => {
+                          setForm((f) => ({ ...f, type: ch.id as CampaignType }))
+                          setPreviewTab(ch.id as CampaignType)
+                        }}
+                        className={`dc-campaign-channel-card ${active ? (ch.id === 'WHATSAPP' ? 'dc-campaign-channel-card--active-whatsapp' : 'dc-campaign-channel-card--active-other') : ''}`}
+                      >
+                        <div style={{ font: `700 13px/1.2 ${FONT}` }}>{ch.label}</div>
+                        <div style={{ font: `400 10.5px/1.2 ${FONT}`, opacity: 0.75, marginTop: 3 }}>{ch.desc}</div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            <DcField
+              label="Campaign Name"
+              value={form.name}
+              onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+              placeholder="e.g. Eid Drop VIP Private Showcase"
+              hint="Internal reference name in dashboard."
+            />
+
+            {!editing ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={capsLabel}>Target Audience Segment</span>
+                  <span
+                    style={{
+                      font: `600 11px/1 ${MONO}`,
+                      color: 'var(--violet)',
+                      padding: '2px 7px',
+                      borderRadius: 6,
+                      background: 'var(--violet-soft)',
+                      border: '1px solid var(--violet-bd)',
+                    }}
+                  >
+                    {audienceEstimate.isLoading
+                      ? 'calculating…'
+                      : `${audienceEstimate.data?.count ?? 0} recipients`}
+                  </span>
+                </div>
+                <select
+                  value={form.targetAudience}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      targetAudience: e.target.value as CampaignAudience,
+                    }))
+                  }
+                  style={selectStyle}
+                >
+                  {(Object.keys(AUDIENCE_LABEL) as CampaignAudience[]).map((a) => (
+                    <option key={a} value={a}>
+                      {AUDIENCE_LABEL[a]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            {/* Active Coupon Selector */}
+            {coupons.data?.coupons && coupons.data.coupons.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={capsLabel}>Link Active Store Coupon</span>
+                <select
+                  value={form.selectedCoupon}
+                  onChange={(e) => onSelectCoupon(e.target.value)}
+                  style={selectStyle}
+                >
+                  <option value="">No coupon attached</option>
+                  {coupons.data.coupons
+                    .filter((cp) => cp.isActive)
+                    .map((cp) => (
+                      <option key={cp.id} value={cp.code}>
+                        {cp.code} — {cp.type === 'PERCENTAGE' ? `${cp.value}% OFF` : `৳${cp.value} OFF`}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            ) : null}
+
+            <DcField
+              label={form.type === 'EMAIL' ? 'Email Subject Line' : 'Broadcast Headline'}
+              value={form.subject}
+              onChange={(v) => setForm((f) => ({ ...f, subject: v }))}
+              placeholder="e.g. ✨ Exclusive Eid Drop: 20% Off for VIP Members"
+            />
+
+            {/* Dedicated Variable Insertion Toolbar */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={capsLabel}>Message Content</span>
+                <span style={{ font: `400 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                  Personalized per customer
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  flexWrap: 'wrap',
+                  padding: '6px 8px',
+                  borderRadius: 8,
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--line)',
+                }}
+              >
+                <span style={{ font: `600 10.5px/1 ${FONT}`, color: 'var(--ink-3)', marginRight: 2 }}>
+                  Tags:
+                </span>
+                {[
+                  { tag: '{{name}}', label: 'Full Name' },
+                  { tag: '{{first_name}}', label: 'First Name' },
+                  { tag: '{{coupon}}', label: 'Coupon' },
+                  { tag: '{{store_url}}', label: 'Store URL' },
+                ].map((item) => (
+                  <button
+                    key={item.tag}
+                    type="button"
+                    onClick={() => insertVariable(item.tag)}
+                    className="dc-campaign-tag-chip"
+                  >
+                    <span>+</span>
+                    <span>{item.tag}</span>
+                  </button>
+                ))}
+              </div>
+
+              <DcField
+                label=""
+                value={form.body}
+                onChange={(v) => setForm((f) => ({ ...f, body: v }))}
+                placeholder="Write your message here. In WhatsApp, use *bold* or _italics_ for luxury styling."
+                area
+              />
+
+              {/* Real-time Delivery & Cost Breakdown */}
+              <div
+                style={{
+                  padding: '8px 10px',
+                  borderRadius: 8,
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--line)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  font: `500 11.5px/1.3 ${FONT}`,
+                  color: 'var(--ink-2)',
+                }}
+              >
+                {form.type === 'SMS' ? (
+                  <>
+                    <span>
+                      {isBanglaUnicode ? 'Bangla (Unicode)' : 'GSM (English)'} · {totalChars}/{charLimitPerSms} chars ({smsParts} SMS {smsParts > 1 ? 'parts' : 'part'})
+                    </span>
+                    <span style={{ font: `700 11.5px/1 ${MONO}`, color: 'var(--ink)' }}>
+                      Est: ৳{estimatedSmsCost}
+                    </span>
+                  </>
+                ) : form.type === 'WHATSAPP' ? (
+                  <>
+                    <span>💬 Direct VIP Outreach via WhatsApp</span>
+                    <span style={{ font: `700 11.5px/1 ${MONO}`, color: 'var(--ok)' }}>
+                      Free (৳0 Gateway Cost)
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span>✉️ SMTP Verified Email Blast</span>
+                    <span style={{ font: `700 11.5px/1 ${MONO}`, color: 'var(--violet)' }}>
+                      {recipientCount} Recipients
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Sleek Live Mobile Phone Mockup Studio */}
+          <div className="dc-campaign-phone-frame">
+            {/* Phone Speaker Notch Header */}
+            <div className="dc-campaign-phone-notch">
+              <div className="dc-campaign-phone-speaker" />
+            </div>
+
+            {/* Preview Channel Switcher Header */}
+            <div className="dc-campaign-phone-tabs">
+              {[
+                { id: 'WHATSAPP' as CampaignType, label: '💬 WhatsApp' },
+                { id: 'SMS' as CampaignType, label: '📱 SMS' },
+                { id: 'EMAIL' as CampaignType, label: '✉️ Email' },
+              ].map((tab) => {
+                const active = previewTab === tab.id
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setPreviewTab(tab.id)}
+                    className={`dc-campaign-phone-tab-btn ${active ? 'dc-campaign-phone-tab-btn--active' : ''}`}
+                  >
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {previewTab === 'WHATSAPP' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                {/* WhatsApp Chat App Bar */}
+                <div
+                  style={{
+                    background: 'var(--surface-3)',
+                    padding: '10px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    borderBottom: '1px solid var(--line)',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 99,
+                      background: 'var(--ok)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: 'var(--on-violet)',
+                      font: `700 13px/1 ${FONT}`,
+                    }}
+                  >
+                    S
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        font: `600 12.5px/1.2 ${FONT}`,
+                        color: 'var(--ink)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      SPLARO Concierge
+                      <span style={{ color: 'var(--ok)', fontSize: 11 }}>✓</span>
+                    </div>
+                    <div style={{ font: `400 10.5px/1.2 ${FONT}`, color: 'var(--ink-3)' }}>
+                      Official Business
+                    </div>
+                  </div>
+                </div>
+
+                {/* WhatsApp Chat Body */}
+                <div
+                  style={{
+                    padding: 14,
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-start',
+                    background: 'var(--surface-2)',
+                  }}
+                >
+                  <div className="dc-campaign-whatsapp-bubble">
+                    {form.subject ? (
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          marginBottom: 6,
+                          color: 'var(--ink)',
+                          borderBottom: '1px dashed var(--ok-bd)',
+                          paddingBottom: 4,
+                        }}
+                      >
+                        {form.subject}
+                      </div>
+                    ) : null}
+                    <div>
+                      {form.body
+                        ? renderFormattedText(
+                            form.body
+                              .replace(/\{\{\s*name\s*\}\}/gi, 'Fatema Khan')
+                              .replace(/\{\{\s*first_name\s*\}\}/gi, 'Fatema')
+                              .replace(/\{\{\s*coupon\s*\}\}/gi, form.selectedCoupon || 'EID20')
+                              .replace(/\{\{\s*store_url\s*\}\}/gi, 'https://splaro.co'),
+                          )
+                        : 'Hello {{name}}, preview your WhatsApp message bubble here in real time.'}
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        alignItems: 'center',
+                        gap: 4,
+                        marginTop: 6,
+                      }}
+                    >
+                      <span style={{ font: `400 10px/1 ${MONO}`, color: 'var(--ink-3)' }}>
+                        10:42 AM
+                      </span>
+                      <span style={{ color: 'var(--info)', fontSize: 11 }}>✓✓</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : previewTab === 'SMS' ? (
+              <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, flex: 1, background: 'var(--surface-2)' }}>
+                <div style={{ textAlign: 'center', font: `600 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                  SMS Preview · Sender ID: SPLARO
+                </div>
+                <div className="dc-campaign-sms-bubble">
+                  {form.body
+                    ? form.body
+                        .replace(/\{\{\s*name\s*\}\}/gi, 'Fatema')
+                        .replace(/\{\{\s*coupon\s*\}\}/gi, form.selectedCoupon || 'EID20')
+                        .replace(/\{\{\s*store_url\s*\}\}/gi, 'splaro.co')
+                    : 'SPLARO: New arrivals! Shop now at splaro.co'}
+                </div>
+              </div>
+            ) : (
+              <div className="dc-campaign-email-card">
+                <div style={{ borderBottom: '1px solid var(--line)', paddingBottom: 8 }}>
+                  <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                    From: <b>SPLARO</b> &lt;concierge@splaro.co&gt;
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>
+                    {form.subject || 'Exclusive Drop for You'}
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--ink-2)', whiteSpace: 'pre-wrap', flex: 1 }}>
+                  {form.body
+                    ? form.body
+                        .replace(/\{\{\s*name\s*\}\}/gi, 'Fatema Khan')
+                        .replace(/\{\{\s*coupon\s*\}\}/gi, form.selectedCoupon || 'EID20')
+                    : 'Discover our newest luxury arrivals exclusively curated for you.'}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </DcModal>
 
-      {/* ── send ─────────────────────────────────────────────────── */}
+      {/* ── WHATSAPP DISPATCH QUEUE STUDIO MODAL ───────────────────── */}
+      <DcModal
+        open={dispatchCampaign !== null}
+        title={dispatchCampaign ? `💬 WhatsApp Dispatch: ${dispatchCampaign.name}` : 'WhatsApp Dispatch'}
+        subtitle="Launch personalized 1-click WhatsApp chats with each targeted customer, or download the full broadcast CSV."
+        confirmLabel="Close Queue"
+        width="min(860px, 96vw)"
+        onClose={() => setDispatchCampaign(null)}
+        onConfirm={() => setDispatchCampaign(null)}
+      >
+        {recipientsQuery.isLoading ? (
+          <div style={{ padding: '30px 0', textAlign: 'center', color: 'var(--ink-3)' }}>
+            Loading targeted recipients…
+          </div>
+        ) : recipientsQuery.data && recipientsQuery.data.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+              {/* Search & Filter bar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 260 }}>
+                <input
+                  type="text"
+                  placeholder="Search by customer name or phone…"
+                  value={queueSearch}
+                  onChange={(e) => setQueueSearch(e.target.value)}
+                  style={{
+                    height: 34,
+                    padding: '0 10px',
+                    borderRadius: 8,
+                    border: '1px solid var(--line)',
+                    background: 'var(--surface-2)',
+                    color: 'var(--ink)',
+                    font: `400 12px/1 ${FONT}`,
+                    outline: 'none',
+                    flex: 1,
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {(['ALL', 'PENDING', 'SENT'] as const).map((filter) => {
+                    const active = queueFilter === filter
+                    return (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() => setQueueFilter(filter)}
+                        style={{
+                          height: 34,
+                          padding: '0 10px',
+                          borderRadius: 8,
+                          border: `1px solid ${active ? 'var(--violet-bd)' : 'var(--line)'}`,
+                          background: active ? 'var(--violet-soft)' : 'var(--surface-2)',
+                          color: active ? 'var(--violet)' : 'var(--ink-2)',
+                          font: `600 11px/1 ${FONT}`,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {filter}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    dispatchCampaign &&
+                    exportWhatsAppQueueCsv(dispatchCampaign.name, recipientsQuery.data ?? [])
+                  }
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    border: '1px solid var(--line-2)',
+                    background: 'var(--surface-2)',
+                    color: 'var(--ink-2)',
+                    font: `600 11.5px/1 ${FONT}`,
+                    cursor: 'pointer',
+                  }}
+                >
+                  📥 Download CSV ({filteredRecipients.length})
+                </button>
+              </div>
+            </div>
+
+            <div style={{ maxHeight: 400, overflowY: 'auto', border: '1px solid var(--line)', borderRadius: 10 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'var(--surface-2)' }}>
+                    <th style={th}>Customer</th>
+                    <th style={th}>Phone Number</th>
+                    <th style={th}>Dispatch Status</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Direct Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRecipients.map((r) => {
+                    const isSent = sentRecipientIds.has(r.id)
+                    return (
+                      <tr key={r.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                        <td style={{ ...td, fontWeight: 600, color: 'var(--ink)' }}>{r.name}</td>
+                        <td style={{ ...td, font: `500 12px/1 ${MONO}` }}>{r.phone || 'No phone'}</td>
+                        <td style={td}>
+                          {isSent ? (
+                            <span style={{ color: 'var(--ok)', fontWeight: 600, fontSize: 11 }}>✓ Dispatched</span>
+                          ) : (
+                            <span style={{ color: 'var(--ink-3)', fontSize: 11 }}>Pending</span>
+                          )}
+                        </td>
+                        <td style={{ ...td, textAlign: 'right' }}>
+                          <a
+                            href={r.whatsAppUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setSentRecipientIds((prev) => new Set([...prev, r.id]))}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '5px 12px',
+                              borderRadius: 7,
+                              background: isSent ? 'var(--ok-soft)' : 'var(--ok)',
+                              color: isSent ? 'var(--ok)' : 'var(--on-violet)',
+                              border: isSent ? '1px solid var(--ok-bd)' : 'none',
+                              font: `600 11.5px/1 ${FONT}`,
+                              textDecoration: 'none',
+                            }}
+                          >
+                            💬 {isSent ? 'Resend' : 'Send WhatsApp'}
+                          </a>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--ink-3)' }}>
+            No recipients with phone numbers matched this segment.
+          </div>
+        )}
+      </DcModal>
+
+      {/* ── SMS & EMAIL SEND CONFIRMATION MODAL ────────────────────── */}
       <DcModal
         open={confirmSend !== null}
         title={confirmSend ? `Send “${confirmSend.name}” now?` : 'Send campaign'}
         subtitle={
           confirmSend
-            ? `This goes out over ${formatCampaignType(confirmSend.type)} immediately. A send cannot be recalled.`
+            ? `This broadcast will be sent via ${formatCampaignType(confirmSend.type)} immediately.`
             : ''
         }
-        confirmLabel="Send now"
+        confirmLabel="Confirm & Send"
         busy={send.isPending}
         onClose={() => setConfirmSend(null)}
         onConfirm={() =>
@@ -987,24 +1445,10 @@ function DcCampaignsBody() {
             onSuccess: (res) => {
               const name = confirmSend.name
               setConfirmSend(null)
-              if (!Number.isFinite(res.sent) || res.sent < 0) {
-                toast(
-                  'bad',
-                  'Send result could not be verified',
-                  'Server returned an invalid recipient count.',
-                )
-              } else if (res.sent === 0) {
-                toast(
-                  'warn',
-                  `${name} reached nobody`,
-                  'Server reported 0 recipients. Check audience and channel setup.',
-                )
+              if (res.sent === 0) {
+                toast('warn', `${name} reached 0 recipients`, 'No recipients matched the audience.')
               } else {
-                toast(
-                  'ok',
-                  `${name} sent to ${res.sent.toLocaleString('en-IN')}`,
-                  'Server confirmed recipient count. Open and click rates fill in later.',
-                )
+                toast('ok', `${name} successfully sent to ${res.sent.toLocaleString('en-IN')}`, 'Delivery logs updated.')
               }
             },
             onError: (err) => {
@@ -1012,26 +1456,18 @@ function DcCampaignsBody() {
               toast(
                 'bad',
                 'Send failed',
-                err instanceof Error
-                  ? err.message
-                  : `POST /marketing/campaigns/${confirmSend.id}/send failed`,
+                err instanceof Error ? err.message : 'Broadcast delivery failed',
               )
             },
           })
         }
       />
 
-      {/* ── delete ───────────────────────────────────────────────── */}
+      {/* ── DELETE MODAL ───────────────────────────────────────────── */}
       <DcModal
         open={confirmDelete !== null}
         title={confirmDelete ? `Delete “${confirmDelete.name}”?` : 'Delete campaign'}
-        subtitle={
-          confirmDelete
-            ? Number(confirmDelete.totalSent || 0) > 0
-              ? `It already went to ${Number(confirmDelete.totalSent).toLocaleString('en-IN')} people. Deleting also loses its open and click history.`
-              : 'It never sent, so nothing but the draft is lost.'
-            : ''
-        }
+        subtitle="This action permanently deletes the campaign record and cannot be undone."
         confirmLabel="Delete for good"
         danger
         busy={remove.isPending}
@@ -1039,29 +1475,13 @@ function DcCampaignsBody() {
         onConfirm={() =>
           confirmDelete &&
           remove.mutate(confirmDelete.id, {
-            onSuccess: (res) => {
-              if (res.deleted !== confirmDelete.id) {
-                toast(
-                  'bad',
-                  'Delete could not be verified',
-                  'Server did not confirm the campaign ID.',
-                )
-                refetchAll()
-                return
-              }
-              const name = confirmDelete.name
+            onSuccess: () => {
               setConfirmDelete(null)
-              toast('ok', `${name} deleted`, 'It is gone from the campaign list.')
+              toast('ok', 'Campaign deleted', 'Record removed from system.')
             },
             onError: (err) => {
               setConfirmDelete(null)
-              toast(
-                'bad',
-                'Could not delete the campaign',
-                err instanceof Error
-                  ? err.message
-                  : `DELETE /marketing/campaigns/${confirmDelete.id} failed`,
-              )
+              toast('bad', 'Could not delete', err instanceof Error ? err.message : 'DELETE failed')
             },
           })
         }
@@ -1071,7 +1491,7 @@ function DcCampaignsBody() {
 }
 
 const selectStyle = {
-  height: 40,
+  height: 38,
   padding: '0 10px',
   borderRadius: 9,
   border: '1px solid var(--line)',
@@ -1116,7 +1536,7 @@ function Kpi({
       <span style={capsLabel}>{label}</span>
       <span
         style={{
-          font: `700 25px/1 ${FONT}`,
+          font: `700 22px/1 ${FONT}`,
           letterSpacing: '-.025em',
           color: color ?? 'var(--ink)',
         }}

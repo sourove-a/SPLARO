@@ -1,6 +1,6 @@
 # SPLARO Agent Instructions
 
-Cursor agents: read this first, then apply skills `.cursor/skills/ultra-token-saver/SKILL.md` and `.cursor/skills/splaro-platform/SKILL.md`, then `AI_GUIDE.md` for design/module depth.
+Cursor agents: read this first, then apply skills `.cursor/skills/ultra-token-saver/SKILL.md`, `.cursor/skills/splaro-platform/SKILL.md`, and `.cursor/skills/d2c-funnel-engine/SKILL.md`, then `AI_GUIDE.md` for design/module depth.
 
 ---
 
@@ -66,6 +66,7 @@ curl http://127.0.0.1:4000/api/v1/health
 
 ## Owner preferences
 
+- **Deep Analysis Before Coding (Mandatory):** Never rush or make hasty ("হুটহাট") assumptions/edits. Always investigate the full lifecycle, dependencies, and root cause deeply to be 100% sure before touching code. Write clean, elegant, robust, and well-tested code calmly and methodically.
 - Language: **Bangla / Banglish / English** — match owner’s style.
 - **Honest feedback** — red for real errors; green only for verified success.
 - **Telegram** = primary mobile ops channel.

@@ -569,7 +569,28 @@ function DcOrdersBody() {
                           />
                         </td>
                         <td className="is-mono" style={{ fontWeight: 600 }}>
-                          {o.invoiceNumber}
+                          <div>{o.invoiceNumber}</div>
+                          {o.trafficSource === 'D2C_FUNNEL' && (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 3,
+                                padding: '1px 5px',
+                                borderRadius: 4,
+                                background: 'rgba(212, 175, 55, 0.15)',
+                                border: '1px solid rgba(212, 175, 55, 0.4)',
+                                color: 'var(--ink-1)',
+                                fontSize: 10,
+                                fontWeight: 700,
+                                marginTop: 3,
+                                whiteSpace: 'nowrap',
+                              }}
+                              title={`D2C Funnel: ${o.landingPage || 'Lifestyle Drop'}`}
+                            >
+                              ⚡ Funnel
+                            </span>
+                          )}
                         </td>
                         <td>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>

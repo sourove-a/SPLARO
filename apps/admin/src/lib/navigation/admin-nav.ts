@@ -89,6 +89,12 @@ export const adminNavGroups: AdminNavGroup[] = [
     ],
   },
   {
+    group: 'D2C Funnels',
+    items: [
+      item('Funnel Drops', 'funnels', 'Flame', 'Multi-domain standalone drops and landing pages', 'D2C'),
+    ],
+  },
+  {
     group: 'Catalog',
     items: [
       item('Products', 'products', 'Package', 'Catalog list and homepage Men / Women tiles'),

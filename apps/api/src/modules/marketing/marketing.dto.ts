@@ -1,6 +1,6 @@
 import { IsISO8601, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator'
 
-export const CAMPAIGN_TYPES = ['EMAIL', 'SMS'] as const
+export const CAMPAIGN_TYPES = ['EMAIL', 'SMS', 'WHATSAPP'] as const
 export type CampaignType = (typeof CAMPAIGN_TYPES)[number]
 
 export const CAMPAIGN_AUDIENCES = ['ALL', 'LOYAL', 'INACTIVE', 'HIGH_SPENDERS', 'TAG'] as const
@@ -63,4 +63,18 @@ export class UpdateCampaignDto {
   @MinLength(1)
   @MaxLength(100_000)
   body?: string
+}
+
+export class AudienceEstimateQueryDto {
+  @IsOptional()
+  @IsIn(CAMPAIGN_TYPES)
+  type?: CampaignType
+
+  @IsOptional()
+  @IsIn(CAMPAIGN_AUDIENCES)
+  audience?: CampaignAudience
+
+  @IsOptional()
+  @IsString()
+  tag?: string
 }

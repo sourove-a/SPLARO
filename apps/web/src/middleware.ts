@@ -158,6 +158,24 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(target, 301)
   }
 
+  // D2C Funnel Universe: Standalone wildcard subdomains (lifestyle.splaro.co, ls.splaro.co) or custom domains
+  const isFunnelHost =
+    Boolean(host) &&
+    host !== 'splaro.co' &&
+    host !== 'localhost' &&
+    host !== '127.0.0.1' &&
+    !host?.startsWith('192.168.') &&
+    !pathname.startsWith('/api') &&
+    !pathname.startsWith('/_next') &&
+    !pathname.startsWith('/funnel')
+
+  if (isFunnelHost && (pathname === '/' || pathname === '')) {
+    const rewrite = request.nextUrl.clone()
+    rewrite.pathname = '/funnel/drop'
+    rewrite.searchParams.set('host', host!)
+    return NextResponse.rewrite(rewrite)
+  }
+
   // Legacy chunk-recovery used ?_splaro=1 — strip so it never indexes / shares.
   if (request.nextUrl.searchParams.has('_splaro')) {
     const clean = publicRedirectUrl(request, request.nextUrl.pathname, '')

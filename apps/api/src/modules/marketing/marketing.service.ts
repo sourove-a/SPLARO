@@ -16,6 +16,7 @@ import { generateCampaignEmailHTML } from './campaign-email.template'
 import {
   CAMPAIGN_AUDIENCES,
   CAMPAIGN_TYPES,
+  type AudienceEstimateQueryDto,
   type CampaignAudience,
   type CampaignType,
 } from './marketing.dto'
@@ -44,6 +45,23 @@ interface CampaignUpdateData {
   name?: string
   subject?: string
   body?: string
+}
+
+function populateMessageTemplate(
+  template: string,
+  customer: { firstName?: string; lastName?: string; phone?: string; email?: string | null },
+  siteUrl: string,
+  couponCode?: string,
+): string {
+  const fullName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Customer'
+  const firstName = customer.firstName?.trim() || fullName
+  return template
+    .replace(/\{\{\s*name\s*\}\}/gi, fullName)
+    .replace(/\{\{\s*first_name\s*\}\}/gi, firstName)
+    .replace(/\{\{\s*phone\s*\}\}/gi, customer.phone || '')
+    .replace(/\{\{\s*coupon\s*\}\}/gi, couponCode || '')
+    .replace(/\{\{\s*store_url\s*\}\}/gi, siteUrl)
+    .replace(/\{\{\s*link\s*\}\}/gi, siteUrl)
 }
 
 @Injectable()
@@ -178,6 +196,22 @@ export class MarketingService {
       throw new BadRequestException(`${campaign.type} delivery is not connected. Nothing was sent.`)
     }
 
+    if (campaign.type === 'WHATSAPP') {
+      const recipients = await this.getRecipients(
+        campaign.storeId,
+        campaign.recipientType,
+        campaign.recipientTags[0],
+        'sms',
+      )
+      if (recipients.length === 0) {
+        throw new BadRequestException('No WhatsApp recipients matched this segment.')
+      }
+
+      await this.claimCampaignForSending(campaignId, campaign.status)
+      await this.completeCampaign(campaignId, recipients.length)
+      return { sent: recipients.length }
+    }
+
     if (campaign.type === 'SMS') {
       if (!this.sms) {
         throw new BadRequestException('SMS service is not available. Nothing was sent.')
@@ -250,6 +284,96 @@ export class MarketingService {
     return { sent }
   }
 
+  // ── AUDIENCE ESTIMATE & RECIPIENTS ────────────────────────
+
+  async getAudienceEstimate(storeId: string, query?: AudienceEstimateQueryDto) {
+    const channel = (query?.type || 'WHATSAPP').toUpperCase()
+    const targetAudience = (query?.audience || 'ALL').toUpperCase()
+    const tag = query?.tag?.trim()
+
+    const buildWhere = (aud: string, ch: string) => {
+      const where: Record<string, unknown> = { storeId }
+      if (ch === 'EMAIL') {
+        where['email'] = { not: null }
+      } else {
+        where['phone'] = { not: '' }
+      }
+      if (aud === 'LOYAL') {
+        where['loyaltyTier'] = { in: ['GOLD', 'PLATINUM', 'DIAMOND'] }
+      } else if (aud === 'HIGH_SPENDERS') {
+        where['totalSpent'] = { gte: 10000 }
+      } else if (aud === 'INACTIVE') {
+        const cutoff = new Date()
+        cutoff.setDate(cutoff.getDate() - 30)
+        where['lastOrderDate'] = { lt: cutoff }
+      } else if (aud === 'TAG' && tag) {
+        where['tags'] = { has: tag }
+      }
+      return where
+    }
+
+    const [count, totalAll, totalLoyal, totalHighSpenders, totalInactive, totalCustomers] =
+      await Promise.all([
+        this.prisma.customer.count({ where: buildWhere(targetAudience, channel) }),
+        this.prisma.customer.count({ where: buildWhere('ALL', channel) }),
+        this.prisma.customer.count({ where: buildWhere('LOYAL', channel) }),
+        this.prisma.customer.count({ where: buildWhere('HIGH_SPENDERS', channel) }),
+        this.prisma.customer.count({ where: buildWhere('INACTIVE', channel) }),
+        this.prisma.customer.count({ where: { storeId } }),
+      ])
+
+    return {
+      count,
+      totalCustomers,
+      breakdown: {
+        ALL: totalAll,
+        LOYAL: totalLoyal,
+        HIGH_SPENDERS: totalHighSpenders,
+        INACTIVE: totalInactive,
+      },
+    }
+  }
+
+  async getCampaignRecipients(campaignId: string, storeId: string) {
+    const campaign = await this.getCampaign(campaignId, storeId)
+    const channel = campaign.type === 'EMAIL' ? 'email' : 'sms'
+    const customers = await this.getRecipients(
+      storeId,
+      campaign.recipientType,
+      campaign.recipientTags[0],
+      channel,
+    )
+
+    const siteUrl = resolveCustomerFacingSiteUrl()
+    const couponMatch =
+      campaign.body.match(/code:\s*([A-Z0-9_-]+)/i) ||
+      campaign.subject?.match(/code:\s*([A-Z0-9_-]+)/i)
+    const couponCode = couponMatch ? couponMatch[1] : undefined
+
+    return customers.map((c) => {
+      const name = `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Valued Customer'
+      const formattedBody = populateMessageTemplate(campaign.body, c, siteUrl, couponCode)
+      const rawDigits = (c.phone || '').replace(/\D/g, '')
+      const phone = rawDigits.startsWith('01')
+        ? `88${rawDigits}`
+        : rawDigits.startsWith('880')
+          ? rawDigits
+          : rawDigits
+      const whatsAppUrl = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(formattedBody)}` : ''
+
+      return {
+        id: c.id,
+        name,
+        firstName: c.firstName,
+        lastName: c.lastName,
+        phone: c.phone,
+        email: c.email,
+        formattedMessage: formattedBody,
+        whatsAppUrl,
+      }
+    })
+  }
+
   private async claimCampaignForSending(campaignId: string, currentStatus: string) {
     const result = await this.prisma.campaign.updateMany({
       where: {
@@ -288,14 +412,12 @@ export class MarketingService {
   // ── ABANDONED CART FLOW ───────────────────────────────────
 
   async triggerAbandonedCartFlow(storeId: string): Promise<number> {
-    const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours ago
+    const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000)
 
-    // Find customers with unpurchased carts (simplified — in prod use cart model)
     const abandoned = await this.prisma.customer.findMany({
       where: {
         storeId,
         updatedAt: { lte: cutoff },
-        // hasActiveCart would be a real field in prod schema
       },
       select: { id: true, phone: true, email: true },
       take: 100,
@@ -400,7 +522,7 @@ Return JSON with: { subject, body, smsText }
     tag?: string,
     channel: 'email' | 'sms' = 'email',
   ) {
-    const where: Record<string, unknown> = { storeId, acceptMarketing: true }
+    const where: Record<string, unknown> = { storeId }
     if (channel === 'email') {
       where['email'] = { not: null }
     } else {

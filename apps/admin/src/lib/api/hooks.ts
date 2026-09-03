@@ -88,13 +88,18 @@ import { fetchAutomationRules } from './automation'
 import {
   fetchCampaigns,
   fetchCampaignStats,
+  fetchAudienceEstimate,
+  fetchCampaignRecipients,
   createCampaign,
   updateCampaign,
   deleteCampaign,
   duplicateCampaign,
   sendCampaign,
   type UpdateCampaignInput,
+  type CampaignType,
+  type CampaignAudience,
 } from './marketing'
+import { fetchCoupons } from './coupons'
 import { fetchCourierShipments, fetchCourierStats, fetchCourierProviders } from './courier'
 import {
   fetchInvoices,
@@ -1347,6 +1352,35 @@ export function useCampaignStats() {
     queryFn: fetchCampaignStats,
     staleTime: 60_000,
     retry: 1,
+  })
+}
+
+export function useAudienceEstimate(query: {
+  type?: CampaignType
+  audience?: CampaignAudience
+  tag?: string
+}) {
+  return useQuery({
+    queryKey: ['campaign-audience-estimate', query.type, query.audience, query.tag],
+    queryFn: () => fetchAudienceEstimate(query),
+    staleTime: 30_000,
+  })
+}
+
+export function useCampaignRecipients(campaignId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['campaign-recipients', campaignId],
+    queryFn: () => (campaignId ? fetchCampaignRecipients(campaignId) : Promise.resolve([])),
+    enabled: Boolean(campaignId),
+    staleTime: 30_000,
+  })
+}
+
+export function useCoupons() {
+  return useQuery({
+    queryKey: ['admin-coupons'],
+    queryFn: fetchCoupons,
+    staleTime: 30_000,
   })
 }
 

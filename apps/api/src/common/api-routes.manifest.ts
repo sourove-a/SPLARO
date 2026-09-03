@@ -161,6 +161,7 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     p('marketing-subscribers', 'Email & SMS Subscribers', 'Marketing', q('/marketing/subscribers') + '&limit=5'),
     p('hub-marketing', 'Marketing Overview', 'Marketing', q('/admin/hub/marketing/overview')),
     p('marketing-campaign-stats', 'Campaign Stats', 'Marketing', q('/marketing/campaigns/stats')),
+    p('marketing-audience-estimate', 'Audience Estimate', 'Marketing', q('/marketing/campaigns/audience-estimate')),
     p('marketing-push-subs', 'Push Subscribers', 'Marketing', q('/marketing/push/subscribers')),
 
     // ── Content (one probe per admin nav item) ────────────────────────────

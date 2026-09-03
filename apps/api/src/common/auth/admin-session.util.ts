@@ -68,6 +68,7 @@ export const PUBLIC_ROUTE_PREFIXES = [
   'mobile/auth',
   'webhooks/steadfast',
   'courier/steadfast-webhook',
+  'funnel',
 ] as const
 
 /** Storefront search/SEO paths that may be called without admin auth. */

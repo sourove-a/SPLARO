@@ -19,6 +19,14 @@ const FloatingSystem = dynamic(
 const AUTH_PATH_PREFIXES = ['/login', '/signup', '/forgot-password', '/reset-password', '/verify-email']
 const HEADER_ONLY_PATHS = ['/design/header']
 const CHROMELESS_PATHS = ['/maintenance']
+
+function isChromelessPath(pathname: string): boolean {
+  return (
+    CHROMELESS_PATHS.includes(pathname) ||
+    pathname === '/funnel' ||
+    pathname.startsWith('/funnel/')
+  )
+}
 /** Focused flows — earth footer intrudes on short utility pages. */
 const FOOTERLESS_PATHS = ['/cart', '/checkout', '/account']
 /** Checkout owns its chrome — no site header/menu/search competing with Place order. */
@@ -136,7 +144,7 @@ function StorefrontChromeInner({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const isAuth = isAuthPath(pathname)
   const isHeaderOnly = isHeaderOnlyPath(pathname)
-  const isChromeless = CHROMELESS_PATHS.includes(pathname)
+  const isChromeless = isChromelessPath(pathname)
   const hideFooter = isFooterlessPath(pathname)
   const selfMain = hasSelfMain(pathname)
 

@@ -75,6 +75,7 @@ export const ALIAS_REDIRECTS: Record<string, string> = {
   '/dashboard/audit-logs': '/dashboard/security-center',
   '/dashboard/system/telegram-logs': '/dashboard/telegram-bot',
   '/dashboard/system-health': '/dashboard/api-health',
+  '/dashboard/observability/disaster-recovery': '/dashboard/observability/center',
 
   // Hub child URLs → hub roots
   '/dashboard/production/fabric-inventory': '/dashboard/production/overview',

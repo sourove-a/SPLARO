@@ -27,6 +27,9 @@ const HEX_ALLOW_FILES = new Set([
   join(adminSrc, 'lib/admin/pos-receipt.ts').replace(/\\/g, '/'),
   // Variant barcode stickers — same standalone print document as receipts.
   join(adminSrc, 'lib/admin/variant-stickers.ts').replace(/\\/g, '/'),
+  // Funnel theme presets & color picker swatches — transmitted to storefront
+  // and used in HTML5 <input type="color"> which rejects CSS variables.
+  join(adminSrc, 'components/dc/screens/DcFunnelHub.tsx').replace(/\\/g, '/'),
 ])
 const HEX_RE = /#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/g
 
@@ -36,7 +39,8 @@ function isHexAllowed(file) {
     HEX_ALLOW_FILES.has(norm) ||
     norm.endsWith('lib/admin/colour-names.ts') ||
     norm.endsWith('lib/admin/pos-receipt.ts') ||
-    norm.endsWith('lib/admin/variant-stickers.ts')
+    norm.endsWith('lib/admin/variant-stickers.ts') ||
+    norm.endsWith('components/dc/screens/DcFunnelHub.tsx')
   )
 }
 
