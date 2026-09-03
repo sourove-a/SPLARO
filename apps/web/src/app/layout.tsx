@@ -131,7 +131,7 @@ export async function generateMetadata(): Promise<Metadata> {
       url: siteUrl,
       images: [
         {
-          url: `${siteUrl}/og-image.jpg`,
+          url: `${siteUrl}/og-cover.jpg`,
           width: 1200,
           height: 630,
           alt: title,
@@ -142,7 +142,7 @@ export async function generateMetadata(): Promise<Metadata> {
       card: 'summary_large_image',
       title,
       description,
-      images: [`${siteUrl}/og-image.jpg`],
+      images: [`${siteUrl}/og-cover.jpg`],
       creator: '@splaro_official',
     },
     icons: splaroMetadataIcons,
@@ -253,7 +253,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               alternateName: ['SPLARO Bangladesh', 'SPLARO Fashion'],
               url: siteUrl,
               logo: `${siteUrl}/images/logo/splaro-logo-black-premium.png`,
-              image: `${siteUrl}/og-image.jpg`,
+              image: `${siteUrl}/og-cover.jpg`,
               slogan: 'Modesty. Refined.',
               description: SPLARO_ORG_DESCRIPTION,
               foundingLocation: {
