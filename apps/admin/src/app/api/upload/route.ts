@@ -67,6 +67,18 @@ function isProductFolder(folder: string): boolean {
   return folder === 'products' || folder.startsWith('products-')
 }
 const PRODUCT_VARIANT_WIDTHS = [160, 480, 828, 1200, 1600] as const
+/** Above this an opaque PNG is a photograph, not a logo — see writeProcessedRaster. */
+const PNG_PHOTO_MIN_BYTES = 300 * 1024
+/*
+ * Measured on a detail-heavy 828px product photo against a lossless encode at
+ * the same width (RMSE, lower is closer):
+ *   webp q82 220KB / 4.98    webp q90 313KB / 3.94
+ *   avif q58 101KB / 5.89    avif q80 224KB / 3.52
+ * The storefront's <picture> offers AVIF first, so AVIF is held to the tighter
+ * of the two numbers — a slacker AVIF would be what most visitors actually see.
+ */
+const LIBRARY_WEBP_QUALITY = 90
+const LIBRARY_AVIF_QUALITY = 80
 const DISPLAY_WIDTH = 1200
 const QUALITY_WARN_BELOW = 1200
 
@@ -253,7 +265,24 @@ async function writeProcessedRaster(
 
   try {
     const sharp = await loadSharp()
-    const outExt = ext === 'png' ? 'png' : 'webp'
+    /*
+     * PNG stays PNG for logos and flat art — lossy WebP is at its worst on hard
+     * edges and a brand mark is made of them. A photograph someone exported as
+     * PNG is the opposite case: it has no transparency to protect and costs ten
+     * times its WebP, so that one is converted.
+     */
+    let outExt = ext === 'png' ? 'png' : 'webp'
+    if (ext === 'png' && options.optimize) {
+      try {
+        const [meta, srcStat] = await Promise.all([
+          sharp(srcPath, SHARP_READ).metadata(),
+          stat(srcPath),
+        ])
+        if (!meta.hasAlpha && srcStat.size > PNG_PHOTO_MIN_BYTES) outExt = 'webp'
+      } catch {
+        /* metadata unreadable — keep the conservative PNG path */
+      }
+    }
     const outFile = `${id}.${outExt}`
     const outPath = path.join(destDir, outFile)
 
@@ -271,9 +300,61 @@ async function writeProcessedRaster(
         { input: await watermarkOverlay(finalWidth), gravity: 'southeast', blend: 'over' },
       ])
     }
-    const encoded = outExt === 'png' ? pipe.png({ compressionLevel: 8 }) : pipe.webp({ quality: 82 })
+    const encoded = outExt === 'png' ? pipe.png({ compressionLevel: 8 }) : pipe.webp({ quality: LIBRARY_WEBP_QUALITY })
     await encoded.toFile(outPath)
     return { ext: outExt, file: outFile, watermarked: applyMark }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Sized WebP siblings for a library master: `<id>.w828.webp` and friends.
+ * Returns the file name the record should point at (the widest kept variant,
+ * capped at the display width), or null when nothing could be written.
+ */
+async function writeLibraryVariants(
+  masterPath: string,
+  destDir: string,
+  id: string,
+): Promise<string | null> {
+  try {
+    const sharp = await loadSharp()
+    const meta = await sharp(masterPath, SHARP_READ).metadata()
+    const sourceWidth = meta.width ?? 0
+    // Never upscale — a 900px master gets 160/480/828 and stops there.
+    const widths = PRODUCT_VARIANT_WIDTHS.filter((width) => width <= sourceWidth)
+    if (!widths.length) return null
+
+    for (const width of widths) {
+      const { sigma, m1, m2 } = sharpenForWidth(width)
+      // Sharpening compensates for the downscale; at full width there is no
+      // downscale to compensate for, so it would only add crunch.
+      const resized = () => {
+        const pipe = sharp(masterPath, SHARP_READ).resize(width, null, {
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        return width >= sourceWidth ? pipe : pipe.sharpen({ sigma, m1, m2 })
+      }
+
+      const webpPath = path.join(destDir, `${id}.w${width}.webp`)
+      await resized().webp({ quality: LIBRARY_WEBP_QUALITY }).toFile(webpPath)
+
+      // Both formats, always. The storefront renders <picture> with an AVIF
+      // source first, and a <source> that 404s does not fall back — it just
+      // leaves a broken image. AVIF is also what most visitors end up
+      // downloading, so it is never allowed to be the heavier of the two.
+      const avifPath = path.join(destDir, `${id}.w${width}.avif`)
+      const webpSize = (await stat(webpPath)).size
+      for (const quality of [LIBRARY_AVIF_QUALITY, 65, 50]) {
+        await resized().avif({ quality }).toFile(avifPath)
+        if ((await stat(avifPath)).size <= webpSize) break
+      }
+    }
+
+    const display = Math.min(DISPLAY_WIDTH, widths[widths.length - 1]!)
+    return `${id}.w${display}.webp`
   } catch {
     return null
   }
@@ -522,7 +603,14 @@ function readParams(source: URLSearchParams | FormData, declaredType: string): U
   const pipeline = value('pipeline')
   return {
     folder,
-    optimize: value('optimize') === '1',
+    /*
+     * Library uploads are optimised unless the caller opts out. This used to be
+     * opt-in and nothing opted in, so the media library stored camera-sized
+     * masters: the storefront was serving a 1.98MB PNG and a 490KB WebP into a
+     * 427px card. `optimize=0` still forces the raw file through for the cases
+     * that need the untouched pixels.
+     */
+    optimize: value('optimize') !== '0' && value('optimize') !== 'false',
     watermark: value('watermark') === '1' || value('watermark') === 'true',
     pipelineRequested: pipeline !== '0' && pipeline !== 'false',
     upscalePreviewId: value('upscalePreviewId').trim(),
@@ -697,7 +785,19 @@ export async function POST(request: Request) {
       await removeQuiet(outputFile)
       return NextResponse.json({ error: 'Upload cancelled' }, { status: 499 })
     }
-    const url = `/uploads/${folder}/${safeName}`
+    /*
+     * Library rasters get the same sized siblings the product pipeline writes,
+     * and the stored URL points at the display width rather than the master.
+     * That `.wN.` segment is what `pickProductUploadVariant` on the storefront
+     * keys off — without it a 1600px master was being sent into a 427px card.
+     * Failure here is not fatal: the master stays published on its own URL.
+     */
+    let publishedName = safeName
+    if (folder === 'media' && (ext === 'webp' || ext === 'jpg' || ext === 'jpeg')) {
+      const display = await writeLibraryVariants(outputFile, dir, id)
+      if (display) publishedName = display
+    }
+    const url = `/uploads/${folder}/${publishedName}`
     let width: number | null = null
     let height: number | null = null
     let outputSize = staged.size

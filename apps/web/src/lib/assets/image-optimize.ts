@@ -64,8 +64,15 @@ const PRODUCT_VARIANT_WIDTH: Record<ImageProfile, number> = {
   lightbox: 1600,
 }
 
+/*
+ * Sized variants live beside the master in whichever folder the upload landed
+ * in — `products`, the per-department `products-men` … folders, and `media`
+ * for library uploads. Matching only `products/` meant every variant the
+ * pipeline had already written for the other folders was ignored and the
+ * full-size master was served instead.
+ */
 const PRODUCT_VARIANT_RE =
-  /\/uploads\/products\/([^/]+)\.w(\d+)\.(webp|avif)(?:\?.*)?$/i
+  /\/uploads\/(products(?:-[a-z0-9-]+)?|media)\/([^/]+)\.w(\d+)\.(webp|avif)(?:\?.*)?$/i
 
 function productPipelinePathOnly(url: string): string {
   if (!url.startsWith('http')) return url
@@ -87,9 +94,10 @@ export function pickProductUploadVariant(
 ): string {
   const match = productPipelinePathOnly(url).match(PRODUCT_VARIANT_RE)
   if (!match) return url
-  const id = match[1]
+  const folder = match[1]
+  const id = match[2]
   const target = PRODUCT_VARIANT_WIDTH[profile] ?? 1200
-  return `/uploads/products/${id}.w${target}.${format}`
+  return `/uploads/${folder}/${id}.w${target}.${format}`
 }
 
 /** True when URL is a Phase-1 product pipeline variant (webp/avif sized file). */
