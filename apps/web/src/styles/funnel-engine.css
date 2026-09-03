@@ -183,6 +183,17 @@ body:has(.funnel-universe-root) {
   background-color: #000000 !important;
 }
 
+/*
+ * The storefront sets `overflow-x: hidden` on html/body, which is the same
+ * pannable scroll container one level up. Scope the clip to drop pages so the
+ * sideways drag has nowhere left to come from.
+ */
+html:has(.funnel-universe-root),
+body:has(.funnel-universe-root) {
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
 /* ─── MASTER CONTAINER ─────────────────────────────────────────────────── */
 .funnel-universe-root {
   background-color: var(--funnel-bg, #000000);
@@ -190,7 +201,18 @@ body:has(.funnel-universe-root) {
   min-height: 100vh;
   width: 100%;
   position: relative;
-  overflow-x: hidden;
+  /*
+   * `clip`, not `hidden`. The glow orbs are 480–550px wide and hang off both
+   * edges by design; on a 390px phone they reach ~200px past the viewport.
+   * `overflow-x: hidden` clips them visually but still makes this a scroll
+   * container — one with no visible scrollbar that iOS Safari will happily let
+   * a finger drag. Shoppers were swiping the whole drop sideways against a
+   * black gutter. `clip` refuses to be a scroll container at all, so there is
+   * nothing to pan. Deliberately not `touch-action: pan-y`: that would also
+   * kill pinch-zoom in the image lightbox.
+   */
+  overflow-x: clip;
+  overscroll-behavior-x: none;
   font-family: 'Hind Siliguri', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
