@@ -10,7 +10,7 @@ import { dcPageStatus } from '@/components/dc/page-status'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
-import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
 import { downloadCsv } from '@/lib/admin/admin-actions'
 import {
@@ -323,12 +323,12 @@ function DcAdminUsersBody() {
           >
             <Kpi
               label="Admin users"
-              value={String(rows.length)}
+              value={formatCount(rows.length)}
               sub={`${activeCount} active account${activeCount === 1 ? '' : 's'}`}
             />
             <Kpi
               label="Owners"
-              value={String(ownerCount)}
+              value={formatCount(ownerCount)}
               sub="Owner and Super Admin access"
             />
             <Kpi
@@ -339,7 +339,7 @@ function DcAdminUsersBody() {
             />
             <Kpi
               label="Active sessions"
-              value={String(security.data?.kpis.activeSessions ?? 0)}
+              value={formatCount(security.data?.kpis.activeSessions ?? 0)}
               sub="verified server sessions"
             />
           </div>

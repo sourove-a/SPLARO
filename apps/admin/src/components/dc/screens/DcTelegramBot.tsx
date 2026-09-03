@@ -8,7 +8,7 @@ import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
-import { FONT, MONO } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount } from '@/components/dc/tokens'
 import { DcTelegramSetupForm } from '@/components/dc/screens/DcTelegramSetupForm'
 import {
   confirmTelegramSettingsSaved,
@@ -363,23 +363,23 @@ function DcTelegramBotBody() {
           >
             <Kpi
               label="Messages · 24h"
-              value={String(kpis.messages)}
+              value={formatCount(kpis.messages)}
               sub={kpis.failed > 0 ? `${kpis.failed} failed` : 'all delivered'}
               color="var(--ok)"
             />
             <Kpi
               label="Subscribers"
-              value={String(kpis.linked + (kpis.ops ? 1 : 0))}
+              value={formatCount(kpis.linked + (kpis.ops ? 1 : 0))}
               sub={kpis.ops ? 'ops chat + linked admins' : 'linked admins only — no ops chat'}
             />
             <Kpi
               label="Login codes sent"
-              value={String(kpis.logins)}
+              value={formatCount(kpis.logins)}
               sub={kpis.loginFail === 0 ? 'all delivered · last 24h' : `${kpis.loginFail} failed · last 24h`}
             />
             <Kpi
               label="Failed sends"
-              value={String(kpis.failed)}
+              value={formatCount(kpis.failed)}
               sub={kpis.failed > 0 ? 'users who blocked the bot / API error' : 'none in last 24h'}
               color={kpis.failed > 0 ? 'var(--warn)' : 'var(--ink)'}
             />

@@ -11,7 +11,7 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import { DcField, DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
-import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, toneStyle, type DcTone } from '@/components/dc/tokens'
 import {
   fetchSheetsDashboard,
   retryFailedSheets,
@@ -639,13 +639,13 @@ function DcGoogleSheetsBody() {
             />
             <Kpi
               label="Last run succeeded"
-              value={String(stats?.completed ?? 0)}
+              value={formatCount(stats?.completed ?? 0)}
               sub="tabs whose last push landed"
               color="var(--ok)"
             />
             <Kpi
               label="Failed"
-              value={String(stats?.failed ?? failing.length)}
+              value={formatCount(stats?.failed ?? failing.length)}
               sub={
                 failing.length > 0
                   ? 'last push failed — use Retry or Sync everything'
@@ -655,7 +655,7 @@ function DcGoogleSheetsBody() {
             />
             <Kpi
               label="Never synced"
-              value={String(neverSynced.length)}
+              value={formatCount(neverSynced.length)}
               sub="set up but never pushed once"
               color={neverSynced.length > 0 ? 'var(--warn)' : undefined}
             />

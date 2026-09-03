@@ -10,7 +10,7 @@ import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import { DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
-import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { toastApiSaved, toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
 import { verifyPersisted, verifyStringEquals } from '@/lib/admin/mutation-verify'
 import { downloadCsv } from '@/lib/admin/admin-actions'
@@ -317,7 +317,7 @@ function DcWholesaleLeadsBody() {
           >
             <Kpi
               label="Waiting for a call"
-              value={String(newCount)}
+              value={formatCount(newCount)}
               sub={
                 oldestWaiting
                   ? `oldest waiting ${waitedLabel(oldestWaiting.createdAt)}`
@@ -327,7 +327,7 @@ function DcWholesaleLeadsBody() {
             />
             <Kpi
               label="Overdue follow-ups"
-              value={String(funnel?.overdueFollowUps ?? 0)}
+              value={formatCount(funnel?.overdueFollowUps ?? 0)}
               sub={
                 (funnel?.overdueFollowUps ?? 0) > 0
                   ? 'past their reminder date'
@@ -342,7 +342,7 @@ function DcWholesaleLeadsBody() {
             />
             <Kpi
               label="Won"
-              value={String(counts?.WON ?? 0)}
+              value={formatCount(counts?.WON ?? 0)}
               sub={
                 funnel?.winRate == null
                   ? `${counts?.QUALIFIED ?? 0} qualified · nothing decided yet`
@@ -350,7 +350,7 @@ function DcWholesaleLeadsBody() {
               }
               color={(counts?.WON ?? 0) > 0 ? 'var(--ok)' : 'var(--ink)'}
             />
-            <Kpi label="Export countries" value={String(exportCountries)} sub="outside Bangladesh" />
+            <Kpi label="Export countries" value={formatCount(exportCountries)} sub="outside Bangladesh" />
           </div>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
@@ -505,7 +505,7 @@ function DcWholesaleLeadsBody() {
                 label="Monthly quantity"
                 value={
                   open.monthlyUnits
-                    ? `${open.monthlyUnits.toLocaleString('en-US')} pcs/mo${
+                    ? `${formatCount(open.monthlyUnits)} pcs/mo${
                         open.monthlyQuantity ? ` · picked "${open.monthlyQuantity}"` : ''
                       }`
                     : open.monthlyQuantity!
@@ -796,7 +796,7 @@ function LeadCard({
             title={lead.monthlyQuantity ?? undefined}
             style={{ font: `600 12px/1 ${FONT}`, color: 'var(--ink-2)' }}
           >
-            {lead.monthlyUnits.toLocaleString('en-US')} pcs/mo
+            {formatCount(lead.monthlyUnits)} pcs/mo
           </span>
         ) : lead.monthlyQuantity ? (
           <span style={{ font: `400 12px/1 ${FONT}`, color: 'var(--ink-3)' }}>

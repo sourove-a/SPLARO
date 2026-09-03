@@ -11,7 +11,7 @@ import { DcScreenProvider, useDcScreen } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import { DcField, DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
-import { FONT, MONO, toneStyle } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, toneStyle } from '@/components/dc/tokens'
 import {
   confirmCollectionSaved,
   confirmCollectionToggled,
@@ -233,18 +233,18 @@ function DcCollectionsBody() {
           >
             <Kpi
               label="Collections"
-              value={String(rows.length)}
+              value={formatCount(rows.length)}
               sub={`${live.length} live on the storefront`}
             />
             <Kpi
               label="Drafts"
-              value={String(drafts.length)}
+              value={formatCount(drafts.length)}
               sub="hidden until published"
               color={drafts.length > 0 ? 'var(--warn)' : 'var(--ink)'}
             />
             <Kpi
               label="Products assigned"
-              value={String(assigned)}
+              value={formatCount(assigned)}
               sub={
                 products.isLoading
                   ? 'counting products in none…'
@@ -463,7 +463,7 @@ function CollectionCard({
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-        <Row label="Products" value={String(collection._count?.products ?? 0)} />
+        <Row label="Products" value={formatCount(collection._count?.products ?? 0)} />
         <Row label="Handle" value={`/${collection.slug}`} mono />
       </div>
 

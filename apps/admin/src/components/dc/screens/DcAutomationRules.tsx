@@ -11,7 +11,7 @@ import { DcModal } from '@/components/dc/DcModal'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
-import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
 import {
   createAutomationRule,
@@ -498,8 +498,8 @@ function AutomationKpis({
 }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(185px, 1fr))', gap: 12 }}>
-      <Kpi label="Rules active" value={String(active)} sub={`of ${total} defined`} tone="vio" />
-      <Kpi label="Total runs" value={String(runs)} sub="worker execution log" tone="info" />
+      <Kpi label="Rules active" value={formatCount(active)} sub={`of ${total} defined`} tone="vio" />
+      <Kpi label="Total runs" value={formatCount(runs)} sub="worker execution log" tone="info" />
       <Kpi
         label="Actions completed"
         value={actions == null ? '—' : String(actions)}

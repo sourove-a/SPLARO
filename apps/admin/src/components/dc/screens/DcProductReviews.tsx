@@ -11,7 +11,7 @@ import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import { DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
-import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { toastApiSaved, toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
 import { downloadCsv } from '@/lib/admin/admin-actions'
 import { verifyPersisted } from '@/lib/admin/mutation-verify'
@@ -247,7 +247,7 @@ function DcProductReviewsBody() {
           >
             <Kpi
               label="Awaiting moderation"
-              value={String(queue.length)}
+              value={formatCount(queue.length)}
               sub={
                 oldestWaiting
                   ? `oldest waiting ${daysAgo(oldestWaiting.createdAt)} day${daysAgo(oldestWaiting.createdAt) === 1 ? '' : 's'}`
@@ -257,7 +257,7 @@ function DcProductReviewsBody() {
             />
             <Kpi
               label="Published"
-              value={String(published.length)}
+              value={formatCount(published.length)}
               sub={`on ${productCount} product${productCount === 1 ? '' : 's'}`}
             />
             <Kpi
@@ -268,7 +268,7 @@ function DcProductReviewsBody() {
             />
             <Kpi
               label="Flagged"
-              value={String(flagged.length)}
+              value={formatCount(flagged.length)}
               sub="held back by moderation"
               color={flagged.length > 0 ? 'var(--bad)' : 'var(--ink)'}
             />

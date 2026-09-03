@@ -9,7 +9,7 @@ import { DcModal } from '@/components/dc/DcModal'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { dcPageStatus } from '@/components/dc/page-status'
-import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { toastFail, toastOk, toastWarn } from '@/lib/admin/feedback'
 import { useNotificationsOverview } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
@@ -424,11 +424,11 @@ function DcNotificationCenterBody() {
             gap: 12,
           }}
         >
-          <KpiTile label="Total Dispatches" value={String(summary?.total ?? 0)} sub="All recorded deliveries" />
-          <KpiTile label="Delivered / Sent" value={String(summary?.sent ?? 0)} sub={`${summary?.deliveredRate ?? 0}% success rate`} color="var(--ok)" />
-          <KpiTile label="Pending / Queue" value={String(summary?.pending ?? 0)} sub="Awaiting dispatch" color="var(--warn)" />
-          <KpiTile label="Failed" value={String(summary?.failed ?? 0)} sub="Requires investigation" color={(summary?.failed ?? 0) > 0 ? 'var(--bad)' : 'var(--ink)'} />
-          <KpiTile label="Critical Level" value={String(summary?.critical ?? 0)} sub="High priority alerts" color={(summary?.critical ?? 0) > 0 ? 'var(--bad)' : 'var(--ink)'} />
+          <KpiTile label="Total Dispatches" value={formatCount(summary?.total ?? 0)} sub="All recorded deliveries" />
+          <KpiTile label="Delivered / Sent" value={formatCount(summary?.sent ?? 0)} sub={`${summary?.deliveredRate ?? 0}% success rate`} color="var(--ok)" />
+          <KpiTile label="Pending / Queue" value={formatCount(summary?.pending ?? 0)} sub="Awaiting dispatch" color="var(--warn)" />
+          <KpiTile label="Failed" value={formatCount(summary?.failed ?? 0)} sub="Requires investigation" color={(summary?.failed ?? 0) > 0 ? 'var(--bad)' : 'var(--ink)'} />
+          <KpiTile label="Critical Level" value={formatCount(summary?.critical ?? 0)} sub="High priority alerts" color={(summary?.critical ?? 0) > 0 ? 'var(--bad)' : 'var(--ink)'} />
         </div>
 
         {/* ── LOGS & DISPATCH AUDIT TABLE ─────────────────────── */}

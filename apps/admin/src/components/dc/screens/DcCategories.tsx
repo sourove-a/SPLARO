@@ -13,7 +13,7 @@ import { DcField, DcModal } from '@/components/dc/DcModal'
 import { DcCard, DcCardHead } from '@/components/dc/primitives/DcCard'
 import { DcTable } from '@/components/dc/primitives/DcTable'
 import type { DcBlock } from '@/components/dc/blocks/types'
-import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, toneStyle, type DcTone } from '@/components/dc/tokens'
 import {
   confirmCategoriesReordered,
   confirmCategoryDeleted,
@@ -479,21 +479,21 @@ function DcCategoriesBody() {
                 tone="ok"
                 title="Products categorised"
                 sub="summed across every node"
-                value={String(totalProducts)}
+                value={formatCount(totalProducts)}
               />
               <Fact
                 icon="icon-eye-off"
                 tone={hidden > 0 ? 'warn' : 'mute'}
                 title="Hidden from browse"
                 sub="still reachable by direct link — hidden is not unpublished"
-                value={String(hidden)}
+                value={formatCount(hidden)}
               />
               <Fact
                 icon="icon-circle-alert"
                 tone={emptyCats > 0 ? 'warn' : 'mute'}
                 title="Empty categories"
                 sub="render as a dead end on the storefront"
-                value={String(emptyCats)}
+                value={formatCount(emptyCats)}
               />
             </DcCard>
           </div>

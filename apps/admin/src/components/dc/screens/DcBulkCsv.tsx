@@ -8,7 +8,7 @@ import { DcIcon } from '@/components/dc/DcIcon'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider, useDcScreen } from '@/components/dc/DcScreenContext'
 import { DcModal } from '@/components/dc/DcModal'
-import { FONT, MONO, toneStyle } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, toneStyle } from '@/components/dc/tokens'
 import {
   BULK_CSV_WORKSPACE_LABEL,
   formatCatalogBulkIntro,
@@ -945,32 +945,32 @@ function DcBulkCsvBody() {
               gap: 12,
             }}
           >
-            <Kpi label="Rows in file" value={String(rows.length)} sub={fileName || 'uploaded file'} />
+            <Kpi label="Rows in file" value={formatCount(rows.length)} sub={fileName || 'uploaded file'} />
             {catalogSummary ? (
               <>
                 <Kpi
                   label="Would create"
-                  value={String(catalogSummary.creates)}
+                  value={formatCount(catalogSummary.creates)}
                   sub="new products / variants"
                   color={catalogSummary.creates > 0 ? 'var(--ok)' : undefined}
                 />
                 <Kpi
                   label="Would update"
-                  value={String(catalogSummary.updates)}
+                  value={formatCount(catalogSummary.updates)}
                   sub="matched existing SKUs"
                 />
               </>
             ) : (
               <Kpi
                 label="Would write"
-                value={String(okRows.length)}
+                value={formatCount(okRows.length)}
                 sub="matched a SKU and passed validation"
                 color={okRows.length > 0 ? 'var(--ok)' : 'var(--bad)'}
               />
             )}
             <Kpi
               label="Rejected"
-              value={String(rejects.length)}
+              value={formatCount(rejects.length)}
               sub={rejects.length > 0 ? 'download rejects to fix' : 'nothing rejected'}
               color={rejects.length > 0 ? 'var(--warn)' : undefined}
             />

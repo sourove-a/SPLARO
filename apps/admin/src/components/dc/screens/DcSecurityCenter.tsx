@@ -10,7 +10,7 @@ import { DcModal } from '@/components/dc/DcModal'
 import { DcPageHead } from '@/components/dc/DcPageHead'
 import { dcPageStatus } from '@/components/dc/page-status'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
-import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { confirmSessionRevoked } from '@/lib/admin/security-save'
 import { downloadCsv } from '@/lib/admin/admin-actions'
 import { toastOk, toastWarn } from '@/lib/admin/feedback'
@@ -310,21 +310,21 @@ function SecurityKpis({
       <Kpi
         icon="icon-log-in"
         label="Logins · 24h"
-        value={String(logins)}
+        value={formatCount(logins)}
         sub={`${adminCount} admin account${adminCount === 1 ? '' : 's'}`}
         tone="info"
       />
       <Kpi
         icon="icon-shield-alert"
         label="Failed attempts"
-        value={String(failed)}
+        value={formatCount(failed)}
         sub={`Threat level · ${threatLabel(level)}`}
         tone={threatTone(level)}
       />
       <Kpi
         icon="icon-monitor-smartphone"
         label="Active sessions"
-        value={String(sessions)}
+        value={formatCount(sessions)}
         sub="Verified device sessions"
         tone="vio"
       />

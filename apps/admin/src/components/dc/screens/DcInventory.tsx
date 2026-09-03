@@ -9,7 +9,7 @@ import { dcPageStatus } from '@/components/dc/page-status'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
-import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { useInventoryAlerts, useProducts } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
@@ -307,7 +307,7 @@ function DcInventoryBody() {
             <Kpi label="Retail value" value={formatTaka(retailValue)} sub="at current list price" />
             <Kpi
               label="Out of stock"
-              value={String(out.length)}
+              value={formatCount(out.length)}
               sub={`${publishedOut.length} still published`}
               color={publishedOut.length > 0 ? 'var(--bad)' : 'var(--ink)'}
             />

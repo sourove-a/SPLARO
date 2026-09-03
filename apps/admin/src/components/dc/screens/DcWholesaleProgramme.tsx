@@ -10,7 +10,7 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import { DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
-import { FONT, toneStyle } from '@/components/dc/tokens'
+import { FONT, formatCount, toneStyle } from '@/components/dc/tokens'
 import { toastApiSaved, toastFail, toastWarn } from '@/lib/admin/feedback'
 import {
   createWholesaleTier,
@@ -262,7 +262,7 @@ function DcWholesaleProgrammeBody() {
                   </span>
                   <span style={{ font: `400 12px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
                     {tier.minUnits > 0
-                      ? `from ${tier.minUnits.toLocaleString('en-US')} pcs`
+                      ? `from ${formatCount(tier.minUnits)} pcs`
                       : 'no published minimum'}
                     {tier.leadTimeDays ? ` · ${tier.leadTimeDays} day lead time` : ''}
                     {tier._count?.inquiries

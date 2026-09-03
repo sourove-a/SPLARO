@@ -10,7 +10,7 @@ import { DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import { DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
-import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { toastApiSaved, toastFail, toastIntegrationTestResult, toastWarn } from '@/lib/admin/feedback'
 import { useMarketingOverview } from '@/lib/api/hooks'
 import {
@@ -638,7 +638,7 @@ function DcSmsCenterBody() {
               gap: 12,
             }}
           >
-            <Kpi label="Messages logged" value={String(logs.length)} sub="in the window the API returns" />
+            <Kpi label="Messages logged" value={formatCount(logs.length)} sub="in the window the API returns" />
             <Kpi
               label="Delivered"
               value={`${deliveryRate.toFixed(0)}%`}
@@ -647,7 +647,7 @@ function DcSmsCenterBody() {
             />
             <Kpi
               label="Failed"
-              value={String(failed.length)}
+              value={formatCount(failed.length)}
               sub={failed.length > 0 ? 'operator or provider rejected these' : 'nothing rejected'}
               color={failed.length > 0 ? 'var(--bad)' : undefined}
             />

@@ -8,7 +8,7 @@ import { DcPageHead } from '@/components/dc/DcPageHead'
 import { DcScreenProvider, useDcScreen } from '@/components/dc/DcScreenContext'
 import { DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
-import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, toneStyle, type DcTone } from '@/components/dc/tokens'
 import {
   healthSummary,
   runAllHealthChecks,
@@ -200,16 +200,16 @@ function DcApiHealthBody() {
               sub={`${summary.total} service${summary.total === 1 ? '' : 's'} checked`}
               color={overallTone.fg}
             />
-            <Kpi label="Healthy" value={String(summary.healthy)} sub="responding normally" color="var(--ok)" />
+            <Kpi label="Healthy" value={formatCount(summary.healthy)} sub="responding normally" color="var(--ok)" />
             <Kpi
               label="Degraded"
-              value={String(summary.degraded)}
+              value={formatCount(summary.degraded)}
               sub="slow or partially failing"
               color={summary.degraded > 0 ? 'var(--warn)' : 'var(--ink)'}
             />
             <Kpi
               label="Down"
-              value={String(summary.down)}
+              value={formatCount(summary.down)}
               sub={avgLatency != null ? `avg ${avgLatency}ms across probes` : 'no latency reading'}
               color={summary.down > 0 ? 'var(--bad)' : 'var(--ink)'}
             />

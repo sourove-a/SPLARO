@@ -14,7 +14,7 @@ import {
 
 import { DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
-import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { toastFail, toastOk } from '@/lib/admin/feedback'
 import { ApiError } from '@/lib/api/client'
 import { fetchGoogleOAuthUrl } from '@/lib/api/google-workspace'
@@ -596,7 +596,7 @@ function errorMessage(error: unknown, fallback: string): string {
 }
 
 function fmtInt(value: number) {
-  return new Intl.NumberFormat('en-US').format(Math.round(value))
+  return formatCount(value)
 }
 
 function fmtPct(value: number) {

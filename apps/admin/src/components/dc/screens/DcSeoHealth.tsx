@@ -11,7 +11,7 @@ import { dcPageStatus } from '@/components/dc/page-status'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { HubTabs } from '@/components/dc/screens/DcHubKit'
 import { DcSearchConsolePanel, type SeoGscTab } from '@/components/dc/screens/DcSearchConsolePanel'
-import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, toneStyle, type DcTone } from '@/components/dc/tokens'
 import { toastFail, toastOk } from '@/lib/admin/feedback'
 import { useAuditProductSeo, useFixMissingProductSeo, useSeoOverview } from '@/lib/api/hooks'
 import type { SeoOverview } from '@/lib/api/admin-hub'
@@ -293,10 +293,10 @@ function ScoreOverview({ data, needsMeta }: { data: SeoOverview; needsMeta: numb
           gap: 10,
         }}
       >
-        <Metric label="Products checked" value={String(data.summary.products)} sub="published catalog" tone="info" />
+        <Metric label="Products checked" value={formatCount(data.summary.products)} sub="published catalog" tone="info" />
         <Metric label="Index ready" value={`${indexReady}/${data.indexPages.length}`} sub="metadata complete" tone="ok" />
-        <Metric label="Missing meta" value={String(needsMeta)} sub="server-fixable" tone={needsMeta ? 'warn' : 'ok'} />
-        <Metric label="Schema errors" value={String(schemaErrors)} sub="structured data" tone={schemaErrors ? 'bad' : 'ok'} />
+        <Metric label="Missing meta" value={formatCount(needsMeta)} sub="server-fixable" tone={needsMeta ? 'warn' : 'ok'} />
+        <Metric label="Schema errors" value={formatCount(schemaErrors)} sub="structured data" tone={schemaErrors ? 'bad' : 'ok'} />
       </div>
     </section>
   )

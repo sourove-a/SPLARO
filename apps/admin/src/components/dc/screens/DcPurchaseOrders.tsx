@@ -10,7 +10,7 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import { DcField, DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
-import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
 import type { ProcurementOrder, ProcurementSupplier } from '@/lib/api/commerce-os'
 import type { SupplierMailResult } from '@/lib/api/admin-hub'
 import {
@@ -576,7 +576,7 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
               gap: 12,
             }}
           >
-            <Kpi label="Open POs" value={String(open.length)} sub="not yet fully received" />
+            <Kpi label="Open POs" value={formatCount(open.length)} sub="not yet fully received" />
             <Kpi
               label="Open value"
               value={formatTaka(openValue)}
@@ -590,7 +590,7 @@ function DcPurchaseOrdersBody({ title }: { title: string }) {
             />
             <Kpi
               label="Received"
-              value={String(received)}
+              value={formatCount(received)}
               sub={`${grns.length} GRN${grns.length === 1 ? '' : 's'} filed`}
               color="var(--ok)"
             />
