@@ -453,6 +453,14 @@ export default function FunnelDropPage() {
       return
     }
 
+    // Email is optional, so an empty box is fine — but a typo in a filled one
+    // has to say so, not stop the order with nothing on screen.
+    const typedEmail = customerEmail.trim()
+    if (typedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(typedEmail)) {
+      setErrorMessage('ইমেইল ঠিকানাটি সঠিক নয়। ঠিক করুন অথবা ঘরটি খালি রাখুন।')
+      return
+    }
+
     setSubmitting(true)
 
     try {
@@ -1249,7 +1257,15 @@ export default function FunnelDropPage() {
                 </div>
               )}
 
-              <form onSubmit={handleOrderSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* noValidate on purpose: the browser's own bubble is easy to miss
+                  on a phone — a half-typed email just made the button look
+                  dead. Every field is checked below with a message the shopper
+                  can actually read. */}
+              <form
+                noValidate
+                onSubmit={handleOrderSubmit}
+                style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+              >
                 {/* Quantity Package Selector */}
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 700, display: 'block', marginBottom: 8 }}>
@@ -1365,6 +1381,10 @@ export default function FunnelDropPage() {
                   </label>
                   <input
                     type="text"
+                    name="name"
+                    autoComplete="name"
+                    autoCapitalize="words"
+                    enterKeyHint="next"
                     required
                     placeholder="আপনার নাম লিখুন"
                     value={customerName}
@@ -1373,13 +1393,21 @@ export default function FunnelDropPage() {
                   />
                 </div>
 
-                {/* Customer Phone */}
+                {/* Customer Phone — inputMode numeric, not tel: a BD mobile is
+                    eleven digits and nothing else, so the phone pad's + and ( )
+                    are keys that can only produce a rejected number. */}
                 <div>
                   <label style={{ fontSize: 14, fontWeight: 800, color: '#ffffff', display: 'block', marginBottom: 6 }}>
                     মোবাইল নম্বর * (কুরিয়ারের জন্য আবশ্যক)
                   </label>
                   <input
                     type="tel"
+                    name="tel"
+                    autoComplete="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={14}
+                    enterKeyHint="next"
                     required
                     placeholder="01XXXXXXXXX"
                     value={customerPhone}
@@ -1395,11 +1423,17 @@ export default function FunnelDropPage() {
                   </label>
                   <input
                     type="email"
+                    name="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    enterKeyHint="next"
                     placeholder="আপনার ইমেইল দিন (যদি থাকে)"
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
                     className="funnel-input"
-                    autoComplete="email"
                   />
                 </div>
 
@@ -1410,6 +1444,8 @@ export default function FunnelDropPage() {
                   </label>
                   <div style={{ position: 'relative', width: '100%' }}>
                     <select
+                      name="address-level2"
+                      autoComplete="address-level2"
                       value={shippingDistrict}
                       onChange={(e) => setShippingDistrict(e.target.value)}
                       className="funnel-input funnel-select-district"
@@ -1430,6 +1466,9 @@ export default function FunnelDropPage() {
                     সম্পূর্ণ ডেলিভারি ঠিকানা *
                   </label>
                   <textarea
+                    name="street-address"
+                    autoComplete="street-address"
+                    enterKeyHint="done"
                     required
                     rows={2}
                     placeholder="বাসা নম্বর, রোড নম্বর, এলাকা বা থানার নাম লিখুন"
@@ -1621,27 +1660,10 @@ export default function FunnelDropPage() {
         target="_blank"
         rel="noopener noreferrer"
         title="WhatsApp-এ সরাসরি অর্ডার করুন"
-        style={{
-          position: 'fixed',
-          bottom: 84,
-          right: 20,
-          zIndex: 99,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '10px 18px 10px 14px',
-          borderRadius: 40,
-          background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
-          color: '#ffffff',
-          boxShadow: '0 8px 24px rgba(37, 211, 102, 0.45)',
-          textDecoration: 'none',
-          fontSize: 13,
-          fontWeight: 800,
-          transition: 'all 200ms cubic-bezier(0.16, 1, 0.3, 1)',
-        }}
+        aria-label="WhatsApp-এ সরাসরি অর্ডার করুন"
+        className="fd-whatsapp-fab"
       >
-        <WhatsAppIcon size={20} color="#ffffff" />
-        <span>WhatsApp-এ অর্ডার</span>
+        <WhatsAppIcon size={22} color="#ffffff" />
       </a>
 
       {/* Sticky Mobile Buy Bar */}

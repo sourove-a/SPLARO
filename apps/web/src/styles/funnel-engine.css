@@ -525,3 +525,99 @@ select.funnel-input:focus,
   z-index: 100;
   box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.85);
 }
+
+/* ─── ORDER SUMMARY ROWS ───────────────────────────────────────────────
+   These were flex rows with `justify-content: space-between`. With a long
+   Bengali product name on a 390px phone the label and the value simply ran
+   into each other — "অর্ডারকৃতবেবি মেয়েদের…" with no gap, and the total
+   line wrapping straight through its own amount. A grid gives the value a
+   real column that is allowed to wrap inside itself. */
+.fd-summary-row {
+  display: grid;
+  grid-template-columns: minmax(6rem, max-content) 1fr;
+  gap: 2px 14px;
+  align-items: start;
+}
+
+.fd-summary-row__label {
+  color: var(--funnel-text-muted);
+  font-weight: 600;
+}
+
+.fd-summary-row__value {
+  min-width: 0;
+  text-align: right;
+  /* A product code or an address with no spaces must break rather than push
+     the card wider than the screen. */
+  overflow-wrap: anywhere;
+}
+
+.fd-summary-row--total {
+  border-top: 1px solid var(--funnel-border);
+  padding-top: 10px;
+  margin-top: 2px;
+}
+
+.fd-summary-row--total .fd-summary-row__label {
+  color: var(--funnel-text-primary);
+  font-weight: 700;
+}
+
+/* Below ~420px two columns leave neither side enough room, so stack: the
+   label reads as a caption above its value instead of fighting it. */
+@media (max-width: 420px) {
+  .fd-summary-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .fd-summary-row__value {
+    text-align: left;
+  }
+}
+
+/* ─── WHATSAPP FAB ─────────────────────────────────────────────────────
+   Was a wide pill with a label, sitting over the product copy and the sticky
+   bar. A round icon button is the shape people already recognise for this,
+   and it stops covering what it is meant to sell. */
+.fd-whatsapp-fab {
+  position: fixed;
+  right: 16px;
+  /* Clears the sticky buy bar, plus the home indicator on iOS. */
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  z-index: 99;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+  color: #ffffff;
+  text-decoration: none;
+  box-shadow:
+    0 6px 18px rgba(37, 211, 102, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 260ms cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 260ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.fd-whatsapp-fab:active {
+  transform: scale(0.94);
+  box-shadow: 0 3px 10px rgba(37, 211, 102, 0.32);
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .fd-whatsapp-fab:hover {
+    transform: scale(1.05);
+    box-shadow: 0 10px 26px rgba(37, 211, 102, 0.5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-whatsapp-fab {
+    transition: none;
+  }
+}
