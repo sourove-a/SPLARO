@@ -19,6 +19,7 @@ import { DcMediaLibrary } from '@/components/dc/screens/DcMediaLibrary'
 import { DcOperationsHub } from '@/components/dc/screens/DcOperationsHub'
 import { DcPosCounter } from '@/components/dc/screens/DcPosCounter'
 import { DcProfitLoss } from '@/components/dc/screens/DcProfitLoss'
+import { DcFunnelHub } from '@/components/dc/screens/DcFunnelHub'
 import { DcPurchaseOrders } from '@/components/dc/screens/DcPurchaseOrders'
 import { DcReturnsRma } from '@/components/dc/screens/DcReturnsRma'
 import { DcSmsCenter } from '@/components/dc/screens/DcSmsCenter'
@@ -39,6 +40,9 @@ const SCREENS: Record<string, { label: string; render: () => React.ReactElement 
     render: () => <DcNotificationsPopover open onClose={() => undefined} />,
   },
   procurement: { label: 'Purchase Orders', render: () => <DcPurchaseOrders /> },
+  // Opens on the universe list; the '+ Launch New Universe' button in the
+  // page head switches it to the full-window editor.
+  funnel: { label: 'Funnel Universes', render: () => <DcFunnelHub /> },
   returns: { label: 'Returns / RMA', render: () => <DcReturnsRma /> },
   operations: { label: 'Operations Hub', render: () => <DcOperationsHub /> },
   wms: { label: 'Warehouse & Stock', render: () => <DcWarehouseStock /> },
@@ -228,6 +232,9 @@ function buildClient(state: string): QueryClient {
   })
   seed(['courier-stats'], fx.courierStats, { byStatus: [], byProvider: [], recentFailed: [] })
   seed(['payment-integrations'], fx.paymentIntegrations, { items: [] })
+  // Funnel hub: the universe list, plus the catalogue its editor picks from.
+  seed(['admin-funnels'], fx.funnelUniverses, [])
+  seed(['admin-products-picker'], fx.funnelProductPicker, [])
   seed(['notifications-overview'], fx.notificationsOverview, {
     logs: [],
     summary: { total: 0, sent: 0, failed: 0, pending: 0, critical: 0, deliveredRate: 0 },
