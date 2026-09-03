@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co').replace(/\/+$/, '')
-const DEFAULT_IMAGE = '/og-cover.jpg'
+const DEFAULT_IMAGE = '/og-cover-v2.jpg'
 
 interface RouteMetadataOptions {
   title: string

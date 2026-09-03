@@ -63,7 +63,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const rawImage = product.images[0]
   const absoluteImageUrl = rawImage
     ? (rawImage.startsWith('http') ? rawImage : `${siteUrl}${rawImage.startsWith('/') ? '' : '/'}${rawImage}`)
-    : `${siteUrl}/og-cover.jpg`
+    : `${siteUrl}/og-cover-v2.jpg`
   const ogImage = [{ url: absoluteImageUrl, alt: product.name }]
 
   return {

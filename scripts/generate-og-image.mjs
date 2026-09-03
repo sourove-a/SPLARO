@@ -19,7 +19,12 @@ const publicDir = path.join(root, 'apps/web/public')
 /** sharp lives in the web workspace, not the repo root. */
 const sharp = require(path.join(root, 'apps/web/node_modules/sharp'))
 
-const SOURCE_LOGO = path.join(publicDir, 'images/logo/splaro-brand-mark-transparent.png')
+/**
+ * The same logo the site header renders. The card used to be built from
+ * `splaro-brand-mark-transparent.png`, a flat earlier mark, so a shared link
+ * previewed a logo the live site had stopped using.
+ */
+const SOURCE_LOGO = path.join(publicDir, 'images/logo/splaro-logo-black-premium.png')
 const IVORY = { r: 250, g: 248, b: 245, alpha: 1 }
 
 const WIDTH = 1200
@@ -58,5 +63,15 @@ async function buildCard(outFile) {
   console.log(`wrote ${path.relative(root, outFile)} (logo ${width}x${height})`)
 }
 
+/*
+ * Three files on purpose.
+ *
+ * Facebook, WhatsApp and Messenger cache og:image by URL and will not refetch
+ * a URL they already hold, so the metadata points at a new name — `-v2` — to
+ * force a fresh scrape. The two older names are rewritten with the same card
+ * anyway, so any link already in the wild that still resolves to them shows
+ * the current logo instead of the retired one.
+ */
+await buildCard(path.join(publicDir, 'og-cover-v2.jpg'))
 await buildCard(path.join(publicDir, 'og-cover.jpg'))
 await buildCard(path.join(publicDir, 'og-image.jpg'))
