@@ -101,6 +101,9 @@
   --funnel-btn-bg: linear-gradient(135deg, #c8a97e 0%, #a8824b 100%);
   --funnel-btn-text: #0b0c0e;
   --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(200, 169, 126, 0.25) 0%, rgba(0, 0, 0, 0) 75%);
+  /* Champagne, not white — the glass edge should read as the same metal
+     as the accent, which is what the other themes do. */
+  --funnel-glass-highlight: rgba(200, 169, 126, 0.34);
 }
 
 /* ─── 3. MIDNIGHT EMERALD VORTEX (Laser Geometric Grid) ────────────────────── */
@@ -140,6 +143,7 @@
   --funnel-btn-bg: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
   --funnel-btn-text: #0f172a;
   --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(226, 232, 240, 0.18) 0%, rgba(0, 0, 0, 0) 75%);
+  --funnel-glass-highlight: rgba(226, 232, 240, 0.42);
 }
 
 /* ─── 5. WARM MEDITERRANEAN SAND (Tuscan Earth) ────────────────────────────── */
@@ -159,6 +163,7 @@
   --funnel-btn-bg: linear-gradient(135deg, #d49a6a 0%, #b57a46 100%);
   --funnel-btn-text: #14110f;
   --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(212, 154, 106, 0.22) 0%, rgba(0, 0, 0, 0) 75%);
+  --funnel-glass-highlight: rgba(212, 154, 106, 0.32);
 }
 
 /* ─── STANDALONE IMMERSION: HIDE MAIN STOREFRONT CHROME ON FUNNEL ────── */

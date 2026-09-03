@@ -8,6 +8,17 @@ import { BD_DISTRICT_LIST, getDistrictBanglaName } from '@/lib/checkout/bd-distr
 import { FunnelImageZoomModal } from '@/components/funnel/FunnelImageZoomModal'
 import '@/styles/funnel-engine.css'
 
+/**
+ * Merchant copy almost always ships with its own leading icon — the delivery
+ * line is stored as "⚡ ঢাকা সিটিতে…", the guarantee as "🛡️ ১০০%…". Rendering
+ * our own icon beside it printed the same symbol twice. Ask the string first.
+ */
+const LEADING_EMOJI_RE = /^\s*\p{Extended_Pictographic}/u
+
+function hasLeadingEmoji(text?: string | null): boolean {
+  return typeof text === 'string' && LEADING_EMOJI_RE.test(text)
+}
+
 declare global {
   interface Window {
     fbq?: (...args: unknown[]) => void
@@ -1047,7 +1058,11 @@ export default function FunnelDropPage() {
                 className="funnel-btn-luminous-inner"
                 style={{ textDecoration: 'none', textAlign: 'center' }}
               >
-                ⚡ {funnel.ctaText || 'অর্ডার করতে নিচে যান'}
+                {/* Deliberately not funnel.ctaText: that is the submit button's
+                    label ("অর্ডার কনফার্ম করুন…"), and printing it here gave the
+                    page two identical buttons doing different things — this one
+                    only scrolls to the form. */}
+                ⚡ অর্ডার করতে নিচে যান
               </a>
             </div>
           </div>
@@ -1494,7 +1509,9 @@ export default function FunnelDropPage() {
                     color: 'var(--funnel-text-muted)',
                   }}
                 >
-                  <span style={{ fontSize: 16 }}>⚡</span>
+                  {!hasLeadingEmoji(funnel.deliveryTimelineText) && (
+                    <span style={{ fontSize: 16 }}>⚡</span>
+                  )}
                   <span>{funnel.deliveryTimelineText || 'ঢাকা সিটিতে ২৪-৪৮ ঘণ্টা, ঢাকার বাইরে ২-৩ দিনে নিশ্চিত হোম ডেলিভারি'}</span>
                 </div>
 
@@ -1605,7 +1622,7 @@ export default function FunnelDropPage() {
                       gap: 6,
                     }}
                   >
-                    <span>🛡️</span>
+                    {!hasLeadingEmoji(funnel.guaranteeBadge) && <span>🛡️</span>}
                     <span>{funnel.guaranteeBadge}</span>
                   </div>
                 )}
