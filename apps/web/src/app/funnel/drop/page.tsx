@@ -1,12 +1,41 @@
 'use client'
 
-import { useState, useEffect, useMemo, useId } from 'react'
+import { useState, useEffect, useMemo, useId, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import Script from 'next/script'
 import { BD_DISTRICT_LIST, getDistrictBanglaName } from '@/lib/checkout/bd-districts'
 import { FunnelImageZoomModal } from '@/components/funnel/FunnelImageZoomModal'
 import '@/styles/funnel-engine.css'
+
+/** The checkout boxes a validation message can point at. */
+type CheckoutField = 'name' | 'phone' | 'email' | 'address'
+
+/**
+ * The validation message repeated under the box it belongs to. The banner at
+ * the top of the card still carries it, but that banner is off-screen for a
+ * shopper who has scrolled down to the order button.
+ */
+function FieldError({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <p
+      id={id}
+      role="alert"
+      style={{
+        margin: '6px 0 0',
+        fontSize: 13,
+        fontWeight: 700,
+        color: '#f87171',
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 6,
+      }}
+    >
+      <span aria-hidden="true">⚠️</span>
+      <span>{children}</span>
+    </p>
+  )
+}
 
 /**
  * Merchant copy almost always ships with its own leading icon — the delivery
@@ -208,6 +237,12 @@ export default function FunnelDropPage() {
     address: string
   } | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
+  /** Which box the message is about, so the page can take the shopper to it. */
+  const [errorField, setErrorField] = useState<CheckoutField | null>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
+  const phoneRef = useRef<HTMLInputElement>(null)
+  const emailRef = useRef<HTMLInputElement>(null)
+  const addressRef = useRef<HTMLTextAreaElement>(null)
 
   // Unique Idempotency Key
   const idempotencyId = useId()
@@ -522,23 +557,65 @@ export default function FunnelDropPage() {
     )
   }
 
+  /**
+   * Reject the submit and take the shopper to the box that is wrong.
+   *
+   * The form is `noValidate`, so the browser moves nothing on its own, and the
+   * message renders above a form taller than a phone screen — someone who
+   * pressed the button at the bottom never saw why nothing happened. The name
+   * box sits ~880px above that button, so it has to be brought to them.
+   *
+   * Focus first with `preventScroll`, then scroll: focusing puts the caret and
+   * the phone keyboard on the box being fixed without yanking the page, and the
+   * scroll that follows decides where it lands.
+   *
+   * The scroll is deliberately not smooth. Nothing animates on this page —
+   * `scrollIntoView({ behavior: 'smooth' })` and `window.scrollTo({ behavior:
+   * 'smooth' })` both leave the page where it was, while the same call without
+   * `behavior` moves it — so a smooth request here would silently do nothing.
+   */
+  const failValidation = (field: CheckoutField, message: string) => {
+    setErrorMessage(message)
+    setErrorField(field)
+    const target =
+      field === 'name'
+        ? nameRef.current
+        : field === 'phone'
+          ? phoneRef.current
+          : field === 'email'
+            ? emailRef.current
+            : addressRef.current
+    if (target) {
+      target.focus({ preventScroll: true })
+      target.scrollIntoView({ block: 'center' })
+    }
+  }
+
+  /** Drop the message as soon as the shopper starts fixing that box. */
+  const clearFieldError = (field: CheckoutField) => {
+    if (errorField !== field) return
+    setErrorField(null)
+    setErrorMessage('')
+  }
+
   const handleOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMessage('')
+    setErrorField(null)
 
     if (!customerName.trim()) {
-      setErrorMessage('অনুগ্রহ করে আপনার নাম লিখুন।')
+      failValidation('name', 'অনুগ্রহ করে আপনার নাম লিখুন।')
       return
     }
 
     const cleanPhone = customerPhone.replace(/\D/g, '')
     if (cleanPhone.length < 11 || (!cleanPhone.startsWith('01') && !cleanPhone.startsWith('8801'))) {
-      setErrorMessage('সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন (যেমন: 01XXXXXXXXX)।')
+      failValidation('phone', 'সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন (যেমন: 01XXXXXXXXX)।')
       return
     }
 
     if (!shippingAddress.trim() || shippingAddress.length < 5) {
-      setErrorMessage('আপনার ডেলিভারি ঠিকানা বিস্তারিত লিখুন (বাসা/রোড/এলাকা)।')
+      failValidation('address', 'আপনার ডেলিভারি ঠিকানা বিস্তারিত লিখুন (বাসা/রোড/এলাকা)।')
       return
     }
 
@@ -546,7 +623,7 @@ export default function FunnelDropPage() {
     // has to say so, not stop the order with nothing on screen.
     const typedEmail = customerEmail.trim()
     if (typedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(typedEmail)) {
-      setErrorMessage('ইমেইল ঠিকানাটি সঠিক নয়। ঠিক করুন অথবা ঘরটি খালি রাখুন।')
+      failValidation('email', 'ইমেইল ঠিকানাটি সঠিক নয়। ঠিক করুন অথবা ঘরটি খালি রাখুন।')
       return
     }
 
@@ -1481,9 +1558,16 @@ export default function FunnelDropPage() {
                     required
                     placeholder="আপনার নাম লিখুন"
                     value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
+                    onChange={(e) => {
+                      setCustomerName(e.target.value)
+                      clearFieldError('name')
+                    }}
+                    ref={nameRef}
+                    aria-invalid={errorField === 'name'}
+                    aria-describedby={errorField === 'name' ? 'funnel-err-name' : undefined}
                     className="funnel-input"
                   />
+                  {errorField === 'name' && <FieldError id="funnel-err-name">{errorMessage}</FieldError>}
                 </div>
 
                 {/* Customer Phone — inputMode numeric, not tel: a BD mobile is
@@ -1504,9 +1588,16 @@ export default function FunnelDropPage() {
                     required
                     placeholder="01XXXXXXXXX"
                     value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    onChange={(e) => {
+                      setCustomerPhone(e.target.value)
+                      clearFieldError('phone')
+                    }}
+                    ref={phoneRef}
+                    aria-invalid={errorField === 'phone'}
+                    aria-describedby={errorField === 'phone' ? 'funnel-err-phone' : undefined}
                     className="funnel-input"
                   />
+                  {errorField === 'phone' && <FieldError id="funnel-err-phone">{errorMessage}</FieldError>}
                 </div>
 
                 {/* Customer Email (Optional) */}
@@ -1525,9 +1616,16 @@ export default function FunnelDropPage() {
                     enterKeyHint="next"
                     placeholder="আপনার ইমেইল দিন (যদি থাকে)"
                     value={customerEmail}
-                    onChange={(e) => setCustomerEmail(e.target.value)}
+                    onChange={(e) => {
+                      setCustomerEmail(e.target.value)
+                      clearFieldError('email')
+                    }}
+                    ref={emailRef}
+                    aria-invalid={errorField === 'email'}
+                    aria-describedby={errorField === 'email' ? 'funnel-err-email' : undefined}
                     className="funnel-input"
                   />
+                  {errorField === 'email' && <FieldError id="funnel-err-email">{errorMessage}</FieldError>}
                 </div>
 
                 {/* District Selector */}
@@ -1566,10 +1664,17 @@ export default function FunnelDropPage() {
                     rows={2}
                     placeholder="বাসা নম্বর, রোড নম্বর, এলাকা বা থানার নাম লিখুন"
                     value={shippingAddress}
-                    onChange={(e) => setShippingAddress(e.target.value)}
+                    onChange={(e) => {
+                      setShippingAddress(e.target.value)
+                      clearFieldError('address')
+                    }}
+                    ref={addressRef}
+                    aria-invalid={errorField === 'address'}
+                    aria-describedby={errorField === 'address' ? 'funnel-err-address' : undefined}
                     className="funnel-input"
                     style={{ resize: 'vertical' }}
                   />
+                  {errorField === 'address' && <FieldError id="funnel-err-address">{errorMessage}</FieldError>}
                 </div>
 
                 {/* Delivery Timeline Notice */}

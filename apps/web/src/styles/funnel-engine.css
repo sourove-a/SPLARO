@@ -500,6 +500,16 @@ select.funnel-input:focus,
   box-shadow: 0 0 0 3px var(--funnel-accent-glow), 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+/* The box a validation message points at. Submitting focuses that box, so this
+   has to beat `.funnel-input:focus` above — hence the later position, the
+   explicit :focus arm, and !important to clear the select's own focus rule.
+   Red has to survive the focus ring, or the wrong box looks like the active one. */
+.funnel-input[aria-invalid='true'],
+.funnel-input[aria-invalid='true']:focus {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.22), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+
 .funnel-input::placeholder {
   color: #374151 !important;
   font-weight: 700 !important;
