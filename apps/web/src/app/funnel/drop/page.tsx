@@ -107,54 +107,10 @@ function resolveVideoEmbed(rawUrl?: string | null): { type: 'youtube' | 'vimeo' 
   }
 }
 
-const DEFAULT_FALLBACK_FUNNEL: FunnelData = {
-  storeId: 'cmtkkw15s00012xo88i2enm8b',
-  storeName: 'SPLARO LIFESTYLE DROP',
-  themePreset: 'imperial-purple',
-  themeName: 'Imperial Violet & Curved Glass (8K Cinematic)',
-  headline: 'SPLARO LIFESTYLE DROP',
-  subheadline: 'Limited Edition Masterpiece Drop',
-  heroMediaType: 'image',
-  bulletPoints: [
-    'হস্তনির্মিত রাজকীয় কারুকার্য ও নিখুঁত ফিনিশিং',
-    'প্রিমিয়াম আন্তর্জাতিক কোয়ালিটি ফ্যাব্রিক ও দীর্ঘস্থায়ী স্থায়িত্ব',
-    '১ বছরের সম্পূর্ণ রিপ্লেসমেন্ট এবং কোয়ালিটি গ্যারান্টি',
-    'সারা বাংলাদেশে ক্যাশ অন ডেলিভারি (পণ্য হাতে পেয়ে টাকা পরিশোধ)',
-  ],
-  product: {
-    id: 'cmsyjte38000dw5aijxybtz9m',
-    title: 'সালোয়ার স্যুট',
-    slug: 'salwar-suit-drop',
-    price: 6720,
-    compareAtPrice: 8400,
-    description: 'স্প্লারোর সালোয়ার স্যুট তার পরিশীলিত টেইলারিং এবং দৈনন্দিন বিলাসিতার মাধ্যমে আপনার সালোয়ার কামিজের সংগ্রহকে এক নতুন উচ্চতায় নিয়ে যায়। প্রিমিয়াম সিল্ক, রেগুলার ফিট — আরামদায়ক, ত্বকের জন্য কোমল এবং এক মৌসুমের বেশি সময় ধরে ব্যবহারযোগ্য। ঈদের জন্য একদম উপযুক্ত। স্প্লারোর গুণমানের নিশ্চয়তার সাথে নিশ্চিন্তে কেনাকাটা করুন।',
-    productCode: '851461',
-    images: ['/images/hero/hero-slide-1-1600.webp', '/images/hero/hero-slide-2-1600.webp'],
-  },
-  deliveryMatrix: {
-    insideDhaka: 70,
-    outsideDhaka: 130,
-  },
-}
-
 export default function FunnelDropPage() {
-  const [funnel, setFunnel] = useState<FunnelData>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const params = new URLSearchParams(window.location.search)
-        const slug = params.get('drop') || params.get('slug') || 'lifestyle'
-        const cached = sessionStorage.getItem(`splaro_funnel_${slug}`) || sessionStorage.getItem('splaro_funnel_lifestyle')
-        if (cached) {
-          const parsed = JSON.parse(cached)
-          if (parsed && parsed.storeId) return parsed
-        }
-      } catch {
-        // Ignore storage access error
-      }
-    }
-    return DEFAULT_FALLBACK_FUNNEL
-  })
-  const [, setLoading] = useState(true)
+  const [funnel, setFunnel] = useState<FunnelData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
 
   // Order Form State
   const [quantity, setQuantity] = useState(1)
@@ -193,15 +149,8 @@ export default function FunnelDropPage() {
         const res = await fetch(url)
         if (res.ok) {
           const data = await res.json()
-          if (data && data.storeId) {
+          if (data && data.storeId && data.product) {
             setFunnel(data)
-            try {
-              const cacheKey = slug || data.slug || 'lifestyle'
-              sessionStorage.setItem(`splaro_funnel_${cacheKey}`, JSON.stringify(data))
-              sessionStorage.setItem('splaro_funnel_lifestyle', JSON.stringify(data))
-            } catch {
-              // Ignore storage write error
-            }
             if (data.heroMediaType === 'video' && data.videoUrl) {
               setActiveMediaTab('video')
             } else {
@@ -210,10 +159,13 @@ export default function FunnelDropPage() {
             if (data.product?.variants && data.product.variants.length > 0) {
               setSelectedVariantId(data.product.variants[0].id)
             }
+            setLoading(false)
+            return
           }
         }
+        setNotFound(true)
       } catch {
-        // Fallback to default styling
+        setNotFound(true)
       } finally {
         setLoading(false)
       }
@@ -222,18 +174,20 @@ export default function FunnelDropPage() {
   }, [])
 
   // Price calculations
-  const productPrice = funnel.product?.price ?? 3450
+  const productPrice = funnel?.product?.price ?? 0
   const isDhaka = shippingDistrict.toLowerCase().includes('dhaka')
-  const deliveryCharge = isDhaka ? funnel.deliveryMatrix.insideDhaka : funnel.deliveryMatrix.outsideDhaka
-  const tier2Discount = funnel.bundleTier2Discount ?? 200
-  const tier3Discount = funnel.bundleTier3Discount ?? 450
+  const deliveryCharge = isDhaka
+    ? (funnel?.deliveryMatrix?.insideDhaka ?? 70)
+    : (funnel?.deliveryMatrix?.outsideDhaka ?? 130)
+  const tier2Discount = funnel?.bundleTier2Discount ?? 200
+  const tier3Discount = funnel?.bundleTier3Discount ?? 450
 
-  const videoEmbedInfo = useMemo(() => resolveVideoEmbed(funnel.videoUrl), [funnel.videoUrl])
-  const currentImage = funnel.product?.images?.[selectedImageIdx] || funnel.product?.images?.[0]
+  const videoEmbedInfo = useMemo(() => resolveVideoEmbed(funnel?.videoUrl), [funnel?.videoUrl])
+  const currentImage = funnel?.product?.images?.[selectedImageIdx] || funnel?.product?.images?.[0]
 
   const dynamicThemeStyle = useMemo(() => {
     const st: Record<string, string> = {}
-    if (funnel.themePreset === 'custom') {
+    if (funnel?.themePreset === 'custom') {
       const col = funnel.customColors?.accent || funnel.customColors?.primary
       if (col && typeof col === 'string' && col.startsWith('#') && col.length >= 4) {
         st['--funnel-accent'] = col
@@ -246,7 +200,7 @@ export default function FunnelDropPage() {
       }
     }
     return st as React.CSSProperties
-  }, [funnel.customColors, funnel.themePreset])
+  }, [funnel?.customColors, funnel?.themePreset])
 
   // Volume discount tiers
   const subtotal = useMemo(() => {
@@ -258,19 +212,19 @@ export default function FunnelDropPage() {
   const total = subtotal + deliveryCharge
 
   const productCode =
-    funnel.product?.productCode ||
-    funnel.product?.sku ||
-    funnel.product?.variants?.[0]?.sku ||
-    (funnel.product?.id ? `SPL-${funnel.product.id.slice(-4).toUpperCase()}` : 'SPL-DROP')
+    funnel?.product?.productCode ||
+    funnel?.product?.sku ||
+    funnel?.product?.variants?.[0]?.sku ||
+    (funnel?.product?.id ? `SPL-${funnel.product.id.slice(-4).toUpperCase()}` : 'SPL-DROP')
 
-  const effectivePixelId = funnel.facebookPixelId || '1078121511554124'
+  const effectivePixelId = funnel?.facebookPixelId || '1078121511554124'
 
-  const waRaw = (funnel.whatsappNumber || '01905010205').replace(/\D/g, '')
+  const waRaw = (funnel?.whatsappNumber || '01905010205').replace(/\D/g, '')
   const waTarget = waRaw.startsWith('88') ? waRaw : waRaw.startsWith('01') ? `88${waRaw}` : '8801905010205'
 
   const isLightMode = useMemo(() => {
-    if (funnel.themePreset === 'desert-sand') return true
-    if (funnel.themePreset === 'custom' && funnel.customColors?.bg) {
+    if (funnel?.themePreset === 'desert-sand') return true
+    if (funnel?.themePreset === 'custom' && funnel?.customColors?.bg) {
       const hex = funnel.customColors.bg.replace('#', '')
       if (hex.length === 6) {
         const r = parseInt(hex.slice(0, 2), 16)
@@ -281,20 +235,20 @@ export default function FunnelDropPage() {
       }
     }
     return false
-  }, [funnel.themePreset, funnel.customColors?.bg])
+  }, [funnel?.themePreset, funnel?.customColors?.bg])
 
   const brandLogoSrc = isLightMode
     ? '/images/logo/splaro-logo-black-premium.webp'
     : '/images/logo/splaro-logo-white-premium.webp'
 
   const preOrderWhatsappUrl = useMemo(() => {
-    const currentUrl = typeof window !== 'undefined' ? window.location.href : `https://splaro.co/funnel/drop?drop=${funnel.slug || 'lifestyle'}`
+    const currentUrl = typeof window !== 'undefined' ? window.location.href : `https://splaro.co/funnel/drop?drop=${funnel?.slug || 'lifestyle'}`
     const msg = [
       '*SPLARO | প্রোডাক্ট অনুসন্ধান ও সরাসরি অর্ডার*',
       '━━━━━━━━━━━━━━━━━━━━',
       'হ্যালো SPLARO! আমি এই প্রোডাক্টটি সম্পর্কে জানতে ও সরাসরি অর্ডার করতে চাই:',
       '',
-      `📦 *প্রোডাক্ট:* ${funnel.product?.title || 'SPLARO Masterpiece'}`,
+      `📦 *প্রোডাক্ট:* ${funnel?.product?.title || 'SPLARO Masterpiece'}`,
       `🏷️ *প্রোডাক্ট কোড:* #${productCode}`,
       `💰 *মূল্য:* ৳${productPrice.toLocaleString('en-BD')}`,
       `🔗 *প্রোডাক্ট লিংক:* ${currentUrl}`,
@@ -303,7 +257,7 @@ export default function FunnelDropPage() {
     ].join('\n')
 
     return `https://wa.me/${waTarget}?text=${encodeURIComponent(msg)}`
-  }, [funnel.slug, funnel.product?.title, productCode, productPrice, waTarget])
+  }, [funnel?.slug, funnel?.product?.title, productCode, productPrice, waTarget])
 
   const orderConfirmationWhatsappUrl = useMemo(() => {
     if (!orderSuccess) return '#'
@@ -319,7 +273,7 @@ export default function FunnelDropPage() {
       `• *ডেলিভারি ঠিকানা:* ${orderSuccess.address}`,
       '',
       '*অর্ডারকৃত পণ্য:*',
-      `1. *${funnel.product?.title || 'Drop Product'}*`,
+      `1. *${funnel?.product?.title || 'Drop Product'}*`,
       `   • কোড: #${productCode}`,
       `   • পরিমাণ: ${quantity}টি | মূল্য: ৳${(productPrice * quantity).toLocaleString('en-BD')}`,
       '',
@@ -334,7 +288,149 @@ export default function FunnelDropPage() {
     ].join('\n')
 
     return `https://wa.me/${waTarget}?text=${encodeURIComponent(msg)}`
-  }, [orderSuccess, funnel.product?.title, productCode, quantity, productPrice, subtotal, deliveryCharge, waTarget])
+  }, [orderSuccess, funnel?.product?.title, productCode, quantity, productPrice, subtotal, deliveryCharge, waTarget])
+
+  if (loading) {
+    return (
+      <div
+        className="funnel-universe-root"
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#000000',
+          color: '#ffffff',
+          padding: '24px',
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ marginBottom: 24 }}>
+          <Image
+            src="/images/logo/splaro-logo-white-premium.webp"
+            alt="SPLARO"
+            width={160}
+            height={36}
+            priority
+            style={{ height: 32, width: 'auto', objectFit: 'contain' }}
+          />
+        </div>
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
+            border: '2px solid rgba(255, 255, 255, 0.1)',
+            borderTopColor: '#c084fc',
+            animation: 'funnelSpin 0.8s linear infinite',
+          }}
+        />
+        <style>{`@keyframes funnelSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      </div>
+    )
+  }
+
+  if (notFound || !funnel || !funnel.product) {
+    return (
+      <div
+        className="funnel-universe-root"
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#000000',
+          color: '#ffffff',
+          padding: '32px 20px',
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ maxWidth: 460, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ marginBottom: 28 }}>
+            <Image
+              src="/images/logo/splaro-logo-white-premium.webp"
+              alt="SPLARO"
+              width={160}
+              height={36}
+              priority
+              style={{ height: 30, width: 'auto', objectFit: 'contain' }}
+            />
+          </div>
+
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 14px',
+              borderRadius: 20,
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              fontSize: 11.5,
+              fontWeight: 800,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: '#c084fc',
+              marginBottom: 16,
+            }}
+          >
+            <span>SPLARO EXCLUSIVE DROP</span>
+          </div>
+
+          <h1 style={{ fontSize: 22, fontWeight: 900, marginBottom: 10, lineHeight: 1.3 }}>
+            এই ড্রপটি বর্তমানে সক্রিয় নয়
+          </h1>
+          <p style={{ fontSize: 13.5, color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, marginBottom: 28 }}>
+            এই ঠিকানায় কোনো পণ্য নির্ধারিত করা হয়নি। অ্যাডমিন প্যানেল (D2C Funnels) থেকে প্রোডাক্ট ও থিম সেট করে ড্রপটি চালু করুন, অথবা আমাদের অফিসিয়াল স্টোরে প্রবেশ করুন।
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 300 }}>
+            <a
+              href="https://splaro.co"
+              style={{
+                display: 'block',
+                width: '100%',
+                padding: '13px 22px',
+                borderRadius: 999,
+                background: '#ffffff',
+                color: '#000000',
+                fontWeight: 800,
+                fontSize: 13.5,
+                textDecoration: 'none',
+              }}
+            >
+              অফিসিয়াল স্টোরে যান (splaro.co)
+            </a>
+            <a
+              href="https://wa.me/8801905010205"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                width: '100%',
+                padding: '12px 22px',
+                borderRadius: 999,
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: 13,
+                textDecoration: 'none',
+              }}
+            >
+              <WhatsAppIcon size={18} color="#25D366" />
+              <span>WhatsApp সাপোর্ট</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const handleOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -889,7 +985,7 @@ export default function FunnelDropPage() {
 
             {/* Bullet Highlights */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {(funnel.bulletPoints ?? DEFAULT_FALLBACK_FUNNEL.bulletPoints ?? []).map((bullet, idx) => (
+              {(funnel.bulletPoints ?? []).map((bullet, idx) => (
                 <div
                   key={idx}
                   className="funnel-glass-card"
