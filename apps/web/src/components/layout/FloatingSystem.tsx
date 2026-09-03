@@ -135,8 +135,18 @@ export function FloatingSystem() {
   const hasWhatsApp = whatsappUrl !== '#'
   const chatVisible = hasWhatsApp && showChat
 
-  /* Checkout sticky Place-order bar owns the bottom — hide floating chrome. */
-  if (isCheckout || isMobileMenuOpen || filterOpen) return null
+  const isFunnelRoute = pathname === '/funnel' || pathname.startsWith('/funnel/')
+  const isFunnelHost = typeof window !== 'undefined' && Boolean(
+    window.location.host &&
+    window.location.host !== 'splaro.co' &&
+    window.location.host !== 'www.splaro.co' &&
+    window.location.host !== 'localhost' &&
+    window.location.host !== '127.0.0.1' &&
+    !window.location.host.startsWith('192.168.')
+  )
+
+  /* Checkout sticky bar and D2C Funnel Universe own the page — hide floating chrome. */
+  if (isCheckout || isFunnelRoute || isFunnelHost || isMobileMenuOpen || filterOpen) return null
 
   return (
     <div data-floating-system className="support-floating-system z-floating-actions">

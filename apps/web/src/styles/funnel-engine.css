@@ -157,6 +157,28 @@
   --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(212, 154, 106, 0.22) 0%, rgba(0, 0, 0, 0) 75%);
 }
 
+/* ─── STANDALONE IMMERSION: HIDE MAIN STOREFRONT CHROME ON FUNNEL ────── */
+body:has(.funnel-universe-root) .site-header,
+body:has(.funnel-universe-root) .site-header-wrapper,
+body:has(.funnel-universe-root) .site-header-glass,
+body:has(.funnel-universe-root) .site-footer,
+body:has(.funnel-universe-root) .site-footer-lux,
+body:has(.funnel-universe-root) .mobile-bottom-nav,
+body:has(.funnel-universe-root) [data-mobile-bottom-nav],
+body:has(.funnel-universe-root) .support-floating-system,
+body:has(.funnel-universe-root) [data-floating-system],
+body:has(.funnel-universe-root) .leave-home-snap,
+body:has(.funnel-universe-root) .storefront-skip-link {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+body:has(.funnel-universe-root) {
+  background-color: #000000 !important;
+}
+
 /* ─── MASTER CONTAINER ─────────────────────────────────────────────────── */
 .funnel-universe-root {
   background-color: var(--funnel-bg, #000000);

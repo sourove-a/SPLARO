@@ -177,7 +177,14 @@ export async function middleware(request: NextRequest) {
     if (rewrite.hostname === 'localhost' || rewrite.hostname === '127.0.0.1') {
       rewrite.protocol = 'http:'
     }
-    return NextResponse.rewrite(rewrite)
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set('x-splaro-funnel', '1')
+    requestHeaders.set('x-splaro-host', host!)
+    return NextResponse.rewrite(rewrite, {
+      request: {
+        headers: requestHeaders,
+      },
+    })
   }
 
   // Legacy chunk-recovery used ?_splaro=1 — strip so it never indexes / shares.

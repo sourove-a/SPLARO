@@ -18,7 +18,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useCartStore } from '@/store/cartStore'
 import { useUiStore } from '@/store/uiStore'
 
-const HIDDEN_PREFIXES = ['/login', '/signup', '/forgot-password', '/reset-password', '/checkout']
+const HIDDEN_PREFIXES = ['/login', '/signup', '/forgot-password', '/reset-password', '/checkout', '/funnel']
 
 const SHOP_PREFIXES = [
   '/shop',
@@ -123,12 +123,21 @@ export function MobileBottomNav() {
     }
   }, [router, signedIn])
 
-  const hiddenRoute = HIDDEN_PREFIXES.some(
+  const isFunnelHost = typeof window !== 'undefined' && Boolean(
+    window.location.host &&
+    window.location.host !== 'splaro.co' &&
+    window.location.host !== 'www.splaro.co' &&
+    window.location.host !== 'localhost' &&
+    window.location.host !== '127.0.0.1' &&
+    !window.location.host.startsWith('192.168.')
+  )
+
+  const hiddenRoute = isFunnelHost || HIDDEN_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   )
   const visible = mounted && !hiddenRoute && !overlayOpen
 
-  if (!mounted) return null
+  if (!mounted || isFunnelHost) return null
 
   const items = [
     ...NAV_ITEMS_BASE,

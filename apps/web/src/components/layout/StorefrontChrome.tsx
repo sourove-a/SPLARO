@@ -20,7 +20,22 @@ const AUTH_PATH_PREFIXES = ['/login', '/signup', '/forgot-password', '/reset-pas
 const HEADER_ONLY_PATHS = ['/design/header']
 const CHROMELESS_PATHS = ['/maintenance']
 
+function isFunnelDomain(): boolean {
+  if (typeof window === 'undefined') return false
+  const host = (window.location.host.split(':')[0] || '').toLowerCase()
+  if (host.endsWith('.localhost')) return true
+  return Boolean(
+    host &&
+    host !== 'splaro.co' &&
+    host !== 'www.splaro.co' &&
+    host !== 'localhost' &&
+    host !== '127.0.0.1' &&
+    !host.startsWith('192.168.')
+  )
+}
+
 function isChromelessPath(pathname: string): boolean {
+  if (isFunnelDomain()) return true
   return (
     CHROMELESS_PATHS.includes(pathname) ||
     pathname === '/funnel' ||
@@ -217,6 +232,11 @@ function StorefrontChromeInner({ children }: { children: ReactNode }) {
 }
 
 export function StorefrontChrome({ children }: { children: ReactNode }) {
+  const pathname = usePathname()
+  if (isChromelessPath(pathname)) {
+    return <>{children}</>
+  }
+
   return (
     <>
       <Suspense fallback={null}>
