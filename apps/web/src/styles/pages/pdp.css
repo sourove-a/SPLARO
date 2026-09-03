@@ -5831,6 +5831,13 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   padding-bottom: 1.5rem;
 }
 
+/* Grid items default to min-width:auto, so the column stretched to the widest
+   item's min-content — the two tip cards, which together need more than a
+   375px phone has. That pushed every section ~32px past the right edge. */
+.size-premium__layout > * {
+  min-width: 0;
+}
+
 .size-premium__hero {
   position: relative;
   overflow: hidden;
@@ -6002,6 +6009,7 @@ html[data-scrolling='1'] .pp-care-story__breeze {
 .size-premium__tip {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 0.65rem;
   padding: 0.75rem 0.8rem;
   border-radius: 18px;
