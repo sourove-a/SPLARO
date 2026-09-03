@@ -8,6 +8,7 @@ import { toastOk, toastFail } from '@/lib/admin/feedback'
 import { DcHubFrame, hubCard } from './DcHubKit'
 import { DcIcon } from '@/components/dc/DcIcon'
 import { funnelStorefrontUrl } from '@/lib/admin/funnel-storefront-url'
+import { formatTaka } from '@/components/dc/tokens'
 
 interface FunnelUniverseSummary {
   id: string
@@ -964,7 +965,7 @@ export function DcFunnelHub() {
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                             <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>
-                              ৳{Number(prod.basePrice).toLocaleString('en-BD')}
+                              {formatTaka(Number(prod.basePrice))}
                             </span>
                             {(prod.productCode || prod.sku) && (
                               <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, background: 'rgba(255, 255, 255, 0.05)', color: 'var(--violet)', fontWeight: 700 }}>
@@ -2303,7 +2304,7 @@ export function DcFunnelHub() {
                     </code>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 8 }}>
-                    Featured: <strong>{customProductTitle || selectedProduct.name}</strong> (৳{Number(customProductPrice || selectedProduct.basePrice).toLocaleString('en-BD')})
+                    Featured: <strong>{customProductTitle || selectedProduct.name}</strong> ({formatTaka(Number(customProductPrice || selectedProduct.basePrice))})
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>
                     Language: <strong>{productLanguage === 'bn' ? '🇧🇩 বাংলা (Hind Siliguri Font)' : '🇬🇧 English'}</strong>

@@ -9,7 +9,7 @@ import { DcScreenProvider } from '@/components/dc/DcScreenContext'
 import { DcErrorState, DcLoadingState } from '@/components/dc/blocks/DcStates'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
-import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
 import {
   useCourierStats,
   useOrders,
@@ -33,15 +33,22 @@ const capsLabel = {
   color: 'var(--ink-3)',
 }
 
-/** Orders sitting in the shop before anything has been handed to a courier. */
-const PRE_SHIP = ['PENDING', 'CONFIRMED', 'PROCESSING', 'PACKED']
+/**
+ * Orders that are paid but not yet boxed.
+ *
+ * The pipeline stage and the headline KPI both count "to pack", so they read
+ * from this one list. They used to disagree: the KPI also counted `PACKED`,
+ * which the pipeline already reports one stage along as "To dispatch", so the
+ * same screen showed 1 and 2 for the same question.
+ */
+const TO_PACK = ['PENDING', 'CONFIRMED', 'PROCESSING']
 
 /** The pipeline strip — one stage per place an order can be stuck. */
 const STAGES: Array<{ label: string; dot: string; statuses: string[]; why: string }> = [
   {
     label: 'To pack',
     dot: 'var(--warn)',
-    statuses: ['PENDING', 'CONFIRMED', 'PROCESSING'],
+    statuses: TO_PACK,
     why: 'paid, still on the shelf',
   },
   { label: 'To dispatch', dot: 'var(--violet-solid)', statuses: ['PACKED'], why: 'boxed, no courier yet' },
@@ -99,7 +106,7 @@ function DcOperationsHubBody() {
   const pageStatus = dcPageStatus(queries, api.pulse)
 
   const orderRows = useMemo(() => orders.data?.orders ?? [], [orders.data])
-  const toPack = orderRows.filter((o) => PRE_SHIP.includes(o.status.toUpperCase())).length
+  const toPack = orderRows.filter((o) => TO_PACK.includes(o.status.toUpperCase())).length
   const stageCounts = useMemo(
     () =>
       STAGES.map((st) => ({
@@ -217,7 +224,7 @@ function DcOperationsHubBody() {
       label: 'Packing Station',
       icon: 'icon-package',
       href: '/dashboard/packing-station',
-      metric: orders.error ? '—' : String(toPack),
+      metric: orders.error ? '—' : formatCount(toPack),
       metricLabel: 'to pack',
       note: 'Pick, pack, and print the label for each paid order.',
       failed: Boolean(orders.error),
@@ -226,7 +233,7 @@ function DcOperationsHubBody() {
       label: 'Courier Hub',
       icon: 'icon-truck',
       href: '/dashboard/courier-hub',
-      metric: courier.error ? '—' : String(shipmentsLive),
+      metric: courier.error ? '—' : formatCount(shipmentsLive),
       metricLabel: 'in flight',
       note: 'Book, retry, and track every consignment across providers.',
       failed: Boolean(courier.error),
@@ -235,7 +242,7 @@ function DcOperationsHubBody() {
       label: 'Warehouse & Stock',
       icon: 'icon-warehouse',
       href: '/dashboard/wms/overview',
-      metric: wms.error ? '—' : String(stock?.available ?? 0),
+      metric: wms.error ? '—' : formatCount(stock?.available ?? 0),
       metricLabel: 'units available',
       note: 'Bins, movements, and transfers — the ledger behind every stock number.',
       failed: Boolean(wms.error),
@@ -253,7 +260,7 @@ function DcOperationsHubBody() {
       label: 'Returns / RMA',
       icon: 'icon-rotate-ccw',
       href: '/dashboard/returns-rma',
-      metric: returns.error ? '—' : String(openRma.length),
+      metric: returns.error ? '—' : formatCount(openRma.length),
       metricLabel: 'open returns',
       note: 'Approve, receive, and refund what comes back.',
       failed: Boolean(returns.error),
@@ -262,7 +269,7 @@ function DcOperationsHubBody() {
       label: 'Inventory',
       icon: 'icon-boxes',
       href: '/dashboard/inventory',
-      metric: wms.error ? '—' : String(stock?.reserved ?? 0),
+      metric: wms.error ? '—' : formatCount(stock?.reserved ?? 0),
       metricLabel: 'units reserved',
       note: 'Reorder points and low-stock decisions per SKU.',
       failed: Boolean(wms.error),
@@ -396,14 +403,14 @@ function DcOperationsHubBody() {
             }}
           >
             <Kpi
-              label="Waiting to pack"
-              value={orders.error ? '—' : String(toPack)}
+              label="To pack"
+              value={orders.error ? '—' : formatCount(toPack)}
               sub={orders.error ? 'GET /admin/orders failed' : 'paid orders still in the shop'}
               color={toPack > 15 ? 'var(--warn)' : undefined}
             />
             <Kpi
               label="In flight"
-              value={courier.error ? '—' : String(shipmentsLive)}
+              value={courier.error ? '—' : formatCount(shipmentsLive)}
               sub={
                 courier.error
                   ? 'GET /admin/courier/stats/overview failed'
@@ -413,7 +420,7 @@ function DcOperationsHubBody() {
             />
             <Kpi
               label="Sellable stock"
-              value={wms.error ? '—' : String(stock?.available ?? 0)}
+              value={wms.error ? '—' : formatCount(stock?.available ?? 0)}
               sub={
                 wms.error
                   ? 'GET /commerce-os/wms/overview failed'

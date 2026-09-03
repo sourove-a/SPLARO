@@ -781,7 +781,10 @@ function DcBulkCsvBody() {
                   }}
                   style={{
                     alignSelf: 'flex-start',
-                    height: 30,
+                    // Bottom-aligned so the four operation cards put their
+                    // button on the same line however long their spec list is.
+                    marginTop: 'auto',
+                    height: 32,
                     padding: '0 12px',
                     borderRadius: 8,
                     border: `1px solid ${on ? 'var(--violet-solid)' : 'var(--line-2)'}`,

@@ -10,7 +10,7 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import { DcField, DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
-import { FONT, MONO, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, toneStyle, type DcTone } from '@/components/dc/tokens'
 import {
   formatCampaignType,
   mapCampaignStatus,
@@ -207,6 +207,18 @@ function DcCampaignsBody() {
   const totalSent = s?.totalSent ?? rows.reduce((n, c) => n + Number(c.totalSent || 0), 0)
   const openRate = s?.openRate ?? 0
   const clickRate = s?.clickRate ?? 0
+  // The KPI used to print a hardcoded `WhatsApp · SMS · Email`, which said
+  // nothing about this store. Count the channels campaigns actually use.
+  const channelsUsed = Array.from(
+    new Set(
+      rows.map((c) => {
+        const type = (c.type || '').toUpperCase()
+        if (type === 'WHATSAPP') return 'WhatsApp'
+        if (type === 'SMS') return 'SMS'
+        return 'Email'
+      }),
+    ),
+  )
 
   const pageStatus = dcPageStatus([campaigns, stats], api.pulse)
 
@@ -535,8 +547,8 @@ function DcCampaignsBody() {
           >
             <Kpi
               label="Messages Sent"
-              value={totalSent.toLocaleString('en-IN')}
-              sub={`${rows.length} campaigns created`}
+              value={formatCount(totalSent)}
+              sub={`${formatCount(rows.length)} campaigns created`}
             />
             <Kpi
               label="Open / Click Rate"
@@ -545,12 +557,12 @@ function DcCampaignsBody() {
             />
             <Kpi
               label="Channels Active"
-              value="WhatsApp · SMS · Email"
-              sub="Multi-channel marketing engine"
+              value={formatCount(channelsUsed.length)}
+              sub={channelsUsed.length > 0 ? channelsUsed.join(' · ') : 'no campaigns on any channel yet'}
             />
             <Kpi
               label="Active Drafts"
-              value={String(drafts.length)}
+              value={formatCount(drafts.length)}
               sub="Ready for dispatch"
               color={drafts.length > 0 ? 'var(--violet)' : undefined}
             />
@@ -608,7 +620,7 @@ function DcCampaignsBody() {
                       type="button"
                       onClick={() => setChannelFilter(ch)}
                       style={{
-                        padding: '4px 9px',
+                        padding: '6px 9px',
                         borderRadius: 7,
                         border: `1px solid ${active ? 'var(--violet-bd)' : 'var(--line)'}`,
                         background: active ? 'var(--violet-soft)' : 'var(--surface-2)',
@@ -632,7 +644,7 @@ function DcCampaignsBody() {
                       type="button"
                       onClick={() => setStateFilter(st)}
                       style={{
-                        padding: '4px 8px',
+                        padding: '6px 8px',
                         borderRadius: 7,
                         border: `1px solid ${active ? 'var(--ink)' : 'var(--line)'}`,
                         background: active ? 'var(--surface-3)' : 'transparent',
@@ -707,10 +719,10 @@ function DcCampaignsBody() {
                           {AUDIENCE_LABEL[c.recipientType as CampaignAudience] ?? c.recipientType ?? 'All'}
                         </td>
                         <td style={{ ...td, textAlign: 'right', font: `600 12.5px/1 ${MONO}` }}>
-                          {sent.toLocaleString('en-IN')}
+                          {sent > 0 ? formatCount(sent) : '—'}
                         </td>
                         <td style={{ ...td, textAlign: 'right', font: `500 12.5px/1 ${MONO}` }}>
-                          {Number(c.totalDelivered || 0).toLocaleString('en-IN')}
+                          {sent > 0 ? formatCount(Number(c.totalDelivered || 0)) : '—'}
                         </td>
                         <td style={{ ...td, textAlign: 'right', font: `500 12.5px/1 ${MONO}` }}>
                           {sent > 0 ? `${((opened / sent) * 100).toFixed(1)}%` : '—'}

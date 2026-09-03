@@ -12,7 +12,7 @@ import { DcCard } from '@/components/dc/primitives/DcCard'
 import { DcTable } from '@/components/dc/primitives/DcTable'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
-import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
 import type { ApiRmaRow, RmaApiStatus } from '@/lib/api/commerce-finance'
 import { useCreateReturn, useOrders, useReturns, useUpdateReturnStatus } from '@/lib/api/hooks'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
@@ -140,6 +140,9 @@ function DcReturnsRmaBody() {
     .filter((r) => r.status === 'refunded')
     .reduce((s, r) => s + Number(r.amount || 0), 0)
   const rejected = rows.filter((r) => r.status === 'rejected').length
+  // The stage strip above already prints the rejected count, so the KPI carries
+  // the share instead of repeating the same number two rows apart.
+  const rejectionRate = rows.length > 0 ? (rejected / rows.length) * 100 : null
 
   const pageStatus = dcPageStatus([returns], api.pulse)
 
@@ -363,15 +366,24 @@ function DcReturnsRmaBody() {
               gap: 12,
             }}
           >
-            <Kpi label="Open returns" value={String(open.length)} sub="not yet refunded or rejected" />
+            <Kpi label="Open returns" value={formatCount(open.length)} sub="not yet refunded or rejected" />
             <Kpi
               label="Refund exposure"
               value={formatTaka(exposure)}
               sub="money you may owe back"
               color={exposure > 0 ? 'var(--warn)' : 'var(--ink)'}
             />
-            <Kpi label="Refunded" value={formatTaka(refunded)} sub="already paid back" color="var(--ok)" />
-            <Kpi label="Rejected" value={String(rejected)} sub="returns you turned down" />
+            <Kpi
+              label="Refunded to date"
+              value={formatTaka(refunded)}
+              sub="money already paid back"
+              color="var(--ok)"
+            />
+            <Kpi
+              label="Rejection rate"
+              value={rejectionRate === null ? '—' : `${rejectionRate.toFixed(0)}%`}
+              sub={`${formatCount(rejected)} of ${formatCount(rows.length)} turned down`}
+            />
           </div>
 
           {needsDecision.length > 0 ? (
@@ -542,7 +554,7 @@ function DcReturnsRmaBody() {
                       type="button"
                       onClick={() => setStageFilter(st)}
                       style={{
-                        padding: '4px 10px',
+                        padding: '6px 10px',
                         borderRadius: 7,
                         border: `1px solid ${active ? 'var(--violet-bd)' : 'var(--line)'}`,
                         background: active ? 'var(--violet-soft)' : 'var(--surface-2)',

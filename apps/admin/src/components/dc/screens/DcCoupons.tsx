@@ -11,7 +11,7 @@ import { DcEmptyState, DcErrorState, DcLoadingState } from '@/components/dc/bloc
 import { DcField, DcModal } from '@/components/dc/DcModal'
 import type { DcBlock } from '@/components/dc/blocks/types'
 import { dcPageStatus } from '@/components/dc/page-status'
-import { FONT, MONO, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
+import { FONT, MONO, formatCount, formatTaka, toneStyle, type DcTone } from '@/components/dc/tokens'
 import {
   verifyBooleanEquals,
   verifyDeleteSuccess,
@@ -40,12 +40,30 @@ const capsLabel = {
   color: 'var(--ink-3)',
 }
 
-
-const TYPE_LABEL: Record<ApiCoupon['type'], string> = {
-  PERCENTAGE: '% off',
-  FIXED_AMOUNT: 'Flat ৳ off',
-  FREE_SHIPPING: 'Free delivery',
-  BUY_X_GET_Y: 'Buy X get Y',
+/**
+ * The line under a coupon code: `10% off, no minimum`, `৳300 off over ৳2,000`.
+ *
+ * The value and the type used to be printed side by side from two lookups,
+ * which said the unit twice — `10% · % off`, `৳300 · Flat ৳ off`,
+ * `delivery · Free delivery`. One sentence, built once, instead.
+ */
+function couponSummary(c: ApiCoupon): string {
+  const qualifier = c.minOrderAmount
+    ? ` over ${formatTaka(Number(c.minOrderAmount))}`
+    : ', no minimum'
+  const value = Number(c.value || 0)
+  switch (c.type) {
+    case 'PERCENTAGE':
+      return `${value}% off${qualifier}`
+    case 'FIXED_AMOUNT':
+      return `${formatTaka(value)} off${qualifier}`
+    case 'FREE_SHIPPING':
+      return `Free delivery${qualifier}`
+    case 'BUY_X_GET_Y':
+      return `Buy X get Y${qualifier}`
+    default:
+      return `${formatTaka(value)} off${qualifier}`
+  }
 }
 
 const DAY = 86_400_000
@@ -53,13 +71,6 @@ const DAY = 86_400_000
 function localDateInputValue(date = new Date()): string {
   const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
   return localDate.toISOString().slice(0, 10)
-}
-
-function couponValue(c: ApiCoupon): string {
-  const v = Number(c.value || 0)
-  if (c.type === 'PERCENTAGE') return `${v}%`
-  if (c.type === 'FREE_SHIPPING') return 'delivery'
-  return formatTaka(v)
 }
 
 /** Percentage coupons with no ceiling are the classic way to lose money on one big order. */
@@ -340,12 +351,12 @@ function DcCouponsBody() {
               gap: 12,
             }}
           >
-            <Kpi label="Live codes" value={String(active.length)} sub={`${rows.length} total on file`} />
-            <Kpi label="Redemptions" value={String(redemptions)} sub="times a code was accepted" />
+            <Kpi label="Live codes" value={formatCount(active.length)} sub={`${rows.length} total on file`} />
+            <Kpi label="Redemptions" value={formatCount(redemptions)} sub="times a code was accepted" />
             <Kpi
-              label="Uncapped %"
-              value={String(uncapped.length)}
-              sub="no ceiling on the discount"
+              label="Uncapped % codes"
+              value={formatCount(uncapped.length)}
+              sub="percentage codes with no ceiling"
               color={uncapped.length > 0 ? 'var(--bad)' : 'var(--ok)'}
             />
             <Kpi
@@ -532,10 +543,7 @@ function DcCouponsBody() {
                           {c.code}
                         </span>
                         <span style={{ font: `400 11.5px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
-                          {couponValue(c)} · {TYPE_LABEL[c.type]}
-                          {c.minOrderAmount
-                            ? ` over ${formatTaka(Number(c.minOrderAmount))}`
-                            : ', no minimum'}
+                          {couponSummary(c)}
                         </span>
                       </span>
                       {/* Rule 6: icon + worded badge, and a worded button below. */}
@@ -647,13 +655,16 @@ function DcCouponsBody() {
                       ) : null}
                     </div>
 
-                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                    {/* Pushed to the bottom so the action row lines up across cards
+                        of unequal height, and the delete button sits at the far
+                        end rather than 7px from the button beside it. */}
+                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 'auto' }}>
                       <button
                         type="button"
                         disabled={toggle.isPending}
                         onClick={() => (c.isActive ? setConfirmOff(c) : runToggle(c, true))}
                         style={{
-                          height: 29,
+                          height: 32,
                           padding: '0 11px',
                           borderRadius: 8,
                           border: '1px solid var(--line-2)',
@@ -674,8 +685,9 @@ function DcCouponsBody() {
                         style={{
                           display: 'grid',
                           placeItems: 'center',
-                          width: 29,
-                          height: 29,
+                          width: 32,
+                          height: 32,
+                          marginLeft: 'auto',
                           borderRadius: 8,
                           border: '1px solid var(--bad-bd)',
                           background: 'var(--bad-soft)',
@@ -683,7 +695,7 @@ function DcCouponsBody() {
                           cursor: 'pointer',
                         }}
                       >
-                        <DcIcon name="icon-trash-2" size={12} />
+                        <DcIcon name="icon-trash-2" size={13} />
                       </button>
                     </div>
                   </div>

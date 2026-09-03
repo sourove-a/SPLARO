@@ -841,7 +841,10 @@ function DcGoogleSheetsBody() {
                       }
                       style={{
                         alignSelf: 'flex-start',
-                        height: 30,
+                        // Bottom-aligned so the button row matches across tab
+                        // cards, one of which grows to hold a sync error.
+                        marginTop: 'auto',
+                        height: 32,
                         padding: '0 12px',
                         borderRadius: 8,
                         border: `1px solid ${s.configured ? 'var(--violet-solid)' : 'var(--line-2)'}`,

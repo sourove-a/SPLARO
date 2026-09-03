@@ -149,7 +149,7 @@ function DcHelpdeskBody() {
           style={{
             border: '1px solid var(--line)',
             borderRadius: 6,
-            padding: '4px 10px',
+            padding: '6px 10px',
             background: 'var(--surface)',
             color: 'var(--ink)',
             cursor: 'pointer',

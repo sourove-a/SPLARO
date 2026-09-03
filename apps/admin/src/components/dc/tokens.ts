@@ -77,6 +77,16 @@ export function formatTaka(amount: number): string {
   return `৳${Math.round(amount).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
 }
 
+/**
+ * A plain count with the same South Asian grouping money gets — `24,18,000`,
+ * not `2,418,000`. Screens that pass a count through bare `String()` print
+ * `2418` next to a `2,418` on the screen it links to, so counts go through here.
+ */
+export function formatCount(value: number): string {
+  if (!Number.isFinite(value)) return '0'
+  return Math.round(value).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+}
+
 /** Signed percentage for delta chips: `+12.6%` / `−4.2%`. */
 export function formatDelta(change: number): string {
   const rounded = Math.round(change * 10) / 10

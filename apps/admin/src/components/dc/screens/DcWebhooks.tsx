@@ -1125,7 +1125,7 @@ function DcWebhooksBody() {
                       toastOk('Copied verification code to clipboard')
                     }}
                     style={{
-                      padding: '4px 10px',
+                      padding: '6px 10px',
                       borderRadius: 6,
                       border: '1px solid var(--line)',
                       background: 'transparent',

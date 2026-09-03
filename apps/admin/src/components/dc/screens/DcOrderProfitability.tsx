@@ -312,7 +312,7 @@ function DcOrderProfitabilityBody() {
                   <span className="dc-mobile-list-card__copy">
                     <span className="dc-mobile-list-card__title">{row.orderNumber}</span>
                     <span className="dc-mobile-list-card__sub">
-                      {new Date(row.deliveredAt).toLocaleDateString('en-BD', {
+                      {new Date(row.deliveredAt).toLocaleDateString('en-GB', {
                         day: 'numeric',
                         month: 'short',
                       })}
@@ -355,7 +355,7 @@ function DcOrderProfitabilityBody() {
                       <td style={td}>
                         <div style={{ font: `600 13px/1.3 ${MONO}` }}>{row.orderNumber}</div>
                         <div style={{ marginTop: 4, font: `500 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
-                          {new Date(row.deliveredAt).toLocaleDateString('en-BD', {
+                          {new Date(row.deliveredAt).toLocaleDateString('en-GB', {
                             day: 'numeric',
                             month: 'short',
                           })}

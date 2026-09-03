@@ -313,7 +313,7 @@ function DcAnalyticsBody() {
               sub="people who ordered in this window"
             />
             <Kpi
-              label="Average order"
+              label="Avg order value"
               value={formatTaka(aov)}
               change={s.avgOrderValue.change}
               sub="what a typical basket is worth"

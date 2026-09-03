@@ -9,6 +9,7 @@ import { useBookCourier } from '@/lib/api/hooks'
 import { DcHubFrame, hubCard, hubTh } from './DcHubKit'
 import { DcIcon } from '@/components/dc/DcIcon'
 import { DcScreenProvider } from '@/components/dc/DcScreenContext'
+import { formatTaka } from '@/components/dc/tokens'
 import { DcOrderDrawer } from '@/components/orders/DcOrderDrawer'
 import { downloadInvoice, downloadBlob } from '@/lib/admin/admin-actions'
 
@@ -512,10 +513,10 @@ function DcFunnelOrdersBody() {
                         {/* 4. Total & Payment */}
                         <td style={{ padding: '14px 16px' }}>
                           <div style={{ fontWeight: 700, color: 'var(--ink-1)' }}>
-                            ৳{Number(order.total).toLocaleString('en-BD')}
+                            {formatTaka(Number(order.total))}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>
-                            Del: ৳{Number(order.deliveryCharge).toLocaleString('en-BD')} ({order.paymentMethod})
+                            Del: {formatTaka(Number(order.deliveryCharge))} ({order.paymentMethod})
                           </div>
                         </td>
 
