@@ -9,8 +9,10 @@ import {
   IMAGE_SIZES,
   isProductPipelineSrc,
   mobileImageProfile,
+  nextSmallerVariantWidth,
   optimizeImageSrc,
-  productPipelinePictureSources,
+  productVariantWidth,
+  withProductVariantWidth,
   type ImageProfile,
 } from '@/lib/assets/image-optimize'
 import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
@@ -44,21 +46,41 @@ export function StorefrontImage({
   // Mobile-first until mount proves desktop — premium LCP (never start at 1920/900).
   const effectiveProfile =
     !mounted || isMobile ? mobileImageProfile(profile) : profile
-  const optimizedSrc = optimizeImageSrc(
+  const requestedSrc = optimizeImageSrc(
     src,
     effectiveProfile,
     undefined,
     allowStockMedia ? { allowStockMedia: true } : undefined,
   )
   const [failed, setFailed] = useState(false)
+  /*
+   * The upload pipeline writes only the widths a master can fill, so a profile
+   * can ask for a variant that was never generated. Falling straight to the
+   * brand placeholder turned that 404 into a blank card; step down the ladder
+   * instead and only give up once no narrower sibling is left.
+   */
+  const [fallbackWidth, setFallbackWidth] = useState<number | null>(null)
+  const optimizedSrc =
+    fallbackWidth === null ? requestedSrc : withProductVariantWidth(requestedSrc, fallbackWidth)
+  const activeWidth = productVariantWidth(optimizedSrc)
   const pipelinePicture =
-    !failed && isProductPipelineSrc(optimizedSrc)
-      ? productPipelinePictureSources(optimizedSrc, effectiveProfile)
+    !failed && activeWidth !== null && isProductPipelineSrc(optimizedSrc)
+      ? {
+          webp: withProductVariantWidth(optimizedSrc, activeWidth, 'webp'),
+          avif: withProductVariantWidth(optimizedSrc, activeWidth, 'avif'),
+        }
       : null
 
   useEffect(() => {
     setFailed(false)
-  }, [optimizedSrc])
+    setFallbackWidth(null)
+  }, [requestedSrc])
+
+  const handleError = () => {
+    const smaller = activeWidth === null ? null : nextSmallerVariantWidth(activeWidth)
+    if (smaller === null) setFailed(true)
+    else setFallbackWidth(smaller)
+  }
 
   const useBlur = withBlur && (rest.fill !== undefined || (rest.width !== undefined && rest.height !== undefined))
   let priorityProps: Pick<ImageProps, 'priority' | 'fetchPriority'> = {}
@@ -88,7 +110,7 @@ export function StorefrontImage({
     <Image
       src={failed ? PRODUCT_IMAGE_PLACEHOLDER : optimizedSrc}
       alt={alt}
-      onError={() => setFailed(true)}
+      onError={handleError}
       sizes={sizes ?? sizeMap[effectiveProfile]}
       quality={quality ?? IMAGE_QUALITY[effectiveProfile]}
       className={cn(

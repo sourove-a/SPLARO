@@ -18,10 +18,17 @@ export function HomeHeroLcpShell({ banners = [] }: { banners?: HeroBanner[] }) {
       ? slide.image
       : (classified.poster ?? slide.mobileImage?.trim() ?? '')
   const variants = resolveLocalHeroVariants(poster)
-  const mobileImage = slide.mobileImage?.trim()
-    ? optimizeImageSrc(slide.mobileImage.trim(), 'hero', slide.mobileImage.trim(), {
-        allowStockMedia: true,
-      })
+  /*
+   * A local upload already carries the width the admin wrote (`.w1200.webp`);
+   * remapping it to the `hero` profile asked for a `.w1600.` sibling the media
+   * library never writes, and this raw <img> has no fallback to catch the 404.
+   * Same rule `heroImageSrc` follows in HeroSlider — remote URLs only.
+   */
+  const rawMobileImage = slide.mobileImage?.trim()
+  const mobileImage = rawMobileImage
+    ? rawMobileImage.startsWith('/')
+      ? rawMobileImage
+      : optimizeImageSrc(rawMobileImage, 'hero', rawMobileImage, { allowStockMedia: true })
     : variants?.mobile
   const copy = heroSlideCopy(slide)
   const hasCopy = Boolean(copy.title || copy.subtitle)

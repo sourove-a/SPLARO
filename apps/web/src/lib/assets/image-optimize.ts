@@ -51,6 +51,13 @@ const REMOTE_WIDTH: Record<ImageProfile, number> = {
   lightbox: 1600,
 }
 
+/**
+ * Widths the admin upload pipeline writes, widest first. It only emits a width
+ * the source can actually fill, so a 1200px master has no `.w1600.` sibling —
+ * asking for one 404s. `nextSmallerVariantWidth` walks back down this ladder.
+ */
+export const PRODUCT_VARIANT_WIDTHS = [1600, 1200, 828, 480, 160] as const
+
 /** Prebuilt product pipeline widths (admin upload). */
 const PRODUCT_VARIANT_WIDTH: Record<ImageProfile, number> = {
   thumb: 160,
@@ -61,7 +68,10 @@ const PRODUCT_VARIANT_WIDTH: Record<ImageProfile, number> = {
   gallery: 1200,
   heroMobile: 828,
   hero: 1600,
-  lightbox: 1600,
+  /* Matches `gallery`, so opening the lightbox reuses the variant the page has
+     already fetched — instant, and it exists for every master the pipeline
+     accepts (1600 only exists for masters wider than 1600). */
+  lightbox: 1200,
 }
 
 /*
@@ -100,21 +110,34 @@ export function pickProductUploadVariant(
   return `/uploads/${folder}/${id}.w${target}.${format}`
 }
 
+/** Width baked into a pipeline variant URL, or null when it isn't one. */
+export function productVariantWidth(url: string): number | null {
+  const match = productPipelinePathOnly(url).match(PRODUCT_VARIANT_RE)
+  if (!match) return null
+  const width = Number(match[3])
+  return Number.isFinite(width) ? width : null
+}
+
+/** Same pipeline variant at an explicit width — used to step down after a 404. */
+export function withProductVariantWidth(
+  url: string,
+  width: number,
+  format: 'webp' | 'avif' = 'webp',
+): string {
+  const match = productPipelinePathOnly(url).match(PRODUCT_VARIANT_RE)
+  if (!match) return url
+  return `/uploads/${match[1]}/${match[2]}.w${width}.${format}`
+}
+
+/** Next narrower width the pipeline could have written, or null at the bottom. */
+export function nextSmallerVariantWidth(width: number): number | null {
+  return PRODUCT_VARIANT_WIDTHS.find((candidate) => candidate < width) ?? null
+}
+
 /** True when URL is a Phase-1 product pipeline variant (webp/avif sized file). */
 export function isProductPipelineSrc(url: string | null | undefined): boolean {
   if (!url) return false
   return PRODUCT_VARIANT_RE.test(productPipelinePathOnly(url))
-}
-
-/** WebP + optional AVIF sibling for `<picture>` on the storefront. */
-export function productPipelinePictureSources(
-  url: string,
-  profile: ImageProfile = 'card',
-): { webp: string; avif: string } {
-  return {
-    webp: pickProductUploadVariant(url, profile, 'webp'),
-    avif: pickProductUploadVariant(url, profile, 'avif'),
-  }
 }
 
 export function mobileImageProfile(profile: ImageProfile): ImageProfile {
