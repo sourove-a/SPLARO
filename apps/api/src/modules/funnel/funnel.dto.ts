@@ -8,6 +8,7 @@ import {
   ValidateNested,
   Min,
   IsEmail,
+  IsBoolean,
 } from 'class-validator'
 import { Type } from 'class-transformer'
 
@@ -223,6 +224,22 @@ export class CreateFunnelStoreDto {
   @IsString()
   @IsOptional()
   bundleTier3Tag?: string
+
+  @IsString()
+  @IsOptional()
+  bundleTier1Title?: string
+
+  @IsString()
+  @IsOptional()
+  bundleTier2Title?: string
+
+  @IsString()
+  @IsOptional()
+  bundleTier3Title?: string
+
+  @IsBoolean()
+  @IsOptional()
+  showBundleCards?: boolean
 }
 
 export class UpdateFunnelStoreDto {
@@ -367,6 +384,22 @@ export class UpdateFunnelStoreDto {
   @IsString()
   @IsOptional()
   bundleTier3Tag?: string
+
+  @IsString()
+  @IsOptional()
+  bundleTier1Title?: string
+
+  @IsString()
+  @IsOptional()
+  bundleTier2Title?: string
+
+  @IsString()
+  @IsOptional()
+  bundleTier3Title?: string
+
+  @IsBoolean()
+  @IsOptional()
+  showBundleCards?: boolean
 
   @IsOptional()
   isActive?: boolean

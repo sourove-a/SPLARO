@@ -58,6 +58,10 @@ export interface FunnelUniverseConfig {
   bundleTier1Tag?: string
   bundleTier2Tag?: string
   bundleTier3Tag?: string
+  bundleTier1Title?: string
+  bundleTier2Title?: string
+  bundleTier3Title?: string
+  showBundleCards?: boolean
   product: {
     id: string
     title: string
@@ -71,6 +75,8 @@ export interface FunnelUniverseConfig {
     variants?: Array<{
       id: string
       name: string
+      size?: string | null
+      color?: string | null
       sku: string
       price: number
       stock: number
@@ -251,6 +257,8 @@ export class FunnelService {
             return {
               id: v.id,
               name: label,
+              size: v.size ?? null,
+              color: v.colorName ?? null,
               sku: v.sku ?? '',
               price: Number(v.price) > 0 ? Number(v.price) : Number(product.basePrice),
               stock: v.stock,
@@ -300,6 +308,10 @@ export class FunnelService {
       bundleTier1Tag: (rawConfig['bundleTier1Tag'] as string) || undefined,
       bundleTier2Tag: (rawConfig['bundleTier2Tag'] as string) || undefined,
       bundleTier3Tag: (rawConfig['bundleTier3Tag'] as string) || undefined,
+      bundleTier1Title: (rawConfig['bundleTier1Title'] as string) || undefined,
+      bundleTier2Title: (rawConfig['bundleTier2Title'] as string) || undefined,
+      bundleTier3Title: (rawConfig['bundleTier3Title'] as string) || undefined,
+      showBundleCards: rawConfig['showBundleCards'] !== undefined ? Boolean(rawConfig['showBundleCards']) : true,
       product: productPayload,
       deliveryMatrix: {
         insideDhaka: Number(store.settings?.dhakaDeliveryCharge ?? 70),
@@ -363,14 +375,17 @@ export class FunnelService {
     }
 
     // 5. Zero-Trust Pricing Calculation
+    const rawConfig = (store.settings?.storefrontConfig as Record<string, unknown>) ?? {}
     let unitPrice = Number(product.basePrice)
+    if (rawConfig['customProductPrice'] && Number(rawConfig['customProductPrice']) > 0) {
+      unitPrice = Number(rawConfig['customProductPrice'])
+    }
     const matchedVariant = dto.variantId ? product.variants.find((v) => v.id === dto.variantId) : null
     if (matchedVariant && Number(matchedVariant.price) > 0) {
       unitPrice = Number(matchedVariant.price)
     }
 
-    // Check if custom bundle pricing applies
-    const rawConfig = (store.settings?.storefrontConfig as Record<string, unknown>) ?? {}
+    // Check if custom bundle pricing or tier discounts apply
     const bundles = (rawConfig['bundles'] as Array<{ qty: number; price: number }>) ?? []
     const matchedBundle = bundles.find((b) => b.qty === dto.quantity)
 
@@ -378,7 +393,16 @@ export class FunnelService {
     if (matchedBundle && matchedBundle.price > 0) {
       subtotal = matchedBundle.price
     } else {
-      subtotal = unitPrice * dto.quantity
+      const rawSubtotal = unitPrice * dto.quantity
+      const tier2Discount = rawConfig['bundleTier2Discount'] !== undefined ? Number(rawConfig['bundleTier2Discount']) : 200
+      const tier3Discount = rawConfig['bundleTier3Discount'] !== undefined ? Number(rawConfig['bundleTier3Discount']) : 450
+      let discount = 0
+      if (dto.quantity === 2) {
+        discount = Math.max(0, tier2Discount)
+      } else if (dto.quantity >= 3) {
+        discount = Math.max(0, tier3Discount)
+      }
+      subtotal = Math.max(0, rawSubtotal - discount)
     }
 
     // Calculate delivery charge server-side
@@ -557,6 +581,10 @@ export class FunnelService {
         bundleTier1Tag: config['bundleTier1Tag'] || null,
         bundleTier2Tag: config['bundleTier2Tag'] || null,
         bundleTier3Tag: config['bundleTier3Tag'] || null,
+        bundleTier1Title: config['bundleTier1Title'] || null,
+        bundleTier2Title: config['bundleTier2Title'] || null,
+        bundleTier3Title: config['bundleTier3Title'] || null,
+        showBundleCards: config['showBundleCards'] !== undefined ? Boolean(config['showBundleCards']) : true,
         deliveryInsideDhaka: Number(s.settings?.dhakaDeliveryCharge ?? 70),
         deliveryOutsideDhaka: Number(s.settings?.outsideDhakaCharge ?? 130),
         ordersCount: s._count.orders,
@@ -597,6 +625,10 @@ export class FunnelService {
       bundleTier1Tag: dto.bundleTier1Tag ?? null,
       bundleTier2Tag: dto.bundleTier2Tag ?? null,
       bundleTier3Tag: dto.bundleTier3Tag ?? null,
+      bundleTier1Title: dto.bundleTier1Title ?? null,
+      bundleTier2Title: dto.bundleTier2Title ?? null,
+      bundleTier3Title: dto.bundleTier3Title ?? null,
+      showBundleCards: dto.showBundleCards !== undefined ? dto.showBundleCards : true,
     } as Prisma.InputJsonObject
 
     const store = await this.prisma.store.create({
@@ -666,6 +698,10 @@ export class FunnelService {
       ...(dto.bundleTier1Tag !== undefined ? { bundleTier1Tag: dto.bundleTier1Tag } : {}),
       ...(dto.bundleTier2Tag !== undefined ? { bundleTier2Tag: dto.bundleTier2Tag } : {}),
       ...(dto.bundleTier3Tag !== undefined ? { bundleTier3Tag: dto.bundleTier3Tag } : {}),
+      ...(dto.bundleTier1Title !== undefined ? { bundleTier1Title: dto.bundleTier1Title } : {}),
+      ...(dto.bundleTier2Title !== undefined ? { bundleTier2Title: dto.bundleTier2Title } : {}),
+      ...(dto.bundleTier3Title !== undefined ? { bundleTier3Title: dto.bundleTier3Title } : {}),
+      ...(dto.showBundleCards !== undefined ? { showBundleCards: dto.showBundleCards } : {}),
     } as Prisma.InputJsonObject
 
     const updated = await this.prisma.store.update({

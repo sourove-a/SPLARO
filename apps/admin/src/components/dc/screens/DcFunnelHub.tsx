@@ -45,6 +45,10 @@ interface FunnelUniverseSummary {
   bundleTier1Tag?: string | null
   bundleTier2Tag?: string | null
   bundleTier3Tag?: string | null
+  bundleTier1Title?: string | null
+  bundleTier2Title?: string | null
+  bundleTier3Title?: string | null
+  showBundleCards?: boolean
   deliveryInsideDhaka?: number
   deliveryOutsideDhaka?: number
   ordersCount: number
@@ -227,11 +231,15 @@ export function DcFunnelHub() {
   const [guaranteeBadge, setGuaranteeBadge] = useState('🛡️ ১০০% অরিজিনাল কোয়ালিটি গ্যারান্টি · ৩ দিনের সহজ রিটার্ন')
 
   // Form State - Package Bundles & Discounts
+  const [showBundleCards, setShowBundleCards] = useState<boolean>(true)
+  const [bundleTier1Title, setBundleTier1Title] = useState('১ টি নিন')
+  const [bundleTier2Title, setBundleTier2Title] = useState('২ টি নিন')
+  const [bundleTier3Title, setBundleTier3Title] = useState('৩ টি নিন')
   const [bundleTier2Discount, setBundleTier2Discount] = useState<number>(200)
   const [bundleTier3Discount, setBundleTier3Discount] = useState<number>(450)
-  const [bundleTier1Tag, setBundleTier1Tag] = useState('১ টি নিন')
-  const [bundleTier2Tag, setBundleTier2Tag] = useState('২ টি নিন (৳২০০ ছাড়!)')
-  const [bundleTier3Tag, setBundleTier3Tag] = useState('৩ টি নিন (৳৪৫০ ছাড়!)')
+  const [bundleTier1Tag, setBundleTier1Tag] = useState('রেগুলার প্রাইস')
+  const [bundleTier2Tag, setBundleTier2Tag] = useState('৳২০০ ছাড়!')
+  const [bundleTier3Tag, setBundleTier3Tag] = useState('৳৪৫০ ছাড়!')
 
   // Form State - Feature Bullets
   const [bulletPoints, setBulletPoints] = useState<string[]>(DEFAULT_BULLETS_BN)
@@ -240,7 +248,7 @@ export function DcFunnelHub() {
   // Form State - Delivery Matrix & Timeline & Support
   const [deliveryInsideDhaka, setDeliveryInsideDhaka] = useState<number>(70)
   const [deliveryOutsideDhaka, setDeliveryOutsideDhaka] = useState<number>(130)
-  const [deliveryTimelineText, setDeliveryTimelineText] = useState('⚡ ঢাকা সিটিতে ২৪-৪৮ ঘণ্টা, ঢাকার বাইরে ২-৩ দিনে নিশ্চিত হোম ডেলিভারি')
+  const [deliveryTimelineText, setDeliveryTimelineText] = useState('🚚 ঢাকা সিটিতে ২৪-৪৮ ঘণ্টা, ঢাকার বাইরে ২-৩ দিনে ক্যাশ অন হোম ডেলিভারি')
   const [whatsappNumber, setWhatsappNumber] = useState('01905010205')
 
   // Form State - Media
@@ -370,10 +378,13 @@ export function DcFunnelHub() {
       setCustomProductDescription(bnDesc)
       setHeroBadgeText('✨ স্পেশাল লিমিটেড ড্রপ')
       setReviewRatingText('⭐⭐⭐⭐⭐ ৪.৯/৫ (২৪০+ ভেরিফাইড রিভিউ) · ৯৯% সন্তুষ্টি')
-      setDeliveryTimelineText('⚡ ঢাকা সিটিতে ২৪-৪৮ ঘণ্টা, ঢাকার বাইরে ২-৩ দিনে নিশ্চিত হোম ডেলিভারি')
-      setBundleTier1Tag('১ টি নিন')
-      setBundleTier2Tag('২ টি নিন (৳২০০ ছাড়!)')
-      setBundleTier3Tag('৩ টি নিন (৳৪৫০ ছাড়!)')
+      setDeliveryTimelineText('🚚 ঢাকা সিটিতে ২৪-৪৮ ঘণ্টা, ঢাকার বাইরে ২-৩ দিনে ক্যাশ অন হোম ডেলিভারি')
+      setBundleTier1Title('১ টি নিন')
+      setBundleTier2Title('২ টি নিন')
+      setBundleTier3Title('৩ টি নিন')
+      setBundleTier1Tag('রেগুলার প্রাইস')
+      setBundleTier2Tag('৳২০০ ছাড়!')
+      setBundleTier3Tag('৳৪৫০ ছাড়!')
       setCtaText('অর্ডার কনফার্ম করুন (ক্যাশ অন ডেলিভারি)')
       setUrgencyText('🔥 মাত্র ৫টি পিস স্টকে বাকি আছে · দ্রুত অর্ডার করুন')
       setGuaranteeBadge('🛡️ ১০০% অরিজিনাল কোয়ালিটি গ্যারান্টি · ৩ দিনের সহজ রিটার্ন')
@@ -423,16 +434,20 @@ export function DcFunnelHub() {
     setCtaText('অর্ডার কনফার্ম করুন (ক্যাশ অন ডেলিভারি)')
     setUrgencyText('🔥 মাত্র ৫টি পিস স্টকে বাকি আছে · দ্রুত অর্ডার করুন')
     setGuaranteeBadge('🛡️ ১০০% অরিজিনাল কোয়ালিটি গ্যারান্টি · ৩ দিনের সহজ রিটার্ন')
+    setShowBundleCards(true)
+    setBundleTier1Title('১ টি নিন')
+    setBundleTier2Title('২ টি নিন')
+    setBundleTier3Title('৩ টি নিন')
     setBundleTier2Discount(200)
     setBundleTier3Discount(450)
-    setBundleTier1Tag('১ টি নিন')
-    setBundleTier2Tag('২ টি নিন (৳২০০ ছাড়!)')
-    setBundleTier3Tag('৩ টি নিন (৳৪৫০ ছাড়!)')
+    setBundleTier1Tag('রেগুলার প্রাইস')
+    setBundleTier2Tag('৳২০০ ছাড়!')
+    setBundleTier3Tag('৳৪৫০ ছাড়!')
     setBulletPoints(DEFAULT_BULLETS_BN)
     setNewBullet('')
     setDeliveryInsideDhaka(70)
     setDeliveryOutsideDhaka(130)
-    setDeliveryTimelineText('⚡ ঢাকা সিটিতে ২৪-৪৮ ঘণ্টা, ঢাকার বাইরে ২-৩ দিনে নিশ্চিত হোম ডেলিভারি')
+    setDeliveryTimelineText('🚚 ঢাকা সিটিতে ২৪-৪৮ ঘণ্টা, ঢাকার বাইরে ২-৩ দিনে ক্যাশ অন হোম ডেলিভারি')
     setWhatsappNumber('01905010205')
     setHeroMediaType('image')
     setVideoUrl('')
@@ -486,15 +501,19 @@ export function DcFunnelHub() {
     setCtaText(universe.ctaText || 'অর্ডার কনফার্ম করুন (ক্যাশ অন ডেলিভারি)')
     setUrgencyText(universe.urgencyText || '🔥 মাত্র ৫টি পিস স্টকে বাকি আছে · দ্রুত অর্ডার করুন')
     setGuaranteeBadge(universe.guaranteeBadge || '🛡️ ১০০% অরিজিনাল কোয়ালিটি গ্যারান্টি · ৩ দিনের সহজ রিটার্ন')
+    setShowBundleCards(universe.showBundleCards !== undefined ? Boolean(universe.showBundleCards) : true)
+    setBundleTier1Title(universe.bundleTier1Title || '১ টি নিন')
+    setBundleTier2Title(universe.bundleTier2Title || '২ টি নিন')
+    setBundleTier3Title(universe.bundleTier3Title || '৩ টি নিন')
     setBundleTier2Discount(universe.bundleTier2Discount ?? 200)
     setBundleTier3Discount(universe.bundleTier3Discount ?? 450)
-    setBundleTier1Tag(universe.bundleTier1Tag || '১ টি নিন')
-    setBundleTier2Tag(universe.bundleTier2Tag || '২ টি নিন (৳২০০ ছাড়!)')
-    setBundleTier3Tag(universe.bundleTier3Tag || '৩ টি নিন (৳৪৫০ ছাড়!)')
+    setBundleTier1Tag(universe.bundleTier1Tag || 'রেগুলার প্রাইস')
+    setBundleTier2Tag(universe.bundleTier2Tag || '৳২০০ ছাড়!')
+    setBundleTier3Tag(universe.bundleTier3Tag || '৳৪৫০ ছাড়!')
     setBulletPoints(universe.bulletPoints && universe.bulletPoints.length > 0 ? universe.bulletPoints : DEFAULT_BULLETS_BN)
     setDeliveryInsideDhaka(universe.deliveryInsideDhaka ?? 70)
     setDeliveryOutsideDhaka(universe.deliveryOutsideDhaka ?? 130)
-    setDeliveryTimelineText(universe.deliveryTimelineText || '⚡ ঢাকা সিটিতে ২৪-৪৮ ঘণ্টা, ঢাকার বাইরে ২-৩ দিনে নিশ্চিত হোম ডেলিভারি')
+    setDeliveryTimelineText(universe.deliveryTimelineText || '🚚 ঢাকা সিটিতে ২৪-৪৮ ঘণ্টা, ঢাকার বাইরে ২-৩ দিনে ক্যাশ অন হোম ডেলিভারি')
     setWhatsappNumber(universe.whatsappNumber || '01905010205')
     setHeroMediaType(universe.heroMediaType || 'image')
     setVideoUrl(universe.videoUrl || '')
@@ -566,6 +585,10 @@ export function DcFunnelHub() {
       bundleTier1Tag: bundleTier1Tag.trim() || undefined,
       bundleTier2Tag: bundleTier2Tag.trim() || undefined,
       bundleTier3Tag: bundleTier3Tag.trim() || undefined,
+      bundleTier1Title: bundleTier1Title.trim() || undefined,
+      bundleTier2Title: bundleTier2Title.trim() || undefined,
+      bundleTier3Title: bundleTier3Title.trim() || undefined,
+      showBundleCards,
       deliveryInsideDhaka: Number(deliveryInsideDhaka),
       deliveryOutsideDhaka: Number(deliveryOutsideDhaka),
       deliveryTimelineText: deliveryTimelineText.trim() || undefined,
@@ -595,7 +618,7 @@ export function DcFunnelHub() {
      RENDER FULL-WINDOW EDITOR VIEW
      ────────────────────────────────────────────────────────────────────────── */
   if (viewMode === 'EDITOR') {
-    const livePreviewUrl = funnelStorefrontUrl(slug || 'lifestyle')
+    const livePreviewUrl = funnelStorefrontUrl({ slug, subdomain, domain })
 
     return (
       <DcHubFrame
@@ -1351,40 +1374,71 @@ export function DcFunnelHub() {
 
               {/* SECTION 4: PACKAGE BUNDLES & QUANTITY DISCOUNTS */}
               <div className="dc-funnel-card">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-                  <div
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 6,
-                      background: 'var(--violet-soft)',
-                      color: 'var(--violet)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 800,
-                      fontSize: 13,
-                    }}
-                  >
-                    4
-                  </div>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink-1)' }}>
-                      Package Bundles & Quantity Discounts
-                    </h3>
-                    <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>
-                      Configure volume incentive discount tiers shown on the 1-page checkout
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 6,
+                        background: 'var(--violet-soft)',
+                        color: 'var(--violet)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 800,
+                        fontSize: 13,
+                      }}
+                    >
+                      4
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink-1)' }}>
+                        Package Bundles & Quantity Discounts
+                      </h3>
+                      <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>
+                        Configure volume incentive discount tiers shown on the 1-page checkout
+                      </div>
                     </div>
                   </div>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)' }}>
+                    <input
+                      type="checkbox"
+                      checked={showBundleCards}
+                      onChange={(e) => setShowBundleCards(e.target.checked)}
+                      style={{ cursor: 'pointer', accentColor: 'var(--violet)' }}
+                    />
+                    <span>Show Bundle Cards</span>
+                  </label>
                 </div>
 
                 <div className="dc-funnel-bundles-grid">
                   {/* Tier 1 */}
                   <div style={{ padding: 14, borderRadius: 8, background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--line)' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-1)', marginBottom: 8 }}>Tier 1 (Qty: 1)</div>
-                    <label style={{ fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 4 }}>Badge / Tag</label>
+                    <label style={{ fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 4 }}>Title / Label</label>
                     <input
                       type="text"
+                      placeholder="e.g. ১ টি নিন"
+                      value={bundleTier1Title}
+                      onChange={(e) => setBundleTier1Title(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: 6,
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid var(--line)',
+                        color: 'var(--ink-1)',
+                        fontSize: 12,
+                        outline: 'none',
+                        marginBottom: 8,
+                      }}
+                    />
+                    <label style={{ fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 4 }}>Offer Badge / Subtitle</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. রেগুলার প্রাইস"
                       value={bundleTier1Tag}
                       onChange={(e) => setBundleTier1Tag(e.target.value)}
                       style={{
@@ -1403,6 +1457,24 @@ export function DcFunnelHub() {
                   {/* Tier 2 */}
                   <div style={{ padding: 14, borderRadius: 8, background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--line)' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-1)', marginBottom: 8 }}>Tier 2 (Qty: 2)</div>
+                    <label style={{ fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 4 }}>Title / Label</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. ২ টি নিন"
+                      value={bundleTier2Title}
+                      onChange={(e) => setBundleTier2Title(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: 6,
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid var(--line)',
+                        color: 'var(--ink-1)',
+                        fontSize: 12,
+                        outline: 'none',
+                        marginBottom: 8,
+                      }}
+                    />
                     <label style={{ fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 4 }}>Discount (৳)</label>
                     <input
                       type="number"
@@ -1417,12 +1489,13 @@ export function DcFunnelHub() {
                         color: 'var(--ink-1)',
                         fontSize: 12,
                         outline: 'none',
-                        marginBottom: 6,
+                        marginBottom: 8,
                       }}
                     />
-                    <label style={{ fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 4 }}>Badge / Tag</label>
+                    <label style={{ fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 4 }}>Offer Badge / Subtitle</label>
                     <input
                       type="text"
+                      placeholder="e.g. ৳২০০ ছাড়!"
                       value={bundleTier2Tag}
                       onChange={(e) => setBundleTier2Tag(e.target.value)}
                       style={{
@@ -1441,6 +1514,24 @@ export function DcFunnelHub() {
                   {/* Tier 3 */}
                   <div style={{ padding: 14, borderRadius: 8, background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--line)' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-1)', marginBottom: 8 }}>Tier 3 (Qty: 3+)</div>
+                    <label style={{ fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 4 }}>Title / Label</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. ৩ টি নিন"
+                      value={bundleTier3Title}
+                      onChange={(e) => setBundleTier3Title(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: 6,
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid var(--line)',
+                        color: 'var(--ink-1)',
+                        fontSize: 12,
+                        outline: 'none',
+                        marginBottom: 8,
+                      }}
+                    />
                     <label style={{ fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 4 }}>Discount (৳)</label>
                     <input
                       type="number"
@@ -1455,12 +1546,13 @@ export function DcFunnelHub() {
                         color: 'var(--ink-1)',
                         fontSize: 12,
                         outline: 'none',
-                        marginBottom: 6,
+                        marginBottom: 8,
                       }}
                     />
-                    <label style={{ fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 4 }}>Badge / Tag</label>
+                    <label style={{ fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 4 }}>Offer Badge / Subtitle</label>
                     <input
                       type="text"
+                      placeholder="e.g. ৳৪৫০ ছাড়! (জনপ্রিয়)"
                       value={bundleTier3Tag}
                       onChange={(e) => setBundleTier3Tag(e.target.value)}
                       style={{
@@ -1660,7 +1752,7 @@ export function DcFunnelHub() {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. ⚡ ঢাকা সিটিতে ২৪-৪৮ ঘণ্টা, ঢাকার বাইরে ২-৩ দিনে হোম ডেলিভারি"
+                    placeholder="e.g. 🚚 ঢাকা সিটিতে ২৪-৪৮ ঘণ্টা, ঢাকার বাইরে ২-৩ দিনে ক্যাশ অন হোম ডেলিভারি"
                     value={deliveryTimelineText}
                     onChange={(e) => setDeliveryTimelineText(e.target.value)}
                     style={{
@@ -2481,7 +2573,7 @@ export function DcFunnelHub() {
         ) : (
           <div className="dc-funnel-cards-grid">
             {funnels.map((f) => {
-              const liveStorefrontUrl = funnelStorefrontUrl(f.slug)
+              const liveStorefrontUrl = funnelStorefrontUrl({ slug: f.slug, subdomain: f.subdomain, domain: f.domain })
               const hasCustomDomain = Boolean(f.domain && f.domain.includes('.'))
               const publicDomain = hasCustomDomain
                 ? f.domain!

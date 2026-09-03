@@ -151,6 +151,8 @@ interface FunnelData {
       sku: string
       price: number
       stock: number
+      size?: string | null
+      color?: string | null
     }>
   } | null
   deliveryMatrix: {
@@ -176,6 +178,10 @@ interface FunnelData {
   bundleTier1Tag?: string
   bundleTier2Tag?: string
   bundleTier3Tag?: string
+  bundleTier1Title?: string
+  bundleTier2Title?: string
+  bundleTier3Title?: string
+  showBundleCards?: boolean
   themeName?: string
 }
 
@@ -207,6 +213,35 @@ function resolveVideoEmbed(rawUrl?: string | null): { type: 'youtube' | 'vimeo' 
     type: 'video',
     embedUrl: url,
   }
+}
+
+function resolveVariantSize(v: { name?: string | null; size?: string | null }): string {
+  if (v.size && v.size.trim()) {
+    return v.size.trim()
+  }
+  const raw = (v.name || '').trim()
+  if (raw.includes(' - ')) {
+    const candidate = raw.split(' - ')[0]?.trim()
+    if (candidate) return candidate
+  }
+  if (raw.includes(' / ')) {
+    const candidate = raw.split(' / ')[0]?.trim()
+    if (candidate) return candidate
+  }
+  return raw
+}
+
+function cleanBundleTag(rawTag: string | undefined | null, fallback: string, label: string): string {
+  if (!rawTag || !rawTag.trim()) return fallback
+  let clean = rawTag.trim()
+  if (clean.startsWith(label)) {
+    clean = clean.slice(label.length).trim()
+    clean = clean.replace(/^\s*\(\s*/, '').replace(/\s*\)\s*$/, '').trim()
+  }
+  if (clean.toLowerCase() === label.toLowerCase() || !clean) {
+    return fallback
+  }
+  return clean
 }
 
 export default function FunnelDropPage() {
@@ -328,11 +363,16 @@ export default function FunnelDropPage() {
   }, [funnel?.customColors, funnel?.themePreset])
 
   // Volume discount tiers
+  const rawSubtotal = productPrice * quantity
+  const bundleDiscount = useMemo(() => {
+    if (quantity === 2) return Math.max(0, tier2Discount)
+    if (quantity >= 3) return Math.max(0, tier3Discount)
+    return 0
+  }, [quantity, tier2Discount, tier3Discount])
+
   const subtotal = useMemo(() => {
-    if (quantity === 2) return productPrice * 2 - tier2Discount
-    if (quantity >= 3) return productPrice * quantity - tier3Discount
-    return productPrice * quantity
-  }, [productPrice, quantity, tier2Discount, tier3Discount])
+    return Math.max(0, rawSubtotal - bundleDiscount)
+  }, [rawSubtotal, bundleDiscount])
 
   const total = subtotal + deliveryCharge
 
@@ -404,7 +444,8 @@ export default function FunnelDropPage() {
       '',
       '*পেমেন্ট ও বিল:*',
       '• *পেমেন্ট মেথড:* Cash on Delivery (ক্যাশ অন ডেলিভারি)',
-      `• পণ্যের সাবটোটাল: ৳${subtotal.toLocaleString('en-BD')}`,
+      `• পণ্যের সাবটোটাল: ৳${rawSubtotal.toLocaleString('en-BD')}`,
+      ...(bundleDiscount > 0 ? [`• প্যাকেজ অফার ছাড়: -৳${bundleDiscount.toLocaleString('en-BD')}`] : []),
       `• ডেলিভারি চার্জ: ৳${deliveryCharge.toLocaleString('en-BD')}`,
       `• *সর্বমোট প্রদেয় বিল:* *৳${orderSuccess.total.toLocaleString('en-BD')}*`,
       '',
@@ -413,7 +454,7 @@ export default function FunnelDropPage() {
     ].join('\n')
 
     return `https://wa.me/${waTarget}?text=${encodeURIComponent(msg)}`
-  }, [orderSuccess, funnel?.product?.title, productCode, quantity, productPrice, subtotal, deliveryCharge, waTarget])
+  }, [orderSuccess, funnel?.product?.title, productCode, quantity, productPrice, rawSubtotal, bundleDiscount, deliveryCharge, waTarget])
 
   if (loading) {
     return (
@@ -1436,107 +1477,221 @@ export default function FunnelDropPage() {
                 onSubmit={handleOrderSubmit}
                 style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
               >
-                {/* Quantity Package Selector */}
+                {/* Quantity Package & Stepper Selector */}
                 <div>
-                  <label style={{ fontSize: 13, fontWeight: 700, display: 'block', marginBottom: 8 }}>
-                    প্যাকেজ / পরিমাণ বেছে নিন:
-                  </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-                    {[
-                      { qty: 1, label: '১ টি নিন', tag: funnel.bundleTier1Tag || 'নরমাল' },
-                      { qty: 2, label: '২ টি নিন', tag: funnel.bundleTier2Tag || `৳${tier2Discount} ছাড়!` },
-                      { qty: 3, label: '৩ টি নিন', tag: funnel.bundleTier3Tag || `৳${tier3Discount} ছাড়!` },
-                    ].map((pkg) => {
-                      const isSelected = quantity === pkg.qty
-                      return (
-                        <div
-                          key={pkg.qty}
-                          onClick={() => setQuantity(pkg.qty)}
-                          style={{
-                            padding: '12px 8px',
-                            borderRadius: 10,
-                            border: isSelected ? '2px solid var(--funnel-accent)' : '1px solid var(--funnel-border)',
-                            background: isSelected ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                            cursor: 'pointer',
-                            textAlign: 'center',
-                            transition: 'border-color 150ms ease',
-                          }}
-                        >
-                          <div style={{ fontWeight: 800, fontSize: 14 }}>{pkg.label}</div>
-                          <span
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <label style={{ fontSize: 14, fontWeight: 800, color: '#ffffff', letterSpacing: '0.01em' }}>
+                      প্যাকেজ / পরিমাণ বেছে নিন:
+                    </label>
+
+                    {/* Quantity Stepper [- 1 +] */}
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid var(--funnel-border)',
+                        borderRadius: 10,
+                        padding: '2px 4px',
+                        gap: 6,
+                        backdropFilter: 'blur(10px)',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        aria-label="Decrease quantity"
+                        disabled={quantity <= 1}
+                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 6,
+                          border: 'none',
+                          background: quantity <= 1 ? 'transparent' : 'rgba(255, 255, 255, 0.08)',
+                          color: quantity <= 1 ? 'rgba(255, 255, 255, 0.25)' : '#ffffff',
+                          fontSize: 18,
+                          fontWeight: 800,
+                          cursor: quantity <= 1 ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 150ms ease',
+                        }}
+                      >
+                        −
+                      </button>
+
+                      <span
+                        style={{
+                          minWidth: 26,
+                          textAlign: 'center',
+                          fontSize: 15,
+                          fontWeight: 900,
+                          color: '#ffffff',
+                        }}
+                      >
+                        {quantity}
+                      </span>
+
+                      <button
+                        type="button"
+                        aria-label="Increase quantity"
+                        onClick={() => setQuantity((q) => q + 1)}
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 6,
+                          border: 'none',
+                          background: 'rgba(255, 255, 255, 0.12)',
+                          color: '#ffffff',
+                          fontSize: 18,
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 150ms ease',
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {funnel.showBundleCards !== false && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                      {[
+                        {
+                          qty: 1,
+                          label: funnel.bundleTier1Title || '১ টি নিন',
+                          tag: cleanBundleTag(funnel.bundleTier1Tag, 'রেগুলার', funnel.bundleTier1Title || '১ টি নিন'),
+                        },
+                        {
+                          qty: 2,
+                          label: funnel.bundleTier2Title || '২ টি নিন',
+                          tag: cleanBundleTag(funnel.bundleTier2Tag, `৳${tier2Discount} ছাড়!`, funnel.bundleTier2Title || '২ টি নিন'),
+                        },
+                        {
+                          qty: 3,
+                          label: funnel.bundleTier3Title || '৩ টি নিন',
+                          tag: cleanBundleTag(funnel.bundleTier3Tag, `৳${tier3Discount} ছাড়!`, funnel.bundleTier3Title || '৩ টি নিন'),
+                        },
+                      ].map((pkg) => {
+                        const isSelected = pkg.qty === 3 ? quantity >= 3 : quantity === pkg.qty
+                        return (
+                          <div
+                            key={pkg.qty}
+                            onClick={() => setQuantity(pkg.qty)}
                             style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color: isSelected ? 'var(--funnel-accent)' : 'var(--funnel-text-muted)',
-                              marginTop: 2,
-                              display: 'block',
+                              padding: '12px 8px',
+                              borderRadius: 10,
+                              border: isSelected ? '2px solid var(--funnel-accent)' : '1px solid var(--funnel-border)',
+                              background: isSelected ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                              boxShadow: isSelected ? '0 0 16px var(--funnel-accent-glow)' : 'none',
+                              cursor: 'pointer',
+                              textAlign: 'center',
+                              transition: 'all 150ms ease',
+                              transform: isSelected ? 'scale(1.02)' : 'scale(1)',
                             }}
                           >
-                            {pkg.tag}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
+                            <div style={{ fontWeight: 800, fontSize: 14, color: '#ffffff' }}>{pkg.label}</div>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: isSelected ? 'var(--funnel-accent)' : 'var(--funnel-text-muted)',
+                                marginTop: 4,
+                                display: 'block',
+                                letterSpacing: '0.01em',
+                              }}
+                            >
+                              {pkg.tag}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
 
-                {/* Variant / Size Selector */}
+                {/* Size Selector */}
                 {funnel.product?.variants && funnel.product.variants.length > 0 && (
                   <div>
-                    <label style={{ fontSize: 14, fontWeight: 800, display: 'block', marginBottom: 10, color: '#ffffff' }}>
-                      সাইজ / ভ্যারিয়েন্ট বেছে নিন:
-                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <label style={{ fontSize: 14, fontWeight: 800, color: '#ffffff', letterSpacing: '0.01em' }}>
+                        সাইজ বেছে নিন:
+                      </label>
+                      {selectedVariantId && (
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: 'var(--funnel-accent)',
+                            background: 'rgba(255, 255, 255, 0.06)',
+                            padding: '3px 10px',
+                            borderRadius: 12,
+                            border: '1px solid var(--funnel-border)',
+                          }}
+                        >
+                          সাইজ: {resolveVariantSize(funnel.product.variants.find((v) => v.id === selectedVariantId) || { name: '' })}
+                        </span>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                       {funnel.product.variants.map((v) => {
                         const isSelected = selectedVariantId === v.id
+                        const sizeLabel = resolveVariantSize(v)
+                        const isOutOfStock = v.stock !== undefined && v.stock <= 0
                         return (
                           <button
                             key={v.id}
                             type="button"
+                            disabled={isOutOfStock}
                             onClick={() => setSelectedVariantId(v.id)}
                             style={{
-                              padding: '10px 20px',
-                              borderRadius: 30,
+                              minWidth: 54,
+                              height: 48,
+                              padding: '0 16px',
+                              borderRadius: 12,
                               border: isSelected
                                 ? '2px solid var(--funnel-accent)'
-                                : '1px solid rgba(255, 255, 255, 0.18)',
+                                : '1.5px solid rgba(255, 255, 255, 0.18)',
                               background: isSelected
                                 ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.08) 100%)'
-                                : 'rgba(255, 255, 255, 0.04)',
-                              color: '#ffffff',
-                              fontWeight: isSelected ? 800 : 600,
-                              fontSize: 13.5,
-                              cursor: 'pointer',
+                                : isOutOfStock
+                                ? 'rgba(255, 255, 255, 0.02)'
+                                : 'rgba(255, 255, 255, 0.05)',
+                              color: isOutOfStock ? 'rgba(255, 255, 255, 0.3)' : '#ffffff',
+                              fontWeight: isSelected ? 900 : 700,
+                              fontSize: 15,
+                              letterSpacing: '0.02em',
+                              cursor: isOutOfStock ? 'not-allowed' : 'pointer',
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: 8,
+                              justifyContent: 'center',
+                              gap: 6,
                               backdropFilter: 'blur(16px)',
                               WebkitBackdropFilter: 'blur(16px)',
                               boxShadow: isSelected
                                 ? '0 0 16px var(--funnel-accent-glow), inset 0 1px 1px rgba(255, 255, 255, 0.4)'
                                 : 'none',
-                              transition: 'all 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+                              transform: isSelected ? 'scale(1.04)' : 'scale(1)',
+                              transition: 'all 160ms cubic-bezier(0.16, 1, 0.3, 1)',
+                              textDecoration: isOutOfStock ? 'line-through' : 'none',
                             }}
                           >
                             {isSelected && (
                               <span
                                 style={{
-                                  width: 18,
-                                  height: 18,
+                                  width: 7,
+                                  height: 7,
                                   borderRadius: '50%',
                                   background: 'var(--funnel-accent)',
-                                  color: '#ffffff',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: 11,
-                                  fontWeight: 900,
+                                  boxShadow: '0 0 6px var(--funnel-accent)',
                                 }}
-                              >
-                                ✓
-                              </span>
+                              />
                             )}
-                            <span>{v.name}</span>
+                            <span>{sizeLabel}</span>
                           </button>
                         )
                       })}
@@ -1677,25 +1832,65 @@ export default function FunnelDropPage() {
                   {errorField === 'address' && <FieldError id="funnel-err-address">{errorMessage}</FieldError>}
                 </div>
 
-                {/* Delivery Timeline Notice */}
+                {/* Delivery Timeline & Trust Notice */}
                 <div
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '10px 14px',
-                    borderRadius: 8,
-                    background: 'rgba(255, 255, 255, 0.03)',
+                    borderRadius: 12,
+                    background: 'rgba(255, 255, 255, 0.035)',
                     border: '1px solid var(--funnel-border)',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: 'var(--funnel-text-muted)',
+                    padding: '14px 16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
                   }}
                 >
-                  {!hasLeadingEmoji(funnel.deliveryTimelineText) && (
-                    <span style={{ fontSize: 16 }}>⚡</span>
-                  )}
-                  <span>{funnel.deliveryTimelineText || 'ঢাকা সিটিতে ২৪-৪৮ ঘণ্টা, ঢাকার বাইরে ২-৩ দিনে নিশ্চিত হোম ডেলিভারি'}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 800, color: '#ffffff' }}>
+                    <span style={{ fontSize: 16 }}>🚚</span>
+                    <span>হোম ডেলিভারি সময় ও সুবিধা:</span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, 1fr)',
+                      gap: 8,
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: 8,
+                        padding: '8px 10px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 2,
+                      }}
+                    >
+                      <span style={{ color: 'var(--funnel-text-muted)', fontSize: 11, fontWeight: 700 }}>📍 ঢাকা সিটিতে</span>
+                      <span style={{ color: 'var(--funnel-accent)', fontWeight: 900, fontSize: 13 }}>২৪ – ৪৮ ঘণ্টা</span>
+                    </div>
+
+                    <div
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: 8,
+                        padding: '8px 10px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 2,
+                      }}
+                    >
+                      <span style={{ color: 'var(--funnel-text-muted)', fontSize: 11, fontWeight: 700 }}>📍 ঢাকার বাইরে</span>
+                      <span style={{ color: '#ffffff', fontWeight: 900, fontSize: 13 }}>২ – ৩ দিন</span>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: 11.5, color: 'var(--funnel-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ color: '#4ade80', fontWeight: 900 }}>✓</span>
+                    <span>সারা বাংলাদেশে ক্যাশ অন ডেলিভারি (পণ্য হাতে পেয়ে চেক করে পেমেন্ট)</span>
+                  </div>
                 </div>
 
                 {/* Live Bill Summary */}
@@ -1712,8 +1907,14 @@ export default function FunnelDropPage() {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--funnel-text-muted)' }}>
                     <span>সাবটোটাল ({quantity} টি আইটেম):</span>
-                    <span>৳{subtotal.toLocaleString('en-BD')}</span>
+                    <span>৳{rawSubtotal.toLocaleString('en-BD')}</span>
                   </div>
+                  {bundleDiscount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4ade80', fontWeight: 700 }}>
+                      <span>🎉 প্যাকেজ অফার ছাড়:</span>
+                      <span>-৳{bundleDiscount.toLocaleString('en-BD')}</span>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--funnel-text-muted)' }}>
                     <span>ডেলিভারি চার্জ ({isDhaka ? 'ঢাকা' : 'ঢাকার বাইরে'}):</span>
                     <span>৳{deliveryCharge.toLocaleString('en-BD')}</span>

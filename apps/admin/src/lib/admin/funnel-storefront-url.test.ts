@@ -17,22 +17,41 @@ test('funnelStorefrontUrl produces valid storefront URL on server and browser', 
       location: { hostname: 'admin.splaro.co' } as unknown as Location,
     } as unknown as Window & typeof globalThis
     assert.equal(getStorefrontOrigin(), 'https://splaro.co')
-    assert.equal(funnelStorefrontUrl('lifestyle'), 'https://splaro.co/funnel/drop?drop=lifestyle')
-    assert.equal(funnelStorefrontUrl('tipor shoes'), 'https://splaro.co/funnel/drop?drop=tipor%20shoes')
+    assert.equal(
+      funnelStorefrontUrl({ slug: 'tipor-shoes', subdomain: 'lifestyle' }),
+      'https://lifestyle.splaro.co',
+    )
+    assert.equal(funnelStorefrontUrl('summer-drop'), 'https://splaro.co/funnel/drop?drop=summer-drop')
+    assert.equal(
+      funnelStorefrontUrl({ slug: 'tipor-shoes', domain: 'exclusivewatch.shop' }),
+      'https://exclusivewatch.shop',
+    )
+    // Single name in domain field without dot is treated as subdomain on splaro.co
+    assert.equal(
+      funnelStorefrontUrl({ slug: 'tipor-shoes', domain: 'lifestyle' }),
+      'https://lifestyle.splaro.co',
+    )
+    assert.equal(funnelStorefrontUrl({ slug: 'summer-drop' }), 'https://splaro.co/funnel/drop?drop=summer-drop')
 
     // Test browser at local 127.0.0.1
     globalThis.window = {
       location: { hostname: '127.0.0.1' } as unknown as Location,
     } as unknown as Window & typeof globalThis
     assert.equal(getStorefrontOrigin(), 'http://127.0.0.1:3000')
-    assert.equal(funnelStorefrontUrl('lifestyle'), 'http://127.0.0.1:3000/funnel/drop?drop=lifestyle')
+    assert.equal(
+      funnelStorefrontUrl({ slug: 'lifestyle', subdomain: 'lifestyle' }),
+      'http://127.0.0.1:3000/funnel/drop?drop=lifestyle',
+    )
 
     // Test browser at local localhost
     globalThis.window = {
       location: { hostname: 'localhost' } as unknown as Location,
     } as unknown as Window & typeof globalThis
     assert.equal(getStorefrontOrigin(), 'http://localhost:3000')
-    assert.equal(funnelStorefrontUrl('lifestyle'), 'http://localhost:3000/funnel/drop?drop=lifestyle')
+    assert.equal(
+      funnelStorefrontUrl({ slug: 'lifestyle', subdomain: 'lifestyle' }),
+      'http://localhost:3000/funnel/drop?drop=lifestyle',
+    )
   } finally {
     globalThis.window = originalWindow
   }
