@@ -4,11 +4,11 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
 
-/* ─── 0A. IMPERIAL VIOLET ORTHO GRID (8K Minimalist Geometric Line Grid) ─── */
+/* ─── 0A. IMPERIAL VIOLET ORTHO GRID (Minimalist Geometric Line Grid) ─────── */
 :root[data-theme="imperial-purple"],
 .funnel-theme--imperial-purple {
   --funnel-bg: #000000;
-  --funnel-bg-image: url('/images/funnel/bg-purple-grid-8k.webp');
+  --funnel-grid-line: rgba(192, 132, 252, 0.16);
   --funnel-surface: #100320;
   --funnel-surface-glass: rgba(16, 3, 32, 0.82);
   --funnel-border: rgba(192, 132, 252, 0.38);
@@ -20,15 +20,15 @@
   --funnel-text-muted: #d8b4fe;
   --funnel-btn-bg: linear-gradient(135deg, #a855f7 0%, #7e22ce 50%, #4c1d95 100%);
   --funnel-btn-text: #ffffff;
-  --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(168, 85, 247, 0.65) 0%, rgba(0, 0, 0, 0) 75%);
+  --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(168, 85, 247, 0.45) 0%, rgba(0, 0, 0, 0) 75%);
   --funnel-glass-highlight: rgba(255, 255, 255, 0.48);
 }
 
-/* ─── 0B. CRIMSON CYBER ORTHO GRID (8K Minimalist Geometric Line Grid) ────── */
+/* ─── 0B. CRIMSON CYBER ORTHO GRID (Minimalist Geometric Line Grid) ────────── */
 :root[data-theme="crimson-matrix"],
 .funnel-theme--crimson-matrix {
   --funnel-bg: #000000;
-  --funnel-bg-image: url('/images/funnel/bg-red-grid-8k.webp');
+  --funnel-grid-line: rgba(248, 113, 113, 0.16);
   --funnel-surface: #180206;
   --funnel-surface-glass: rgba(24, 2, 6, 0.84);
   --funnel-border: rgba(248, 113, 113, 0.38);
@@ -40,14 +40,15 @@
   --funnel-text-muted: #fca5a5;
   --funnel-btn-bg: linear-gradient(135deg, #ff1744 0%, #b70024 100%);
   --funnel-btn-text: #ffffff;
-  --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(255, 23, 68, 0.65) 0%, rgba(0, 0, 0, 0) 75%);
+  --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(255, 23, 68, 0.45) 0%, rgba(0, 0, 0, 0) 75%);
   --funnel-glass-highlight: rgba(255, 255, 255, 0.45);
 }
 
-/* ─── 0C. ELECTRIC COBALT & CYBER GLASS (Ledgr Robotic Blue / High Horology Glass) ─ */
+/* ─── 0C. ELECTRIC COBALT & CYBER GLASS (Ledgr Robotic Blue) ──────────────── */
 :root[data-theme="cobalt-sapphire"],
 .funnel-theme--cobalt-sapphire {
   --funnel-bg: #040e34;
+  --funnel-grid-line: rgba(56, 189, 248, 0.16);
   --funnel-surface: #071957;
   --funnel-surface-glass: rgba(8, 25, 90, 0.68);
   --funnel-border: rgba(56, 189, 248, 0.32);
@@ -59,15 +60,15 @@
   --funnel-text-muted: #93c5fd;
   --funnel-btn-bg: linear-gradient(135deg, #0d4afc 0%, #062db2 100%);
   --funnel-btn-text: #ffffff;
-  --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(13, 74, 252, 0.65) 0%, rgba(4, 14, 52, 0) 75%);
+  --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(13, 74, 252, 0.45) 0%, rgba(4, 14, 52, 0) 75%);
   --funnel-glass-highlight: rgba(255, 255, 255, 0.4);
 }
 
-/* ─── 1. CYBER LIME ORTHO GRID (8K Minimalist Geometric Line Grid) ────────── */
+/* ─── 1. CYBER LIME ORTHO GRID (Minimalist Geometric Line Grid) ────────────── */
 :root[data-theme="cyber-lime"],
 .funnel-theme--cyber-lime {
   --funnel-bg: #000000;
-  --funnel-bg-image: url('/images/funnel/bg-green-grid-8k.webp');
+  --funnel-grid-line: rgba(181, 245, 39, 0.16);
   --funnel-surface: #0a0c0e;
   --funnel-surface-glass: rgba(14, 20, 14, 0.82);
   --funnel-border: rgba(181, 245, 39, 0.28);
@@ -79,14 +80,15 @@
   --funnel-text-muted: #d4f884;
   --funnel-btn-bg: linear-gradient(135deg, #b5f527 0%, #8ec715 100%);
   --funnel-btn-text: #000000;
-  --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(181, 245, 39, 0.45) 0%, rgba(0, 0, 0, 0) 75%);
+  --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(181, 245, 39, 0.35) 0%, rgba(0, 0, 0, 0) 75%);
   --funnel-glass-highlight: rgba(181, 245, 39, 0.35);
 }
 
-/* ─── 2. OBSIDIAN & CHAMPAGNE GOLD (Swiss Horology Luxury) ──────────────── */
+/* ─── 2. OBSIDIAN & CHAMPAGNE GOLD (Swiss Horology Luxury) ─────────────────── */
 :root[data-theme="obsidian-gold"],
 .funnel-theme--obsidian-gold {
   --funnel-bg: #0b0c0e;
+  --funnel-grid-line: rgba(200, 169, 126, 0.15);
   --funnel-surface: #14161a;
   --funnel-surface-glass: rgba(20, 22, 26, 0.78);
   --funnel-border: rgba(200, 169, 126, 0.22);
@@ -101,11 +103,11 @@
   --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(200, 169, 126, 0.25) 0%, rgba(0, 0, 0, 0) 75%);
 }
 
-/* ─── 3. MIDNIGHT EMERALD VORTEX (8K Laser Perspective Vortex) ───────────── */
+/* ─── 3. MIDNIGHT EMERALD VORTEX (Laser Geometric Grid) ────────────────────── */
 :root[data-theme="emerald-velvet"],
 .funnel-theme--emerald-velvet {
   --funnel-bg: #000603;
-  --funnel-bg-image: url('/images/funnel/bg-emerald-vortex-8k.webp');
+  --funnel-grid-line: rgba(52, 211, 153, 0.16);
   --funnel-surface: #041b0e;
   --funnel-surface-glass: rgba(4, 27, 14, 0.82);
   --funnel-border: rgba(52, 211, 153, 0.38);
@@ -117,14 +119,15 @@
   --funnel-text-muted: #a7f3d0;
   --funnel-btn-bg: linear-gradient(135deg, #10b981 0%, #047857 100%);
   --funnel-btn-text: #ffffff;
-  --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(16, 185, 129, 0.65) 0%, rgba(0, 6, 3, 0) 75%);
+  --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(16, 185, 129, 0.45) 0%, rgba(0, 6, 3, 0) 75%);
   --funnel-glass-highlight: rgba(255, 255, 255, 0.48);
 }
 
-/* ─── 4. TITANIUM PRECISION SILVER (Apple Tech / EDC) ───────────────────── */
+/* ─── 4. TITANIUM PRECISION SILVER (Apple Tech / EDC) ──────────────────────── */
 :root[data-theme="titanium-silver"],
 .funnel-theme--titanium-silver {
   --funnel-bg: #0d0f12;
+  --funnel-grid-line: rgba(226, 232, 240, 0.12);
   --funnel-surface: #171a20;
   --funnel-surface-glass: rgba(23, 26, 32, 0.8);
   --funnel-border: rgba(226, 232, 240, 0.18);
@@ -139,10 +142,11 @@
   --funnel-spotlight: radial-gradient(ellipse at 50% -10%, rgba(226, 232, 240, 0.18) 0%, rgba(0, 0, 0, 0) 75%);
 }
 
-/* ─── 5. WARM MEDITERRANEAN SAND (Tuscan Earth) ─────────────────────────── */
+/* ─── 5. WARM MEDITERRANEAN SAND (Tuscan Earth) ────────────────────────────── */
 :root[data-theme="warm-sand"],
 .funnel-theme--warm-sand {
   --funnel-bg: #14110f;
+  --funnel-grid-line: rgba(212, 154, 106, 0.15);
   --funnel-surface: #201b17;
   --funnel-surface-glass: rgba(32, 27, 23, 0.78);
   --funnel-border: rgba(212, 154, 106, 0.24);
@@ -182,11 +186,6 @@ body:has(.funnel-universe-root) {
 /* ─── MASTER CONTAINER ─────────────────────────────────────────────────── */
 .funnel-universe-root {
   background-color: var(--funnel-bg, #000000);
-  background-image: var(--funnel-bg-image, none);
-  background-size: cover;
-  background-position: center top;
-  background-attachment: fixed;
-  background-repeat: no-repeat;
   color: var(--funnel-text-primary, #ffffff);
   min-height: 100vh;
   width: 100%;
@@ -196,6 +195,29 @@ body:has(.funnel-universe-root) {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+/* ─── ARCHITECTURAL GEOMETRIC MATRIX GRID ────────────────────────────── */
+.funnel-grid-backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(to right, var(--funnel-grid-line, rgba(255, 255, 255, 0.12)) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--funnel-grid-line, rgba(255, 255, 255, 0.12)) 1px, transparent 1px);
+  background-size: 34px 34px;
+  background-position: center center;
+  mask-image: radial-gradient(ellipse at 50% 25%, rgba(0, 0, 0, 0.9) 20%, rgba(0, 0, 0, 0.45) 75%, rgba(0, 0, 0, 0.15) 100%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 25%, rgba(0, 0, 0, 0.9) 20%, rgba(0, 0, 0, 0.45) 75%, rgba(0, 0, 0, 0.15) 100%);
+}
+
+@media (min-width: 768px) {
+  .funnel-grid-backdrop {
+    background-size: 46px 46px;
+  }
 }
 
 /* Theatrical Cone Spotlight */
@@ -393,22 +415,62 @@ body:has(.funnel-universe-root) {
 /* ─── FORM INPUTS ──────────────────────────────────────────────────────── */
 .funnel-input {
   width: 100%;
+  min-height: 52px;
+  height: 52px;
   padding: 14px 18px;
   border-radius: 12px;
   background: #ffffff !important;
-  border: 1.5px solid rgba(0, 0, 0, 0.14);
+  border: 1.5px solid rgba(0, 0, 0, 0.16);
   color: #000000 !important;
   font-weight: 700 !important;
-  font-size: 15px;
+  font-size: 16px;
   font-family: inherit;
   outline: none;
+  box-sizing: border-box;
   transition: border-color 200ms ease, box-shadow 200ms ease;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+textarea.funnel-input {
+  height: auto;
+  min-height: 80px;
+  line-height: 1.5;
+}
+
+select.funnel-input,
+.funnel-select-district {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 100% !important;
+  height: 54px !important;
+  min-height: 54px !important;
+  line-height: 52px !important;
+  padding: 0 46px 0 18px !important;
+  background-color: #ffffff !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='%23111827' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: calc(100% - 16px) center !important;
+  background-size: 20px 20px !important;
+  cursor: pointer;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: #000000 !important;
+  border: 1.5px solid rgba(0, 0, 0, 0.16) !important;
+  border-radius: 12px !important;
+  display: block !important;
+  box-sizing: border-box !important;
+}
+
+select.funnel-input:focus,
+.funnel-select-district:focus {
+  border-color: var(--funnel-accent) !important;
+  box-shadow: 0 0 0 3px var(--funnel-accent-glow), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
 }
 
 .funnel-input:focus {
   border-color: var(--funnel-accent);
-  box-shadow: 0 0 0 3px var(--funnel-accent-glow), inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 0 0 3px var(--funnel-accent-glow), 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .funnel-input::placeholder {
@@ -421,6 +483,7 @@ body:has(.funnel-universe-root) {
   background: #ffffff !important;
   color: #000000 !important;
   font-weight: 700 !important;
+  font-size: 15px;
 }
 
 /* ─── STICKY MOBILE BUY BAR ────────────────────────────────────────────── */

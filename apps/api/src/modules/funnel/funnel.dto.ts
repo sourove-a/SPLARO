@@ -61,6 +61,10 @@ export class FunnelAttributionDto {
   @IsString()
   @IsOptional()
   landingPage?: string
+
+  @IsString()
+  @IsOptional()
+  trafficSource?: string
 }
 
 export class ResolveFunnelQueryDto {
@@ -393,7 +397,7 @@ export class CreateFunnelOrderDto {
   @IsNotEmpty()
   customerPhone!: string
 
-  @IsEmail()
+  @IsString()
   @IsOptional()
   customerEmail?: string
 

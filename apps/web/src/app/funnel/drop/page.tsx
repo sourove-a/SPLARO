@@ -192,8 +192,9 @@ export default function FunnelDropPage() {
       if (col && typeof col === 'string' && col.startsWith('#') && col.length >= 4) {
         st['--funnel-accent'] = col
         st['--funnel-accent-glow'] = `${col}40`
+        st['--funnel-grid-line'] = `${col}25`
         st['--funnel-btn-bg'] = col
-        st['--funnel-spotlight'] = `radial-gradient(ellipse at 50% -10%, ${col}40 0%, rgba(0, 0, 0, 0) 75%)`
+        st['--funnel-spotlight'] = `radial-gradient(ellipse at 50% -10%, ${col}35 0%, rgba(0, 0, 0, 0) 75%)`
       }
       if (funnel.customColors?.bg && typeof funnel.customColors.bg === 'string' && funnel.customColors.bg.startsWith('#') && funnel.customColors.bg.length >= 4) {
         st['--funnel-bg'] = funnel.customColors.bg
@@ -502,7 +503,11 @@ export default function FunnelDropPage() {
           })
         }
       } else {
-        setErrorMessage(data.message || 'অর্ডার প্রক্রিয়া করতে সমস্যা হয়েছে, আবার চেষ্টা করুন।')
+        const rawMsg = data.message || data.error
+        const msg = Array.isArray(rawMsg)
+          ? rawMsg.join(', ')
+          : (typeof rawMsg === 'string' ? rawMsg : 'অর্ডার প্রক্রিয়া করতে সমস্যা হয়েছে, আবার চেষ্টা করুন।')
+        setErrorMessage(msg)
       }
     } catch {
       setErrorMessage('ইন্টারনেট সংযোগ চেক করে আবার চেষ্টা করুন।')
@@ -563,7 +568,10 @@ export default function FunnelDropPage() {
       {/* Theatrical Overhead Cone Spotlight */}
       <div className="funnel-theatrical-spotlight" />
 
-      {/* Ambient Futuristic Glow Orbs (Fluid Background Flow) */}
+      {/* Elegant Architectural Geometric Matrix Grid (Clean, Evenly Spaced, Soft on Eyes) */}
+      <div className="funnel-grid-backdrop" />
+
+      {/* Ambient Futuristic Glow Orbs (Fluid Atmospheric Flow) */}
       <div
         style={{
           position: 'absolute',
@@ -576,7 +584,7 @@ export default function FunnelDropPage() {
           filter: 'blur(80px)',
           pointerEvents: 'none',
           zIndex: 0,
-          opacity: 0.8,
+          opacity: 0.45,
         }}
       />
       <div
@@ -591,7 +599,7 @@ export default function FunnelDropPage() {
           filter: 'blur(90px)',
           pointerEvents: 'none',
           zIndex: 0,
-          opacity: 0.6,
+          opacity: 0.3,
         }}
       />
 
@@ -1397,18 +1405,20 @@ export default function FunnelDropPage() {
                   <label style={{ fontSize: 14, fontWeight: 800, color: '#ffffff', display: 'block', marginBottom: 6 }}>
                     আপনার জেলা / এরিয়া *
                   </label>
-                  <select
-                    value={shippingDistrict}
-                    onChange={(e) => setShippingDistrict(e.target.value)}
-                    className="funnel-input"
-                    style={{ cursor: 'pointer' }}
-                  >
-                    {BD_DISTRICT_LIST.map((dist) => (
-                      <option key={dist.en} value={dist.en}>
-                        {dist.bn}
-                      </option>
-                    ))}
-                  </select>
+                  <div style={{ position: 'relative', width: '100%' }}>
+                    <select
+                      value={shippingDistrict}
+                      onChange={(e) => setShippingDistrict(e.target.value)}
+                      className="funnel-input funnel-select-district"
+                      style={{ cursor: 'pointer' }}
+                    >
+                      {BD_DISTRICT_LIST.map((dist) => (
+                        <option key={dist.en} value={dist.en}>
+                          {dist.bn}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Delivery Address */}
