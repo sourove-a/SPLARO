@@ -613,21 +613,9 @@ export function DcFunnelHub() {
         ]}
       >
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-          {/* Top Sticky Action Bar */}
-          <div
-            style={{
-              ...hubCard,
-              padding: '16px 24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              background: 'rgba(255, 255, 255, 0.03)',
-              border: '1px solid var(--line)',
-              flexWrap: 'wrap',
-              gap: 16,
-            }}
-          >
-            <div>
+          {/* Top Sticky/Responsive Action Bar */}
+          <div className="dc-funnel-top-bar">
+            <div className="dc-funnel-top-bar__info">
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--ink-1)' }}>
                 {editingUniverseId ? 'Update Funnel Settings' : 'Configure New Drop Universe'}
               </h2>
@@ -636,7 +624,7 @@ export function DcFunnelHub() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div className="dc-funnel-top-bar__actions">
               <button
                 type="button"
                 onClick={() => {
@@ -708,11 +696,11 @@ export function DcFunnelHub() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.25fr) minmax(0, 0.75fr)', gap: 28 }}>
-            {/* LEFT COLUMN: IDENTITY, PRODUCT & LANGUAGE, HEADLINES & REVIEWS, BULLETS */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+          <div className="dc-funnel-editor-grid">
+            {/* PRIMARY COLUMN: IDENTITY, PRODUCT & LANGUAGE, HEADLINES & REVIEWS, BULLETS */}
+            <div className="dc-funnel-editor-col">
               {/* SECTION 1: IDENTITY & DOMAIN */}
-              <div style={{ ...hubCard, padding: 24 }}>
+              <div className="dc-funnel-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                   <div
                     style={{
@@ -735,7 +723,7 @@ export function DcFunnelHub() {
                   </h3>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div className="dc-funnel-form-row-2col" style={{ marginBottom: 16 }}>
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>
                       Universe Name *
@@ -788,7 +776,7 @@ export function DcFunnelHub() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="dc-funnel-form-row-2col">
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>
                       Subdomain on splaro.co
@@ -852,8 +840,8 @@ export function DcFunnelHub() {
               </div>
 
               {/* SECTION 2: ATTACH DROP PRODUCT & LANGUAGE (বাংলা / ENGLISH) */}
-              <div style={{ ...hubCard, padding: 24 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div className="dc-funnel-card">
+                <div className="dc-funnel-card-header">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div
                       style={{
@@ -917,17 +905,7 @@ export function DcFunnelHub() {
                 </div>
 
                 {/* Catalog Product Grid */}
-                <div
-                  style={{
-                    maxHeight: 200,
-                    overflowY: 'auto',
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-                    gap: 12,
-                    padding: 4,
-                    marginBottom: 20,
-                  }}
-                >
+                <div className="dc-funnel-product-picker-grid">
                   {filteredProducts.map((prod) => {
                     const isSelected = activeProductId === prod.id
                     const imgUrl = prod.images?.[0]?.url || '/images/hero/hero-slide-1-828.webp'
@@ -1134,7 +1112,7 @@ export function DcFunnelHub() {
                   </div>
 
                   {/* Custom Price & Strikethrough Compare Price */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div className="dc-funnel-form-row-2col">
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>
                         Special Funnel Promo Price (৳) (Optional Override)
@@ -1183,7 +1161,7 @@ export function DcFunnelHub() {
               </div>
 
               {/* SECTION 3: HEADLINES, MARKETING COPY & URGENCY */}
-              <div style={{ ...hubCard, padding: 24 }}>
+              <div className="dc-funnel-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                   <div
                     style={{
@@ -1253,7 +1231,7 @@ export function DcFunnelHub() {
                     />
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div className="dc-funnel-form-row-2col">
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>
                         Hero Top Badge / Tag
@@ -1299,7 +1277,7 @@ export function DcFunnelHub() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div className="dc-funnel-form-row-2col">
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>
                         CTA Button Text (Express Checkout Button)
@@ -1370,7 +1348,7 @@ export function DcFunnelHub() {
               </div>
 
               {/* SECTION 4: PACKAGE BUNDLES & QUANTITY DISCOUNTS */}
-              <div style={{ ...hubCard, padding: 24 }}>
+              <div className="dc-funnel-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                   <div
                     style={{
@@ -1398,7 +1376,7 @@ export function DcFunnelHub() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+                <div className="dc-funnel-bundles-grid">
                   {/* Tier 1 */}
                   <div style={{ padding: 14, borderRadius: 8, background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--line)' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-1)', marginBottom: 8 }}>Tier 1 (Qty: 1)</div>
@@ -1499,7 +1477,7 @@ export function DcFunnelHub() {
               </div>
 
               {/* SECTION 5: KEY FEATURE BULLETS */}
-              <div style={{ ...hubCard, padding: 24 }}>
+              <div className="dc-funnel-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                   <div
                     style={{
@@ -1560,7 +1538,7 @@ export function DcFunnelHub() {
                   ))}
                 </div>
 
-                <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <input
                     type="text"
                     placeholder="Add a new highlight bullet..."
@@ -1573,7 +1551,7 @@ export function DcFunnelHub() {
                       }
                     }}
                     style={{
-                      flex: 1,
+                      flex: '1 1 200px',
                       padding: '10px 14px',
                       borderRadius: 8,
                       background: 'rgba(255, 255, 255, 0.04)',
@@ -1595,6 +1573,7 @@ export function DcFunnelHub() {
                       fontSize: 13,
                       fontWeight: 600,
                       cursor: 'pointer',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     + Add Bullet
@@ -1603,10 +1582,10 @@ export function DcFunnelHub() {
               </div>
             </div>
 
-            {/* RIGHT COLUMN: DELIVERY MATRIX, MEDIA, THEME & PIXELS */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+            {/* SECONDARY COLUMN: DELIVERY MATRIX, MEDIA, THEME & PIXELS */}
+            <div className="dc-funnel-editor-col">
               {/* SECTION 6: DELIVERY MATRIX & CUSTOMER SUPPORT */}
-              <div style={{ ...hubCard, padding: 24 }}>
+              <div className="dc-funnel-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                   <div
                     style={{
@@ -1629,7 +1608,7 @@ export function DcFunnelHub() {
                   </h3>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div className="dc-funnel-form-row-2col" style={{ marginBottom: 16 }}>
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>
                       Inside Dhaka Delivery (৳)
@@ -1696,7 +1675,7 @@ export function DcFunnelHub() {
                 </div>
 
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
                     <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)' }}>
                       WhatsApp Customer Support & Order Number
                     </label>
@@ -1727,7 +1706,7 @@ export function DcFunnelHub() {
               </div>
 
               {/* SECTION 7: HERO SHOWCASE MEDIA (WITH LIVE VIDEO PREVIEW) */}
-              <div style={{ ...hubCard, padding: 24 }}>
+              <div className="dc-funnel-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                   <div
                     style={{
@@ -1878,7 +1857,7 @@ export function DcFunnelHub() {
               </div>
 
               {/* SECTION 8: LUXURY THEME ATMOSPHERE & CUSTOMIZATION */}
-              <div style={{ ...hubCard, padding: 24 }}>
+              <div className="dc-funnel-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                   <div
                     style={{
@@ -2224,7 +2203,7 @@ export function DcFunnelHub() {
               </div>
 
               {/* SECTION 9: TRACKING PIXELS */}
-              <div style={{ ...hubCard, padding: 24 }}>
+              <div className="dc-funnel-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                   <div
                     style={{
@@ -2247,7 +2226,7 @@ export function DcFunnelHub() {
                   </h3>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="dc-funnel-form-row-2col">
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                       <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)' }}>
@@ -2305,8 +2284,8 @@ export function DcFunnelHub() {
               {/* LIVE SUMMARY PREVIEW CARD */}
               {selectedProduct && (
                 <div
+                  className="dc-funnel-card"
                   style={{
-                    ...hubCard,
                     padding: 20,
                     border: '1px solid var(--line)',
                     background: 'rgba(255, 255, 255, 0.02)',
@@ -2336,6 +2315,56 @@ export function DcFunnelHub() {
                   </div>
                 </div>
               )}
+
+              {/* Bottom Persistent Save Action Bar */}
+              <div className="dc-funnel-bottom-bar">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode('LIST')
+                    resetForm()
+                  }}
+                  style={{
+                    padding: '10px 18px',
+                    borderRadius: 8,
+                    border: '1px solid var(--line)',
+                    background: 'transparent',
+                    color: 'var(--ink-2)',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                  style={{
+                    padding: '11px 28px',
+                    borderRadius: 8,
+                    border: 'none',
+                    background: 'var(--violet-solid)',
+                    color: 'var(--on-violet)',
+                    fontSize: 13.5,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    opacity: createMutation.isPending || updateMutation.isPending ? 0.7 : 1,
+                    boxShadow: '0 4px 14px var(--violet-soft)',
+                  }}
+                >
+                  <DcIcon name="Zap" size={15} />
+                  {createMutation.isPending || updateMutation.isPending
+                    ? 'Saving Universe...'
+                    : editingUniverseId
+                    ? 'Save Universe Changes'
+                    : 'Launch Universe Now'}
+                </button>
+              </div>
             </div>
           </div>
         </form>
@@ -2368,13 +2397,7 @@ export function DcFunnelHub() {
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         {/* KPI Strip */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: 16,
-          }}
-        >
+        <div className="dc-funnel-kpi-grid">
           <div style={{ ...hubCard, padding: 20 }}>
             <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600, textTransform: 'uppercase' }}>
               Active Universes
@@ -2454,13 +2477,7 @@ export function DcFunnelHub() {
             </button>
           </div>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-              gap: 20,
-            }}
-          >
+          <div className="dc-funnel-cards-grid">
             {funnels.map((f) => {
               const liveStorefrontUrl = `http://127.0.0.1:3000/funnel/drop?drop=${f.slug}`
               const publicDomain = f.domain || (f.subdomain ? `${f.subdomain}.splaro.co` : `${f.slug}.splaro.co`)

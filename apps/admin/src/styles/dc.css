@@ -3840,3 +3840,186 @@ body[data-dc-drawer] .dc-ask-splaro {
   flex: 1;
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   D2C FUNNEL HUB & EDITOR RESPONSIVE SYSTEM
+   ────────────────────────────────────────────────────────────────────────── */
+
+.dc-funnel-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.dc-funnel-editor-col {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+}
+
+.dc-funnel-card {
+  padding: 24px;
+  border-radius: 14px;
+  background: var(--surface);
+  background-image: var(--card-sheen);
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.dc-funnel-top-bar {
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dc-funnel-top-bar__info {
+  min-width: 0;
+  flex: 1 1 240px;
+}
+
+.dc-funnel-top-bar__actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dc-funnel-bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  margin-top: 8px;
+}
+
+.dc-funnel-form-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.dc-funnel-bundles-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.dc-funnel-product-picker-grid {
+  max-height: 220px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  padding: 4px;
+  margin-bottom: 20px;
+}
+
+.dc-funnel-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.dc-funnel-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.dc-funnel-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Tablet & Mobile Stack (<= 1024px) */
+@media (max-width: 1024px) {
+  .dc-funnel-editor-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .dc-funnel-editor-col {
+    gap: 20px;
+  }
+  .dc-funnel-card {
+    padding: 20px 18px;
+  }
+  .dc-funnel-bundles-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+/* Phone Screen (<= 640px) */
+@media (max-width: 640px) {
+  .dc-funnel-card {
+    padding: 16px 14px;
+    border-radius: 12px;
+  }
+  .dc-funnel-top-bar {
+    padding: 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .dc-funnel-top-bar__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+  .dc-funnel-top-bar__actions button[type="submit"] {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: center;
+    padding: 12px 18px !important;
+    font-size: 13.5px !important;
+  }
+  .dc-funnel-top-bar__actions a,
+  .dc-funnel-top-bar__actions button[type="button"] {
+    justify-content: center;
+    text-align: center;
+    padding: 10px 12px !important;
+    font-size: 12px !important;
+  }
+  .dc-funnel-bottom-bar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px;
+    gap: 10px;
+  }
+  .dc-funnel-bottom-bar button {
+    width: 100%;
+    justify-content: center;
+  }
+  .dc-funnel-form-row-2col {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .dc-funnel-product-picker-grid {
+    grid-template-columns: 1fr;
+  }
+  .dc-funnel-kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .dc-funnel-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
