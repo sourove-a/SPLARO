@@ -91,7 +91,14 @@ export function DcHomepageCatalogTiles({
   const [categorySlug, setCategorySlug] = useState<string>('')
   const [catQuery, setCatQuery] = useState('')
   const [prodQuery, setProdQuery] = useState('')
+  const [browseAll, setBrowseAll] = useState(false)
   const [dropSlug, setDropSlug] = useState<string | null>(null)
+
+  useEffect(() => {
+    void tree.refetch()
+    void productsQuery.refetch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     const stored = sessionStorage.getItem(DEPT_STORAGE)
@@ -101,14 +108,41 @@ export function DcHomepageCatalogTiles({
     sessionStorage.setItem(DEPT_STORAGE, department)
   }, [department])
 
-  const deptRow = useMemo(
-    () => picker.departments.find((d) => d.slug === department),
-    [picker, department],
-  )
-  const subcats = useMemo(
-    () => (deptRow ? picker.subcategoriesForDepartment(deptRow.id) : []),
-    [deptRow, picker],
-  )
+  const deptRow = useMemo(() => {
+    const dTarget = department.toLowerCase().trim()
+    return (
+      picker.departments.find((d) => d.slug.toLowerCase().trim() === dTarget) ??
+      picker.departments.find((d) => d.name.toLowerCase().trim() === dTarget) ??
+      picker.departments.find((d) => {
+        const s = d.slug.toLowerCase()
+        const n = d.name.toLowerCase()
+        if (dTarget === 'men') return (s === 'men' || n === 'men' || s.startsWith('men') || n.startsWith('men')) && !s.includes('women') && !n.includes('women')
+        if (dTarget === 'women') return s.includes('women') || n.includes('women')
+        if (dTarget === 'kids') return s.includes('kid') || n.includes('kid') || s.includes('child') || n.includes('child')
+        if (dTarget === 'footwear') return s.includes('foot') || n.includes('foot') || s.includes('shoe') || n.includes('shoe')
+        if (dTarget === 'accessories') return s.includes('accessor') || n.includes('accessor')
+        return false
+      })
+    )
+  }, [picker, department])
+
+  const subcats = useMemo(() => {
+    if (deptRow) {
+      return picker.allSubcategoriesForDepartment(deptRow.id)
+    }
+    const all = tree.data?.categories ?? []
+    return all.filter((c) => {
+      const s = c.slug.toLowerCase()
+      const n = c.name.toLowerCase()
+      if (department === 'men') return (s.includes('men') || n.includes('men')) && !s.includes('women') && !n.includes('women')
+      if (department === 'women') return s.includes('women') || n.includes('women')
+      if (department === 'kids') return s.includes('kid') || n.includes('kid') || s.includes('child') || n.includes('child')
+      if (department === 'footwear') return s.includes('foot') || n.includes('foot') || s.includes('shoe') || n.includes('shoe')
+      if (department === 'accessories') return s.includes('accessor') || n.includes('accessor')
+      return false
+    })
+  }, [deptRow, picker, tree.data?.categories, department])
+
   const deptTiles = useMemo(
     () => tiles.filter((tile) => tile.department === department),
     [tiles, department],
@@ -118,17 +152,21 @@ export function DcHomepageCatalogTiles({
     for (const cat of subcats) map.set(cat.slug, matchedInCategory(products, cat).length)
     return map
   }, [subcats, products])
-  const selectableSubcats = useMemo(
-    () =>
-      subcats.filter(
-        (c) => (taggedBySlug.get(c.slug) ?? 0) > 0 || deptTiles.some((t) => t.categorySlug === c.slug),
-      ),
-    [subcats, taggedBySlug, deptTiles],
-  )
+
+  const orderedSubcats = useMemo(() => {
+    const q = catQuery.trim().toLowerCase()
+    const live = deptTiles
+      .map((t) => subcats.find((c) => c.slug === t.categorySlug))
+      .filter((c): c is CategoryPickerRow => Boolean(c))
+    const rest = subcats.filter((c) => !deptTiles.some((t) => t.categorySlug === c.slug))
+    const list = [...live, ...rest]
+    return q ? list.filter((c) => c.name.toLowerCase().includes(q) || c.slug.includes(q)) : list
+  }, [subcats, deptTiles, catQuery])
+
   const selectedCat =
-    selectableSubcats.find((c) => c.slug === categorySlug) ??
-    selectableSubcats.find((c) => deptTiles.some((t) => t.categorySlug === c.slug)) ??
-    selectableSubcats[0] ??
+    orderedSubcats.find((c) => c.slug === categorySlug) ??
+    orderedSubcats.find((c) => deptTiles.some((t) => t.categorySlug === c.slug)) ??
+    orderedSubcats[0] ??
     null
   const activeSlug = selectedCat?.slug ?? ''
   const activeTile = deptTiles.find((t) => t.categorySlug === activeSlug)
@@ -137,10 +175,15 @@ export function DcHomepageCatalogTiles({
     [products, selectedCat],
   )
   const categoryProducts = useMemo(() => categoryMatch?.items ?? [], [categoryMatch])
+  const candidateProducts = useMemo(() => {
+    if (browseAll || categoryProducts.length === 0) return products
+    return categoryProducts
+  }, [browseAll, categoryProducts, products])
+
   const visibleProducts = useMemo(() => {
     const q = prodQuery.trim().toLowerCase()
-    if (!q) return categoryProducts
-    return categoryProducts.filter(
+    if (!q) return candidateProducts
+    return candidateProducts.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
         (p.sku ?? '').toLowerCase().includes(q) ||
@@ -150,16 +193,8 @@ export function DcHomepageCatalogTiles({
             (v.sku ?? '').toLowerCase().includes(q) || (v.barcode ?? '').toLowerCase().includes(q),
         ),
     )
-  }, [categoryProducts, prodQuery])
+  }, [candidateProducts, prodQuery])
   const selectedProduct = products.find((p) => p.id === activeTile?.productId) ?? null
-  const orderedSubcats = useMemo(() => {
-    const q = catQuery.trim().toLowerCase()
-    const live = deptTiles
-      .map((t) => selectableSubcats.find((c) => c.slug === t.categorySlug))
-      .filter((c): c is CategoryPickerRow => Boolean(c))
-    const rest = selectableSubcats.filter((c) => !deptTiles.some((t) => t.categorySlug === c.slug))
-    return [...live, ...rest].filter((c) => !q || c.name.toLowerCase().includes(q) || c.slug.includes(q))
-  }, [selectableSubcats, deptTiles, catQuery])
 
   const setCurated = (next: boolean) => onChange({ ...value, curated: next })
 
@@ -254,22 +289,48 @@ export function DcHomepageCatalogTiles({
             storefront.
           </span>
         </span>
-        <button
-          type="button"
-          onClick={() => setCurated(!curated)}
-          style={{
-            height: 32,
-            padding: '0 12px',
-            borderRadius: 8,
-            cursor: 'pointer',
-            font: `600 12px/1 ${FONT}`,
-            border: `1px solid ${curated ? 'var(--violet-solid)' : 'var(--line)'}`,
-            background: curated ? 'var(--violet-solid)' : 'var(--surface-2)',
-            color: curated ? 'var(--on-violet)' : 'var(--ink-2)',
-          }}
-        >
-          {curated ? 'Custom on homepage' : 'Auto (all categories)'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            type="button"
+            title="Refresh categories and products"
+            onClick={() => {
+              void tree.refetch()
+              void productsQuery.refetch()
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              height: 32,
+              padding: '0 10px',
+              borderRadius: 8,
+              border: '1px solid var(--line)',
+              background: 'var(--surface-2)',
+              color: 'var(--ink-2)',
+              cursor: 'pointer',
+              font: `600 12px/1 ${FONT}`,
+            }}
+          >
+            <DcIcon name="icon-refresh" size={12} />
+            <span>Refresh</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurated(!curated)}
+            style={{
+              height: 32,
+              padding: '0 12px',
+              borderRadius: 8,
+              cursor: 'pointer',
+              font: `600 12px/1 ${FONT}`,
+              border: `1px solid ${curated ? 'var(--violet-solid)' : 'var(--line)'}`,
+              background: curated ? 'var(--violet-solid)' : 'var(--surface-2)',
+              color: curated ? 'var(--on-violet)' : 'var(--ink-2)',
+            }}
+          >
+            {curated ? 'Custom on homepage' : 'Auto (all categories)'}
+          </button>
+        </div>
       </div>
 
       {!curated ? (
@@ -358,17 +419,12 @@ export function DcHomepageCatalogTiles({
               <p style={{ margin: '8px', font: `400 12.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
                 No categories under this menu yet. Add them in Categories first.
               </p>
-            ) : selectableSubcats.length === 0 ? (
+            ) : orderedSubcats.length === 0 ? (
               <p style={{ margin: '8px', font: `400 12.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
-                No published products in this menu yet. Empty categories stay hidden.
+                No categories match that search.
               </p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {orderedSubcats.length === 0 ? (
-                  <p style={{ margin: '8px', font: `400 12.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
-                    No categories match that search.
-                  </p>
-                ) : null}
                 {orderedSubcats.map((cat) => {
                   const on = activeSlug === cat.slug
                   const live = deptTiles.some((t) => t.categorySlug === cat.slug)
@@ -391,6 +447,7 @@ export function DcHomepageCatalogTiles({
                         onClick={() => {
                           setCategorySlug(cat.slug)
                           setProdQuery('')
+                          setBrowseAll(false)
                         }}
                         style={{
                           flex: 1,
@@ -526,12 +583,49 @@ export function DcHomepageCatalogTiles({
                     </button>
                   ) : null}
                 </div>
-                <p style={{ margin: '0 0 10px', font: `400 12px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
-                  Only products tagged to this category. Click one to show it on the homepage.
-                </p>
-                {selectedProduct && !categoryProducts.some((p) => p.id === selectedProduct.id) ? (
-                  <p style={{ margin: '0 0 10px', font: `500 12px/1.45 ${FONT}`, color: 'var(--warn)' }}>
-                    Current homepage pick is not in this category — choose another product.
+                {categoryProducts.length > 0 ? (
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => setBrowseAll(false)}
+                      style={{
+                        height: 28,
+                        padding: '0 10px',
+                        borderRadius: 7,
+                        border: `1px solid ${!browseAll ? 'var(--violet-bd)' : 'var(--line)'}`,
+                        background: !browseAll ? 'var(--violet-soft)' : 'var(--surface-2)',
+                        color: !browseAll ? 'var(--violet)' : 'var(--ink-2)',
+                        font: `600 11.5px/1 ${FONT}`,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Tagged in {selectedCat.name} ({categoryProducts.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBrowseAll(true)}
+                      style={{
+                        height: 28,
+                        padding: '0 10px',
+                        borderRadius: 7,
+                        border: `1px solid ${browseAll ? 'var(--violet-bd)' : 'var(--line)'}`,
+                        background: browseAll ? 'var(--violet-soft)' : 'var(--surface-2)',
+                        color: browseAll ? 'var(--violet)' : 'var(--ink-2)',
+                        font: `600 11.5px/1 ${FONT}`,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      All catalog products ({products.length})
+                    </button>
+                  </div>
+                ) : (
+                  <p style={{ margin: '0 0 10px', font: `400 12px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
+                    No products tagged to <strong>{selectedCat.name}</strong> yet. You can pick any published product below to use its photo for this homepage tile:
+                  </p>
+                )}
+                {selectedProduct && categoryProducts.length > 0 && !categoryProducts.some((p) => p.id === selectedProduct.id) ? (
+                  <p style={{ margin: '0 0 10px', font: `500 12px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
+                    Tile photo is set from another product in the catalog.
                   </p>
                 ) : null}
                 <DcInput
@@ -578,8 +672,8 @@ export function DcHomepageCatalogTiles({
                 ) : null}
                 {visibleProducts.length === 0 ? (
                   <p style={{ margin: 0, font: `400 12.5px/1.5 ${FONT}`, color: 'var(--ink-3)' }}>
-                    {categoryProducts.length === 0
-                      ? 'No published products in this category.'
+                    {candidateProducts.length === 0
+                      ? 'No published products found in catalog.'
                       : 'No products match that search.'}
                   </p>
                 ) : (

@@ -51,6 +51,12 @@ const WOMEN_KEYWORDS = [
   'shalwar',
   'hijab',
   'abaya',
+  'lawn',
+  'three-piece',
+  '3-piece',
+  'tunic',
+  'gown',
+  'kaftan',
 ]
 
 const MEN_KEYWORDS = [
@@ -62,6 +68,21 @@ const MEN_KEYWORDS = [
   'shirt',
   'pant',
   'trouser',
+  't-shirt',
+  'tshirt',
+  'hoodie',
+  'jacket',
+  'blazer',
+  'suit',
+  'jeans',
+  'chino',
+  'cargo',
+  'jogger',
+  'lungi',
+  'kabli',
+  'waistcoat',
+  'sweater',
+  'sweatshirt',
 ]
 
 const KIDS_KEYWORDS = [
@@ -77,9 +98,25 @@ const KIDS_KEYWORDS = [
   'frock',
   'school',
   'newborn',
+  'teen',
 ]
 
-const FOOTWEAR_KEYWORDS = ['foot', 'shoe', 'sandal', 'sneaker', 'boot', 'loafer', 'heel']
+const FOOTWEAR_KEYWORDS = [
+  'foot',
+  'shoe',
+  'sandal',
+  'sneaker',
+  'boot',
+  'loafer',
+  'heel',
+  'slipper',
+  'oxford',
+  'derby',
+  'clog',
+  'chappal',
+  'flat',
+  'slip-on',
+]
 
 const ACCESSORY_KEYWORDS = [
   'accessor',
@@ -96,19 +133,29 @@ const ACCESSORY_KEYWORDS = [
   'hat',
   'cardholder',
   'decor',
+  'perfume',
+  'attar',
+  'fragrance',
+  'sunglass',
+  'bracelet',
+  'ring',
+  'necklace',
+  'earring',
 ]
 
 function isMenuDepartment(cat: CategoryPickerRow): boolean {
   if (cat.parentId) return false
   if (DEPARTMENT_SLUGS.includes(cat.slug as DepartmentSlug)) return true
   const n = cat.name.toLowerCase().trim()
+  const s = cat.slug.toLowerCase().trim()
   return (
-    n === 'women' ||
-    n === 'men' ||
-    n === 'kids' ||
-    n === 'footwear' ||
-    n === 'accessories' ||
-    n === 'new arrivals'
+    DEPARTMENT_SLUGS.includes(s as DepartmentSlug) ||
+    n === 'women' || n === "women's" || n === 'womens' ||
+    n === 'men' || n === "men's" || n === 'mens' ||
+    n === 'kids' || n === "kid's" || n === 'children' ||
+    n === 'footwear' || n === 'shoes' || n === 'foot-wear' ||
+    n === 'accessories' || n === 'accessory' ||
+    n === 'new arrivals' || n === 'new-arrivals'
   )
 }
 
@@ -119,8 +166,8 @@ function sortCats(a: CategoryPickerRow, b: CategoryPickerRow) {
   if (!aKnown && bKnown) return 1
   if (aKnown && bKnown) {
     const order =
-      (DEPARTMENT_SLUGS as readonly string[]).indexOf(a.slug) -
-      (DEPARTMENT_SLUGS as readonly string[]).indexOf(b.slug)
+      (DEPARTMENT_SLUGS as readonly string[]).indexOf(a.slug as DepartmentSlug) -
+      (DEPARTMENT_SLUGS as readonly string[]).indexOf(b.slug as DepartmentSlug)
     if (order !== 0) return order
   }
   return (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)
@@ -224,10 +271,17 @@ export function buildCategoryPicker(
   const knownDeptRoots = roots.filter(isMenuDepartment)
   const knownDeptBySlug = new Map<string, CategoryPickerRow>()
   for (const dept of knownDeptRoots) {
-    const slug = DEPARTMENT_SLUGS.includes(dept.slug as DepartmentSlug)
+    const s = dept.slug.toLowerCase().trim()
+    const n = dept.name.toLowerCase().trim()
+    let slugKey: string = DEPARTMENT_SLUGS.includes(dept.slug as DepartmentSlug)
       ? dept.slug
       : dept.name.toLowerCase().trim().replace(/\s+/g, '-')
-    if (!knownDeptBySlug.has(slug)) knownDeptBySlug.set(slug, dept)
+    if (s.includes('women') || n.includes('women')) slugKey = 'women'
+    else if (s.includes('foot') || n.includes('foot') || s.includes('shoe') || n.includes('shoe')) slugKey = 'footwear'
+    else if (s.includes('kid') || n.includes('kid') || s.includes('child') || n.includes('child')) slugKey = 'kids'
+    else if (s.includes('accessor') || n.includes('accessor')) slugKey = 'accessories'
+    else if (s.includes('men') || n.includes('men')) slugKey = 'men'
+    if (!knownDeptBySlug.has(slugKey)) knownDeptBySlug.set(slugKey, dept)
   }
 
   /**
@@ -276,6 +330,32 @@ export function buildCategoryPicker(
     return list.sort(sortCats)
   }
 
+  /**
+   * Complete descendant categories under a department (children, grandchildren,
+   * plus loose roots filed under it). Used by Homepage tiles and catalog views
+   * where sub-subcategories must also be reachable without a 3-step dropdown.
+   */
+  function allSubcategoriesForDepartment(deptId: string): CategoryPickerRow[] {
+    const dept = rows.get(deptId)
+    if (!dept) return []
+
+    const seen = new Set<string>()
+    const list: CategoryPickerRow[] = []
+    const queue = [...childrenOfCategory(deptId), ...(looseByDept.get(deptId) ?? [])]
+
+    while (queue.length > 0) {
+      const node = queue.shift()!
+      if (seen.has(node.id)) continue
+      seen.add(node.id)
+      list.push(node)
+      const kids = childrenOfCategory(node.id)
+      if (kids.length > 0) queue.push(...kids)
+    }
+
+    if (list.length === 0) return [dept]
+    return list.sort(sortCats)
+  }
+
   /** Walk up to the root, then map that root onto the menu that renders it. */
   function departmentForCategory(categoryId: string): string {
     if (!rows.has(categoryId)) return ''
@@ -304,6 +384,7 @@ export function buildCategoryPicker(
   return {
     departments,
     subcategoriesForDepartment,
+    allSubcategoriesForDepartment,
     departmentForCategory,
     childrenOf: childrenOfCategory,
     deptIds,

@@ -171,4 +171,30 @@ describe('buildCategoryPicker', () => {
     // Its hidden parent is gone, so it stands on its own rather than vanishing.
     assert.ok(picker.departments.some((d) => d.id === 'vintage'))
   })
+
+  it('includes all descendants in allSubcategoriesForDepartment', () => {
+    const rows: CategoryPickerRow[] = [
+      { id: 'footwear', name: 'Footwear', slug: 'footwear', parentId: null },
+      { id: 'shoes', name: 'Shoes', slug: 'shoes', parentId: 'footwear' },
+      { id: 'sneakers', name: 'Sneakers', slug: 'sneakers', parentId: 'shoes' },
+      { id: 'loafers', name: 'Loafers', slug: 'loafers', parentId: 'shoes' },
+    ]
+    const picker = buildCategoryPicker(rows, tree(rows))
+
+    const all = picker.allSubcategoriesForDepartment('footwear').map((c) => c.id)
+    assert.ok(all.includes('shoes'))
+    assert.ok(all.includes('sneakers'))
+    assert.ok(all.includes('loafers'))
+  })
+
+  it('resolves flexible department names like Footwear or Mens', () => {
+    const rows: CategoryPickerRow[] = [
+      { id: 'fw', name: "Men's Footwear", slug: 'footwear-men', parentId: null },
+      { id: 'boots', name: 'Boots', slug: 'boots', parentId: 'fw' },
+    ]
+    const picker = buildCategoryPicker(rows, tree(rows))
+    assert.ok(picker.departments.some((d) => d.id === 'fw'))
+    const subs = picker.allSubcategoriesForDepartment('fw').map((c) => c.id)
+    assert.deepEqual(subs, ['boots'])
+  })
 })
