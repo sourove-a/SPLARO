@@ -19,7 +19,7 @@ export function resolveSupportPhone(settings: Pick<StorefrontSettings, 'store'>)
   return settings.store.phone?.trim() || ENV_PHONE || DEFAULT_SUPPORT_PHONE_E164
 }
 
-export function whatsAppHref(number: string, message = 'Hello SPLARO! I need assistance.'): string {
+export function whatsAppHref(number: string, message = "Hi SPLARO! I'm interested in ordering, can you help me?"): string {
   const rawDigits = number.replace(/[^0-9]/g, '')
   const digits = rawDigits.startsWith('00')
     ? rawDigits.slice(2)
