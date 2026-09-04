@@ -61,6 +61,47 @@ export class MetaCapiService {
       )
       const body = (await res.json()) as { id?: string; name?: string; error?: { message?: string } }
       if (!res.ok) {
+        // Events Manager tokens are scoped for CAPI event-publishing rather than ads_read metadata.
+        // Test via /{pixel_id}/events probe to verify CAPI is receiving events.
+        try {
+          const testEventRes = await fetch(
+            `https://graph.facebook.com/v19.0/${encodeURIComponent(primaryId)}/events?access_token=${encodeURIComponent(token)}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                data: [
+                  {
+                    event_name: 'TestEvent',
+                    event_time: Math.floor(Date.now() / 1000),
+                    action_source: 'website',
+                    user_data: { client_ip_address: '127.0.0.1' },
+                  },
+                ],
+                test_event_code: 'SPLARO_HEALTH_PROBE',
+              }),
+            },
+          )
+          const testBody = (await testEventRes.json()) as { events_received?: number; error?: { message?: string } }
+          if (testEventRes.ok && (testBody.events_received ?? 0) >= 0) {
+            const countSuffix = pixelIds.length > 1 ? ` (+${pixelIds.length - 1} secondary)` : ''
+            return {
+              ok: true,
+              message: `Meta Conversions API connected · Pixel ${primaryId}${countSuffix}`,
+              pixelId: primaryId,
+            }
+          }
+          if (testBody.error?.message) {
+            return {
+              ok: false,
+              message: testBody.error.message,
+              pixelId: primaryId,
+            }
+          }
+        } catch {
+          // fall through to original error below
+        }
+
         return {
           ok: false,
           message: body.error?.message ?? `Meta API error ${res.status}`,
