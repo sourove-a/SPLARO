@@ -113,6 +113,12 @@ function hasLeadingEmoji(text?: string | null): boolean {
 declare global {
   interface Window {
     fbq?: (...args: unknown[]) => void
+    ttq?: {
+      track: (event: string, params?: Record<string, unknown>) => void
+      page: () => void
+      load: (id: string) => void
+      [key: string]: unknown
+    }
   }
 }
 
@@ -164,6 +170,7 @@ interface FunnelData {
   guaranteeBadge?: string
   whatsappNumber?: string
   facebookPixelId?: string
+  tiktokPixelId?: string
   videoUrl?: string
   productLanguage?: 'bn' | 'en'
   customProductTitle?: string
@@ -382,7 +389,8 @@ export default function FunnelDropPage() {
     funnel?.product?.variants?.[0]?.sku ||
     (funnel?.product?.id ? `SPL-${funnel.product.id.slice(-4).toUpperCase()}` : 'SPL-DROP')
 
-  const effectivePixelId = funnel?.facebookPixelId || '1078121511554124'
+  const effectivePixelId = funnel?.facebookPixelId?.trim() || ''
+  const effectiveTikTokPixelId = funnel?.tiktokPixelId?.trim() || ''
 
   const waRaw = (funnel?.whatsappNumber || '01905010205').replace(/\D/g, '')
   const waTarget = waRaw.startsWith('88') ? waRaw : waRaw.startsWith('01') ? `88${waRaw}` : '8801905010205'
@@ -717,6 +725,18 @@ export default function FunnelDropPage() {
             num_items: quantity,
           })
         }
+
+        if (typeof window !== 'undefined' && window.ttq && effectiveTikTokPixelId) {
+          window.ttq.track('CompletePayment', {
+            content_id: funnel.product?.id || '',
+            content_name: funnel.product?.title || 'Drop Product',
+            content_type: 'product',
+            quantity: quantity,
+            price: productPrice,
+            value: data.total,
+            currency: 'BDT',
+          })
+        }
       } else {
         const rawMsg = data.message || data.error
         const msg = Array.isArray(rawMsg)
@@ -778,6 +798,30 @@ export default function FunnelDropPage() {
             />
           </noscript>
         </>
+      )}
+
+      {/* TikTok Pixel Tracking Script */}
+      {effectiveTikTokPixelId && (
+        <Script
+          id="funnel-tiktok-pixel"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              !function (w, d, t) {
+                w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};var a=document.createElement("script");a.type="text/javascript",a.async=!0,a.src=r+"?sdkid="+e+"&lib="+t;var c=document.getElementsByTagName("script")[0];c.parentNode.insertBefore(a,c)};
+                ttq.load('${effectiveTikTokPixelId}');
+                ttq.page();
+                ttq.track('ViewContent', {
+                  content_id: '${funnel.product?.id || ''}',
+                  content_name: '${(funnel.product?.title || 'Drop Product').replace(/'/g, "\\'")}',
+                  content_type: 'product',
+                  value: ${productPrice},
+                  currency: 'BDT'
+                });
+              }(window, document, 'ttq');
+            `,
+          }}
+        />
       )}
 
       {/* Theatrical Overhead Cone Spotlight */}

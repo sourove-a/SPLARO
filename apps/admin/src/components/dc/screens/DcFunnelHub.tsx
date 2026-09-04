@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
+import { useSettings } from '@/lib/api/hooks'
 import { apiFetch } from '@/lib/api/client'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
 import { DcHubFrame, hubCard } from './DcHubKit'
@@ -193,6 +194,8 @@ const DEFAULT_BULLETS_EN = [
 export function DcFunnelHub() {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { data: globalSettings } = useSettings()
+  const masterPixel = globalSettings?.marketing?.facebookPixelId?.trim() || ''
 
   // Navigation View Mode: 'LIST' | 'EDITOR'
   const [viewMode, setViewMode] = useState<'LIST' | 'EDITOR'>('LIST')
@@ -255,8 +258,8 @@ export function DcFunnelHub() {
   const [heroMediaType, setHeroMediaType] = useState<'image' | 'video'>('image')
   const [videoUrl, setVideoUrl] = useState('')
 
-  // Form State - Tracking Pixels
-  const [facebookPixelId, setFacebookPixelId] = useState('1078121511554124')
+  // Form State - Tracking Pixels (Leave empty to inherit global backend pixel)
+  const [facebookPixelId, setFacebookPixelId] = useState('')
   const [tiktokPixelId, setTiktokPixelId] = useState('')
 
   // Search filter for products in editor
@@ -451,7 +454,7 @@ export function DcFunnelHub() {
     setWhatsappNumber('01905010205')
     setHeroMediaType('image')
     setVideoUrl('')
-    setFacebookPixelId('1078121511554124')
+    setFacebookPixelId('')
     setTiktokPixelId('')
     setProductSearch('')
   }
@@ -517,7 +520,7 @@ export function DcFunnelHub() {
     setWhatsappNumber(universe.whatsappNumber || '01905010205')
     setHeroMediaType(universe.heroMediaType || 'image')
     setVideoUrl(universe.videoUrl || '')
-    setFacebookPixelId(universe.facebookPixelId || '1078121511554124')
+    setFacebookPixelId(universe.facebookPixelId || '')
     setTiktokPixelId(universe.tiktokPixelId || '')
     setProductSearch('')
     setViewMode('EDITOR')
@@ -2326,13 +2329,13 @@ export function DcFunnelHub() {
                       <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)' }}>
                         Facebook / Meta Pixel ID
                       </label>
-                      <span style={{ fontSize: 11, color: 'var(--violet)', fontWeight: 700 }}>
-                        Existing: 1078121511554124
+                      <span style={{ fontSize: 11, color: masterPixel ? 'var(--ok)' : 'var(--ink-3)', fontWeight: 600 }}>
+                        {masterPixel ? `✓ Global Settings: ${masterPixel}` : 'Configure in Settings → Marketing'}
                       </span>
                     </div>
                     <input
                       type="text"
-                      placeholder="1078121511554124"
+                      placeholder={masterPixel ? `Auto-inherited (${masterPixel})` : 'Enter custom Pixel ID'}
                       value={facebookPixelId}
                       onChange={(e) => setFacebookPixelId(e.target.value.trim())}
                       style={{
@@ -2347,7 +2350,7 @@ export function DcFunnelHub() {
                       }}
                     />
                     <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 4 }}>
-                      Automatically tracks PageView, ViewContent, and Purchase events on this funnel storefront.
+                      Leave blank to automatically use your global Pixel from Settings. Whenever you update your Pixel in Settings, this funnel will update automatically.
                     </div>
                   </div>
 

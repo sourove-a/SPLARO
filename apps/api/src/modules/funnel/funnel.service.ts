@@ -291,6 +291,7 @@ export class FunnelService {
       facebookPixelId:
         (rawConfig['facebookPixelId'] as string)?.trim() ||
         store.settings?.facebookPixelId?.trim() ||
+        (await this.getMasterStorePixelId()) ||
         process.env['FB_PIXEL_ID']?.trim() ||
         process.env['NEXT_PUBLIC_FB_PIXEL_ID']?.trim() ||
         '1078121511554124',
@@ -643,7 +644,7 @@ export class FunnelService {
           create: {
             dhakaDeliveryCharge: dto.deliveryInsideDhaka ?? 70,
             outsideDhakaCharge: dto.deliveryOutsideDhaka ?? 130,
-            facebookPixelId: dto.facebookPixelId ?? null,
+            facebookPixelId: dto.facebookPixelId?.trim() || null,
             storefrontConfig: configPayload,
           },
         },
@@ -716,11 +717,11 @@ export class FunnelService {
             create: {
               dhakaDeliveryCharge: dto.deliveryInsideDhaka ?? 70,
               outsideDhakaCharge: dto.deliveryOutsideDhaka ?? 130,
-              facebookPixelId: dto.facebookPixelId ?? null,
+              facebookPixelId: dto.facebookPixelId?.trim() || null,
               storefrontConfig: updatedConfig,
             },
             update: {
-              ...(dto.facebookPixelId !== undefined ? { facebookPixelId: dto.facebookPixelId } : {}),
+              ...(dto.facebookPixelId !== undefined ? { facebookPixelId: dto.facebookPixelId?.trim() || null } : {}),
               ...(dto.deliveryInsideDhaka !== undefined ? { dhakaDeliveryCharge: dto.deliveryInsideDhaka } : {}),
               ...(dto.deliveryOutsideDhaka !== undefined ? { outsideDhakaCharge: dto.deliveryOutsideDhaka } : {}),
               storefrontConfig: updatedConfig,
@@ -877,5 +878,17 @@ export class FunnelService {
       take: 100,
     })
     return orders
+  }
+
+  private async getMasterStorePixelId(): Promise<string | null> {
+    try {
+      const masterStore = await this.prisma.store.findFirst({
+        where: { slug: 'splaro' },
+        include: { settings: { select: { facebookPixelId: true } } },
+      })
+      return masterStore?.settings?.facebookPixelId?.trim() || null
+    } catch {
+      return null
+    }
   }
 }
