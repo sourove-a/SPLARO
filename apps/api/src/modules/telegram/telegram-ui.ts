@@ -65,6 +65,7 @@ export const TG_CALLBACK = {
   SYNC_SHEETS: 'act:sync_sheets',
   LINK_GROUP: 'act:link_group',
   GROUP_INFO: 'act:group_info',
+  DATABASE_BACKUP: 'act:database_backup',
 } as const
 
 export type TelegramListKind = 'orders' | 'pending' | 'customers'
@@ -288,6 +289,9 @@ export function inlineAdminMenu(): InlineKeyboardMarkup {
       [
         { text: 'Link This Chat', callback_data: TG_CALLBACK.LINK_GROUP },
         { text: 'Live Status', callback_data: TG_CALLBACK.STATUS_SUMMARY },
+      ],
+      [
+        { text: '💾 Backup Database', callback_data: TG_CALLBACK.DATABASE_BACKUP },
       ],
       [{ text: '← Main', callback_data: TG_CALLBACK.MENU_MAIN }],
     ],
@@ -545,6 +549,7 @@ export function menuMessage(): string {
       '<code>/invoice SPL-1001</code> — invoice link',
       '<code>/confirm</code> · <code>/courier</code> · <code>/cancel</code> — order actions',
       '<code>/stock SKU123</code> — stock lookup',
+      '<code>/backup</code> — safe database backup',
       '<code>/ai pending orders?</code> — talk to SPLARO AI',
     ])}`,
   )
@@ -554,6 +559,7 @@ export const BOT_COMMANDS: BotCommand[] = [
   { command: 'start', description: 'Welcome & open menu' },
   { command: 'menu', description: 'Control panel' },
   { command: 'status', description: 'API & order summary' },
+  { command: 'backup', description: 'Export safe read-only database backup' },
   { command: 'orders', description: 'Latest orders' },
   { command: 'order', description: 'Order details by invoice' },
   { command: 'find', description: 'Find a customer by phone, name, email or code' },

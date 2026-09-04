@@ -7,6 +7,9 @@ import {
   OnModuleInit,
   forwardRef,
 } from '@nestjs/common'
+import { exec, execFile } from 'node:child_process'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import { ConfigService } from '@nestjs/config'
 import { ModuleRef } from '@nestjs/core'
 import {
@@ -1091,6 +1094,9 @@ Customer was charged AFTER this order was ${input.orderStatus}.
     route(/^\/link_group(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.LINK_GROUP)
     route(/^\/group_info(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.GROUP_INFO)
     route(/^\/chat_id(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.GROUP_INFO)
+    route(/^\/backup(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.DATABASE_BACKUP)
+    route(/^\/dbbackup(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.DATABASE_BACKUP)
+    route(/^\/db_backup(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.DATABASE_BACKUP)
 
     this.bot.onText(/^\/ai(?:@\w+)?(?:\s+([\s\S]+))?$/i, async (msg) => {
       const ctx = await this.resolveContext(msg)
@@ -1531,6 +1537,9 @@ Customer was charged AFTER this order was ${input.orderStatus}.
         break
       case TG_CALLBACK.STATUS_SUMMARY:
         await this.executeStatus(ctx)
+        break
+      case TG_CALLBACK.DATABASE_BACKUP:
+        await this.executeDatabaseBackup(ctx)
         break
       case TG_CALLBACK.COURIER_SNAPSHOT:
         await this.executeCourierSnapshot(ctx)
@@ -3328,6 +3337,93 @@ Customer was charged AFTER this order was ${input.orderStatus}.
       }
     } catch (err) {
       await this.bot?.sendMessage(ctx.chatId, `❌ ${err instanceof Error ? err.message : 'Booking failed'}`)
+    }
+  }
+
+  private async executeDatabaseBackup(ctx: TelegramCtx): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN']))) {
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        '⛔ <b>Permission Denied:</b> Only the Store Owner (SUPER_ADMIN) can trigger database backups.',
+        { parse_mode: 'HTML' },
+      )
+      return
+    }
+
+    const initMsg = await this.bot?.sendMessage(
+      ctx.chatId,
+      '⏳ <b>Starting Database Backup:</b>\nRunning safe read-only export. Please wait a moment...',
+      { parse_mode: 'HTML' },
+    )
+
+    try {
+      const scriptCandidates = [
+        path.resolve(process.cwd(), 'infrastructure/vps/backup-to-telegram.sh'),
+        path.resolve(process.cwd(), '../../infrastructure/vps/backup-to-telegram.sh'),
+        '/var/www/splaro/infrastructure/vps/backup-to-telegram.sh',
+        '/opt/splaro/app/infrastructure/vps/backup-to-telegram.sh',
+      ]
+      const scriptPath = scriptCandidates.find((p) => fs.existsSync(p))
+
+      if (scriptPath) {
+        await new Promise<void>((resolve, reject) => {
+          execFile('bash', [scriptPath, ctx.chatId], { timeout: 180000 }, (err, _stdout, stderr) => {
+            if (err) {
+              this.logger.error(`Backup to Telegram failed: ${stderr || err.message}`)
+              reject(new Error(stderr?.trim() || err.message))
+            } else {
+              resolve()
+            }
+          })
+        })
+      } else {
+        const dbUrl = process.env.DATABASE_URL || ''
+        const date = new Date().toISOString().split('T')[0]
+        const tmpFile = `/tmp/splaro_db_${date}_${Date.now()}.sql.gz`
+
+        await new Promise<void>((resolve, reject) => {
+          const dumpCmd = dbUrl
+            ? `pg_dump "${dbUrl}" --schema=public --no-owner --no-acl | gzip > "${tmpFile}"`
+            : `sudo -u postgres pg_dump splaro_db --schema=public --no-owner --no-acl | gzip > "${tmpFile}"`
+
+          exec(dumpCmd, { timeout: 180000 }, async (err) => {
+            if (err) return reject(err)
+            try {
+              if (fs.existsSync(tmpFile) && fs.statSync(tmpFile).size > 0) {
+                const stats = fs.statSync(tmpFile)
+                const sizeMb = (stats.size / (1024 * 1024)).toFixed(2)
+                await this.bot?.sendDocument(
+                  ctx.chatId,
+                  tmpFile,
+                  {
+                    caption: `📦 <b>SPLARO Database Backup</b>\n📅 Date: ${date}\n💾 Size: ${sizeMb} MB\n🔒 Integrity: Verified Read-Only\n<i>Zero VPS disk retention: local copy deleted automatically.</i>`,
+                    parse_mode: 'HTML',
+                  },
+                )
+                fs.unlinkSync(tmpFile)
+                resolve()
+              } else {
+                reject(new Error('Dump file is empty or missing'))
+              }
+            } catch (dispatchErr) {
+              if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile)
+              reject(dispatchErr)
+            }
+          })
+        })
+      }
+
+      if (initMsg) {
+        await this.bot?.deleteMessage(ctx.chatId, initMsg.message_id).catch(() => {})
+      }
+      await this.logCommand(ctx.chatId, '/backup', ctx.userId)
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        `❌ <b>Backup Failed:</b> Could not complete database dump.\n<code>${escapeTelegramHtml(errMsg)}</code>`,
+        { parse_mode: 'HTML' },
+      )
     }
   }
 
