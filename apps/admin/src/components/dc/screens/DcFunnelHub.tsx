@@ -1705,48 +1705,58 @@ export function DcFunnelHub() {
                   </h3>
                 </div>
 
-                <div className="dc-funnel-form-row-2col" style={{ marginBottom: 16 }}>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>
-                      Inside Dhaka Delivery (৳)
-                    </label>
-                    <input
-                      type="number"
-                      value={deliveryInsideDhaka}
-                      onChange={(e) => setDeliveryInsideDhaka(Number(e.target.value))}
+                {/* INHERITED DELIVERY CHARGES FROM SPLARO MAIN ADMIN */}
+                <div
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: 8,
+                    background: 'rgba(168, 85, 247, 0.08)',
+                    border: '1px solid rgba(168, 85, 247, 0.22)',
+                    marginBottom: 16,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div
                       style={{
-                        width: '100%',
-                        padding: '11px 14px',
-                        borderRadius: 8,
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        border: '1px solid var(--line)',
-                        color: 'var(--ink-1)',
-                        fontSize: 13,
-                        outline: 'none',
+                        width: 32,
+                        height: 32,
+                        borderRadius: 6,
+                        background: 'rgba(168, 85, 247, 0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 16,
                       }}
-                    />
+                    >
+                      🚚
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-1)' }}>
+                        Delivery Rates Inherited from SPLARO Main Admin
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>
+                        Central rates (Inside & Outside Dhaka) are synced from Main Admin Settings. No manual input needed.
+                      </div>
+                    </div>
                   </div>
-
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>
-                      Outside Dhaka Delivery (৳)
-                    </label>
-                    <input
-                      type="number"
-                      value={deliveryOutsideDhaka}
-                      onChange={(e) => setDeliveryOutsideDhaka(Number(e.target.value))}
-                      style={{
-                        width: '100%',
-                        padding: '11px 14px',
-                        borderRadius: 8,
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        border: '1px solid var(--line)',
-                        color: 'var(--ink-1)',
-                        fontSize: 13,
-                        outline: 'none',
-                      }}
-                    />
-                  </div>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      padding: '4px 8px',
+                      borderRadius: 4,
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: 'var(--emerald)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      letterSpacing: '0.5px',
+                    }}
+                  >
+                    SYNCED
+                  </span>
                 </div>
 
                 <div style={{ marginBottom: 16 }}>
@@ -2408,7 +2418,7 @@ export function DcFunnelHub() {
                     Theme: <strong>{themeName || (THEME_PRESETS.find((t) => t.id === themePreset)?.name ?? themePreset)}</strong>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>
-                    Delivery: Inside ৳{deliveryInsideDhaka} · Outside ৳{deliveryOutsideDhaka}
+                    Delivery: <strong>SPLARO Main Admin Rates</strong>
                   </div>
                 </div>
               )}
@@ -2660,7 +2670,7 @@ export function DcFunnelHub() {
                     <div>
                       Delivery:{' '}
                       <span style={{ color: 'var(--ink-2)' }}>
-                        Inside: ৳{f.deliveryInsideDhaka ?? 70} · Outside: ৳{f.deliveryOutsideDhaka ?? 130}
+                        Main Admin Rates
                       </span>
                     </div>
                   </div>

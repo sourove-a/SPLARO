@@ -268,6 +268,11 @@ export class FunnelService {
       }
     }
 
+    const mainStoreId = await resolveStoreId(this.prisma)
+    const mainSettings = await this.prisma.siteSettings.findFirst({
+      where: { storeId: mainStoreId },
+    })
+
     const config: FunnelUniverseConfig = {
       storeId: store.id,
       storeName: store.name,
@@ -315,8 +320,8 @@ export class FunnelService {
       showBundleCards: rawConfig['showBundleCards'] !== undefined ? Boolean(rawConfig['showBundleCards']) : true,
       product: productPayload,
       deliveryMatrix: {
-        insideDhaka: Number(store.settings?.dhakaDeliveryCharge ?? 70),
-        outsideDhaka: Number(store.settings?.outsideDhakaCharge ?? 130),
+        insideDhaka: Number(mainSettings?.dhakaDeliveryCharge ?? store.settings?.dhakaDeliveryCharge ?? 70),
+        outsideDhaka: Number(mainSettings?.outsideDhakaCharge ?? store.settings?.outsideDhakaCharge ?? 130),
       },
     }
 
@@ -406,21 +411,25 @@ export class FunnelService {
       subtotal = Math.max(0, rawSubtotal - discount)
     }
 
-    // Calculate delivery charge server-side
+    // 6. Calculate delivery charge server-side (always inherits from main SPLARO store settings)
+    const mainStoreId = await resolveStoreId(this.prisma)
+    const mainSettings = await this.prisma.siteSettings.findFirst({
+      where: { storeId: mainStoreId },
+    })
+
     const deliveryCharge = computeExpectedDeliveryChargeBdt(
       dto.shippingDistrict,
       {
-        dhakaDeliveryCharge: Number(store.settings?.dhakaDeliveryCharge ?? 70),
-        outsideDhakaCharge: Number(store.settings?.outsideDhakaCharge ?? 130),
-        freeDeliveryThreshold: Number(store.settings?.freeDeliveryThreshold ?? 0),
+        dhakaDeliveryCharge: Number(mainSettings?.dhakaDeliveryCharge ?? store.settings?.dhakaDeliveryCharge ?? 70),
+        outsideDhakaCharge: Number(mainSettings?.outsideDhakaCharge ?? store.settings?.outsideDhakaCharge ?? 130),
+        freeDeliveryThreshold: Number(mainSettings?.freeDeliveryThreshold ?? store.settings?.freeDeliveryThreshold ?? 0),
       },
       { subtotal },
     )
 
     const total = subtotal + deliveryCharge
 
-    // 6. Generate Canonical SPLARO Invoice Code (SPL-####) & Insert into Main Store Order Queue
-    const mainStoreId = await resolveStoreId(this.prisma)
+    // 7. Generate Canonical SPLARO Invoice Code (SPL-####) & Insert into Main Store Order Queue
     const funnelDomain = store.domain || (store.subdomain ? `${store.subdomain}.splaro.co` : 'funnel')
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -543,6 +552,13 @@ export class FunnelService {
       orderBy: { id: 'desc' },
     })
 
+    const mainStoreId = await resolveStoreId(this.prisma)
+    const mainSettings = await this.prisma.siteSettings.findFirst({
+      where: { storeId: mainStoreId },
+    })
+    const dhakaRate = Number(mainSettings?.dhakaDeliveryCharge ?? 70)
+    const outsideRate = Number(mainSettings?.outsideDhakaCharge ?? 130)
+
     return stores.map((s) => {
       const config = (s.settings?.storefrontConfig as Record<string, unknown>) ?? {}
       return {
@@ -586,8 +602,8 @@ export class FunnelService {
         bundleTier2Title: config['bundleTier2Title'] || null,
         bundleTier3Title: config['bundleTier3Title'] || null,
         showBundleCards: config['showBundleCards'] !== undefined ? Boolean(config['showBundleCards']) : true,
-        deliveryInsideDhaka: Number(s.settings?.dhakaDeliveryCharge ?? 70),
-        deliveryOutsideDhaka: Number(s.settings?.outsideDhakaCharge ?? 130),
+        deliveryInsideDhaka: dhakaRate,
+        deliveryOutsideDhaka: outsideRate,
         ordersCount: s._count.orders,
         productsCount: s._count.products,
       }
@@ -632,6 +648,13 @@ export class FunnelService {
       showBundleCards: dto.showBundleCards !== undefined ? dto.showBundleCards : true,
     } as Prisma.InputJsonObject
 
+    const mainStoreId = await resolveStoreId(this.prisma)
+    const mainSettings = await this.prisma.siteSettings.findFirst({
+      where: { storeId: mainStoreId },
+    })
+    const defaultDhaka = Number(mainSettings?.dhakaDeliveryCharge ?? 70)
+    const defaultOutside = Number(mainSettings?.outsideDhakaCharge ?? 130)
+
     const store = await this.prisma.store.create({
       data: {
         name: dto.name,
@@ -642,8 +665,8 @@ export class FunnelService {
         ownerId,
         settings: {
           create: {
-            dhakaDeliveryCharge: dto.deliveryInsideDhaka ?? 70,
-            outsideDhakaCharge: dto.deliveryOutsideDhaka ?? 130,
+            dhakaDeliveryCharge: defaultDhaka,
+            outsideDhakaCharge: defaultOutside,
             facebookPixelId: dto.facebookPixelId?.trim() || null,
             storefrontConfig: configPayload,
           },
@@ -705,6 +728,13 @@ export class FunnelService {
       ...(dto.showBundleCards !== undefined ? { showBundleCards: dto.showBundleCards } : {}),
     } as Prisma.InputJsonObject
 
+    const mainStoreId = await resolveStoreId(this.prisma)
+    const mainSettings = await this.prisma.siteSettings.findFirst({
+      where: { storeId: mainStoreId },
+    })
+    const defaultDhaka = Number(mainSettings?.dhakaDeliveryCharge ?? 70)
+    const defaultOutside = Number(mainSettings?.outsideDhakaCharge ?? 130)
+
     const updated = await this.prisma.store.update({
       where: { id },
       data: {
@@ -715,15 +745,15 @@ export class FunnelService {
         settings: {
           upsert: {
             create: {
-              dhakaDeliveryCharge: dto.deliveryInsideDhaka ?? 70,
-              outsideDhakaCharge: dto.deliveryOutsideDhaka ?? 130,
+              dhakaDeliveryCharge: defaultDhaka,
+              outsideDhakaCharge: defaultOutside,
               facebookPixelId: dto.facebookPixelId?.trim() || null,
               storefrontConfig: updatedConfig,
             },
             update: {
+              dhakaDeliveryCharge: defaultDhaka,
+              outsideDhakaCharge: defaultOutside,
               ...(dto.facebookPixelId !== undefined ? { facebookPixelId: dto.facebookPixelId?.trim() || null } : {}),
-              ...(dto.deliveryInsideDhaka !== undefined ? { dhakaDeliveryCharge: dto.deliveryInsideDhaka } : {}),
-              ...(dto.deliveryOutsideDhaka !== undefined ? { outsideDhakaCharge: dto.deliveryOutsideDhaka } : {}),
               storefrontConfig: updatedConfig,
             },
           },
