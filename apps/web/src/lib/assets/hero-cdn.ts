@@ -22,6 +22,10 @@ const HERO_LOCAL_BY_KEY: Record<string, HeroLocalVariants> = {
     desktop: '/images/hero/new-season-1600.webp',
     mobile: '/images/hero/new-season-828.webp',
   },
+  'saree-collection': {
+    desktop: '/images/hero/saree-collection-1600.webp',
+    mobile: '/images/hero/saree-collection-828.webp',
+  },
 }
 
 /** Legacy Unsplash IDs → local CDN files (defaults + old admin banners). */
@@ -36,8 +40,14 @@ export function resolveLocalHeroVariants(src: string | null | undefined): HeroLo
   if (!trimmed) return null
 
   const byPath = trimmed.match(/\/images\/hero\/([a-z0-9-]+?)(?:-1600|-828)?\.webp(?:\?|$)/i)
-  if (byPath?.[1] && HERO_LOCAL_BY_KEY[byPath[1]]) {
-    return HERO_LOCAL_BY_KEY[byPath[1]]!
+  if (byPath?.[1]) {
+    if (HERO_LOCAL_BY_KEY[byPath[1]]) {
+      return HERO_LOCAL_BY_KEY[byPath[1]]!
+    }
+    return {
+      desktop: `/images/hero/${byPath[1]}-1600.webp`,
+      mobile: `/images/hero/${byPath[1]}-828.webp`,
+    }
   }
 
   for (const [id, key] of Object.entries(UNSPLASH_TO_KEY)) {
@@ -49,5 +59,6 @@ export function resolveLocalHeroVariants(src: string | null | undefined): HeroLo
 
 /** Prefer local desktop WebP path for slide data / SSR poster fields. */
 export function preferLocalHeroSrc(src: string): string {
+  if (/-828\.webp(?:\?|$)/i.test(src)) return src
   return resolveLocalHeroVariants(src)?.desktop ?? src
 }

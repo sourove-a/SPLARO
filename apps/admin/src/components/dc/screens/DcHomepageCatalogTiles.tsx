@@ -155,13 +155,23 @@ export function DcHomepageCatalogTiles({
 
   const orderedSubcats = useMemo(() => {
     const q = catQuery.trim().toLowerCase()
+    // Auto-hide empty categories: only show categories where merchant added products, or categories already live on homepage.
+    // If the merchant explicitly searches, search across all subcategories.
+    const eligible = q
+      ? subcats
+      : subcats.filter(
+          (c) =>
+            deptTiles.some((t) => t.categorySlug === c.slug) ||
+            (taggedBySlug.get(c.slug) ?? 0) > 0,
+        )
+
     const live = deptTiles
-      .map((t) => subcats.find((c) => c.slug === t.categorySlug))
+      .map((t) => eligible.find((c) => c.slug === t.categorySlug))
       .filter((c): c is CategoryPickerRow => Boolean(c))
-    const rest = subcats.filter((c) => !deptTiles.some((t) => t.categorySlug === c.slug))
+    const rest = eligible.filter((c) => !deptTiles.some((t) => t.categorySlug === c.slug))
     const list = [...live, ...rest]
     return q ? list.filter((c) => c.name.toLowerCase().includes(q) || c.slug.includes(q)) : list
-  }, [subcats, deptTiles, catQuery])
+  }, [subcats, deptTiles, catQuery, taggedBySlug])
 
   const selectedCat =
     orderedSubcats.find((c) => c.slug === categorySlug) ??
@@ -292,30 +302,6 @@ export function DcHomepageCatalogTiles({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             type="button"
-            title="Refresh categories and products"
-            onClick={() => {
-              void tree.refetch()
-              void productsQuery.refetch()
-            }}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              height: 32,
-              padding: '0 10px',
-              borderRadius: 8,
-              border: '1px solid var(--line)',
-              background: 'var(--surface-2)',
-              color: 'var(--ink-2)',
-              cursor: 'pointer',
-              font: `600 12px/1 ${FONT}`,
-            }}
-          >
-            <DcIcon name="icon-refresh" size={12} />
-            <span>Refresh</span>
-          </button>
-          <button
-            type="button"
             onClick={() => setCurated(!curated)}
             style={{
               height: 32,
@@ -421,7 +407,9 @@ export function DcHomepageCatalogTiles({
               </p>
             ) : orderedSubcats.length === 0 ? (
               <p style={{ margin: '8px', font: `400 12.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
-                No categories match that search.
+                {catQuery.trim()
+                  ? 'No categories match that search.'
+                  : 'No categories with published products yet. Add products to your categories first.'}
               </p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
