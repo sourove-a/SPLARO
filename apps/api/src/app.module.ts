@@ -131,6 +131,7 @@ import { PlatformController } from './modules/platform/platform.controller'
 import { PlatformService } from './modules/platform/platform.service'
 import { MediaController } from './modules/media/media.controller'
 import { MediaService } from './modules/media/media.service'
+import { MediaJanitorCron } from './modules/media/media-janitor.cron'
 import { CouponsController, StorefrontCouponsController, StorefrontPromosController } from './modules/coupons/coupons.controller'
 import { CommerceOsService } from './modules/commerce-os/commerce-os.service'
 import {
@@ -427,6 +428,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     CommerceOsService,
     PlatformService,
     MediaService,
+    MediaJanitorCron,
     StorefrontOrdersService,
     StorefrontAuthService,
     GoogleIdTokenService,

@@ -1226,7 +1226,11 @@ export class MediaService {
         /\.(?:original|upscaled)\.[a-z0-9]+$/i.test(file)
         || /\.w[0-9]+(?:\.tmp)?\.(?:webp|avif)$/i.test(file)
         || /^([0-9]+-[a-z0-9]+)\.pending$/i.test(file)
-        || /^([0-9]+-[a-z0-9]+)\.(?:jpg|jpeg|png|webp|gif)$/i.test(file),
+        // The staging file the upload route writes before it publishes. It was
+        // not in this list, so a deleted upload left its .upload.tmp behind and
+        // those were still on disk months later.
+        || /^([0-9]+-[a-z0-9]+)\.upload\.tmp$/i.test(file)
+        || /^([0-9]+-[a-z0-9]+)\.(?:jpg|jpeg|png|webp|avif|gif)$/i.test(file),
       )
       .map((file) => `${storedDirectory}/${file}`)
     return [...new Set([storedPath, ...siblings])]
