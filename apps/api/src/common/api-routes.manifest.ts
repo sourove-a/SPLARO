@@ -126,10 +126,14 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     p('print-jobs-stats', 'Print Job Stats', 'Commerce', q('/admin/print/jobs/stats')),
     p('invoices-list', 'Invoice List', 'Commerce', q('/admin/invoices') + '&limit=5'),
     p('invoices-stats', 'Invoice Stats', 'Commerce', q('/admin/invoices/stats/overview')),
+    p('orders-stats', 'Orders Stats', 'Commerce', q('/admin/orders/stats')),
 
     // ── Catalog ───────────────────────────────────────────────────────────
     p('products', 'Products', 'Catalog', q('/admin/products') + '&limit=5'),
+    p('product-stats', 'Product Stats', 'Catalog', q('/admin/products/stats')),
+    p('product-code-audit', 'Product Code Audit', 'Catalog', q('/admin/products/code-audit')),
     p('categories', 'Categories', 'Catalog', q('/admin/categories')),
+    p('category-tree', 'Category Tree', 'Catalog', q('/admin/categories/tree')),
     p('collections', 'Collections', 'Catalog', q('/admin/collections')),
     p('brands', 'Brands', 'Catalog', q('/admin/brands')),
     p('inventory-alerts', 'Inventory Alerts', 'Catalog', q('/admin/dashboard/inventory-alerts')),
@@ -146,6 +150,7 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
 
     // ── Customers ─────────────────────────────────────────────────────────
     p('customers', 'Customers', 'Customers', q('/admin/customers') + '&limit=5'),
+    p('customers-presence', 'Live Presence', 'Customers', q('/admin/customers/presence')),
     p('loyalty-summary', 'Loyalty Program', 'Customers', q('/admin/loyalty/summary'), { requiresFeature: 'loyalty' }),
     p('loyalty-referrals', 'Referrals', 'Customers', q('/admin/loyalty/referrals') + '&limit=5', { requiresFeature: 'loyalty' }),
     p('loyalty-history', 'Loyalty History', 'Customers', q('/admin/loyalty/history'), { requiresFeature: 'loyalty' }),
@@ -166,7 +171,7 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
 
     // ── Content (one probe per admin nav item) ────────────────────────────
     p('content-home', 'Home Page', 'Content', q('/admin/hub/content/overview')),
-    p('content-footwear', 'Footwear Page', 'Content', q('/admin/settings')),
+    p('content-footwear', 'Footwear Page', 'Content', q('/admin/content/footwear')),
     p('content-theme', 'Branding', 'Content', q('/admin/settings')),
     p('content-menus', 'Menu Control', 'Content', q('/admin/content/menus')),
     p('content-hero', 'Hero Slider', 'Content', q('/admin/banners')),
@@ -199,6 +204,7 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     p('ai-jobs', 'AI Product Generator', 'AI Center', q('/ai-product-agent/jobs') + '&limit=5'),
     p('agent-config', 'Agent Config', 'AI Center', q('/agent/config')),
     p('agent-prompts', 'Agent Prompts', 'AI Center', q('/agent/prompts')),
+    p('manus-status', 'Manus Status', 'AI Center', q('/manus/status'), { requiresFeature: 'ai' }),
 
     // ── Finance ───────────────────────────────────────────────────────────
     p('finance-overview', 'Finance Overview', 'Finance', q('/finance-reports/dashboard')),
@@ -289,10 +295,14 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     p('courier-stats', 'Courier Hub', 'Operations', q('/admin/courier/stats/overview')),
     p('courier-providers', 'Courier Providers', 'Operations', q('/admin/courier/providers')),
     p('courier-list', 'Courier Bookings', 'Operations', q('/admin/courier') + '&limit=5'),
+    p('fulfillment-stats-today', 'Packing Station Today', 'Operations', q('/admin/fulfillment/stats/today')),
     p('settings', 'Shipping & Settings', 'Operations', q('/admin/settings')),
 
     // ── Media ─────────────────────────────────────────────────────────────
     p('platform-media', 'Media Library', 'Media', q('/admin/platform/media')),
+    p('media-library-api', 'Media Library API', 'Media', q('/admin/media')),
+    p('media-folders', 'Media Folders', 'Media', q('/admin/media/folders')),
+    p('media-storage', 'Media Storage Stats', 'Media', q('/admin/media/storage')),
 
     // ── Marketplace ───────────────────────────────────────────────────────
     p('platform-marketplace', 'Marketplace Overview', 'Marketplace', q('/admin/platform/marketplace'), {
@@ -304,6 +314,7 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
 
     // ── Developer ─────────────────────────────────────────────────────────
     p('platform-developer', 'API Developer Center', 'Developer', q('/admin/platform/developer')),
+    p('mcp-tokens', 'MCP Tokens', 'Developer', q('/admin/mcp/tokens')),
     p('webhooks', 'Webhooks', 'Developer', q('/admin/webhooks')),
     p('webhooks-logs', 'Webhook Logs', 'Developer', q('/admin/webhooks/logs') + '&limit=5'),
     p('webhooks-stats', 'Webhook Stats', 'Developer', q('/admin/webhooks/stats')),
@@ -353,10 +364,14 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     p('notifications-log', 'Notification Log', 'System', q('/admin/notifications/log') + '&limit=5'),
     p('notifications-prefs', 'Notification Prefs', 'System', q(`/admin/notifications/preferences/${sid}`)),
     p('notifications-low-stock', 'Low Stock Alerts', 'System', q('/admin/notifications/low-stock')),
+    p('notifications-stock-alerts-waiting', 'Stock Alert Requests', 'System', q('/admin/notifications/stock-alerts/waiting')),
     p('settings-newsletter', 'Newsletter Subscribers', 'System', q('/admin/settings/newsletter-subscribers')),
 
     // ── Storefront (customer-facing API) ──────────────────────────────────
     p('storefront-settings', 'Storefront Settings', 'Storefront', q('/storefront/settings')),
+    p('storefront-nav', 'Storefront Navigation', 'Storefront', q('/storefront/nav')),
+    p('storefront-shipping', 'Shipping Zones', 'Storefront', q('/storefront/shipping')),
+    p('storefront-footwear', 'Footwear Config', 'Storefront', q('/storefront/footwear')),
     p('storefront-products', 'Storefront Products', 'Storefront', q('/storefront/products')),
     p('storefront-banners', 'Storefront Banners', 'Storefront', q('/storefront/banners')),
     p('storefront-categories', 'Storefront Categories', 'Storefront', q('/storefront/categories')),
@@ -369,6 +384,21 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     p('storefront-track-order', 'Order Tracking', 'Storefront', q('/storefront/orders/track') + '&phone=01700000000', {
       allowUnauthorized: true,
     }),
+
+    // ── D2C Funnels ───────────────────────────────────────────────────────
+    p('funnel-resolve', 'Funnel Resolve Host', 'Funnels', '/funnel/resolve?host=lifestyle.splaro.co'),
+    p('funnel-universes', 'Funnel Universes', 'Funnels', q('/admin/funnels')),
+    p('funnel-orders', 'Funnel Orders', 'Funnels', q('/admin/funnels/orders')),
+    pw('funnel-order-post', 'Create Funnel Order (POST)', 'Funnels', '/funnel/orders', '{"universeId":"health-probe"}'),
+    pw('funnel-admin-post', 'Create Funnel (POST)', 'Funnels', q('/admin/funnels'), '{"name":"Health Probe","slug":"health-probe"}'),
+
+    // ── Wholesale ─────────────────────────────────────────────────────────
+    p('wholesale-inquiries', 'Wholesale Inquiries', 'Wholesale', q('/admin/wholesale-inquiries') + '&limit=5'),
+    p('wholesale-tiers-admin', 'Wholesale Tiers (Admin)', 'Wholesale', q('/admin/wholesale-tiers')),
+    p('wholesale-stock-admin', 'Wholesale Stock (Admin)', 'Wholesale', q('/admin/wholesale-stock')),
+    p('wholesale-tiers-public', 'Wholesale Tiers (Public)', 'Wholesale', q('/storefront/wholesale-tiers')),
+    p('wholesale-stock-public', 'Wholesale Stock (Public)', 'Wholesale', q('/storefront/wholesale-stock')),
+    pw('wholesale-inquiry-post', 'Submit Wholesale Lead (POST)', 'Wholesale', q('/storefront/wholesale-inquiry'), '{"fullName":"Health Probe"}'),
     p('steadfast-webhook', 'Steadfast Webhook', 'Courier', '/webhooks/steadfast'),
     p('steadfast-webhook-legacy', 'Steadfast Webhook (legacy path)', 'Courier', '/courier/steadfast-webhook'),
     // Write probes must NOT mutate live data or fire Telegram/email.

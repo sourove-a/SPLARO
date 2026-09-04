@@ -137,7 +137,7 @@ export class MarketingController {
     @Query() query: AudienceEstimateQueryDto,
     @Req() req: AdminRequest,
   ) {
-    const sid = await this.scopedStoreId(req, storeId)
+    const sid = await this.scopedStoreId(req, storeId || query?.storeId)
     return this.marketingService.getAudienceEstimate(sid, query)
   }
 

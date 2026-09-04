@@ -76,6 +76,10 @@ export class ResolveFunnelQueryDto {
   @IsString()
   @IsOptional()
   slug?: string
+
+  @IsString()
+  @IsOptional()
+  storeId?: string
 }
 
 export class CreateFunnelStoreDto {

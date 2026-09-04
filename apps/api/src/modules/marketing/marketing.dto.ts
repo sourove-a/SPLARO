@@ -1,4 +1,5 @@
 import { IsISO8601, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator'
+import { Transform } from 'class-transformer'
 
 export const CAMPAIGN_TYPES = ['EMAIL', 'SMS', 'WHATSAPP'] as const
 export type CampaignType = (typeof CAMPAIGN_TYPES)[number]
@@ -67,10 +68,16 @@ export class UpdateCampaignDto {
 
 export class AudienceEstimateQueryDto {
   @IsOptional()
+  @IsString()
+  storeId?: string
+
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
   @IsIn(CAMPAIGN_TYPES)
   type?: CampaignType
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
   @IsIn(CAMPAIGN_AUDIENCES)
   audience?: CampaignAudience
 
