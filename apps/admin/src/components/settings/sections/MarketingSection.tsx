@@ -37,10 +37,13 @@ export function MarketingSection({ draft, setDraft, save, saving, apiOnline }: S
 
       <SectionCard title="Tracking pixels" subtitle="Scripts fire on the storefront when IDs are set. Purchase events dedupe via invoice number (browser + CAPI).">
         <FieldGrid>
-          <Field label="Facebook Pixel ID" hint="Numeric Pixel ID from Meta Events Manager — no script tags.">
+          <Field
+            label="Facebook / Meta Pixel ID(s)"
+            hint="Enter one or more Pixel IDs (comma-separated for multiple/backup pixels) — e.g. 1078121511554124, 987654321012345."
+          >
             <IconInput
               icon={<Hash size={14} />}
-              placeholder="123456789012345"
+              placeholder="e.g. 1078121511554124, 987654321012345"
               value={draft.marketing.facebookPixelId}
               onChange={(v) => setDraft((p) => ({ ...p, marketing: { ...p.marketing, facebookPixelId: v } }))}
             />

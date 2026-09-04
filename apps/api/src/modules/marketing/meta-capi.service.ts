@@ -40,42 +40,51 @@ export class MetaCapiService {
   }
 
   async testConnection(storeId?: string): Promise<{ ok: boolean; message: string; pixelId?: string }> {
-    const pixelId = await this.resolvePixelId(storeId)
+    const rawPixelId = await this.resolvePixelId(storeId)
     const token = resolveMetaAccessToken()
-    if (!pixelId) {
+    if (!rawPixelId) {
       return { ok: false, message: 'Meta Pixel ID missing — set in Admin → Marketing or .env' }
     }
     if (!token) {
       return { ok: false, message: 'Meta access token missing — set FB_CAPI_ACCESS_TOKEN in .env' }
     }
 
+    const pixelIds = rawPixelId.split(/[,\s]+/).map((s) => s.trim()).filter((s) => /^\d+$/.test(s))
+    if (!pixelIds.length) {
+      return { ok: false, message: 'Meta Pixel ID invalid — must contain digits' }
+    }
+
+    const primaryId = pixelIds[0]!
     try {
       const res = await fetch(
-        `https://graph.facebook.com/v19.0/${encodeURIComponent(pixelId)}?fields=id,name&access_token=${encodeURIComponent(token)}`,
+        `https://graph.facebook.com/v19.0/${encodeURIComponent(primaryId)}?fields=id,name&access_token=${encodeURIComponent(token)}`,
       )
       const body = (await res.json()) as { id?: string; name?: string; error?: { message?: string } }
       if (!res.ok) {
         return {
           ok: false,
           message: body.error?.message ?? `Meta API error ${res.status}`,
-          pixelId,
+          pixelId: primaryId,
         }
       }
-      const label = body.name ? `${body.name} (${body.id ?? pixelId})` : pixelId
-      return { ok: true, message: `Meta Pixel connected · ${label}`, pixelId }
+      const countSuffix = pixelIds.length > 1 ? ` (+${pixelIds.length - 1} secondary)` : ''
+      const label = body.name ? `${body.name} (${body.id ?? primaryId})${countSuffix}` : `${primaryId}${countSuffix}`
+      return { ok: true, message: `Meta Pixel connected · ${label}`, pixelId: primaryId }
     } catch (err) {
       return {
         ok: false,
         message: err instanceof Error ? err.message : 'Meta connection failed',
-        pixelId,
+        pixelId: primaryId,
       }
     }
   }
 
   async trackPurchase(input: PurchaseEventInput): Promise<void> {
-    const pixelId = await this.resolvePixelId(input.storeId)
+    const rawPixelId = await this.resolvePixelId(input.storeId)
     const token = resolveMetaAccessToken()
-    if (!pixelId || !token) return
+    if (!rawPixelId || !token) return
+    const pixelIds = rawPixelId.split(/[,\s]+/).map((s) => s.trim()).filter((s) => /^\d+$/.test(s))
+    if (!pixelIds.length) return
 
     const order = await this.prisma.order.findUnique({
       where: { id: input.orderId },
@@ -147,22 +156,26 @@ export class MetaCapiService {
       ],
     }
 
-    try {
-      const res = await fetch(
-        `https://graph.facebook.com/v19.0/${pixelId}/events?access_token=${encodeURIComponent(token)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        },
-      )
-      if (!res.ok) {
-        const text = await res.text()
-        this.logger.warn(`Meta CAPI Purchase failed: ${res.status} ${text.slice(0, 200)}`)
-      }
-    } catch (err) {
-      this.logger.warn(`Meta CAPI error: ${err instanceof Error ? err.message : 'unknown'}`)
-    }
+    await Promise.allSettled(
+      pixelIds.map(async (pixelId) => {
+        try {
+          const res = await fetch(
+            `https://graph.facebook.com/v19.0/${pixelId}/events?access_token=${encodeURIComponent(token)}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            },
+          )
+          if (!res.ok) {
+            const text = await res.text()
+            this.logger.warn(`Meta CAPI Purchase failed for pixel ${pixelId}: ${res.status} ${text.slice(0, 200)}`)
+          }
+        } catch (err) {
+          this.logger.warn(`Meta CAPI error for pixel ${pixelId}: ${err instanceof Error ? err.message : 'unknown'}`)
+        }
+      }),
+    )
   }
 
   private resolveEventSourceUrl(raw: string | null | undefined): string {

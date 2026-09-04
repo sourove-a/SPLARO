@@ -389,7 +389,12 @@ export default function FunnelDropPage() {
     funnel?.product?.variants?.[0]?.sku ||
     (funnel?.product?.id ? `SPL-${funnel.product.id.slice(-4).toUpperCase()}` : 'SPL-DROP')
 
-  const effectivePixelId = funnel?.facebookPixelId?.trim() || ''
+  const effectivePixelIds = useMemo(() => {
+    return (funnel?.facebookPixelId || '')
+      .split(/[,\s]+/)
+      .map((id) => id.trim())
+      .filter((id) => /^\d+$/.test(id))
+  }, [funnel?.facebookPixelId])
   const effectiveTikTokPixelId = funnel?.tiktokPixelId?.trim() || ''
 
   const waRaw = (funnel?.whatsappNumber || '01905010205').replace(/\D/g, '')
@@ -760,7 +765,7 @@ export default function FunnelDropPage() {
       style={dynamicThemeStyle}
     >
       {/* Meta / Facebook Pixel Tracking Script */}
-      {effectivePixelId && (
+      {effectivePixelIds.length > 0 && (
         <>
           <Script
             id="funnel-meta-pixel"
@@ -775,11 +780,11 @@ export default function FunnelDropPage() {
                 t.src=v;s=b.getElementsByTagName(e)[0];
                 s.parentNode.insertBefore(t,s)}(window, document,'script',
                 'https://connect.facebook.net/en_US/fbevents.js');
-                fbq('init', '${effectivePixelId}');
+                ${effectivePixelIds.map((id) => `fbq('init', '${id}');`).join('\n                ')}
                 fbq('track', 'PageView');
                 fbq('track', 'ViewContent', {
-                  content_name: '${(funnel.product?.title || 'Drop Product').replace(/'/g, "\\'")}',
-                  content_ids: ['${funnel.product?.id || ''}'],
+                  content_name: '${(funnel?.product?.title || 'Drop Product').replace(/'/g, "\\'")}',
+                  content_ids: ['${funnel?.product?.id || ''}'],
                   content_type: 'product',
                   value: ${productPrice},
                   currency: 'BDT'
@@ -787,16 +792,18 @@ export default function FunnelDropPage() {
               `,
             }}
           />
-          <noscript>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              height="1"
-              width="1"
-              style={{ display: 'none' }}
-              src={`https://www.facebook.com/tr?id=${effectivePixelId}&ev=PageView&noscript=1`}
-              alt=""
-            />
-          </noscript>
+          {effectivePixelIds.map((id) => (
+            <noscript key={id}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                height="1"
+                width="1"
+                style={{ display: 'none' }}
+                src={`https://www.facebook.com/tr?id=${id}&ev=PageView&noscript=1`}
+                alt=""
+              />
+            </noscript>
+          ))}
         </>
       )}
 

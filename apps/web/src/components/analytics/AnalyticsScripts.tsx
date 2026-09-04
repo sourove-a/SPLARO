@@ -26,14 +26,17 @@ export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
   // gtag.js here; DB measurement ID is only the fallback when env is empty.
   const GA_ID = envGa ? '' : dbGa
   const rawFbPixelId = marketing?.facebookPixelId?.trim() || ENV_FB_PIXEL_ID.trim()
-  const FB_PIXEL_ID = /^\d+$/.test(rawFbPixelId) ? rawFbPixelId : ''
+  const fbPixelIds = rawFbPixelId
+    .split(/[,\s]+/)
+    .map((id) => id.trim())
+    .filter((id) => /^\d+$/.test(id))
   const rawClarityId = marketing?.clarityProjectId?.trim() || ENV_CLARITY_ID
   const CLARITY_ID = /^[a-z0-9]+$/i.test(rawClarityId) ? rawClarityId : ''
   const serializedGaId = JSON.stringify(GA_ID)
-  const serializedFbPixelId = JSON.stringify(FB_PIXEL_ID)
+  const serializedFbPixelIds = JSON.stringify(fbPixelIds)
   const serializedClarityId = JSON.stringify(CLARITY_ID)
 
-  if (!GA_ID && !FB_PIXEL_ID && !CLARITY_ID) return null
+  if (!GA_ID && fbPixelIds.length === 0 && !CLARITY_ID) return null
 
   return (
     <>
@@ -61,7 +64,7 @@ export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
         </>
       ) : null}
 
-      {FB_PIXEL_ID ? (
+      {fbPixelIds.length > 0 ? (
         <>
           <Script id="splaro-meta-pixel" strategy="lazyOnload">
             {`
@@ -75,11 +78,14 @@ export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
                 s.parentNode.insertBefore(t,s)}(window, document,'script',
                 'https://connect.facebook.net/en_US/fbevents.js');
                 window.__splaroMetaInitialized = window.__splaroMetaInitialized || {};
-                var id = ${serializedFbPixelId};
-                if (!window.__splaroMetaInitialized[id]) {
-                  window.fbq('init', id);
-                  window.fbq('set', 'autoConfig', true, id);
-                  window.__splaroMetaInitialized[id] = true;
+                var ids = ${serializedFbPixelIds};
+                for (var i = 0; i < ids.length; i++) {
+                  var id = ids[i];
+                  if (!window.__splaroMetaInitialized[id]) {
+                    window.fbq('init', id);
+                    window.fbq('set', 'autoConfig', true, id);
+                    window.__splaroMetaInitialized[id] = true;
+                  }
                 }
                 window.__splaroAnalyticsReady = window.__splaroAnalyticsReady || {};
                 window.__splaroAnalyticsReady.meta = true;
@@ -87,16 +93,18 @@ export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
               })();
             `}
           </Script>
-          <noscript>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              height="1"
-              width="1"
-              style={{ display: 'none' }}
-              src={`https://www.facebook.com/tr?id=${FB_PIXEL_ID}&ev=PageView&noscript=1`}
-              alt=""
-            />
-          </noscript>
+          {fbPixelIds.map((id) => (
+            <noscript key={id}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                height="1"
+                width="1"
+                style={{ display: 'none' }}
+                src={`https://www.facebook.com/tr?id=${id}&ev=PageView&noscript=1`}
+                alt=""
+              />
+            </noscript>
+          ))}
         </>
       ) : null}
 

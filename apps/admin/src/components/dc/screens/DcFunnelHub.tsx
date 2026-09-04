@@ -2345,9 +2345,9 @@ export function DcFunnelHub() {
                     </div>
                     <input
                       type="text"
-                      placeholder={masterPixel ? `Auto-inherited (${masterPixel})` : 'Enter custom Pixel ID'}
+                      placeholder={masterPixel ? `Auto-inherited (${masterPixel})` : 'e.g. 1078121511554124 or comma-separated for dual pixels'}
                       value={facebookPixelId}
-                      onChange={(e) => setFacebookPixelId(e.target.value.trim())}
+                      onChange={(e) => setFacebookPixelId(e.target.value)}
                       style={{
                         width: '100%',
                         padding: '11px 14px',
@@ -2360,7 +2360,7 @@ export function DcFunnelHub() {
                       }}
                     />
                     <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 4 }}>
-                      Leave blank to automatically use your global Pixel from Settings. Whenever you update your Pixel in Settings, this funnel will update automatically.
+                      Leave blank to automatically use your global Pixel from Settings. You can also enter comma-separated multiple IDs for dual/backup pixels.
                     </div>
                   </div>
 
