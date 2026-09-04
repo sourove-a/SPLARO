@@ -227,7 +227,13 @@ function BarList({ rows, empty }: { rows: Array<{ key: string; label: string; by
   )
 }
 
-export function DcStoragePanel({ onOpenTrash }: { onOpenTrash?: (() => void) | undefined }) {
+export function DcStoragePanel({
+  onOpenTrash,
+  onOpenOrphans,
+}: {
+  onOpenTrash?: (() => void) | undefined
+  onOpenOrphans?: (() => void) | undefined
+}) {
   const [open, setOpen] = useState(false)
   // Read after mount, never during render: the server has no localStorage, and
   // a first paint that disagrees with it is a hydration mismatch.
@@ -332,10 +338,19 @@ export function DcStoragePanel({ onOpenTrash }: { onOpenTrash?: (() => void) | u
               {data.libraryAssets.toLocaleString()} assets
             </span>
             {(split?.orphanBytes ?? 0) > 0 ? (
-              <span className="dc-mstore__badge dc-mstore__badge--warn" title="Unindexed files on disk">
+              <button
+                type="button"
+                className="dc-mstore__badge dc-mstore__badge--warn"
+                title="View unindexed files to clean them"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onOpenOrphans?.()
+                }}
+                style={onOpenOrphans ? { cursor: 'pointer' } : undefined}
+              >
                 <span className="dc-mstore__badge-dot" style={{ background: 'var(--viz-orphan)' }} />
                 {formatBytes(split?.orphanBytes)} unindexed
-              </span>
+              </button>
             ) : null}
           </div>
         ) : null}
@@ -481,15 +496,21 @@ export function DcStoragePanel({ onOpenTrash }: { onOpenTrash?: (() => void) | u
             {(split?.trashAssets ?? 0).toLocaleString()} asset{(split?.trashAssets ?? 0) === 1 ? '' : 's'} · reclaimable
           </span>
         </button>
-        <div className="dc-mstore__tile">
+        <button
+          type="button"
+          className="dc-mstore__tile"
+          onClick={onOpenOrphans}
+          disabled={!onOpenOrphans}
+          style={onOpenOrphans ? undefined : { cursor: 'default' }}
+        >
           <span className="dc-mstore__tile-label">
             <span className="dc-mstore__swatch" style={{ background: 'var(--viz-orphan)' }} /> Unindexed
           </span>
           <span className="dc-mstore__tile-value">{formatBytes(split?.orphanBytes ?? 0)}</span>
           <span className="dc-mstore__tile-note">
-            {(split?.orphanFiles ?? 0).toLocaleString()} file{(split?.orphanFiles ?? 0) === 1 ? '' : 's'} nothing points at
+            {(split?.orphanFiles ?? 0).toLocaleString()} file{(split?.orphanFiles ?? 0) === 1 ? '' : 's'} · click to clean
           </span>
-        </div>
+        </button>
       </div>
 
       <div className="dc-mstore__grid">

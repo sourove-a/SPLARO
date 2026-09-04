@@ -59,24 +59,39 @@ desktop.ini
 # Redis snapshot from a local dev instance
 dump.rdb
 
-# Visual-diff runs from scripts/shot-web.mjs — local review only, never committed
+# Visual-diff runs and dev screenshots — local review only, NEVER committed
 .screenshots/
+screenshots/
+*screenshot*
+*screenshots*
 
 # Dev screenshots accidentally saved in repo root / app trees
 /*.png
 /*.jpeg
 /*.jpg
+/*.webp
+/*.gif
+/*.webm
 apps/web/*.png
+apps/web/*.webp
+apps/web/*.jpg
 apps/admin/*.png
+apps/admin/*.webp
+apps/admin/*.jpg
+apps/api/*.png
+apps/api/*.webp
 output/
 
 # Local product uploads (use CDN/R2 in production)
 apps/web/public/uploads/
 
-# Local tool / MCP caches
+# Local tool / MCP / subagent caches & scratchpads
 .playwright-mcp/
 .playwright-browsers/
 .tmp-pillow/
+.tempmediaStorage/
+.user_uploaded/
+scratch/
 
 # IDE
 .vscode/settings.json

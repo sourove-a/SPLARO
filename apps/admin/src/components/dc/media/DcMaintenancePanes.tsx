@@ -257,14 +257,16 @@ export function DcOrphanPane({ onChanged, toast }: DcOrphanPaneProps) {
           />
           Select all deletable
         </label>
-        {selected.size > 0 ? (
+        {selectable.length > 0 ? (
           <button
             type="button"
             className="dc-mpane__tool is-danger"
             disabled={purge.isPending}
-            onClick={() => purge.mutate([...selected])}
+            onClick={() => purge.mutate(selected.size > 0 ? [...selected] : selectable.map((row) => row.path))}
           >
-            Delete {selected.size} · {formatBytes(selectedRows.reduce((sum, row) => sum + row.bytes, 0))}
+            {selected.size > 0
+              ? `Delete ${selected.size} · ${formatBytes(selectedRows.reduce((sum, row) => sum + row.bytes, 0))}`
+              : `Purge all ${selectable.length} · ${formatBytes(selectable.reduce((sum, row) => sum + row.bytes, 0))}`}
           </button>
         ) : null}
         <button type="button" className="dc-mpane__tool" onClick={() => void orphans.refetch()}>

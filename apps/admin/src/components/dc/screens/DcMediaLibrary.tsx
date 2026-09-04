@@ -978,6 +978,10 @@ function DcMediaLibraryBody() {
           setLibraryPane('trash')
           setSelectedIds(new Set())
         }}
+        onOpenOrphans={() => {
+          setLibraryPane('orphans')
+          setSelectedIds(new Set())
+        }}
       />
 
       <div className="dc-mlib__bar">
