@@ -5798,6 +5798,12 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  /* clip, not hidden, on the inline axis: the decorative mesh bleeds 10% past
+     both edges, and `hidden` still leaves the box programmatically scrollable.
+     Switching a size tab let the browser scroll-into-view nudge it 38px, which
+     shoved the whole page off-centre with no scrollbar to put it back. `clip`
+     is not a scroll container, so nothing can move it. */
+  overflow-x: clip;
   --sg-ink: #0f1612;
   --sg-ink-soft: #1a2420;
   --sg-mist: #eef1f0;
