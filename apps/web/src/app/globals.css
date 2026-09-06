@@ -461,19 +461,16 @@ html.lenis.lenis-smooth body {
 }
 
 /* Native phone/tablet / Windows scroll */
-html[data-scroll-engine='native'] {
-  scroll-behavior: auto;
+html[data-scroll-engine='native'],
+html[data-scroll-engine='native'][data-splaro-booted='1'] {
+  scroll-behavior: auto !important;
   overflow-anchor: none;
   overflow-x: clip !important;
   overflow-y: auto !important;
 }
 
-html[data-scroll-engine='native'][data-splaro-booted='1'] {
-  scroll-behavior: smooth;
-}
-
 html[data-scroll-engine='native'] body {
-  overscroll-behavior-y: none;
+  overscroll-behavior-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 

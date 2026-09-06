@@ -93,8 +93,8 @@ const LENIS_SHARED = {
  */
 const LENIS_DESKTOP: LenisOptions = {
   ...LENIS_SHARED,
-  /** Slightly snappier trackpad handoff — less “rubber lag” after paint fixes. */
-  lerp: 0.12,
+  /** Luxury smooth inertia scroll (per AGENTS.md: lerp ~0.085). */
+  lerp: 0.085,
   smoothWheel: true,
   wheelMultiplier: 1,
   syncTouch: false,
@@ -119,7 +119,7 @@ const LENIS_WINDOWS: LenisOptions = {
  */
 const LENIS_MOBILE: LenisOptions = {
   ...LENIS_SHARED,
-  lerp: 0.12,
+  lerp: 0.085,
   smoothWheel: false,
   syncTouch: false,
   touchMultiplier: 1,

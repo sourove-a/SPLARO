@@ -112,6 +112,11 @@ a:active .product-transition-link__hit .pc-media {
     --glass-dark: rgba(17, 17, 17, 0.9);
   }
 
+  html,
+  body {
+    scroll-behavior: auto !important;
+  }
+
   *,
   *::before,
   *::after {
