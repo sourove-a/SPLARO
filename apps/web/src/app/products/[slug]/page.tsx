@@ -61,10 +61,28 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     sanitizeStorefrontShortDescription(product.shortDescription, safeDescription) ??
     safeDescription
   const rawImage = product.images[0]
-  const absoluteImageUrl = rawImage
+  const defaultImageUrl = rawImage
     ? (rawImage.startsWith('http') ? rawImage : `${siteUrl}${rawImage.startsWith('/') ? '' : '/'}${rawImage}`)
     : `${siteUrl}/og-cover-v2.jpg`
-  const ogImage = [{ url: absoluteImageUrl, alt: product.name }]
+
+  const ogImages = (
+    product.images?.length
+      ? product.images
+          .slice(0, 3)
+          .map((img) => (img.startsWith('http') ? img : `${siteUrl}${img.startsWith('/') ? '' : '/'}${img}`))
+      : [defaultImageUrl]
+  ).map((url) => {
+    const isWp = url.toLowerCase().endsWith('.webp')
+    const type = isWp ? 'image/webp' : url.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg'
+    return {
+      url,
+      secureUrl: url.startsWith('https://') ? url : undefined,
+      width: 1200,
+      height: 1600,
+      alt: product.name,
+      type,
+    }
+  })
 
   return {
     title: pageTitleSegment(product.metaTitle) || product.name,
@@ -80,7 +98,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     openGraph: {
       title: product.name,
       description: safeOgDescription,
-      images: ogImage,
+      images: ogImages,
       url: `${siteUrl}/products/${product.slug}`,
       type: 'website',
     },
@@ -88,7 +106,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
       card: 'summary_large_image',
       title: product.name,
       description: safeOgDescription,
-      images: ogImage.map((image) => image.url),
+      images: ogImages.map((image) => image.url),
     },
   }
 }

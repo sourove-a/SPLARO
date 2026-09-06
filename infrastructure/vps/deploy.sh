@@ -455,6 +455,7 @@ fi
 backup_nginx_config
 install -d -m 0755 /etc/nginx/snippets
 install -m 0644 infrastructure/nginx/snippets/splaro-uploads.conf /etc/nginx/snippets/splaro-uploads.conf
+install -m 0644 infrastructure/nginx/snippets/splaro-r2-fallback.conf /etc/nginx/snippets/splaro-r2-fallback.conf
 if [ -f infrastructure/vps/setup-meilisearch.sh ]; then
   bash infrastructure/vps/setup-meilisearch.sh || log "WARN: Meilisearch setup skipped"
 fi

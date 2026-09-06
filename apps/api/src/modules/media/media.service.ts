@@ -571,11 +571,31 @@ export class MediaService {
    */
   async orphans(storeIdOrSlug: string, options?: { refresh?: boolean; limit?: number }) {
     const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
-    const [rows, scan] = await Promise.all([
+    const [
+      rows,
+      productImgRows,
+      variantRows,
+      bannerRows,
+      categoryRows,
+      collectionRows,
+      scan,
+    ] = await Promise.all([
       this.prisma.mediaAsset.findMany({ where: { storeId }, select: { path: true } }),
+      this.prisma.productImage.findMany({ where: { product: { storeId } }, select: { url: true } }),
+      this.prisma.productVariant.findMany({ where: { product: { storeId } }, select: { image: true } }),
+      this.prisma.banner.findMany({ where: { storeId }, select: { image: true, mobileImage: true } }),
+      this.prisma.category.findMany({ where: { storeId }, select: { image: true } }),
+      this.prisma.collection.findMany({ where: { storeId }, select: { image: true } }),
       this.diskScan(options?.refresh === true),
     ])
-    const claimed = new Set(rows.map((row) => mediaFamilyKey(row.path)))
+    const claimed = new Set([
+      ...rows.map((row) => mediaFamilyKey(row.path)),
+      ...productImgRows.map((r) => mediaFamilyKey(r.url)),
+      ...variantRows.filter((r) => r.image).map((r) => mediaFamilyKey(r.image!)),
+      ...bannerRows.flatMap((r) => [r.image, r.mobileImage]).filter(Boolean).map((u) => mediaFamilyKey(u!)),
+      ...categoryRows.filter((r) => r.image).map((r) => mediaFamilyKey(r.image!)),
+      ...collectionRows.filter((r) => r.image).map((r) => mediaFamilyKey(r.image!)),
+    ])
 
     const families = new Map<
       string,

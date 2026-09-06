@@ -317,7 +317,8 @@ async function writeLibraryVariants(
   masterPath: string,
   destDir: string,
   id: string,
-): Promise<string | null> {
+  folder: string,
+): Promise<{ display: string; files: Array<{ localPath: string; storedUrl: string; contentType?: string }> } | null> {
   try {
     const sharp = await loadSharp()
     const meta = await sharp(masterPath, SHARP_READ).metadata()
@@ -325,6 +326,8 @@ async function writeLibraryVariants(
     // Never upscale — a 900px master gets 160/480/828 and stops there.
     const widths = PRODUCT_VARIANT_WIDTHS.filter((width) => width <= sourceWidth)
     if (!widths.length) return null
+
+    const files: Array<{ localPath: string; storedUrl: string; contentType?: string }> = []
 
     for (const width of widths) {
       const { sigma, m1, m2 } = sharpenForWidth(width)
@@ -338,23 +341,38 @@ async function writeLibraryVariants(
         return width >= sourceWidth ? pipe : pipe.sharpen({ sigma, m1, m2 })
       }
 
-      const webpPath = path.join(destDir, `${id}.w${width}.webp`)
+      const webpName = `${id}.w${width}.webp`
+      const webpPath = path.join(destDir, webpName)
       await resized().webp({ quality: LIBRARY_WEBP_QUALITY }).toFile(webpPath)
+      files.push({
+        localPath: webpPath,
+        storedUrl: `/uploads/${folder}/${webpName}`,
+        contentType: 'image/webp',
+      })
 
       // Both formats, always. The storefront renders <picture> with an AVIF
       // source first, and a <source> that 404s does not fall back — it just
       // leaves a broken image. AVIF is also what most visitors end up
       // downloading, so it is never allowed to be the heavier of the two.
-      const avifPath = path.join(destDir, `${id}.w${width}.avif`)
+      const avifName = `${id}.w${width}.avif`
+      const avifPath = path.join(destDir, avifName)
       const webpSize = (await stat(webpPath)).size
       for (const quality of [LIBRARY_AVIF_QUALITY, 65, 50]) {
         await resized().avif({ quality }).toFile(avifPath)
         if ((await stat(avifPath)).size <= webpSize) break
       }
+      files.push({
+        localPath: avifPath,
+        storedUrl: `/uploads/${folder}/${avifName}`,
+        contentType: 'image/avif',
+      })
     }
 
     const display = Math.min(DISPLAY_WIDTH, widths[widths.length - 1]!)
-    return `${id}.w${display}.webp`
+    return {
+      display: `${id}.w${display}.webp`,
+      files,
+    }
   } catch {
     return null
   }
@@ -797,9 +815,14 @@ export async function POST(request: Request) {
      * Failure here is not fatal: the master stays published on its own URL.
      */
     let publishedName = safeName
-    if (folder === 'media' && (ext === 'webp' || ext === 'jpg' || ext === 'jpeg')) {
-      const display = await withImagePipelineSlot(() => writeLibraryVariants(outputFile, dir, id))
-      if (display) publishedName = display
+    if ((folder === 'media' || folder === 'banners') && (ext === 'webp' || ext === 'jpg' || ext === 'jpeg' || ext === 'png')) {
+      const result = await withImagePipelineSlot(() => writeLibraryVariants(outputFile, dir, id, folder))
+      if (result?.display) {
+        publishedName = result.display
+        if (result.files.length) {
+          syncManyToR2(result.files).catch(() => {})
+        }
+      }
     }
     const url = `/uploads/${folder}/${publishedName}`
     let width: number | null = null

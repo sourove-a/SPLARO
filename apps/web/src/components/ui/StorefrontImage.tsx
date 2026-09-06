@@ -7,7 +7,6 @@ import {
   IMAGE_BLUR_PLACEHOLDER,
   IMAGE_QUALITY,
   IMAGE_SIZES,
-  isProductPipelineSrc,
   mobileImageProfile,
   nextSmallerVariantWidth,
   optimizeImageSrc,
@@ -60,26 +59,30 @@ export function StorefrontImage({
    * instead and only give up once no narrower sibling is left.
    */
   const [fallbackWidth, setFallbackWidth] = useState<number | null>(null)
-  const optimizedSrc =
-    fallbackWidth === null ? requestedSrc : withProductVariantWidth(requestedSrc, fallbackWidth)
-  const activeWidth = productVariantWidth(optimizedSrc)
-  const pipelinePicture =
-    !failed && activeWidth !== null && isProductPipelineSrc(optimizedSrc)
-      ? {
-          webp: withProductVariantWidth(optimizedSrc, activeWidth, 'webp'),
-          avif: withProductVariantWidth(optimizedSrc, activeWidth, 'avif'),
-        }
-      : null
+  const [triedRaw, setTriedRaw] = useState(false)
+  const optimizedSrc = triedRaw
+    ? src
+    : fallbackWidth === null
+      ? requestedSrc
+      : withProductVariantWidth(requestedSrc, fallbackWidth)
+  const activeWidth = triedRaw ? null : productVariantWidth(optimizedSrc)
 
   useEffect(() => {
     setFailed(false)
     setFallbackWidth(null)
-  }, [requestedSrc])
+    setTriedRaw(false)
+  }, [requestedSrc, src])
 
   const handleError = () => {
     const smaller = activeWidth === null ? null : nextSmallerVariantWidth(activeWidth)
-    if (smaller === null) setFailed(true)
-    else setFallbackWidth(smaller)
+    if (smaller !== null) {
+      setFallbackWidth(smaller)
+    } else if (!triedRaw && src && optimizedSrc !== src) {
+      // Fall back to original raw src before giving up
+      setTriedRaw(true)
+    } else {
+      setFailed(true)
+    }
   }
 
   const useBlur = withBlur && (rest.fill !== undefined || (rest.width !== undefined && rest.height !== undefined))
@@ -106,7 +109,7 @@ export function StorefrontImage({
     lightbox: IMAGE_SIZES.lightbox,
   }
 
-  const image = (
+  return (
     <Image
       src={failed ? PRODUCT_IMAGE_PLACEHOLDER : optimizedSrc}
       alt={alt}
@@ -124,20 +127,5 @@ export function StorefrontImage({
       {...rest}
     />
   )
-
-  if (!pipelinePicture) return image
-
-  // Prefer AVIF when the browser supports it; WebP (and Next/Image) remain the fallback.
-  return (
-    <picture
-      className={cn(
-        'sf-image-picture',
-        rest.fill !== undefined && 'sf-image-picture--fill',
-      )}
-    >
-      <source srcSet={pipelinePicture.avif} type="image/avif" />
-      <source srcSet={pipelinePicture.webp} type="image/webp" />
-      {image}
-    </picture>
-  )
 }
+
