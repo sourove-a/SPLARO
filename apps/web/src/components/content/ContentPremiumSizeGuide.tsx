@@ -148,7 +148,7 @@ export function ContentPremiumSizeGuide({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: reducedMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div className="size-premium__tabs size-premium__tabs--four" role="tablist" aria-label="Size charts">
+          <div className="size-premium__tabs size-premium__tabs--five" role="tablist" aria-label="Size charts">
             {SIZE_GUIDE_ORDER.map((key) => (
               <button
                 key={key}

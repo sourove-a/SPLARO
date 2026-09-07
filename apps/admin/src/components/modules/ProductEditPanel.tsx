@@ -202,9 +202,18 @@ export function ProductEditPanel({
   )
 
   const departmentHint = useMemo(() => {
+    const leaf = categories.find((c) => c.id === form.categoryId)
     const dept = categories.find((c) => c.id === departmentId)
-    return dept ? `${dept.name} ${dept.slug}` : undefined
-  }, [categories, departmentId])
+    return [
+      leaf?.name,
+      leaf?.slug,
+      form.name || product?.name,
+      dept?.name,
+      dept?.slug,
+    ]
+      .filter(Boolean)
+      .join(' ')
+  }, [categories, departmentId, form.categoryId, form.name, product?.name])
 
   const mediaUploadFolder = useMemo(
     () => mediaFolderForDept(departmentHint),

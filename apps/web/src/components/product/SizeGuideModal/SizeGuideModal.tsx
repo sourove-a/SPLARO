@@ -34,8 +34,8 @@ export function SizeGuideModal({
 }: SizeGuideModalProps) {
   const reducedMotion = useReducedMotion()
   const titleId = useId()
-  const chart = getSizeGuideChart(category, categorySlug)
-  const chartTitle = resolveSizeGuideTitle(category, categorySlug)
+  const chart = getSizeGuideChart(category, categorySlug, productName)
+  const chartTitle = resolveSizeGuideTitle(category, categorySlug, productName)
   const [unit, setUnit] = useState<SizeGuideUnit>('cm')
   const [mounted, setMounted] = useState(false)
   const onCloseRef = useRef(onClose)

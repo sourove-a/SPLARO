@@ -1383,7 +1383,15 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                   id="np-field-name"
                   value={form.name}
                   placeholder={EN_COPY.titlePlaceholder}
-                  onChange={(e) => set('name', gateScript(form.name, e.target.value, 'en'))}
+                  onChange={(e) => {
+                    const nextName = gateScript(form.name, e.target.value, 'en')
+                    set('name', nextName)
+                    if (!form.categoryId && (form.sizes === SIZE_PRESETS.default || form.sizes === SIZE_PRESETS.pants)) {
+                      const dept = sizeDeptFromSlugOrName(nextName)
+                      if (dept === 'pants') set('sizes', SIZE_PRESETS.pants)
+                      else if (form.sizes === SIZE_PRESETS.pants && dept === 'default') set('sizes', SIZE_PRESETS.default)
+                    }
+                  }}
                   onBlur={() => {
                     if (!form.descriptionEn.trim() && !form.descriptionBn.trim() && form.name.trim()) {
                       applyDescriptionDraft(true)

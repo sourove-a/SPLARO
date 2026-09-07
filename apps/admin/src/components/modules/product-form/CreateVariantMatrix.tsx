@@ -12,7 +12,7 @@ import {
   normalizeHex,
   swatchCss,
 } from '@/lib/admin/colour-names'
-import { deptHasNoSize, type SizeDeptKey } from '@/lib/admin/size-presets'
+import { deptHasNoSize, SIZE_PRESETS, type SizeDeptKey } from '@/lib/admin/size-presets'
 import { previewVariantSku, type SkuIdentity } from '@/lib/admin/variant-sku'
 import { clampStock, parseBulkStock } from '@/lib/admin/bulk-stock'
 
@@ -413,9 +413,11 @@ export function CreateVariantMatrix({
         ? 'EU shoe sizes'
         : sizeDeptKey === 'accessories'
           ? 'Usually One Size'
-          : sizeDeptKey === 'women' || sizeDeptKey === 'men'
-            ? `${sizeDeptKey[0]?.toUpperCase()}${sizeDeptKey.slice(1)} sizes`
-            : 'Pick a menu above to switch size run'
+          : sizeDeptKey === 'pants'
+            ? 'Pants / Waist sizes (28–40)'
+            : sizeDeptKey === 'women' || sizeDeptKey === 'men'
+              ? `${sizeDeptKey[0]?.toUpperCase()}${sizeDeptKey.slice(1)} sizes`
+              : 'Pick a menu above to switch size run'
 
   const showBarcode = Boolean(productBarcode.trim()) || lines.some((l) => l.barcode)
 
@@ -432,7 +434,44 @@ export function CreateVariantMatrix({
         </div>
       ) : (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <span style={stepLabel}>1 · Sizes{sizeDeptKey !== 'default' ? ` · ${deptHint}` : ''}</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <span style={stepLabel}>1 · Sizes{sizeDeptKey !== 'default' ? ` · ${deptHint}` : ''}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ font: `500 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>Presets:</span>
+            {(
+              [
+                { key: 'pants', label: 'Pants (28–40)', preset: SIZE_PRESETS.pants },
+                { key: 'men', label: 'Men Tops (S–3XL)', preset: SIZE_PRESETS.men },
+                { key: 'women', label: 'Women (XS–XXL)', preset: SIZE_PRESETS.women },
+                { key: 'footwear', label: 'Footwear (36–47)', preset: SIZE_PRESETS.footwear },
+              ] as const
+            ).map((p) => {
+              const isActive = sizes === p.preset
+              return (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => onSizesChange(p.preset)}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: 6,
+                    border: `1px solid ${isActive ? 'var(--violet-bd)' : 'var(--line)'}`,
+                    background: isActive ? 'var(--violet-soft)' : 'var(--surface)',
+                    color: isActive ? 'var(--violet)' : 'var(--ink-2)',
+                    cursor: 'pointer',
+                    font: `600 11px/1 ${FONT}`,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  {isActive ? <DcIcon name="icon-check" size={10} /> : null}
+                  {p.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
         <p style={{ margin: 0, font: `400 12.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
           Tap the sizes this product actually has. Start with the core size run; you can add extra sizes below if this item needs them.
         </p>

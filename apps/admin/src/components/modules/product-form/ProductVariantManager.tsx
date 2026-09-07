@@ -39,7 +39,11 @@ import {
   sanitizeHexTyping,
   swatchCss,
 } from '@/lib/admin/colour-names'
-import { sizeChipsForDept, sizeDeptFromSlugOrName } from '@/lib/admin/size-presets'
+import {
+  sizeChipsForDept,
+  sizeDeptFromSlugOrName,
+  type SizeDeptKey,
+} from '@/lib/admin/size-presets'
 
 const btnPrimary: CSSProperties = {
   display: 'inline-flex',
@@ -219,8 +223,20 @@ const STOCK_REASONS = [
 
 const SIZE_CHIPS = [
   'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL',
-  '36', '37', '38', '39', '40', '41', '42',
+  '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47',
 ] as const
+
+const LETTER_TO_PANTS_MAP: Record<string, string> = {
+  XS: '28',
+  S: '30',
+  M: '32',
+  L: '34',
+  XL: '36',
+  XXL: '38',
+  '2XL': '38',
+  '3XL': '40',
+  '4XL': '42',
+}
 
 function serverStock(v: Variant): number {
   return Number(v.stock ?? v.stockQuantity ?? 0)
@@ -426,11 +442,14 @@ export function ProductVariantManager({
   const archiveVariant = useArchiveProductVariant()
   const deleteVariant = useDeleteProductVariant()
 
+  const detectedDept = useMemo(() => sizeDeptFromSlugOrName(departmentHint), [departmentHint])
+  const [activePreset, setActivePreset] = useState<SizeDeptKey | null>(null)
+  const currentDept = activePreset ?? detectedDept
+
   const sizeChips = useMemo(() => {
-    const dept = sizeDeptFromSlugOrName(departmentHint)
-    if (dept === 'default') return [...SIZE_CHIPS]
-    return sizeChipsForDept(dept)
-  }, [departmentHint])
+    if (currentDept === 'default') return [...SIZE_CHIPS]
+    return sizeChipsForDept(currentDept)
+  }, [currentDept])
 
   const [drafts, setDrafts] = useState<Record<string, RowDraft>>(() => {
     const map: Record<string, RowDraft> = {}
@@ -438,6 +457,34 @@ export function ProductVariantManager({
     return map
   })
   const serverDraftRef = useRef<Record<string, RowDraft>>({})
+
+  const hasLetterSizes = useMemo(() => {
+    return variants.some((v) => {
+      const s = ((v.id && drafts[v.id]?.size) || v.size || '').trim().toUpperCase()
+      return Boolean(LETTER_TO_PANTS_MAP[s])
+    })
+  }, [variants, drafts])
+
+  const applyPantsQuickMap = () => {
+    let mappedCount = 0
+    setDrafts((prev) => {
+      const next = { ...prev }
+      for (const v of variants) {
+        if (!v.id) continue
+        const cur = next[v.id] ?? draftFromVariant(v)
+        const upper = cur.size.trim().toUpperCase()
+        if (LETTER_TO_PANTS_MAP[upper]) {
+          next[v.id] = { ...cur, size: LETTER_TO_PANTS_MAP[upper] }
+          mappedCount += 1
+        }
+      }
+      return next
+    })
+    if (mappedCount > 0) {
+      toastOk(`Mapped ${mappedCount} size${mappedCount === 1 ? '' : 's'} to numeric (30, 32, 34, 36). Click "Save unsaved" to persist.`)
+    }
+  }
+
   const [selectedSizes, setSelectedSizes] = useState<string[]>([])
   const [customSize, setCustomSize] = useState('')
   const [colorRows, setColorRows] = useState<ColourDraft[]>(() => colourRowsFromVariants(variants))
@@ -605,7 +652,13 @@ export function ProductVariantManager({
         const sb = ((b.id && drafts[b.id]) || draftFromVariant(b)).size
         const ia = sizeChips.indexOf(sa)
         const ib = sizeChips.indexOf(sb)
-        return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib) || sa.localeCompare(sb)
+        if (ia !== -1 && ib !== -1) return ia - ib
+        if (ia !== -1) return -1
+        if (ib !== -1) return 1
+        const na = Number(sa)
+        const nb = Number(sb)
+        if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb
+        return sa.localeCompare(sb)
       })
     }
     return groups
@@ -935,8 +988,20 @@ export function ProductVariantManager({
       () => updateVariant.mutateAsync(payload),
     )
     if (ok) {
-      const fresh = variants.find((row) => row.id === v.id) ?? v
-      syncDraftFromServer(v.id, fresh)
+      syncDraftFromServer(v.id, {
+        ...v,
+        size: d.size.trim(),
+        color: d.color.trim() || d.colorName.trim(),
+        colorName: d.colorName.trim(),
+        colorHex: d.colorHex.trim(),
+        image: d.image.trim(),
+        sku: d.sku.trim(),
+        barcode: d.barcode.trim(),
+        price,
+        compareAtPrice: compareAt,
+        stock,
+        stockQuantity: stock,
+      })
       if (historyFor === v.id) void openHistory(v.id)
     }
   }
@@ -1200,13 +1265,52 @@ export function ProductVariantManager({
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <button type="button" style={btnLink} onClick={() => setSelectedSizes([...sizeChips])}>
-            Select all sizes
-          </button>
-          <button type="button" style={btnLink} onClick={() => setSelectedSizes([])} disabled={!selectedSizes.length}>
-            Clear
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ font: `500 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>Preset:</span>
+            {(
+              [
+                { key: 'pants', label: 'Pants (28–40)' },
+                { key: 'men', label: 'Men Tops (S–3XL)' },
+                { key: 'women', label: 'Women (XS–XXL)' },
+                { key: 'footwear', label: 'Footwear (36–47)' },
+                { key: 'kids', label: 'Kids' },
+              ] as const
+            ).map((p) => {
+              const isActive = currentDept === p.key
+              return (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setActivePreset(p.key)}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: 6,
+                    border: `1px solid ${isActive ? 'var(--violet-bd)' : 'var(--line)'}`,
+                    background: isActive ? 'var(--violet-soft)' : 'var(--surface)',
+                    color: isActive ? 'var(--violet)' : 'var(--ink-2)',
+                    cursor: 'pointer',
+                    font: `600 11px/1 ${FONT}`,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  {isActive ? <DcIcon name="icon-check" size={10} /> : null}
+                  {p.label}
+                </button>
+              )
+            })}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" style={btnLink} onClick={() => setSelectedSizes([...sizeChips])}>
+              Select all sizes
+            </button>
+            <button type="button" style={btnLink} onClick={() => setSelectedSizes([])} disabled={!selectedSizes.length}>
+              Clear
+            </button>
+          </div>
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -1460,6 +1564,42 @@ export function ProductVariantManager({
           </button>
         ) : null}
       </div>
+
+      {hasLetterSizes && (currentDept === 'pants' || detectedDept === 'pants') ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '10px 14px',
+            borderRadius: 10,
+            border: '1px solid var(--warn-bd)',
+            background: 'var(--warn-soft)',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <DcIcon name="icon-alert-circle" size={15} color="var(--warn)" />
+            <span style={{ font: `500 12.5px/1.4 ${FONT}`, color: 'var(--ink)' }}>
+              This pants product currently has letter sizes (S · M · L · XL). Quick-convert to numeric waist sizes?
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={applyPantsQuickMap}
+            style={{
+              ...btnPrimary,
+              height: 30,
+              padding: '0 12px',
+              fontSize: 12,
+            }}
+          >
+            <DcIcon name="icon-repeat" size={12} />
+            Quick map S·M·L·XL → 30·32·34·36
+          </button>
+        </div>
+      ) : null}
 
       {variants.length === 0 ? (
         <div
@@ -1720,10 +1860,33 @@ export function ProductVariantManager({
                             }}
                           />
                           <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                            <strong style={{ font: `600 12.5px/1 ${FONT}`, color: 'var(--ink)' }}>
-                              {d.size || '—'}
-                            </strong>
-                            <span style={{ font: `400 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <DcInput
+                                value={d.size}
+                                placeholder="Size"
+                                title="Edit size (e.g. 30, 32, 34)"
+                                onChange={(e) =>
+                                  v.id && setField(v.id, 'size', e.target.value.trim().toUpperCase())
+                                }
+                                onKeyDown={onEnter}
+                                list={`size-chips-list-${v.id}`}
+                                style={{
+                                  height: 28,
+                                  width: 62,
+                                  fontWeight: 700,
+                                  fontSize: 12.5,
+                                  textAlign: 'center',
+                                  borderRadius: 7,
+                                  padding: '0 4px',
+                                }}
+                              />
+                              <datalist id={`size-chips-list-${v.id}`}>
+                                {sizeChips.map((sz) => (
+                                  <option key={sz} value={sz} />
+                                ))}
+                              </datalist>
+                            </div>
+                            <span style={{ font: `400 11px/1 ${FONT}`, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
                               {d.colorName || 'Default'}
                             </span>
                           </span>

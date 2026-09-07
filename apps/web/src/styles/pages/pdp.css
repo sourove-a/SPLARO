@@ -6094,13 +6094,29 @@ html[data-scrolling='1'] .pp-care-story__breeze {
   background: rgba(15, 22, 18, 0.05);
 }
 
-.size-premium__tabs--four {
+.size-premium__tabs--four,
+.size-premium__tabs--five {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-radius: 18px;
+}
+
+.size-premium__tabs--five > :last-child:nth-child(odd) {
+  grid-column: span 2;
 }
 
 @media (min-width: 640px) {
   .size-premium__tabs--four {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-radius: 999px;
+  }
+
+  .size-premium__tabs--five {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    border-radius: 999px;
+  }
+
+  .size-premium__tabs--five > :last-child:nth-child(odd) {
+    grid-column: auto;
   }
 }
 

@@ -6,6 +6,7 @@ export type SizeDeptKey =
   | 'kids'
   | 'women'
   | 'men'
+  | 'pants'
   | 'footwear'
   | 'accessories'
   | 'sizeless'
@@ -15,7 +16,8 @@ export const SIZE_PRESETS: Record<SizeDeptKey, string> = {
   kids: '0-3M, 3-6M, 6-9M, 9-12M, 12-18M, 18-24M, 2/3, 4/5, 6/7, 8/9, 10/11, 12/13',
   women: 'XS, S, M, L, XL, XXL',
   men: 'S, M, L, XL, XXL, 3XL',
-  footwear: '36, 37, 38, 39, 40, 41, 42, 43, 44',
+  pants: '28, 30, 32, 34, 36, 38, 40',
+  footwear: '36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47',
   accessories: 'One Size',
   // Saree, wallet, watch, prayer cap: a size run makes no sense, so the form
   // hides the field entirely and variants are colour-only.
@@ -43,12 +45,51 @@ export function sizeDeptFromSlugOrName(nameOrSlug: string | null | undefined): S
   if (key.includes('access') || key.includes('bag') || key.includes('handbag')) {
     return 'accessories'
   }
-  if (key.includes('foot') || key.includes('shoe') || key.includes('sandal') || key.includes('sneaker')) {
+  if (
+    key.includes('foot') ||
+    key.includes('shoe') ||
+    key.includes('sandal') ||
+    key.includes('sneaker') ||
+    key.includes('loafer') ||
+    key.includes('boot') ||
+    key.includes('slide')
+  ) {
     return 'footwear'
   }
   if (key.includes('kid') || key.includes('baby') || key.includes('child') || key.includes('girl') || key.includes('boy')) {
     return 'kids'
   }
+
+  // Pants, trousers, cargo, chinos, denim pants, jeans, joggers.
+  // Must check before general 'men' or 'women' department strings so that
+  // e.g. "Men > Cargo Pants" or "American Eagle Men's Utility Cargo Pants"
+  // lands on numeric waist sizes rather than alpha S-XXL.
+  const isTop =
+    key.includes('jacket') ||
+    key.includes('shirt') ||
+    key.includes('blazer') ||
+    key.includes('hoodie') ||
+    key.includes('polo') ||
+    key.includes('panjabi') ||
+    key.includes('kurta') ||
+    key.includes('tee') ||
+    key.includes('top')
+
+  const isBottom =
+    key.includes('pant') ||
+    key.includes('trouser') ||
+    key.includes('cargo') ||
+    key.includes('chino') ||
+    key.includes('jeans') ||
+    key.includes('denim-pant') ||
+    key.includes('bottom') ||
+    key.includes('jogger') ||
+    key.includes('short')
+
+  if (isBottom && !isTop) {
+    return 'pants'
+  }
+
   if (key.includes('women') || key.includes('woman') || key.includes('kurti')) {
     return 'women'
   }
@@ -78,6 +119,12 @@ export function mediaFolderForDept(slugOrName: string | null | undefined): Media
     const key = (slugOrName ?? '').toLowerCase()
     if (key.includes('saree') || key.includes('sari')) return 'products-women'
     return 'products-accessories'
+  }
+  if (dept === 'pants') {
+    const key = (slugOrName ?? '').toLowerCase()
+    if (key.includes('women') || key.includes('woman') || key.includes('girl')) return 'products-women'
+    if (key.includes('kid') || key.includes('child') || key.includes('boy')) return 'products-kids'
+    return 'products-men'
   }
   if (dept === 'men') return 'products-men'
   if (dept === 'women') return 'products-women'
