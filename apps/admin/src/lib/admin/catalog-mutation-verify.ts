@@ -30,13 +30,16 @@ async function findBrand(id: string): Promise<BrandRow | undefined> {
 
 export function verifyCategoryResponse(
   saved: unknown,
-  expected: { name?: string; isActive?: boolean; image?: string | null },
+  expected: { name?: string; slug?: string; isActive?: boolean; image?: string | null },
 ): boolean {
   if (!saved || typeof saved !== 'object') {
     return verifyPersisted(false, 'Category did not persist on server')
   }
   const row = saved as CategoryRow
   if (expected.name !== undefined && !verifyStringEquals(row.name, expected.name, 'Category name')) {
+    return false
+  }
+  if (expected.slug !== undefined && !verifyStringEquals(row.slug, expected.slug, 'Category slug')) {
     return false
   }
   if (expected.isActive !== undefined && !verifyBooleanEquals(row.isActive ?? true, expected.isActive, 'Category status')) {
@@ -52,7 +55,7 @@ export function verifyCategoryResponse(
 
 export async function verifyCategoryPersisted(
   id: string,
-  expected: { name?: string; isActive?: boolean; image?: string | null },
+  expected: { name?: string; slug?: string; isActive?: boolean; image?: string | null },
 ): Promise<boolean> {
   try {
     const row = await findCategory(id)

@@ -38,6 +38,7 @@ export function seedDefaultCategories() {
 
 export function createCategory(data: {
   name: string
+  slug?: string
   description?: string
   parentId?: string
   sortOrder?: number
@@ -53,6 +54,7 @@ export function updateCategory(
   id: string,
   data: Partial<{
     name: string
+    slug: string
     description: string
     isActive: boolean
     image: string | null

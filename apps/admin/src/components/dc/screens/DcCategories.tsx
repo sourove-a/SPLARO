@@ -28,6 +28,7 @@ import {
   type FlatCategoryNode,
 } from '@/lib/admin/category-parent-options'
 import { categoryTreeRoots } from '@/lib/admin/category-tree-roots'
+import { slugify } from '@/lib/admin/slugify'
 import {
   createCategory,
   deleteCategory,
@@ -54,8 +55,10 @@ function DcCategoriesBody() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<CategoryTreeNode | null>(null)
   const [removing, setRemoving] = useState<CategoryTreeNode | null>(null)
-  const [form, setForm] = useState({ name: '', description: '', parentId: '' })
-  const [editForm, setEditForm] = useState({ name: '', description: '', parentId: '' })
+  const [form, setForm] = useState({ name: '', slug: '', description: '', parentId: '' })
+  const [editForm, setEditForm] = useState({ name: '', slug: '', description: '', parentId: '' })
+  const [createSlugTouched, setCreateSlugTouched] = useState(false)
+  const [editSlugTouched, setEditSlugTouched] = useState(false)
   const [busy, setBusy] = useState<'create' | 'edit' | 'toggle' | 'delete' | 'reorder' | null>(null)
 
   // Same query key the product form reads (`useCategoryTree`) — a separate key
@@ -100,12 +103,19 @@ function DcCategoriesBody() {
     }
   }
 
+  const getParentPath = (parentId: string) => {
+    if (!parentId) return ''
+    const found = rows.find((r) => r.node.id === parentId)
+    return found ? found.path : ''
+  }
+
   const runCreate = async () => {
     const name = form.name.trim()
     if (!name) {
       toast('warn', 'Name is required', 'A category needs a name before it can be saved.')
       return
     }
+    const cleanSlug = slugify(form.slug.trim() || name)
     setBusy('create')
     try {
       const id = await confirmCategorySaved(
@@ -113,6 +123,7 @@ function DcCategoriesBody() {
         () =>
           createCategory({
             name,
+            slug: cleanSlug,
             ...(form.description.trim() ? { description: form.description.trim() } : {}),
             ...(form.parentId ? { parentId: form.parentId } : {}),
           }),
@@ -120,7 +131,8 @@ function DcCategoriesBody() {
       )
       if (id) {
         setCreateOpen(false)
-        setForm({ name: '', description: '', parentId: '' })
+        setForm({ name: '', slug: '', description: '', parentId: '' })
+        setCreateSlugTouched(false)
         afterCatalogWrite()
       }
     } finally {
@@ -131,9 +143,11 @@ function DcCategoriesBody() {
   const openEdit = (node: CategoryTreeNode) => {
     setEditForm({
       name: node.name,
+      slug: node.slug,
       description: node.description ?? '',
       parentId: node.parentId ?? '',
     })
+    setEditSlugTouched(false)
     setEditing(node)
   }
 
@@ -144,10 +158,10 @@ function DcCategoriesBody() {
       toast('warn', 'Name is required', 'A category needs a name before it can be saved.')
       return
     }
-    // The slug is the public URL and stays as it was — renaming a category must
-    // not break links, ads or anything already indexed.
+    const cleanSlug = slugify(editForm.slug.trim() || name)
     const patch = {
       name,
+      slug: cleanSlug,
       description: editForm.description.trim(),
       parentId: editForm.parentId || null,
     }
@@ -155,7 +169,7 @@ function DcCategoriesBody() {
     try {
       const ok = await confirmCategoryUpdated(
         editing.id,
-        { name },
+        { name, slug: cleanSlug },
         () => updateCategory(editing.id, patch),
         'Category updated',
       )
@@ -268,7 +282,8 @@ function DcCategoriesBody() {
             icon: 'icon-plus',
             variant: 'primary',
             onClick: () => {
-              setForm({ name: '', description: '', parentId: '' })
+              setForm({ name: '', slug: '', description: '', parentId: '' })
+              setCreateSlugTouched(false)
               setCreateOpen(true)
             },
           },
@@ -295,7 +310,8 @@ function DcCategoriesBody() {
           body="Categories drive the storefront menu, search facets and product URLs. Build the top level first, then one level of children."
           cta="New category"
           onCta={() => {
-            setForm({ name: '', description: '', parentId: '' })
+            setForm({ name: '', slug: '', description: '', parentId: '' })
+            setCreateSlugTouched(false)
             setCreateOpen(true)
           }}
         />
@@ -511,8 +527,27 @@ function DcCategoriesBody() {
         <DcField
           label="Name"
           value={form.name}
-          onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+          onChange={(v) =>
+            setForm((f) => ({
+              ...f,
+              name: v,
+              slug: createSlugTouched ? f.slug : slugify(v),
+            }))
+          }
           placeholder="Abaya"
+        />
+        <SlugField
+          value={form.slug}
+          name={form.name}
+          parentPath={getParentPath(form.parentId)}
+          onChange={(slug) => {
+            setCreateSlugTouched(true)
+            setForm((f) => ({ ...f, slug }))
+          }}
+          onSyncFromName={() => {
+            setForm((f) => ({ ...f, slug: slugify(f.name) }))
+            setCreateSlugTouched(false)
+          }}
         />
         <DcField
           label="Description"
@@ -531,7 +566,7 @@ function DcCategoriesBody() {
       <DcModal
         open={editing !== null}
         title={editing ? `Edit ${editing.name}` : 'Edit category'}
-        subtitle="The URL path stays as it is — renaming never breaks a link that is already live."
+        subtitle="Rename, update URL slug, description or parent placement."
         confirmLabel="Save category"
         busy={busy === 'edit'}
         onClose={() => setEditing(null)}
@@ -540,8 +575,27 @@ function DcCategoriesBody() {
         <DcField
           label="Name"
           value={editForm.name}
-          onChange={(v) => setEditForm((f) => ({ ...f, name: v }))}
+          onChange={(v) =>
+            setEditForm((f) => ({
+              ...f,
+              name: v,
+              slug: editSlugTouched ? f.slug : slugify(v),
+            }))
+          }
           placeholder="Abaya"
+        />
+        <SlugField
+          value={editForm.slug}
+          name={editForm.name}
+          parentPath={getParentPath(editForm.parentId)}
+          onChange={(slug) => {
+            setEditSlugTouched(true)
+            setEditForm((f) => ({ ...f, slug }))
+          }}
+          onSyncFromName={() => {
+            setEditForm((f) => ({ ...f, slug: slugify(f.name) }))
+            setEditSlugTouched(false)
+          }}
         />
         <DcField
           label="Description"
@@ -624,6 +678,105 @@ function ParentSelect({
       <span style={{ font: `400 11.5px/1.45 ${FONT}`, color: 'var(--ink-3)' }}>
         The storefront menu renders {MAX_CATEGORY_DEPTH} levels, so a category that would push the branch
         deeper is not offered here — nor is the category itself or anything under it.
+      </span>
+    </label>
+  )
+}
+
+function SlugField({
+  value,
+  name,
+  parentPath,
+  onChange,
+  onSyncFromName,
+}: {
+  value: string
+  name: string
+  parentPath: string
+  onChange: (slug: string) => void
+  onSyncFromName: () => void
+}) {
+  const targetSlug = slugify(name)
+  const currentSlug = value.trim() || targetSlug
+  const showSync = Boolean(targetSlug && value !== targetSlug)
+  const previewPath = `${parentPath}/${currentSlug || '…'}`
+
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span
+          style={{
+            font: `600 11px/1 ${FONT}`,
+            letterSpacing: '.07em',
+            textTransform: 'uppercase',
+            color: 'var(--ink-3)',
+          }}
+        >
+          URL Slug
+        </span>
+        {showSync ? (
+          <button
+            type="button"
+            onClick={onSyncFromName}
+            className="dc-hover-ink"
+            style={{
+              border: 'none',
+              background: 'none',
+              color: 'var(--violet-solid)',
+              fontSize: '11px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              padding: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            <DcIcon name="icon-refresh-cw" size={11} />
+            Sync from name ({targetSlug})
+          </button>
+        ) : null}
+      </div>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(slugify(e.target.value))}
+        placeholder={targetSlug || 'category-slug'}
+        style={{
+          height: 40,
+          padding: '0 12px',
+          borderRadius: 9,
+          border: '1px solid var(--line)',
+          background: 'var(--surface-2)',
+          color: 'var(--ink)',
+          font: `400 12.5px/1.5 ${MONO}`,
+          outline: 'none',
+        }}
+      />
+      <span
+        style={{
+          font: `400 11.5px/1.45 ${FONT}`,
+          color: 'var(--ink-3)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          flexWrap: 'wrap',
+        }}
+      >
+        <span>Storefront URL:</span>
+        <code
+          style={{
+            fontFamily: MONO,
+            fontSize: '11.5px',
+            color: 'var(--ink)',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--line)',
+            padding: '2px 6px',
+            borderRadius: 5,
+          }}
+        >
+          {previewPath}
+        </code>
       </span>
     </label>
   )

@@ -53,15 +53,17 @@ export class CategoriesController {
   }
 
   /** First free slug in the `base`, `base-2`, `base-3` … series. */
-  private async freeSlug(storeId: string, base: string): Promise<string> {
-    const taken = new Set(
-      (
-        await this.prisma.category.findMany({
-          where: { storeId, OR: [{ slug: base }, { slug: { startsWith: `${base}-` } }] },
-          select: { slug: true },
-        })
-      ).map((row) => row.slug),
-    )
+  private async freeSlug(storeId: string, base: string, currentId?: string): Promise<string> {
+    const list =
+      (await this.prisma.category.findMany?.({
+        where: {
+          storeId,
+          ...(currentId ? { id: { not: currentId } } : {}),
+          OR: [{ slug: base }, { slug: { startsWith: `${base}-` } }],
+        },
+        select: { slug: true },
+      })) ?? []
+    const taken = new Set(list.map((row) => row.slug))
     if (!taken.has(base)) return base
     for (let n = 2; n <= taken.size + 2; n++) {
       const candidate = `${base}-${n}`
@@ -128,7 +130,7 @@ export class CategoriesController {
   @Post()
   async create(
     @Query('storeId') storeId: string,
-    @Body() body: { name: string; description?: string; parentId?: string; sortOrder?: number; image?: string },
+    @Body() body: { name: string; slug?: string; description?: string; parentId?: string; sortOrder?: number; image?: string },
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
     const name = body.name?.trim() ?? ''
@@ -137,7 +139,8 @@ export class CategoriesController {
     if (parentId) await this.assertParent(sid, parentId)
     // `saree`, then `saree-2`, `saree-3` — the slug is the public URL, so a
     // collision must not turn it into `saree-m1a2b3c`.
-    const slug = await this.freeSlug(sid, slugify(name))
+    const baseSlug = body.slug?.trim() ? slugify(body.slug.trim()) : slugify(name)
+    const slug = await this.freeSlug(sid, baseSlug)
 
     const maxSort = parentId
       ? await this.prisma.category.aggregate({
@@ -191,6 +194,7 @@ export class CategoriesController {
     @Param('id') id: string,
     @Body() body: {
       name?: string
+      slug?: string
       description?: string
       isActive?: boolean
       image?: string | null
@@ -212,10 +216,27 @@ export class CategoriesController {
       await this.assertNotDescendant(sid, id, nextParentId)
     }
 
+    let nextSlug: string | undefined = undefined
+    if (body.slug !== undefined && body.slug.trim()) {
+      const base = slugify(body.slug.trim())
+      if (base) {
+        nextSlug = await this.freeSlug(sid, base, id)
+      }
+    } else if (body.name !== undefined && body.name.trim()) {
+      const trimmedName = body.name.trim()
+      if (trimmedName !== category.name) {
+        const base = slugify(trimmedName)
+        if (base) {
+          nextSlug = await this.freeSlug(sid, base, id)
+        }
+      }
+    }
+
     const updated = await this.prisma.category.update({
       where: { id },
       data: {
         ...(body.name !== undefined ? { name: body.name } : {}),
+        ...(nextSlug !== undefined ? { slug: nextSlug } : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
         ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
         ...(body.image !== undefined ? { image: body.image } : {}),

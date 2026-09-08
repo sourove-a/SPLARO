@@ -107,10 +107,11 @@ function createMutationMockPrisma() {
         }),
       },
       category: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'cat-1', name: categoryName, storeId: STORE_ID }),
-        update: jest.fn().mockImplementation(async ({ data }: { data: { name?: string } }) => {
+        findFirst: jest.fn().mockResolvedValue({ id: 'cat-1', name: categoryName, slug: 'men', storeId: STORE_ID }),
+        findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn().mockImplementation(async ({ data }: { data: { name?: string; slug?: string } }) => {
           if (data.name) categoryName = data.name
-          return { id: 'cat-1', name: categoryName, storeId: STORE_ID }
+          return { id: 'cat-1', name: categoryName, slug: data.slug ?? 'menswear', storeId: STORE_ID }
         }),
       },
       sitePage: {
@@ -239,6 +240,7 @@ describe('Admin mutations (e2e honesty)', () => {
       .expect(200)
 
     expect(res.body.name).toBe('Menswear')
+    expect(res.body.slug).toBe('menswear')
     expect(mock.state.categoryName).toBe('Menswear')
   })
 

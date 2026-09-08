@@ -94,7 +94,7 @@ export async function confirmCategoryHomepageImage(
 
 export async function confirmCategoryUpdated(
   id: string,
-  expected: { name?: string; isActive?: boolean; image?: string | null },
+  expected: { name?: string; slug?: string; isActive?: boolean; image?: string | null },
   save: () => Promise<unknown>,
   label: string,
 ): Promise<boolean> {
