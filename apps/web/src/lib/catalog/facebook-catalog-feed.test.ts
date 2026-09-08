@@ -77,4 +77,36 @@ describe('facebook-catalog-feed', () => {
     assert.ok(row.includes('https://splaro.co/uploads/media/tiger-main.webp'))
     assert.ok(row.includes('4200.00 BDT'))
   })
+
+  it('classifies sneaker titled product as Shoes and Footwear even if category is Men', () => {
+    const sneakerInMen: StorefrontProduct = {
+      ...sampleStorefrontProduct,
+      id: 'sneaker-men-1',
+      name: "Men's Pro-Active Dial Lace Trail Sneakers - Olive Green",
+      category: 'Men',
+      categorySlug: 'men',
+      categoryName: 'Men',
+    }
+    const row = storefrontProductToMetaCatalogRow(sneakerInMen)
+    assert.equal(row[9], 'Apparel & Accessories > Shoes')
+    assert.equal(row[10], 'Clothing & Accessories > Shoes')
+    assert.equal(row[28], 'Footwear') // product_tags[0]
+    assert.equal(row[29], 'Sneakers') // product_tags[1]
+  })
+
+  it('classifies cargo pants titled product as Pants and Cargo Pants under Men', () => {
+    const cargoPants: StorefrontProduct = {
+      ...sampleStorefrontProduct,
+      id: 'cargo-1',
+      name: 'SPLARO Premium Classic Cargo Pants - Beige/Khaki',
+      category: 'Men',
+      categorySlug: 'men',
+      categoryName: 'Men',
+    }
+    const row = storefrontProductToMetaCatalogRow(cargoPants)
+    assert.equal(row[9], 'Apparel & Accessories > Clothing > Pants')
+    assert.equal(row[10], 'Clothing & Accessories > Clothing')
+    assert.equal(row[28], 'Men') // product_tags[0]
+    assert.equal(row[29], 'Cargo Pants') // product_tags[1]
+  })
 })

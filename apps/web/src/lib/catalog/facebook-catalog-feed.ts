@@ -93,6 +93,7 @@ export function storefrontProductToMetaCatalogRow(p: StorefrontProduct): string[
     salePriceStr = `${basePrice.toFixed(2)} BDT`
   }
 
+  const titleLower = (p.name || '').toLowerCase()
   const catName = (p.categoryName || p.category || '').toLowerCase()
   const catSlug = (p.categorySlug || '').toLowerCase()
 
@@ -101,7 +102,15 @@ export function storefrontProductToMetaCatalogRow(p: StorefrontProduct): string[
     catName.includes('footwear') ||
     catName.includes('sneaker') ||
     catSlug.includes('footwear') ||
-    catSlug.includes('shoe')
+    catSlug.includes('shoe') ||
+    catSlug.includes('sneaker') ||
+    titleLower.includes('sneaker') ||
+    titleLower.includes('shoe') ||
+    titleLower.includes('loafer') ||
+    titleLower.includes('sandal') ||
+    titleLower.includes('boot') ||
+    titleLower.includes('heel') ||
+    titleLower.includes('flat')
 
   const isPants =
     catName.includes('pant') ||
@@ -109,13 +118,99 @@ export function storefrontProductToMetaCatalogRow(p: StorefrontProduct): string[
     catName.includes('trouser') ||
     catName.includes('jean') ||
     catSlug.includes('pant') ||
-    catSlug.includes('trouser')
+    catSlug.includes('trouser') ||
+    titleLower.includes('cargo pant') ||
+    titleLower.includes('pant') ||
+    titleLower.includes('cargo') ||
+    titleLower.includes('trouser') ||
+    titleLower.includes('jogger') ||
+    titleLower.includes('jean')
 
   const isDress =
     catName.includes('dress') ||
     catName.includes('frock') ||
     catName.includes('saree') ||
-    catName.includes('kameez')
+    catName.includes('kameez') ||
+    titleLower.includes('dress') ||
+    titleLower.includes('frock') ||
+    titleLower.includes('saree') ||
+    titleLower.includes('kameez') ||
+    titleLower.includes('kurti') ||
+    titleLower.includes('lehenga')
+
+  const isAccessories =
+    catName.includes('accessor') ||
+    catName.includes('bag') ||
+    catName.includes('wallet') ||
+    catName.includes('belt') ||
+    catSlug.includes('accessor') ||
+    catSlug.includes('bag') ||
+    catSlug.includes('wallet') ||
+    titleLower.includes('bag') ||
+    titleLower.includes('wallet') ||
+    titleLower.includes('belt') ||
+    titleLower.includes('watch') ||
+    titleLower.includes('glass')
+
+  const isKids =
+    catName.includes('kid') ||
+    catSlug.includes('kid') ||
+    catName.includes('child') ||
+    titleLower.includes('kid') ||
+    titleLower.includes("boy's") ||
+    titleLower.includes("boys'") ||
+    titleLower.includes("girl's") ||
+    titleLower.includes("girls'") ||
+    titleLower.includes('child') ||
+    titleLower.includes('baby') ||
+    titleLower.includes('toddler')
+
+  const isMen =
+    catName.includes('men') ||
+    catSlug.includes('men') ||
+    titleLower.includes("men's") ||
+    titleLower.includes('mens') ||
+    titleLower.includes('panjabi') ||
+    isPants
+
+  const isWomen =
+    catName.includes('women') ||
+    catSlug.includes('women') ||
+    titleLower.includes("women's") ||
+    titleLower.includes('womens') ||
+    isDress
+
+  const department = isFootwear
+    ? 'Footwear'
+    : isKids
+      ? 'Kids'
+      : isAccessories
+        ? 'Accessories'
+        : isWomen && !isMen
+          ? 'Women'
+          : 'Men'
+
+  const subcategory = isFootwear
+    ? titleLower.includes('sneaker')
+      ? 'Sneakers'
+      : titleLower.includes('loafer')
+        ? 'Loafers'
+        : titleLower.includes('sandal')
+          ? 'Sandals'
+          : 'Shoes'
+    : isPants
+      ? titleLower.includes('cargo')
+        ? 'Cargo Pants'
+        : 'Pants'
+      : titleLower.includes('panjabi')
+        ? 'Panjabi'
+        : titleLower.includes('polo')
+          ? 'Polo Shirts'
+          : titleLower.includes('saree')
+            ? 'Sarees'
+            : isDress
+              ? 'Dresses'
+              : department
 
   const google_product_category = isFootwear
     ? 'Apparel & Accessories > Shoes'
@@ -123,24 +218,25 @@ export function storefrontProductToMetaCatalogRow(p: StorefrontProduct): string[
       ? 'Apparel & Accessories > Clothing > Pants'
       : isDress
         ? 'Apparel & Accessories > Clothing > Dresses'
-        : 'Apparel & Accessories > Clothing'
+        : isAccessories
+          ? 'Apparel & Accessories > Clothing Accessories'
+          : 'Apparel & Accessories > Clothing'
 
   const fb_product_category = isFootwear
     ? 'Clothing & Accessories > Shoes'
-    : 'Clothing & Accessories > Clothing'
+    : isAccessories
+      ? 'Clothing & Accessories > Handbags & Wallets'
+      : 'Clothing & Accessories > Clothing'
 
   const quantity_to_sell_on_facebook = String(Math.max(0, p.stockUnits ?? (inStock ? 10 : 0)))
   const sale_price_effective_date = ''
   const item_group_id = (p.code || p.id).trim().slice(0, 100)
 
-  const isMen = catName.includes('men') || catSlug.includes('men')
-  const isWomen = catName.includes('women') || catSlug.includes('women') || isDress
   const gender = p.isUnisex ? 'unisex' : isMen && !isWomen ? 'male' : isWomen && !isMen ? 'female' : 'unisex'
 
   const color = (p.colors ?? []).join(' / ').slice(0, 200) || 'Default'
   const size = (p.sizes ?? []).join(' / ').slice(0, 200) || 'Regular'
 
-  const isKids = catName.includes('kid') || catSlug.includes('kid') || catName.includes('child')
   const age_group = isKids ? 'kids' : 'adult'
 
   const material = (p.material || '').trim().slice(0, 200)
@@ -152,8 +248,8 @@ export function storefrontProductToMetaCatalogRow(p: StorefrontProduct): string[
   const video_url = ''
   const video_tag = ''
   const gtin = ''
-  const product_tags_0 = (p.tags?.[0] || p.category || 'SPLARO').trim().slice(0, 110)
-  const product_tags_1 = (p.tags?.[1] || p.status || 'Fashion').trim().slice(0, 110)
+  const product_tags_0 = department
+  const product_tags_1 = subcategory
   const style_0 = (p.fit || 'Regular').trim().slice(0, 100)
 
   return [

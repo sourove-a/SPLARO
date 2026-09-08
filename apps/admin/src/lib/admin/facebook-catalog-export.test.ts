@@ -102,4 +102,26 @@ describe('facebook-catalog-export', () => {
     assert.ok(dataRow.includes('https://splaro.co/uploads/media/first-main.webp'))
     assert.ok(dataRow.includes('4600.00 BDT'))
   })
+
+  it('classifies sneaker titled product as Shoes and Footwear even if category is Fashion', () => {
+    const row = productToMetaCatalogRow(sampleProduct)
+    assert.equal(row[9], 'Apparel & Accessories > Shoes')
+    assert.equal(row[10], 'Clothing & Accessories > Shoes')
+    assert.equal(row[28], 'Footwear') // product_tags[0]
+    assert.equal(row[29], 'Sneakers') // product_tags[1]
+  })
+
+  it('classifies cargo pants titled product as Pants and Cargo Pants under Men', () => {
+    const cargoPants: ApiProduct = {
+      ...sampleProduct,
+      id: 'cargo-1',
+      name: 'SPLARO Premium Classic Cargo Pants - Beige/Khaki',
+      category: { id: 'c-2', name: 'Men', slug: 'men' },
+    }
+    const row = productToMetaCatalogRow(cargoPants)
+    assert.equal(row[9], 'Apparel & Accessories > Clothing > Pants')
+    assert.equal(row[10], 'Clothing & Accessories > Clothing')
+    assert.equal(row[28], 'Men') // product_tags[0]
+    assert.equal(row[29], 'Cargo Pants') // product_tags[1]
+  })
 })
