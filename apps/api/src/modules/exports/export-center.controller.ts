@@ -7,11 +7,11 @@ import { resolveStoreId } from '../../common/store.util'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
-const EXPORT_KINDS = new Set(['orders', 'customers', 'products'] as const)
+const EXPORT_KINDS = new Set(['orders', 'customers', 'products', 'facebook-catalog'] as const)
 const EXPORT_FORMATS = new Set(['csv', 'xlsx'] as const)
 const MODULE = 'export-center'
 
-type ExportKind = 'orders' | 'customers' | 'products'
+type ExportKind = 'orders' | 'customers' | 'products' | 'facebook-catalog'
 type ExportFormat = 'csv' | 'xlsx'
 
 function isKind(value: unknown): value is ExportKind {

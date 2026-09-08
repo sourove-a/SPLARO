@@ -1,6 +1,6 @@
 import { apiFetch } from './client'
 
-export type ExportKind = 'orders' | 'customers' | 'products'
+export type ExportKind = 'orders' | 'customers' | 'products' | 'facebook-catalog'
 export type ExportFormat = 'csv' | 'xlsx'
 
 export type ExportHistoryItem = {

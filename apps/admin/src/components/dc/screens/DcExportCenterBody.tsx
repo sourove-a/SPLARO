@@ -6,7 +6,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { DcIcon } from '@/components/dc/DcIcon'
 import { FONT, MONO } from '@/components/dc/tokens'
 import { downloadCsv } from '@/lib/admin/admin-actions'
-import { CATALOG_HEADERS } from '@/lib/admin/product-catalog-sheet'
+import { downloadFacebookCatalogCsv } from '@/lib/admin/facebook-catalog-export'
+import { CATALOG_HEADERS, fetchAllProductsForCatalog } from '@/lib/admin/product-catalog-sheet'
 import { downloadSheet } from '@/lib/admin/sheet-io'
 import { toastOk, toastFail, toastWarn } from '@/lib/admin/feedback'
 import { isNetworkOrServerError } from '@/lib/api/offline-defaults'
@@ -151,6 +152,15 @@ export function DcExportCenterBody() {
           `export-customers-${format}`,
         )
         return
+      } else if (kind === 'facebook-catalog') {
+        const products = await fetchAllProductsForCatalog()
+        downloadFacebookCatalogCsv(products)
+        await recordExport(kind, 'csv', products.length)
+        toastOk(
+          `Meta Catalog exported — ${products.length} product${products.length === 1 ? '' : 's'} (CSV).`,
+          'export-facebook-catalog',
+        )
+        return
       } else {
         const data = await fetchProductsExport(dates)
         const rows: string[][] = [
@@ -197,6 +207,13 @@ export function DcExportCenterBody() {
       desc: 'Products by created date — Bangla, images, collections, variants',
       icon: 'icon-package',
       excel: true,
+    },
+    {
+      label: 'Meta / Facebook Catalog',
+      kind: 'facebook-catalog' as const,
+      desc: 'Meta Commerce Manager 31-column product feed (single main image link, BDT pricing) for FB/IG Shops & Ads',
+      icon: 'icon-share-2',
+      excel: false,
     },
   ]
 
@@ -281,7 +298,7 @@ export function DcExportCenterBody() {
         }}
       >
         {[
-          { label: 'Datasets', value: '3' },
+          { label: 'Datasets', value: String(exports.length) },
           { label: 'Format', value: 'CSV + Excel' },
           {
             label: 'API',

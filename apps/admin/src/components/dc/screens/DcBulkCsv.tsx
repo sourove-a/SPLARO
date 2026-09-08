@@ -21,6 +21,7 @@ import {
   type BulkImportMode,
   type BulkPreviewRow,
 } from '@/lib/admin/bulk-csv'
+import { downloadFacebookCatalogCsv } from '@/lib/admin/facebook-catalog-export'
 import {
   CATALOG_HEADERS,
   catalogTemplateMatrix,
@@ -277,6 +278,27 @@ function DcBulkCsvBody() {
     }
   }
 
+  const exportFacebookCatalog = async () => {
+    setExporting(true)
+    try {
+      const all = await fetchAllProductsForCatalog()
+      if (!all.length) {
+        toast('bad', 'No products found', 'Catalog is empty on server.')
+        return
+      }
+      downloadFacebookCatalogCsv(all)
+      toast(
+        'ok',
+        `Meta Catalog exported — ${all.length} products`,
+        'Includes primary image link, BDT pricing, and 31 Meta Commerce Manager columns.',
+      )
+    } catch (e) {
+      toast('bad', 'Export failed', e instanceof Error ? e.message : 'Could not export Meta Catalog')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const runDryRun = async (file: File) => {
     if (apiOffline) {
       toast('bad', 'API offline', 'Start the API on :4000 before importing.')
@@ -495,6 +517,11 @@ function DcBulkCsvBody() {
             label: 'Export all Excel',
             icon: 'icon-download',
             onClick: () => void exportCatalog('xlsx'),
+          },
+          {
+            label: 'Meta / FB CSV',
+            icon: 'icon-download',
+            onClick: () => void exportFacebookCatalog(),
           },
           {
             label: 'Choose import file',
@@ -1261,6 +1288,13 @@ function DcBulkCsvBody() {
                 sub: 'Draft + published .xlsx for Sheets / Excel',
                 state: 'READY' as const,
                 run: () => void exportCatalog('xlsx'),
+              },
+              {
+                icon: 'icon-share-2',
+                title: 'Export Meta / Facebook Catalog (CSV)',
+                sub: 'Meta Commerce Manager 31-column product feed · Primary image link · BDT pricing',
+                state: 'READY' as const,
+                run: () => void exportFacebookCatalog(),
               },
               {
                 icon: 'icon-download',

@@ -21,6 +21,8 @@ import {
   formatCatalogProductsSyncLabel,
   formatCatalogPublishedSub,
 } from '@/lib/admin/catalog-import-export-meta'
+import { downloadFacebookCatalogCsv } from '@/lib/admin/facebook-catalog-export'
+import { fetchAllProductsForCatalog } from '@/lib/admin/product-catalog-sheet'
 import { verifyProductArchived } from '@/lib/admin/catalog-mutation-verify'
 import { verifyDeleteSuccess, verifyPersisted } from '@/lib/admin/mutation-verify'
 import { ApiError } from '@/lib/api/client'
@@ -159,6 +161,25 @@ function DcProductsBody() {
   const [removeTarget, setRemoveTarget] = useState<ApiProduct | null>(null)
   const [removing, setRemoving] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [exportingMeta, setExportingMeta] = useState(false)
+
+  const handleExportMetaCsv = async () => {
+    if (exportingMeta) return
+    setExportingMeta(true)
+    try {
+      const all = await fetchAllProductsForCatalog()
+      if (!all.length) {
+        toastFail('No products found to export.')
+        return
+      }
+      downloadFacebookCatalogCsv(all)
+      toastOk(`Exported ${all.length} products to Facebook / Meta Catalog CSV.`)
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not export Facebook Catalog CSV.')
+    } finally {
+      setExportingMeta(false)
+    }
+  }
 
   const list = useListQueryState({ tab: 'All', sort: 'newest' })
   const tab = (TABS.find((t) => t === list.filters.tab) ?? 'All') as Tab
@@ -287,6 +308,11 @@ function DcProductsBody() {
         syncing={products.isFetching}
         onSync={() => void products.refetch()}
         actions={[
+          {
+            label: exportingMeta ? 'Exporting FB CSV…' : 'Meta Catalog CSV',
+            icon: 'icon-download',
+            onClick: () => void handleExportMetaCsv(),
+          },
           {
             label: BULK_CSV_WORKSPACE_LABEL,
             icon: 'icon-upload',

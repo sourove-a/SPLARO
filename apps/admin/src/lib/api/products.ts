@@ -27,6 +27,7 @@ export interface ApiProduct {
   category?: { id: string; name: string; slug?: string } | null
   collections?: { collectionId: string; collection?: { id: string; name: string } }[]
   brandId?: string | null
+  brand?: { id: string; name: string; slug?: string } | null
   _count?: { variants: number }
   variants?: {
     id?: string
