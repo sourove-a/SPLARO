@@ -226,23 +226,41 @@ async function buildCuratedDepartmentRows(
       for (const product of [...products, ...extra.flat()]) byId.set(product.id, product)
       const known = subMeta(slug)
       const tiles: HomepageCategoryTile[] = []
+      const seenSlugs = new Set<string>()
+
       for (const tile of deptTiles) {
+        const catSlug = tile.categorySlug.trim().toLowerCase()
+        if (!catSlug || seenSlugs.has(catSlug)) continue
+
         const product = byId.get(tile.productId)
-        const live = liveBySlug.get(tile.categorySlug)
+        const productCatSlug = (product?.categorySlug ?? '').trim().toLowerCase()
+        const isLiveCategory = categoryImageBySlug.has(catSlug)
+        const isLiveCollection = liveBySlug.has(catSlug)
+        const isKnownSubcategory = known.has(catSlug)
+        const matchesProductCategory = productCatSlug === catSlug
+
+        // Discard dead/orphaned tiles that no longer exist in any active category/collection list
+        if (!isLiveCategory && !isLiveCollection && !isKnownSubcategory && !matchesProductCategory) {
+          continue
+        }
+
+        const live = liveBySlug.get(catSlug)
         const image =
           (product && isRealImage(product.image) ? product.image.trim() : null) ||
           (product && isRealImage(product.hoverImage) ? product.hoverImage.trim() : null) ||
-          tileImage([], live?.imageUrl, categoryImageBySlug.get(tile.categorySlug))
+          tileImage([], live?.imageUrl, categoryImageBySlug.get(catSlug))
         if (!image) continue
+
+        seenSlugs.add(catSlug)
         tiles.push({
-          slug: tile.categorySlug,
+          slug: catSlug,
           label:
-            known.get(tile.categorySlug) ??
+            known.get(catSlug) ??
             live?.name ??
-            product?.categoryName ??
-            tile.categorySlug.replace(/-/g, ' '),
+            (matchesProductCategory ? product?.categoryName : null) ??
+            catSlug.replace(/-/g, ' '),
           image,
-          href: collectionHref(tile.categorySlug),
+          href: collectionHref(catSlug),
           count: product ? 1 : live?.productCount || 0,
         })
       }

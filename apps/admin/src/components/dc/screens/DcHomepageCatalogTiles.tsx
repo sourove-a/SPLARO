@@ -108,6 +108,18 @@ export function DcHomepageCatalogTiles({
     sessionStorage.setItem(DEPT_STORAGE, department)
   }, [department])
 
+  // Automatically prune orphaned tiles whose category was deleted or renamed in the DB
+  useEffect(() => {
+    if (!tree.data?.categories?.length || !value.tiles?.length) return
+    const validSlugs = new Set(
+      tree.data.categories.map((c) => c.slug?.trim().toLowerCase()).filter(Boolean),
+    )
+    const pruned = value.tiles.filter((t) => validSlugs.has(t.categorySlug.trim().toLowerCase()))
+    if (pruned.length !== value.tiles.length) {
+      onChange({ ...value, tiles: pruned })
+    }
+  }, [tree.data?.categories, value, onChange])
+
   const deptRow = useMemo(() => {
     const dTarget = department.toLowerCase().trim()
     return (

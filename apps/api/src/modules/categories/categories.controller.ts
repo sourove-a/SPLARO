@@ -108,6 +108,7 @@ export class CategoriesController {
   @Get('tree')
   async tree(@Query('storeId') storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
+    void this.pruneOrphanedHomepageTiles(sid)
     const categories = await this.categoriesWithCounts(sid)
     return { categories, tree: buildCategoryTree(categories), total: categories.length }
   }
@@ -232,6 +233,10 @@ export class CategoriesController {
       }
     }
 
+    if (nextSlug && nextSlug !== category.slug) {
+      await this.syncHomepageTilesSlug(sid, category.slug, nextSlug)
+    }
+
     const updated = await this.prisma.category.update({
       where: { id },
       data: {
@@ -277,6 +282,7 @@ export class CategoriesController {
     await this.prisma.$executeRaw`
       UPDATE "IssuedCategoryCode" SET "categoryId" = NULL WHERE "categoryId" = ${id}
     `
+    await this.removeHomepageTilesSlug(sid, category.slug)
     await refreshCategoryCatalogAfterMutation(this.cache, sid)
     return { success: true }
   }
@@ -307,5 +313,113 @@ export class CategoriesController {
     )
     await refreshCategoryCatalogAfterMutation(this.cache, sid)
     return { updated: rows.length }
+  }
+
+  /**
+   * Prune orphaned tiles from SiteSettings.homepageCatalog if the referenced
+   * categorySlug no longer exists on this store.
+   */
+  private async pruneOrphanedHomepageTiles(storeId: string) {
+    try {
+      const [settings, categories] = await Promise.all([
+        this.prisma.siteSettings.findFirst({ where: { storeId } }),
+        this.prisma.category.findMany({ where: { storeId }, select: { slug: true } }),
+      ])
+      if (!settings?.storefrontConfig || typeof settings.storefrontConfig !== 'object') return
+      const config = settings.storefrontConfig as Record<string, any>
+      const hp = config.homepageCatalog
+      if (!hp?.tiles || !Array.isArray(hp.tiles)) return
+      const validSlugs = new Set(categories.map((c) => c.slug.toLowerCase()))
+      const pruned = hp.tiles.filter((tile: any) =>
+        tile?.categorySlug ? validSlugs.has(String(tile.categorySlug).toLowerCase()) : false,
+      )
+      if (pruned.length !== hp.tiles.length) {
+        await this.prisma.siteSettings.update({
+          where: { id: settings.id },
+          data: {
+            storefrontConfig: {
+              ...config,
+              homepageCatalog: {
+                ...hp,
+                tiles: pruned,
+              },
+            },
+          },
+        })
+      }
+    } catch {
+      // Background maintenance — do not disrupt query flow
+    }
+  }
+
+  /**
+   * Update categorySlug in SiteSettings.homepageCatalog when a category is renamed.
+   */
+  private async syncHomepageTilesSlug(storeId: string, oldSlug: string, newSlug: string) {
+    try {
+      const settings = await this.prisma.siteSettings.findFirst({ where: { storeId } })
+      if (!settings?.storefrontConfig || typeof settings.storefrontConfig !== 'object') return
+      const config = settings.storefrontConfig as Record<string, any>
+      const hp = config.homepageCatalog
+      if (!hp?.tiles || !Array.isArray(hp.tiles)) return
+      let changed = false
+      const updatedTiles = hp.tiles.map((tile: any) => {
+        if (tile?.categorySlug === oldSlug) {
+          changed = true
+          return {
+            ...tile,
+            id: `tile-${tile.department ?? 'dept'}-${newSlug}`,
+            categorySlug: newSlug,
+          }
+        }
+        return tile
+      })
+      if (changed) {
+        await this.prisma.siteSettings.update({
+          where: { id: settings.id },
+          data: {
+            storefrontConfig: {
+              ...config,
+              homepageCatalog: {
+                ...hp,
+                tiles: updatedTiles,
+              },
+            },
+          },
+        })
+      }
+    } catch {
+      // Non-critical
+    }
+  }
+
+  /**
+   * Remove tiles matching a deleted category slug from SiteSettings.homepageCatalog.
+   */
+  private async removeHomepageTilesSlug(storeId: string, slugToRemove: string) {
+    try {
+      const settings = await this.prisma.siteSettings.findFirst({ where: { storeId } })
+      if (!settings?.storefrontConfig || typeof settings.storefrontConfig !== 'object') return
+      const config = settings.storefrontConfig as Record<string, any>
+      const hp = config.homepageCatalog
+      if (!hp?.tiles || !Array.isArray(hp.tiles)) return
+      const filteredTiles = hp.tiles.filter((tile: any) => tile?.categorySlug !== slugToRemove)
+      if (filteredTiles.length !== hp.tiles.length) {
+        await this.prisma.siteSettings.update({
+          where: { id: settings.id },
+          data: {
+            storefrontConfig: {
+              ...config,
+              homepageCatalog: {
+                ...hp,
+                tiles: filteredTiles,
+              },
+            },
+          },
+        })
+      }
+    } catch {
+      // Non-critical
+    }
   }
 }

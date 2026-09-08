@@ -3,6 +3,7 @@ import { mergeCatalogChannels } from '@splaro/types'
 import {
   buildCategoryMetaDescription,
   CollectionPageContent,
+  isValidCollectionOrCategory,
   titleFromCollectionSlug,
 } from '@/lib/storefront/collection-page'
 import { getStorefrontCatalogForCollection } from '@/lib/catalog/server'
@@ -22,6 +23,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const context = resolveCollectionContext(slug, channels)
   const catalog = await getStorefrontCatalogForCollection(context)
   const productCount = catalog.total ?? catalog.products.length
+
+  const valid = await isValidCollectionOrCategory(slug, channels, productCount)
+  if (!valid) {
+    return {
+      title: 'Page Not Found — SPLARO',
+      robots: { index: false, follow: false },
+    }
+  }
+
   const title = context.title || titleFromCollectionSlug(slug)
   const meta = createRouteMetadata({
     title: `${title} — Shop`,
