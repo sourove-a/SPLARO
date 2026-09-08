@@ -286,6 +286,14 @@ const nextConfig = {
       source: '/api/v1/:path*',
       destination: `http://127.0.0.1:${apiPort}/api/v1/:path*`,
     })
+    rules.push({
+      source: '/catalog.csv',
+      destination: '/api/catalog/facebook',
+    })
+    rules.push({
+      source: '/api/catalog/facebook.csv',
+      destination: '/api/catalog/facebook',
+    })
     if (cdnOrigin) {
       rules.push({
         source: '/uploads/:path*',
