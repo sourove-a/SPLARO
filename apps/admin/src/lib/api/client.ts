@@ -17,7 +17,15 @@ function parseApiErrorBody(body: string): string {
   } catch {
     /* plain text */
   }
-  return body || 'Request failed'
+  const trimmed = body.trim()
+  if (trimmed.includes('<html') || trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<')) {
+    const titleMatch = trimmed.match(/<title>([^<]+)<\/title>/i)
+    if (titleMatch?.[1]) {
+      return `${titleMatch[1].trim()} — Server is restarting or updating. Please refresh in a moment.`
+    }
+    return 'Server is temporarily restarting or updating (502 Bad Gateway). Please refresh in a moment.'
+  }
+  return trimmed || 'Request failed'
 }
 
 export class ApiError extends Error {
