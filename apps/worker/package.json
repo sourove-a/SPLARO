@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "tsc",
+    "type-check": "tsc --noEmit",
     "start": "node --env-file=../../.env dist/index.js",
     "dev": "tsx --env-file=../../.env src/index.ts"
   },
