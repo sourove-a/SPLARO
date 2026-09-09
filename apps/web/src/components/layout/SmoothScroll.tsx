@@ -1,6 +1,8 @@
 'use client'
 
 import {
+  Suspense,
+  startTransition,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -73,9 +75,18 @@ export function SmoothScrollProvider({ children }: { children: ReactNode }) {
 
   useLayoutEffect(() => {
     setMounted(true)
-    setUseNative(shouldUseNativeScroll())
+    // Swapping the native fragment for the lazy Lenis branch changes the element
+    // type in this slot, so React remounts the whole chrome tree below it. Done
+    // as an urgent update, React suspends on the not-yet-loaded Lenis chunk,
+    // hides the current tree with `display: none` instead of deleting it, and
+    // paints the Suspense fallback — the header disappears and then drops back
+    // in, and the document is left holding a dead second copy of the topbar,
+    // header, main and footer that every `document.querySelector` finds first.
+    // In a transition React prepares the new branch off-screen and swaps once,
+    // keeping the visible tree on screen and unmounting the old one cleanly.
+    startTransition(() => setUseNative(shouldUseNativeScroll()))
     return subscribeSmoothScrollEligibility((eligible) => {
-      setUseNative(!eligible)
+      startTransition(() => setUseNative(!eligible))
     })
   }, [])
 
@@ -94,16 +105,25 @@ export function SmoothScrollProvider({ children }: { children: ReactNode }) {
     delete win.__SPLARO_LENIS
   }, [mounted, useNative])
 
-  if (!mounted || useNative) {
-    return (
-      <>
-        <RouteScrollTop />
-        {children}
-      </>
-    )
-  }
+  const lenisActive = mounted && !useNative
 
-  return <LenisSmoothScrollInner>{children}</LenisSmoothScrollInner>
+  // `children` keep the same slot in both engines, so switching to Lenis can no
+  // longer remount the header, topbar, main and footer beneath it. The lazy
+  // engine gets its own boundary as well — without one, its chunk suspends the
+  // chrome boundary above, which hides the live tree and leaves a dead copy in
+  // the document for every `document.querySelector` to find.
+  return (
+    <>
+      {lenisActive ? (
+        <Suspense fallback={null}>
+          <LenisSmoothScrollInner />
+        </Suspense>
+      ) : (
+        <RouteScrollTop />
+      )}
+      {children}
+    </>
+  )
 }
 
 /** @deprecated Prefer SmoothScrollProvider — kept for StorefrontChrome import. */

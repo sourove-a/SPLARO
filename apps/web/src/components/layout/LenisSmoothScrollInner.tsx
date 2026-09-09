@@ -1,6 +1,6 @@
 'use client'
 
-import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { ReactLenis, useLenis } from 'lenis/react'
 import { useUiStore } from '@/store/uiStore'
@@ -304,8 +304,14 @@ function LenisPointerGuard() {
  * Single Lenis instance for Mac fine-pointer desktop.
  * Options are frozen to the desktop profile — this tree only mounts when
  * shouldUseNativeScroll() is false, so profile churn must not remount ReactLenis.
+ *
+ * Renders no children on purpose. Wrapping the app here changed the element type
+ * above the whole chrome tree the moment Lenis took over, which remounted the
+ * header, topbar, main and footer. `ReactLenis root` drives window scroll, and
+ * nothing outside this file consumes the Lenis context, so the engine can sit
+ * beside the app instead of around it.
  */
-export function LenisSmoothScrollInner({ children }: { children: ReactNode }) {
+export function LenisSmoothScrollInner() {
   const lenisOptions = useMemo(() => buildLenisOptions('mac'), [])
 
   useLayoutEffect(() => {
@@ -333,7 +339,6 @@ export function LenisSmoothScrollInner({ children }: { children: ReactNode }) {
       <LenisScrollLock />
       <LenisHeightSync />
       <LenisPointerGuard />
-      {children}
     </ReactLenis>
   )
 }

@@ -18,6 +18,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
 import { useHeaderScroll, subscribeScroll } from '@/hooks/useScrollY'
 import { snapHeaderChromeLeavingHome } from '@/lib/navigation/snap-header-chrome'
+import { liveChromeElement, liveHeaderChrome, liveHomeHero, liveTopBar } from '@/lib/dom/live-chrome-element'
 import { cn } from '@/lib/utils/cn'
 
 const MobileMenu = dynamic(() => import('./MobileMenu').then((m) => m.MobileMenu))
@@ -98,8 +99,8 @@ export function Header() {
     const root = document.documentElement
     const setTopbarVisible = (visible: boolean) => {
       root.setAttribute('data-topbar', visible ? 'visible' : 'hidden')
-      const header = document.querySelector<HTMLElement>('[data-header-chrome]')
-      const topbar = document.querySelector<HTMLElement>('[data-top-bar]')
+      const header = liveHeaderChrome()
+      const topbar = liveTopBar()
       header?.classList.toggle('site-header-glass--topbar-collapsed', !visible)
       topbar?.classList.toggle('site-topbar--hidden', !visible)
     }
@@ -123,7 +124,7 @@ export function Header() {
       if (cancelled) return
       if (root.getAttribute('data-scroll-lock') === 'overlay') return
       if (root.getAttribute('data-chrome-pin') === '1') return
-      const header = document.querySelector<HTMLElement>('[data-header-chrome]')
+      const header = liveHeaderChrome()
       if (!header) return
 
       // Fully past hero — solid scrolled chrome owns the bar; copy is off-screen.
@@ -136,7 +137,7 @@ export function Header() {
       }
 
       // While still over hero, fade copy as soon as eyebrow/title enter the nav band.
-      const copy = document.querySelector<HTMLElement>(
+      const copy = liveChromeElement<HTMLElement>(
         '.home-hero-slider .hero-content .hero-eyebrow, .home-hero-slider .hero-content h1',
       )
       if (!copy) {
@@ -163,7 +164,7 @@ export function Header() {
         return
       }
       pastHeroRef.current = past
-      const header = document.querySelector<HTMLElement>('[data-header-chrome]')
+      const header = liveHeaderChrome()
 
       root.setAttribute('data-home-hero', past ? 'scrolled' : 'top')
       setTopbarVisible(!past)
@@ -174,14 +175,17 @@ export function Header() {
     }
 
     const syncFromHeroRect = () => {
-      const hero = document.querySelector('.home-hero-slider')
+      const hero = liveHomeHero()
       if (!hero) return
       applyPastHero(hero.getBoundingClientRect().bottom <= 8)
     }
 
     const attach = () => {
-      const hero = document.querySelector('.home-hero-slider')
-      if (!hero) {
+      const hero = liveHomeHero()
+      // A hero with no boxes is either not painted yet or belongs to a stranded
+      // copy of the tree. Observing it would pin the chrome to whatever state it
+      // reported once and never update again.
+      if (!hero || hero.getClientRects().length === 0) {
         raf = window.requestAnimationFrame(attach)
         return
       }
@@ -197,8 +201,12 @@ export function Header() {
       observer.observe(hero)
       // Initial sync (e.g. restore scroll position below hero)
       syncFromHeroRect()
+      // Scroll is the authority, not the observer. If the observed hero is ever
+      // detached — a remount, a stranded streaming segment — the observer goes
+      // quiet and the bar stays frozen in over-hero glass while the page scrolls
+      // underneath it. Re-reading the live hero rect each frame self-heals that.
       unsubScroll = subscribeScroll(() => {
-        syncHeroCopyUnderNav()
+        syncFromHeroRect()
       })
     }
 
@@ -250,11 +258,11 @@ export function Header() {
     root.removeAttribute('data-chrome-pin')
     // Overlay closed — re-sync chrome to real hero rect (same as scroll-lock unlock).
     if (isHome && isDesktop) {
-      const hero = document.querySelector('.home-hero-slider')
+      const hero = liveHomeHero()
       if (!hero) return
       const past = hero.getBoundingClientRect().bottom <= 8
-      const header = document.querySelector<HTMLElement>('[data-header-chrome]')
-      const topbar = document.querySelector<HTMLElement>('[data-top-bar]')
+      const header = liveHeaderChrome()
+      const topbar = liveTopBar()
       pastHeroRef.current = past
       root.setAttribute('data-home-hero', past ? 'scrolled' : 'top')
       root.setAttribute('data-topbar', past ? 'hidden' : 'visible')
@@ -268,8 +276,8 @@ export function Header() {
   // Topbar geometry: visible only on home/desktop/over-hero. Every other route stays collapsed.
   useLayoutEffect(() => {
     const root = document.documentElement
-    const header = document.querySelector<HTMLElement>('[data-header-chrome]')
-    const topbar = document.querySelector<HTMLElement>('[data-top-bar]')
+    const header = liveHeaderChrome()
+    const topbar = liveTopBar()
     const show = isHome && isDesktop && !pastHeroRef.current
     root.setAttribute('data-topbar', show ? 'visible' : 'hidden')
     header?.classList.toggle('site-header-glass--topbar-collapsed', !show)

@@ -1,3 +1,5 @@
+import { liveHeaderChrome, liveTopBar } from '@/lib/dom/live-chrome-element'
+
 /**
  * Home desktop keeps the nav bar below the utility topbar (`top: var(--topbar-height)`).
  * Client navigation to PDP used to animate the topbar away while the header jumped
@@ -7,8 +9,8 @@ export function snapHeaderChromeLeavingHome() {
   if (typeof document === 'undefined') return
 
   const root = document.documentElement
-  const header = document.querySelector<HTMLElement>('[data-header-chrome]')
-  const topbar = document.querySelector<HTMLElement>('[data-top-bar]')
+  const header = liveHeaderChrome()
+  const topbar = liveTopBar()
 
   root.setAttribute('data-topbar', 'hidden')
   root.removeAttribute('data-home-hero')
