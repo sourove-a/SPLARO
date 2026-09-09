@@ -64,6 +64,11 @@ describe('Telegram HTML safety', () => {
     it('turns <br> into a newline', () => {
       expect(stripTelegramHtml('one<br/>two')).toBe('one\ntwo')
     })
+
+    it('handles messages with comparison operators safely without corrupting text', () => {
+      const msg = 'Low stock (≤ 5): <b>3</b>\nOut of stock: <b>0</b>'
+      expect(stripTelegramHtml(msg)).toBe('Low stock (≤ 5): 3\nOut of stock: 0')
+    })
   })
 
   describe('formatWhatsAppUrl', () => {

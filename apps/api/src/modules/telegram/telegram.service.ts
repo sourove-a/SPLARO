@@ -1272,75 +1272,82 @@ Customer was charged AFTER this order was ${input.orderStatus}.
     })
 
     this.bot.on('callback_query', async (query) => {
-      const msg = query.message
-      if (!msg) return
-      const chatId = msg.chat.id.toString()
-      const userId = query.from.id.toString()
-      const data = query.data ?? ''
-      const ctx = await this.resolveContextFromIds(chatId, userId)
-      if (!ctx) {
-        await this.bot?.answerCallbackQuery(query.id, { text: 'Store not configured', show_alert: true })
-        return
-      }
-
-      const orderAction = parseOrderCallback(data)
-      if (orderAction) {
-        await this.bot?.answerCallbackQuery(query.id)
-        switch (orderAction.action) {
-          case 'track':
-          case 'open':
-            await this.replyOrderTrack(ctx.chatId, orderAction.invoice, ctx.storeId)
-            break
-          case 'confirm':
-            await this.executeConfirmOrder(ctx, orderAction.invoice)
-            break
-          case 'courier':
-            await this.executeBookCourier(ctx, orderAction.invoice)
-            break
-          case 'invoice':
-            await this.executeInvoice(ctx, orderAction.invoice)
-            break
-          default:
-            await this.executeOrderStatusAction(ctx, orderAction.invoice, orderAction.action)
-            break
+      try {
+        const msg = query.message
+        if (!msg) return
+        const chatId = msg.chat.id.toString()
+        const userId = query.from.id.toString()
+        const data = query.data ?? ''
+        const ctx = await this.resolveContextFromIds(chatId, userId)
+        if (!ctx) {
+          await this.bot?.answerCallbackQuery(query.id, { text: 'Store not configured', show_alert: true })
+          return
         }
-        return
-      }
 
-      const customerAction = parseCustomerCallback(data)
-      if (customerAction) {
-        await this.bot?.answerCallbackQuery(query.id)
-        if (customerAction.action === 'orders') {
-          await this.executeCustomerOrders(ctx, customerAction.phone.slice(-10), customerAction.page)
-        } else {
-          await this.executeCustomerCard(ctx, customerAction.phone.slice(-10))
+        const orderAction = parseOrderCallback(data)
+        if (orderAction) {
+          await this.bot?.answerCallbackQuery(query.id)
+          switch (orderAction.action) {
+            case 'track':
+            case 'open':
+              await this.replyOrderTrack(ctx.chatId, orderAction.invoice, ctx.storeId)
+              break
+            case 'confirm':
+              await this.executeConfirmOrder(ctx, orderAction.invoice)
+              break
+            case 'courier':
+              await this.executeBookCourier(ctx, orderAction.invoice)
+              break
+            case 'invoice':
+              await this.executeInvoice(ctx, orderAction.invoice)
+              break
+            default:
+              await this.executeOrderStatusAction(ctx, orderAction.invoice, orderAction.action)
+              break
+          }
+          return
         }
-        return
-      }
 
-      const listAction = parseListCallback(data)
-      if (listAction) {
-        await this.bot?.answerCallbackQuery(query.id)
-        if (listAction.kind === 'pending') {
-          await this.executePendingOrders(ctx, listAction.page)
-        } else if (listAction.kind === 'customers') {
-          await this.executeCustomerList(ctx, listAction.page)
-        } else {
-          await this.executeOrdersList(ctx, listAction.page)
+        const customerAction = parseCustomerCallback(data)
+        if (customerAction) {
+          await this.bot?.answerCallbackQuery(query.id)
+          if (customerAction.action === 'orders') {
+            await this.executeCustomerOrders(ctx, customerAction.phone.slice(-10), customerAction.page)
+          } else {
+            await this.executeCustomerCard(ctx, customerAction.phone.slice(-10))
+          }
+          return
         }
-        return
-      }
 
-      if (data === 'agent:confirm' || data === 'agent:cancel') {
-        await this.bot?.answerCallbackQuery(query.id, {
-          text: data === 'agent:confirm' ? 'Confirming…' : 'Cancelled',
-        })
-        await this.replyAgentChat(chatId, data === 'agent:confirm' ? 'confirm' : 'cancel', userId)
-        return
-      }
+        const listAction = parseListCallback(data)
+        if (listAction) {
+          await this.bot?.answerCallbackQuery(query.id)
+          if (listAction.kind === 'pending') {
+            await this.executePendingOrders(ctx, listAction.page)
+          } else if (listAction.kind === 'customers') {
+            await this.executeCustomerList(ctx, listAction.page)
+          } else {
+            await this.executeOrdersList(ctx, listAction.page)
+          }
+          return
+        }
 
-      await this.bot?.answerCallbackQuery(query.id)
-      await this.executeAction(data, ctx, msg, query.from.first_name)
+        if (data === 'agent:confirm' || data === 'agent:cancel') {
+          await this.bot?.answerCallbackQuery(query.id, {
+            text: data === 'agent:confirm' ? 'Confirming…' : 'Cancelled',
+          })
+          await this.replyAgentChat(chatId, data === 'agent:confirm' ? 'confirm' : 'cancel', userId)
+          return
+        }
+
+        await this.bot?.answerCallbackQuery(query.id)
+        await this.executeAction(data, ctx, msg, query.from.first_name)
+      } catch (err) {
+        this.logger.error(
+          `Telegram callback_query error: ${err instanceof Error ? err.message : 'unknown'}`,
+          err instanceof Error ? err.stack : undefined,
+        )
+      }
     })
 
     this.bot.on('my_chat_member', async (member) => {
@@ -1359,60 +1366,67 @@ Customer was charged AFTER this order was ${input.orderStatus}.
     })
 
     this.bot.on('message', async (msg) => {
-      if (!msg.text || msg.text.startsWith('/')) return
-      const text = msg.text.trim()
-      if (!text) return
+      try {
+        if (!msg.text || msg.text.startsWith('/')) return
+        const text = msg.text.trim()
+        if (!text) return
 
-      const ctx = await this.resolveContext(msg)
-      if (!ctx) return
+        const ctx = await this.resolveContext(msg)
+        if (!ctx) return
 
-      const routeKey = resolveTelegramButtonRoute(text)
-      if (routeKey) {
-        if (isStaleTelegramKeyboardLabel(text)) {
-          await this.bot?.sendMessage(ctx.chatId, '✅ Menu refreshed — use the buttons below.', {
-            reply_markup: mainReplyKeyboard(),
+        const routeKey = resolveTelegramButtonRoute(text)
+        if (routeKey) {
+          if (isStaleTelegramKeyboardLabel(text)) {
+            await this.bot?.sendMessage(ctx.chatId, '✅ Menu refreshed — use the buttons below.', {
+              reply_markup: mainReplyKeyboard(),
+            })
+          }
+          if (routeKey === TG_CALLBACK.MENU_MAIN) {
+            await this.sendWelcome(ctx, msg.from?.first_name)
+          } else {
+            await this.executeAction(routeKey, ctx, msg, msg.from?.first_name)
+          }
+          return
+        }
+
+        const invoiceNumber = text.toUpperCase()
+        if (/^SPL-\d+/.test(invoiceNumber)) {
+          await this.replyOrderTrack(ctx.chatId, invoiceNumber, ctx.storeId)
+          return
+        }
+
+        // A run of digits is the fastest customer lookup an operator has, and it
+        // no longer has to be a whole mobile number — the last four they remember
+        // now finds the person too. Anything with words in it is left to the AI
+        // assistant, which is the only thing standing between one input serving
+        // both and neither working.
+        if (looksLikeCustomerLookup(text)) {
+          await this.executeCustomerLookup(ctx, text)
+          return
+        }
+
+        if (
+          !shouldRouteUnmatchedTextToAi({
+            aiMode: this.aiModeChats.has(ctx.chatId),
+            isGroup: ctx.isGroup,
           })
+        ) {
+          if (!ctx.isGroup) {
+            const latest = await this.latestInvoiceNumber(ctx.storeId)
+            await this.bot?.sendMessage(ctx.chatId, telegramOpsHint(latest), {
+              reply_markup: mainReplyKeyboard(),
+            })
+          }
+          return
         }
-        if (routeKey === TG_CALLBACK.MENU_MAIN) {
-          await this.sendWelcome(ctx, msg.from?.first_name)
-        } else {
-          await this.executeAction(routeKey, ctx, msg, msg.from?.first_name)
-        }
-        return
-      }
 
-      const invoiceNumber = text.toUpperCase()
-      if (/^SPL-\d+/.test(invoiceNumber)) {
-        await this.replyOrderTrack(ctx.chatId, invoiceNumber, ctx.storeId)
-        return
+        await this.replyAgentChat(ctx.chatId, text, ctx.userId)
+      } catch (err) {
+        this.logger.error(
+          `Telegram message handler error: ${err instanceof Error ? err.message : 'unknown'}`,
+          err instanceof Error ? err.stack : undefined,
+        )
       }
-
-      // A run of digits is the fastest customer lookup an operator has, and it
-      // no longer has to be a whole mobile number — the last four they remember
-      // now finds the person too. Anything with words in it is left to the AI
-      // assistant, which is the only thing standing between one input serving
-      // both and neither working.
-      if (looksLikeCustomerLookup(text)) {
-        await this.executeCustomerLookup(ctx, text)
-        return
-      }
-
-      if (
-        !shouldRouteUnmatchedTextToAi({
-          aiMode: this.aiModeChats.has(ctx.chatId),
-          isGroup: ctx.isGroup,
-        })
-      ) {
-        if (!ctx.isGroup) {
-          const latest = await this.latestInvoiceNumber(ctx.storeId)
-          await this.bot?.sendMessage(ctx.chatId, telegramOpsHint(latest), {
-            reply_markup: mainReplyKeyboard(),
-          })
-        }
-        return
-      }
-
-      await this.replyAgentChat(ctx.chatId, text, ctx.userId)
     })
 
     this.logger.log('Telegram commands registered')
@@ -3035,10 +3049,10 @@ Customer was charged AFTER this order was ${input.orderStatus}.
         where: { storeId: ctx.storeId, status: 'DELIVERED', deliveredAt: { gte: today } },
       }),
     ])
-    await this.bot?.sendMessage(
+    await this.sendHtmlWithPlainFallback(
       ctx.chatId,
       `${premiumHeader('Courier Snapshot')}\nAwaiting booking: <b>${awaitingBooking}</b>\nLive booked/in transit: <b>${liveBooked}</b>\nDelivered today: <b>${deliveredToday}</b>\n\n<i>Use /courier SPL-1001 to book by invoice.</i>`,
-      { parse_mode: 'HTML', reply_markup: inlineCourierMenu() },
+      { reply_markup: inlineCourierMenu() },
     )
   }
 
@@ -3055,27 +3069,27 @@ Customer was charged AFTER this order was ${input.orderStatus}.
         where: { product: { storeId: ctx.storeId, isPublished: true }, isActive: true, stock: { lte: 5 } },
       }),
     ])
-    await this.bot?.sendMessage(
+    await this.sendHtmlWithPlainFallback(
       ctx.chatId,
-      `${premiumHeader('Inventory Snapshot')}\nActive variants: <b>${totalActive}</b>\nLow stock (<=5): <b>${lowStock}</b>\nOut of stock: <b>${outOfStock}</b>\n\n<i>Use /stock SKU123 for exact variant lookup.</i>`,
-      { parse_mode: 'HTML', reply_markup: inlineInventoryMenu() },
+      `${premiumHeader('Inventory Snapshot')}\nActive variants: <b>${totalActive}</b>\nLow stock (≤ 5): <b>${lowStock}</b>\nOut of stock: <b>${outOfStock}</b>\n\n<i>Use /stock SKU123 for exact variant lookup.</i>`,
+      { reply_markup: inlineInventoryMenu() },
     )
   }
 
   private async executeInventoryLookupHelp(ctx: TelegramCtx): Promise<void> {
-    await this.bot?.sendMessage(
+    await this.sendHtmlWithPlainFallback(
       ctx.chatId,
       `${premiumHeader('SKU Lookup Help')}\nUse <code>/stock SKU123</code> to check one variant.\nUse <code>/check 01700000000</code> for buyer risk.\nUse <code>/order SPL-1001</code> for order drill-down.`,
-      { parse_mode: 'HTML', reply_markup: inlineInventoryMenu() },
+      { reply_markup: inlineInventoryMenu() },
     )
   }
 
   private async executeDeliveryDiagnostics(ctx: TelegramCtx): Promise<void> {
     const health = await this.getHealth(ctx.storeId)
-    await this.bot?.sendMessage(
+    await this.sendHtmlWithPlainFallback(
       ctx.chatId,
       `${premiumHeader('Delivery Diagnostics')}\nTransport: <b>${health.transportMode}</b>\nWebhook: <b>${health.webhookRegistered ? 'registered' : 'not registered'}</b>\nLast delivery: <b>${health.lastDeliveryStatus}</b>${health.lastDeliveryAt ? `\nAt: ${escapeTelegramHtml(health.lastDeliveryAt)}` : ''}${health.lastDeliveryError ? `\nError: ${escapeTelegramHtml(health.lastDeliveryError)}` : ''}`,
-      { parse_mode: 'HTML', reply_markup: deliveryDiagnosticsKeyboard() },
+      { reply_markup: deliveryDiagnosticsKeyboard() },
     )
   }
 
@@ -3086,10 +3100,10 @@ Customer was charged AFTER this order was ${input.orderStatus}.
           .map((admin) => `• ${admin.username ? `@${escapeTelegramHtml(admin.username)}` : admin.telegramIdMasked} · ${escapeTelegramHtml(admin.role)}`)
           .join('\n')
       : '• No linked admins yet'
-    await this.bot?.sendMessage(
+    await this.sendHtmlWithPlainFallback(
       ctx.chatId,
       `${premiumHeader('Linked Admins')}\n${linked}\n\nOps chat linked: <b>${health.hasLinkedAdminChat ? 'yes' : 'no'}</b>`,
-      { parse_mode: 'HTML', reply_markup: linkedAdminsKeyboard() },
+      { reply_markup: linkedAdminsKeyboard() },
     )
   }
 
