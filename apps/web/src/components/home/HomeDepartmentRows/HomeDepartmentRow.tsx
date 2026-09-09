@@ -22,8 +22,7 @@ export function HomeDepartmentRow({ row, priorityFirst = false }: HomeDepartment
   const sectionRef = useRef<HTMLElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const reducedMotion = useReducedMotion()
-  const [canLeft, setCanLeft] = useState(false)
-  const [canRight, setCanRight] = useState(false)
+  const [hasOverflow, setHasOverflow] = useState(row.tiles.length > 1)
   const [activeIndex, setActiveIndex] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
@@ -39,8 +38,7 @@ export function HomeDepartmentRow({ row, priorityFirst = false }: HomeDepartment
     const el = scrollRef.current
     if (!el) return
 
-    setCanLeft(el.scrollLeft > 4)
-    setCanRight(el.scrollWidth > el.clientWidth + 4)
+    setHasOverflow(el.scrollWidth > el.clientWidth + 4)
 
     // Visible viewport center (not track.clientWidth — flex can inflate that)
     const tiles = el.querySelectorAll<HTMLElement>('.home-dept-tile')
@@ -267,13 +265,17 @@ export function HomeDepartmentRow({ row, priorityFirst = false }: HomeDepartment
     resetAutoplayTimer()
     const el = scrollRef.current
     if (!el) return
+    const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth)
+    if (maxScroll <= 4) return
+
     if (isMobile) {
-      // Snap one card at a time toward center
+      // Snap one card at a time toward center with seamless repeat
       const tiles = el.querySelectorAll<HTMLElement>('.home-dept-tile')
-      const nextIndex = Math.max(
-        0,
-        Math.min(tiles.length - 1, activeIndex + (dir === 'left' ? -1 : 1)),
-      )
+      if (!tiles.length) return
+      const nextIndex =
+        dir === 'right'
+          ? (activeIndex + 1) % tiles.length
+          : (activeIndex - 1 + tiles.length) % tiles.length
       const target = tiles[nextIndex]
       if (!target) return
       const left =
@@ -281,17 +283,33 @@ export function HomeDepartmentRow({ row, priorityFirst = false }: HomeDepartment
       smoothScrollByX(el, left - el.scrollLeft, 0.4)
       return
     }
-    if (dir === 'right' && el.scrollLeft + el.clientWidth >= el.scrollWidth - 16) {
-      // Loop smoothly back to start when clicking right at the end
-      smoothScrollByX(el, -el.scrollLeft, 0.65)
-      return
-    }
 
     const firstTile = el.querySelector<HTMLElement>('.home-dept-tile')
     const tileWidth = firstTile ? firstTile.offsetWidth : 280
     const gap = 12
     const step = Math.min((tileWidth + gap) * 2, Math.max(280, Math.round(el.clientWidth * 0.75)))
-    smoothScrollByX(el, dir === 'left' ? -step : step, 0.45)
+
+    if (dir === 'right') {
+      // Seamless repeat: if at or near the end (within 48px or half tile), wrap smoothly back to start
+      const atEnd = el.scrollLeft >= maxScroll - Math.min(tileWidth * 0.35, 48)
+      if (atEnd) {
+        smoothScrollByX(el, -el.scrollLeft, 0.65)
+        return
+      }
+      smoothScrollByX(el, Math.min(step, maxScroll - el.scrollLeft), 0.45)
+      return
+    }
+
+    if (dir === 'left') {
+      // Seamless repeat: if at or near the start, wrap smoothly to the end
+      const atStart = el.scrollLeft <= Math.min(tileWidth * 0.35, 48)
+      if (atStart) {
+        smoothScrollByX(el, maxScroll - el.scrollLeft, 0.65)
+        return
+      }
+      smoothScrollByX(el, -Math.min(step, el.scrollLeft), 0.45)
+      return
+    }
   }
 
   return (
@@ -318,10 +336,10 @@ export function HomeDepartmentRow({ row, priorityFirst = false }: HomeDepartment
           className={cn(
             'home-dept-row__arrow',
             'home-dept-row__arrow--prev',
-            !canLeft && 'is-disabled',
+            !hasOverflow && 'is-disabled',
           )}
           onClick={() => scroll('left')}
-          disabled={!canLeft}
+          disabled={!hasOverflow}
           aria-label={`Previous ${row.title} categories`}
         >
           <ChevronLeft strokeWidth={1.75} aria-hidden />
@@ -349,10 +367,10 @@ export function HomeDepartmentRow({ row, priorityFirst = false }: HomeDepartment
           className={cn(
             'home-dept-row__arrow',
             'home-dept-row__arrow--next',
-            !canRight && 'is-disabled',
+            !hasOverflow && 'is-disabled',
           )}
           onClick={() => scroll('right')}
-          disabled={!canRight}
+          disabled={!hasOverflow}
           aria-label={`Next ${row.title} categories`}
         >
           <ChevronRight strokeWidth={1.75} aria-hidden />

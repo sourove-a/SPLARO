@@ -224,14 +224,12 @@ function ProductCard({ item, index }: { item: FootwearProduct; index: number }) 
 
 function ProductRowSection({ row }: { row: ProductRow }) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [canLeft, setCanLeft] = useState(false)
-  const [canRight, setCanRight] = useState(false)
+  const [hasOverflow, setHasOverflow] = useState(row.products.length > 1)
 
   const syncScroll = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
-    setCanLeft(el.scrollLeft > 8)
-    setCanRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 8)
+    setHasOverflow(el.scrollWidth > el.clientWidth + 8)
   }, [])
 
   useEffect(() => {
@@ -250,7 +248,28 @@ function ProductRowSection({ row }: { row: ProductRow }) {
   function scroll(dir: 'left' | 'right') {
     const el = scrollRef.current
     if (!el) return
-    el.scrollBy({ left: dir === 'left' ? -280 : 280, behavior: 'smooth' })
+    const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth)
+    if (maxScroll <= 8) return
+
+    if (dir === 'right') {
+      const atEnd = el.scrollLeft >= maxScroll - 40
+      if (atEnd) {
+        el.scrollTo({ left: 0, behavior: 'smooth' })
+        return
+      }
+      el.scrollBy({ left: Math.min(280, maxScroll - el.scrollLeft), behavior: 'smooth' })
+      return
+    }
+
+    if (dir === 'left') {
+      const atStart = el.scrollLeft <= 40
+      if (atStart) {
+        el.scrollTo({ left: maxScroll, behavior: 'smooth' })
+        return
+      }
+      el.scrollBy({ left: -Math.min(280, el.scrollLeft), behavior: 'smooth' })
+      return
+    }
   }
 
   return (
@@ -270,12 +289,12 @@ function ProductRowSection({ row }: { row: ProductRow }) {
           <LiquidGlassNavButton
             direction="left"
             onClick={() => scroll('left')}
-            disabled={!canLeft}
+            disabled={!hasOverflow}
           />
           <LiquidGlassNavButton
             direction="right"
             onClick={() => scroll('right')}
-            disabled={!canRight}
+            disabled={!hasOverflow}
           />
         </div>
       </div>
