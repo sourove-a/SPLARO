@@ -982,6 +982,50 @@ export class ProductsController {
     return { rows, total: rows.length }
   }
 
+  @Get('lookup-by-code')
+  async lookupProductByCode(
+    @Query('storeId') storeId: string,
+    @Query('code') code: string,
+  ) {
+    const raw = code?.trim()
+    if (!raw) throw new BadRequestException('Code is required')
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const product = await this.prisma.product.findFirst({
+      where: {
+        storeId: sid,
+        OR: [
+          { productCode: raw },
+          { sku: { equals: raw, mode: 'insensitive' } },
+          { barcode: raw },
+          { variants: { some: { OR: [{ sku: raw }, { barcode: raw }] } } },
+        ],
+      },
+      include: {
+        variants: {
+          select: {
+            id: true,
+            stock: true,
+            reservedStock: true,
+            size: true,
+            color: true,
+            colorName: true,
+            colorHex: true,
+            sku: true,
+            price: true,
+            isActive: true,
+          },
+        },
+        images: {
+          select: { url: true, isDefault: true, position: true },
+          orderBy: { position: 'asc' },
+        },
+        category: { select: { id: true, name: true } },
+      },
+    })
+    if (!product) throw new NotFoundException(`No product found with code "${raw}"`)
+    return product
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string, @Query('storeId') storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
@@ -1815,6 +1859,130 @@ export class ProductsController {
     )
     const updated = results.filter((r) => r.status === 'fulfilled').length
     return { updated, failed: body.updates.length - updated }
+  }
+
+  @Post('zero-stock-by-code')
+  async zeroStockByCode(
+    @Query('storeId') storeId: string,
+    @Body() body: { code: string; reason?: string },
+  ) {
+    const raw = body?.code?.trim()
+    if (!raw) throw new BadRequestException('Product code or barcode is required')
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const product = await this.prisma.product.findFirst({
+      where: {
+        storeId: sid,
+        OR: [
+          { productCode: raw },
+          { sku: { equals: raw, mode: 'insensitive' } },
+          { barcode: raw },
+          { variants: { some: { OR: [{ sku: raw }, { barcode: raw }] } } },
+        ],
+      },
+      include: {
+        variants: {
+          select: { id: true, stock: true },
+        },
+      },
+    })
+
+    if (!product) throw new NotFoundException(`No product found with code "${raw}"`)
+
+    const reason = body?.reason?.trim() || 'Physical shop stock out (code lookup zero stock)'
+    const inStockVariants = product.variants.filter((v) => (v.stock ?? 0) > 0)
+
+    if (inStockVariants.length > 0) {
+      await this.prisma.$transaction(async (tx) => {
+        for (const variant of inStockVariants) {
+          await tx.productVariant.update({
+            where: { id: variant.id },
+            data: { stock: 0 },
+          })
+          await tx.inventoryLog.create({
+            data: {
+              productId: product.id,
+              variantId: variant.id,
+              action: 'ADJUSTMENT',
+              quantity: -variant.stock,
+              stockBefore: variant.stock,
+              stockAfter: 0,
+              note: reason,
+            },
+          })
+        }
+      })
+    }
+
+    if (this.search) fireAndForget(this.search.indexProducts(sid), 'search.indexProducts')
+    await this.bustProductCache(sid)
+
+    return {
+      ok: true,
+      productId: product.id,
+      productName: product.name,
+      productCode: product.productCode,
+      variantsZeroed: inStockVariants.length,
+      totalVariants: product.variants.length,
+    }
+  }
+
+  @Post(':id/zero-stock')
+  async zeroProductStock(
+    @Query('storeId') storeId: string,
+    @Param('id') id: string,
+    @Body() body?: { reason?: string },
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const product = await this.prisma.product.findFirst({
+      where: {
+        storeId: sid,
+        OR: [{ id }, { productCode: id }],
+      },
+      include: {
+        variants: {
+          select: { id: true, stock: true },
+        },
+      },
+    })
+
+    if (!product) throw new NotFoundException('Product not found')
+
+    const reason = body?.reason?.trim() || 'Physical shop stock out (1-click zero stock)'
+    const inStockVariants = product.variants.filter((v) => (v.stock ?? 0) > 0)
+
+    if (inStockVariants.length > 0) {
+      await this.prisma.$transaction(async (tx) => {
+        for (const variant of inStockVariants) {
+          await tx.productVariant.update({
+            where: { id: variant.id },
+            data: { stock: 0 },
+          })
+          await tx.inventoryLog.create({
+            data: {
+              productId: product.id,
+              variantId: variant.id,
+              action: 'ADJUSTMENT',
+              quantity: -variant.stock,
+              stockBefore: variant.stock,
+              stockAfter: 0,
+              note: reason,
+            },
+          })
+        }
+      })
+    }
+
+    if (this.search) fireAndForget(this.search.indexProducts(sid), 'search.indexProducts')
+    await this.bustProductCache(sid)
+
+    return {
+      ok: true,
+      productId: product.id,
+      productName: product.name,
+      productCode: product.productCode,
+      variantsZeroed: inStockVariants.length,
+      totalVariants: product.variants.length,
+    }
   }
 
   @Post('bulk/publish')

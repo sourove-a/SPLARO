@@ -897,6 +897,7 @@ model Product {
   metaKeywords     String[]            @default([])
   schemaMarkup     Json?
   viewCount        Int                 @default(0)
+  bagCount         Int                 @default(0)
   soldCount        Int                 @default(0)
   rating           Decimal             @default(0) @db.Decimal(3, 2)
   reviewCount      Int                 @default(0)

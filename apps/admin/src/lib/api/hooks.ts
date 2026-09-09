@@ -43,6 +43,8 @@ import {
   createProductVariant,
   archiveProductVariant,
   deleteProductVariant,
+  zeroProductStock,
+  zeroProductStockByCode,
   type ProductListStatus,
 } from './products'
 import {
@@ -1833,6 +1835,36 @@ export function useDeleteProduct() {
     mutationFn: deleteProduct,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['products'] })
+      void revalidateWebCache(['storefront-products'])
+    },
+  })
+}
+
+export function useZeroProductStock() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ idOrCode, reason }: { idOrCode: string; reason?: string }) =>
+      zeroProductStock(idOrCode, reason),
+    onSuccess: (_data, variables) => {
+      void qc.invalidateQueries({ queryKey: ['products'] })
+      void qc.invalidateQueries({ queryKey: ['product-stats'] })
+      void qc.invalidateQueries({ queryKey: ['product', variables.idOrCode] })
+      void revalidateWebCache(['storefront-products'])
+    },
+  })
+}
+
+export function useZeroProductStockByCode() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ code, reason }: { code: string; reason?: string }) =>
+      zeroProductStockByCode(code, reason),
+    onSuccess: (data) => {
+      void qc.invalidateQueries({ queryKey: ['products'] })
+      void qc.invalidateQueries({ queryKey: ['product-stats'] })
+      if (data?.productId) {
+        void qc.invalidateQueries({ queryKey: ['product', data.productId] })
+      }
       void revalidateWebCache(['storefront-products'])
     },
   })

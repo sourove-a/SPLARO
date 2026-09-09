@@ -496,6 +496,42 @@ export class StorefrontController {
     )
   }
 
+  @Post('products/:id/view')
+  async recordProductView(
+    @Query('storeId') storeId: string,
+    @Param('id') id: string,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const product = await this.prisma.product.findFirst({
+      where: { id, storeId: sid },
+      select: { id: true },
+    })
+    if (!product) return { ok: false }
+    await this.prisma.product.update({
+      where: { id },
+      data: { viewCount: { increment: 1 } },
+    })
+    return { ok: true }
+  }
+
+  @Post('products/:id/bag')
+  async recordProductBag(
+    @Query('storeId') storeId: string,
+    @Param('id') id: string,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const product = await this.prisma.product.findFirst({
+      where: { id, storeId: sid },
+      select: { id: true },
+    })
+    if (!product) return { ok: false }
+    await this.prisma.product.update({
+      where: { id },
+      data: { bagCount: { increment: 1 } },
+    })
+    return { ok: true }
+  }
+
   @Get('customer/profile')
   async getCustomerProfile(
     @Query('storeId') storeId: string,

@@ -26,7 +26,7 @@ import { fetchAllProductsForCatalog } from '@/lib/admin/product-catalog-sheet'
 import { verifyProductArchived } from '@/lib/admin/catalog-mutation-verify'
 import { verifyDeleteSuccess, verifyPersisted } from '@/lib/admin/mutation-verify'
 import { ApiError } from '@/lib/api/client'
-import { useCategoryTree, useProducts, useProductStats } from '@/lib/api/hooks'
+import { useCategoryTree, useProducts, useProductStats, useZeroProductStock, useZeroProductStockByCode } from '@/lib/api/hooks'
 import { buildCategoryPicker } from '@/lib/admin/category-picker'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { useListQueryState } from '@/lib/hooks/use-list-query-state'
@@ -36,6 +36,7 @@ import {
   permanentlyDeleteProduct,
   productActiveVariantCount,
   productStock,
+  lookupProductByCode,
   type ApiProduct,
   type ProductListStatus,
 } from '@/lib/api/products'
@@ -163,6 +164,10 @@ function DcProductsBody() {
   const [removing, setRemoving] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [exportingMeta, setExportingMeta] = useState(false)
+  const [zeroStockTarget, setZeroStockTarget] = useState<ApiProduct | null>(null)
+  const [zeroingStock, setZeroingStock] = useState(false)
+  const [codeModalOpen, setCodeModalOpen] = useState(false)
+  const zeroStockMutation = useZeroProductStock()
 
   const handleExportMetaCsv = async () => {
     if (exportingMeta) return
@@ -179,6 +184,45 @@ function DcProductsBody() {
       toastFail(e instanceof Error ? e.message : 'Could not export Facebook Catalog CSV.')
     } finally {
       setExportingMeta(false)
+    }
+  }
+
+  const runZeroStock = async (p: ApiProduct) => {
+    setZeroingStock(true)
+    try {
+      const res = await zeroStockMutation.mutateAsync({
+        idOrCode: p.id,
+        reason: 'Physical shop stock out (1-click zero stock)',
+      })
+      toastOk(`⚡ “${res.productName}” এর স্টক সফলভাবে ০ করা হয়েছে (Out of stock)`)
+      setZeroStockTarget(null)
+      void products.refetch()
+      void stats.refetch()
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not zero stock')
+    } finally {
+      setZeroingStock(false)
+    }
+  }
+
+  const handleZeroSelected = async () => {
+    if (selected.size === 0) return
+    if (!window.confirm(`সিলেক্ট করা ${selected.size} টি প্রোডাক্টের স্টক কি ০ (Out of stock) করবেন?`)) return
+    try {
+      await Promise.all(
+        Array.from(selected).map((id) =>
+          zeroStockMutation.mutateAsync({
+            idOrCode: id,
+            reason: 'Physical shop stock out (bulk zero stock)',
+          }),
+        ),
+      )
+      toastOk(`সিলেক্ট করা ${selected.size} টি প্রোডাক্টের স্টক ০ করা হয়েছে।`)
+      setSelected(new Set())
+      void products.refetch()
+      void stats.refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not zero selected products')
     }
   }
 
@@ -331,6 +375,11 @@ function DcProductsBody() {
             label: BULK_CSV_WORKSPACE_LABEL,
             icon: 'icon-upload',
             onClick: () => router.push('/dashboard/bulk'),
+          },
+          {
+            label: 'Zero Stock by Code',
+            icon: 'icon-zap',
+            onClick: () => setCodeModalOpen(true),
           },
           {
             label: 'Add product',
@@ -509,6 +558,9 @@ function DcProductsBody() {
                 </span>
                 <button type="button" className="dc-toolbar__tool" onClick={printSelectedStickers}>
                   <DcIcon name="icon-printer" size={13} /> Print stickers
+                </button>
+                <button type="button" className="dc-toolbar__tool" onClick={handleZeroSelected}>
+                  <DcIcon name="icon-zap" size={13} /> Zero stock
                 </button>
                 <button
                   type="button"
@@ -694,8 +746,54 @@ function DcProductsBody() {
                             <span style={{ font: `500 13px/1.25 ${FONT}`, color: 'var(--ink)' }}>
                               {p.name}
                             </span>
-                            <span style={{ font: `400 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
-                              {p.category?.name ?? 'Uncategorised'}
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <span style={{ font: `400 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                                {p.category?.name ?? 'Uncategorised'}
+                              </span>
+                              <span style={{ color: 'var(--line-strong)' }}>·</span>
+                              <span
+                                title="Visitor views"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 3,
+                                  font: `400 11px/1 ${FONT}`,
+                                  color: 'var(--ink-2)',
+                                  background: 'var(--surface-2)',
+                                  padding: '1.5px 5px',
+                                  borderRadius: 4,
+                                }}
+                              >
+                                <span>👁️</span>
+                                <span>{p.viewCount ?? 0}</span>
+                              </span>
+                              <span
+                                title="Added to bag"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 3,
+                                  font: `400 11px/1 ${FONT}`,
+                                  color: 'var(--ink-2)',
+                                  background: 'var(--surface-2)',
+                                  padding: '1.5px 5px',
+                                  borderRadius: 4,
+                                }}
+                              >
+                                <span>🛍️</span>
+                                <span>{p.bagCount ?? 0}</span>
+                              </span>
+                              {(p.viewCount ?? 0) > 0 && (p.bagCount ?? 0) > 0 ? (
+                                <span
+                                  title="Add-to-bag rate"
+                                  style={{
+                                    font: `500 10.5px/1 ${FONT}`,
+                                    color: 'var(--ok)',
+                                  }}
+                                >
+                                  ({Math.min(100, Math.round(((p.bagCount ?? 0) / (p.viewCount ?? 1)) * 100))}%)
+                                </span>
+                              ) : null}
                             </span>
                           </span>
                         </div>
@@ -738,19 +836,49 @@ function DcProductsBody() {
                         </span>
                       </td>
                       <td style={{ padding: '10px 14px' }}>
-                        <span
-                          style={{
-                            font: `600 12.5px/1 ${MONO}`,
-                            color:
-                              stock === 0
-                                ? 'var(--bad)'
-                                : stock <= (p.lowStockThreshold ?? 5)
-                                  ? 'var(--warn)'
-                                  : 'var(--ink-2)',
-                          }}
-                        >
-                          {stock === 0 ? 'None' : `${stock} units`}
-                        </span>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                          <span
+                            style={{
+                              font: `600 12.5px/1 ${MONO}`,
+                              color:
+                                stock === 0
+                                  ? 'var(--bad)'
+                                  : stock <= (p.lowStockThreshold ?? 5)
+                                    ? 'var(--warn)'
+                                    : 'var(--ink-2)',
+                            }}
+                          >
+                            {stock === 0 ? 'None' : `${stock} units`}
+                          </span>
+                          {stock > 0 ? (
+                            <button
+                              type="button"
+                              title="দোকানে স্টক শেষ? ১-ক্লিকে ওয়েবসাইট স্টক ০ করুন"
+                              aria-label={`Set stock to 0 for ${p.name}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setZeroStockTarget(p)
+                              }}
+                              className="dc-hover-line"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 3,
+                                height: 20,
+                                padding: '0 5px',
+                                borderRadius: 4,
+                                border: '1px solid var(--line-strong)',
+                                background: 'var(--surface-2)',
+                                color: 'var(--ink-2)',
+                                font: `600 10px/1 ${FONT}`,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <span>⚡</span>
+                              <span>0</span>
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                       <td
                         style={{
@@ -789,29 +917,56 @@ function DcProductsBody() {
                         </span>
                       </td>
                       <td style={{ padding: '10px 14px', textAlign: 'right' }}>
-                        <button
-                          type="button"
-                          title={`Remove ${p.name}`}
-                          aria-label={`Remove ${p.name}`}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setRemoveTarget(p)
-                          }}
-                          className="dc-hover-line"
-                          style={{
-                            display: 'grid',
-                            placeItems: 'center',
-                            width: 28,
-                            height: 28,
-                            borderRadius: 8,
-                            border: '1px solid var(--line)',
-                            background: 'var(--surface-2)',
-                            color: 'var(--ink-3)',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <DcIcon name="icon-trash-2" size={13} />
-                        </button>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          {stock > 0 ? (
+                            <button
+                              type="button"
+                              title="দোকানে স্টক শেষ? স্টক ০ করুন (Out of stock)"
+                              aria-label={`Zero out stock for ${p.name}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setZeroStockTarget(p)
+                              }}
+                              className="dc-hover-line"
+                              style={{
+                                display: 'grid',
+                                placeItems: 'center',
+                                width: 28,
+                                height: 28,
+                                borderRadius: 8,
+                                border: '1px solid var(--line)',
+                                background: 'var(--surface-2)',
+                                color: 'var(--warn, var(--ink-2))',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <DcIcon name="icon-zap" size={13} />
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            title={`Remove ${p.name}`}
+                            aria-label={`Remove ${p.name}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setRemoveTarget(p)
+                            }}
+                            className="dc-hover-line"
+                            style={{
+                              display: 'grid',
+                              placeItems: 'center',
+                              width: 28,
+                              height: 28,
+                              borderRadius: 8,
+                              border: '1px solid var(--line)',
+                              background: 'var(--surface-2)',
+                              color: 'var(--ink-3)',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <DcIcon name="icon-trash-2" size={13} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -901,6 +1056,96 @@ function DcProductsBody() {
           </div>
         </div>
       ) : null}
+
+      {zeroStockTarget ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Zero product stock"
+          onClick={() => (zeroingStock ? undefined : setZeroStockTarget(null))}
+        >
+          <div
+            className="admin-modal w-full max-w-md"
+            style={{ background: 'var(--surface)', border: '1px solid var(--line)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="admin-modal__header">
+              <h2 className="text-base font-bold" style={{ color: 'var(--ink)' }}>
+                দোকানে স্টক কি শেষ? (Out of stock)
+              </h2>
+              <p className="mt-1 text-xs" style={{ color: 'var(--ink-3)' }}>
+                ওয়েবসাইট থেকে ১-ক্লিকে স্টক ০ করে দেওয়া হবে।
+              </p>
+            </div>
+            <div className="admin-modal__body space-y-3">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--line)',
+                }}
+              >
+                {productThumbUrl(zeroStockTarget) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={productThumbUrl(zeroStockTarget)!}
+                    alt=""
+                    style={{ width: 36, height: 44, borderRadius: 6, objectFit: 'cover' }}
+                  />
+                ) : null}
+                <div style={{ display: 'grid', gap: 2 }}>
+                  <span style={{ font: `600 13px/1.3 ${FONT}`, color: 'var(--ink)' }}>
+                    {zeroStockTarget.name}
+                  </span>
+                  <span style={{ font: `400 11.5px/1 ${MONO}`, color: 'var(--ink-3)' }}>
+                    Code: {zeroStockTarget.productCode ?? '—'} · Current: {stockOf(zeroStockTarget)} units
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs" style={{ color: 'var(--ink-2)', lineHeight: 1.6 }}>
+                কনফার্ম করলে এই প্রোডাক্টের সব ভ্যারিয়েন্টের ওয়েবসাইট স্টক সাথে সাথে <strong style={{ color: 'var(--bad)' }}>০ (Zero)</strong> হয়ে যাবে এবং কাস্টমাররা এটি <em>Out of stock</em> দেখতে পাবে।
+              </p>
+            </div>
+            <div className="admin-modal__footer flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="admin-btn admin-btn--ghost"
+                disabled={zeroingStock}
+                onClick={() => setZeroStockTarget(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-btn"
+                disabled={zeroingStock}
+                style={{
+                  border: '1px solid var(--bad-bd)',
+                  background: 'var(--bad-soft)',
+                  color: 'var(--bad)',
+                }}
+                onClick={() => void runZeroStock(zeroStockTarget)}
+              >
+                {zeroingStock ? 'স্টক ০ হচ্ছে…' : '⚡ হ্যাঁ, স্টক ০ করুন'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <ZeroStockByCodeModal
+        open={codeModalOpen}
+        onClose={() => setCodeModalOpen(false)}
+        onSuccess={() => {
+          void products.refetch()
+          void stats.refetch()
+        }}
+      />
     </>
   )
 }
@@ -1044,6 +1289,247 @@ function Kpi({
         {value}
       </span>
       <span style={{ font: `400 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>{sub}</span>
+    </div>
+  )
+}
+
+function ZeroStockByCodeModal({
+  open,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const [code, setCode] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const [matched, setMatched] = useState<ApiProduct | null>(null)
+  const [errorMsg, setErrorMsg] = useState('')
+  const zeroStockMutation = useZeroProductStockByCode()
+
+  useEffect(() => {
+    if (open) {
+      setCode('')
+      setMatched(null)
+      setErrorMsg('')
+      setLoading(false)
+      setSearching(false)
+    }
+  }, [open])
+
+  const handleLookup = async (lookupCode: string) => {
+    const raw = lookupCode.trim()
+    if (!raw) {
+      setMatched(null)
+      setErrorMsg('')
+      return
+    }
+    setSearching(true)
+    setErrorMsg('')
+    try {
+      const res = await lookupProductByCode(raw)
+      setMatched(res)
+    } catch (err) {
+      setMatched(null)
+      setErrorMsg(err instanceof Error ? err.message : 'No product found with this code')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const handleApplyZero = async () => {
+    const raw = code.trim()
+    if (!raw) {
+      setErrorMsg('প্রোডাক্ট কোড লিখুন')
+      return
+    }
+    setLoading(true)
+    setErrorMsg('')
+    try {
+      const res = await zeroStockMutation.mutateAsync({
+        code: raw,
+        reason: 'Physical shop stock out (code lookup zero stock)',
+      })
+      toastOk(`⚡ “${res.productName}” (${res.productCode}) এর স্টক সফলভাবে ০ করা হয়েছে!`)
+      onSuccess()
+      onClose()
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Could not zero stock')
+      toastFail(err instanceof Error ? err.message : 'Could not zero stock')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!open) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={() => (loading ? undefined : onClose())}
+    >
+      <div
+        className="admin-modal w-full max-w-md"
+        style={{ background: 'var(--surface)', border: '1px solid var(--line)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="admin-modal__header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 18 }}>⚡</span>
+            <h2 className="text-base font-bold" style={{ color: 'var(--ink)' }}>
+              দোকানের স্টক শেষ? (Product Code দিয়ে ০ করুন)
+            </h2>
+          </div>
+          <p className="mt-1 text-xs" style={{ color: 'var(--ink-3)' }}>
+            দোকানের প্রোডাক্ট কোড (যেমন: 895765) বা SKU লিখে এন্টার চাপলে মুহূর্তেই ওয়েবসাইট স্টক ০ হয়ে যাবে।
+          </p>
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            void handleApplyZero()
+          }}
+          className="admin-modal__body space-y-3"
+        >
+          <div>
+            <label
+              htmlFor="zero-stock-code-input"
+              className="block text-xs font-semibold mb-1"
+              style={{ color: 'var(--ink-2)' }}
+            >
+              Product Code বা বারকোড
+            </label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                id="zero-stock-code-input"
+                autoFocus
+                type="text"
+                value={code}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setCode(val)
+                  if (val.trim().length >= 4) {
+                    void handleLookup(val)
+                  } else {
+                    setMatched(null)
+                    setErrorMsg('')
+                  }
+                }}
+                placeholder="যেমন: 895765 বা SKU"
+                className="dc-toolbar__select"
+                style={{
+                  flex: 1,
+                  height: 38,
+                  padding: '0 12px',
+                  borderRadius: 8,
+                  border: '1px solid var(--line-strong)',
+                  background: 'var(--surface-2)',
+                  color: 'var(--ink)',
+                  font: `500 13px/1 ${MONO}`,
+                }}
+              />
+              <button
+                type="button"
+                className="admin-btn admin-btn--ghost"
+                disabled={searching || !code.trim()}
+                onClick={() => void handleLookup(code)}
+                style={{ height: 38 }}
+              >
+                {searching ? 'খোঁজা হচ্ছে…' : 'চেক করুন'}
+              </button>
+            </div>
+          </div>
+
+          {searching ? (
+            <p className="text-xs" style={{ color: 'var(--ink-3)' }}>
+              প্রোডাক্ট খোঁজা হচ্ছে…
+            </p>
+          ) : null}
+
+          {errorMsg ? (
+            <div
+              style={{
+                padding: '8px 12px',
+                borderRadius: 7,
+                background: 'var(--bad-soft, rgba(239, 68, 68, 0.1))',
+                border: '1px solid var(--bad-bd, rgba(239, 68, 68, 0.3))',
+                color: 'var(--bad)',
+                fontSize: 12,
+              }}
+            >
+              {errorMsg}
+            </div>
+          ) : null}
+
+          {matched ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '10px 12px',
+                borderRadius: 8,
+                background: 'var(--surface-2)',
+                border: '1px solid var(--line-strong)',
+              }}
+            >
+              {productThumbUrl(matched) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={productThumbUrl(matched)!}
+                  alt=""
+                  style={{ width: 42, height: 50, borderRadius: 6, objectFit: 'cover' }}
+                />
+              ) : null}
+              <div style={{ display: 'grid', gap: 3, flex: 1 }}>
+                <span style={{ font: `600 13px/1.25 ${FONT}`, color: 'var(--ink)' }}>
+                  {matched.name}
+                </span>
+                <span style={{ font: `400 11.5px/1 ${FONT}`, color: 'var(--ink-3)' }}>
+                  {matched.category?.name ?? 'Uncategorised'} · Code:{' '}
+                  <strong style={{ color: 'var(--ink)' }}>{matched.productCode ?? '—'}</strong>
+                </span>
+                <span
+                  style={{
+                    font: `600 12px/1 ${MONO}`,
+                    color: stockOf(matched) > 0 ? 'var(--ok)' : 'var(--bad)',
+                  }}
+                >
+                  বর্তমান স্টক: {stockOf(matched)} units
+                </span>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="admin-modal__footer flex flex-wrap justify-end gap-2 pt-2">
+            <button
+              type="button"
+              className="admin-btn admin-btn--ghost"
+              disabled={loading}
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="admin-btn"
+              disabled={loading || !code.trim()}
+              style={{
+                border: '1px solid var(--bad-bd)',
+                background: 'var(--bad-soft)',
+                color: 'var(--bad)',
+              }}
+            >
+              {loading ? 'স্টক ০ হচ্ছে…' : '⚡ স্টক ০ করুন (Out of stock)'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

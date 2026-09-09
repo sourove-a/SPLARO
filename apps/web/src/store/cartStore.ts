@@ -133,6 +133,17 @@ export const useCartStore = create<CartStore>()(
         }
 
         set({ items: updated, ...cartTotals(updated) })
+
+        if (typeof window !== 'undefined' && incoming.productId) {
+          try {
+            void fetch(`/api/products/${encodeURIComponent(incoming.productId)}/bag`, {
+              method: 'POST',
+              keepalive: true,
+            }).catch(() => undefined)
+          } catch {
+            // Storage or network tracking errors are ignored
+          }
+        }
       },
 
       removeItem: (line) => {

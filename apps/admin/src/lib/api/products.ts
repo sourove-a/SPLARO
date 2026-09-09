@@ -69,6 +69,8 @@ export interface ApiProduct {
   barcode?: string | null
   qrCode?: string | null
   publishAt?: string | null
+  viewCount?: number
+  bagCount?: number
   images?: { url: string; altText?: string | null; position?: number; isDefault?: boolean }[]
 }
 
@@ -506,3 +508,34 @@ export function bulkUpsertCatalog(rows: CatalogUpsertRow[]) {
     timeoutMs: 120_000,
   })
 }
+
+export interface ZeroStockResult {
+  ok: boolean
+  productId: string
+  productName: string
+  productCode: string | null
+  variantsZeroed: number
+  totalVariants: number
+}
+
+export function zeroProductStock(productIdOrCode: string, reason?: string) {
+  return apiFetch<ZeroStockResult>(
+    `/admin/products/${encodeURIComponent(productIdOrCode)}/zero-stock`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    },
+  )
+}
+
+export function zeroProductStockByCode(code: string, reason?: string) {
+  return apiFetch<ZeroStockResult>('/admin/products/zero-stock-by-code', {
+    method: 'POST',
+    body: JSON.stringify({ code, reason }),
+  })
+}
+
+export function lookupProductByCode(code: string) {
+  return apiFetch<ApiProduct>(`/admin/products/lookup-by-code?code=${encodeURIComponent(code)}`)
+}
+

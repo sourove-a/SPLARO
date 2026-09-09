@@ -42,7 +42,7 @@ import { revalidateWebCache } from '@/lib/api/revalidate'
 import { buildCloneProductPayload } from '@/lib/admin/product-clone'
 import { copyProductStorefrontUrl, productStorefrontUrl } from '@/lib/admin/product-storefront-url'
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
-import { useBrands, useCategoryTree, useCollections, useProduct, useUpdateProduct, useDeleteProduct, useCreateProduct, useProductVersions, useRestoreProductVersion, useAdminSession, usePermission } from '@/lib/api/hooks'
+import { useBrands, useCategoryTree, useCollections, useProduct, useUpdateProduct, useDeleteProduct, useCreateProduct, useProductVersions, useRestoreProductVersion, useAdminSession, usePermission, useZeroProductStock } from '@/lib/api/hooks'
 import { ProductVariantManager } from '@/components/modules/product-form/ProductVariantManager'
 import { parseProductMedia } from '@/lib/admin/product-media-utils'
 import { AdminSwitchRow } from '@/components/ui/AdminSwitch'
@@ -134,6 +134,27 @@ export function ProductEditPanel({
   const [barcodePreviewUrl, setBarcodePreviewUrl] = useState('')
   const [variantUnsaved, setVariantUnsaved] = useState(0)
   const saveVariantsRef = useRef<(() => Promise<void>) | null>(null)
+  const zeroStockMutation = useZeroProductStock()
+  const [zeroingProduct, setZeroingProduct] = useState(false)
+
+  const handleZeroProductStock = async () => {
+    if (!product) return
+    const confirmed = window.confirm(`দোকানে কি “${product.name}” এর স্টক শেষ? ওয়েবসাইট থেকেও স্টক ০ হয়ে যাবে।`)
+    if (!confirmed) return
+    setZeroingProduct(true)
+    try {
+      const res = await zeroStockMutation.mutateAsync({
+        idOrCode: productId,
+        reason: 'Physical shop stock out (Product edit screen)',
+      })
+      toastOk(`⚡ “${res.productName}” এর স্টক সফলভাবে ০ করা হয়েছে।`)
+      void refetch()
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not zero stock')
+    } finally {
+      setZeroingProduct(false)
+    }
+  }
 
   const handleVariantUnsaved = useCallback((count: number, save: () => Promise<void>) => {
     saveVariantsRef.current = save
@@ -1477,6 +1498,146 @@ export function ProductEditPanel({
             colors={[]}
             meta={`${product.variants?.length ?? 0} variants · ${totalStock} in stock`}
           />
+
+          {/* Storefront Engagement (Private to Admin) */}
+          <div
+            style={{
+              border: '1px solid var(--line)',
+              borderRadius: 14,
+              background: 'var(--surface)',
+              backgroundImage: 'var(--card-sheen)',
+              overflow: 'hidden',
+              padding: '14px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ font: `600 13px/1 ${FONT}`, color: 'var(--ink)' }}>
+                Storefront Engagement
+              </div>
+              <span
+                style={{
+                  font: `500 10.5px/1 ${FONT}`,
+                  color: 'var(--ink-3)',
+                  background: 'var(--surface-2)',
+                  padding: '2px 6px',
+                  borderRadius: 4,
+                }}
+              >
+                Admin only
+              </span>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1fr',
+                gap: 8,
+              }}
+            >
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--line)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                }}
+              >
+                <span style={{ font: `400 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>Views</span>
+                <span style={{ font: `600 15px/1 ${FONT}`, color: 'var(--ink)' }}>
+                  👁️ {product?.viewCount ?? 0}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--line)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                }}
+              >
+                <span style={{ font: `400 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>In Bag</span>
+                <span style={{ font: `600 15px/1 ${FONT}`, color: 'var(--ink)' }}>
+                  🛍️ {product?.bagCount ?? 0}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--line)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                }}
+              >
+                <span style={{ font: `400 11px/1 ${FONT}`, color: 'var(--ink-3)' }}>Bag Rate</span>
+                <span
+                  style={{
+                    font: `600 15px/1 ${FONT}`,
+                    color:
+                      (product?.viewCount ?? 0) > 0 && (product?.bagCount ?? 0) > 0
+                        ? 'var(--ok)'
+                        : 'var(--ink)',
+                  }}
+                >
+                  {(product?.viewCount ?? 0) > 0
+                    ? `${Math.min(
+                        100,
+                        Math.round(((product?.bagCount ?? 0) / (product?.viewCount ?? 1)) * 100),
+                      )}%`
+                    : '0%'}
+                </span>
+              </div>
+            </div>
+
+            <p style={{ margin: 0, font: `400 11px/1.4 ${FONT}`, color: 'var(--ink-3)' }}>
+              Unique visitor views and items placed into shopping bags. Never visible to storefront customers.
+            </p>
+          </div>
+
+          {totalStock > 0 ? (
+            <button
+              type="button"
+              disabled={!canEditProducts || zeroingProduct}
+              onClick={() => void handleZeroProductStock()}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 7,
+                width: '100%',
+                height: 38,
+                borderRadius: 10,
+                border: '1px solid var(--warn-bd, var(--line))',
+                background: 'var(--warn-soft, var(--surface-2))',
+                color: 'var(--ink)',
+                cursor: 'pointer',
+                font: `600 12.5px/1 ${FONT}`,
+              }}
+              className="dc-hover-line"
+            >
+              <DcIcon name="icon-zap" size={13} color="var(--warn)" />
+              <span>{zeroingProduct ? 'স্টক ০ হচ্ছে…' : 'দোকানে স্টক শেষ? (স্টক ০ করুন)'}</span>
+            </button>
+          ) : null}
 
           <div
             style={{

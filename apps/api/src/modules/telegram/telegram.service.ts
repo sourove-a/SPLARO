@@ -1251,24 +1251,15 @@ Customer was charged AFTER this order was ${input.orderStatus}.
       )
     })
 
-    this.bot.onText(/\/stock (.+)/i, async (msg, match) => {
+    this.bot.onText(/\/(?:stock|code)(?:@\w+)?(?:\s+(.+)|$)/i, async (msg, match) => {
       const ctx = await this.resolveContext(msg)
       if (!ctx) return
-      const sku = match?.[1]?.trim()?.toUpperCase()
-      if (!sku) return
-      const variant = await this.prisma.productVariant.findFirst({
-        where: { sku: { equals: sku, mode: 'insensitive' } },
-        include: { product: { select: { name: true } } },
-      })
-      if (!variant) {
-        await this.bot?.sendMessage(ctx.chatId, `❌ SKU ${sku} not found`)
+      const query = match?.[1]?.trim()
+      if (!query) {
+        await this.executeInventoryLookupHelp(ctx)
         return
       }
-      await this.bot?.sendMessage(
-        ctx.chatId,
-        `📦 ${variant.product.name}\nSKU: ${variant.sku}\nStock: <b>${variant.stock}</b>`,
-        { parse_mode: 'HTML' },
-      )
+      await this.handleProductOrStockLookup(ctx, query)
     })
 
     this.bot.on('callback_query', async (query) => {
@@ -1497,7 +1488,7 @@ Customer was charged AFTER this order was ${input.orderStatus}.
         if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
         await this.bot?.sendMessage(
           ctx.chatId,
-          `${premiumHeader('Inventory Desk', 'Low stock watch, SKU lookup, and stock health snapshots.')}`,
+          `${premiumHeader('Inventory Desk', 'Low stock watch, Product Code lookup, and stock health snapshots.')}`,
           {
             parse_mode: 'HTML',
             reply_markup: inlineInventoryMenu(),
@@ -1822,7 +1813,7 @@ Customer was charged AFTER this order was ${input.orderStatus}.
       tgJoin(
         tgHeader('⚠️', 'Low Stock', `${variants.length} variant${variants.length === 1 ? '' : 's'} at or below 5`),
         tgCard(rows),
-        'Send <code>/stock SKU123</code> for one variant.',
+        'Send <code>/stock 895765</code> (Product Code or SKU) to check stock.',
       ),
       { parse_mode: 'HTML', reply_markup: inlineInventoryMenu() },
     )
@@ -3071,7 +3062,7 @@ Customer was charged AFTER this order was ${input.orderStatus}.
     ])
     await this.sendHtmlWithPlainFallback(
       ctx.chatId,
-      `${premiumHeader('Inventory Snapshot')}\nActive variants: <b>${totalActive}</b>\nLow stock (≤ 5): <b>${lowStock}</b>\nOut of stock: <b>${outOfStock}</b>\n\n<i>Use /stock SKU123 for exact variant lookup.</i>`,
+      `${premiumHeader('Inventory Snapshot')}\nActive variants: <b>${totalActive}</b>\nLow stock (≤ 5): <b>${lowStock}</b>\nOut of stock: <b>${outOfStock}</b>\n\n<i>Use /stock 895765 for Product Code or SKU lookup.</i>`,
       { reply_markup: inlineInventoryMenu() },
     )
   }
@@ -3079,7 +3070,123 @@ Customer was charged AFTER this order was ${input.orderStatus}.
   private async executeInventoryLookupHelp(ctx: TelegramCtx): Promise<void> {
     await this.sendHtmlWithPlainFallback(
       ctx.chatId,
-      `${premiumHeader('SKU Lookup Help')}\nUse <code>/stock SKU123</code> to check one variant.\nUse <code>/check 01700000000</code> for buyer risk.\nUse <code>/order SPL-1001</code> for order drill-down.`,
+      `${premiumHeader('Product Code Lookup')}\nUse <code>/stock 895765</code> or <code>/code 895765</code> to check product stock.\nUse <code>/check 01700000000</code> for buyer risk.\nUse <code>/order SPL-1001</code> for order drill-down.`,
+      { reply_markup: inlineInventoryMenu() },
+    )
+  }
+
+  private async handleProductOrStockLookup(ctx: TelegramCtx, raw: string): Promise<void> {
+    const code = raw.trim()
+    if (!code) return
+
+    // 1. Primary: Look up Product by 6-digit productCode, product-level SKU, or barcode
+    const product = await this.prisma.product.findFirst({
+      where: {
+        storeId: ctx.storeId,
+        OR: [
+          { productCode: { equals: code, mode: 'insensitive' } },
+          { sku: { equals: code, mode: 'insensitive' } },
+          { barcode: { equals: code, mode: 'insensitive' } },
+        ],
+      },
+      include: {
+        category: { select: { name: true } },
+        variants: {
+          select: {
+            id: true,
+            sku: true,
+            size: true,
+            color: true,
+            colorName: true,
+            stock: true,
+            price: true,
+          },
+          orderBy: [{ size: 'asc' }, { color: 'asc' }],
+        },
+      },
+    })
+
+    if (product) {
+      const totalStock = product.variants.reduce((sum, v) => sum + (v.stock || 0), 0)
+      const catLine = product.category?.name ? `📁 ${escapeTelegramHtml(product.category.name)}\n` : ''
+      const codeLine = product.productCode ? `🔖 Product Code: <code>${escapeTelegramHtml(product.productCode)}</code>` : ''
+      const skuLine = product.sku ? ` · SKU: <code>${escapeTelegramHtml(product.sku)}</code>` : ''
+      const priceLine = `৳ <b>${formatBDT(Number(product.basePrice))}</b>`
+
+      let variantsSection = ''
+      if (product.variants.length > 0) {
+        const variantLines = product.variants.map((v) => {
+          const label = [v.size, v.colorName || v.color].filter(Boolean).join(' / ') || 'Default'
+          const vSku = v.sku ? ` (<code>${escapeTelegramHtml(v.sku)}</code>)` : ''
+          const stockBadge =
+            v.stock <= 0
+              ? '❌ 0'
+              : v.stock <= 5
+                ? `⚠️ <b>${v.stock}</b>`
+                : `✅ <b>${v.stock}</b>`
+          return `  • ${escapeTelegramHtml(label)}${vSku}: ${stockBadge}`
+        })
+        variantsSection = `\n\n<b>Variants (${product.variants.length}):</b>\n${variantLines.join('\n')}`
+      }
+
+      const totalStockBadge =
+        totalStock <= 0
+          ? '❌ <b>0 (Out of stock)</b>'
+          : totalStock <= 5
+            ? `⚠️ <b>${totalStock} left (Low stock)</b>`
+            : `✅ <b>${totalStock} in stock</b>`
+
+      await this.sendHtmlWithPlainFallback(
+        ctx.chatId,
+        `📦 <b>${escapeTelegramHtml(product.name)}</b>\n${catLine}${codeLine}${skuLine}\nPrice: ${priceLine}\nTotal Stock: ${totalStockBadge}${variantsSection}`,
+        { reply_markup: inlineInventoryMenu() },
+      )
+      return
+    }
+
+    // 2. Secondary (Backward compatibility): Look up variant by SKU or variant barcode
+    const variant = await this.prisma.productVariant.findFirst({
+      where: {
+        product: { storeId: ctx.storeId },
+        OR: [
+          { sku: { equals: code, mode: 'insensitive' } },
+          { barcode: { equals: code, mode: 'insensitive' } },
+        ],
+      },
+      include: {
+        product: {
+          select: {
+            name: true,
+            productCode: true,
+            basePrice: true,
+          },
+        },
+      },
+    })
+
+    if (variant) {
+      const label = [variant.size, variant.colorName || variant.color].filter(Boolean).join(' / ') || 'Default'
+      const codeLine = variant.product.productCode ? `🔖 Product Code: <code>${escapeTelegramHtml(variant.product.productCode)}</code>\n` : ''
+      const skuLine = variant.sku ? `SKU: <code>${escapeTelegramHtml(variant.sku)}</code>\n` : ''
+      const stockBadge =
+        variant.stock <= 0
+          ? '❌ <b>0 (Out of stock)</b>'
+          : variant.stock <= 5
+            ? `⚠️ <b>${variant.stock} (Low stock)</b>`
+            : `✅ <b>${variant.stock}</b>`
+
+      await this.sendHtmlWithPlainFallback(
+        ctx.chatId,
+        `📦 <b>${escapeTelegramHtml(variant.product.name)}</b>\n${codeLine}${skuLine}Variant: ${escapeTelegramHtml(label)}\nStock: ${stockBadge}`,
+        { reply_markup: inlineInventoryMenu() },
+      )
+      return
+    }
+
+    // 3. Not found
+    await this.sendHtmlWithPlainFallback(
+      ctx.chatId,
+      `❌ Product Code or SKU "<code>${escapeTelegramHtml(code)}</code>" not found.\n\n<i>Use <code>/stock 895765</code> or <code>/code 895765</code> to check by 6-digit Product Code.</i>`,
       { reply_markup: inlineInventoryMenu() },
     )
   }

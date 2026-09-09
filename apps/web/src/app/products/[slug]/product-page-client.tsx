@@ -685,6 +685,20 @@ export default function ProductPageClient({
 
   useEffect(() => {
     trackRecentlyViewed(product.id)
+    if (typeof window !== 'undefined' && product.id) {
+      const viewKey = `splaro_view_${product.id}`
+      try {
+        if (!sessionStorage.getItem(viewKey)) {
+          sessionStorage.setItem(viewKey, '1')
+          void fetch(`/api/products/${encodeURIComponent(product.id)}/view`, {
+            method: 'POST',
+            keepalive: true,
+          }).catch(() => undefined)
+        }
+      } catch {
+        // Storage or network tracking errors are ignored
+      }
+    }
     trackViewContent({
       id: product.id,
       name: product.name,
