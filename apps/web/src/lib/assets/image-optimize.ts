@@ -169,7 +169,11 @@ export function optimizeImageSrc(
   const pathOnly = productPipelinePathOnly(sanitized)
 
   if (PRODUCT_VARIANT_RE.test(pathOnly)) {
-    return pickProductUploadVariant(pathOnly, profile, 'webp')
+    return sanitizeRemoteImageUrl(
+      pickProductUploadVariant(pathOnly, profile, 'webp'),
+      fallback,
+      opts,
+    )
   }
 
   if (sanitized.startsWith('/') || sanitized.startsWith('data:')) {

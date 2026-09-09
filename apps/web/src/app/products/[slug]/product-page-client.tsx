@@ -1,7 +1,7 @@
 'use client'
 
 /** Product detail client — purchase flow + gallery (no PDP wishlist). */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type TouchEvent as ReactTouchEvent, type SVGProps } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type TouchEvent as ReactTouchEvent, type SVGProps } from 'react'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -34,7 +34,6 @@ import {
   ProductFadeSwap,
   ProductReveal,
   ProductStagger,
-  PRODUCT_GALLERY_MS,
   productGalleryEase,
   productShake,
 } from '@/components/product/ProductMotion'
@@ -177,6 +176,21 @@ export default function ProductPageClient({
   const setCartOpen = useUiStore((state) => state.setCartOpen)
 
   const [activeImage, setActiveImage] = useState(0)
+  const [exitImage, setExitImage] = useState<number | null>(null)
+  const [direction, setDirection] = useState<'forward' | 'backward'>('forward')
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
+  const [inViewport, setInViewport] = useState(true)
+  const [tabVisible, setTabVisible] = useState(true)
+
+  const indexRef = useRef(activeImage)
+  indexRef.current = activeImage
+
+  const transitioningRef = useRef(false)
+  const pendingIndexRef = useRef<{ next: number; dir: 'forward' | 'backward' } | null>(null)
+  const exitTimerRef = useRef<number | undefined>(undefined)
+  const autoplayTimeoutRef = useRef<number | undefined>(undefined)
+  const prefersHoverPauseRef = useRef(true)
   const swipeRef = useRef<{ x: number; y: number; moved: boolean; axis?: 'x' | 'y' } | null>(null)
   const swipeConsumedUntilRef = useRef(0)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
@@ -688,6 +702,9 @@ export default function ProductPageClient({
     setSelectedSize(null)
     setSelectedColor(colorOptions[0]?.hex ?? null)
     setActiveImage(0)
+    setExitImage(null)
+    setIsTransitioning(false)
+    transitioningRef.current = false
     setQuantity(1)
     setDescExpanded(false)
     setOpenSection(null)
@@ -728,6 +745,9 @@ export default function ProductPageClient({
 
   useEffect(() => {
     setActiveImage(0)
+    setExitImage(null)
+    setIsTransitioning(false)
+    transitioningRef.current = false
     if (selectedColor && selectedSize && (sizeStock.get(selectedSize) ?? 0) === 0) {
       const next = sizes.find((size) => (sizeStock.get(size) ?? 0) > 0)
       if (next) setSelectedSize(next)
@@ -995,12 +1015,123 @@ export default function ProductPageClient({
     })
   }
 
-  const prevImage = () => {
-    setActiveImage((i) => (i - 1 + media.length) % media.length)
+  const clearAutoplayTimer = useCallback(() => {
+    if (autoplayTimeoutRef.current !== undefined) {
+      window.clearTimeout(autoplayTimeoutRef.current)
+      autoplayTimeoutRef.current = undefined
+    }
+  }, [])
+
+  const transitionToRef = useRef<(next: number, dir?: 'forward' | 'backward') => void>(() => {})
+
+  const resetAutoplayTimer = useCallback(() => {
+    clearAutoplayTimer()
+    if (
+      reducedMotion ||
+      !tabVisible ||
+      !inViewport ||
+      isHovered ||
+      isLightboxOpen ||
+      media.length <= 1 ||
+      media[indexRef.current]?.type === 'video'
+    ) {
+      return
+    }
+    autoplayTimeoutRef.current = window.setTimeout(() => {
+      transitionToRef.current(indexRef.current + 1, 'forward')
+    }, 4000)
+  }, [clearAutoplayTimer, inViewport, isHovered, isLightboxOpen, media, reducedMotion, tabVisible])
+
+  const transitionTo = useCallback(
+    (next: number, explicitDir?: 'forward' | 'backward') => {
+      if (!media.length) return
+      const normalized = ((next % media.length) + media.length) % media.length
+      const current = indexRef.current
+      if (normalized === current && exitImage === null) return
+
+      const dir = explicitDir ?? (normalized >= current ? 'forward' : 'backward')
+
+      if (transitioningRef.current) {
+        pendingIndexRef.current = { next: normalized, dir }
+        return
+      }
+
+      transitioningRef.current = true
+      pendingIndexRef.current = null
+      setDirection(dir)
+      setExitImage(current)
+      setActiveImage(normalized)
+      setIsTransitioning(true)
+      resetAutoplayTimer()
+
+      if (exitTimerRef.current !== undefined) {
+        window.clearTimeout(exitTimerRef.current)
+      }
+
+      exitTimerRef.current = window.setTimeout(() => {
+        setExitImage(null)
+        setIsTransitioning(false)
+        transitioningRef.current = false
+
+        const pending = pendingIndexRef.current
+        pendingIndexRef.current = null
+        if (pending !== null && pending.next !== indexRef.current) {
+          window.requestAnimationFrame(() => transitionToRef.current(pending.next, pending.dir))
+        }
+      }, 450)
+    },
+    [exitImage, media.length, resetAutoplayTimer],
+  )
+
+  transitionToRef.current = transitionTo
+
+  const prevImage = useCallback(() => {
+    transitionTo(indexRef.current - 1, 'backward')
+  }, [transitionTo])
+
+  const nextImage = useCallback(() => {
+    transitionTo(indexRef.current + 1, 'forward')
+  }, [transitionTo])
+
+  useEffect(() => {
+    prefersHoverPauseRef.current =
+      window.matchMedia('(hover: hover) and (pointer: fine)').matches
+  }, [])
+
+  useEffect(() => {
+    const el = galleryStageRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setInViewport(entry?.isIntersecting ?? false),
+      { threshold: 0.1, rootMargin: '0px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const onVisibilityChange = () => setTabVisible(!document.hidden)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [])
+
+  useEffect(() => {
+    resetAutoplayTimer()
+    return () => clearAutoplayTimer()
+  }, [resetAutoplayTimer, clearAutoplayTimer, activeImage])
+
+  const onGalleryMouseEnter = () => {
+    if (prefersHoverPauseRef.current) {
+      setIsHovered(true)
+    }
   }
-  const nextImage = () => {
-    setActiveImage((i) => (i + 1) % media.length)
+
+  const onGalleryMouseLeave = () => {
+    if (prefersHoverPauseRef.current) {
+      setIsHovered(false)
+    }
   }
+
   const openLightbox = () => {
     setIsLightboxOpen(true)
   }
@@ -1021,6 +1152,7 @@ export default function ProductPageClient({
 
   const beginGallerySwipe = (x: number, y: number) => {
     if (media[activeImage]?.type === 'video' || media.length < 2) return
+    clearAutoplayTimer()
     swipeRef.current = { x, y, moved: false }
   }
 
@@ -1047,7 +1179,10 @@ export default function ProductPageClient({
       Math.abs(dx) >= threshold &&
       Math.abs(dx) > Math.abs(dy) * 1.05
     swipeRef.current = null
-    if (!horizontal) return
+    if (!horizontal) {
+      resetAutoplayTimer()
+      return
+    }
     swipeConsumedUntilRef.current = Date.now() + 350
     if (dx < 0) nextImage()
     else prevImage()
@@ -1055,6 +1190,7 @@ export default function ProductPageClient({
 
   const onGalleryPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return
+    clearAutoplayTimer()
     beginGallerySwipe(event.clientX, event.clientY)
     try {
       event.currentTarget.setPointerCapture(event.pointerId)
@@ -1073,9 +1209,11 @@ export default function ProductPageClient({
 
   const onGalleryPointerCancel = () => {
     swipeRef.current = null
+    resetAutoplayTimer()
   }
 
   const onGalleryTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
+    clearAutoplayTimer()
     const touch = event.touches[0]
     if (!touch) return
     beginGallerySwipe(touch.clientX, touch.clientY)
@@ -1092,6 +1230,7 @@ export default function ProductPageClient({
     const touch = event.changedTouches[0]
     if (!touch) {
       swipeRef.current = null
+      resetAutoplayTimer()
       return
     }
     endGallerySwipe(touch.clientX, touch.clientY)
@@ -1191,6 +1330,10 @@ export default function ProductPageClient({
                   'pp-gallery__stage pp-gallery__stage--stack',
                   media[activeImage]?.type !== 'video' && 'pp-gallery__stage--zoomable',
                 )}
+                data-transitioning={isTransitioning ? 'true' : 'false'}
+                data-direction={direction}
+                onMouseEnter={onGalleryMouseEnter}
+                onMouseLeave={onGalleryMouseLeave}
                 onPointerDown={onGalleryPointerDown}
                 onPointerMove={onGalleryPointerMove}
                 onPointerUp={onGalleryPointerUp}
@@ -1223,24 +1366,24 @@ export default function ProductPageClient({
                 {/* Always render the same stacked structure — switching between an
                     animated stack and a bare slide on hydration remounted the hero
                     <img> and caused a blank gallery flash on first paint. */}
-                {media.map((item, i) => (
-                  <motion.div
-                    key={`${selectedColor ?? 'default'}-${item.type}-${item.url}-${i}`}
-                    className="pp-gallery__slide"
-                    initial={false}
-                    animate={{ opacity: i === activeImage ? 1 : 0 }}
-                    transition={{
-                      duration: galleryAnimated ? PRODUCT_GALLERY_MS : 0,
-                      ease: productGalleryEase,
-                    }}
-                    style={{
-                      zIndex: i === activeImage ? 2 : 1,
-                    }}
-                    aria-hidden={i !== activeImage}
-                  >
-                    {renderGallerySlide(item, i)}
-                  </motion.div>
-                ))}
+                {media.map((item, i) => {
+                  const isActive = i === activeImage
+                  const isExiting = i === exitImage
+                  return (
+                    <div
+                      key={`${selectedColor ?? 'default'}-${item.type}-${item.url}-${i}`}
+                      className="pp-gallery__slide"
+                      data-active={isActive ? 'true' : 'false'}
+                      data-exiting={isExiting ? 'true' : 'false'}
+                      style={{
+                        zIndex: isActive ? 2 : isExiting ? 1 : 0,
+                      }}
+                      aria-hidden={!isActive && !isExiting}
+                    >
+                      {renderGallerySlide(item, i)}
+                    </div>
+                  )
+                })}
               </div>
 
               <MotionPressable

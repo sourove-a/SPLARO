@@ -211,7 +211,18 @@ export function sortSizes(sizes: string[], categoryName?: string | null) {
     return [...sizes].sort((a, b) => Number(a) - Number(b))
   }
 
-  const order = ['XS', 'S', 'M', 'L', 'XL', '2Y', '4Y', '6Y', '8Y', '10Y', '12Y', '14Y']
+  const order = [
+    // Baby & toddler months
+    '0-3M', '3-6M', '6-9M', '9-12M', '12-18M', '18-24M',
+    // Kids years
+    '2Y', '2-3Y', '2/3Y', '3Y', '3-4Y', '4Y', '4-5Y', '4/5Y',
+    '5Y', '5-6Y', '6Y', '6-7Y', '6/7Y', '7Y', '7-8Y', '8Y',
+    '8-9Y', '8/9Y', '9Y', '9-10Y', '10Y', '10-11Y', '10/11Y',
+    '11Y', '11-12Y', '12Y', '12-13Y', '12/13Y', '13Y', '13-14Y', '14Y',
+    // Adults
+    'XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL',
+    'Free Size', 'One Size',
+  ]
   return [...sizes].sort((a, b) => {
     const ai = order.indexOf(a)
     const bi = order.indexOf(b)

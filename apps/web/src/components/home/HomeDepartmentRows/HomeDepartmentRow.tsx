@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import type { HomepageDepartmentRow } from '@/lib/catalog/homepage-department-rows'
 import { smoothScrollByX } from '@/lib/motion/smooth-scroll-x'
+import { useReducedMotion } from '@/lib/motion/react'
 import { cn } from '@/lib/utils/cn'
 import { HomeCategoryTile } from './HomeCategoryTile'
 
@@ -15,20 +16,31 @@ interface HomeDepartmentRowProps {
 }
 
 const MOBILE_MQ = '(max-width: 767px)'
+const AUTOPLAY_INTERVAL_MS = 4000
 
 export function HomeDepartmentRow({ row, priorityFirst = false }: HomeDepartmentRowProps) {
+  const sectionRef = useRef<HTMLElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const reducedMotion = useReducedMotion()
   const [canLeft, setCanLeft] = useState(false)
   const [canRight, setCanRight] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
+  const [isInteracting, setIsInteracting] = useState(false)
+  const [inViewport, setInViewport] = useState(false)
+  const [tabVisible, setTabVisible] = useState(true)
+
+  const autoplayTimeoutRef = useRef<number | undefined>(undefined)
+  const prefersHoverPauseRef = useRef(true)
+  const autoScrollNextRef = useRef<() => void>(() => {})
 
   const syncScroll = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
 
-    setCanLeft(el.scrollLeft > 2)
-    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2)
+    setCanLeft(el.scrollLeft > 4)
+    setCanRight(el.scrollWidth > el.clientWidth + 4)
 
     // Visible viewport center (not track.clientWidth — flex can inflate that)
     const tiles = el.querySelectorAll<HTMLElement>('.home-dept-tile')
@@ -50,6 +62,111 @@ export function HomeDepartmentRow({ row, priorityFirst = false }: HomeDepartment
     })
     setActiveIndex((prev) => (prev === best ? prev : best))
   }, [])
+
+  const clearAutoplayTimer = useCallback(() => {
+    if (autoplayTimeoutRef.current !== undefined) {
+      window.clearTimeout(autoplayTimeoutRef.current)
+      autoplayTimeoutRef.current = undefined
+    }
+  }, [])
+
+  const autoScrollNext = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const maxScroll = el.scrollWidth - el.clientWidth
+    if (maxScroll <= 4) return
+
+    if (isMobile) {
+      const tiles = el.querySelectorAll<HTMLElement>('.home-dept-tile')
+      if (tiles.length <= 1) return
+      const nextIndex = (activeIndex + 1) % tiles.length
+      const target = tiles[nextIndex]
+      if (!target) return
+      const left =
+        target.offsetLeft - (el.clientWidth - target.offsetWidth) / 2
+      smoothScrollByX(el, left - el.scrollLeft, 0.45)
+      return
+    }
+
+    // Desktop: loop to start if at the end, else scroll right by 2 cards
+    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 16
+    if (atEnd) {
+      smoothScrollByX(el, -el.scrollLeft, 0.7)
+    } else {
+      const firstTile = el.querySelector<HTMLElement>('.home-dept-tile')
+      const tileWidth = firstTile ? firstTile.offsetWidth : 280
+      const gap = 12
+      const step = Math.min((tileWidth + gap) * 2, Math.max(280, Math.round(el.clientWidth * 0.75)))
+      smoothScrollByX(el, step, 0.55)
+    }
+  }, [activeIndex, isMobile])
+
+  autoScrollNextRef.current = autoScrollNext
+
+  const resetAutoplayTimer = useCallback(() => {
+    clearAutoplayTimer()
+    if (
+      reducedMotion ||
+      !tabVisible ||
+      !inViewport ||
+      isHovered ||
+      isInteracting ||
+      row.tiles.length <= 1
+    ) {
+      return
+    }
+    autoplayTimeoutRef.current = window.setTimeout(() => {
+      autoScrollNextRef.current()
+      resetAutoplayTimer()
+    }, AUTOPLAY_INTERVAL_MS)
+  }, [
+    clearAutoplayTimer,
+    inViewport,
+    isHovered,
+    isInteracting,
+    reducedMotion,
+    row.tiles.length,
+    tabVisible,
+  ])
+
+  useEffect(() => {
+    prefersHoverPauseRef.current =
+      window.matchMedia('(hover: hover) and (pointer: fine)').matches
+  }, [])
+
+  useEffect(() => {
+    const el = sectionRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setInViewport(entry?.isIntersecting ?? false),
+      { threshold: 0.05, rootMargin: '100px 0px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const onVisibilityChange = () => setTabVisible(!document.hidden)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [])
+
+  useEffect(() => {
+    resetAutoplayTimer()
+    return () => clearAutoplayTimer()
+  }, [resetAutoplayTimer, clearAutoplayTimer])
+
+  const onMouseEnter = () => {
+    if (prefersHoverPauseRef.current) {
+      setIsHovered(true)
+    }
+  }
+
+  const onMouseLeave = () => {
+    if (prefersHoverPauseRef.current) {
+      setIsHovered(false)
+    }
+  }
 
   useEffect(() => {
     const mq = window.matchMedia(MOBILE_MQ)
@@ -113,6 +230,8 @@ export function HomeDepartmentRow({ row, priorityFirst = false }: HomeDepartment
       startX = event.clientX
       pointerDown = true
       dragged = false
+      setIsInteracting(true)
+      clearAutoplayTimer()
     }
     const onPointerMove = (event: PointerEvent) => {
       if (!pointerDown) return
@@ -120,6 +239,8 @@ export function HomeDepartmentRow({ row, priorityFirst = false }: HomeDepartment
     }
     const onPointerUp = () => {
       pointerDown = false
+      setIsInteracting(false)
+      resetAutoplayTimer()
     }
     const onClickCapture = (event: MouseEvent) => {
       if (!dragged) return
@@ -140,9 +261,10 @@ export function HomeDepartmentRow({ row, priorityFirst = false }: HomeDepartment
       el.removeEventListener('pointercancel', onPointerUp)
       el.removeEventListener('click', onClickCapture, true)
     }
-  }, [row.tiles])
+  }, [row.tiles, clearAutoplayTimer, resetAutoplayTimer])
 
   function scroll(dir: 'left' | 'right') {
+    resetAutoplayTimer()
     const el = scrollRef.current
     if (!el) return
     if (isMobile) {
@@ -159,12 +281,27 @@ export function HomeDepartmentRow({ row, priorityFirst = false }: HomeDepartment
       smoothScrollByX(el, left - el.scrollLeft, 0.4)
       return
     }
-    const step = Math.max(280, Math.round(el.clientWidth * 0.85))
-    smoothScrollByX(el, dir === 'left' ? -step : step, 0.42)
+    if (dir === 'right' && el.scrollLeft + el.clientWidth >= el.scrollWidth - 16) {
+      // Loop smoothly back to start when clicking right at the end
+      smoothScrollByX(el, -el.scrollLeft, 0.65)
+      return
+    }
+
+    const firstTile = el.querySelector<HTMLElement>('.home-dept-tile')
+    const tileWidth = firstTile ? firstTile.offsetWidth : 280
+    const gap = 12
+    const step = Math.min((tileWidth + gap) * 2, Math.max(280, Math.round(el.clientWidth * 0.75)))
+    smoothScrollByX(el, dir === 'left' ? -step : step, 0.45)
   }
 
   return (
-    <section className="home-dept-row" aria-labelledby={`home-dept-${row.slug}`}>
+    <section
+      ref={sectionRef}
+      className="home-dept-row"
+      aria-labelledby={`home-dept-${row.slug}`}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
       <div className="home-dept-row__header">
         <h2 id={`home-dept-${row.slug}`} className="home-dept-row__title">
           {row.title}

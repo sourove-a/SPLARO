@@ -13,7 +13,7 @@ export type SizeDeptKey =
   | 'default'
 
 export const SIZE_PRESETS: Record<SizeDeptKey, string> = {
-  kids: '0-3M, 3-6M, 6-9M, 9-12M, 12-18M, 18-24M, 2/3, 4/5, 6/7, 8/9, 10/11, 12/13',
+  kids: '0-3M, 3-6M, 6-9M, 9-12M, 12-18M, 18-24M, 2-3Y, 4-5Y, 6-7Y, 8-9Y, 10-11Y, 12-13Y',
   women: 'XS, S, M, L, XL, XXL',
   men: 'S, M, L, XL, XXL, 3XL',
   pants: '28, 30, 32, 34, 36, 38, 40',

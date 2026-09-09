@@ -3,7 +3,7 @@ import { animate } from 'motion'
 /** Premium horizontal rail slide — works even when OS sets scroll-behavior: auto. */
 const EASE_PREMIUM = [0.4, 0, 0.2, 1] as const
 
-let activeScroll: { stop: () => void } | null = null
+const activeScrolls = new WeakMap<HTMLElement, { stop: () => void }>()
 
 export function smoothScrollByX(
   el: HTMLElement,
@@ -15,15 +15,16 @@ export function smoothScrollByX(
   const to = Math.max(0, Math.min(max, from + delta))
   if (Math.abs(to - from) < 1) return
 
-  activeScroll?.stop()
-  activeScroll = animate(from, to, {
+  activeScrolls.get(el)?.stop()
+  const anim = animate(from, to, {
     duration,
     ease: EASE_PREMIUM,
     onUpdate: (value) => {
       el.scrollLeft = value
     },
     onComplete: () => {
-      activeScroll = null
+      activeScrolls.delete(el)
     },
   })
+  activeScrolls.set(el, anim)
 }
