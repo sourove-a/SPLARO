@@ -408,7 +408,7 @@ export function DcStickyPublishBar({
         type="button"
         data-dc-publish-primary="1"
         onClick={onSave}
-        disabled={saveDisabled || saving}
+        disabled={saving}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -419,7 +419,7 @@ export function DcStickyPublishBar({
           border: saveDisabled && !saving ? '1px solid var(--line-2)' : 0,
           background: saveDisabled && !saving ? 'var(--surface-2)' : 'var(--violet-solid)',
           color: saveDisabled && !saving ? 'var(--ink-3)' : 'var(--on-violet)',
-          cursor: saveDisabled || saving ? 'not-allowed' : 'pointer',
+          cursor: saving ? 'not-allowed' : 'pointer',
           opacity: saving ? 0.7 : 1,
           font: `600 12.5px/1 ${FONT}`,
           boxShadow: ready && !saving ? '0 2px 8px -2px rgba(124, 58, 237, 0.4)' : 'none',

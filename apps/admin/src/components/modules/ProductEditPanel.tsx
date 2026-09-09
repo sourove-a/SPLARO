@@ -28,6 +28,7 @@ import {
 } from '@/lib/admin/product-description-draft'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { toastOk, toastFail, toastWarn } from '@/lib/admin/feedback'
+import { locateAndFocusFormError } from '@/lib/admin/form-error-locator'
 import { BrandSelectChips } from '@/components/modules/product-form/BrandSelectChips'
 import { CollectionSelectChips } from '@/components/modules/product-form/CollectionSelectChips'
 import { isJhingephoolCollectionSlug, isSareeCategorySlug } from '@splaro/types'
@@ -675,12 +676,22 @@ export function ProductEditPanel({
 
   const handleSave = async () => {
     if (!canEditProducts) {
-      toastFail('Your role cannot edit products.')
+      toastFail('আপনার রোল অনুযায়ী পণ্য এডিট করার অনুমতি নেই (Permission denied)')
       return
     }
-    if (!form.name.trim()) { toastFail('Product name required.'); return }
+    if (!form.name.trim()) {
+      locateAndFocusFormError('pe-basics', 'প্রোডাক্টের নাম লিখুন — Title ফিল্ডটি পূরণ করুন।')
+      return
+    }
     const { sellingPrice, compareAt } = resolveSellingPrices(form.basePrice, form.compareAtPrice)
-    if (!sellingPrice || sellingPrice <= 0) { toastFail('Enter a valid price.'); return }
+    if (!sellingPrice || sellingPrice <= 0) {
+      locateAndFocusFormError('pe-basics', 'সঠিক বিক্রয় মূল্য দিন — Regular price ৳ ০ এর বেশি হতে হবে।')
+      return
+    }
+    if (!form.categoryId) {
+      locateAndFocusFormError('pe-menu', 'ক্যাটাগরি সিলেক্ট করুন — পণ্যটির ক্যাটাগরি আবশ্যক।')
+      return
+    }
     setSaving(true)
     try {
       // Variant rows (stock, price, SKU) live in their own drafts — flush them

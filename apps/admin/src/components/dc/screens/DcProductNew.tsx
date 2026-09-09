@@ -32,9 +32,8 @@ export function DcProductNew({ moduleHref }: { moduleHref: string }) {
     const btn = document.querySelector(
       '.dc-product-create [data-dc-publish-primary="1"]',
     ) as HTMLButtonElement | null
-    if (!btn || btn.disabled) {
-      toastFail('Clear readiness blockers first — name, category, price, sizes required.')
-      document.getElementById('np-publish')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    if (!btn) {
+      toastFail('পণ্য ফর্মটি লোড হওয়া পর্যন্ত অপেক্ষা করুন...')
       return
     }
     btn.click()

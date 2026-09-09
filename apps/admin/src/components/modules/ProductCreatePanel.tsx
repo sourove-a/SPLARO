@@ -18,6 +18,7 @@ import {
 import { DcProductMediaSlots } from '@/components/dc/product/DcProductMediaSlots'
 import { FONT, MONO, formatTaka } from '@/components/dc/tokens'
 import { toastOk, toastFail, toastWarn } from '@/lib/admin/feedback'
+import { locateAndFocusFormError } from '@/lib/admin/form-error-locator'
 import { confirmCategoryHomepageImage, confirmProductCreated } from '@/lib/admin/catalog-save'
 import { revalidateWebCache } from '@/lib/api/revalidate'
 import { buildCategoryPicker, menuIconFor } from '@/lib/admin/category-picker'
@@ -623,41 +624,43 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   }
 
   const handleSubmit = async () => {
-    if (!form.name.trim()) {
-      toastFail('Product name is required.')
+    if (!canCreateProducts) {
+      toastFail('আপনার রোল অনুযায়ী পণ্য তৈরি করার অনুমতি নেই (Permission denied)')
       return
     }
-    if (!form.categoryId) {
-      toastFail('Category is required.')
+    if (!departmentId || !form.categoryId) {
+      locateAndFocusFormError('np-menu', 'মেন্যু ও ক্যাটাগরি সিলেক্ট করুন — পণ্যটির ক্যাটাগরি আবশ্যক।')
+      return
+    }
+    if (!form.name.trim()) {
+      locateAndFocusFormError('np-basics', 'প্রোডাক্টের নাম লিখুন — English title আবশ্যক।', 'np-field-name')
       return
     }
     const { sellingPrice, compareAt } = resolveSellingPrices(form.basePrice, form.compareAtPrice)
     if (!sellingPrice || sellingPrice <= 0) {
-      toastFail('Enter a valid regular price in BDT.')
+      locateAndFocusFormError('np-pricing', 'সঠিক বিক্রয় মূল্য দিন — Regular price ৳ ০ এর বেশি হতে হবে।', 'np-field-price')
       return
     }
     const costPrice = form.costPrice.trim() ? Number(form.costPrice) : undefined
     if (!sizeless && !sizeList.length) {
-      toastFail('Select at least one size.')
+      locateAndFocusFormError('np-matrix', 'সাইজ সিলেক্ট করুন — অন্তত একটি সাইজ নির্বাচন করুন।')
       return
     }
-    if (!variantLines.length) {
-      toastFail('Add at least one size × colour variant.')
+    if (!activeColors.some((c) => c.name.trim())) {
+      locateAndFocusFormError('np-colours', 'কালারের নাম দিন — অন্তত একটি রঙের নাম লিখুন।')
       return
     }
-    if (form.isPublished && !variantLines.some((v) => v.isActive && v.price > 0)) {
-      toastFail('Each published product needs an active variant with a price.')
-      return
-    }
-
     if (activeColors.length > 0) {
       const badHex = activeColors.find((row) => !isValidHex(row.hex))
       if (badHex) {
-        toastFail(`Fix hex for “${badHex.name || 'colour'}” — use #RRGGBB`)
+        locateAndFocusFormError('np-colours', `“${badHex.name || 'কালার'}” এর হেক্স কোড সঠিক নয় — #RRGGBB ফরম্যাট ব্যবহার করুন।`)
         return
       }
     }
-
+    if (form.isPublished && form.imageUrls.length === 0) {
+      locateAndFocusFormError('np-media', 'প্রোডাক্টের ছবি আপলোড করুন — লাইভ পাবলিশ করার জন্য অন্তত ১টি ছবি প্রয়োজন।')
+      return
+    }
     if (activeColors.length > 1) {
       const colourImages = activeColors.map(
         (row) => (row.imageUrl || form.imageUrls[0] || '').trim(),
@@ -665,11 +668,20 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
       const missing = colourImages.some((url) => !url)
       const unique = new Set(colourImages.filter(Boolean))
       if (missing || unique.size < activeColors.length) {
-        toastWarn(
-          'Assign a different gallery image to each colour (media → select colour → click photo). Otherwise colour click won’t change the main image on the store.',
+        locateAndFocusFormError(
+          'np-colours',
+          'প্রতিটি কালারের জন্য আলাদা ছবি নির্বাচন করুন — যাতে স্টোরে কালার ক্লিকে ছবি পরিবর্তিত হয়।',
         )
         return
       }
+    }
+    if (!variantLines.length) {
+      locateAndFocusFormError('np-matrix', 'ভেরিয়েন্ট যোগ করুন — সাইজ ও কালার অনুযায়ী ভেরিয়েন্ট তৈরি করুন।')
+      return
+    }
+    if (form.isPublished && !variantLines.some((v) => v.isActive && v.price > 0)) {
+      locateAndFocusFormError('np-matrix', 'একটি সক্রিয় ভেরিয়েন্ট প্রয়োজন যার বিক্রয় মূল্য ০ টাকার বেশি।')
+      return
     }
 
     // English and Bangla are stored apart so the storefront can show one
@@ -790,7 +802,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         form.categoryId &&
         form.basePrice &&
         Number(form.basePrice) > 0 &&
-        sizeList.length,
+        (sizeless || sizeList.length > 0),
     )
 
   const handleSlug = useMemo(() => {

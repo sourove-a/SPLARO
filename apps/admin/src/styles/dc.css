@@ -4038,3 +4038,20 @@ body[data-dc-drawer] .dc-ask-splaro {
   }
 }
 
+/* ── Form validation error highlight & shake animation ── */
+.dc-error-highlight {
+  outline: 2px solid var(--bad) !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 4px var(--bad-soft) !important;
+  border-radius: 10px !important;
+  animation: dc-error-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
+  transition: outline 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+@keyframes dc-error-shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-3px, 0, 0); }
+  40%, 60% { transform: translate3d(3px, 0, 0); }
+}
+
