@@ -33,6 +33,7 @@ import { MediaService } from '../media/media.service'
 import { SearchService } from '../search/search.service'
 import { assertStoreBrandId } from '../../common/assert-store-brand'
 import { assertStoreCategoryId } from '../../common/assert-store-category'
+import { collectDescendantIds } from '../../common/category-tree.util'
 import { resolveStoreId, slugify } from '../../common/store.util'
 import { createdAtRange } from '../../common/created-at-range.util'
 import { assertJhingephoolSareeOnly } from '../collections/jhingephool.util'
@@ -351,6 +352,32 @@ export class ProductsController {
     }
   }
 
+  private async resolveCategoryFilter(
+    storeId: string,
+    categoryId?: string,
+  ): Promise<{ ids?: string[]; isUncategorized?: boolean } | null> {
+    if (!categoryId?.trim() || categoryId.trim().toLowerCase() === 'all') return null
+    const target = categoryId.trim()
+    if (target.toLowerCase() === 'uncategorized') {
+      return { isUncategorized: true }
+    }
+    const allCategories = await this.prisma.category.findMany({
+      where: { storeId },
+      select: { id: true, parentId: true, slug: true },
+    })
+    const matched = allCategories.find(
+      (c) =>
+        c.id === target ||
+        c.slug.toLowerCase() === target.toLowerCase() ||
+        c.slug.toLowerCase() === target.replace(/^dept:/, '').toLowerCase(),
+    )
+    if (matched) {
+      const ids = collectDescendantIds(allCategories, matched.id)
+      return { ids }
+    }
+    return { ids: [target] }
+  }
+
   @Get()
   async list(
     @Query('storeId') storeId: string,
@@ -359,11 +386,18 @@ export class ProductsController {
     @Query('search') search?: string,
     @Query('status') status?: string,
     @Query('sort') sort?: string,
+    @Query('categoryId') categoryId?: string,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
     const { page: pageNum, limit: take, skip } = resolveAdminPagination(page, limit)
-    const where = {
+    const catFilter = await this.resolveCategoryFilter(sid, categoryId)
+    const where: Prisma.ProductWhereInput = {
       storeId: sid,
+      ...(catFilter?.isUncategorized
+        ? { categoryId: null }
+        : catFilter?.ids?.length
+          ? { categoryId: { in: catFilter.ids } }
+          : {}),
       ...(status === 'published'
         ? { isPublished: true }
         : status === 'draft'
@@ -424,13 +458,23 @@ export class ProductsController {
    * report a different number than the screen did before, so the aggregate is
    * expressed directly in SQL.
    */
-  private async countLowStock(storeId: string): Promise<number> {
+  private async countLowStock(
+    storeId: string,
+    catFilter?: { ids?: string[]; isUncategorized?: boolean } | null,
+  ): Promise<number> {
+    const categoryClause = catFilter?.isUncategorized
+      ? Prisma.sql`AND p."categoryId" IS NULL`
+      : catFilter?.ids && catFilter.ids.length > 0
+        ? Prisma.sql`AND p."categoryId" IN (${Prisma.join(catFilter.ids)})`
+        : Prisma.empty
+
     const rows = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*)::bigint AS count FROM (
         SELECT p.id
         FROM "Product" p
         JOIN "ProductVariant" v ON v."productId" = p.id
         WHERE p."storeId" = ${storeId}
+          ${categoryClause}
         GROUP BY p.id, p."lowStockThreshold"
         HAVING SUM(v.stock) > 0
            AND SUM(v.stock) <= COALESCE(p."lowStockThreshold", ${LOW_STOCK_FLOOR})
@@ -440,10 +484,20 @@ export class ProductsController {
   }
 
   @Get('stats')
-  async stats(@Query('storeId') storeId: string, @Query('search') search?: string) {
+  async stats(
+    @Query('storeId') storeId: string,
+    @Query('search') search?: string,
+    @Query('categoryId') categoryId?: string,
+  ) {
     const sid = await resolveStoreId(this.prisma, storeId)
+    const catFilter = await this.resolveCategoryFilter(sid, categoryId)
     const base: Prisma.ProductWhereInput = {
       storeId: sid,
+      ...(catFilter?.isUncategorized
+        ? { categoryId: null }
+        : catFilter?.ids?.length
+          ? { categoryId: { in: catFilter.ids } }
+          : {}),
       ...(search ? { OR: this.buildProductSearchFilters(search) } : {}),
     }
 
@@ -451,7 +505,7 @@ export class ProductsController {
       this.prisma.product.count({ where: base }),
       this.prisma.product.count({ where: { ...base, isPublished: true } }),
       this.prisma.product.count({ where: { ...base, ...OUT_OF_STOCK_WHERE } }),
-      this.countLowStock(sid),
+      this.countLowStock(sid, catFilter),
     ])
 
     return {

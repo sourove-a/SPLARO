@@ -26,7 +26,8 @@ import { fetchAllProductsForCatalog } from '@/lib/admin/product-catalog-sheet'
 import { verifyProductArchived } from '@/lib/admin/catalog-mutation-verify'
 import { verifyDeleteSuccess, verifyPersisted } from '@/lib/admin/mutation-verify'
 import { ApiError } from '@/lib/api/client'
-import { useProducts, useProductStats } from '@/lib/api/hooks'
+import { useCategoryTree, useProducts, useProductStats } from '@/lib/api/hooks'
+import { buildCategoryPicker } from '@/lib/admin/category-picker'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { useListQueryState } from '@/lib/hooks/use-list-query-state'
 import {
@@ -181,10 +182,21 @@ function DcProductsBody() {
     }
   }
 
-  const list = useListQueryState({ tab: 'All', sort: 'newest' })
+  const list = useListQueryState({ tab: 'All', sort: 'newest', category: '' })
   const tab = (TABS.find((t) => t === list.filters.tab) ?? 'All') as Tab
   const sort = list.filters.sort as SortKey
+  const category = list.filters.category ?? ''
   const setTab = (next: Tab) => list.setFilter('tab', next)
+
+  const { data: categoryTreeData } = useCategoryTree()
+  const categories = useMemo(
+    () => categoryTreeData?.categories ?? [],
+    [categoryTreeData?.categories],
+  )
+  const categoryPicker = useMemo(
+    () => buildCategoryPicker(categories, categoryTreeData?.tree),
+    [categories, categoryTreeData?.tree],
+  )
 
   useEffect(() => {
     const sync = () => setView(isHomepageTilesLocation() ? 'homepage' : 'list')
@@ -217,13 +229,15 @@ function DcProductsBody() {
   const products = useProducts({
     ...(status ? { status } : {}),
     ...(list.debouncedSearch.trim() ? { search: list.debouncedSearch.trim() } : {}),
+    ...(category ? { categoryId: category } : {}),
     sort,
     page: list.page,
     limit: PAGE_SIZE,
   })
-  const stats = useProductStats(
-    list.debouncedSearch.trim() ? { search: list.debouncedSearch.trim() } : {},
-  )
+  const stats = useProductStats({
+    ...(list.debouncedSearch.trim() ? { search: list.debouncedSearch.trim() } : {}),
+    ...(category ? { categoryId: category } : {}),
+  })
   const { api } = useAdminConnection(25_000)
   const pageStatus = dcPageStatus([products], api.pulse)
   const rows = useMemo(() => products.data?.products ?? [], [products.data])
@@ -506,7 +520,7 @@ function DcProductsBody() {
               </div>
             ) : null}
             <div className="dc-card__head dc-toolbar">
-              <label className="dc-toolbar__search">
+              <label className="dc-toolbar__search" style={{ flex: '0 1 280px', maxWidth: 280 }}>
                 <DcIcon name="icon-search" size={14} color="var(--ink-3)" />
                 <input
                   value={list.search}
@@ -515,6 +529,49 @@ function DcProductsBody() {
                   aria-label="Search products"
                 />
               </label>
+
+              <select
+                className="dc-toolbar__select"
+                aria-label="Filter by category"
+                value={category}
+                onChange={(e) => list.setFilter('category', e.target.value)}
+                style={{ maxWidth: 220 }}
+              >
+                <option value="">All categories</option>
+                {categoryPicker.departments.length > 0 ? (
+                  categoryPicker.departments.map((dept) => {
+                    const subs = categoryPicker
+                      .subcategoriesForDepartment(dept.id)
+                      .filter((s) => s.id !== dept.id)
+                    if (!subs.length) {
+                      return (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </option>
+                      )
+                    }
+                    return (
+                      <optgroup key={dept.id} label={dept.name}>
+                        <option value={dept.id}>All {dept.name}</option>
+                        {subs.map((sub) => (
+                          <option key={sub.id} value={sub.id}>
+                            {sub.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )
+                  })
+                ) : (
+                  <>
+                    <option value="men">Men</option>
+                    <option value="women">Women</option>
+                    <option value="kids">Kids</option>
+                    <option value="footwear">Footwear</option>
+                    <option value="accessories">Accessories</option>
+                  </>
+                )}
+                <option value="uncategorized">Uncategorised</option>
+              </select>
 
               <select
                 className="dc-toolbar__select"

@@ -87,6 +87,7 @@ export function fetchProducts(params?: {
   search?: string
   status?: ProductListStatus
   sort?: string
+  categoryId?: string
 }) {
   const qs = new URLSearchParams()
   if (params?.page) qs.set('page', String(params.page))
@@ -94,6 +95,7 @@ export function fetchProducts(params?: {
   if (params?.search) qs.set('search', params.search)
   if (params?.status) qs.set('status', params.status)
   if (params?.sort) qs.set('sort', params.sort)
+  if (params?.categoryId) qs.set('categoryId', params.categoryId)
   const query = qs.toString()
   return apiFetch<ProductsListResponse>(`/admin/products${query ? `?${query}` : ''}`)
 }
@@ -132,9 +134,10 @@ export interface ProductStatsResponse {
  * the API caps at 100 — so they stopped being true the moment the catalogue
  * outgrew a single page.
  */
-export function fetchProductStats(params?: { search?: string }) {
+export function fetchProductStats(params?: { search?: string; categoryId?: string }) {
   const qs = new URLSearchParams()
   if (params?.search) qs.set('search', params.search)
+  if (params?.categoryId) qs.set('categoryId', params.categoryId)
   const query = qs.toString()
   return apiFetch<ProductStatsResponse>(`/admin/products/stats${query ? `?${query}` : ''}`)
 }

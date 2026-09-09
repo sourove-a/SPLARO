@@ -1567,6 +1567,7 @@ export function useProducts(params?: {
   search?: string
   status?: ProductListStatus
   sort?: string
+  categoryId?: string
   limit?: number
   page?: number
 }) {
@@ -1579,9 +1580,9 @@ export function useProducts(params?: {
 }
 
 /** Catalog tallies for the KPI tiles and tab counts, across every page. */
-export function useProductStats(params?: { search?: string }) {
+export function useProductStats(params?: { search?: string; categoryId?: string }) {
   return useQuery({
-    queryKey: ['product-stats', params?.search ?? ''],
+    queryKey: ['product-stats', params?.search ?? '', params?.categoryId ?? ''],
     queryFn: () => fetchProductStats(params),
     staleTime: 30_000,
     retry: 1,
